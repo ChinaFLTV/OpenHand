@@ -47,6 +47,8 @@ class SkillMarketClient {
 
   final http.Client _client;
   final bool _ownsClient;
+  final Set<Completer<void>> _activeRequestAborts = <Completer<void>>{};
+  bool _closed = false;
   final LifecycleLruCache<Future<SkillMarketSearchResult>> _searchCache =
       LifecycleLruCache<Future<SkillMarketSearchResult>>(
         maxEntries: _maxSearchCacheEntries,
@@ -73,7 +75,13 @@ class SkillMarketClient {
       );
 
   void close() {
+    if (_closed) return;
+    _closed = true;
     _clearCaches();
+    for (final abort in _activeRequestAborts.toList(growable: false)) {
+      if (!abort.isCompleted) abort.complete();
+    }
+    _activeRequestAborts.clear();
     if (_ownsClient) {
       _client.close();
     }
@@ -128,52 +136,55 @@ class SkillMarketClient {
       throw const SkillMarketException('Skill slug is empty.');
     }
 
-    final request = http.Request(
-      'GET',
-      Uri.https(_host, '/api/v1/download', <String, String>{
-        'slug': normalizedSlug,
-      }),
-    );
-    request.headers[HttpHeaders.acceptHeader] =
-        'application/zip, application/octet-stream, */*';
+    return _runAbortableRequest((cancelSignal) async {
+      final request = http.Request(
+        'GET',
+        Uri.https(_host, '/api/v1/download', <String, String>{
+          'slug': normalizedSlug,
+        }),
+      );
+      request.headers[HttpHeaders.acceptHeader] =
+          'application/zip, application/octet-stream, */*';
 
-    final response = await sendAbortableHttpRequest(
-      client: _client,
-      request: request,
-      connectionTimeout: _requestTimeout,
-    );
-    if (isHttpFailureStatus(response.statusCode)) {
-      // 抛错前排空响应流，确保连接正常回收。
-      await _drainResponseStreamBestEffort(
-        response.stream,
-        reason: '下载响应异常后排空响应流',
+      final response = await sendAbortableHttpRequest(
+        client: _client,
+        request: request,
+        connectionTimeout: _requestTimeout,
+        cancelSignal: cancelSignal,
       );
-      _throwHttpFailure(response.statusCode, 'while downloading skill');
-    }
-    final contentLength = response.contentLength;
-    if (contentLength != null && contentLength > _maxDownloadBytes) {
-      await _drainResponseStreamBestEffort(
-        response.stream,
-        reason: '下载内容超限后排空响应流',
-      );
-      throw const SkillMarketException('Skill archive is too large.');
-    }
+      if (isHttpFailureStatus(response.statusCode)) {
+        // 抛错前排空响应流，确保连接正常回收。
+        await _drainResponseStreamBestEffort(
+          response.stream,
+          reason: '下载响应异常后排空响应流',
+        );
+        _throwHttpFailure(response.statusCode, 'while downloading skill');
+      }
+      final contentLength = response.contentLength;
+      if (contentLength != null && contentLength > _maxDownloadBytes) {
+        await _drainResponseStreamBestEffort(
+          response.stream,
+          reason: '下载内容超限后排空响应流',
+        );
+        throw const SkillMarketException('Skill archive is too large.');
+      }
 
-    late final Uint8List bytes;
-    try {
-      bytes = await readBoundedByteStream(
-        response.stream,
-        maxBytes: _maxDownloadBytes,
-        idleTimeout: _downloadIdleTimeout,
-        totalTimeout: _downloadTotalTimeout,
-      );
-    } on ByteStreamSizeLimitException {
-      throw const SkillMarketException('Skill archive is too large.');
-    }
-    if (bytes.isEmpty) {
-      throw const SkillMarketException('Downloaded skill archive is empty.');
-    }
-    return bytes;
+      late final Uint8List bytes;
+      try {
+        bytes = await readBoundedByteStream(
+          response.stream,
+          maxBytes: _maxDownloadBytes,
+          idleTimeout: _downloadIdleTimeout,
+          totalTimeout: _downloadTotalTimeout,
+        );
+      } on ByteStreamSizeLimitException {
+        throw const SkillMarketException('Skill archive is too large.');
+      }
+      if (bytes.isEmpty) {
+        throw const SkillMarketException('Downloaded skill archive is empty.');
+      }
+      return bytes;
+    });
   }
 
   Future<SkillMarketSearchResult> _fetchSearch({
@@ -301,7 +312,7 @@ class SkillMarketClient {
     return _cached(
       _fileContentCache,
       '$normalizedSlug|$normalizedVersion|$normalizedPath',
-      () async {
+      () => _runAbortableRequest((cancelSignal) async {
         final request = http.Request(
           'GET',
           Uri.https(
@@ -317,6 +328,7 @@ class SkillMarketClient {
           client: _client,
           request: request,
           connectionTimeout: _requestTimeout,
+          cancelSignal: cancelSignal,
         );
         if (isHttpFailureStatus(response.statusCode)) {
           await _drainResponseStreamBestEffort(
@@ -336,7 +348,7 @@ class SkillMarketClient {
         } on ByteStreamSizeLimitException {
           throw const SkillMarketException('Skill file response is too large.');
         }
-      },
+      }),
     );
   }
 
@@ -405,39 +417,44 @@ class SkillMarketClient {
   String _normalizeVersion(String? version) => nullIfBlank(version) ?? '';
 
   Future<Map<String, Object?>> _getJson(Uri uri) async {
-    final request = http.Request('GET', uri)
-      ..headers[HttpHeaders.acceptHeader] = 'application/json';
-    final response = await sendAbortableHttpRequest(
-      client: _client,
-      request: request,
-      connectionTimeout: _requestTimeout,
-    );
-    if (isHttpFailureStatus(response.statusCode)) {
-      await _drainResponseStreamBestEffort(
-        response.stream,
-        reason: 'JSON 响应异常后排空响应流',
+    return _runAbortableRequest((cancelSignal) async {
+      final request = http.Request('GET', uri)
+        ..headers[HttpHeaders.acceptHeader] = 'application/json';
+      final response = await sendAbortableHttpRequest(
+        client: _client,
+        request: request,
+        connectionTimeout: _requestTimeout,
+        cancelSignal: cancelSignal,
       );
-      _throwHttpFailure(response.statusCode, 'from $uri');
-    }
-    late final Uint8List body;
-    try {
-      body = await readBoundedByteStream(
-        response.stream,
-        maxBytes: _maxJsonResponseBytes,
-        idleTimeout: _requestTimeout,
-        totalTimeout: _requestTimeout,
+      if (isHttpFailureStatus(response.statusCode)) {
+        await _drainResponseStreamBestEffort(
+          response.stream,
+          reason: 'JSON 响应异常后排空响应流',
+        );
+        _throwHttpFailure(response.statusCode, 'from $uri');
+      }
+      late final Uint8List body;
+      try {
+        body = await readBoundedByteStream(
+          response.stream,
+          maxBytes: _maxJsonResponseBytes,
+          idleTimeout: _requestTimeout,
+          totalTimeout: _requestTimeout,
+        );
+      } on ByteStreamSizeLimitException {
+        throw const SkillMarketException('Skill market response is too large.');
+      }
+      final decoded = jsonDecode(utf8.decode(body));
+      if (decoded is Map<String, Object?>) {
+        return decoded;
+      }
+      if (decoded is Map) {
+        return decoded.map((key, value) => MapEntry('$key', value));
+      }
+      throw const FormatException(
+        'Skill market response is not a JSON object.',
       );
-    } on ByteStreamSizeLimitException {
-      throw const SkillMarketException('Skill market response is too large.');
-    }
-    final decoded = jsonDecode(utf8.decode(body));
-    if (decoded is Map<String, Object?>) {
-      return decoded;
-    }
-    if (decoded is Map) {
-      return decoded.map((key, value) => MapEntry('$key', value));
-    }
-    throw const FormatException('Skill market response is not a JSON object.');
+    });
   }
 
   void _ensureEnvelopeSucceeded(Map<String, Object?> json) {
@@ -486,6 +503,9 @@ class SkillMarketClient {
     String key,
     Future<T> Function() loader,
   ) {
+    if (_closed) {
+      return Future<T>.error(StateError('技能市场客户端已关闭。'));
+    }
     final cached = cache.get(key);
     if (cached != null) {
       return cached;
@@ -500,5 +520,19 @@ class SkillMarketClient {
     });
     cache.put(key, future);
     return future;
+  }
+
+  Future<T> _runAbortableRequest<T>(
+    Future<T> Function(Future<void> cancelSignal) operation,
+  ) async {
+    if (_closed) throw StateError('技能市场客户端已关闭。');
+    final abort = Completer<void>();
+    _activeRequestAborts.add(abort);
+    try {
+      return await operation(abort.future);
+    } finally {
+      if (!abort.isCompleted) abort.complete();
+      _activeRequestAborts.remove(abort);
+    }
   }
 }

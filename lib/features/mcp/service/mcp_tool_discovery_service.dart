@@ -220,19 +220,27 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
 
   final http.Client _client;
   final bool _ownsClient;
+  final Set<Completer<void>> _activeOperationAborts = <Completer<void>>{};
   int _nextRequestId = 0;
   bool _isDisposed = false;
 
   @override
   Future<McpToolCatalog> discoverTools(McpServer server) async {
+    final operationAbort = _beginOperation();
     final scannedAt = DateTime.now().toUtc();
     final scanTimeout = server.type == McpServerType.stdio
         ? _stdioScanTimeout
         : _scanTimeout;
     try {
       final discovered = await switch (server.type) {
-        McpServerType.streamableHttp => _discoverOverStreamableHttp(server),
-        McpServerType.sse => _discoverOverLegacySseWithFallback(server),
+        McpServerType.streamableHttp => _discoverOverStreamableHttp(
+          server,
+          cancelSignal: operationAbort.future,
+        ),
+        McpServerType.sse => _discoverOverLegacySseWithFallback(
+          server,
+          cancelSignal: operationAbort.future,
+        ),
         McpServerType.stdio => _discoverOverStdio(server),
       }.timeout(scanTimeout);
       return McpToolCatalog(
@@ -268,19 +276,28 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         errorMessage: _friendlyMcpDiscoveryError(server, error),
         lastScannedAt: scannedAt,
       );
+    } finally {
+      _finishOperation(operationAbort);
     }
   }
 
   @override
   Future<McpServerHealth> checkHealth(McpServer server) async {
+    final operationAbort = _beginOperation();
     final checkedAt = DateTime.now().toUtc();
     final healthTimeout = server.type == McpServerType.stdio
         ? _stdioHealthCheckTimeout
         : _healthCheckTimeout;
     try {
       await switch (server.type) {
-        McpServerType.streamableHttp => _checkStreamableHttpHealth(server),
-        McpServerType.sse => _checkLegacySseHealthWithFallback(server),
+        McpServerType.streamableHttp => _checkStreamableHttpHealth(
+          server,
+          cancelSignal: operationAbort.future,
+        ),
+        McpServerType.sse => _checkLegacySseHealthWithFallback(
+          server,
+          cancelSignal: operationAbort.future,
+        ),
         McpServerType.stdio => _checkStdioHealth(server),
       }.timeout(healthTimeout);
       return McpServerHealth(
@@ -312,6 +329,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         errorMessage: _friendlyMcpDiscoveryError(server, error),
         lastCheckedAt: checkedAt,
       );
+    } finally {
+      _finishOperation(operationAbort);
     }
   }
 
@@ -324,49 +343,64 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Map<String, String>? customHeaders,
     Future<void>? cancelSignal,
   }) async {
+    final operationAbort = _beginOperation();
+    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
+      cancelSignal,
+      operationAbort.future,
+    ])!;
     final guard = _McpToolCallGuard(
       timeout: _toolCallTimeout,
-      cancelSignal: cancelSignal,
+      cancelSignal: effectiveCancelSignal,
     );
-    late final Map<String, Object?> result;
     try {
-      result = await switch (server.type) {
-        McpServerType.streamableHttp => _callToolOverStreamableHttp(
-          server,
-          toolName,
-          arguments,
-          guard: guard,
-          customHeaders: customHeaders,
-        ),
-        McpServerType.sse => _callToolOverLegacySseWithFallback(
-          server,
-          toolName,
-          arguments,
-          guard: guard,
-          customHeaders: customHeaders,
-        ),
-        McpServerType.stdio => _callToolOverStdio(
-          server,
-          toolName,
-          arguments,
-          guard: guard,
-          toolCallId: toolCallId,
-        ),
-      }.timeout(_toolCallTimeout);
-    } on TimeoutException {
-      throw const McpToolDiscoveryException(
-        'Tool call timed out. The MCP server did not respond in time.',
+      late final Map<String, Object?> result;
+      try {
+        result = await switch (server.type) {
+          McpServerType.streamableHttp => _callToolOverStreamableHttp(
+            server,
+            toolName,
+            arguments,
+            guard: guard,
+            customHeaders: customHeaders,
+          ),
+          McpServerType.sse => _callToolOverLegacySseWithFallback(
+            server,
+            toolName,
+            arguments,
+            guard: guard,
+            customHeaders: customHeaders,
+          ),
+          McpServerType.stdio => _callToolOverStdio(
+            server,
+            toolName,
+            arguments,
+            guard: guard,
+            toolCallId: toolCallId,
+          ),
+        }.timeout(_toolCallTimeout);
+      } on TimeoutException {
+        throw const McpToolDiscoveryException(
+          'Tool call timed out. The MCP server did not respond in time.',
+        );
+      }
+      return McpToolCallResult(
+        outputText: _renderToolCallResult(result),
+        isError: result['isError'] == true,
+        rawResult: result,
       );
+    } finally {
+      _finishOperation(operationAbort);
     }
-    return McpToolCallResult(
-      outputText: _renderToolCallResult(result),
-      isError: result['isError'] == true,
-      rawResult: result,
-    );
   }
 
-  Future<_DiscoveredTools> _discoverOverStreamableHttp(McpServer server) async {
-    final session = await _initializeStreamableHttpSession(server);
+  Future<_DiscoveredTools> _discoverOverStreamableHttp(
+    McpServer server, {
+    Future<void>? cancelSignal,
+  }) async {
+    final session = await _initializeStreamableHttpSession(
+      server,
+      cancelSignal: cancelSignal,
+    );
     try {
       return await _listTools(
         (cursor) => _postJsonRpc(
@@ -380,16 +414,27 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             params: cursor == null ? null : <String, Object?>{'cursor': cursor},
           ),
           expectResponse: true,
+          cancelSignal: cancelSignal,
         ).then((response) => response.message),
         serverInstructions: session.instructions,
       );
     } finally {
-      await _closeStreamableHttpSession(server, session);
+      await _closeStreamableHttpSession(
+        server,
+        session,
+        cancelSignal: cancelSignal,
+      );
     }
   }
 
-  Future<_DiscoveredTools> _discoverOverLegacySse(McpServer server) async {
-    final session = await _initializeLegacySseSession(server);
+  Future<_DiscoveredTools> _discoverOverLegacySse(
+    McpServer server, {
+    Future<void>? cancelSignal,
+  }) async {
+    final session = await _initializeLegacySseSession(
+      server,
+      cancelSignal: cancelSignal,
+    );
     try {
       return await _listTools(
         (cursor) => session.sendRequest(
@@ -398,6 +443,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             method: 'tools/list',
             params: cursor == null ? null : <String, Object?>{'cursor': cursor},
           ),
+          cancelSignal: cancelSignal,
         ),
         serverInstructions: session.instructions,
       );
@@ -407,11 +453,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<_DiscoveredTools> _discoverOverLegacySseWithFallback(
-    McpServer server,
-  ) {
+    McpServer server, {
+    Future<void>? cancelSignal,
+  }) {
     return _runLegacySseWithStreamableFallback(
-      primaryOperation: () => _discoverOverLegacySse(server),
-      fallbackOperation: () => _discoverOverStreamableHttp(server),
+      primaryOperation: () =>
+          _discoverOverLegacySse(server, cancelSignal: cancelSignal),
+      fallbackOperation: () =>
+          _discoverOverStreamableHttp(server, cancelSignal: cancelSignal),
     );
   }
 
@@ -502,6 +551,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         server,
         session,
         customHeaders: customHeaders,
+        cancelSignal: guard.cancelSignal,
       );
     }
   }
@@ -640,20 +690,41 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
   }
 
-  Future<void> _checkStreamableHttpHealth(McpServer server) async {
-    final session = await _initializeStreamableHttpSession(server);
-    await _closeStreamableHttpSession(server, session);
+  Future<void> _checkStreamableHttpHealth(
+    McpServer server, {
+    Future<void>? cancelSignal,
+  }) async {
+    final session = await _initializeStreamableHttpSession(
+      server,
+      cancelSignal: cancelSignal,
+    );
+    await _closeStreamableHttpSession(
+      server,
+      session,
+      cancelSignal: cancelSignal,
+    );
   }
 
-  Future<void> _checkLegacySseHealth(McpServer server) async {
-    final session = await _initializeLegacySseSession(server);
+  Future<void> _checkLegacySseHealth(
+    McpServer server, {
+    Future<void>? cancelSignal,
+  }) async {
+    final session = await _initializeLegacySseSession(
+      server,
+      cancelSignal: cancelSignal,
+    );
     await session.close();
   }
 
-  Future<void> _checkLegacySseHealthWithFallback(McpServer server) {
+  Future<void> _checkLegacySseHealthWithFallback(
+    McpServer server, {
+    Future<void>? cancelSignal,
+  }) {
     return _runLegacySseWithStreamableFallback(
-      primaryOperation: () => _checkLegacySseHealth(server),
-      fallbackOperation: () => _checkStreamableHttpHealth(server),
+      primaryOperation: () =>
+          _checkLegacySseHealth(server, cancelSignal: cancelSignal),
+      fallbackOperation: () =>
+          _checkStreamableHttpHealth(server, cancelSignal: cancelSignal),
     );
   }
 
@@ -734,6 +805,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     McpServer server,
     _InitializedStreamableHttpSession session, {
     Map<String, String>? customHeaders,
+    Future<void>? cancelSignal,
   }) async {
     final sessionId = nullIfBlank(session.sessionId);
     if (sessionId == null || _isDisposed) return;
@@ -764,6 +836,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         additionalSensitiveHeaderNames: _sensitiveHeaderNames(
           customHeaders ?? server.headers,
         ),
+        cancelSignal: cancelSignal,
       );
       await _drainMcpHttpResponse(response, timeout: _mcpSessionCloseTimeout);
     } catch (error, stack) {
@@ -1587,9 +1660,25 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
+    for (final abort in _activeOperationAborts.toList(growable: false)) {
+      if (!abort.isCompleted) abort.complete();
+    }
+    _activeOperationAborts.clear();
     if (_ownsClient) {
       _client.close();
     }
+  }
+
+  Completer<void> _beginOperation() {
+    if (_isDisposed) throw StateError('MCP 工具发现服务已关闭。');
+    final abort = Completer<void>();
+    _activeOperationAborts.add(abort);
+    return abort;
+  }
+
+  void _finishOperation(Completer<void> abort) {
+    if (!abort.isCompleted) abort.complete();
+    _activeOperationAborts.remove(abort);
   }
 }
 

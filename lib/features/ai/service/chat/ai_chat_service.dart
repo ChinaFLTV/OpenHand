@@ -334,7 +334,9 @@ class AiChatService implements AiChatClient {
   final AiImageGenerationService _imageService;
   final bool _ownsImageService;
   final AiModelScanner? _modelScanner;
+  final Set<Completer<void>> _activeRequestAborts = <Completer<void>>{};
   AiResponsesService? _responsesService;
+  bool _disposed = false;
   static const AiEndpointRouter _endpointRouter = AiEndpointRouter();
   static const Duration _responsesCompatibilityCacheTtl = Duration(minutes: 10);
   static const int _responsesCompatibilityCacheMaxEntries = 64;
@@ -669,6 +671,11 @@ class AiChatService implements AiChatClient {
     AiInputCacheRuntimeConfig? inputCacheConfig,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
+    final requestAbort = _beginRequest();
+    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
+      cancelSignal,
+      requestAbort.future,
+    ])!;
     final startedAt = DateTime.now().toUtc();
     try {
       final completion = await _sendMessage(
@@ -678,7 +685,7 @@ class AiChatService implements AiChatClient {
         responseModalities: responseModalities,
         creationRequest: creationRequest,
         timeout: timeout,
-        cancelSignal: cancelSignal,
+        cancelSignal: effectiveCancelSignal,
         inputCacheConfig: inputCacheConfig,
         onRequestStarted: onRequestStarted,
       );
@@ -734,6 +741,8 @@ class AiChatService implements AiChatClient {
         metadata: const <String, Object?>{'streaming': false},
       );
       rethrow;
+    } finally {
+      _finishRequest(requestAbort);
     }
   }
 
@@ -1108,6 +1117,11 @@ class AiChatService implements AiChatClient {
     AiInputCacheRuntimeConfig? inputCacheConfig,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
+    final requestAbort = _beginRequest();
+    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
+      cancelSignal,
+      requestAbort.future,
+    ])!;
     final startedAt = DateTime.now().toUtc();
     AiChatStreamingResponse response;
     try {
@@ -1119,7 +1133,7 @@ class AiChatService implements AiChatClient {
         creationRequest: creationRequest,
         timeout: timeout,
         streamIdleTimeout: streamIdleTimeout,
-        cancelSignal: cancelSignal,
+        cancelSignal: effectiveCancelSignal,
         inputCacheConfig: inputCacheConfig,
         onRequestStarted: onRequestStarted,
       );
@@ -1143,6 +1157,7 @@ class AiChatService implements AiChatClient {
             error is http.RequestAbortedException,
         metadata: const <String, Object?>{'streaming': true},
       );
+      _finishRequest(requestAbort);
       rethrow;
     }
     int? firstTokenMs;
@@ -1235,6 +1250,12 @@ class AiChatService implements AiChatClient {
         );
         Error.throwWithStackTrace(error, stack);
       },
+    );
+    unawaited(
+      result.then<void>(
+        (_) => _finishRequest(requestAbort),
+        onError: (Object _, StackTrace _) => _finishRequest(requestAbort),
+      ),
     );
     return AiChatStreamingResponse(
       events: events,
@@ -2799,6 +2820,12 @@ class AiChatService implements AiChatClient {
 
   @override
   void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    for (final abort in _activeRequestAborts.toList(growable: false)) {
+      if (!abort.isCompleted) abort.complete();
+    }
+    _activeRequestAborts.clear();
     _unsupportedResponsesEndpoints.clear();
     _unsupportedResponsesRequestShapes.clear();
     _responsesService?.dispose();
@@ -2809,6 +2836,18 @@ class AiChatService implements AiChatClient {
     if (_ownsClient) {
       _client.close();
     }
+  }
+
+  Completer<void> _beginRequest() {
+    if (_disposed) throw StateError('AI 聊天服务已关闭。');
+    final abort = Completer<void>();
+    _activeRequestAborts.add(abort);
+    return abort;
+  }
+
+  void _finishRequest(Completer<void> abort) {
+    if (!abort.isCompleted) abort.complete();
+    _activeRequestAborts.remove(abort);
   }
 }
 
