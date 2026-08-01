@@ -14,16 +14,12 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
+import 'service_dialog_controls.dart';
 
 const EdgeInsets _kDialogPadding = EdgeInsets.all(22);
 const double _kSectionGap = 18;
 const double _kItemGap = 12;
-const double _kItemActionGap = 8;
 const double _kMetricBreakpoint = 720;
-const EdgeInsets _kFilterChipPadding = EdgeInsets.symmetric(
-  horizontal: 12,
-  vertical: 6,
-);
 const List<AiExposureSource> _kCredentialSources = <AiExposureSource>[
   AiExposureSource.github,
   AiExposureSource.gitee,
@@ -55,7 +51,7 @@ Future<void> showAiExposureStatusDialog(BuildContext context) =>
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthWide,
         maxHeight: kOpenHandDialogHeightTall,
-        child: const _StatusDialog(),
+        child: const ServiceDialogInteractionTheme(child: _StatusDialog()),
       ),
     );
 
@@ -67,7 +63,7 @@ Future<void> showAiExposureNewHuntDialog(
   builder: (_) => buildOpenHandDialog(
     maxWidth: kOpenHandDialogWidthPanel,
     maxHeight: kOpenHandDialogHeightTall,
-    child: _NewHuntDialog(custom: custom),
+    child: ServiceDialogInteractionTheme(child: _NewHuntDialog(custom: custom)),
   ),
 );
 
@@ -77,7 +73,7 @@ Future<void> showAiExposureProgressDialog(BuildContext context) =>
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthExtraWide,
         maxHeight: kOpenHandDialogHeightTall,
-        child: const _ProgressDialog(),
+        child: const ServiceDialogInteractionTheme(child: _ProgressDialog()),
       ),
     );
 
@@ -87,7 +83,7 @@ Future<void> showAiExposureResultsDialog(BuildContext context) =>
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthPanel,
         maxHeight: kOpenHandDialogHeightTall,
-        child: const _ResultsDialog(),
+        child: const ServiceDialogInteractionTheme(child: _ResultsDialog()),
       ),
     );
 
@@ -97,7 +93,7 @@ Future<void> showAiExposureHistoryDialog(BuildContext context) =>
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthExtraWide,
         maxHeight: kOpenHandDialogHeightTall,
-        child: const _HistoryDialog(),
+        child: const ServiceDialogInteractionTheme(child: _HistoryDialog()),
       ),
     );
 
@@ -107,7 +103,7 @@ Future<void> showAiExposureToolsDialog(BuildContext context) =>
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthWide,
         maxHeight: kOpenHandDialogHeightTall,
-        child: const _ToolsDialog(),
+        child: const ServiceDialogInteractionTheme(child: _ToolsDialog()),
       ),
     );
 
@@ -117,7 +113,7 @@ Future<void> showAiExposureRulesDialog(BuildContext context) =>
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthPanel,
         maxHeight: kOpenHandDialogHeightTall,
-        child: const _RulesDialog(),
+        child: const ServiceDialogInteractionTheme(child: _RulesDialog()),
       ),
     );
 
@@ -127,7 +123,7 @@ Future<void> showAiExposureSettingsDialog(BuildContext context) =>
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthWide,
         maxHeight: kOpenHandDialogHeightTall,
-        child: const _SettingsDialog(),
+        child: const ServiceDialogInteractionTheme(child: _SettingsDialog()),
       ),
     );
 
@@ -398,7 +394,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: AiExposureSource.values
                 .map((source) {
-                  return _ServiceFilterChip(
+                  return ServiceFilterChip(
                     selected: _sources.contains(source),
                     icon: Icon(_sourceIcon(source), size: 17),
                     label: Text(_sourceLabel(context, source)),
@@ -487,7 +483,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: _kVendors
                 .map((vendor) {
-                  return _ServiceFilterChip(
+                  return ServiceFilterChip(
                     selected: _vendors.contains(vendor),
                     label: Text(vendor),
                     onSelected: (selected) => setState(() {
@@ -567,25 +563,22 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             label: '${_concurrency.round()}',
             onChanged: (value) => setState(() => _concurrency = value),
           ),
-          Theme(
-            data: Theme.of(context).copyWith(hoverColor: Colors.transparent),
-            child: CheckboxListTile(
-              key: const ValueKey<String>('hunt-authorization-confirmation'),
-              contentPadding: EdgeInsets.zero,
-              hoverColor: Colors.transparent,
-              overlayColor: const WidgetStatePropertyAll<Color>(
-                Colors.transparent,
-              ),
-              value: _confirmed,
-              onChanged: (value) => setState(() => _confirmed = value == true),
-              title: Text(
-                text(
-                  zh: '我确认已获得上述目标范围的安全评估授权',
-                  en: 'I confirm authorization to assess the declared scope',
-                ),
-              ),
-              controlAffinity: ListTileControlAffinity.leading,
+          CheckboxListTile(
+            key: const ValueKey<String>('hunt-authorization-confirmation'),
+            contentPadding: EdgeInsets.zero,
+            hoverColor: Colors.transparent,
+            overlayColor: const WidgetStatePropertyAll<Color>(
+              Colors.transparent,
             ),
+            value: _confirmed,
+            onChanged: (value) => setState(() => _confirmed = value == true),
+            title: Text(
+              text(
+                zh: '我确认已获得上述目标范围的安全评估授权',
+                en: 'I confirm authorization to assess the declared scope',
+              ),
+            ),
+            controlAffinity: ListTileControlAffinity.leading,
           ),
         ],
       ),
@@ -2019,60 +2012,6 @@ class _LogList extends StatelessWidget {
   }
 }
 
-class _ServiceFilterChip extends StatelessWidget {
-  const _ServiceFilterChip({
-    required this.label,
-    required this.selected,
-    required this.onSelected,
-    this.icon,
-  });
-
-  final Widget label;
-  final bool selected;
-  final ValueChanged<bool> onSelected;
-  final Widget? icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final chipTheme = ChipTheme.of(context);
-    final backgroundColor =
-        chipTheme.backgroundColor ?? cs.surfaceContainerHigh;
-    final selectedColor = chipTheme.selectedColor ?? cs.primaryContainer;
-    return FilterChip(
-      avatar: icon,
-      avatarBoxConstraints: icon == null
-          ? null
-          : const BoxConstraints.tightFor(width: 18, height: 18),
-      selected: selected,
-      label: label,
-      onSelected: onSelected,
-      showCheckmark: icon == null,
-      padding: _kFilterChipPadding,
-      elevation: 0,
-      pressElevation: 0,
-      shadowColor: Colors.transparent,
-      selectedShadowColor: Colors.transparent,
-      surfaceTintColor: Colors.transparent,
-      color: WidgetStateProperty.resolveWith((states) {
-        final base = states.contains(WidgetState.selected)
-            ? selectedColor
-            : backgroundColor;
-        final alpha = states.contains(WidgetState.pressed)
-            ? 0.10
-            : states.contains(WidgetState.hovered) ||
-                  states.contains(WidgetState.focused)
-            ? 0.06
-            : 0.0;
-        return alpha == 0
-            ? base
-            : Color.alphaBlend(cs.primary.withValues(alpha: alpha), base);
-      }),
-    );
-  }
-}
-
 class _CategoryChip extends StatelessWidget {
   const _CategoryChip({
     required this.label,
@@ -2086,7 +2025,7 @@ class _CategoryChip extends StatelessWidget {
   final VoidCallback onSelected;
 
   @override
-  Widget build(BuildContext context) => _ServiceFilterChip(
+  Widget build(BuildContext context) => ServiceFilterChip(
     selected: selected,
     label: Text('$label $count'),
     onSelected: (_) => onSelected(),
@@ -2244,7 +2183,7 @@ class _HistoryTile extends StatelessWidget {
               ],
             ),
           ),
-          _DialogIconActions(
+          ServiceDialogIconActions(
             children: [
               Tooltip(
                 message: openHandLocalizedText(
@@ -2294,7 +2233,9 @@ Future<void> _showHistoryLogs(
   builder: (_) => buildOpenHandDialog(
     maxWidth: kOpenHandDialogWidthWide,
     maxHeight: kOpenHandDialogHeightStandard,
-    child: _HistoryLogDialog(entry: entry),
+    child: ServiceDialogInteractionTheme(
+      child: _HistoryLogDialog(entry: entry),
+    ),
   ),
 );
 
@@ -2420,7 +2361,7 @@ class _RuleTile extends StatelessWidget {
               ],
             ),
           ),
-          _DialogIconActions(
+          ServiceDialogIconActions(
             key: ValueKey<String>('rule-actions-${rule.id}'),
             children: [
               IconButton(
@@ -2439,23 +2380,6 @@ class _RuleTile extends StatelessWidget {
       ),
     );
   }
-}
-
-class _DialogIconActions extends StatelessWidget {
-  const _DialogIconActions({super.key, required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      for (var index = 0; index < children.length; index++) ...[
-        if (index > 0) const SizedBox(width: _kItemActionGap),
-        children[index],
-      ],
-    ],
-  );
 }
 
 class _InlineNotice extends StatelessWidget {
@@ -2544,7 +2468,7 @@ Future<AiExposureScanRule?> _showRuleEditor(
   builder: (_) => buildOpenHandDialog(
     maxWidth: kOpenHandDialogWidthStandard,
     maxHeight: kOpenHandDialogHeightStandard,
-    child: _RuleEditor(initial: initial),
+    child: ServiceDialogInteractionTheme(child: _RuleEditor(initial: initial)),
   ),
 );
 
@@ -2662,7 +2586,7 @@ class _RuleEditorState extends State<_RuleEditor> {
               runSpacing: 8,
               children: AiExposureContentEncoding.values
                   .map(
-                    (encoding) => _ServiceFilterChip(
+                    (encoding) => ServiceFilterChip(
                       selected: _encodings.contains(encoding),
                       icon: const Icon(Icons.data_object_rounded, size: 17),
                       label: Text(_encodingLabel(encoding)),
@@ -2789,7 +2713,9 @@ Future<void> _exportResults(
     builder: (_) => buildOpenHandDialog(
       maxWidth: kOpenHandDialogWidthCompact,
       maxHeight: kOpenHandDialogHeightCompact,
-      child: _ExportFormatDialog(count: results.length),
+      child: ServiceDialogInteractionTheme(
+        child: _ExportFormatDialog(count: results.length),
+      ),
     ),
   );
   if (format == null || !context.mounted) return;

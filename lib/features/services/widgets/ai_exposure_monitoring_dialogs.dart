@@ -14,6 +14,7 @@ import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
+import 'service_dialog_controls.dart';
 
 const Duration _kOperationsRefreshInterval = Duration(seconds: 8);
 
@@ -23,7 +24,7 @@ Future<void> showAiExposureOperationsDialog(BuildContext context) =>
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthFull,
         maxHeight: kOpenHandDialogHeightFull,
-        child: const _OperationsDialog(),
+        child: const ServiceDialogInteractionTheme(child: _OperationsDialog()),
       ),
     );
 
@@ -33,7 +34,7 @@ Future<void> showAiExposureLogMonitorDialog(BuildContext context) =>
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthPanel,
         maxHeight: kOpenHandDialogHeightTall,
-        child: const _LogMonitorDialog(),
+        child: const ServiceDialogInteractionTheme(child: _LogMonitorDialog()),
       ),
     );
 
@@ -1105,12 +1106,18 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                   border: const OutlineInputBorder(),
                 ),
               );
-              final follow = SwitchListTile(
-                contentPadding: EdgeInsets.zero,
-                value: _autoFollow,
-                onChanged: (value) => setState(() => _autoFollow = value),
-                title: Text(text(zh: '自动跟随', en: 'Auto follow')),
-                secondary: const Icon(Icons.vertical_align_bottom_rounded),
+              final follow = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.vertical_align_bottom_rounded),
+                  const SizedBox(width: 8),
+                  Text(text(zh: '自动跟随', en: 'Auto follow')),
+                  const SizedBox(width: 8),
+                  Switch(
+                    value: _autoFollow,
+                    onChanged: (value) => setState(() => _autoFollow = value),
+                  ),
+                ],
               );
               if (constraints.maxWidth < 640) {
                 return Column(children: [search, follow]);
@@ -1119,7 +1126,13 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                 children: [
                   Expanded(flex: 3, child: search),
                   const SizedBox(width: 12),
-                  Expanded(flex: 2, child: follow),
+                  Expanded(
+                    flex: 2,
+                    child: Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: follow,
+                    ),
+                  ),
                 ],
               );
             },
@@ -1146,9 +1159,9 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
             children: <String>['info', 'warning', 'error', 'runtime']
                 .map((level) {
                   final color = _logColor(level, cs);
-                  return FilterChip(
+                  return ServiceFilterChip(
                     selected: _levels.contains(level),
-                    avatar: Icon(_logIcon(level), size: 16, color: color),
+                    icon: Icon(_logIcon(level), size: 16, color: color),
                     label: Text(_logLevelName(level)),
                     onSelected: (selected) => setState(() {
                       if (selected) {

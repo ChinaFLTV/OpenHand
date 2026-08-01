@@ -221,8 +221,49 @@ class AiExposureScanRule {
   );
 }
 
+const int kAiExposureProxyLatencySampleLimit = 24;
+
+class AiExposureProxyProbeSample {
+  const AiExposureProxyProbeSample({
+    required this.checkedAt,
+    this.latencyMs,
+    this.statusCode,
+    this.error,
+  });
+
+  factory AiExposureProxyProbeSample.fromJson(Object? raw) {
+    final json = _jsonMap(raw);
+    return AiExposureProxyProbeSample(
+      checkedAt:
+          DateTime.tryParse(json['checkedAt'] as String? ?? '') ??
+          DateTime.now(),
+      latencyMs: (json['latencyMs'] as num?)?.toInt().clamp(0, 600000),
+      statusCode: (json['statusCode'] as num?)?.toInt(),
+      error: (json['error'] as String?)?.trim(),
+    );
+  }
+
+  final DateTime checkedAt;
+  final int? latencyMs;
+  final int? statusCode;
+  final String? error;
+
+  bool get reachable => latencyMs != null && error == null;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'checkedAt': checkedAt.toIso8601String(),
+    if (latencyMs != null) 'latencyMs': latencyMs,
+    if (statusCode != null) 'statusCode': statusCode,
+    if (error?.isNotEmpty == true) 'error': error,
+  };
+}
+
 class AiExposureProxyEndpoint {
-  const AiExposureProxyEndpoint({required this.url});
+  const AiExposureProxyEndpoint({
+    required this.url,
+    this.enabled = true,
+    this.samples = const <AiExposureProxyProbeSample>[],
+  });
 
   factory AiExposureProxyEndpoint.parse(String input) {
     final value = input.trim();
@@ -247,7 +288,30 @@ class AiExposureProxyEndpoint {
     );
   }
 
+  factory AiExposureProxyEndpoint.fromJson(Object? raw) {
+    if (raw is String) return AiExposureProxyEndpoint.parse(raw);
+    final json = _jsonMap(raw);
+    final endpoint = AiExposureProxyEndpoint.parse(
+      json['url'] as String? ?? '',
+    );
+    final samples = (json['samples'] as List? ?? const <Object?>[])
+        .map(AiExposureProxyProbeSample.fromJson)
+        .toList(growable: false);
+    return endpoint.copyWith(
+      enabled: json['enabled'] as bool? ?? true,
+      samples: samples.length <= kAiExposureProxyLatencySampleLimit
+          ? samples
+          : samples.sublist(
+              samples.length - kAiExposureProxyLatencySampleLimit,
+            ),
+    );
+  }
+
   final String url;
+  final bool enabled;
+  final List<AiExposureProxyProbeSample> samples;
+
+  AiExposureProxyProbeSample? get latestSample => samples.lastOrNull;
 
   String get maskedUrl {
     final uri = Uri.parse(url);
@@ -256,6 +320,37 @@ class AiExposureProxyEndpoint {
     final username = Uri.decodeComponent(uri.userInfo.split(':').first);
     return '${uri.scheme}://$username:******@$host:${uri.port}';
   }
+
+  AiExposureProxyEndpoint copyWith({
+    bool? enabled,
+    List<AiExposureProxyProbeSample>? samples,
+  }) => AiExposureProxyEndpoint(
+    url: url,
+    enabled: enabled ?? this.enabled,
+    samples: List<AiExposureProxyProbeSample>.unmodifiable(
+      samples ?? this.samples,
+    ),
+  );
+
+  AiExposureProxyEndpoint withSample(AiExposureProxyProbeSample sample) {
+    final updated = <AiExposureProxyProbeSample>[...samples, sample];
+    if (updated.length > kAiExposureProxyLatencySampleLimit) {
+      updated.removeRange(
+        0,
+        updated.length - kAiExposureProxyLatencySampleLimit,
+      );
+    }
+    return copyWith(samples: updated);
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'url': url,
+    'enabled': enabled,
+    if (samples.isNotEmpty)
+      'samples': samples
+          .map((sample) => sample.toJson())
+          .toList(growable: false),
+  };
 }
 
 class AiExposureProxyConfiguration {
@@ -265,6 +360,8 @@ class AiExposureProxyConfiguration {
     required this.rotationEvery,
     required this.bypassLocal,
     required this.endpoints,
+    this.inspectionEnabled = false,
+    this.inspectionIntervalMinutes = 30,
   });
 
   factory AiExposureProxyConfiguration.defaults() =>
@@ -276,11 +373,46 @@ class AiExposureProxyConfiguration {
         endpoints: <AiExposureProxyEndpoint>[],
       );
 
+  factory AiExposureProxyConfiguration.fromJson(Object? raw) {
+    final json = _jsonMap(raw);
+    final endpoints = <AiExposureProxyEndpoint>[];
+    final seen = <String>{};
+    for (final value in json['endpoints'] as List? ?? const <Object?>[]) {
+      try {
+        final endpoint = AiExposureProxyEndpoint.fromJson(value);
+        if (seen.add(endpoint.url)) endpoints.add(endpoint);
+      } on FormatException {
+        continue;
+      }
+    }
+    return AiExposureProxyConfiguration(
+      enabled: json['enabled'] as bool? ?? false,
+      strategy: AiExposureProxyStrategy.fromId(json['strategy'] as String?),
+      rotationEvery: ((json['rotationEvery'] as num?)?.toInt() ?? 1).clamp(
+        1,
+        10000,
+      ),
+      bypassLocal: json['bypassLocal'] as bool? ?? true,
+      endpoints: List<AiExposureProxyEndpoint>.unmodifiable(endpoints),
+      inspectionEnabled: json['inspectionEnabled'] as bool? ?? false,
+      inspectionIntervalMinutes:
+          ((json['inspectionIntervalMinutes'] as num?)?.toInt() ?? 30).clamp(
+            1,
+            1440,
+          ),
+    );
+  }
+
   final bool enabled;
   final AiExposureProxyStrategy strategy;
   final int rotationEvery;
   final bool bypassLocal;
   final List<AiExposureProxyEndpoint> endpoints;
+  final bool inspectionEnabled;
+  final int inspectionIntervalMinutes;
+
+  List<AiExposureProxyEndpoint> get activeEndpoints =>
+      endpoints.where((endpoint) => endpoint.enabled).toList(growable: false);
 
   Map<String, Object?> toJson() => <String, Object?>{
     'enabled': enabled,
@@ -288,9 +420,42 @@ class AiExposureProxyConfiguration {
     'rotationEvery': rotationEvery.clamp(1, 10000),
     'bypassLocal': bypassLocal,
     'endpoints': endpoints
+        .map((endpoint) => endpoint.toJson())
+        .toList(growable: false),
+    'inspectionEnabled': inspectionEnabled,
+    'inspectionIntervalMinutes': inspectionIntervalMinutes.clamp(1, 1440),
+  };
+
+  Map<String, Object?> toRuntimeJson() => <String, Object?>{
+    'enabled': enabled,
+    'strategy': strategy.id,
+    'rotationEvery': rotationEvery.clamp(1, 10000),
+    'bypassLocal': bypassLocal,
+    'endpoints': activeEndpoints
         .map((endpoint) => endpoint.url)
         .toList(growable: false),
   };
+
+  AiExposureProxyConfiguration copyWith({
+    bool? enabled,
+    AiExposureProxyStrategy? strategy,
+    int? rotationEvery,
+    bool? bypassLocal,
+    List<AiExposureProxyEndpoint>? endpoints,
+    bool? inspectionEnabled,
+    int? inspectionIntervalMinutes,
+  }) => AiExposureProxyConfiguration(
+    enabled: enabled ?? this.enabled,
+    strategy: strategy ?? this.strategy,
+    rotationEvery: rotationEvery ?? this.rotationEvery,
+    bypassLocal: bypassLocal ?? this.bypassLocal,
+    endpoints: List<AiExposureProxyEndpoint>.unmodifiable(
+      endpoints ?? this.endpoints,
+    ),
+    inspectionEnabled: inspectionEnabled ?? this.inspectionEnabled,
+    inspectionIntervalMinutes:
+        inspectionIntervalMinutes ?? this.inspectionIntervalMinutes,
+  );
 }
 
 class AiExposureProxyEndpointStatus {
@@ -586,6 +751,7 @@ class AiExposurePreferences {
     required this.defaultGptAssisted,
     required this.useBundledEngine,
     required this.externalAddress,
+    required this.proxyConfiguration,
   });
 
   factory AiExposurePreferences.defaults() => const AiExposurePreferences(
@@ -598,6 +764,13 @@ class AiExposurePreferences {
     defaultGptAssisted: false,
     useBundledEngine: true,
     externalAddress: 'http://127.0.0.1:37821',
+    proxyConfiguration: AiExposureProxyConfiguration(
+      enabled: false,
+      strategy: AiExposureProxyStrategy.roundRobin,
+      rotationEvery: 1,
+      bypassLocal: true,
+      endpoints: <AiExposureProxyEndpoint>[],
+    ),
   );
 
   factory AiExposurePreferences.fromJson(Map<String, Object?> json) {
@@ -620,6 +793,7 @@ class AiExposurePreferences {
           (json['externalAddress'] as String?)?.trim().isNotEmpty == true
           ? (json['externalAddress'] as String).trim()
           : 'http://127.0.0.1:37821',
+      proxyConfiguration: AiExposureProxyConfiguration.fromJson(json['proxy']),
     );
   }
 
@@ -629,6 +803,7 @@ class AiExposurePreferences {
   final bool defaultGptAssisted;
   final bool useBundledEngine;
   final String externalAddress;
+  final AiExposureProxyConfiguration proxyConfiguration;
 
   Map<String, Object?> toJson() => <String, Object?>{
     'enabledSources': enabledSources
@@ -642,6 +817,7 @@ class AiExposurePreferences {
     'defaultGptAssisted': defaultGptAssisted,
     'useBundledEngine': useBundledEngine,
     'externalAddress': externalAddress,
+    'proxy': proxyConfiguration.toJson(),
   };
 }
 

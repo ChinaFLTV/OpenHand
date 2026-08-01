@@ -138,7 +138,7 @@ class AiJunglerClient {
       AiExposureProxyStatus.fromJson(await _jsonRequest('GET', '/v1/proxy'));
 
   Future<void> updateProxy(AiExposureProxyConfiguration configuration) =>
-      _emptyRequest('PUT', '/v1/proxy', body: configuration.toJson());
+      _emptyRequest('PUT', '/v1/proxy', body: configuration.toRuntimeJson());
 
   Future<AiExposureAiExtractorStatus> aiExtractorStatus() async =>
       AiExposureAiExtractorStatus.fromJson(

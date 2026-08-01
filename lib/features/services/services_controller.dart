@@ -6,10 +6,12 @@ import '../../app/support/silent_log.dart';
 import '../ai/index.dart';
 import 'data/ai_exposure_preferences_store.dart';
 import 'model/ai_exposure_models.dart';
+import 'service/ai_exposure_proxy_probe.dart';
 import 'service/ai_jungler_client.dart';
 import 'service/ai_jungler_runtime.dart';
 
 const int _kAiExposureMaxLogs = 5000;
+const int _kProxyInspectionConcurrency = 8;
 
 class ServicesController extends ChangeNotifier {
   ServicesController({
@@ -25,12 +27,15 @@ class ServicesController extends ChangeNotifier {
     _defaultGptAssisted = preferences.defaultGptAssisted;
     _useBundledEngine = preferences.useBundledEngine;
     _externalAddress = preferences.externalAddress;
+    _proxyConfiguration = preferences.proxyConfiguration;
     _runtimeLogSubscription = _runtime.logs.listen(_appendRuntimeLog);
     _runtimeExitSubscription = _runtime.exits.listen(_handleRuntimeExit);
+    _scheduleProxyInspection();
   }
 
   final AiJunglerRuntime _runtime;
   final AiExposurePreferencesStore _preferencesStore;
+  final AiExposureProxyProbe _proxyProbe = const AiExposureProxyProbe();
   AiModelConfig? Function()? _selectedAiModelProvider;
   StreamSubscription<String>? _runtimeLogSubscription;
   StreamSubscription<int>? _runtimeExitSubscription;
@@ -56,6 +61,9 @@ class ServicesController extends ChangeNotifier {
   late String _externalAddress;
   AiExposureProxyConfiguration _proxyConfiguration =
       AiExposureProxyConfiguration.defaults();
+  Timer? _proxyInspectionTimer;
+  bool _proxyInspectionBusy = false;
+  int _proxyInspectionGeneration = 0;
   final List<AiExposureLogEntry> _logs = <AiExposureLogEntry>[];
   String? _errorMessage;
   bool _busy = false;
@@ -95,6 +103,7 @@ class ServicesController extends ChangeNotifier {
   bool get scanBusy => _scanBusy;
   bool get isRunning => _lifecycle == AiExposureServiceLifecycle.running;
   bool get hasActiveScan => _progress?.isRunning ?? false;
+  bool get proxyInspectionBusy => _proxyInspectionBusy;
   bool get ownsProcess => _runtime.ownsProcess;
   AiJunglerClient? get _client => _runtime.client;
 
@@ -377,18 +386,23 @@ class ServicesController extends ChangeNotifier {
       if (configuration.endpoints.length > 10000) {
         throw const FormatException('代理池最多支持 10000 个代理。');
       }
+      if (configuration.enabled && configuration.activeEndpoints.isEmpty) {
+        throw const FormatException('启用代理前至少启用一个代理节点。');
+      }
       final client = _client;
       if (client != null) {
         await client.updateProxy(configuration);
         _proxyStatus = await client.proxyStatus();
       }
       _proxyConfiguration = configuration;
+      _scheduleProxyInspection();
+      await _persistPreferences();
       _errorMessage = null;
       _appendLog(
         AiExposureLogEntry(
           level: 'info',
           message: configuration.enabled
-              ? '代理池已启用，共 ${configuration.endpoints.length} 个代理。'
+              ? '代理池已启用，共 ${configuration.activeEndpoints.length} 个可用节点。'
               : '代理池已停用，网络请求将直接连接。',
           at: DateTime.now(),
         ),
@@ -401,6 +415,78 @@ class ServicesController extends ChangeNotifier {
       _notify();
       return false;
     }
+  }
+
+  Future<void> inspectAllProxies() async {
+    if (_proxyInspectionBusy || _disposed) return;
+    final endpoints = _proxyConfiguration.activeEndpoints;
+    if (endpoints.isEmpty) return;
+    final generation = ++_proxyInspectionGeneration;
+    _proxyInspectionBusy = true;
+    _notify();
+    final inspected = <String, AiExposureProxyProbeSample>{};
+    var cursor = 0;
+    Future<void> worker() async {
+      while (!_disposed && generation == _proxyInspectionGeneration) {
+        final index = cursor++;
+        if (index >= endpoints.length) return;
+        final endpoint = endpoints[index];
+        inspected[endpoint.url] = await _proxyProbe.inspect(endpoint);
+      }
+    }
+
+    try {
+      await Future.wait<void>(
+        List<Future<void>>.generate(
+          endpoints.length.clamp(1, _kProxyInspectionConcurrency),
+          (_) => worker(),
+        ),
+      );
+      if (_disposed || generation != _proxyInspectionGeneration) return;
+      _proxyConfiguration = _proxyConfiguration.copyWith(
+        endpoints: _proxyConfiguration.endpoints
+            .map((endpoint) {
+              final sample = inspected[endpoint.url];
+              return sample == null ? endpoint : endpoint.withSample(sample);
+            })
+            .toList(growable: false),
+      );
+      await _persistPreferences();
+      final healthy = inspected.values
+          .where((sample) => sample.reachable)
+          .length;
+      _appendLog(
+        AiExposureLogEntry(
+          level: healthy == inspected.length ? 'info' : 'warning',
+          message: '代理巡检完成：${inspected.length} 个节点，$healthy 个可连通。',
+          at: DateTime.now(),
+        ),
+      );
+    } catch (error, stack) {
+      _errorMessage = '$error';
+      silentLog('services_controller', '巡检代理节点', error, stack);
+    } finally {
+      if (!_disposed && generation == _proxyInspectionGeneration) {
+        _proxyInspectionBusy = false;
+        _notify();
+      }
+    }
+  }
+
+  void _scheduleProxyInspection() {
+    _proxyInspectionGeneration++;
+    _proxyInspectionBusy = false;
+    _proxyInspectionTimer?.cancel();
+    _proxyInspectionTimer = null;
+    final configuration = _proxyConfiguration;
+    if (!configuration.inspectionEnabled ||
+        configuration.activeEndpoints.isEmpty) {
+      return;
+    }
+    _proxyInspectionTimer = Timer.periodic(
+      Duration(minutes: configuration.inspectionIntervalMinutes.clamp(1, 1440)),
+      (_) => unawaited(inspectAllProxies()),
+    );
   }
 
   Future<void> refreshServiceLogs() async {
@@ -662,6 +748,7 @@ class ServicesController extends ChangeNotifier {
           defaultGptAssisted: _defaultGptAssisted,
           useBundledEngine: _useBundledEngine,
           externalAddress: _externalAddress,
+          proxyConfiguration: _proxyConfiguration,
         ),
       );
     } catch (error, stack) {
@@ -673,6 +760,9 @@ class ServicesController extends ChangeNotifier {
   Future<void> shutdown() async {
     if (_disposed) return;
     _disposed = true;
+    _proxyInspectionGeneration++;
+    _proxyInspectionTimer?.cancel();
+    _proxyInspectionTimer = null;
     await _eventSubscription?.cancel();
     await _runtimeLogSubscription?.cancel();
     await _runtimeExitSubscription?.cancel();

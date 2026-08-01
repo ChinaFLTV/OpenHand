@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,17 +6,25 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
+import '../service/ai_exposure_proxy_probe.dart';
 import '../services_controller.dart';
+import 'service_dialog_controls.dart';
 
 const int _kMaxProxyImportBytes = 4 * 1024 * 1024;
 const int _kMaxProxyEndpoints = 10000;
+const int _kProxyInspectionConcurrency = 8;
+const Duration _kProbeResultFlushDelay = Duration(milliseconds: 80);
+const List<int> _kInspectionIntervals = <int>[5, 15, 30, 60, 180, 360];
 
 Future<void> showAiExposureProxyDialog(BuildContext context) =>
     showAnimatedDialog<void>(
@@ -36,12 +45,23 @@ class _ProxyDialog extends StatefulWidget {
 
 class _ProxyDialogState extends State<_ProxyDialog> {
   final TextEditingController _endpoint = TextEditingController();
+  final AiExposureProxyProbe _probe = const AiExposureProxyProbe();
+  final Set<String> _testingUrls = <String>{};
+  final Map<String, AiExposureProxyProbeSample> _pendingSamples =
+      <String, AiExposureProxyProbeSample>{};
   late bool _enabled;
   late bool _bypassLocal;
+  late bool _inspectionEnabled;
+  late int _inspectionIntervalMinutes;
   late AiExposureProxyStrategy _strategy;
   late double _rotationEvery;
   late List<AiExposureProxyEndpoint> _endpoints;
+  Timer? _resultFlushTimer;
   bool _busy = false;
+  bool _inspectionBusy = false;
+  int _inspectionCompleted = 0;
+  int _inspectionTotal = 0;
+  int _inspectionGeneration = 0;
 
   @override
   void initState() {
@@ -49,6 +69,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final configuration = context.read<ServicesController>().proxyConfiguration;
     _enabled = configuration.enabled;
     _bypassLocal = configuration.bypassLocal;
+    _inspectionEnabled = configuration.inspectionEnabled;
+    _inspectionIntervalMinutes = configuration.inspectionIntervalMinutes;
     _strategy = configuration.strategy;
     _rotationEvery = configuration.rotationEvery.toDouble();
     _endpoints = List<AiExposureProxyEndpoint>.of(configuration.endpoints);
@@ -56,6 +78,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
 
   @override
   void dispose() {
+    _inspectionGeneration++;
+    _resultFlushTimer?.cancel();
     _endpoint.dispose();
     super.dispose();
   }
@@ -63,303 +87,466 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final cs = theme.colorScheme;
+    final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
     final status = context.watch<ServicesController>().proxyStatus;
-    return Padding(
-      padding: const EdgeInsets.all(22),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          OpenHandResponsiveHeaderLayout(
-            compactBreakpoint: 620,
-            identity: Row(
-              children: [
-                Container(
-                  width: 42,
-                  height: 42,
-                  decoration: BoxDecoration(
-                    color: cs.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
-                  ),
-                  child: Icon(Icons.lan_outlined, color: cs.onPrimaryContainer),
-                ),
-                const SizedBox(width: 12),
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        text(zh: '网络代理与代理池', en: 'Network proxy pool'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleLarge,
-                      ),
-                      Text(
-                        _enabled
-                            ? text(
-                                zh: '${_endpoints.length} 个代理 · ${_strategyLabel(_strategy, text)}',
-                                en: '${_endpoints.length} proxies · ${_strategyLabel(_strategy, text)}',
-                              )
-                            : text(zh: '当前使用直接连接', en: 'Direct connection'),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.bodySmall?.copyWith(
-                          color: cs.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ],
-            ),
-            actions: IconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: _busy ? null : () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ),
-          const SizedBox(height: 16),
-          Container(
-            padding: const EdgeInsets.all(14),
-            decoration: BoxDecoration(
-              color: cs.surfaceContainerHighest.withValues(alpha: 0.38),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: cs.outlineVariant),
-            ),
-            child: Column(
-              children: [
-                SwitchListTile(
-                  contentPadding: EdgeInsets.zero,
-                  value: _enabled,
-                  onChanged: (value) => setState(() => _enabled = value),
-                  secondary: Icon(
-                    _enabled ? Icons.vpn_lock_rounded : Icons.public_rounded,
-                    color: _enabled ? cs.primary : cs.onSurfaceVariant,
-                  ),
-                  title: Text(
-                    text(zh: '代理底层网络请求', en: 'Proxy network requests'),
-                  ),
-                  subtitle: Text(
-                    text(
-                      zh: '覆盖资产发现、目标探测、主动验证和 GPT 辅助请求。',
-                      en: 'Covers discovery, probing, validation, and assisted requests.',
+    final activeCount = _endpoints.where((endpoint) => endpoint.enabled).length;
+    return ServiceDialogInteractionTheme(
+      child: Padding(
+        padding: const EdgeInsets.all(22),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            OpenHandResponsiveHeaderLayout(
+              compactBreakpoint: 620,
+              identity: Row(
+                children: [
+                  Container(
+                    width: 42,
+                    height: 42,
+                    decoration: BoxDecoration(
+                      color: colors.primaryContainer,
+                      borderRadius: BorderRadius.circular(8),
+                    ),
+                    alignment: Alignment.center,
+                    child: Icon(
+                      Icons.lan_outlined,
+                      color: colors.onPrimaryContainer,
                     ),
                   ),
-                ),
-                const SizedBox(height: 10),
-                LayoutBuilder(
-                  builder: (context, constraints) {
-                    final strategy =
-                        DropdownButtonFormField<AiExposureProxyStrategy>(
-                          initialValue: _strategy,
-                          decoration: InputDecoration(
-                            labelText: text(zh: '代理策略', en: 'Proxy strategy'),
-                            border: const OutlineInputBorder(),
-                          ),
-                          items: AiExposureProxyStrategy.values
-                              .map(
-                                (item) => DropdownMenuItem(
-                                  value: item,
-                                  child: Text(_strategyLabel(item, text)),
-                                ),
-                              )
-                              .toList(growable: false),
-                          onChanged: (value) {
-                            if (value != null) {
-                              setState(() => _strategy = value);
-                            }
-                          },
-                        );
-                    final bypass = CheckboxListTile(
-                      contentPadding: EdgeInsets.zero,
-                      value: _bypassLocal,
-                      onChanged: (value) =>
-                          setState(() => _bypassLocal = value == true),
-                      title: Text(
-                        text(zh: '本地与私网直连', en: 'Bypass local networks'),
-                      ),
-                      controlAffinity: ListTileControlAffinity.leading,
-                    );
-                    if (constraints.maxWidth < 680) {
-                      return Column(
-                        children: [strategy, const SizedBox(height: 8), bypass],
-                      );
-                    }
-                    return Row(
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Expanded(child: strategy),
-                        const SizedBox(width: 14),
-                        Expanded(child: bypass),
+                        Text(
+                          text(zh: '网络代理与代理池', en: 'Network proxy pool'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.titleLarge,
+                        ),
+                        Text(
+                          _enabled
+                              ? text(
+                                  zh: '$activeCount 个启用节点 · ${_strategyLabel(_strategy, text)}',
+                                  en: '$activeCount active · ${_strategyLabel(_strategy, text)}',
+                                )
+                              : text(zh: '当前使用直接连接', en: 'Direct connection'),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
                       ],
-                    );
-                  },
-                ),
-                const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Expanded(
+                    ),
+                  ),
+                ],
+              ),
+              actions: IconButton(
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                onPressed: _busy
+                    ? null
+                    : () {
+                        _cancelInspection();
+                        Navigator.of(context).maybePop();
+                      },
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ),
+            const SizedBox(height: 16),
+            _buildSettingsPanel(context),
+            const SizedBox(height: 14),
+            _buildEndpointToolbar(context),
+            if (_inspectionBusy) ...[
+              const SizedBox(height: 10),
+              Row(
+                children: [
+                  Expanded(
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(99),
+                      child: LinearProgressIndicator(
+                        value: _inspectionTotal == 0
+                            ? null
+                            : _inspectionCompleted / _inspectionTotal,
+                        minHeight: 6,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 10),
+                  Text(
+                    '$_inspectionCompleted/$_inspectionTotal',
+                    style: theme.textTheme.labelMedium,
+                  ),
+                ],
+              ),
+            ],
+            const SizedBox(height: 12),
+            Expanded(
+              child: _endpoints.isEmpty
+                  ? Center(
                       child: Text(
                         text(
-                          zh: '每 ${_rotationEvery.round()} 次请求轮换',
-                          en: 'Rotate every ${_rotationEvery.round()} requests',
+                          zh: '代理池为空，可手工添加或批量导入 TXT/JSON。',
+                          en: 'Add a proxy or import a TXT/JSON pool.',
                         ),
-                        style: theme.textTheme.labelLarge,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
                       ),
+                    )
+                  : ListView.separated(
+                      itemCount: _endpoints.length,
+                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      itemBuilder: (context, index) {
+                        final endpoint = _endpoints[index];
+                        final selections = status?.endpoints
+                            .where((item) => item.address == endpoint.maskedUrl)
+                            .firstOrNull
+                            ?.selections;
+                        return _ProxyEndpointCard(
+                          key: ValueKey<String>(endpoint.url),
+                          endpoint: endpoint,
+                          selections: selections,
+                          testing: _testingUrls.contains(endpoint.url),
+                          busy: _busy || _inspectionBusy,
+                          onEnabledChanged: (enabled) => setState(
+                            () => _endpoints[index] = endpoint.copyWith(
+                              enabled: enabled,
+                            ),
+                          ),
+                          onTest: () => _testEndpoint(endpoint.url),
+                          onExport: () => _exportOne(endpoint),
+                          onDelete: () => setState(
+                            () => _endpoints.removeWhere(
+                              (item) => item.url == endpoint.url,
+                            ),
+                          ),
+                        );
+                      },
                     ),
-                    Text('${_rotationEvery.round()}'),
-                  ],
+            ),
+            const SizedBox(height: 14),
+            Wrap(
+              alignment: WrapAlignment.center,
+              spacing: kOpenHandDialogActionSpacing,
+              runSpacing: kOpenHandDialogActionSpacing,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  onPressed: _busy
+                      ? null
+                      : () {
+                          _cancelInspection();
+                          Navigator.of(context).maybePop();
+                        },
+                  label: text(zh: '取消', en: 'Cancel'),
                 ),
-                Slider(
-                  value: _rotationEvery,
-                  min: 1,
-                  max: 100,
-                  divisions: 99,
-                  label: '${_rotationEvery.round()}',
-                  onChanged: _strategy == AiExposureProxyStrategy.roundRobin
-                      ? (value) => setState(() => _rotationEvery = value)
-                      : null,
+                OpenHandDialogActionButton.primary(
+                  icon: Icons.save_rounded,
+                  busy: _busy,
+                  onPressed: _busy || _inspectionBusy ? null : _save,
+                  label: text(zh: '应用代理设置', en: 'Apply proxy settings'),
                 ),
               ],
             ),
-          ),
-          const SizedBox(height: 14),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildSettingsPanel(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final text = openHandTextResolver(context);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.32),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        children: [
           Row(
             children: [
+              Icon(
+                _enabled ? Icons.vpn_lock_rounded : Icons.public_rounded,
+                color: _enabled ? colors.primary : colors.onSurfaceVariant,
+              ),
+              const SizedBox(width: 12),
               Expanded(
-                child: TextField(
-                  controller: _endpoint,
-                  onSubmitted: (_) => _addEndpoint(),
-                  decoration: InputDecoration(
-                    labelText: text(zh: '代理地址', en: 'Proxy address'),
-                    hintText: 'username:password@127.0.0.1:8080',
-                    border: const OutlineInputBorder(),
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      text(zh: '代理底层网络请求', en: 'Proxy network requests'),
+                      style: theme.textTheme.titleSmall,
+                    ),
+                    Text(
+                      text(
+                        zh: '覆盖资产发现、目标探测、主动验证和 GPT 辅助请求。',
+                        en: 'Covers discovery, probing, validation, and assisted requests.',
+                      ),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                tooltip: text(zh: '添加代理', en: 'Add proxy'),
-                onPressed: _addEndpoint,
-                icon: const Icon(Icons.add_rounded),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                tooltip: text(zh: '批量导入', en: 'Bulk import'),
-                onPressed: _busy ? null : _import,
-                icon: const Icon(Icons.upload_file_rounded),
-              ),
-              const SizedBox(width: 8),
-              IconButton.filledTonal(
-                tooltip: text(zh: '导出代理池', en: 'Export pool'),
-                onPressed: _endpoints.isEmpty || _busy ? null : _exportAll,
-                icon: const Icon(Icons.download_rounded),
+              const SizedBox(width: 10),
+              Switch(
+                value: _enabled,
+                onChanged: (value) => setState(() => _enabled = value),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          Expanded(
-            child: _endpoints.isEmpty
-                ? Center(
-                    child: Text(
-                      text(
-                        zh: '代理池为空，可手工添加或批量导入 TXT/JSON。',
-                        en: 'Add a proxy or import a TXT/JSON pool.',
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final strategy = DropdownButtonFormField<AiExposureProxyStrategy>(
+                initialValue: _strategy,
+                decoration: InputDecoration(
+                  labelText: text(zh: '代理策略', en: 'Proxy strategy'),
+                  border: const OutlineInputBorder(),
+                ),
+                items: AiExposureProxyStrategy.values
+                    .map(
+                      (item) => DropdownMenuItem(
+                        value: item,
+                        child: Text(_strategyLabel(item, text)),
                       ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: cs.onSurfaceVariant,
-                      ),
-                    ),
-                  )
-                : ListView.separated(
-                    itemCount: _endpoints.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 6),
-                    itemBuilder: (context, index) {
-                      final endpoint = _endpoints[index];
-                      final selections = status?.endpoints
-                          .where((item) => item.address == endpoint.maskedUrl)
-                          .firstOrNull
-                          ?.selections;
-                      return Container(
-                        padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
-                        decoration: BoxDecoration(
-                          color: cs.surfaceContainerHighest.withValues(
-                            alpha: 0.28,
-                          ),
-                          borderRadius: BorderRadius.circular(8),
-                          border: Border.all(color: cs.outlineVariant),
-                        ),
-                        child: Row(
-                          children: [
-                            Icon(
-                              Icons.language_rounded,
-                              size: 19,
-                              color: cs.primary,
-                            ),
-                            const SizedBox(width: 10),
-                            Expanded(
-                              child: Text(
-                                endpoint.maskedUrl,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.bodyMedium?.copyWith(
-                                  fontFamily: 'monospace',
-                                ),
-                              ),
-                            ),
-                            if (selections != null) ...[
-                              const SizedBox(width: 8),
-                              Text(
-                                text(
-                                  zh: '请求 $selections',
-                                  en: '$selections requests',
-                                ),
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: cs.onSurfaceVariant,
-                                ),
-                              ),
-                            ],
-                            IconButton(
-                              tooltip: text(zh: '导出此代理', en: 'Export proxy'),
-                              onPressed: () => _exportOne(endpoint),
-                              icon: const Icon(Icons.file_download_outlined),
-                            ),
-                            IconButton(
-                              tooltip: text(zh: '移除代理', en: 'Remove proxy'),
-                              onPressed: () =>
-                                  setState(() => _endpoints.removeAt(index)),
-                              icon: const Icon(Icons.delete_outline_rounded),
-                            ),
-                          ],
-                        ),
-                      );
-                    },
+                    )
+                    .toList(growable: false),
+                onChanged: (value) {
+                  if (value != null) setState(() => _strategy = value);
+                },
+              );
+              final bypass = Row(
+                children: [
+                  Checkbox(
+                    value: _bypassLocal,
+                    onChanged: (value) =>
+                        setState(() => _bypassLocal = value == true),
                   ),
+                  const SizedBox(width: 6),
+                  Expanded(
+                    child: Text(
+                      text(zh: '本地与私网直连', en: 'Bypass local networks'),
+                    ),
+                  ),
+                ],
+              );
+              if (constraints.maxWidth < 680) {
+                return Column(
+                  children: [strategy, const SizedBox(height: 8), bypass],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: strategy),
+                  const SizedBox(width: 14),
+                  Expanded(child: bypass),
+                ],
+              );
+            },
           ),
-          const SizedBox(height: 14),
-          Wrap(
-            alignment: WrapAlignment.center,
-            spacing: kOpenHandDialogActionSpacing,
-            runSpacing: kOpenHandDialogActionSpacing,
+          const SizedBox(height: 8),
+          Row(
             children: [
-              OpenHandDialogActionButton.secondary(
-                onPressed: _busy
-                    ? null
-                    : () => Navigator.of(context).maybePop(),
-                label: text(zh: '取消', en: 'Cancel'),
+              Expanded(
+                child: Text(
+                  text(
+                    zh: '每 ${_rotationEvery.round()} 次请求轮换',
+                    en: 'Rotate every ${_rotationEvery.round()} requests',
+                  ),
+                  style: theme.textTheme.labelLarge,
+                ),
               ),
-              OpenHandDialogActionButton.primary(
-                icon: Icons.save_rounded,
-                busy: _busy,
-                onPressed: _busy ? null : _save,
-                label: text(zh: '应用代理设置', en: 'Apply proxy settings'),
-              ),
+              Text('${_rotationEvery.round()}'),
             ],
+          ),
+          Slider(
+            value: _rotationEvery,
+            min: 1,
+            max: 100,
+            divisions: 99,
+            label: '${_rotationEvery.round()}',
+            onChanged: _strategy == AiExposureProxyStrategy.roundRobin
+                ? (value) => setState(() => _rotationEvery = value)
+                : null,
+          ),
+          Divider(height: 20, color: colors.outlineVariant),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final toggle = Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Switch(
+                    value: _inspectionEnabled,
+                    onChanged: (value) =>
+                        setState(() => _inspectionEnabled = value),
+                  ),
+                  const SizedBox(width: 8),
+                  Flexible(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          text(zh: '定时巡检', en: 'Scheduled inspection'),
+                          style: theme.textTheme.labelLarge,
+                        ),
+                        Text(
+                          text(
+                            zh: '自动更新节点连通性与延迟趋势',
+                            en: 'Refresh connectivity and latency trends',
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              );
+              final interval = SizedBox(
+                width: 180,
+                child: DropdownButtonFormField<int>(
+                  initialValue: _normalizedInspectionInterval,
+                  decoration: InputDecoration(
+                    labelText: text(zh: '巡检周期', en: 'Interval'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: _kInspectionIntervals
+                      .map(
+                        (minutes) => DropdownMenuItem<int>(
+                          value: minutes,
+                          child: Text(_intervalLabel(minutes, text)),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: _inspectionEnabled
+                      ? (value) {
+                          if (value != null) {
+                            setState(() => _inspectionIntervalMinutes = value);
+                          }
+                        }
+                      : null,
+                ),
+              );
+              final inspect = FilledButton.tonalIcon(
+                onPressed: _inspectionBusy
+                    ? _cancelInspection
+                    : !_endpoints.any((item) => item.enabled)
+                    ? null
+                    : _inspectAll,
+                icon: _inspectionBusy
+                    ? const Icon(Icons.stop_rounded)
+                    : const Icon(Icons.network_check_rounded),
+                label: Text(
+                  _inspectionBusy
+                      ? text(zh: '停止巡检', en: 'Stop inspection')
+                      : text(zh: '一键巡检', en: 'Inspect all'),
+                ),
+              );
+              if (constraints.maxWidth < 760) {
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    toggle,
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 10,
+                      runSpacing: 10,
+                      alignment: WrapAlignment.end,
+                      crossAxisAlignment: WrapCrossAlignment.center,
+                      children: [interval, inspect],
+                    ),
+                  ],
+                );
+              }
+              return Row(
+                children: [
+                  Expanded(child: toggle),
+                  const SizedBox(width: 12),
+                  interval,
+                  const SizedBox(width: 10),
+                  inspect,
+                ],
+              );
+            },
           ),
         ],
       ),
     );
   }
+
+  Widget _buildEndpointToolbar(BuildContext context) {
+    final text = openHandTextResolver(context);
+    final field = TextField(
+      controller: _endpoint,
+      enabled: !_busy && !_inspectionBusy,
+      onSubmitted: (_) => _addEndpoint(),
+      decoration: InputDecoration(
+        labelText: text(zh: '代理地址', en: 'Proxy address'),
+        hintText: 'username:password@127.0.0.1:8080',
+        border: const OutlineInputBorder(),
+      ),
+    );
+    final actions = ServiceDialogIconActions(
+      children: [
+        IconButton.filledTonal(
+          tooltip: text(zh: '添加代理', en: 'Add proxy'),
+          onPressed: _busy || _inspectionBusy ? null : _addEndpoint,
+          icon: const Icon(Icons.add_rounded),
+        ),
+        IconButton.filledTonal(
+          tooltip: text(zh: '批量导入', en: 'Bulk import'),
+          onPressed: _busy || _inspectionBusy ? null : _import,
+          icon: const Icon(Icons.upload_file_rounded),
+        ),
+        IconButton.filledTonal(
+          tooltip: text(zh: '导出代理池', en: 'Export pool'),
+          onPressed: _endpoints.isEmpty || _busy || _inspectionBusy
+              ? null
+              : _exportAll,
+          icon: const Icon(Icons.download_rounded),
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 620) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              field,
+              const SizedBox(height: 8),
+              Align(alignment: AlignmentDirectional.centerEnd, child: actions),
+            ],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: field),
+            const SizedBox(width: 10),
+            actions,
+          ],
+        );
+      },
+    );
+  }
+
+  int get _normalizedInspectionInterval =>
+      _kInspectionIntervals.contains(_inspectionIntervalMinutes)
+      ? _inspectionIntervalMinutes
+      : 30;
 
   void _addEndpoint() {
     try {
@@ -379,6 +566,96 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     }
   }
 
+  Future<void> _testEndpoint(String url) async {
+    if (_testingUrls.contains(url)) return;
+    final endpoint = _endpoints.where((item) => item.url == url).firstOrNull;
+    if (endpoint == null) return;
+    setState(() => _testingUrls.add(url));
+    final sample = await _probe.inspect(endpoint);
+    if (!mounted) return;
+    _pendingSamples[url] = sample;
+    _testingUrls.remove(url);
+    _flushProbeResults();
+  }
+
+  Future<void> _inspectAll() async {
+    if (_inspectionBusy) return;
+    final endpoints = _endpoints
+        .where((endpoint) => endpoint.enabled)
+        .toList(growable: false);
+    if (endpoints.isEmpty) return;
+    final generation = ++_inspectionGeneration;
+    setState(() {
+      _inspectionBusy = true;
+      _inspectionCompleted = 0;
+      _inspectionTotal = endpoints.length;
+      _testingUrls.addAll(endpoints.map((endpoint) => endpoint.url));
+    });
+    var cursor = 0;
+    Future<void> worker() async {
+      while (mounted && generation == _inspectionGeneration) {
+        final index = cursor++;
+        if (index >= endpoints.length) return;
+        final endpoint = endpoints[index];
+        final sample = await _probe.inspect(endpoint);
+        if (!mounted || generation != _inspectionGeneration) return;
+        _pendingSamples[endpoint.url] = sample;
+        _testingUrls.remove(endpoint.url);
+        _inspectionCompleted++;
+        _scheduleProbeResultFlush();
+      }
+    }
+
+    await Future.wait<void>(
+      List<Future<void>>.generate(
+        endpoints.length < _kProxyInspectionConcurrency
+            ? endpoints.length
+            : _kProxyInspectionConcurrency,
+        (_) => worker(),
+      ),
+    );
+    if (!mounted || generation != _inspectionGeneration) return;
+    _resultFlushTimer?.cancel();
+    _resultFlushTimer = null;
+    _flushProbeResults();
+    setState(() => _inspectionBusy = false);
+  }
+
+  void _scheduleProbeResultFlush() {
+    if (_resultFlushTimer?.isActive == true) return;
+    _resultFlushTimer = Timer(_kProbeResultFlushDelay, () {
+      _resultFlushTimer = null;
+      _flushProbeResults();
+    });
+  }
+
+  void _cancelInspection() {
+    if (!_inspectionBusy) return;
+    _inspectionGeneration++;
+    _resultFlushTimer?.cancel();
+    _resultFlushTimer = null;
+    _flushProbeResults();
+    if (!mounted) return;
+    setState(() {
+      _inspectionBusy = false;
+      _testingUrls.clear();
+    });
+  }
+
+  void _flushProbeResults() {
+    if (!mounted || _pendingSamples.isEmpty) return;
+    final samples = Map<String, AiExposureProxyProbeSample>.of(_pendingSamples);
+    _pendingSamples.clear();
+    setState(() {
+      _endpoints = _endpoints
+          .map((endpoint) {
+            final sample = samples[endpoint.url];
+            return sample == null ? endpoint : endpoint.withSample(sample);
+          })
+          .toList(growable: true);
+    });
+  }
+
   Future<void> _import() async {
     final file = await openFile(
       acceptedTypeGroups: const <XTypeGroup>[
@@ -392,28 +669,23 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       if (await source.length() > _kMaxProxyImportBytes) {
         throw const FormatException('代理文件不能超过 4 MB。');
       }
-      final content = await source.readAsString();
-      final values = _proxyValues(content);
+      final imported = _proxyEndpoints(await source.readAsString());
       final merged = <String, AiExposureProxyEndpoint>{
         for (final endpoint in _endpoints) endpoint.url: endpoint,
       };
-      var invalid = 0;
-      for (final value in values) {
+      var accepted = 0;
+      for (final endpoint in imported.endpoints) {
         if (merged.length >= _kMaxProxyEndpoints) break;
-        try {
-          final endpoint = AiExposureProxyEndpoint.parse(value);
-          merged[endpoint.url] = endpoint;
-        } on FormatException {
-          invalid++;
-        }
+        if (!merged.containsKey(endpoint.url)) accepted++;
+        merged[endpoint.url] = endpoint;
       }
       if (!mounted) return;
       setState(() => _endpoints = merged.values.toList(growable: true));
       showOpenHandSuccessSnack(
         context,
-        invalid == 0
-            ? '已导入 ${_endpoints.length} 个代理。'
-            : '已导入 ${_endpoints.length} 个代理，忽略 $invalid 条无效记录。',
+        imported.invalid == 0
+            ? '已新增 $accepted 个代理。'
+            : '已新增 $accepted 个代理，忽略 ${imported.invalid} 条无效记录。',
       );
     } catch (error) {
       if (mounted) showOpenHandErrorSnack(context, '$error');
@@ -424,16 +696,27 @@ class _ProxyDialogState extends State<_ProxyDialog> {
 
   Future<void> _exportAll() async {
     final location = await getSaveLocation(
-      suggestedName: 'openhand-ai-exposure-proxies.txt',
+      suggestedName: 'openhand-ai-exposure-proxies.json',
       acceptedTypeGroups: const <XTypeGroup>[
-        XTypeGroup(label: 'TXT', extensions: <String>['txt']),
+        XTypeGroup(label: 'JSON', extensions: <String>['json']),
       ],
     );
     if (location == null) return;
-    await writeFileAtomically(
-      File(location.path),
-      '${_endpoints.map((endpoint) => endpoint.url).join('\n')}\n',
-    );
+    final payload = const JsonEncoder.withIndent('  ')
+        .convert(<String, Object?>{
+          'type': 'openhand_ai_exposure_proxy_pool',
+          'version': 2,
+          'enabled': _enabled,
+          'strategy': _strategy.id,
+          'rotationEvery': _rotationEvery.round(),
+          'bypassLocal': _bypassLocal,
+          'inspectionEnabled': _inspectionEnabled,
+          'inspectionIntervalMinutes': _normalizedInspectionInterval,
+          'endpoints': _endpoints
+              .map((endpoint) => endpoint.toJson())
+              .toList(growable: false),
+        });
+    await writeFileAtomically(File(location.path), payload);
     if (mounted) showOpenHandSuccessSnack(context, '代理池已导出。');
   }
 
@@ -448,8 +731,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final payload = const JsonEncoder.withIndent('  ').convert(
       <String, Object?>{
         'type': 'openhand_ai_exposure_proxy',
-        'version': 1,
-        'url': endpoint.url,
+        'version': 2,
+        ...endpoint.toJson(),
       },
     );
     await writeFileAtomically(File(location.path), payload);
@@ -457,8 +740,9 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 
   Future<void> _save() async {
-    if (_enabled && _endpoints.isEmpty) {
-      showOpenHandErrorSnack(context, '启用代理前至少添加一个代理。');
+    final activeCount = _endpoints.where((endpoint) => endpoint.enabled).length;
+    if ((_enabled || _inspectionEnabled) && activeCount == 0) {
+      showOpenHandErrorSnack(context, '请至少启用一个代理节点。');
       return;
     }
     setState(() => _busy = true);
@@ -471,6 +755,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
             rotationEvery: _rotationEvery.round(),
             bypassLocal: _bypassLocal,
             endpoints: List<AiExposureProxyEndpoint>.unmodifiable(_endpoints),
+            inspectionEnabled: _inspectionEnabled,
+            inspectionIntervalMinutes: _normalizedInspectionInterval,
           ),
         );
     if (!mounted) return;
@@ -479,20 +765,387 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 }
 
-List<String> _proxyValues(String content) {
-  final trimmed = content.trim();
-  if (trimmed.startsWith('{')) {
-    final decoded = jsonDecode(trimmed);
-    if (decoded is Map && decoded['url'] is String) {
-      return <String>[decoded['url'] as String];
-    }
-    throw const FormatException('代理 JSON 配置无效。');
+class _ProxyEndpointCard extends StatelessWidget {
+  const _ProxyEndpointCard({
+    super.key,
+    required this.endpoint,
+    required this.selections,
+    required this.testing,
+    required this.busy,
+    required this.onEnabledChanged,
+    required this.onTest,
+    required this.onExport,
+    required this.onDelete,
+  });
+
+  final AiExposureProxyEndpoint endpoint;
+  final int? selections;
+  final bool testing;
+  final bool busy;
+  final ValueChanged<bool> onEnabledChanged;
+  final VoidCallback onTest;
+  final VoidCallback onExport;
+  final VoidCallback onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final text = openHandTextResolver(context);
+    final sample = endpoint.latestSample;
+    final tone = _proxyHealthTone(context, endpoint, testing);
+    final details = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        AnimatedContainer(
+          duration: openHandMotionDuration(
+            context,
+            const Duration(milliseconds: 260),
+          ),
+          curve: Curves.easeOutBack,
+          width: 34,
+          height: 34,
+          decoration: BoxDecoration(
+            color: tone.color.withValues(alpha: 0.13),
+            borderRadius: BorderRadius.circular(8),
+          ),
+          alignment: Alignment.center,
+          child: AnimatedSwitcher(
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 220),
+            ),
+            child: testing
+                ? SizedBox.square(
+                    key: const ValueKey<String>('testing'),
+                    dimension: 17,
+                    child: CircularProgressIndicator(
+                      strokeWidth: 2,
+                      color: tone.color,
+                    ),
+                  )
+                : Icon(
+                    tone.icon,
+                    key: ValueKey<IconData>(tone.icon),
+                    size: 19,
+                    color: tone.color,
+                  ),
+          ),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                endpoint.maskedUrl,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  fontFamily: 'monospace',
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 7),
+              Wrap(
+                spacing: 7,
+                runSpacing: 6,
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  _ProxyMetric(
+                    icon: tone.icon,
+                    label: tone.label,
+                    color: tone.color,
+                  ),
+                  if (sample?.latencyMs != null)
+                    _ProxyMetric(
+                      icon: Icons.speed_rounded,
+                      label: '${sample!.latencyMs} ms',
+                      color: tone.color,
+                    ),
+                  if (selections != null)
+                    _ProxyMetric(
+                      icon: Icons.route_outlined,
+                      label: text(
+                        zh: '请求 $selections',
+                        en: '$selections requests',
+                      ),
+                      color: colors.onSurfaceVariant,
+                    ),
+                  if (sample != null)
+                    _ProxyMetric(
+                      icon: Icons.schedule_rounded,
+                      label: _timeLabel(sample.checkedAt),
+                      color: colors.onSurfaceVariant,
+                    ),
+                ],
+              ),
+              if (sample?.error?.isNotEmpty == true) ...[
+                const SizedBox(height: 6),
+                Text(
+                  sample!.error!,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: OpenHandStatusColors.error,
+                  ),
+                ),
+              ],
+            ],
+          ),
+        ),
+      ],
+    );
+    final chart = _ProxyLatencyChart(endpoint: endpoint);
+    final actions = ServiceDialogIconActions(
+      children: [
+        Tooltip(
+          message: endpoint.enabled
+              ? text(zh: '禁用此节点', en: 'Disable node')
+              : text(zh: '启用此节点', en: 'Enable node'),
+          child: Switch(
+            value: endpoint.enabled,
+            onChanged: busy ? null : onEnabledChanged,
+          ),
+        ),
+        IconButton(
+          tooltip: text(zh: '测试连通性与延迟', en: 'Test connectivity'),
+          onPressed: busy || testing ? null : onTest,
+          icon: testing
+              ? const SizedBox.square(
+                  dimension: 18,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              : const Icon(Icons.speed_rounded),
+        ),
+        IconButton(
+          tooltip: text(zh: '导出此代理', en: 'Export proxy'),
+          onPressed: busy ? null : onExport,
+          icon: const Icon(Icons.file_download_outlined),
+        ),
+        IconButton(
+          tooltip: text(zh: '移除代理', en: 'Remove proxy'),
+          onPressed: busy ? null : onDelete,
+          icon: const Icon(Icons.delete_outline_rounded),
+        ),
+      ],
+    );
+    return AnimatedContainer(
+      duration: openHandMotionDuration(
+        context,
+        const Duration(milliseconds: 260),
+      ),
+      curve: Curves.easeOutCubic,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: endpoint.enabled
+            ? colors.surfaceContainerHighest.withValues(alpha: 0.26)
+            : colors.surfaceContainerLow.withValues(alpha: 0.42),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: sample?.reachable == true
+              ? tone.color.withValues(alpha: 0.36)
+              : colors.outlineVariant,
+        ),
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 820) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                details,
+                const SizedBox(height: 10),
+                chart,
+                const SizedBox(height: 8),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: actions,
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: details),
+              const SizedBox(width: 14),
+              SizedBox(width: 190, child: chart),
+              const SizedBox(width: 12),
+              actions,
+            ],
+          );
+        },
+      ),
+    );
   }
-  return const LineSplitter()
-      .convert(content)
-      .map((line) => line.trim())
-      .where((line) => line.isNotEmpty && !line.startsWith('#'))
-      .toList(growable: false);
+}
+
+class _ProxyLatencyChart extends StatelessWidget {
+  const _ProxyLatencyChart({required this.endpoint});
+
+  final AiExposureProxyEndpoint endpoint;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final values = endpoint.samples
+        .where((sample) => sample.reachable)
+        .map((sample) => sample.latencyMs!.toDouble())
+        .toList(growable: false);
+    final revision =
+        endpoint.latestSample?.checkedAt.microsecondsSinceEpoch ?? 0;
+    return SizedBox(
+      height: 70,
+      child: TweenAnimationBuilder<double>(
+        key: ValueKey<int>(revision),
+        tween: Tween<double>(begin: 0, end: 1),
+        duration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 460),
+        ),
+        curve: Curves.easeOutBack,
+        builder: (context, progress, _) {
+          final scale = progress.clamp(0.0, 1.0);
+          return CustomPaint(
+            painter: OpenHandSmoothLineChartPainter(
+              series: <OpenHandChartSeries>[
+                OpenHandChartSeries(
+                  label: 'latency',
+                  values: values.map((value) => value * scale).toList(),
+                  color: colors.primary,
+                ),
+              ],
+              gridColor: colors.outlineVariant.withValues(alpha: 0.55),
+              labelColor: colors.onSurfaceVariant,
+              emptyLabel: openHandLocalizedText(
+                context,
+                zh: '暂无延迟样本',
+                en: 'No latency samples',
+              ),
+              valueSuffix: ' ms',
+              textDirection: Directionality.of(context),
+            ),
+            size: Size.infinite,
+          );
+        },
+      ),
+    );
+  }
+}
+
+class _ProxyMetric extends StatelessWidget {
+  const _ProxyMetric({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Icon(icon, size: 14, color: color),
+      const SizedBox(width: 4),
+      Text(
+        label,
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
+      ),
+    ],
+  );
+}
+
+({Color color, IconData icon, String label}) _proxyHealthTone(
+  BuildContext context,
+  AiExposureProxyEndpoint endpoint,
+  bool testing,
+) {
+  final text = openHandTextResolver(context);
+  if (testing) {
+    return (
+      color: OpenHandStatusColors.info,
+      icon: Icons.sync_rounded,
+      label: text(zh: '检测中', en: 'Testing'),
+    );
+  }
+  if (!endpoint.enabled) {
+    return (
+      color: Theme.of(context).colorScheme.outline,
+      icon: Icons.pause_circle_outline_rounded,
+      label: text(zh: '已禁用', en: 'Disabled'),
+    );
+  }
+  final sample = endpoint.latestSample;
+  if (sample == null) {
+    return (
+      color: Theme.of(context).colorScheme.outline,
+      icon: Icons.help_outline_rounded,
+      label: text(zh: '未检测', en: 'Unchecked'),
+    );
+  }
+  if (!sample.reachable) {
+    return (
+      color: OpenHandStatusColors.error,
+      icon: Icons.cloud_off_outlined,
+      label: text(zh: '不可用', en: 'Unavailable'),
+    );
+  }
+  if (sample.latencyMs! <= 350) {
+    return (
+      color: OpenHandStatusColors.success,
+      icon: Icons.check_circle_outline_rounded,
+      label: text(zh: '畅通', en: 'Healthy'),
+    );
+  }
+  return (
+    color: OpenHandStatusColors.warning,
+    icon: Icons.warning_amber_rounded,
+    label: text(zh: '高延迟', en: 'High latency'),
+  );
+}
+
+({List<AiExposureProxyEndpoint> endpoints, int invalid}) _proxyEndpoints(
+  String content,
+) {
+  final trimmed = content.trim();
+  final endpoints = <AiExposureProxyEndpoint>[];
+  var invalid = 0;
+  if (trimmed.startsWith('{') || trimmed.startsWith('[')) {
+    final decoded = jsonDecode(trimmed);
+    final values = decoded is Map
+        ? decoded['endpoints'] is List
+              ? decoded['endpoints'] as List
+              : <Object?>[decoded]
+        : decoded is List
+        ? decoded
+        : const <Object?>[];
+    if (values.isEmpty) throw const FormatException('代理 JSON 配置无效。');
+    for (final value in values) {
+      try {
+        endpoints.add(AiExposureProxyEndpoint.fromJson(value));
+      } on FormatException {
+        invalid++;
+      }
+    }
+  } else {
+    for (final line in const LineSplitter().convert(content)) {
+      final value = line.trim();
+      if (value.isEmpty || value.startsWith('#')) continue;
+      try {
+        endpoints.add(AiExposureProxyEndpoint.parse(value));
+      } on FormatException {
+        invalid++;
+      }
+    }
+  }
+  if (endpoints.isEmpty && invalid > 0) {
+    throw const FormatException('未找到有效的代理地址。');
+  }
+  return (endpoints: endpoints, invalid: invalid);
 }
 
 String _strategyLabel(
@@ -504,3 +1157,16 @@ String _strategyLabel(
   AiExposureProxyStrategy.random => text(zh: '均衡随机', en: 'Random'),
   AiExposureProxyStrategy.stickyHost => text(zh: '目标粘性', en: 'Sticky host'),
 };
+
+String _intervalLabel(
+  int minutes,
+  String Function({required String zh, required String en}) text,
+) => minutes < 60
+    ? text(zh: '$minutes 分钟', en: '$minutes min')
+    : text(zh: '${minutes ~/ 60} 小时', en: '${minutes ~/ 60} hr');
+
+String _timeLabel(DateTime value) {
+  final local = value.toLocal();
+  String two(int number) => number.toString().padLeft(2, '0');
+  return '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
+}
