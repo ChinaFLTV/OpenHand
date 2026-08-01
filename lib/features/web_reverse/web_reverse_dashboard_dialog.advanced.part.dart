@@ -2354,7 +2354,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
   int _selected = 0;
   // 0 = 图表，1 = ICE 拓扑，2 = SDP Diff，3 = 事件流。
   int _tab = 0;
-  // Stage C 增强：ICE 候选项 + 连接状态历史，按 PC 维护。
+  // 按连接维护 ICE 候选项与状态历史。
   final Map<int, List<_IceEntry>> _iceLog = <int, List<_IceEntry>>{};
   // SDP 历史：每个 PC 维护 local / remote 各两份（最新 + 上一份），用于 diff。
   final Map<int, _SdpPair> _sdps = <int, _SdpPair>{};
@@ -2368,14 +2368,9 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     _pollTimer = startNonOverlappingPeriodicTimer(
       const Duration(seconds: 1),
       (_) => _poll(),
-      onError: (error, stack) => silentLog(
-        'web_reverse_dashboard_dialog',
-        '轮询 WebRTC 日志',
-        error,
-        stack,
-      ),
+      onError: _reportPollError,
     );
-    _poll();
+    unawaited(_poll().catchError(_reportPollError));
   }
 
   @override
@@ -2393,6 +2388,10 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
     } finally {
       _pollInFlight = false;
     }
+  }
+
+  void _reportPollError(Object error, StackTrace stack) {
+    silentLog('web_reverse_dashboard_dialog', '轮询 WebRTC 日志', error, stack);
   }
 
   Future<void> _pollOnce() async {
@@ -2439,10 +2438,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
             _selected = _series.keys.first;
           }
         } else {
-          // Stage C：把控制平面事件（pc.create / track /
-          // datachannel / icecandidate / connectionstatechange / SDP
-          // result）分类塞进 _iceLog 与 _sdps；原始 JSON 仍保留事件
-          // 流 tab 用。
+          // 控制平面事件分类写入 ICE 与 SDP 历史，原始数据保留给事件流。
           final id = nonNegativeIntFromValue(e['id'], fallback: 0);
           if (id > 0) {
             _retainConnection(id);

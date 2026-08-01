@@ -5451,11 +5451,7 @@ class _DiffRow extends StatelessWidget {
 
 /// 把 Tracing.dataCollected JSON 转成简化火焰图的弹窗。
 ///
-/// Stage D 增强：
-///   ① 横轴贴出时间标尺（5 等分时间刻度，单位 ms）；
-///   ② 点击任一矩形弹出该 event 的完整 args / cat / pid 详情；
-///   ③ 右侧侧栏列出按 dur 降序的 Top 30 事件，点击即在火焰图里把对应
-///      矩形闪烁高亮 1 秒。
+/// 横轴展示时间标尺；点击事件可查看详情，右侧按耗时列出高开销事件。
 class _FlameGraphDialog extends StatefulWidget {
   const _FlameGraphDialog({required this.traceJson});
 
