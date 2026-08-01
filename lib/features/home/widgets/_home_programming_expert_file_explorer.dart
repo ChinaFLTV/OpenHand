@@ -1,8 +1,6 @@
 part of '../openhand_home_page.dart';
 
-// ─────────────────────────────────────────────────────────────────────────────
-// File Explorer Panel — replaces the navigation sidebar when toggled
-// ─────────────────────────────────────────────────────────────────────────────
+// 文件浏览器面板。
 
 enum _UnsavedCloseAction { save, discard, cancel }
 
@@ -134,15 +132,17 @@ class _FileExplorerPanel extends StatefulWidget {
 class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   late _FileNode _rootNode;
   bool _loading = true;
+  int _rootLoadGeneration = 0;
   final ScrollController _treeScrollController = ScrollController();
   final ScrollController _treeHorizontalScrollController = ScrollController();
 
-  // Clipboard state for cut/copy/paste operations.
+  // 剪切、复制和粘贴状态。
   String? _clipboardPath;
   bool _clipboardIsCut = false;
 
-  // Search state.
+  // 搜索状态。
   bool _searchActive = false;
+  int _searchGeneration = 0;
   final TextEditingController _searchController = TextEditingController();
   final FocusNode _searchFocusNode = FocusNode();
   final OpenHandDebouncer _searchDebounce = OpenHandDebouncer(
@@ -151,7 +151,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   List<_FileNode> _searchResults = const [];
   bool _searchLoading = false;
 
-  // Track the currently selected node in the tree (for "Expand Selected").
+  // 当前选中节点，供“展开所选”使用。
   String? _selectedNodePath;
   final Map<String, GlobalKey> _treeItemKeys = <String, GlobalKey>{};
 
@@ -163,39 +163,30 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       path: widget.rootPath,
       isDirectory: true,
     );
-    _loadChildren(_rootNode).then((_) {
-      if (mounted) {
-        setState(() {
-          _rootNode.isExpanded = true;
-          _loading = false;
-        });
-        _revealActiveFile();
-      }
-    });
+    unawaited(_finishRootLoad(_rootNode, ++_rootLoadGeneration));
   }
 
   @override
   void didUpdateWidget(_FileExplorerPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.rootPath != widget.rootPath) {
+      _searchDebounce.cancel();
+      _searchGeneration++;
+      _revealEpoch++;
+      final root = _FileNode(
+        name: p.basename(widget.rootPath),
+        path: widget.rootPath,
+        isDirectory: true,
+      );
       setState(() {
         _loading = true;
         _selectedNodePath = null;
-        _rootNode = _FileNode(
-          name: p.basename(widget.rootPath),
-          path: widget.rootPath,
-          isDirectory: true,
-        );
+        _rootNode = root;
+        _searchController.clear();
+        _searchResults = const <_FileNode>[];
+        _searchLoading = false;
       });
-      _loadChildren(_rootNode).then((_) {
-        if (mounted) {
-          setState(() {
-            _rootNode.isExpanded = true;
-            _loading = false;
-          });
-          _revealActiveFile();
-        }
-      });
+      unawaited(_finishRootLoad(root, ++_rootLoadGeneration));
     } else if (oldWidget.activeFilePath != widget.activeFilePath) {
       _revealActiveFile();
     }
@@ -203,6 +194,9 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
 
   @override
   void dispose() {
+    _rootLoadGeneration++;
+    _searchGeneration++;
+    _revealEpoch++;
     _searchDebounce.dispose();
     _treeScrollController.dispose();
     _treeHorizontalScrollController.dispose();
@@ -215,6 +209,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     setState(() {
       _searchActive = !_searchActive;
       if (!_searchActive) {
+        _searchGeneration++;
         _searchDebounce.cancel();
         _searchController.clear();
         _searchResults = const [];
@@ -222,10 +217,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       }
     });
     if (_searchActive) {
-      // Schedule focus request in the next frame after the TextField is
-      // inserted into the widget tree.  Using a double post-frame callback
-      // improves reliability on macOS where the platform text-input channel
-      // sometimes misses the first attach cycle.
+      // 输入框挂载后再请求焦点，避免 macOS 文本通道错过首次连接。
       WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_searchActive) return;
         _searchFocusNode.requestFocus();
@@ -235,6 +227,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
 
   void _onSearchChanged(String query) {
     _searchDebounce.cancel();
+    final generation = ++_searchGeneration;
     final trimmed = query.trim().toLowerCase();
     if (trimmed.isEmpty) {
       setState(() {
@@ -243,20 +236,17 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       });
       return;
     }
-    // Show loading indicator immediately but debounce the actual I/O scan
-    // to avoid excessive rebuilds (which can disconnect the macOS text-input
-    // channel when keystrokes arrive faster than setState flushes).
+    // 立即显示加载态，目录扫描延后执行以减少连续输入产生的 I/O。
     if (!_searchLoading && mounted) {
       setState(() => _searchLoading = true);
     }
-    _searchDebounce.schedule(() {
-      if (mounted) {
-        _performSearch(trimmed);
-      }
+    _searchDebounce.schedule(() async {
+      if (!mounted || generation != _searchGeneration) return;
+      await _performSearch(trimmed, generation);
     });
   }
 
-  Future<void> _performSearch(String query) async {
+  Future<void> _performSearch(String query, int generation) async {
     final trimmed = query.trim().toLowerCase();
     if (trimmed.isEmpty) {
       if (mounted) {
@@ -270,15 +260,23 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     if (mounted) {
       setState(() => _searchLoading = true);
     }
+    final rootPath = widget.rootPath;
     final results = <_FileNode>[];
     await _searchDirectory(
-      Directory(widget.rootPath),
+      Directory(rootPath),
       trimmed,
       results,
       0,
       _DirectoryScanBudget(_kFileExplorerSearchEntryLimit),
+      generation,
     );
-    if (!mounted) return;
+    if (!mounted ||
+        generation != _searchGeneration ||
+        !_searchActive ||
+        rootPath != widget.rootPath ||
+        _searchController.text.trim().toLowerCase() != trimmed) {
+      return;
+    }
     setState(() {
       _searchResults = results;
       _searchLoading = false;
@@ -291,8 +289,15 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     List<_FileNode> results,
     int depth,
     _DirectoryScanBudget budget,
+    int generation,
   ) async {
-    if (depth > 12 || results.length >= 100 || budget.remaining <= 0) return;
+    if (!mounted ||
+        generation != _searchGeneration ||
+        depth > 12 ||
+        results.length >= 100 ||
+        budget.remaining <= 0) {
+      return;
+    }
     try {
       final listing = await listDirectoryBounded(
         dir,
@@ -312,6 +317,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
             .compareTo(p.basename(b.path).toLowerCase());
       });
       for (final entry in entries) {
+        if (!mounted || generation != _searchGeneration) return;
         if (!budget.consume()) return;
         if (results.length >= 100) return;
         final name = p.basename(entry.path);
@@ -326,7 +332,14 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
           );
         }
         if (entry is Directory) {
-          await _searchDirectory(entry, query, results, depth + 1, budget);
+          await _searchDirectory(
+            entry,
+            query,
+            results,
+            depth + 1,
+            budget,
+            generation,
+          );
         }
       }
     } catch (error, stack) {
@@ -334,8 +347,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     }
   }
 
-  /// Expand parent directories to make the active file visible in the tree
-  /// (similar to IntelliJ IDEA's "scroll from source" behaviour).
+  /// 展开父目录并定位当前文件。
   int _revealEpoch = 0;
 
   Future<void> _revealActiveFile() async {
@@ -356,7 +368,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       current = match.first;
       current.isExpanded = true;
     }
-    // Ensure the last directory's children are loaded so the file is visible.
+    // 加载最后一级目录，确保目标文件可见。
     if (!current.childrenLoaded) await _loadChildren(current);
     if (!mounted || epoch != _revealEpoch) return;
     setState(() {
@@ -383,42 +395,59 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     );
   }
 
-  Future<void> _loadChildren(_FileNode node) async {
-    if (!node.isDirectory || node.childrenLoaded) return;
-    try {
-      final dir = Directory(node.path);
-      final entries = (await listDirectoryBounded(
-        dir,
-        maxEntries: _kFileExplorerDirectoryEntryLimit,
-      )).entries.toList(growable: false);
-      entries.sort((a, b) {
-        final aIsDir = a is Directory;
-        final bIsDir = b is Directory;
-        if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
-        return p
-            .basename(a.path)
-            .toLowerCase()
-            .compareTo(p.basename(b.path).toLowerCase());
-      });
-      final children = <_FileNode>[];
-      for (final entry in entries) {
-        final name = p.basename(entry.path);
-        if (_isHiddenOrIgnored(name)) continue;
-        children.add(
-          _FileNode(
-            name: name,
-            path: entry.path,
-            isDirectory: entry is Directory,
-          ),
-        );
+  Future<void> _loadChildren(_FileNode node) {
+    if (!node.isDirectory || node.childrenLoaded) return Future<void>.value();
+    return node.childrenLoad.run(() async {
+      if (node.childrenLoaded) return;
+      try {
+        final dir = Directory(node.path);
+        final entries = (await listDirectoryBounded(
+          dir,
+          maxEntries: _kFileExplorerDirectoryEntryLimit,
+        )).entries.toList(growable: false);
+        entries.sort((a, b) {
+          final aIsDir = a is Directory;
+          final bIsDir = b is Directory;
+          if (aIsDir != bIsDir) return aIsDir ? -1 : 1;
+          return p
+              .basename(a.path)
+              .toLowerCase()
+              .compareTo(p.basename(b.path).toLowerCase());
+        });
+        final children = <_FileNode>[];
+        for (final entry in entries) {
+          final name = p.basename(entry.path);
+          if (_isHiddenOrIgnored(name)) continue;
+          children.add(
+            _FileNode(
+              name: name,
+              path: entry.path,
+              isDirectory: entry is Directory,
+            ),
+          );
+        }
+        node.children = children;
+        node.childrenLoaded = true;
+      } catch (error, stack) {
+        silentLog('file_explorer', '加载子节点 ${node.path}', error, stack);
+        node.children = const <_FileNode>[];
+        node.childrenLoaded = true;
       }
-      node.children = children;
-      node.childrenLoaded = true;
-    } catch (error, stack) {
-      silentLog('file_explorer', '加载子节点 ${node.path}', error, stack);
-      node.children = const [];
-      node.childrenLoaded = true;
+    });
+  }
+
+  Future<void> _finishRootLoad(_FileNode root, int generation) async {
+    await _loadChildren(root);
+    if (!mounted ||
+        generation != _rootLoadGeneration ||
+        !identical(root, _rootNode)) {
+      return;
     }
+    setState(() {
+      root.isExpanded = true;
+      _loading = false;
+    });
+    unawaited(_revealActiveFile());
   }
 
   bool _isHiddenOrIgnored(String name) {
@@ -447,12 +476,12 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     setState(() => node.isExpanded = !node.isExpanded);
   }
 
-  /// Scroll-from-source: reveal and select the currently active file in tree.
+  /// 定位并选中当前文件。
   Future<void> _selectOpenedFile() async {
     await _revealActiveFile();
   }
 
-  /// Recursively expand the selected directory node.
+  /// 递归展开选中的目录节点。
   Future<void> _expandSelected() async {
     final targetPath = _selectedNodePath ?? widget.activeFilePath;
     if (targetPath == null) return;
@@ -488,7 +517,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
     }
   }
 
-  /// Collapse all expanded directories.
+  /// 折叠所有已展开目录。
   void _collapseAll() {
     for (final child in _rootNode.children) {
       if (child.isDirectory) {
@@ -525,10 +554,11 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
   }
 
   Future<void> _refreshRoot() async {
-    _rootNode.childrenLoaded = false;
-    _rootNode.children = const [];
-    await _loadChildren(_rootNode);
-    if (mounted) setState(() {});
+    final root = _rootNode;
+    root.childrenLoaded = false;
+    root.children = const <_FileNode>[];
+    await _loadChildren(root);
+    if (mounted && identical(root, _rootNode)) setState(() {});
   }
 
   _FileNode? _findParentNode(_FileNode current, String childPath) {
@@ -787,17 +817,11 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
       if (sourceEntity == FileSystemEntityType.notFound) return;
       if (sourceEntity != FileSystemEntityType.directory &&
           sourceEntity != FileSystemEntityType.file) {
-        throw FileSystemException(
-          'Only regular files and directories can be pasted.',
-          sourcePath,
-        );
+        throw FileSystemException('只能粘贴普通文件和目录。', sourcePath);
       }
       if (sourceEntity == FileSystemEntityType.directory &&
           p.isWithin(p.normalize(sourcePath), p.normalize(targetPath))) {
-        throw FileSystemException(
-          'A directory cannot be pasted into itself.',
-          targetPath,
-        );
+        throw FileSystemException('目录不能粘贴到自身内部。', targetPath);
       }
       if (sourceEntity == FileSystemEntityType.directory &&
           _clipboardIsCut &&
@@ -805,17 +829,14 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
             sourcePath,
             targetPath,
           ).timeout(_kProgrammingExplorerCopyPolicy.operationTimeout)) {
-        throw FileSystemException(
-          'A directory cannot be moved into itself.',
-          targetPath,
-        );
+        throw FileSystemException('目录不能移动到自身内部。', targetPath);
       }
       if (await FileSystemEntity.type(
             targetPath,
             followLinks: false,
           ).timeout(_kProgrammingExplorerCopyPolicy.operationTimeout) !=
           FileSystemEntityType.notFound) {
-        throw FileSystemException('Paste target already exists.', targetPath);
+        throw FileSystemException('粘贴目标已存在。', targetPath);
       }
       if (_clipboardIsCut) {
         await _renameEntityBounded(
@@ -1365,6 +1386,7 @@ class _FileNode {
   final bool isDirectory;
   bool isExpanded = false;
   bool childrenLoaded = false;
+  final OpenHandSingleFlight<void> childrenLoad = OpenHandSingleFlight<void>();
   List<_FileNode> children = const [];
 }
 
