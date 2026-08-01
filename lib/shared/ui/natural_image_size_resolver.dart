@@ -24,6 +24,7 @@ class NaturalImageSizeResolver {
   /// 因此可安全用于 provider 变化后的重新解析。
   void resolve(ImageProvider? provider) {
     _detach();
+    _size = null;
     if (provider == null) return;
     final stream = provider.resolve(const ImageConfiguration());
     final listener = ImageStreamListener(
