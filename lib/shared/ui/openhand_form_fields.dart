@@ -187,7 +187,7 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
               ],
             ),
           ),
-          Switch.adaptive(value: value, onChanged: onChanged),
+          Switch(value: value, onChanged: onChanged),
         ],
       ),
     );
