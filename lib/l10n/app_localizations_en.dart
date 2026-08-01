@@ -9585,33 +9585,35 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get servicesSubtitle =>
-      'Explore goal-focused AI services preconfigured and maintained by OpenHand.';
+      'Access professional services built by OpenHand for stable, controlled, and auditable execution.';
 
   @override
-  String get servicesBuiltinBadge => 'Built in';
+  String get servicesProprietaryBadge => 'Built by OpenHand';
 
   @override
-  String get servicesAiJunglerTitle => 'AI Jungler';
+  String get servicesAiInfrastructureExposureScanTitle =>
+      'AI Infrastructure Exposure Scan';
 
   @override
-  String get servicesAiJunglerDescription =>
-      'Scouts context around a goal, plans the route forward, and coordinates agents to clear blockers continuously.';
+  String get servicesAiInfrastructureExposureScanDescription =>
+      'Discovers exposed AI services within authorized scope, identifies leaked credentials and risky configurations, and preserves auditable remediation evidence.';
 
   @override
-  String get servicesCapabilitiesLabel => 'Core capabilities';
+  String get servicesCapabilitiesLabel => 'Service capabilities';
 
   @override
-  String get servicesAiJunglerScout => 'Proactive scouting';
+  String get servicesAiInfrastructureExposureDiscover => 'Exposure discovery';
 
   @override
-  String get servicesAiJunglerPlan => 'Route planning';
+  String get servicesAiInfrastructureExposureCredentials =>
+      'Credential risk detection';
 
   @override
-  String get servicesAiJunglerCoordinate => 'Coordinated delivery';
+  String get servicesAiInfrastructureExposureAssess => 'Validation and audit';
 
   @override
-  String get servicesManagedHint =>
-      'Configuration is maintained by the system for consistent operation.';
+  String get servicesAuthorizationHint =>
+      'OpenHand maintains scanning policies and safety boundaries. Use only for authorized security assessments.';
 
   @override
   String get agentsTitle => 'Agents';

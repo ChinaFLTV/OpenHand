@@ -7122,40 +7122,40 @@
   "@servicesTitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesSubtitle": "Explore goal-focused AI services preconfigured and maintained by OpenHand.",
+  "servicesSubtitle": "Access professional services built by OpenHand for stable, controlled, and auditable execution.",
   "@servicesSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesBuiltinBadge": "Built in",
-  "@servicesBuiltinBadge": {
+  "servicesProprietaryBadge": "Built by OpenHand",
+  "@servicesProprietaryBadge": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerTitle": "AI Jungler",
-  "@servicesAiJunglerTitle": {
+  "servicesAiInfrastructureExposureScanTitle": "AI Infrastructure Exposure Scan",
+  "@servicesAiInfrastructureExposureScanTitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerDescription": "Scouts context around a goal, plans the route forward, and coordinates agents to clear blockers continuously.",
-  "@servicesAiJunglerDescription": {
+  "servicesAiInfrastructureExposureScanDescription": "Discovers exposed AI services within authorized scope, identifies leaked credentials and risky configurations, and preserves auditable remediation evidence.",
+  "@servicesAiInfrastructureExposureScanDescription": {
     "description": "OpenHand localized UI text."
   },
-  "servicesCapabilitiesLabel": "Core capabilities",
+  "servicesCapabilitiesLabel": "Service capabilities",
   "@servicesCapabilitiesLabel": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerScout": "Proactive scouting",
-  "@servicesAiJunglerScout": {
+  "servicesAiInfrastructureExposureDiscover": "Exposure discovery",
+  "@servicesAiInfrastructureExposureDiscover": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerPlan": "Route planning",
-  "@servicesAiJunglerPlan": {
+  "servicesAiInfrastructureExposureCredentials": "Credential risk detection",
+  "@servicesAiInfrastructureExposureCredentials": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerCoordinate": "Coordinated delivery",
-  "@servicesAiJunglerCoordinate": {
+  "servicesAiInfrastructureExposureAssess": "Validation and audit",
+  "@servicesAiInfrastructureExposureAssess": {
     "description": "OpenHand localized UI text."
   },
-  "servicesManagedHint": "Configuration is maintained by the system for consistent operation.",
-  "@servicesManagedHint": {
+  "servicesAuthorizationHint": "OpenHand maintains scanning policies and safety boundaries. Use only for authorized security assessments.",
+  "@servicesAuthorizationHint": {
     "description": "OpenHand localized UI text."
   },
   "agentsTitle": "Agents",

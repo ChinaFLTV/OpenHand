@@ -9708,33 +9708,36 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get servicesSubtitle =>
-      'Explorez les services d’IA préconfigurés et gérés par OpenHand pour atteindre des objectifs précis.';
+      'Accédez aux services professionnels développés par OpenHand pour une exécution stable, contrôlée et auditable.';
 
   @override
-  String get servicesBuiltinBadge => 'Intégré';
+  String get servicesProprietaryBadge => 'Développé par OpenHand';
 
   @override
-  String get servicesAiJunglerTitle => 'AI Jungler';
+  String get servicesAiInfrastructureExposureScanTitle =>
+      'Analyse de l’exposition de l’infrastructure IA';
 
   @override
-  String get servicesAiJunglerDescription =>
-      'Explore le contexte d’un objectif, planifie la progression et coordonne les agents pour lever les blocages en continu.';
+  String get servicesAiInfrastructureExposureScanDescription =>
+      'Détecte les services d’IA exposés dans un périmètre autorisé, identifie les identifiants divulgués et les configurations à risque, puis conserve des preuves d’intervention auditables.';
 
   @override
-  String get servicesCapabilitiesLabel => 'Capacités clés';
+  String get servicesCapabilitiesLabel => 'Capacités du service';
 
   @override
-  String get servicesAiJunglerScout => 'Exploration proactive';
+  String get servicesAiInfrastructureExposureDiscover =>
+      'Détection de l’exposition';
 
   @override
-  String get servicesAiJunglerPlan => 'Planification du parcours';
+  String get servicesAiInfrastructureExposureCredentials =>
+      'Risques d’identifiants';
 
   @override
-  String get servicesAiJunglerCoordinate => 'Progression coordonnée';
+  String get servicesAiInfrastructureExposureAssess => 'Validation et audit';
 
   @override
-  String get servicesManagedHint =>
-      'La configuration est gérée par le système pour garantir un fonctionnement cohérent.';
+  String get servicesAuthorizationHint =>
+      'OpenHand gère les politiques d’analyse et les limites de sécurité. Utilisation réservée aux évaluations autorisées.';
 
   @override
   String get agentsTitle => 'Agents';

@@ -9389,32 +9389,34 @@ class AppLocalizationsJa extends AppLocalizations {
   String get servicesTitle => 'サービス';
 
   @override
-  String get servicesSubtitle => '明確な目標に集中する、OpenHand 管理のプリセット AI サービスです。';
+  String get servicesSubtitle =>
+      'OpenHand が独自開発した専門サービスで、安定し、制御可能で、監査可能な実行環境を提供します。';
 
   @override
-  String get servicesBuiltinBadge => 'システム標準';
+  String get servicesProprietaryBadge => 'OpenHand 自社開発';
 
   @override
-  String get servicesAiJunglerTitle => 'AI Jungler';
+  String get servicesAiInfrastructureExposureScanTitle => 'AI インフラ露出面スキャン';
 
   @override
-  String get servicesAiJunglerDescription =>
-      '目標周辺のコンテキストを能動的に探索し、進行ルートを計画して、障害を継続的に解消するようエージェントを連携させます。';
+  String get servicesAiInfrastructureExposureScanDescription =>
+      '認可された範囲で公開状態の AI サービスを検出し、漏えいした認証情報と危険な設定を特定して、監査可能な対応証跡を残します。';
 
   @override
-  String get servicesCapabilitiesLabel => 'コア機能';
+  String get servicesCapabilitiesLabel => 'サービス機能';
 
   @override
-  String get servicesAiJunglerScout => '能動的な探索';
+  String get servicesAiInfrastructureExposureDiscover => '露出面の検出';
 
   @override
-  String get servicesAiJunglerPlan => 'ルート計画';
+  String get servicesAiInfrastructureExposureCredentials => '認証情報リスク検出';
 
   @override
-  String get servicesAiJunglerCoordinate => '協調推進';
+  String get servicesAiInfrastructureExposureAssess => '安全検証と監査';
 
   @override
-  String get servicesManagedHint => '安定した一貫性を保つため、設定はシステムが一元管理します。';
+  String get servicesAuthorizationHint =>
+      'スキャン方針と安全境界は OpenHand が一元管理します。認可されたセキュリティ評価にのみ使用してください。';
 
   @override
   String get agentsTitle => 'エージェント';

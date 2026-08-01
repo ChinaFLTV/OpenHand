@@ -16872,56 +16872,56 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'聚合由 OpenHand 统一维护的预置 AI 服务，专注完成明确目标。'**
+  /// **'汇聚 OpenHand 自研的专业服务，提供稳定、可控、可审计的任务执行体验。'**
   String get servicesSubtitle;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'系统预置'**
-  String get servicesBuiltinBadge;
+  /// **'OpenHand 自研'**
+  String get servicesProprietaryBadge;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'AI打野'**
-  String get servicesAiJunglerTitle;
+  /// **'AI 基础设施暴露面扫描'**
+  String get servicesAiInfrastructureExposureScanTitle;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'围绕目标主动侦察上下文、规划推进路线，并协调智能体持续消除阻塞。'**
-  String get servicesAiJunglerDescription;
+  /// **'面向已授权目标，持续发现 AI 服务暴露面，识别凭证泄露与高风险配置，并沉淀可审计的处置线索。'**
+  String get servicesAiInfrastructureExposureScanDescription;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'核心能力'**
+  /// **'服务能力'**
   String get servicesCapabilitiesLabel;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'主动侦察'**
-  String get servicesAiJunglerScout;
+  /// **'暴露面发现'**
+  String get servicesAiInfrastructureExposureDiscover;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'路线规划'**
-  String get servicesAiJunglerPlan;
+  /// **'凭证风险识别'**
+  String get servicesAiInfrastructureExposureCredentials;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'协同推进'**
-  String get servicesAiJunglerCoordinate;
+  /// **'安全验证与归档'**
+  String get servicesAiInfrastructureExposureAssess;
 
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'配置由系统统一维护，保持稳定一致。'**
-  String get servicesManagedHint;
+  /// **'扫描策略与安全边界由 OpenHand 统一维护，仅用于已授权的安全评估。'**
+  String get servicesAuthorizationHint;
 
   /// OpenHand localized UI text.
   ///

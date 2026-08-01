@@ -7122,40 +7122,40 @@
   "@servicesTitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesSubtitle": "明確な目標に集中する、OpenHand 管理のプリセット AI サービスです。",
+  "servicesSubtitle": "OpenHand が独自開発した専門サービスで、安定し、制御可能で、監査可能な実行環境を提供します。",
   "@servicesSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesBuiltinBadge": "システム標準",
-  "@servicesBuiltinBadge": {
+  "servicesProprietaryBadge": "OpenHand 自社開発",
+  "@servicesProprietaryBadge": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerTitle": "AI Jungler",
-  "@servicesAiJunglerTitle": {
+  "servicesAiInfrastructureExposureScanTitle": "AI インフラ露出面スキャン",
+  "@servicesAiInfrastructureExposureScanTitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerDescription": "目標周辺のコンテキストを能動的に探索し、進行ルートを計画して、障害を継続的に解消するようエージェントを連携させます。",
-  "@servicesAiJunglerDescription": {
+  "servicesAiInfrastructureExposureScanDescription": "認可された範囲で公開状態の AI サービスを検出し、漏えいした認証情報と危険な設定を特定して、監査可能な対応証跡を残します。",
+  "@servicesAiInfrastructureExposureScanDescription": {
     "description": "OpenHand localized UI text."
   },
-  "servicesCapabilitiesLabel": "コア機能",
+  "servicesCapabilitiesLabel": "サービス機能",
   "@servicesCapabilitiesLabel": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerScout": "能動的な探索",
-  "@servicesAiJunglerScout": {
+  "servicesAiInfrastructureExposureDiscover": "露出面の検出",
+  "@servicesAiInfrastructureExposureDiscover": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerPlan": "ルート計画",
-  "@servicesAiJunglerPlan": {
+  "servicesAiInfrastructureExposureCredentials": "認証情報リスク検出",
+  "@servicesAiInfrastructureExposureCredentials": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerCoordinate": "協調推進",
-  "@servicesAiJunglerCoordinate": {
+  "servicesAiInfrastructureExposureAssess": "安全検証と監査",
+  "@servicesAiInfrastructureExposureAssess": {
     "description": "OpenHand localized UI text."
   },
-  "servicesManagedHint": "安定した一貫性を保つため、設定はシステムが一元管理します。",
-  "@servicesManagedHint": {
+  "servicesAuthorizationHint": "スキャン方針と安全境界は OpenHand が一元管理します。認可されたセキュリティ評価にのみ使用してください。",
+  "@servicesAuthorizationHint": {
     "description": "OpenHand localized UI text."
   },
   "agentsTitle": "エージェント",

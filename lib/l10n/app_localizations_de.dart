@@ -9676,33 +9676,35 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get servicesSubtitle =>
-      'Entdecken Sie vorkonfigurierte und von OpenHand verwaltete KI-Dienste für klare Ziele.';
+      'Nutzen Sie von OpenHand entwickelte Fachdienste für eine stabile, kontrollierte und auditierbare Ausführung.';
 
   @override
-  String get servicesBuiltinBadge => 'Integriert';
+  String get servicesProprietaryBadge => 'Von OpenHand entwickelt';
 
   @override
-  String get servicesAiJunglerTitle => 'AI Jungler';
+  String get servicesAiInfrastructureExposureScanTitle =>
+      'Scan exponierter KI-Infrastruktur';
 
   @override
-  String get servicesAiJunglerDescription =>
-      'Erkundet den Kontext eines Ziels, plant den Weg und koordiniert Agenten, um Blockaden fortlaufend zu beseitigen.';
+  String get servicesAiInfrastructureExposureScanDescription =>
+      'Erkennt exponierte KI-Dienste im autorisierten Bereich, identifiziert offengelegte Zugangsdaten und riskante Konfigurationen und sichert auditierbare Belege für die Behebung.';
 
   @override
-  String get servicesCapabilitiesLabel => 'Kernfunktionen';
+  String get servicesCapabilitiesLabel => 'Dienstfunktionen';
 
   @override
-  String get servicesAiJunglerScout => 'Proaktive Erkundung';
+  String get servicesAiInfrastructureExposureDiscover => 'Expositionserkennung';
 
   @override
-  String get servicesAiJunglerPlan => 'Routenplanung';
+  String get servicesAiInfrastructureExposureCredentials =>
+      'Zugangsdatenrisiken';
 
   @override
-  String get servicesAiJunglerCoordinate => 'Koordinierte Umsetzung';
+  String get servicesAiInfrastructureExposureAssess => 'Validierung und Audit';
 
   @override
-  String get servicesManagedHint =>
-      'Die Konfiguration wird für einen einheitlichen Betrieb vom System verwaltet.';
+  String get servicesAuthorizationHint =>
+      'OpenHand verwaltet Scan-Richtlinien und Sicherheitsgrenzen. Nur für autorisierte Sicherheitsprüfungen verwenden.';
 
   @override
   String get agentsTitle => 'Agenten';

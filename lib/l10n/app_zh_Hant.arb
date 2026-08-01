@@ -7122,40 +7122,40 @@
   "@servicesTitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesSubtitle": "彙整由 OpenHand 統一維護的預置 AI 服務，專注完成明確目標。",
+  "servicesSubtitle": "匯聚 OpenHand 自研的專業服務，提供穩定、可控、可稽核的任務執行體驗。",
   "@servicesSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesBuiltinBadge": "系統預置",
-  "@servicesBuiltinBadge": {
+  "servicesProprietaryBadge": "OpenHand 自研",
+  "@servicesProprietaryBadge": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerTitle": "AI打野",
-  "@servicesAiJunglerTitle": {
+  "servicesAiInfrastructureExposureScanTitle": "AI 基礎設施暴露面掃描",
+  "@servicesAiInfrastructureExposureScanTitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerDescription": "圍繞目標主動偵察上下文、規劃推進路線，並協調智慧體持續消除阻塞。",
-  "@servicesAiJunglerDescription": {
+  "servicesAiInfrastructureExposureScanDescription": "面向已授權目標，持續發現 AI 服務暴露面，識別憑證洩漏與高風險設定，並沉澱可稽核的處置線索。",
+  "@servicesAiInfrastructureExposureScanDescription": {
     "description": "OpenHand localized UI text."
   },
-  "servicesCapabilitiesLabel": "核心能力",
+  "servicesCapabilitiesLabel": "服務能力",
   "@servicesCapabilitiesLabel": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerScout": "主動偵察",
-  "@servicesAiJunglerScout": {
+  "servicesAiInfrastructureExposureDiscover": "暴露面發現",
+  "@servicesAiInfrastructureExposureDiscover": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerPlan": "路線規劃",
-  "@servicesAiJunglerPlan": {
+  "servicesAiInfrastructureExposureCredentials": "憑證風險識別",
+  "@servicesAiInfrastructureExposureCredentials": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerCoordinate": "協同推進",
-  "@servicesAiJunglerCoordinate": {
+  "servicesAiInfrastructureExposureAssess": "安全驗證與歸檔",
+  "@servicesAiInfrastructureExposureAssess": {
     "description": "OpenHand localized UI text."
   },
-  "servicesManagedHint": "設定由系統統一維護，保持穩定一致。",
-  "@servicesManagedHint": {
+  "servicesAuthorizationHint": "掃描策略與安全邊界由 OpenHand 統一維護，僅用於已授權的安全評估。",
+  "@servicesAuthorizationHint": {
     "description": "OpenHand localized UI text."
   },
   "agentsTitle": "智慧體",

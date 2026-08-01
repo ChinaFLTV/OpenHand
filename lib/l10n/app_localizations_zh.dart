@@ -9273,31 +9273,33 @@ class AppLocalizationsZh extends AppLocalizations {
   String get servicesTitle => '服务';
 
   @override
-  String get servicesSubtitle => '聚合由 OpenHand 统一维护的预置 AI 服务，专注完成明确目标。';
+  String get servicesSubtitle => '汇聚 OpenHand 自研的专业服务，提供稳定、可控、可审计的任务执行体验。';
 
   @override
-  String get servicesBuiltinBadge => '系统预置';
+  String get servicesProprietaryBadge => 'OpenHand 自研';
 
   @override
-  String get servicesAiJunglerTitle => 'AI打野';
+  String get servicesAiInfrastructureExposureScanTitle => 'AI 基础设施暴露面扫描';
 
   @override
-  String get servicesAiJunglerDescription => '围绕目标主动侦察上下文、规划推进路线，并协调智能体持续消除阻塞。';
+  String get servicesAiInfrastructureExposureScanDescription =>
+      '面向已授权目标，持续发现 AI 服务暴露面，识别凭证泄露与高风险配置，并沉淀可审计的处置线索。';
 
   @override
-  String get servicesCapabilitiesLabel => '核心能力';
+  String get servicesCapabilitiesLabel => '服务能力';
 
   @override
-  String get servicesAiJunglerScout => '主动侦察';
+  String get servicesAiInfrastructureExposureDiscover => '暴露面发现';
 
   @override
-  String get servicesAiJunglerPlan => '路线规划';
+  String get servicesAiInfrastructureExposureCredentials => '凭证风险识别';
 
   @override
-  String get servicesAiJunglerCoordinate => '协同推进';
+  String get servicesAiInfrastructureExposureAssess => '安全验证与归档';
 
   @override
-  String get servicesManagedHint => '配置由系统统一维护，保持稳定一致。';
+  String get servicesAuthorizationHint =>
+      '扫描策略与安全边界由 OpenHand 统一维护，仅用于已授权的安全评估。';
 
   @override
   String get agentsTitle => '智能体';
@@ -19961,31 +19963,33 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get servicesTitle => '服務';
 
   @override
-  String get servicesSubtitle => '彙整由 OpenHand 統一維護的預置 AI 服務，專注完成明確目標。';
+  String get servicesSubtitle => '匯聚 OpenHand 自研的專業服務，提供穩定、可控、可稽核的任務執行體驗。';
 
   @override
-  String get servicesBuiltinBadge => '系統預置';
+  String get servicesProprietaryBadge => 'OpenHand 自研';
 
   @override
-  String get servicesAiJunglerTitle => 'AI打野';
+  String get servicesAiInfrastructureExposureScanTitle => 'AI 基礎設施暴露面掃描';
 
   @override
-  String get servicesAiJunglerDescription => '圍繞目標主動偵察上下文、規劃推進路線，並協調智慧體持續消除阻塞。';
+  String get servicesAiInfrastructureExposureScanDescription =>
+      '面向已授權目標，持續發現 AI 服務暴露面，識別憑證洩漏與高風險設定，並沉澱可稽核的處置線索。';
 
   @override
-  String get servicesCapabilitiesLabel => '核心能力';
+  String get servicesCapabilitiesLabel => '服務能力';
 
   @override
-  String get servicesAiJunglerScout => '主動偵察';
+  String get servicesAiInfrastructureExposureDiscover => '暴露面發現';
 
   @override
-  String get servicesAiJunglerPlan => '路線規劃';
+  String get servicesAiInfrastructureExposureCredentials => '憑證風險識別';
 
   @override
-  String get servicesAiJunglerCoordinate => '協同推進';
+  String get servicesAiInfrastructureExposureAssess => '安全驗證與歸檔';
 
   @override
-  String get servicesManagedHint => '設定由系統統一維護，保持穩定一致。';
+  String get servicesAuthorizationHint =>
+      '掃描策略與安全邊界由 OpenHand 統一維護，僅用於已授權的安全評估。';
 
   @override
   String get agentsTitle => '智慧體';

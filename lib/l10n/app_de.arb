@@ -7122,40 +7122,40 @@
   "@servicesTitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesSubtitle": "Entdecken Sie vorkonfigurierte und von OpenHand verwaltete KI-Dienste für klare Ziele.",
+  "servicesSubtitle": "Nutzen Sie von OpenHand entwickelte Fachdienste für eine stabile, kontrollierte und auditierbare Ausführung.",
   "@servicesSubtitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesBuiltinBadge": "Integriert",
-  "@servicesBuiltinBadge": {
+  "servicesProprietaryBadge": "Von OpenHand entwickelt",
+  "@servicesProprietaryBadge": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerTitle": "AI Jungler",
-  "@servicesAiJunglerTitle": {
+  "servicesAiInfrastructureExposureScanTitle": "Scan exponierter KI-Infrastruktur",
+  "@servicesAiInfrastructureExposureScanTitle": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerDescription": "Erkundet den Kontext eines Ziels, plant den Weg und koordiniert Agenten, um Blockaden fortlaufend zu beseitigen.",
-  "@servicesAiJunglerDescription": {
+  "servicesAiInfrastructureExposureScanDescription": "Erkennt exponierte KI-Dienste im autorisierten Bereich, identifiziert offengelegte Zugangsdaten und riskante Konfigurationen und sichert auditierbare Belege für die Behebung.",
+  "@servicesAiInfrastructureExposureScanDescription": {
     "description": "OpenHand localized UI text."
   },
-  "servicesCapabilitiesLabel": "Kernfunktionen",
+  "servicesCapabilitiesLabel": "Dienstfunktionen",
   "@servicesCapabilitiesLabel": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerScout": "Proaktive Erkundung",
-  "@servicesAiJunglerScout": {
+  "servicesAiInfrastructureExposureDiscover": "Expositionserkennung",
+  "@servicesAiInfrastructureExposureDiscover": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerPlan": "Routenplanung",
-  "@servicesAiJunglerPlan": {
+  "servicesAiInfrastructureExposureCredentials": "Zugangsdatenrisiken",
+  "@servicesAiInfrastructureExposureCredentials": {
     "description": "OpenHand localized UI text."
   },
-  "servicesAiJunglerCoordinate": "Koordinierte Umsetzung",
-  "@servicesAiJunglerCoordinate": {
+  "servicesAiInfrastructureExposureAssess": "Validierung und Audit",
+  "@servicesAiInfrastructureExposureAssess": {
     "description": "OpenHand localized UI text."
   },
-  "servicesManagedHint": "Die Konfiguration wird für einen einheitlichen Betrieb vom System verwaltet.",
-  "@servicesManagedHint": {
+  "servicesAuthorizationHint": "OpenHand verwaltet Scan-Richtlinien und Sicherheitsgrenzen. Nur für autorisierte Sicherheitsprüfungen verwenden.",
+  "@servicesAuthorizationHint": {
     "description": "OpenHand localized UI text."
   },
   "agentsTitle": "Agenten",
