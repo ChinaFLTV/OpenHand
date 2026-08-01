@@ -42,6 +42,8 @@ class PluginCatalogIds {
   static const String anythingAnalyzer = 'anything_analyzer';
   static const String docker = 'docker';
   static const String qdrant = 'qdrant';
+  static const String postgresql = 'postgresql';
+  static const String redis = 'redis';
   static const String hermesAgent = 'hermes_agent';
   static const String aiJungler = 'ai_jungler';
 
@@ -61,6 +63,8 @@ class PluginCatalogIds {
     anythingAnalyzer,
     docker,
     qdrant,
+    postgresql,
+    redis,
     hermesAgent,
     aiJungler,
   ];
@@ -79,6 +83,7 @@ class PluginInfo {
     this.dependencies = const [],
     this.dependents = const [],
     this.supportsUninstall = true,
+    this.supportsInstall = true,
     this.metadata = const <String, Object?>{},
     this.errorMessage,
   });
@@ -116,6 +121,9 @@ class PluginInfo {
   /// 是否支持卸载
   final bool supportsUninstall;
 
+  /// 是否由 OpenHand 提供安装入口。外部数据库服务仅扫描状态，不提供接管操作。
+  final bool supportsInstall;
+
   /// 插件专属的结构化诊断信息。
   final Map<String, Object?> metadata;
 
@@ -145,6 +153,7 @@ class PluginInfo {
     List<String>? dependencies,
     List<String>? dependents,
     bool? supportsUninstall,
+    bool? supportsInstall,
     Map<String, Object?>? metadata,
     String? errorMessage,
     bool clearErrorMessage = false,
@@ -161,6 +170,7 @@ class PluginInfo {
       dependencies: dependencies ?? this.dependencies,
       dependents: dependents ?? this.dependents,
       supportsUninstall: supportsUninstall ?? this.supportsUninstall,
+      supportsInstall: supportsInstall ?? this.supportsInstall,
       metadata: metadata ?? this.metadata,
       errorMessage: clearErrorMessage
           ? null

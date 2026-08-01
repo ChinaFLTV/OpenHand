@@ -89,6 +89,8 @@ String _localizedPluginDescription(AppLocalizations l10n, PluginInfo plugin) {
       l10n.pluginServiceDescriptionAnythingAnalyzer,
     PluginCatalogIds.docker => l10n.pluginServiceDescriptionDocker,
     PluginCatalogIds.qdrant => l10n.pluginServiceDescriptionQdrant,
+    PluginCatalogIds.postgresql => l10n.pluginServiceDescriptionPostgresql,
+    PluginCatalogIds.redis => l10n.pluginServiceDescriptionRedis,
     _ => plugin.description,
   };
 }
@@ -150,6 +152,9 @@ String _localizedDetailLabel(AppLocalizations l10n, String key) {
     'health_response' => l10n.pluginServiceDetailHealthResponse,
     'health_title' => l10n.pluginServiceDetailHealthTitle,
     'collection_count' => l10n.pluginServiceDetailCollectionCount,
+    'external_service' => l10n.pluginServiceDetailExternalService,
+    'service_running' => l10n.pluginServiceDetailServiceRunning,
+    'endpoint' => l10n.pluginServiceDetailEndpoint,
     _ => key,
   };
 }
@@ -339,6 +344,8 @@ class _PluginCard extends StatelessWidget {
       PluginCatalogIds.jadx => Icons.data_object_rounded,
       PluginCatalogIds.docker => Icons.view_in_ar_rounded,
       PluginCatalogIds.qdrant => Icons.hub_rounded,
+      PluginCatalogIds.postgresql => Icons.storage_rounded,
+      PluginCatalogIds.redis => Icons.memory_rounded,
       PluginCatalogIds.aiJungler => Icons.radar_rounded,
       _ => Icons.extension_rounded,
     };
@@ -489,7 +496,9 @@ class _PluginCard extends StatelessWidget {
           icon: const Icon(Icons.info_outline_rounded, size: 18),
         ),
         // 检查更新
-        if (plugin.isInstalled && plugin.id != PluginCatalogIds.aiJungler)
+        if (plugin.isInstalled &&
+            plugin.id != PluginCatalogIds.aiJungler &&
+            plugin.supportsInstall)
           IconButton.filledTonal(
             tooltip: l10n.pluginServiceCheckUpdates,
             onPressed: isBusy ? null : () => _checkUpdate(context),
@@ -507,7 +516,9 @@ class _PluginCard extends StatelessWidget {
             icon: const Icon(Icons.hub_outlined, size: 18),
           ),
         // 启用/禁用
-        if (plugin.isInstalled && plugin.id != PluginCatalogIds.aiJungler)
+        if (plugin.isInstalled &&
+            plugin.id != PluginCatalogIds.aiJungler &&
+            plugin.supportsInstall)
           IconButton.filledTonal(
             tooltip: plugin.enabled
                 ? l10n.pluginServiceActionDisable
@@ -527,14 +538,15 @@ class _PluginCard extends StatelessWidget {
             ),
           ),
         // 安装
-        if (plugin.status == PluginStatus.notInstalled)
+        if (plugin.status == PluginStatus.notInstalled &&
+            plugin.supportsInstall)
           IconButton.filled(
             tooltip: l10n.pluginServiceActionInstall,
             onPressed: isBusy ? null : () => _doInstall(context),
             icon: const Icon(Icons.download_rounded, size: 18),
           ),
         // 更新
-        if (plugin.isInstalled && plugin.hasUpdate)
+        if (plugin.isInstalled && plugin.hasUpdate && plugin.supportsInstall)
           IconButton.filledTonal(
             tooltip: l10n.pluginServiceActionUpdate,
             onPressed: isBusy ? null : () => _doUpdate(context),

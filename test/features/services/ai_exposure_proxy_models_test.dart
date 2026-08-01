@@ -22,6 +22,7 @@ void main() {
       expect(configuration.strategy, AiExposureProxyStrategy.random);
       expect(configuration.endpoints.single.url, 'http://127.0.0.1:8080');
       expect(configuration.endpoints.single.enabled, isTrue);
+      expect(configuration.inspectionConcurrency, 8);
     });
 
     test('运行时仅提交启用节点', () {
@@ -44,6 +45,26 @@ void main() {
         'http://127.0.0.1:8080',
       ]);
       expect(configuration.toJson()['inspectionEnabled'], isTrue);
+    });
+
+    test('保留节点名称与可配置巡检并发数', () {
+      final endpoint = AiExposureProxyEndpoint.parse(
+        '127.0.0.1:8080',
+      ).copyWith(name: '本地节点');
+      final configuration = AiExposureProxyConfiguration(
+        enabled: false,
+        strategy: AiExposureProxyStrategy.fixed,
+        rotationEvery: 1,
+        bypassLocal: true,
+        endpoints: <AiExposureProxyEndpoint>[endpoint],
+        inspectionConcurrency: 16,
+      );
+      final restored = AiExposureProxyConfiguration.fromJson(
+        configuration.toJson(),
+      );
+      expect(restored.inspectionConcurrency, 16);
+      expect(restored.endpoints.single.name, '本地节点');
+      expect(restored.endpoints.single.displayName, '本地节点');
     });
 
     test('延迟历史保持固定上限', () {

@@ -11,7 +11,7 @@ import 'service/ai_jungler_client.dart';
 import 'service/ai_jungler_runtime.dart';
 
 const int _kAiExposureMaxLogs = 5000;
-const int _kProxyInspectionConcurrency = 8;
+const int _kMaxProxyInspectionConcurrency = 32;
 
 class ServicesController extends ChangeNotifier {
   ServicesController({
@@ -63,6 +63,7 @@ class ServicesController extends ChangeNotifier {
       AiExposureProxyConfiguration.defaults();
   Timer? _proxyInspectionTimer;
   bool _proxyInspectionBusy = false;
+  bool _proxyInspectionRunning = false;
   int _proxyInspectionGeneration = 0;
   final List<AiExposureLogEntry> _logs = <AiExposureLogEntry>[];
   String? _errorMessage;
@@ -418,14 +419,19 @@ class ServicesController extends ChangeNotifier {
   }
 
   Future<void> inspectAllProxies() async {
-    if (_proxyInspectionBusy || _disposed) return;
+    if (_proxyInspectionBusy || _proxyInspectionRunning || _disposed) return;
     final endpoints = _proxyConfiguration.activeEndpoints;
     if (endpoints.isEmpty) return;
     final generation = ++_proxyInspectionGeneration;
+    _proxyInspectionRunning = true;
     _proxyInspectionBusy = true;
     _notify();
     final inspected = <String, AiExposureProxyProbeSample>{};
     var cursor = 0;
+    final concurrency = _proxyConfiguration.inspectionConcurrency.clamp(
+      1,
+      _kMaxProxyInspectionConcurrency,
+    );
     Future<void> worker() async {
       while (!_disposed && generation == _proxyInspectionGeneration) {
         final index = cursor++;
@@ -438,18 +444,28 @@ class ServicesController extends ChangeNotifier {
     try {
       await Future.wait<void>(
         List<Future<void>>.generate(
-          endpoints.length.clamp(1, _kProxyInspectionConcurrency),
+          endpoints.length.clamp(1, concurrency),
           (_) => worker(),
         ),
       );
       if (_disposed || generation != _proxyInspectionGeneration) return;
+      final updatedEndpoints = List<AiExposureProxyEndpoint>.of(
+        _proxyConfiguration.endpoints,
+      );
+      final indexes = <String, int>{
+        for (var index = 0; index < updatedEndpoints.length; index++)
+          updatedEndpoints[index].url: index,
+      };
+      for (final entry in inspected.entries) {
+        final index = indexes[entry.key];
+        if (index != null) {
+          updatedEndpoints[index] = updatedEndpoints[index].withSample(
+            entry.value,
+          );
+        }
+      }
       _proxyConfiguration = _proxyConfiguration.copyWith(
-        endpoints: _proxyConfiguration.endpoints
-            .map((endpoint) {
-              final sample = inspected[endpoint.url];
-              return sample == null ? endpoint : endpoint.withSample(sample);
-            })
-            .toList(growable: false),
+        endpoints: updatedEndpoints,
       );
       await _persistPreferences();
       final healthy = inspected.values
@@ -466,7 +482,8 @@ class ServicesController extends ChangeNotifier {
       _errorMessage = '$error';
       silentLog('services_controller', '巡检代理节点', error, stack);
     } finally {
-      if (!_disposed && generation == _proxyInspectionGeneration) {
+      _proxyInspectionRunning = false;
+      if (!_disposed) {
         _proxyInspectionBusy = false;
         _notify();
       }
@@ -475,7 +492,6 @@ class ServicesController extends ChangeNotifier {
 
   void _scheduleProxyInspection() {
     _proxyInspectionGeneration++;
-    _proxyInspectionBusy = false;
     _proxyInspectionTimer?.cancel();
     _proxyInspectionTimer = null;
     final configuration = _proxyConfiguration;

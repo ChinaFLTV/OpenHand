@@ -168,6 +168,8 @@ class PluginServiceController extends ManagedChangeNotifier {
         PluginCatalogIds.anythingAnalyzer => _scanner.scanAnythingAnalyzer(),
         PluginCatalogIds.docker => _scanner.scanDocker(),
         PluginCatalogIds.qdrant => _scanner.scanQdrant(),
+        PluginCatalogIds.postgresql => _scanner.scanPostgresql(),
+        PluginCatalogIds.redis => _scanner.scanRedis(),
         PluginCatalogIds.aiJungler => Future<PluginInfo?>.value(plugin),
         _ => Future<PluginInfo?>.value(),
       };

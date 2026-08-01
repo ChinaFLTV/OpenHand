@@ -712,6 +712,23 @@ class AppLocalizationsEn extends AppLocalizations {
       'Local vector database for knowledge-base embedding indexes and retrieval';
 
   @override
+  String get pluginServiceDescriptionPostgresql =>
+      'Relational database service for AI exposure scan jobs and audit data';
+
+  @override
+  String get pluginServiceDescriptionRedis =>
+      'In-memory data service for AI exposure scan caching and task queues';
+
+  @override
+  String get pluginServiceDetailExternalService => 'External service';
+
+  @override
+  String get pluginServiceDetailServiceRunning => 'Service running';
+
+  @override
+  String get pluginServiceDetailEndpoint => 'Service endpoint';
+
+  @override
   String get pluginServiceTemplateWebReverseExpert => 'Web Reverse Expert';
 
   @override

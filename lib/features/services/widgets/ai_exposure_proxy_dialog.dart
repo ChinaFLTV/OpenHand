@@ -22,9 +22,11 @@ import 'service_dialog_controls.dart';
 
 const int _kMaxProxyImportBytes = 4 * 1024 * 1024;
 const int _kMaxProxyEndpoints = 10000;
-const int _kProxyInspectionConcurrency = 8;
 const Duration _kProbeResultFlushDelay = Duration(milliseconds: 80);
 const List<int> _kInspectionIntervals = <int>[5, 15, 30, 60, 180, 360];
+const List<int> _kInspectionConcurrencyOptions = <int>[1, 2, 4, 8, 16, 32];
+
+enum _ProxySort { nameAscending, latencyAscending, latencyDescending }
 
 Future<void> showAiExposureProxyDialog(BuildContext context) =>
     showAnimatedDialog<void>(
@@ -44,7 +46,6 @@ class _ProxyDialog extends StatefulWidget {
 }
 
 class _ProxyDialogState extends State<_ProxyDialog> {
-  final TextEditingController _endpoint = TextEditingController();
   final AiExposureProxyProbe _probe = const AiExposureProxyProbe();
   final Set<String> _testingUrls = <String>{};
   final Map<String, AiExposureProxyProbeSample> _pendingSamples =
@@ -53,12 +54,17 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   late bool _bypassLocal;
   late bool _inspectionEnabled;
   late int _inspectionIntervalMinutes;
+  late int _inspectionConcurrency;
   late AiExposureProxyStrategy _strategy;
   late double _rotationEvery;
   late List<AiExposureProxyEndpoint> _endpoints;
+  _ProxySort _sort = _ProxySort.nameAscending;
+  List<AiExposureProxyEndpoint>? _sortedEndpointCache;
+  _ProxySort? _sortedEndpointCacheSort;
   Timer? _resultFlushTimer;
   bool _busy = false;
   bool _inspectionBusy = false;
+  bool _inspectionRunning = false;
   int _inspectionCompleted = 0;
   int _inspectionTotal = 0;
   int _inspectionGeneration = 0;
@@ -71,6 +77,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     _bypassLocal = configuration.bypassLocal;
     _inspectionEnabled = configuration.inspectionEnabled;
     _inspectionIntervalMinutes = configuration.inspectionIntervalMinutes;
+    _inspectionConcurrency = configuration.inspectionConcurrency;
     _strategy = configuration.strategy;
     _rotationEvery = configuration.rotationEvery.toDouble();
     _endpoints = List<AiExposureProxyEndpoint>.of(configuration.endpoints);
@@ -80,7 +87,6 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   void dispose() {
     _inspectionGeneration++;
     _resultFlushTimer?.cancel();
-    _endpoint.dispose();
     super.dispose();
   }
 
@@ -91,6 +97,12 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final text = openHandTextResolver(context);
     final status = context.watch<ServicesController>().proxyStatus;
     final activeCount = _endpoints.where((endpoint) => endpoint.enabled).length;
+    final statusSelections = <String, int>{
+      for (final item
+          in status?.endpoints ?? const <AiExposureProxyEndpointStatus>[])
+        item.address: item.selections,
+    };
+    final visibleEndpoints = _sortedEndpoints();
     return ServiceDialogInteractionTheme(
       child: Padding(
         padding: const EdgeInsets.all(22),
@@ -195,32 +207,33 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                         ),
                       ),
                     )
-                  : ListView.separated(
-                      itemCount: _endpoints.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  : ListView.builder(
+                      cacheExtent: 480,
+                      itemCount: visibleEndpoints.length,
+                      padding: const EdgeInsets.only(bottom: 4),
                       itemBuilder: (context, index) {
-                        final endpoint = _endpoints[index];
-                        final selections = status?.endpoints
-                            .where((item) => item.address == endpoint.maskedUrl)
-                            .firstOrNull
-                            ?.selections;
-                        return _ProxyEndpointCard(
-                          key: ValueKey<String>(endpoint.url),
-                          endpoint: endpoint,
-                          selections: selections,
-                          testing: _testingUrls.contains(endpoint.url),
-                          busy: _busy || _inspectionBusy,
-                          onEnabledChanged: (enabled) => setState(
-                            () => _endpoints[index] = endpoint.copyWith(
-                              enabled: enabled,
+                        final endpoint = visibleEndpoints[index];
+                        return Padding(
+                          padding: const EdgeInsets.only(bottom: 8),
+                          child: _ProxyEndpointCard(
+                            key: ValueKey<String>(endpoint.url),
+                            endpoint: endpoint,
+                            selections: statusSelections[endpoint.maskedUrl],
+                            testing: _testingUrls.contains(endpoint.url),
+                            busy: _busy || _inspectionBusy,
+                            onEnabledChanged: (enabled) => _updateEndpoint(
+                              endpoint.url,
+                              endpoint.copyWith(enabled: enabled),
                             ),
-                          ),
-                          onTest: () => _testEndpoint(endpoint.url),
-                          onExport: () => _exportOne(endpoint),
-                          onDelete: () => setState(
-                            () => _endpoints.removeWhere(
-                              (item) => item.url == endpoint.url,
-                            ),
+                            onTest: () => _testEndpoint(endpoint.url),
+                            onExport: () => _exportOne(endpoint),
+                            onEdit: () => _editEndpoint(endpoint),
+                            onDelete: () => setState(() {
+                              _endpoints.removeWhere(
+                                (item) => item.url == endpoint.url,
+                              );
+                              _invalidateEndpointSortCache();
+                            }),
                           ),
                         );
                       },
@@ -253,6 +266,60 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         ),
       ),
     );
+  }
+
+  List<AiExposureProxyEndpoint> _sortedEndpoints() {
+    if (_sortedEndpointCache != null && _sortedEndpointCacheSort == _sort) {
+      return _sortedEndpointCache!;
+    }
+    final sorted = List<AiExposureProxyEndpoint>.of(_endpoints);
+    sorted.sort((left, right) {
+      switch (_sort) {
+        case _ProxySort.nameAscending:
+          return _compareEndpointNames(left, right);
+        case _ProxySort.latencyAscending:
+        case _ProxySort.latencyDescending:
+          final leftLatency = left.latestSample?.latencyMs;
+          final rightLatency = right.latestSample?.latencyMs;
+          if (leftLatency == null && rightLatency == null) {
+            return _compareEndpointNames(left, right);
+          }
+          if (leftLatency == null) return 1;
+          if (rightLatency == null) return -1;
+          final result = leftLatency.compareTo(rightLatency);
+          if (result != 0) {
+            return _sort == _ProxySort.latencyDescending ? -result : result;
+          }
+          return _compareEndpointNames(left, right);
+      }
+    });
+    _sortedEndpointCache = List<AiExposureProxyEndpoint>.unmodifiable(sorted);
+    _sortedEndpointCacheSort = _sort;
+    return _sortedEndpointCache!;
+  }
+
+  int _compareEndpointNames(
+    AiExposureProxyEndpoint left,
+    AiExposureProxyEndpoint right,
+  ) {
+    final result = left.displayName.toLowerCase().compareTo(
+      right.displayName.toLowerCase(),
+    );
+    return result == 0 ? left.url.compareTo(right.url) : result;
+  }
+
+  void _invalidateEndpointSortCache() {
+    _sortedEndpointCache = null;
+    _sortedEndpointCacheSort = null;
+  }
+
+  void _updateEndpoint(String url, AiExposureProxyEndpoint updated) {
+    final index = _endpoints.indexWhere((item) => item.url == url);
+    if (index < 0) return;
+    setState(() {
+      _endpoints[index] = updated;
+      _invalidateEndpointSortCache();
+    });
   }
 
   Widget _buildSettingsPanel(BuildContext context) {
@@ -440,6 +507,31 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                       : null,
                 ),
               );
+              final concurrency = SizedBox(
+                width: 180,
+                child: DropdownButtonFormField<int>(
+                  initialValue: _normalizedInspectionConcurrency,
+                  decoration: InputDecoration(
+                    labelText: text(zh: '测试线程', en: 'Test threads'),
+                    border: const OutlineInputBorder(),
+                  ),
+                  items: _kInspectionConcurrencyOptions
+                      .map(
+                        (value) => DropdownMenuItem<int>(
+                          value: value,
+                          child: Text('$value'),
+                        ),
+                      )
+                      .toList(growable: false),
+                  onChanged: _inspectionEnabled
+                      ? (value) {
+                          if (value != null) {
+                            setState(() => _inspectionConcurrency = value);
+                          }
+                        }
+                      : null,
+                ),
+              );
               final inspect = FilledButton.tonalIcon(
                 onPressed: _inspectionBusy
                     ? _cancelInspection
@@ -466,7 +558,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                       runSpacing: 10,
                       alignment: WrapAlignment.end,
                       crossAxisAlignment: WrapCrossAlignment.center,
-                      children: [interval, inspect],
+                      children: [interval, concurrency, inspect],
                     ),
                   ],
                 );
@@ -476,6 +568,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                   Expanded(child: toggle),
                   const SizedBox(width: 12),
                   interval,
+                  const SizedBox(width: 10),
+                  concurrency,
                   const SizedBox(width: 10),
                   inspect,
                 ],
@@ -489,16 +583,6 @@ class _ProxyDialogState extends State<_ProxyDialog> {
 
   Widget _buildEndpointToolbar(BuildContext context) {
     final text = openHandTextResolver(context);
-    final field = TextField(
-      controller: _endpoint,
-      enabled: !_busy && !_inspectionBusy,
-      onSubmitted: (_) => _addEndpoint(),
-      decoration: InputDecoration(
-        labelText: text(zh: '代理地址', en: 'Proxy address'),
-        hintText: 'username:password@127.0.0.1:8080',
-        border: const OutlineInputBorder(),
-      ),
-    );
     final actions = ServiceDialogIconActions(
       children: [
         IconButton.filledTonal(
@@ -518,28 +602,45 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               : _exportAll,
           icon: const Icon(Icons.download_rounded),
         ),
+        PopupMenuButton<_ProxySort>(
+          tooltip: text(zh: '排序节点', en: 'Sort nodes'),
+          enabled: !_busy && !_inspectionBusy,
+          initialValue: _sort,
+          onSelected: (value) => setState(() {
+            _sort = value;
+            _invalidateEndpointSortCache();
+          }),
+          itemBuilder: (_) => [
+            PopupMenuItem(
+              value: _ProxySort.nameAscending,
+              child: Text(text(zh: '按名称升序', en: 'Name ascending')),
+            ),
+            PopupMenuItem(
+              value: _ProxySort.latencyAscending,
+              child: Text(text(zh: '按延迟升序', en: 'Latency ascending')),
+            ),
+            PopupMenuItem(
+              value: _ProxySort.latencyDescending,
+              child: Text(text(zh: '按延迟降序', en: 'Latency descending')),
+            ),
+          ],
+          icon: const Icon(Icons.sort_rounded),
+        ),
       ],
     );
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 620) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              field,
-              const SizedBox(height: 8),
-              Align(alignment: AlignmentDirectional.centerEnd, child: actions),
-            ],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: field),
-            const SizedBox(width: 10),
-            actions,
-          ],
-        );
-      },
+    return Row(
+      children: [
+        Expanded(
+          child: Text(
+            text(
+              zh: '${_endpoints.length} 个节点 · 默认按名称排序',
+              en: '${_endpoints.length} nodes · sorted by name',
+            ),
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ),
+        actions,
+      ],
     );
   }
 
@@ -548,9 +649,15 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       ? _inspectionIntervalMinutes
       : 30;
 
-  void _addEndpoint() {
+  int get _normalizedInspectionConcurrency =>
+      _kInspectionConcurrencyOptions.contains(_inspectionConcurrency)
+      ? _inspectionConcurrency
+      : 8;
+
+  Future<void> _addEndpoint() async {
     try {
-      final endpoint = AiExposureProxyEndpoint.parse(_endpoint.text);
+      final endpoint = await _showEndpointEditor(context);
+      if (endpoint == null || !mounted) return;
       if (_endpoints.any((item) => item.url == endpoint.url)) {
         throw const FormatException('该代理已存在。');
       }
@@ -559,15 +666,30 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       }
       setState(() {
         _endpoints.add(endpoint);
-        _endpoint.clear();
+        _invalidateEndpointSortCache();
       });
     } catch (error) {
       showOpenHandErrorSnack(context, '$error');
     }
   }
 
+  Future<void> _editEndpoint(AiExposureProxyEndpoint endpoint) async {
+    final updated = await _showEndpointEditor(context, initial: endpoint);
+    if (updated == null || !mounted) return;
+    if (_endpoints.any(
+      (item) => item.url == updated.url && item.url != endpoint.url,
+    )) {
+      showOpenHandErrorSnack(context, '该代理已存在。');
+      return;
+    }
+    _updateEndpoint(
+      endpoint.url,
+      updated.copyWith(enabled: endpoint.enabled, samples: endpoint.samples),
+    );
+  }
+
   Future<void> _testEndpoint(String url) async {
-    if (_testingUrls.contains(url)) return;
+    if (_inspectionRunning || _testingUrls.contains(url)) return;
     final endpoint = _endpoints.where((item) => item.url == url).firstOrNull;
     if (endpoint == null) return;
     setState(() => _testingUrls.add(url));
@@ -579,12 +701,15 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 
   Future<void> _inspectAll() async {
-    if (_inspectionBusy) return;
+    if (_inspectionBusy || _inspectionRunning || _testingUrls.isNotEmpty) {
+      return;
+    }
     final endpoints = _endpoints
         .where((endpoint) => endpoint.enabled)
         .toList(growable: false);
     if (endpoints.isEmpty) return;
     final generation = ++_inspectionGeneration;
+    _inspectionRunning = true;
     setState(() {
       _inspectionBusy = true;
       _inspectionCompleted = 0;
@@ -606,19 +731,26 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       }
     }
 
-    await Future.wait<void>(
-      List<Future<void>>.generate(
-        endpoints.length < _kProxyInspectionConcurrency
-            ? endpoints.length
-            : _kProxyInspectionConcurrency,
-        (_) => worker(),
-      ),
-    );
-    if (!mounted || generation != _inspectionGeneration) return;
-    _resultFlushTimer?.cancel();
-    _resultFlushTimer = null;
-    _flushProbeResults();
-    setState(() => _inspectionBusy = false);
+    try {
+      await Future.wait<void>(
+        List<Future<void>>.generate(
+          endpoints.length < _normalizedInspectionConcurrency
+              ? endpoints.length
+              : _normalizedInspectionConcurrency,
+          (_) => worker(),
+        ),
+      );
+      if (!mounted || generation != _inspectionGeneration) return;
+      _resultFlushTimer?.cancel();
+      _resultFlushTimer = null;
+      _flushProbeResults();
+      setState(() => _inspectionBusy = false);
+    } finally {
+      _inspectionRunning = false;
+      if (mounted && generation != _inspectionGeneration) {
+        setState(() => _inspectionBusy = false);
+      }
+    }
   }
 
   void _scheduleProbeResultFlush() {
@@ -636,23 +768,25 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     _resultFlushTimer = null;
     _flushProbeResults();
     if (!mounted) return;
-    setState(() {
-      _inspectionBusy = false;
-      _testingUrls.clear();
-    });
+    setState(() => _testingUrls.clear());
   }
 
   void _flushProbeResults() {
     if (!mounted || _pendingSamples.isEmpty) return;
     final samples = Map<String, AiExposureProxyProbeSample>.of(_pendingSamples);
     _pendingSamples.clear();
+    final indexes = <String, int>{
+      for (var index = 0; index < _endpoints.length; index++)
+        _endpoints[index].url: index,
+    };
     setState(() {
-      _endpoints = _endpoints
-          .map((endpoint) {
-            final sample = samples[endpoint.url];
-            return sample == null ? endpoint : endpoint.withSample(sample);
-          })
-          .toList(growable: true);
+      _invalidateEndpointSortCache();
+      for (final entry in samples.entries) {
+        final index = indexes[entry.key];
+        if (index != null) {
+          _endpoints[index] = _endpoints[index].withSample(entry.value);
+        }
+      }
     });
   }
 
@@ -680,7 +814,10 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         merged[endpoint.url] = endpoint;
       }
       if (!mounted) return;
-      setState(() => _endpoints = merged.values.toList(growable: true));
+      setState(() {
+        _endpoints = merged.values.toList(growable: true);
+        _invalidateEndpointSortCache();
+      });
       showOpenHandSuccessSnack(
         context,
         imported.invalid == 0
@@ -712,6 +849,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
           'bypassLocal': _bypassLocal,
           'inspectionEnabled': _inspectionEnabled,
           'inspectionIntervalMinutes': _normalizedInspectionInterval,
+          'inspectionConcurrency': _normalizedInspectionConcurrency,
           'endpoints': _endpoints
               .map((endpoint) => endpoint.toJson())
               .toList(growable: false),
@@ -757,11 +895,254 @@ class _ProxyDialogState extends State<_ProxyDialog> {
             endpoints: List<AiExposureProxyEndpoint>.unmodifiable(_endpoints),
             inspectionEnabled: _inspectionEnabled,
             inspectionIntervalMinutes: _normalizedInspectionInterval,
+            inspectionConcurrency: _normalizedInspectionConcurrency,
           ),
         );
     if (!mounted) return;
     setState(() => _busy = false);
     if (updated) Navigator.of(context).maybePop();
+  }
+}
+
+Future<AiExposureProxyEndpoint?> _showEndpointEditor(
+  BuildContext context, {
+  AiExposureProxyEndpoint? initial,
+}) {
+  return showAnimatedDialog<AiExposureProxyEndpoint>(
+    context: context,
+    builder: (dialogContext) => buildOpenHandDialog(
+      maxWidth: kOpenHandDialogWidthCompact,
+      child: _ProxyEndpointEditor(
+        initial: initial,
+        onSubmit: (endpoint) => Navigator.of(dialogContext).pop(endpoint),
+        onCancel: () => Navigator.of(dialogContext).maybePop(),
+      ),
+    ),
+  );
+}
+
+class _ProxyEndpointEditor extends StatefulWidget {
+  const _ProxyEndpointEditor({
+    required this.initial,
+    required this.onSubmit,
+    required this.onCancel,
+  });
+
+  final AiExposureProxyEndpoint? initial;
+  final ValueChanged<AiExposureProxyEndpoint> onSubmit;
+  final VoidCallback onCancel;
+
+  @override
+  State<_ProxyEndpointEditor> createState() => _ProxyEndpointEditorState();
+}
+
+class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
+  final _formKey = GlobalKey<FormState>();
+  late final TextEditingController _name;
+  late final TextEditingController _host;
+  late final TextEditingController _port;
+  late final TextEditingController _username;
+  late final TextEditingController _password;
+  String _scheme = 'http';
+  bool _obscurePassword = true;
+
+  @override
+  void initState() {
+    super.initState();
+    final initial = widget.initial;
+    final uri = initial == null ? null : Uri.parse(initial.url);
+    _name = TextEditingController(text: initial?.name ?? '');
+    _host = TextEditingController(text: uri?.host ?? '');
+    _port = TextEditingController(text: uri?.port.toString() ?? '8080');
+    _username = TextEditingController(
+      text: uri == null || uri.userInfo.isEmpty
+          ? ''
+          : Uri.decodeComponent(uri.userInfo.split(':').first),
+    );
+    _password = TextEditingController(
+      text: uri == null || !uri.userInfo.contains(':')
+          ? ''
+          : Uri.decodeComponent(
+              uri.userInfo.substring(uri.userInfo.indexOf(':') + 1),
+            ),
+    );
+    _scheme = uri?.scheme ?? 'http';
+  }
+
+  @override
+  void dispose() {
+    _name.dispose();
+    _host.dispose();
+    _port.dispose();
+    _username.dispose();
+    _password.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
+    final editing = widget.initial != null;
+    return Padding(
+      padding: const EdgeInsets.all(22),
+      child: Form(
+        key: _formKey,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    editing
+                        ? text(zh: '编辑代理节点', en: 'Edit proxy node')
+                        : text(zh: '新增代理节点', en: 'Add proxy node'),
+                    style: Theme.of(context).textTheme.titleLarge,
+                  ),
+                ),
+                IconButton(
+                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                  onPressed: widget.onCancel,
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextFormField(
+              controller: _name,
+              decoration: InputDecoration(
+                labelText: text(zh: '节点名称', en: 'Node name'),
+                hintText: text(zh: '例如：香港线路 1', en: 'e.g. Hong Kong 1'),
+                border: const OutlineInputBorder(),
+              ),
+              maxLength: 80,
+            ),
+            const SizedBox(height: 10),
+            Row(
+              children: [
+                SizedBox(
+                  width: 118,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _scheme,
+                    decoration: InputDecoration(
+                      labelText: text(zh: '协议', en: 'Scheme'),
+                      border: const OutlineInputBorder(),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'http', child: Text('HTTP')),
+                      DropdownMenuItem(value: 'https', child: Text('HTTPS')),
+                    ],
+                    onChanged: (value) {
+                      if (value != null) setState(() => _scheme = value);
+                    },
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: TextFormField(
+                    controller: _host,
+                    decoration: InputDecoration(
+                      labelText: text(zh: '主机', en: 'Host'),
+                      border: const OutlineInputBorder(),
+                    ),
+                    validator: (value) => value == null || value.trim().isEmpty
+                        ? text(zh: '请输入主机', en: 'Enter a host')
+                        : null,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                SizedBox(
+                  width: 110,
+                  child: TextFormField(
+                    controller: _port,
+                    keyboardType: TextInputType.number,
+                    decoration: InputDecoration(
+                      labelText: text(zh: '端口', en: 'Port'),
+                      border: const OutlineInputBorder(),
+                    ),
+                    validator: (value) {
+                      final port = int.tryParse(value?.trim() ?? '');
+                      return port == null || port < 1 || port > 65535
+                          ? text(zh: '端口无效', en: 'Invalid port')
+                          : null;
+                    },
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _username,
+              decoration: InputDecoration(
+                labelText: text(zh: '用户名（可选）', en: 'Username (optional)'),
+                border: const OutlineInputBorder(),
+              ),
+            ),
+            const SizedBox(height: 10),
+            TextFormField(
+              controller: _password,
+              obscureText: _obscurePassword,
+              decoration: InputDecoration(
+                labelText: text(zh: '密码（可选）', en: 'Password (optional)'),
+                border: const OutlineInputBorder(),
+                suffixIcon: IconButton(
+                  tooltip: _obscurePassword
+                      ? text(zh: '显示密码', en: 'Show password')
+                      : text(zh: '隐藏密码', en: 'Hide password'),
+                  onPressed: () =>
+                      setState(() => _obscurePassword = !_obscurePassword),
+                  icon: Icon(
+                    _obscurePassword
+                        ? Icons.visibility_outlined
+                        : Icons.visibility_off_outlined,
+                  ),
+                ),
+              ),
+            ),
+            const SizedBox(height: 18),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.end,
+              children: [
+                OpenHandDialogActionButton.secondary(
+                  onPressed: widget.onCancel,
+                  label: text(zh: '取消', en: 'Cancel'),
+                ),
+                const SizedBox(width: 8),
+                OpenHandDialogActionButton.primary(
+                  icon: Icons.check_rounded,
+                  onPressed: _submit,
+                  label: editing
+                      ? text(zh: '保存修改', en: 'Save changes')
+                      : text(zh: '添加节点', en: 'Add node'),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _submit() {
+    if (!(_formKey.currentState?.validate() ?? false)) return;
+    final username = _username.text.trim();
+    final password = _password.text;
+    final userInfo = username.isEmpty
+        ? ''
+        : '${Uri.encodeComponent(username)}:${Uri.encodeComponent(password)}@';
+    final rawHost = _host.text.trim();
+    final host = rawHost.contains(':') && !rawHost.startsWith('[')
+        ? '[$rawHost]'
+        : rawHost;
+    try {
+      final endpoint = AiExposureProxyEndpoint.parse(
+        '$_scheme://$userInfo$host:${_port.text.trim()}',
+      ).copyWith(name: _name.text.trim());
+      widget.onSubmit(endpoint);
+    } on FormatException catch (error) {
+      showOpenHandErrorSnack(context, error.message);
+    }
   }
 }
 
@@ -775,6 +1156,7 @@ class _ProxyEndpointCard extends StatelessWidget {
     required this.onEnabledChanged,
     required this.onTest,
     required this.onExport,
+    required this.onEdit,
     required this.onDelete,
   });
 
@@ -785,6 +1167,7 @@ class _ProxyEndpointCard extends StatelessWidget {
   final ValueChanged<bool> onEnabledChanged;
   final VoidCallback onTest;
   final VoidCallback onExport;
+  final VoidCallback onEdit;
   final VoidCallback onDelete;
 
   @override
@@ -838,7 +1221,9 @@ class _ProxyEndpointCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                endpoint.maskedUrl,
+                endpoint.name.trim().isEmpty
+                    ? endpoint.maskedUrl
+                    : '${endpoint.name} · ${endpoint.maskedUrl}',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -917,6 +1302,11 @@ class _ProxyEndpointCard extends StatelessWidget {
                   child: CircularProgressIndicator(strokeWidth: 2),
                 )
               : const Icon(Icons.speed_rounded),
+        ),
+        IconButton(
+          tooltip: text(zh: '编辑代理配置', en: 'Edit proxy settings'),
+          onPressed: busy ? null : onEdit,
+          icon: const Icon(Icons.edit_outlined),
         ),
         IconButton(
           tooltip: text(zh: '导出此代理', en: 'Export proxy'),

@@ -702,6 +702,22 @@ class AppLocalizationsJa extends AppLocalizations {
       'ナレッジベースの embedding ベクトル索引と検索に使うローカルベクトルデータベース';
 
   @override
+  String get pluginServiceDescriptionPostgresql =>
+      '关系型数据库服务，供 AI 暴露面扫描保存任务与审计数据';
+
+  @override
+  String get pluginServiceDescriptionRedis => '内存数据存储服务，供 AI 暴露面扫描执行缓存与任务队列';
+
+  @override
+  String get pluginServiceDetailExternalService => '外部服务';
+
+  @override
+  String get pluginServiceDetailServiceRunning => '服务运行中';
+
+  @override
+  String get pluginServiceDetailEndpoint => '服务端点';
+
+  @override
   String get pluginServiceTemplateWebReverseExpert => 'Web リバースエキスパート';
 
   @override

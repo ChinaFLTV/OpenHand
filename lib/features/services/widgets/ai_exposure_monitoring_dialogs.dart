@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
@@ -1091,6 +1092,19 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.close_rounded),
                 ),
+                Row(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    const Icon(Icons.vertical_align_bottom_rounded, size: 18),
+                    const SizedBox(width: 6),
+                    Text(text(zh: '自动跟随', en: 'Auto follow')),
+                    const SizedBox(width: 6),
+                    Switch(
+                      value: _autoFollow,
+                      onChanged: (value) => setState(() => _autoFollow = value),
+                    ),
+                  ],
+                ),
               ],
             ),
           ),
@@ -1106,50 +1120,15 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                   border: const OutlineInputBorder(),
                 ),
               );
-              final follow = Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  const Icon(Icons.vertical_align_bottom_rounded),
-                  const SizedBox(width: 8),
-                  Text(text(zh: '自动跟随', en: 'Auto follow')),
-                  const SizedBox(width: 8),
-                  Switch(
-                    value: _autoFollow,
-                    onChanged: (value) => setState(() => _autoFollow = value),
-                  ),
-                ],
-              );
-              if (constraints.maxWidth < 640) {
-                return Column(children: [search, follow]);
-              }
-              return Row(
-                children: [
-                  Expanded(flex: 3, child: search),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    flex: 2,
-                    child: Align(
-                      alignment: AlignmentDirectional.centerEnd,
-                      child: follow,
-                    ),
-                  ),
-                ],
-              );
+              return search;
             },
           ),
           const SizedBox(height: 10),
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
-            child: SegmentedButton<_LogScope>(
-              segments: const [
-                ButtonSegment(value: _LogScope.all, label: Text('全部')),
-                ButtonSegment(value: _LogScope.current, label: Text('当前任务')),
-                ButtonSegment(value: _LogScope.runtime, label: Text('运行时')),
-                ButtonSegment(value: _LogScope.history, label: Text('历史任务')),
-              ],
-              selected: <_LogScope>{_scope},
-              onSelectionChanged: (value) =>
-                  setState(() => _scope = value.first),
+            child: _AnimatedLogScopeTabs(
+              value: _scope,
+              onChanged: (value) => setState(() => _scope = value),
             ),
           ),
           const SizedBox(height: 10),
@@ -1162,7 +1141,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                   return ServiceFilterChip(
                     selected: _levels.contains(level),
                     icon: Icon(_logIcon(level), size: 16, color: color),
-                    label: Text(_logLevelName(level)),
+                    label: Text(_logLevelName(context, level)),
                     onSelected: (selected) => setState(() {
                       if (selected) {
                         _levels.add(level);
@@ -1200,7 +1179,10 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
           ),
           const SizedBox(height: 8),
           Text(
-            '显示 ${logs.length} 条 · INFO ${logs.where((item) => item.level == 'info').length} · WARN ${logs.where((item) => item.level == 'warning').length} · ERROR ${logs.where((item) => item.level == 'error').length}',
+            text(
+              zh: '显示 ${logs.length} 条 · 信息 ${logs.where((item) => item.level == 'info').length} · 警告 ${logs.where((item) => item.level == 'warning').length} · 错误 ${logs.where((item) => item.level == 'error').length}',
+              en: 'Showing ${logs.length} · INFO ${logs.where((item) => item.level == 'info').length} · WARN ${logs.where((item) => item.level == 'warning').length} · ERROR ${logs.where((item) => item.level == 'error').length}',
+            ),
             style: theme.textTheme.labelSmall?.copyWith(
               color: cs.onSurfaceVariant,
             ),
@@ -1290,7 +1272,7 @@ class _LogRow extends StatelessWidget {
                 Icon(_logIcon(entry.level), size: 14, color: color),
                 const SizedBox(width: 5),
                 Text(
-                  _logLevelName(entry.level),
+                  _logLevelName(context, entry.level),
                   style: TextStyle(
                     color: color,
                     fontFamily: 'monospace',
@@ -1344,12 +1326,47 @@ IconData _logIcon(String level) => switch (level) {
   _ => Icons.info_outline_rounded,
 };
 
-String _logLevelName(String level) => switch (level) {
-  'error' => 'ERROR',
-  'warning' => 'WARN',
-  'runtime' => 'RUNTIME',
-  _ => 'INFO',
-};
+String _logLevelName(BuildContext context, String level) {
+  final text = openHandTextResolver(context);
+  return switch (level) {
+    'error' => text(zh: '错误', en: 'ERROR'),
+    'warning' => text(zh: '警告', en: 'WARN'),
+    'runtime' => text(zh: '运行时', en: 'RUNTIME'),
+    _ => text(zh: '信息', en: 'INFO'),
+  };
+}
+
+class _AnimatedLogScopeTabs extends StatelessWidget {
+  const _AnimatedLogScopeTabs({required this.value, required this.onChanged});
+
+  final _LogScope value;
+  final ValueChanged<_LogScope> onChanged;
+
+  @override
+  Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
+    final items = <(_LogScope, String)>[
+      (_LogScope.all, text(zh: '全部', en: 'All')),
+      (_LogScope.current, text(zh: '当前任务', en: 'Current task')),
+      (_LogScope.runtime, text(zh: '运行时', en: 'Runtime')),
+      (_LogScope.history, text(zh: '历史任务', en: 'History')),
+    ];
+    return SegmentedButton<_LogScope>(
+      segments: [
+        for (final item in items)
+          ButtonSegment(value: item.$1, label: Text(item.$2)),
+      ],
+      selected: <_LogScope>{value},
+      onSelectionChanged: (next) => onChanged(next.first),
+      style: ButtonStyle(
+        animationDuration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 280),
+        ),
+      ),
+    );
+  }
+}
 
 String _duration(int seconds) {
   if (seconds < 60) return '${seconds}s';

@@ -1162,6 +1162,98 @@ class PluginScannerService {
     return _qdrantNotInstalled;
   }
 
+  Future<PluginInfo> scanPostgresql() async {
+    try {
+      final cli = await _shellRun('command -v psql');
+      final ready = await _shellRun(
+        'pg_isready -h 127.0.0.1 -p 5432 2>/dev/null',
+      );
+      final cliAvailable = cli.exitCode == 0;
+      final serviceRunning = ready.exitCode == 0;
+      final versionResult = cliAvailable
+          ? await _shellRun('psql --version')
+          : null;
+      final version = versionResult == null || versionResult.exitCode != 0
+          ? null
+          : _extractLooseVersion(versionResult.stdout.toString());
+      return PluginInfo(
+        id: PluginCatalogIds.postgresql,
+        name: 'PostgreSQL',
+        description: '关系型数据库服务，供 AI 暴露面扫描保存任务与审计数据',
+        status: serviceRunning
+            ? PluginStatus.installed
+            : cliAvailable
+            ? PluginStatus.error
+            : PluginStatus.notInstalled,
+        installedVersion: version,
+        installPath: cliAvailable
+            ? extractPluginAbsolutePath(cli.stdout.toString())
+            : null,
+        supportsUninstall: false,
+        supportsInstall: false,
+        metadata: <String, Object?>{
+          'external_service': true,
+          'cli_available': cliAvailable,
+          'service_running': serviceRunning,
+          'endpoint': 'postgresql://127.0.0.1:5432',
+        },
+        errorMessage: cliAvailable && !serviceRunning
+            ? '已检测到 PostgreSQL 客户端，但本机 5432 端口服务未就绪。'
+            : null,
+      );
+    } catch (error, stack) {
+      silentLog('plugin_scanner', '扫描 PostgreSQL', error, stack);
+    }
+    return _postgresqlNotInstalled;
+  }
+
+  Future<PluginInfo> scanRedis() async {
+    try {
+      final cli = await _shellRun('command -v redis-cli');
+      final ping = await _shellRun(
+        'redis-cli -h 127.0.0.1 -p 6379 ping 2>/dev/null',
+      );
+      final cliAvailable = cli.exitCode == 0;
+      final serviceRunning =
+          ping.exitCode == 0 &&
+          ping.stdout.toString().trim().toUpperCase() == 'PONG';
+      final versionResult = cliAvailable
+          ? await _shellRun('redis-cli --version')
+          : null;
+      final version = versionResult == null || versionResult.exitCode != 0
+          ? null
+          : _extractLooseVersion(versionResult.stdout.toString());
+      return PluginInfo(
+        id: PluginCatalogIds.redis,
+        name: 'Redis',
+        description: '内存数据存储服务，供 AI 暴露面扫描执行缓存与任务队列',
+        status: serviceRunning
+            ? PluginStatus.installed
+            : cliAvailable
+            ? PluginStatus.error
+            : PluginStatus.notInstalled,
+        installedVersion: version,
+        installPath: cliAvailable
+            ? extractPluginAbsolutePath(cli.stdout.toString())
+            : null,
+        supportsUninstall: false,
+        supportsInstall: false,
+        metadata: <String, Object?>{
+          'external_service': true,
+          'cli_available': cliAvailable,
+          'service_running': serviceRunning,
+          'endpoint': 'redis://127.0.0.1:6379',
+        },
+        errorMessage: cliAvailable && !serviceRunning
+            ? '已检测到 Redis 客户端，但本机 6379 端口服务未就绪。'
+            : null,
+      );
+    } catch (error, stack) {
+      silentLog('plugin_scanner', '扫描 Redis', error, stack);
+    }
+    return _redisNotInstalled;
+  }
+
   static String _formatDockerPorts(Object? value) {
     if (value is! Map) return '';
     final parts = <String>[];
@@ -1343,6 +1435,32 @@ class PluginScannerService {
     dependencies: <String>[PluginCatalogIds.docker],
   );
 
+  static const _postgresqlNotInstalled = PluginInfo(
+    id: PluginCatalogIds.postgresql,
+    name: 'PostgreSQL',
+    description: '关系型数据库服务，供 AI 暴露面扫描保存任务与审计数据',
+    status: PluginStatus.notInstalled,
+    supportsUninstall: false,
+    supportsInstall: false,
+    metadata: <String, Object?>{
+      'external_service': true,
+      'endpoint': 'postgresql://127.0.0.1:5432',
+    },
+  );
+
+  static const _redisNotInstalled = PluginInfo(
+    id: PluginCatalogIds.redis,
+    name: 'Redis',
+    description: '内存数据存储服务，供 AI 暴露面扫描执行缓存与任务队列',
+    status: PluginStatus.notInstalled,
+    supportsUninstall: false,
+    supportsInstall: false,
+    metadata: <String, Object?>{
+      'external_service': true,
+      'endpoint': 'redis://127.0.0.1:6379',
+    },
+  );
+
   static const _aiJunglerPlugin = PluginInfo(
     id: PluginCatalogIds.aiJungler,
     name: 'AI Jungler Engine',
@@ -1375,6 +1493,8 @@ class PluginScannerService {
     _anythingAnalyzerNotInstalled,
     _dockerNotInstalled,
     _qdrantNotInstalled,
+    _postgresqlNotInstalled,
+    _redisNotInstalled,
     _hermesAgentNotInstalled,
     _aiJunglerPlugin,
   ];
@@ -1398,6 +1518,8 @@ class PluginScannerService {
     final doldrumsFuture = runScan(scanDoldrums);
     final anythingAnalyzerFuture = runScan(scanAnythingAnalyzer);
     final dockerFuture = runScan(scanDocker);
+    final postgresqlFuture = runScan(scanPostgresql);
+    final redisFuture = runScan(scanRedis);
     final pythonRuntimeFuture = runScan(_resolvePythonRuntime);
     final nodeJs = await nodeFuture;
     final playwright = await playwrightFuture;
@@ -1413,6 +1535,8 @@ class PluginScannerService {
     final anythingAnalyzer = await anythingAnalyzerFuture;
     final docker = await dockerFuture;
     final qdrant = await scanQdrant();
+    final postgresql = await postgresqlFuture;
+    final redis = await redisFuture;
     final pythonRuntime = await _runWithFallback<_PythonRuntimeScan?>(
       operation: '解析 Python 运行时',
       fallback: null,
@@ -1457,6 +1581,8 @@ class PluginScannerService {
       anythingAnalyzer,
       updatedDocker,
       qdrant,
+      postgresql,
+      redis,
       hermesAgent,
       _aiJunglerPlugin,
     ];

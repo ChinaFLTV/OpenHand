@@ -261,6 +261,7 @@ class AiExposureProxyProbeSample {
 class AiExposureProxyEndpoint {
   const AiExposureProxyEndpoint({
     required this.url,
+    this.name = '',
     this.enabled = true,
     this.samples = const <AiExposureProxyProbeSample>[],
   });
@@ -285,6 +286,7 @@ class AiExposureProxyEndpoint {
     }
     return AiExposureProxyEndpoint(
       url: uri.replace(scheme: uri.scheme.toLowerCase(), path: '').toString(),
+      name: uri.host,
     );
   }
 
@@ -298,6 +300,7 @@ class AiExposureProxyEndpoint {
         .map(AiExposureProxyProbeSample.fromJson)
         .toList(growable: false);
     return endpoint.copyWith(
+      name: json['name'] is String ? json['name'] as String : null,
       enabled: json['enabled'] as bool? ?? true,
       samples: samples.length <= kAiExposureProxyLatencySampleLimit
           ? samples
@@ -308,6 +311,7 @@ class AiExposureProxyEndpoint {
   }
 
   final String url;
+  final String name;
   final bool enabled;
   final List<AiExposureProxyProbeSample> samples;
 
@@ -321,11 +325,16 @@ class AiExposureProxyEndpoint {
     return '${uri.scheme}://$username:******@$host:${uri.port}';
   }
 
+  String get displayName =>
+      name.trim().isEmpty ? Uri.parse(url).host : name.trim();
+
   AiExposureProxyEndpoint copyWith({
+    String? name,
     bool? enabled,
     List<AiExposureProxyProbeSample>? samples,
   }) => AiExposureProxyEndpoint(
     url: url,
+    name: name ?? this.name,
     enabled: enabled ?? this.enabled,
     samples: List<AiExposureProxyProbeSample>.unmodifiable(
       samples ?? this.samples,
@@ -345,6 +354,7 @@ class AiExposureProxyEndpoint {
 
   Map<String, Object?> toJson() => <String, Object?>{
     'url': url,
+    if (name.trim().isNotEmpty) 'name': name.trim(),
     'enabled': enabled,
     if (samples.isNotEmpty)
       'samples': samples
@@ -362,6 +372,7 @@ class AiExposureProxyConfiguration {
     required this.endpoints,
     this.inspectionEnabled = false,
     this.inspectionIntervalMinutes = 30,
+    this.inspectionConcurrency = 8,
   });
 
   factory AiExposureProxyConfiguration.defaults() =>
@@ -400,6 +411,8 @@ class AiExposureProxyConfiguration {
             1,
             1440,
           ),
+      inspectionConcurrency:
+          ((json['inspectionConcurrency'] as num?)?.toInt() ?? 8).clamp(1, 32),
     );
   }
 
@@ -410,6 +423,7 @@ class AiExposureProxyConfiguration {
   final List<AiExposureProxyEndpoint> endpoints;
   final bool inspectionEnabled;
   final int inspectionIntervalMinutes;
+  final int inspectionConcurrency;
 
   List<AiExposureProxyEndpoint> get activeEndpoints =>
       endpoints.where((endpoint) => endpoint.enabled).toList(growable: false);
@@ -424,6 +438,7 @@ class AiExposureProxyConfiguration {
         .toList(growable: false),
     'inspectionEnabled': inspectionEnabled,
     'inspectionIntervalMinutes': inspectionIntervalMinutes.clamp(1, 1440),
+    'inspectionConcurrency': inspectionConcurrency.clamp(1, 32),
   };
 
   Map<String, Object?> toRuntimeJson() => <String, Object?>{
@@ -444,6 +459,7 @@ class AiExposureProxyConfiguration {
     List<AiExposureProxyEndpoint>? endpoints,
     bool? inspectionEnabled,
     int? inspectionIntervalMinutes,
+    int? inspectionConcurrency,
   }) => AiExposureProxyConfiguration(
     enabled: enabled ?? this.enabled,
     strategy: strategy ?? this.strategy,
@@ -455,6 +471,7 @@ class AiExposureProxyConfiguration {
     inspectionEnabled: inspectionEnabled ?? this.inspectionEnabled,
     inspectionIntervalMinutes:
         inspectionIntervalMinutes ?? this.inspectionIntervalMinutes,
+    inspectionConcurrency: inspectionConcurrency ?? this.inspectionConcurrency,
   );
 }
 

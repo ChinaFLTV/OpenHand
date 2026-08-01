@@ -1351,6 +1351,36 @@ abstract class AppLocalizations {
   /// **'本地向量数据库，用于知识库 embedding 向量索引与检索'**
   String get pluginServiceDescriptionQdrant;
 
+  /// No description provided for @pluginServiceDescriptionPostgresql.
+  ///
+  /// In zh, this message translates to:
+  /// **'关系型数据库服务，供 AI 暴露面扫描保存任务与审计数据'**
+  String get pluginServiceDescriptionPostgresql;
+
+  /// No description provided for @pluginServiceDescriptionRedis.
+  ///
+  /// In zh, this message translates to:
+  /// **'内存数据存储服务，供 AI 暴露面扫描执行缓存与任务队列'**
+  String get pluginServiceDescriptionRedis;
+
+  /// No description provided for @pluginServiceDetailExternalService.
+  ///
+  /// In zh, this message translates to:
+  /// **'外部服务'**
+  String get pluginServiceDetailExternalService;
+
+  /// No description provided for @pluginServiceDetailServiceRunning.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务运行中'**
+  String get pluginServiceDetailServiceRunning;
+
+  /// No description provided for @pluginServiceDetailEndpoint.
+  ///
+  /// In zh, this message translates to:
+  /// **'服务端点'**
+  String get pluginServiceDetailEndpoint;
+
   /// No description provided for @pluginServiceTemplateWebReverseExpert.
   ///
   /// In zh, this message translates to:
