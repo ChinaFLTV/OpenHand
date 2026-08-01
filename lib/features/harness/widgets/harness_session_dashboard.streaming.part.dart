@@ -32,6 +32,7 @@ class _HeStreamingSubConversationState
   bool _showEarlierSegments = false;
   bool _olderSegmentsLoading = false;
   int _olderSegmentWindowStart = -1;
+  int _olderParseGeneration = 0;
 
   @override
   void didChangeDependencies() {
@@ -62,6 +63,7 @@ class _HeStreamingSubConversationState
     _lastSegmentCount = newCount;
 
     if (!_showEarlierSegments) {
+      _olderParseGeneration++;
       _olderSegments = null;
       _olderSegmentsLoading = false;
       _olderSegmentWindowStart = -1;
@@ -73,6 +75,7 @@ class _HeStreamingSubConversationState
 
   void _ensureOlderSegments(int start) {
     if (!_showEarlierSegments || start <= 0) {
+      _olderParseGeneration++;
       _olderSegments = null;
       _olderSegmentsLoading = false;
       _olderSegmentWindowStart = -1;
@@ -82,30 +85,45 @@ class _HeStreamingSubConversationState
       return;
     }
     final olderLines = widget.lines.sublist(0, start);
+    final generation = ++_olderParseGeneration;
     _olderSegmentWindowStart = start;
     if (olderLines.length > 3000) {
       _olderSegmentsLoading = true;
-      compute(_heParseOutputSegmentsIsolate, olderLines).then((result) {
-        if (!mounted ||
-            !_showEarlierSegments ||
-            _olderSegmentWindowStart != start) {
-          return;
-        }
-        setState(() {
-          _olderSegments = result;
-          _olderSegmentsLoading = false;
-        });
-      });
+      compute(_heParseOutputSegmentsIsolate, olderLines).then<void>(
+        (result) {
+          if (!_acceptOlderParseResult(generation, start)) return;
+          setState(() {
+            _olderSegments = result;
+            _olderSegmentsLoading = false;
+          });
+        },
+        onError: (Object error, StackTrace stack) {
+          silentLog('harness_streaming_view', '在隔离线程解析更早输出', error, stack);
+          if (!_acceptOlderParseResult(generation, start)) return;
+          setState(() {
+            _olderSegments = _heParseOutputSegments(olderLines);
+            _olderSegmentsLoading = false;
+          });
+        },
+      );
       return;
     }
     _olderSegments = _heParseOutputSegments(olderLines);
     _olderSegmentsLoading = false;
   }
 
+  bool _acceptOlderParseResult(int generation, int start) {
+    return mounted &&
+        _showEarlierSegments &&
+        generation == _olderParseGeneration &&
+        _olderSegmentWindowStart == start;
+  }
+
   void _toggleEarlierSegments() {
     setState(() {
       _showEarlierSegments = !_showEarlierSegments;
       if (!_showEarlierSegments) {
+        _olderParseGeneration++;
         _olderSegments = null;
         _olderSegmentsLoading = false;
         _olderSegmentWindowStart = -1;
@@ -269,7 +287,7 @@ class _HeStreamingSubConversationState
           ],
         ],
         if (segments.isNotEmpty) _buildSegmentList(segments, animateLast: true),
-        // Streaming indicator.
+        // 流式输出指示器。
         Padding(
           padding: const EdgeInsets.only(top: 6),
           child: Row(
@@ -307,9 +325,7 @@ class _HeStreamingSubConversationState
   }
 }
 
-// _HeSegmentMiniCard — Renders a single output segment as a styled mini-card
-// matching the AI thread template's visual language for thinking, tool call,
-// and assistant response messages.
+// 按思考、工具调用和助手回复类型渲染输出片段。
 class _HeSegmentMiniCard extends StatefulWidget {
   const _HeSegmentMiniCard({
     super.key,
@@ -362,7 +378,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       );
     }
 
-    // ── Special rendering for manual review verdict segments ─────────
+    // 人工复核结论使用专用样式。
     if (seg.kind == _HeSegmentKind.userInput) {
       final verdictInfo = _parseReviewVerdict(seg);
       if (verdictInfo != null) {
@@ -386,7 +402,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       }
     }
 
-    // ── Determine card style by segment kind ────────────────────────────
+    // 根据片段类型确定卡片样式。
     final (
       IconData icon,
       String label,
@@ -517,7 +533,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
       ),
     };
 
-    // ── Special rendering for command segments ──────────────────────────
+    // 命令片段使用专用样式。
     if (seg.kind == _HeSegmentKind.command) {
       return _HeCommandStrip(command: seg.lines.join('\n'));
     }
@@ -550,9 +566,8 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Header ────────────────────────────────────────────────
             if (isThinking)
-              // Thinking pill header — matches default thread style.
+              // 思考标签与默认会话样式保持一致。
               Material(
                 color: Colors.transparent,
                 child: InkWell(
@@ -654,7 +669,6 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                   ),
                 ),
               ),
-            // ── Body ──────────────────────────────────────────────────
             if (body.isNotEmpty) ...[
               SizedBox(height: isThinking ? 10 : 8),
               if (isThinking)
@@ -714,13 +728,7 @@ class _HeAnimatedSegmentEntry extends StatelessWidget {
   }
 }
 
-// ── Structured API tool call metadata ────────────────────────────────────
-// HarnessApiPhaseRunner emits two markers inside a toolCall segment:
-//   📥 {args JSON}
-//   📤 status: succeeded | 150ms | exit: 0 | cmd: ... | cwd: ...
-// This class extracts those markers, removes them from the segment lines,
-// and makes the structured data available to the tool trace card.
-// ─────────────────────────────────────────────────────────────────────────
+// 从工具调用片段中提取参数与执行结果标记，供追踪卡片展示。
 
 final RegExp _heApiArgsMarker = RegExp(r'^\s*📥\s+(.+)$');
 final RegExp _heApiStatusMarker = RegExp(r'^\s*📤\s+(.+)$');

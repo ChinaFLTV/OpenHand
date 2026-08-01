@@ -28,9 +28,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
     final isRunning = log.status == HarnessPhaseStatus.running;
     final lines = log.lines;
 
-    // Running phases change content every frame — AnimatedSize cannot settle
-    // in a SliverList (the size-change listener fires markNeedsLayout during
-    // performLayout, causing a crash). Use a plain wrapper here.
+    // 运行阶段每帧都会改变内容，AnimatedSize 在 SliverList 中无法稳定布局。
     return Material(
       color: colorScheme.surface.withValues(alpha: 0.78),
       borderRadius: _br16,
@@ -39,7 +37,6 @@ class _HeLogSectionState extends State<_HeLogSection> {
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // ── Section header row ────────────────────────────────────────
             Row(
               children: [
                 Icon(
@@ -63,7 +60,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
                   ),
                 ),
                 const Spacer(),
-                // Raw / rendered toggle (only shown when phase is done)
+                // 仅在阶段结束后允许切换原始内容与渲染结果。
                 if (!isRunning && lines.isNotEmpty) ...[
                   _HeSmallPill(
                     icon: _showRaw
@@ -100,7 +97,6 @@ class _HeLogSectionState extends State<_HeLogSection> {
               ],
             ),
             const SizedBox(height: 10),
-            // ── Content area ──────────────────────────────────────────────
             if (lines.isEmpty)
               _HeEmptyOutputPlaceholder(isZh: widget.isZh)
             else if (isRunning)
@@ -132,8 +128,6 @@ class _HeLogSectionState extends State<_HeLogSection> {
     );
   }
 }
-
-// ── Empty placeholder ──────────────────────────────────────────────────────
 
 class _HeEmptyOutputPlaceholder extends StatelessWidget {
   const _HeEmptyOutputPlaceholder({required this.isZh});
@@ -172,8 +166,6 @@ class _HeEmptyOutputPlaceholder extends StatelessWidget {
     );
   }
 }
-
-// ── Raw full view (manual toggle) ─────────────────────────────────────────
 
 class _HeRawFullView extends StatefulWidget {
   const _HeRawFullView({
@@ -267,9 +259,7 @@ class _HeRawFullViewState extends State<_HeRawFullView> {
   }
 }
 
-// ── Smart view (markdown rendered) ────────────────────────────────────────
-// For large payloads (>3 000 lines) the log-splitting is offloaded to a
-// background isolate via compute() so the UI thread stays responsive.
+// 超过阈值的大日志交给隔离线程解析，避免阻塞界面线程。
 
 class _HeSmartView extends StatefulWidget {
   const _HeSmartView({
@@ -286,15 +276,13 @@ class _HeSmartView extends StatefulWidget {
   final ColorScheme colorScheme;
   final List<String> filePathRoots;
 
-  // Threshold: below this, parse on the UI thread synchronously (faster
-  // round-trip); above it, hand off to an isolate.
   static const int _isolateThreshold = 3000;
 
   @override
   State<_HeSmartView> createState() => _HeSmartViewState();
 }
 
-// Top-level function required by compute() — must not be a closure.
+// compute 只能调用顶层函数。
 ({String? command, String body}) _heSplitLogForMarkdownCompute(
   List<String> lines,
 ) => _heSplitLogForMarkdown(lines);
@@ -351,6 +339,7 @@ Widget _heEmptyOutputText(BuildContext context, ColorScheme colorScheme) {
 
 class _HeSmartViewState extends State<_HeSmartView> {
   ({String? command, String body})? _parsed;
+  int _parseGeneration = 0;
 
   @override
   void initState() {
@@ -368,10 +357,19 @@ class _HeSmartViewState extends State<_HeSmartView> {
   }
 
   void _parse(List<String> lines) {
+    final generation = ++_parseGeneration;
     if (lines.length > _HeSmartView._isolateThreshold) {
-      compute(_heSplitLogForMarkdownCompute, lines).then((result) {
-        if (mounted) setState(() => _parsed = result);
-      });
+      compute(_heSplitLogForMarkdownCompute, lines).then<void>(
+        (result) {
+          if (!mounted || generation != _parseGeneration) return;
+          setState(() => _parsed = result);
+        },
+        onError: (Object error, StackTrace stack) {
+          silentLog('harness_log_view', '在隔离线程解析日志', error, stack);
+          if (!mounted || generation != _parseGeneration) return;
+          setState(() => _parsed = _heSplitLogForMarkdown(lines));
+        },
+      );
     } else {
       _parsed = _heSplitLogForMarkdown(lines);
     }
@@ -409,10 +407,7 @@ class _HeSmartViewState extends State<_HeSmartView> {
   }
 }
 
-// _HeSubConversationView — Structured sub-conversation rendering (completed phase)
-// Parses CLI output into typed segments and renders each as an independent
-// mini-card within the phase card, providing a structured conversation feel
-// that matches the AI thread template's visual language.
+// 将已完成阶段的命令行输出解析为独立片段。
 class _HeSubConversationView extends StatefulWidget {
   const _HeSubConversationView({
     required this.lines,
@@ -438,10 +433,9 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
   int _lastSegmentCount = 0;
   int _contentRevision = 0;
   bool _hasParsedOnce = false;
+  int _parseGeneration = 0;
 
-  // Show at most this many segments initially; the rest hidden behind a
-  // "show more" button. This avoids laying out hundreds of segment widgets
-  // inside a shrinkWrap ListView — the chief source of scroll jank.
+  // 首屏限制片段数量，避免一次布局数百个组件。
   static const int _initialVisibleCount = 20;
 
   @override
@@ -460,17 +454,22 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
   }
 
   void _parseSegments() {
-    if (widget.lines.length > 3000) {
-      compute(_heParseOutputSegmentsIsolate, widget.lines).then((result) {
-        if (!mounted) {
-          return;
-        }
-        setState(() {
-          _applyParsedSegments(result);
-        });
-      });
+    final lines = widget.lines;
+    final generation = ++_parseGeneration;
+    if (lines.length > 3000) {
+      compute(_heParseOutputSegmentsIsolate, lines).then<void>(
+        (result) {
+          if (!mounted || generation != _parseGeneration) return;
+          setState(() => _applyParsedSegments(result));
+        },
+        onError: (Object error, StackTrace stack) {
+          silentLog('harness_log_view', '在隔离线程解析输出片段', error, stack);
+          if (!mounted || generation != _parseGeneration) return;
+          setState(() => _applyParsedSegments(_heParseOutputSegments(lines)));
+        },
+      );
     } else {
-      _applyParsedSegments(_heParseOutputSegments(widget.lines));
+      _applyParsedSegments(_heParseOutputSegments(lines));
     }
   }
 
@@ -587,9 +586,7 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
   }
 }
 
-/// Top-level function for isolate use in compute().
+/// 供 compute 调用的顶层解析函数。
 List<_HeOutputSegment> _heParseOutputSegmentsIsolate(List<String> lines) =>
     _heParseOutputSegments(lines);
-// _HeStreamingSubConversation — Streaming sub-conversation (running phase)
-// Similar to _HeSubConversationView but operates on a tail of lines and
-// includes streaming indicators.
+// 运行阶段仅解析日志尾部，并显示流式状态。
