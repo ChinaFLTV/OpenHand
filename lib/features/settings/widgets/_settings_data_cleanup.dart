@@ -1426,7 +1426,9 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   );
   final Set<FileMutationKind> _selectedKinds = <FileMutationKind>{};
   _LedgerTimeRange _timeRange = _LedgerTimeRange.all;
-  bool _busy = false;
+  bool _searchBusy = false;
+  bool _exportBusy = false;
+  bool _searchFailed = false;
   List<FileMutationView> _results = const <FileMutationView>[];
   int _runToken = 0;
 
@@ -1434,7 +1436,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   void initState() {
     super.initState();
     // 进入即跑一次默认搜索（不过滤），让用户立即看到全量。
-    _runSearch();
+    unawaited(_runSearch());
   }
 
   @override
@@ -1450,8 +1452,12 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
   }
 
   Future<void> _runSearch() async {
+    if (!mounted) return;
     final token = ++_runToken;
-    setState(() => _busy = true);
+    setState(() {
+      _searchBusy = true;
+      _searchFailed = false;
+    });
     try {
       final tools = splitLooseDelimitedValues(_toolCtrl.text);
       final results = await widget.ledger.searchRecords(
@@ -1463,9 +1469,14 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
       );
       if (!mounted || token != _runToken) return;
       setState(() => _results = results);
+    } catch (error, stack) {
+      silentLog('ledger_search_dialog', '搜索账本记录', error, stack);
+      if (mounted && token == _runToken) {
+        setState(() => _searchFailed = true);
+      }
     } finally {
       if (mounted && token == _runToken) {
-        setState(() => _busy = false);
+        setState(() => _searchBusy = false);
       }
     }
   }
@@ -1489,8 +1500,8 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
 
   /// 把当前过滤结果（含 blob）打成 bundle JSON 复制到剪贴板。
   Future<void> _exportFilteredAsBundle() async {
-    if (_results.isEmpty) return;
-    setState(() => _busy = true);
+    if (_results.isEmpty || _exportBusy) return;
+    setState(() => _exportBusy = true);
     try {
       final bundle = await widget.ledger.exportRecordsAsBundleJson(
         _results.map((v) => v.record),
@@ -1519,7 +1530,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
         ),
       );
     } finally {
-      if (mounted) setState(() => _busy = false);
+      if (mounted) setState(() => _exportBusy = false);
     }
   }
 
@@ -1641,12 +1652,14 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                   child: OpenHandContentStateSwitcher(
                     // 外层 Expanded 已定高，这里只做淡入淡出。
                     animateSize: false,
-                    stateKey: _busy
+                    stateKey: _searchBusy
                         ? 'busy'
+                        : _searchFailed
+                        ? 'error'
                         : _results.isEmpty
                         ? 'empty'
                         : 'results',
-                    child: _busy
+                    child: _searchBusy
                         ? Center(
                             child: SizedBox(
                               width: 18,
@@ -1655,6 +1668,39 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                                 strokeWidth: 1.8,
                                 color: cs.primary,
                               ),
+                            ),
+                          )
+                        : _searchFailed
+                        ? Center(
+                            child: Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                Icon(
+                                  Icons.error_outline_rounded,
+                                  color: cs.error,
+                                ),
+                                const SizedBox(height: 6),
+                                Text(
+                                  openHandLocalizedText(
+                                    context,
+                                    zh: '账本记录搜索失败',
+                                    en: 'Failed to search ledger records',
+                                  ),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: cs.error,
+                                  ),
+                                ),
+                                const SizedBox(height: 4),
+                                IconButton(
+                                  tooltip: openHandLocalizedText(
+                                    context,
+                                    zh: '重试',
+                                    en: 'Retry',
+                                  ),
+                                  onPressed: _runSearch,
+                                  icon: const Icon(Icons.refresh_rounded),
+                                ),
+                              ],
                             ),
                           )
                         : _results.isEmpty
@@ -1767,7 +1813,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                     ),
                     const Spacer(),
                     TextButton.icon(
-                      onPressed: _results.isEmpty || _busy
+                      onPressed: _results.isEmpty || _searchBusy || _exportBusy
                           ? null
                           : _exportFilteredAsBundle,
                       icon: const Icon(Icons.archive_outlined, size: 16),
