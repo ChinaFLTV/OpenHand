@@ -742,16 +742,28 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                           Text(
                             usesResponsesRouting
                                 ? preview.responses.isNotEmpty
-                                      ? openHandLocalizedText(
-                                          context,
-                                          zh: '运行时优先使用 Responses；确认不兼容后自动回退。',
-                                          zhHant:
-                                              '執行時優先使用 Responses；確認不相容後自動回退。',
-                                          en: 'Responses is preferred at runtime, with automatic compatibility fallback.',
-                                          fr: 'Responses est prioritaire, avec repli automatique en cas d’incompatibilité.',
-                                          de: 'Responses wird bevorzugt, mit automatischem Kompatibilitäts-Fallback.',
-                                          ja: '実行時は Responses を優先し、非互換時は自動的にフォールバックします。',
-                                        )
+                                      ? _responsesCapabilityStatus ==
+                                                'supported'
+                                            ? openHandLocalizedText(
+                                                context,
+                                                zh: '已验证 Responses，运行时直接使用该接口。',
+                                                zhHant:
+                                                    '已驗證 Responses，執行時直接使用該介面。',
+                                                en: 'Responses is verified and used directly at runtime.',
+                                                fr: 'Responses est vérifié et utilisé directement.',
+                                                de: 'Responses ist verifiziert und wird direkt verwendet.',
+                                                ja: 'Responses は検証済みで、実行時に直接使用されます。',
+                                              )
+                                            : openHandLocalizedText(
+                                                context,
+                                                zh: '尚未固定接口；先尝试 Responses，确认不兼容后转 Chat Completions。',
+                                                zhHant:
+                                                    '尚未固定介面；先嘗試 Responses，確認不相容後轉 Chat Completions。',
+                                                en: 'No endpoint is fixed yet; runtime falls back to Chat Completions when Responses is incompatible.',
+                                                fr: 'Aucun endpoint n’est fixé ; Chat Completions prend le relais si Responses est incompatible.',
+                                                de: 'Noch kein Endpunkt festgelegt; bei inkompatiblem Responses folgt Chat Completions.',
+                                                ja: 'エンドポイントは未確定です。Responses が非互換の場合は Chat Completions に切り替えます。',
+                                              )
                                       : openHandLocalizedText(
                                           context,
                                           zh: 'Responses 已禁用，运行时使用 Chat Completions。',
@@ -783,12 +795,25 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               icon: Icons.auto_awesome_rounded,
                               label: openHandLocalizedText(
                                 context,
-                                zh: '首选 · Responses',
-                                zhHant: '首選 · Responses',
-                                en: 'Preferred · Responses',
-                                fr: 'Prioritaire · Responses',
-                                de: 'Bevorzugt · Responses',
-                                ja: '優先 · Responses',
+                                zh: _responsesCapabilityStatus == 'supported'
+                                    ? '已验证 · Responses'
+                                    : '首试 · Responses',
+                                zhHant:
+                                    _responsesCapabilityStatus == 'supported'
+                                    ? '已驗證 · Responses'
+                                    : '首試 · Responses',
+                                en: _responsesCapabilityStatus == 'supported'
+                                    ? 'Verified · Responses'
+                                    : 'First · Responses',
+                                fr: _responsesCapabilityStatus == 'supported'
+                                    ? 'Vérifié · Responses'
+                                    : 'Premier · Responses',
+                                de: _responsesCapabilityStatus == 'supported'
+                                    ? 'Verifiziert · Responses'
+                                    : 'Zuerst · Responses',
+                                ja: _responsesCapabilityStatus == 'supported'
+                                    ? '検証済み · Responses'
+                                    : '最初 · Responses',
                               ),
                               url: preview.responses,
                               color: colorScheme.primary,

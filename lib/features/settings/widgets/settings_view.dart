@@ -6592,14 +6592,43 @@ class _SettingsViewState extends State<SettingsView> {
     });
     final service = AiChatService();
     try {
-      await service.testModel(model);
+      final result = await service.testModel(model);
       if (!mounted) {
         return;
       }
+      final remembersChatRoute =
+          result.chatApiFamily == AiApiFamily.responses ||
+          result.chatApiFamily == AiApiFamily.chatCompletions;
+      if (remembersChatRoute) {
+        final saved = await context
+            .read<SettingsController>()
+            .updateAiModelVerifiedChatApiFamily(model.id, result.chatApiFamily);
+        if (!mounted) return;
+        if (!saved) {
+          _showPersistenceFailureSnackBar(context);
+          return;
+        }
+      }
       final l10n = AppLocalizations.of(context)!;
+      final endpointLabel = switch (result.chatApiFamily) {
+        AiApiFamily.responses => 'Responses',
+        AiApiFamily.chatCompletions => 'Chat Completions',
+        _ => null,
+      };
+      final routeMessage = endpointLabel == null
+          ? ''
+          : openHandLocalizedText(
+              context,
+              zh: '已记住 $endpointLabel 接口。',
+              zhHant: '已記住 $endpointLabel 介面。',
+              en: '$endpointLabel endpoint saved.',
+              fr: 'Endpoint $endpointLabel enregistré.',
+              de: '$endpointLabel-Endpunkt gespeichert.',
+              ja: '$endpointLabel エンドポイントを保存しました。',
+            );
       flashOpenHandSnack(
         context,
-        l10n.aiModelTestSuccess(model.providerLabel),
+        '${l10n.aiModelTestSuccess(model.providerLabel)}${routeMessage.isEmpty ? '' : ' $routeMessage'}',
         kind: OpenHandSnackKind.success,
       );
     } on AiChatException catch (error) {

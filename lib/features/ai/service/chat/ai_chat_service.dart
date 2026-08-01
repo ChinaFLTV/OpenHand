@@ -95,6 +95,7 @@ abstract class AiChatClient {
     Future<void>? cancelSignal,
     AiInputCacheRuntimeConfig? inputCacheConfig,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
+    bool allowResponsesFallback = true,
   });
 
   Future<AiChatStreamingResponse> sendMessageStream({
@@ -110,9 +111,16 @@ abstract class AiChatClient {
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   });
 
-  Future<String> testModel(AiModelConfig model);
+  Future<AiModelTestResult> testModel(AiModelConfig model);
 
   void dispose();
+}
+
+class AiModelTestResult {
+  const AiModelTestResult({required this.reply, required this.chatApiFamily});
+
+  final String reply;
+  final AiApiFamily chatApiFamily;
 }
 
 class AiChatRequestTelemetry {
@@ -670,6 +678,7 @@ class AiChatService implements AiChatClient {
     Future<void>? cancelSignal,
     AiInputCacheRuntimeConfig? inputCacheConfig,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
+    bool allowResponsesFallback = true,
   }) async {
     final requestAbort = _beginRequest();
     final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
@@ -688,6 +697,7 @@ class AiChatService implements AiChatClient {
         cancelSignal: effectiveCancelSignal,
         inputCacheConfig: inputCacheConfig,
         onRequestStarted: onRequestStarted,
+        allowResponsesFallback: allowResponsesFallback,
       );
       final endedAt = DateTime.now().toUtc();
       AiUsageTracker.instance.recordSuccess(
@@ -756,6 +766,7 @@ class AiChatService implements AiChatClient {
     Future<void>? cancelSignal,
     AiInputCacheRuntimeConfig? inputCacheConfig,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
+    bool allowResponsesFallback = true,
   }) async {
     _assertCreationModeIsRoutable(model, creationRequest);
     final canUseResponses = _canUseResponsesFamily(
@@ -818,7 +829,7 @@ class AiChatService implements AiChatClient {
       } on AiChatCancelledException {
         rethrow;
       } on AiResponsesHttpException catch (error) {
-        if (!error.isCompatibilityFailure) {
+        if (!allowResponsesFallback || !error.isCompatibilityFailure) {
           throw _chatExceptionFromResponses(error);
         }
         _rememberResponsesIncompatibility(
@@ -2759,7 +2770,7 @@ class AiChatService implements AiChatClient {
   }
 
   @override
-  Future<String> testModel(AiModelConfig model) async {
+  Future<AiModelTestResult> testModel(AiModelConfig model) async {
     if (model.normalizedBaseUrl.isEmpty) {
       throw const AiChatException('Missing base URL.');
     }
@@ -2767,12 +2778,16 @@ class AiChatService implements AiChatClient {
     if (modelId == null) {
       throw const AiChatException('Missing model ID.');
     }
-    final probeModel = model.copyWith(
+    final baseProbeModel = model.copyWith(
       clearMaxTokens: true,
       clearTemperature: true,
     );
-    try {
-      final reply = await AiUsageTraceContext.runDerived(
+
+    Future<AiChatCompletion> probe(
+      AiModelConfig probeModel, {
+      required bool allowResponsesFallback,
+    }) {
+      return AiUsageTraceContext.runDerived(
         source: AiUsageSource.modelTest,
         operation: 'availability_probe',
         body: () => sendMessage(
@@ -2784,35 +2799,98 @@ class AiChatService implements AiChatClient {
             ),
           ],
           timeout: const Duration(seconds: 20),
+          allowResponsesFallback: allowResponsesFallback,
         ),
       );
-      final normalizedReply = nullIfBlank(reply.reply);
+    }
+
+    AiModelTestResult verifiedResult(
+      AiChatCompletion completion,
+      AiApiFamily family,
+    ) {
+      final normalizedReply = nullIfBlank(completion.reply);
       if (normalizedReply == null) {
         throw AiChatException(
           'Empty assistant reply.',
-          telemetry: reply.requestUrl == null && reply.requestMethod == null
+          telemetry:
+              completion.requestUrl == null && completion.requestMethod == null
               ? null
               : AiChatRequestTelemetry(
-                  requestUrl: reply.requestUrl,
-                  requestMethod: reply.requestMethod,
-                  requestHeaders: reply.requestHeaders,
-                  requestBody: reply.requestBody,
-                  rawResponse: reply.rawResponse,
-                  startedAt: reply.startedAt,
-                  endedAt: reply.endedAt,
-                  durationMs: reply.durationMs,
+                  requestUrl: completion.requestUrl,
+                  requestMethod: completion.requestMethod,
+                  requestHeaders: completion.requestHeaders,
+                  requestBody: completion.requestBody,
+                  rawResponse: completion.rawResponse,
+                  startedAt: completion.startedAt,
+                  endedAt: completion.endedAt,
+                  durationMs: completion.durationMs,
                   error: 'Empty assistant reply.',
                 ),
         );
       }
-      return normalizedReply;
-    } on AiChatException catch (error) {
-      if (!_isOpenAiCompatibleProtocol(probeModel.protocolType)) {
-        rethrow;
+      return AiModelTestResult(reply: normalizedReply, chatApiFamily: family);
+    }
+
+    final fallbackFamily = AiProtocolRegistry.adapterForModel(
+      baseProbeModel,
+    ).operationFamily;
+    final testsResponses =
+        baseProbeModel.apiDialect == AiApiDialect.openAiCompat &&
+        fallbackFamily == AiApiFamily.chatCompletions;
+    if (!testsResponses) {
+      try {
+        return verifiedResult(
+          await probe(baseProbeModel, allowResponsesFallback: true),
+          fallbackFamily,
+        );
+      } on AiChatException catch (error) {
+        if (!_isOpenAiCompatibleProtocol(baseProbeModel.protocolType)) {
+          rethrow;
+        }
+        throw await _decorateProviderProbeFailure(
+          baseProbeModel,
+          error,
+          timeout: const Duration(seconds: 12),
+        );
       }
+    }
+
+    final responsesCapabilities = Map<AiApiFamily, String>.from(
+      baseProbeModel.capabilityOverrides,
+    )..[AiApiFamily.responses] = 'supported';
+    final responsesProbeModel = baseProbeModel.copyWith(
+      capabilityOverrides: responsesCapabilities,
+    );
+    late final AiChatException responsesFailure;
+    try {
+      return verifiedResult(
+        await probe(responsesProbeModel, allowResponsesFallback: false),
+        AiApiFamily.responses,
+      );
+    } on AiChatException catch (error) {
+      responsesFailure = error;
+    }
+
+    final chatCapabilities = Map<AiApiFamily, String>.from(
+      baseProbeModel.capabilityOverrides,
+    )..[AiApiFamily.responses] = 'disabled';
+    final chatProbeModel = baseProbeModel.copyWith(
+      capabilityOverrides: chatCapabilities,
+    );
+    try {
+      return verifiedResult(
+        await probe(chatProbeModel, allowResponsesFallback: false),
+        AiApiFamily.chatCompletions,
+      );
+    } on AiChatException catch (chatFailure) {
+      final combinedFailure = AiChatException(
+        '${StructuredErrorText.pick(zh: 'Responses 接口失败：', en: 'Responses endpoint failed:')}\n${responsesFailure.message}\n\n'
+        '${StructuredErrorText.pick(zh: 'Chat Completions 接口失败：', en: 'Chat Completions endpoint failed:')}\n${chatFailure.message}',
+        telemetry: chatFailure.telemetry,
+      );
       throw await _decorateProviderProbeFailure(
-        probeModel,
-        error,
+        chatProbeModel,
+        combinedFailure,
         timeout: const Duration(seconds: 12),
       );
     }

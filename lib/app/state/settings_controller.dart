@@ -6,6 +6,7 @@ import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../features/ai/model/ai_allow_command_rule.dart';
+import '../../features/ai/model/ai_api_family.dart';
 import '../../features/ai/model/ai_auto_title_fetch_mode.dart';
 import '../../features/ai/model/ai_builtin_tool_config.dart';
 import '../../features/ai/model/ai_deny_command_rule.dart';
@@ -1687,6 +1688,35 @@ class SettingsController extends ChangeNotifier {
           normalizedModels.any((item) => item.id == nextSelectedModelId)
           ? nextSelectedModelId
           : normalizedValue.id;
+      return _MutationDisposition.apply;
+    });
+  }
+
+  Future<bool> updateAiModelVerifiedChatApiFamily(
+    String id,
+    AiApiFamily family,
+  ) async {
+    if (family != AiApiFamily.responses &&
+        family != AiApiFamily.chatCompletions) {
+      return false;
+    }
+    return _commitMutation(() {
+      final index = _aiModels.indexWhere((item) => item.id == id);
+      if (index == -1) return _MutationDisposition.reject;
+      final current = _aiModels[index];
+      final status = family == AiApiFamily.responses ? 'supported' : 'disabled';
+      if (current.capabilityOverrides[AiApiFamily.responses] == status) {
+        return _MutationDisposition.successNoChange;
+      }
+      final capabilities = Map<AiApiFamily, String>.from(
+        current.capabilityOverrides,
+      )..[AiApiFamily.responses] = status;
+      final updatedModels = List<AiModelConfig>.from(_aiModels);
+      updatedModels[index] = current.copyWith(
+        capabilityOverrides: capabilities,
+      );
+      _aiModels = updatedModels;
+      _cachedAiModelsView = null;
       return _MutationDisposition.apply;
     });
   }

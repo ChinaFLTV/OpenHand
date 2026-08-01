@@ -5524,6 +5524,32 @@ class _AiModelTileState extends State<_AiModelTile> {
                           ? l10n.aiModelNoToken
                           : widget.model.maskedToken,
                     ),
+                    if (widget.model.apiDialect == AiApiDialect.openAiCompat)
+                      _AiProviderInfoChip(
+                        icon: Icons.route_rounded,
+                        label: switch (widget.model.capabilityStatusFor(
+                          AiApiFamily.responses,
+                        )) {
+                          'supported' => openHandLocalizedText(
+                            context,
+                            zh: '聊天接口 · Responses',
+                            zhHant: '聊天介面 · Responses',
+                            en: 'Chat API · Responses',
+                          ),
+                          'disabled' => openHandLocalizedText(
+                            context,
+                            zh: '聊天接口 · Chat Completions',
+                            zhHant: '聊天介面 · Chat Completions',
+                            en: 'Chat API · Chat Completions',
+                          ),
+                          _ => openHandLocalizedText(
+                            context,
+                            zh: '聊天接口 · 自动探测',
+                            zhHant: '聊天介面 · 自動探測',
+                            en: 'Chat API · Auto detect',
+                          ),
+                        },
+                      ),
                     if (widget.isSelected)
                       _AiProviderInfoChip(
                         icon: Icons.check_circle_outline_rounded,

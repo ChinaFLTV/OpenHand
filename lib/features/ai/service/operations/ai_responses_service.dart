@@ -155,6 +155,7 @@ class AiResponsesHttpException implements Exception {
     if (isMissingEndpoint) return true;
     if (!_schemaCompatibilityStatuses.contains(statusCode)) return false;
     final normalized = body.toLowerCase();
+    if (normalized.contains('responses_translation_error')) return true;
     return _incompatibilityTerms.any(normalized.contains) &&
         _responsesTerms.any(normalized.contains);
   }
