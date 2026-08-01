@@ -339,6 +339,7 @@ class _PluginCard extends StatelessWidget {
       PluginCatalogIds.jadx => Icons.data_object_rounded,
       PluginCatalogIds.docker => Icons.view_in_ar_rounded,
       PluginCatalogIds.qdrant => Icons.hub_rounded,
+      PluginCatalogIds.aiJungler => Icons.radar_rounded,
       _ => Icons.extension_rounded,
     };
 
@@ -488,7 +489,7 @@ class _PluginCard extends StatelessWidget {
           icon: const Icon(Icons.info_outline_rounded, size: 18),
         ),
         // 检查更新
-        if (plugin.isInstalled)
+        if (plugin.isInstalled && plugin.id != PluginCatalogIds.aiJungler)
           IconButton.filledTonal(
             tooltip: l10n.pluginServiceCheckUpdates,
             onPressed: isBusy ? null : () => _checkUpdate(context),
@@ -506,7 +507,7 @@ class _PluginCard extends StatelessWidget {
             icon: const Icon(Icons.hub_outlined, size: 18),
           ),
         // 启用/禁用
-        if (plugin.isInstalled)
+        if (plugin.isInstalled && plugin.id != PluginCatalogIds.aiJungler)
           IconButton.filledTonal(
             tooltip: plugin.enabled
                 ? l10n.pluginServiceActionDisable

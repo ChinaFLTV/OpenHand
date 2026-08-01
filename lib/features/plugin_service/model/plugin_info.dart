@@ -43,6 +43,7 @@ class PluginCatalogIds {
   static const String docker = 'docker';
   static const String qdrant = 'qdrant';
   static const String hermesAgent = 'hermes_agent';
+  static const String aiJungler = 'ai_jungler';
 
   static const List<String> displayOrder = <String>[
     nodejs,
@@ -61,6 +62,7 @@ class PluginCatalogIds {
     docker,
     qdrant,
     hermesAgent,
+    aiJungler,
   ];
 }
 

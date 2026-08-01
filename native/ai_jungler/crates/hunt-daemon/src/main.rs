@@ -12,7 +12,7 @@ use futures::StreamExt;
 use hunt_core::{ScanRequest, ScanRule};
 use hunt_engine::{
     AiExtractorInput, DependencyConfigurationInput, EngineError, EngineEvent, HuntEngine,
-    SourceCredentialInput,
+    ProxyConfigurationInput, SourceCredentialInput,
 };
 use hunt_store::HuntStore;
 use secrecy::{ExposeSecret, SecretString};
@@ -106,6 +106,7 @@ impl From<EngineError> for ApiError {
             | EngineError::TooManyActiveJobs
             | EngineError::AiExtractorNotConfigured
             | EngineError::InvalidAiExtractor(_)
+            | EngineError::InvalidProxy(_)
             | EngineError::InvalidDependency(_) => StatusCode::BAD_REQUEST,
             EngineError::Other(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
@@ -177,6 +178,10 @@ fn routes(state: AppState) -> Router {
         .route("/v1/rules", get(rules).put(save_rules))
         .route("/v1/sources", get(source_status).put(update_sources))
         .route("/v1/sources/quotas", get(source_quotas))
+        .route(
+            "/v1/proxy",
+            get(proxy_status).put(update_proxy).delete(clear_proxy),
+        )
         .route(
             "/v1/ai-extractor",
             get(ai_extractor_status)
@@ -356,6 +361,27 @@ async fn update_sources(
 
 async fn source_quotas(State(state): State<AppState>) -> Json<Vec<hunt_core::SourceQuota>> {
     Json(state.engine.quotas().await)
+}
+
+async fn proxy_status(
+    State(state): State<AppState>,
+) -> Json<hunt_engine::ProxyConfigurationStatus> {
+    Json(state.engine.proxy_status())
+}
+
+async fn update_proxy(
+    State(state): State<AppState>,
+    Json(input): Json<ProxyConfigurationInput>,
+) -> Result<StatusCode, ApiError> {
+    state.engine.update_proxy(input)?;
+    Ok(StatusCode::NO_CONTENT)
+}
+
+async fn clear_proxy(State(state): State<AppState>) -> Result<StatusCode, ApiError> {
+    state
+        .engine
+        .update_proxy(ProxyConfigurationInput::default())?;
+    Ok(StatusCode::NO_CONTENT)
 }
 
 async fn ai_extractor_status(

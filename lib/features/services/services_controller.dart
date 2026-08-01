@@ -9,7 +9,7 @@ import 'model/ai_exposure_models.dart';
 import 'service/ai_jungler_client.dart';
 import 'service/ai_jungler_runtime.dart';
 
-const int _kAiExposureMaxLogs = 1000;
+const int _kAiExposureMaxLogs = 5000;
 
 class ServicesController extends ChangeNotifier {
   ServicesController({
@@ -44,6 +44,7 @@ class ServicesController extends ChangeNotifier {
   List<AiExposureQuota> _quotas = const <AiExposureQuota>[];
   AiExposureAiExtractorStatus? _aiExtractorStatus;
   AiExposureDependencyStatus? _dependencyStatus;
+  AiExposureProxyStatus? _proxyStatus;
   Map<String, bool> _sourceStatus = const <String, bool>{};
   final Map<String, List<AiExposureLogEntry>> _historyLogs =
       <String, List<AiExposureLogEntry>>{};
@@ -53,10 +54,13 @@ class ServicesController extends ChangeNotifier {
   late bool _defaultGptAssisted;
   late bool _useBundledEngine;
   late String _externalAddress;
+  AiExposureProxyConfiguration _proxyConfiguration =
+      AiExposureProxyConfiguration.defaults();
   final List<AiExposureLogEntry> _logs = <AiExposureLogEntry>[];
   String? _errorMessage;
   bool _busy = false;
   bool _scanBusy = false;
+  bool _logRefreshBusy = false;
   bool _disposed = false;
 
   AiExposureServiceLifecycle get lifecycle => _lifecycle;
@@ -68,6 +72,8 @@ class ServicesController extends ChangeNotifier {
   List<AiExposureQuota> get quotas => _quotas;
   AiExposureAiExtractorStatus? get aiExtractorStatus => _aiExtractorStatus;
   AiExposureDependencyStatus? get dependencyStatus => _dependencyStatus;
+  AiExposureProxyStatus? get proxyStatus => _proxyStatus;
+  AiExposureProxyConfiguration get proxyConfiguration => _proxyConfiguration;
   Map<String, bool> get sourceStatus => _sourceStatus;
   Set<AiExposureSource> get enabledSources => Set.unmodifiable(_enabledSources);
   int get defaultConcurrency => _defaultConcurrency;
@@ -107,10 +113,25 @@ class ServicesController extends ChangeNotifier {
     _lifecycle = AiExposureServiceLifecycle.starting;
     _errorMessage = null;
     _notify();
+    _appendLog(
+      AiExposureLogEntry(
+        level: 'info',
+        message: '正在启动 AI 基础设施扫描服务。',
+        at: DateTime.now(),
+      ),
+    );
     try {
       final client = await _runtime.startBundled();
       _health = await client.health();
+      await client.updateProxy(_proxyConfiguration);
       _lifecycle = AiExposureServiceLifecycle.running;
+      _appendLog(
+        AiExposureLogEntry(
+          level: 'info',
+          message: 'AI 基础设施扫描服务已启动。',
+          at: DateTime.now(),
+        ),
+      );
       await refreshData();
     } catch (error, stack) {
       _lifecycle = _runtime.client == null
@@ -140,6 +161,7 @@ class ServicesController extends ChangeNotifier {
         accessToken: accessToken,
       );
       _health = await client.health();
+      await client.updateProxy(_proxyConfiguration);
       _lifecycle = AiExposureServiceLifecycle.running;
       await refreshData();
       return true;
@@ -170,7 +192,15 @@ class ServicesController extends ChangeNotifier {
       _progress = null;
       _aiExtractorStatus = null;
       _dependencyStatus = null;
+      _proxyStatus = null;
       _errorMessage = null;
+      _appendLog(
+        AiExposureLogEntry(
+          level: 'info',
+          message: 'AI 基础设施扫描服务已停止。',
+          at: DateTime.now(),
+        ),
+      );
     } catch (error, stack) {
       _lifecycle = AiExposureServiceLifecycle.error;
       _errorMessage = '$error';
@@ -192,6 +222,7 @@ class ServicesController extends ChangeNotifier {
         client.sourceStatus(),
         client.aiExtractorStatus(),
         client.dependencyStatus(),
+        client.proxyStatus(),
       ]);
       _health = values[0] as AiExposureHealth;
       _history = values[1] as List<AiExposureHistoryEntry>;
@@ -200,6 +231,7 @@ class ServicesController extends ChangeNotifier {
       _sourceStatus = values[4] as Map<String, bool>;
       _aiExtractorStatus = values[5] as AiExposureAiExtractorStatus;
       _dependencyStatus = values[6] as AiExposureDependencyStatus;
+      _proxyStatus = values[7] as AiExposureProxyStatus;
       _errorMessage = null;
     } catch (error, stack) {
       _errorMessage = '$error';
@@ -216,11 +248,13 @@ class ServicesController extends ChangeNotifier {
         client.quotas(),
         client.sourceStatus(),
         client.dependencyStatus(),
+        client.proxyStatus(),
       ]);
       _health = values[0] as AiExposureHealth;
       _quotas = values[1] as List<AiExposureQuota>;
       _sourceStatus = values[2] as Map<String, bool>;
       _dependencyStatus = values[3] as AiExposureDependencyStatus;
+      _proxyStatus = values[4] as AiExposureProxyStatus;
       _errorMessage = null;
     } catch (error, stack) {
       _errorMessage = '$error';
@@ -311,6 +345,8 @@ class ServicesController extends ChangeNotifier {
 
   Future<void> updateSourceCredentials({
     String? githubToken,
+    String? giteeToken,
+    String? gitcodeToken,
     String? fofaEmail,
     String? fofaKey,
     String? shodanKey,
@@ -319,6 +355,8 @@ class ServicesController extends ChangeNotifier {
       final client = _requireClient();
       await client.updateSourceCredentials(
         githubToken: githubToken,
+        giteeToken: giteeToken,
+        gitcodeToken: gitcodeToken,
         fofaEmail: fofaEmail,
         fofaKey: fofaKey,
         shodanKey: shodanKey,
@@ -329,6 +367,86 @@ class ServicesController extends ChangeNotifier {
       _errorMessage = '$error';
       silentLog('services_controller', '更新扫描数据源凭证', error, stack);
     }
+    _notify();
+  }
+
+  Future<bool> updateProxyConfiguration(
+    AiExposureProxyConfiguration configuration,
+  ) async {
+    try {
+      if (configuration.endpoints.length > 10000) {
+        throw const FormatException('代理池最多支持 10000 个代理。');
+      }
+      final client = _client;
+      if (client != null) {
+        await client.updateProxy(configuration);
+        _proxyStatus = await client.proxyStatus();
+      }
+      _proxyConfiguration = configuration;
+      _errorMessage = null;
+      _appendLog(
+        AiExposureLogEntry(
+          level: 'info',
+          message: configuration.enabled
+              ? '代理池已启用，共 ${configuration.endpoints.length} 个代理。'
+              : '代理池已停用，网络请求将直接连接。',
+          at: DateTime.now(),
+        ),
+      );
+      _notify();
+      return true;
+    } catch (error, stack) {
+      _errorMessage = '$error';
+      silentLog('services_controller', '更新扫描网络代理', error, stack);
+      _notify();
+      return false;
+    }
+  }
+
+  Future<void> refreshServiceLogs() async {
+    if (_logRefreshBusy || _client == null) return;
+    _logRefreshBusy = true;
+    try {
+      final recent = _history.take(20).toList(growable: false);
+      final batches = await Future.wait(
+        recent.map((entry) async {
+          final cached = _historyLogs[entry.id];
+          if (cached != null) return cached;
+          final loaded = await _requireClient().logs(entry.id, limit: 500);
+          _historyLogs[entry.id] = loaded;
+          return loaded;
+        }),
+      );
+      final merged = <AiExposureLogEntry>[
+        ..._logs,
+        ...batches.expand((item) => item),
+      ];
+      final unique = <String, AiExposureLogEntry>{};
+      for (final entry in merged) {
+        unique['${entry.jobId}|${entry.at.toIso8601String()}|${entry.level}|${entry.message}'] =
+            entry;
+      }
+      final sorted = unique.values.toList()
+        ..sort((left, right) => left.at.compareTo(right.at));
+      _logs
+        ..clear()
+        ..addAll(
+          sorted.length <= _kAiExposureMaxLogs
+              ? sorted
+              : sorted.sublist(sorted.length - _kAiExposureMaxLogs),
+        );
+      _errorMessage = null;
+    } catch (error, stack) {
+      _errorMessage = '$error';
+      silentLog('services_controller', '刷新扫描服务日志', error, stack);
+    } finally {
+      _logRefreshBusy = false;
+      _notify();
+    }
+  }
+
+  void clearLogs() {
+    _logs.clear();
     _notify();
   }
 
@@ -403,7 +521,7 @@ class ServicesController extends ChangeNotifier {
     _eventSubscription = _requireClient()
         .events(jobId)
         .listen(
-          _handleEvent,
+          (event) => _handleEvent(jobId, event),
           onError: (Object error, StackTrace stack) {
             _errorMessage = '$error';
             silentLog('services_controller', '接收扫描实时事件', error, stack);
@@ -414,7 +532,7 @@ class ServicesController extends ChangeNotifier {
         );
   }
 
-  void _handleEvent(Map<String, Object?> event) {
+  void _handleEvent(String jobId, Map<String, Object?> event) {
     switch (event['type']) {
       case 'progress':
         _progress = AiExposureProgress.fromJson(
@@ -434,6 +552,7 @@ class ServicesController extends ChangeNotifier {
       case 'log':
         _appendLog(
           AiExposureLogEntry(
+            jobId: jobId,
             level: event['level'] as String? ?? 'info',
             message: event['message'] as String? ?? '',
             at:

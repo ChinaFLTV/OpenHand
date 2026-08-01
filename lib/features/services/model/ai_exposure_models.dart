@@ -4,6 +4,8 @@ enum AiExposureSource {
   manual('manual'),
   github('github'),
   githubArtifact('github_artifact'),
+  gitee('gitee'),
+  gitcode('gitcode'),
   fofa('fofa'),
   shodan('shodan');
 
@@ -19,6 +21,36 @@ enum AiExposureScanMode { incremental, full }
 enum AiExposureValidationMode { passive, authorizedActive }
 
 enum AiExposureResultCategory { valid, suspicious, highValue, honeypot }
+
+enum AiExposureContentEncoding {
+  base64('base64'),
+  base64Url('base64_url'),
+  url('url'),
+  hex('hex');
+
+  const AiExposureContentEncoding(this.id);
+  final String id;
+
+  static AiExposureContentEncoding? tryFromId(String value) {
+    for (final encoding in values) {
+      if (encoding.id == value) return encoding;
+    }
+    return null;
+  }
+}
+
+enum AiExposureProxyStrategy {
+  fixed('fixed'),
+  roundRobin('round_robin'),
+  random('random'),
+  stickyHost('sticky_host');
+
+  const AiExposureProxyStrategy(this.id);
+  final String id;
+
+  static AiExposureProxyStrategy fromId(String? value) =>
+      values.firstWhere((item) => item.id == value, orElse: () => roundRobin);
+}
 
 class AiExposureHealth {
   const AiExposureHealth({
@@ -124,6 +156,7 @@ class AiExposureScanRule {
     required this.enabled,
     required this.credentialPatterns,
     required this.contextTerms,
+    this.contentEncodings = const <AiExposureContentEncoding>[],
     required this.modelPaths,
     required this.balancePaths,
   });
@@ -136,6 +169,10 @@ class AiExposureScanRule {
         enabled: json['enabled'] as bool? ?? true,
         credentialPatterns: _stringList(json['credentialPatterns']),
         contextTerms: _stringList(json['contextTerms']),
+        contentEncodings: _stringList(json['contentEncodings'])
+            .map(AiExposureContentEncoding.tryFromId)
+            .whereType<AiExposureContentEncoding>()
+            .toList(growable: false),
         modelPaths: _stringList(json['modelPaths']),
         balancePaths: _stringList(json['balancePaths']),
       );
@@ -146,6 +183,7 @@ class AiExposureScanRule {
   final bool enabled;
   final List<String> credentialPatterns;
   final List<String> contextTerms;
+  final List<AiExposureContentEncoding> contentEncodings;
   final List<String> modelPaths;
   final List<String> balancePaths;
 
@@ -156,6 +194,9 @@ class AiExposureScanRule {
     'enabled': enabled,
     'credentialPatterns': credentialPatterns,
     'contextTerms': contextTerms,
+    'contentEncodings': contentEncodings
+        .map((encoding) => encoding.id)
+        .toList(growable: false),
     'modelPaths': modelPaths,
     'balancePaths': balancePaths,
   };
@@ -164,6 +205,7 @@ class AiExposureScanRule {
     bool? enabled,
     List<String>? credentialPatterns,
     List<String>? contextTerms,
+    List<AiExposureContentEncoding>? contentEncodings,
     List<String>? modelPaths,
     List<String>? balancePaths,
   }) => AiExposureScanRule(
@@ -173,9 +215,133 @@ class AiExposureScanRule {
     enabled: enabled ?? this.enabled,
     credentialPatterns: credentialPatterns ?? this.credentialPatterns,
     contextTerms: contextTerms ?? this.contextTerms,
+    contentEncodings: contentEncodings ?? this.contentEncodings,
     modelPaths: modelPaths ?? this.modelPaths,
     balancePaths: balancePaths ?? this.balancePaths,
   );
+}
+
+class AiExposureProxyEndpoint {
+  const AiExposureProxyEndpoint({required this.url});
+
+  factory AiExposureProxyEndpoint.parse(String input) {
+    final value = input.trim();
+    if (value.isEmpty ||
+        value.length > 2048 ||
+        value.contains(RegExp(r'[\r\n]'))) {
+      throw const FormatException('代理地址为空或过长。');
+    }
+    final normalized = value.contains('://') ? value : 'http://$value';
+    final uri = Uri.tryParse(normalized);
+    if (uri == null ||
+        !const <String>{'http', 'https'}.contains(uri.scheme.toLowerCase()) ||
+        uri.host.isEmpty ||
+        !uri.hasPort ||
+        (uri.path.isNotEmpty && uri.path != '/') ||
+        uri.hasQuery ||
+        uri.hasFragment) {
+      throw const FormatException('代理地址必须为 HTTP/HTTPS 的主机和端口。');
+    }
+    return AiExposureProxyEndpoint(
+      url: uri.replace(scheme: uri.scheme.toLowerCase(), path: '').toString(),
+    );
+  }
+
+  final String url;
+
+  String get maskedUrl {
+    final uri = Uri.parse(url);
+    final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
+    if (uri.userInfo.isEmpty) return '${uri.scheme}://$host:${uri.port}';
+    final username = Uri.decodeComponent(uri.userInfo.split(':').first);
+    return '${uri.scheme}://$username:******@$host:${uri.port}';
+  }
+}
+
+class AiExposureProxyConfiguration {
+  const AiExposureProxyConfiguration({
+    required this.enabled,
+    required this.strategy,
+    required this.rotationEvery,
+    required this.bypassLocal,
+    required this.endpoints,
+  });
+
+  factory AiExposureProxyConfiguration.defaults() =>
+      const AiExposureProxyConfiguration(
+        enabled: false,
+        strategy: AiExposureProxyStrategy.roundRobin,
+        rotationEvery: 1,
+        bypassLocal: true,
+        endpoints: <AiExposureProxyEndpoint>[],
+      );
+
+  final bool enabled;
+  final AiExposureProxyStrategy strategy;
+  final int rotationEvery;
+  final bool bypassLocal;
+  final List<AiExposureProxyEndpoint> endpoints;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'enabled': enabled,
+    'strategy': strategy.id,
+    'rotationEvery': rotationEvery.clamp(1, 10000),
+    'bypassLocal': bypassLocal,
+    'endpoints': endpoints
+        .map((endpoint) => endpoint.url)
+        .toList(growable: false),
+  };
+}
+
+class AiExposureProxyEndpointStatus {
+  const AiExposureProxyEndpointStatus({
+    required this.id,
+    required this.address,
+    required this.selections,
+  });
+
+  factory AiExposureProxyEndpointStatus.fromJson(Map<String, Object?> json) =>
+      AiExposureProxyEndpointStatus(
+        id: json['id'] as String? ?? '',
+        address: json['address'] as String? ?? '',
+        selections: (json['selections'] as num?)?.toInt() ?? 0,
+      );
+
+  final String id;
+  final String address;
+  final int selections;
+}
+
+class AiExposureProxyStatus {
+  const AiExposureProxyStatus({
+    required this.enabled,
+    required this.strategy,
+    required this.rotationEvery,
+    required this.bypassLocal,
+    required this.totalSelections,
+    required this.endpoints,
+  });
+
+  factory AiExposureProxyStatus.fromJson(Map<String, Object?> json) =>
+      AiExposureProxyStatus(
+        enabled: json['enabled'] as bool? ?? false,
+        strategy: AiExposureProxyStrategy.fromId(json['strategy'] as String?),
+        rotationEvery: (json['rotationEvery'] as num?)?.toInt() ?? 1,
+        bypassLocal: json['bypassLocal'] as bool? ?? true,
+        totalSelections: (json['totalSelections'] as num?)?.toInt() ?? 0,
+        endpoints: (json['endpoints'] as List? ?? const <Object?>[])
+            .map(
+              (item) => AiExposureProxyEndpointStatus.fromJson(_jsonMap(item)),
+            )
+            .toList(growable: false),
+      );
+
+  final bool enabled;
+  final AiExposureProxyStrategy strategy;
+  final int rotationEvery;
+  final bool bypassLocal;
+  final int totalSelections;
+  final List<AiExposureProxyEndpointStatus> endpoints;
 }
 
 class AiExposureHistoryEntry {

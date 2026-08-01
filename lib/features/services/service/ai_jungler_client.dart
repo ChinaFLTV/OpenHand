@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../model/ai_exposure_models.dart';
 
 const Duration _kAiJunglerRequestTimeout = Duration(seconds: 15);
+const int _kAiJunglerMaxRequestBytes = 2 * 1024 * 1024;
 const int _kAiJunglerMaxJsonResponseBytes = 8 * 1024 * 1024;
 const int _kAiJunglerMaxErrorResponseBytes = 64 * 1024;
 const int _kAiJunglerMaxSseLineBytes = 256 * 1024;
@@ -108,6 +109,8 @@ class AiJunglerClient {
 
   Future<void> updateSourceCredentials({
     String? githubToken,
+    String? giteeToken,
+    String? gitcodeToken,
     String? fofaEmail,
     String? fofaKey,
     String? shodanKey,
@@ -117,6 +120,10 @@ class AiJunglerClient {
     body: <String, Object?>{
       if (githubToken?.trim().isNotEmpty == true)
         'githubToken': githubToken!.trim(),
+      if (giteeToken?.trim().isNotEmpty == true)
+        'giteeToken': giteeToken!.trim(),
+      if (gitcodeToken?.trim().isNotEmpty == true)
+        'gitcodeToken': gitcodeToken!.trim(),
       if (fofaEmail?.trim().isNotEmpty == true) 'fofaEmail': fofaEmail!.trim(),
       if (fofaKey?.trim().isNotEmpty == true) 'fofaKey': fofaKey!.trim(),
       if (shodanKey?.trim().isNotEmpty == true) 'shodanKey': shodanKey!.trim(),
@@ -126,6 +133,12 @@ class AiJunglerClient {
   Future<List<AiExposureQuota>> quotas() async => _jsonList(
     await _request('GET', '/v1/sources/quotas'),
   ).map(AiExposureQuota.fromJson).toList(growable: false);
+
+  Future<AiExposureProxyStatus> proxyStatus() async =>
+      AiExposureProxyStatus.fromJson(await _jsonRequest('GET', '/v1/proxy'));
+
+  Future<void> updateProxy(AiExposureProxyConfiguration configuration) =>
+      _emptyRequest('PUT', '/v1/proxy', body: configuration.toJson());
 
   Future<AiExposureAiExtractorStatus> aiExtractorStatus() async =>
       AiExposureAiExtractorStatus.fromJson(
@@ -204,8 +217,12 @@ class AiJunglerClient {
   Future<Object?> _request(String method, String path, {Object? body}) async {
     final request = await _open(method, path);
     if (body != null) {
+      final payload = utf8.encode(jsonEncode(body));
+      if (payload.length > _kAiJunglerMaxRequestBytes) {
+        throw const AiJunglerApiException('提交内容超过 2 MB，请减少配置项后重试。');
+      }
       request.headers.contentType = ContentType.json;
-      request.write(jsonEncode(body));
+      request.add(payload);
     }
     final response = await request.close().timeout(_kAiJunglerRequestTimeout);
     final success = response.statusCode >= 200 && response.statusCode < 300;

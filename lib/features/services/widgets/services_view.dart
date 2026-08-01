@@ -10,6 +10,8 @@ import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
 import 'ai_exposure_dialogs.dart';
+import 'ai_exposure_monitoring_dialogs.dart';
+import 'ai_exposure_proxy_dialog.dart';
 
 const double _kServiceCardRadius = 22;
 const double _kServiceIconExtent = 64;
@@ -17,6 +19,9 @@ const double _kServiceHeaderBreakpoint = 820;
 
 enum _ServiceAction {
   status,
+  operations,
+  proxy,
+  logs,
   newHunt,
   progress,
   results,
@@ -169,8 +174,8 @@ class _AiExposureServiceCard extends StatelessWidget {
                       icon: Icons.travel_explore_rounded,
                       label: openHandLocalizedText(
                         context,
-                        zh: '数据源 ${snapshot.configuredSourceCount}/3',
-                        en: 'Sources ${snapshot.configuredSourceCount}/3',
+                        zh: '数据源 ${snapshot.configuredSourceCount}/5',
+                        en: 'Sources ${snapshot.configuredSourceCount}/5',
                       ),
                       color: cs.primary,
                     ),
@@ -351,6 +356,24 @@ class _ServiceActions extends StatelessWidget {
           icon: Icons.monitor_heart_outlined,
           tooltip: text(zh: '服务状态', en: 'Service status'),
           action: _ServiceAction.status,
+          onAction: onAction,
+        ),
+        _ServiceIconAction(
+          icon: Icons.dashboard_customize_outlined,
+          tooltip: text(zh: '服务运维', en: 'Service operations'),
+          action: _ServiceAction.operations,
+          onAction: onAction,
+        ),
+        _ServiceIconAction(
+          icon: Icons.lan_outlined,
+          tooltip: text(zh: '网络代理', en: 'Network proxy'),
+          action: _ServiceAction.proxy,
+          onAction: onAction,
+        ),
+        _ServiceIconAction(
+          icon: Icons.manage_search_rounded,
+          tooltip: text(zh: '日志监控', en: 'Log monitor'),
+          action: _ServiceAction.logs,
           onAction: onAction,
         ),
         _ServiceIconAction(
@@ -597,6 +620,12 @@ Future<void> _handleAction(BuildContext context, _ServiceAction action) async {
   switch (action) {
     case _ServiceAction.status:
       await showAiExposureStatusDialog(context);
+    case _ServiceAction.operations:
+      await showAiExposureOperationsDialog(context);
+    case _ServiceAction.proxy:
+      await showAiExposureProxyDialog(context);
+    case _ServiceAction.logs:
+      await showAiExposureLogMonitorDialog(context);
     case _ServiceAction.newHunt:
       await showAiExposureNewHuntDialog(context);
     case _ServiceAction.progress:

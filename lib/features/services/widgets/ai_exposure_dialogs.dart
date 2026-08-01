@@ -26,6 +26,8 @@ const EdgeInsets _kFilterChipPadding = EdgeInsets.symmetric(
 );
 const List<AiExposureSource> _kCredentialSources = <AiExposureSource>[
   AiExposureSource.github,
+  AiExposureSource.gitee,
+  AiExposureSource.gitcode,
   AiExposureSource.fofa,
   AiExposureSource.shodan,
 ];
@@ -265,8 +267,8 @@ class _StatusDialog extends StatelessWidget {
                 _EmptyLine(
                   text: running
                       ? text(
-                          zh: '刷新后显示 FOFA、Shodan 和 GitHub 配额。',
-                          en: 'Refresh to load FOFA, Shodan, and GitHub quotas.',
+                          zh: '刷新后显示 GitHub、Gitee、GitCode、FOFA 和 Shodan 状态。',
+                          en: 'Refresh GitHub, Gitee, GitCode, FOFA, and Shodan status.',
                         )
                       : text(
                           zh: '启动服务后可查询数据源配额。',
@@ -304,6 +306,8 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   final TextEditingController _fofaQuery = TextEditingController();
   final TextEditingController _shodanQuery = TextEditingController();
   final TextEditingController _githubQuery = TextEditingController();
+  final TextEditingController _giteeQuery = TextEditingController();
+  final TextEditingController _gitcodeQuery = TextEditingController();
   late Set<AiExposureSource> _sources;
   final Set<String> _vendors = Set<String>.of(_kVendors);
   AiExposureScanMode _mode = AiExposureScanMode.incremental;
@@ -333,6 +337,8 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
     _fofaQuery.dispose();
     _shodanQuery.dispose();
     _githubQuery.dispose();
+    _giteeQuery.dispose();
+    _gitcodeQuery.dispose();
     super.dispose();
   }
 
@@ -465,6 +471,8 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
               fofa: _fofaQuery,
               shodan: _shodanQuery,
               github: _githubQuery,
+              gitee: _giteeQuery,
+              gitcode: _gitcodeQuery,
             ),
           ],
           const SizedBox(height: _kSectionGap),
@@ -641,6 +649,10 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             'shodan': _shodanQuery.text.trim(),
           if (_githubQuery.text.trim().isNotEmpty)
             'github': _githubQuery.text.trim(),
+          if (_giteeQuery.text.trim().isNotEmpty)
+            'gitee': _giteeQuery.text.trim(),
+          if (_gitcodeQuery.text.trim().isNotEmpty)
+            'gitcode': _gitcodeQuery.text.trim(),
         },
       ),
     );
@@ -916,6 +928,8 @@ class _ToolsDialog extends StatefulWidget {
 
 class _ToolsDialogState extends State<_ToolsDialog> {
   final TextEditingController _githubToken = TextEditingController();
+  final TextEditingController _giteeToken = TextEditingController();
+  final TextEditingController _gitcodeToken = TextEditingController();
   final TextEditingController _fofaEmail = TextEditingController();
   final TextEditingController _fofaKey = TextEditingController();
   final TextEditingController _shodanKey = TextEditingController();
@@ -931,6 +945,8 @@ class _ToolsDialogState extends State<_ToolsDialog> {
   @override
   void dispose() {
     _githubToken.dispose();
+    _giteeToken.dispose();
+    _gitcodeToken.dispose();
     _fofaEmail.dispose();
     _fofaKey.dispose();
     _shodanKey.dispose();
@@ -997,6 +1013,24 @@ class _ToolsDialogState extends State<_ToolsDialog> {
           ),
           const SizedBox(height: 10),
           TextField(
+            controller: _giteeToken,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'Gitee Access Token',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
+            controller: _gitcodeToken,
+            obscureText: true,
+            decoration: const InputDecoration(
+              labelText: 'GitCode Access Token',
+              border: OutlineInputBorder(),
+            ),
+          ),
+          const SizedBox(height: 10),
+          TextField(
             controller: _fofaEmail,
             decoration: const InputDecoration(
               labelText: 'FOFA Email',
@@ -1045,6 +1079,8 @@ class _ToolsDialogState extends State<_ToolsDialog> {
     );
     await controller.updateSourceCredentials(
       githubToken: _githubToken.text,
+      giteeToken: _giteeToken.text,
+      gitcodeToken: _gitcodeToken.text,
       fofaEmail: _fofaEmail.text,
       fofaKey: _fofaKey.text,
       shodanKey: _shodanKey.text,
@@ -1884,10 +1920,14 @@ class _QueryFields extends StatelessWidget {
     required this.fofa,
     required this.shodan,
     required this.github,
+    required this.gitee,
+    required this.gitcode,
   });
   final TextEditingController fofa;
   final TextEditingController shodan;
   final TextEditingController github;
+  final TextEditingController gitee;
+  final TextEditingController gitcode;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -1912,6 +1952,22 @@ class _QueryFields extends StatelessWidget {
         controller: github,
         decoration: const InputDecoration(
           labelText: 'GitHub Code Search Query',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: gitee,
+        decoration: const InputDecoration(
+          labelText: 'Gitee Code Search Query',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: gitcode,
+        decoration: const InputDecoration(
+          labelText: 'GitCode Code Search Query',
           border: OutlineInputBorder(),
         ),
       ),
@@ -2354,7 +2410,7 @@ class _RuleTile extends StatelessWidget {
               children: [
                 Text(rule.vendor, style: theme.textTheme.titleSmall),
                 Text(
-                  '${rule.protocol} · Regex ${rule.credentialPatterns.length} · Context ${rule.contextTerms.length}',
+                  '${rule.protocol} · Regex ${rule.credentialPatterns.length} · 编码 ${rule.contentEncodings.length}',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -2501,6 +2557,9 @@ class _RuleEditor extends StatefulWidget {
 }
 
 class _RuleEditorState extends State<_RuleEditor> {
+  late final Set<AiExposureContentEncoding> _encodings = widget.initial == null
+      ? Set<AiExposureContentEncoding>.of(AiExposureContentEncoding.values)
+      : Set<AiExposureContentEncoding>.of(widget.initial!.contentEncodings);
   late final TextEditingController _vendor = TextEditingController(
     text: widget.initial?.vendor,
   );
@@ -2596,6 +2655,30 @@ class _RuleEditorState extends State<_RuleEditor> {
             ),
           ),
           const SizedBox(height: 10),
+          Align(
+            alignment: AlignmentDirectional.centerStart,
+            child: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: AiExposureContentEncoding.values
+                  .map(
+                    (encoding) => _ServiceFilterChip(
+                      selected: _encodings.contains(encoding),
+                      icon: const Icon(Icons.data_object_rounded, size: 17),
+                      label: Text(_encodingLabel(encoding)),
+                      onSelected: (selected) => setState(() {
+                        if (selected) {
+                          _encodings.add(encoding);
+                        } else {
+                          _encodings.remove(encoding);
+                        }
+                      }),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ),
+          const SizedBox(height: 10),
           TextField(
             controller: _modelPaths,
             minLines: 2,
@@ -2652,12 +2735,20 @@ class _RuleEditorState extends State<_RuleEditor> {
         enabled: widget.initial?.enabled ?? true,
         credentialPatterns: patterns,
         contextTerms: _lines(_contexts.text),
+        contentEncodings: _encodings.toList(growable: false),
         modelPaths: _lines(_modelPaths.text),
         balancePaths: _lines(_balancePaths.text),
       ),
     );
   }
 }
+
+String _encodingLabel(AiExposureContentEncoding encoding) => switch (encoding) {
+  AiExposureContentEncoding.base64 => 'Base64',
+  AiExposureContentEncoding.base64Url => 'Base64URL',
+  AiExposureContentEncoding.url => 'URL Encoding',
+  AiExposureContentEncoding.hex => 'Hex',
+};
 
 Future<void> _confirmDeleteHistory(
   BuildContext context,
@@ -2861,6 +2952,8 @@ String _sourceLabel(BuildContext context, AiExposureSource source) =>
       ),
       AiExposureSource.github => 'GitHub',
       AiExposureSource.githubArtifact => 'GitHub Artifact',
+      AiExposureSource.gitee => 'Gitee',
+      AiExposureSource.gitcode => 'GitCode',
       AiExposureSource.fofa => 'FOFA',
       AiExposureSource.shodan => 'Shodan',
     };
@@ -2869,12 +2962,16 @@ IconData _sourceIcon(AiExposureSource source) => switch (source) {
   AiExposureSource.manual => Icons.edit_location_alt_outlined,
   AiExposureSource.github => Icons.code_rounded,
   AiExposureSource.githubArtifact => Icons.inventory_2_outlined,
+  AiExposureSource.gitee => Icons.code_rounded,
+  AiExposureSource.gitcode => Icons.account_tree_outlined,
   AiExposureSource.fofa => Icons.public_rounded,
   AiExposureSource.shodan => Icons.radar_rounded,
 };
 
 String _sourceStatusKey(AiExposureSource source) => switch (source) {
   AiExposureSource.github || AiExposureSource.githubArtifact => 'github',
+  AiExposureSource.gitee => 'gitee',
+  AiExposureSource.gitcode => 'gitcode',
   AiExposureSource.fofa => 'fofa',
   AiExposureSource.shodan => 'shodan',
   AiExposureSource.manual => 'manual',

@@ -1343,6 +1343,22 @@ class PluginScannerService {
     dependencies: <String>[PluginCatalogIds.docker],
   );
 
+  static const _aiJunglerPlugin = PluginInfo(
+    id: PluginCatalogIds.aiJungler,
+    name: 'AI Jungler Engine',
+    description: 'OpenHand 自研 AI 基础设施暴露面发现、凭证识别与授权验证引擎',
+    status: PluginStatus.installed,
+    installedVersion: '0.1.0',
+    installPath: 'assets/ai_jungler',
+    supportsUninstall: false,
+    metadata: <String, Object?>{
+      'bundled': true,
+      'runtime': 'Rust',
+      'service': 'AI 基础设施暴露面扫描',
+      'sources': <String>['GitHub', 'Gitee', 'GitCode', 'FOFA', 'Shodan'],
+    },
+  );
+
   static List<PluginInfo> knownPluginPlaceholders() => const <PluginInfo>[
     _nodeNotInstalled,
     _playwrightNotInstalled,
@@ -1360,6 +1376,7 @@ class PluginScannerService {
     _dockerNotInstalled,
     _qdrantNotInstalled,
     _hermesAgentNotInstalled,
+    _aiJunglerPlugin,
   ];
 
   Future<List<PluginInfo>> scanAll() async {
@@ -1441,6 +1458,7 @@ class PluginScannerService {
       updatedDocker,
       qdrant,
       hermesAgent,
+      _aiJunglerPlugin,
     ];
   }
 }

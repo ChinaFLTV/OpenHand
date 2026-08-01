@@ -12,7 +12,7 @@ use hunt_sources::{SourceCredentials, SourceRegistry};
 use hunt_store::HuntStore;
 use redis::aio::{ConnectionManager, ConnectionManagerConfig};
 use reqwest::{
-    Client, StatusCode,
+    Client, Proxy, StatusCode,
     header::{HeaderMap, HeaderName, HeaderValue},
 };
 use secrecy::{ExposeSecret, SecretString};
@@ -20,7 +20,12 @@ use serde::{Deserialize, Serialize};
 use sha2::{Digest, Sha256};
 use std::{
     collections::{BTreeMap, HashMap, HashSet},
-    sync::Arc,
+    hash::{DefaultHasher, Hash, Hasher},
+    net::IpAddr,
+    sync::{
+        Arc, RwLock as StdRwLock,
+        atomic::{AtomicU64, Ordering},
+    },
     time::Duration,
 };
 use thiserror::Error;
@@ -47,6 +52,7 @@ const AI_EXTRACTION_SYSTEM_PROMPT: &str = "你是授权安全审计的凭证提�
 #[derive(Clone)]
 pub struct HuntEngine {
     client: Client,
+    proxy_selector: DynamicProxySelector,
     sources: Arc<SourceRegistry>,
     store: HuntStore,
     credentials: Arc<RwLock<SourceCredentials>>,
@@ -111,6 +117,8 @@ pub enum EventLevel {
 #[serde(rename_all = "camelCase")]
 pub struct SourceCredentialInput {
     pub github_token: Option<String>,
+    pub gitee_token: Option<String>,
+    pub gitcode_token: Option<String>,
     pub fofa_email: Option<String>,
     pub fofa_key: Option<String>,
     pub shodan_key: Option<String>,
@@ -120,8 +128,79 @@ pub struct SourceCredentialInput {
 #[serde(rename_all = "camelCase")]
 pub struct SourceConfigurationStatus {
     pub github: bool,
+    pub gitee: bool,
+    pub gitcode: bool,
     pub fofa: bool,
     pub shodan: bool,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ProxyRotationStrategy {
+    Fixed,
+    #[default]
+    RoundRobin,
+    Random,
+    StickyHost,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyConfigurationInput {
+    pub enabled: bool,
+    #[serde(default)]
+    pub strategy: ProxyRotationStrategy,
+    #[serde(default = "default_proxy_rotation_every")]
+    pub rotation_every: u64,
+    #[serde(default = "default_true")]
+    pub bypass_local: bool,
+    #[serde(default)]
+    pub endpoints: Vec<String>,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyEndpointStatus {
+    pub id: String,
+    pub address: String,
+    pub selections: u64,
+}
+
+#[derive(Clone, Debug, Serialize)]
+#[serde(rename_all = "camelCase")]
+pub struct ProxyConfigurationStatus {
+    pub enabled: bool,
+    pub strategy: ProxyRotationStrategy,
+    pub rotation_every: u64,
+    pub bypass_local: bool,
+    pub total_selections: u64,
+    pub endpoints: Vec<ProxyEndpointStatus>,
+}
+
+#[derive(Clone)]
+struct DynamicProxySelector {
+    runtime: Arc<StdRwLock<Arc<ProxyRuntime>>>,
+}
+
+struct ProxyRuntime {
+    enabled: bool,
+    strategy: ProxyRotationStrategy,
+    rotation_every: u64,
+    bypass_local: bool,
+    endpoints: Vec<reqwest::Url>,
+    endpoint_ids: Vec<String>,
+    selections: Vec<AtomicU64>,
+    cursor: AtomicU64,
+}
+
+const MAX_PROXY_ENDPOINTS: usize = 10_000;
+
+const fn default_proxy_rotation_every() -> u64 {
+    1
+}
+
+const fn default_true() -> bool {
+    true
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -178,6 +257,8 @@ pub enum EngineError {
     InvalidAiExtractor(String),
     #[error("依赖配置失败：{0}")]
     InvalidDependency(String),
+    #[error("代理配置失败：{0}")]
+    InvalidProxy(String),
     #[error("扫描任务不存在。")]
     JobNotFound,
     #[error("扫描任务仍在运行。")]
@@ -186,6 +267,185 @@ pub enum EngineError {
     JobFinished,
     #[error(transparent)]
     Other(#[from] anyhow::Error),
+}
+
+impl DynamicProxySelector {
+    fn new() -> Self {
+        Self {
+            runtime: Arc::new(StdRwLock::new(Arc::new(ProxyRuntime::direct()))),
+        }
+    }
+
+    fn proxy(&self) -> Proxy {
+        let selector = self.clone();
+        Proxy::custom(move |target| selector.select(target))
+    }
+
+    fn select(&self, target: &reqwest::Url) -> Option<reqwest::Url> {
+        let runtime = self.runtime.read().ok()?.clone();
+        if !runtime.enabled
+            || runtime.endpoints.is_empty()
+            || runtime.bypass_local && is_local_target(target)
+        {
+            return None;
+        }
+        let request_index = runtime.cursor.fetch_add(1, Ordering::Relaxed);
+        let endpoint_index = match runtime.strategy {
+            ProxyRotationStrategy::Fixed => 0,
+            ProxyRotationStrategy::RoundRobin => {
+                ((request_index / runtime.rotation_every) as usize) % runtime.endpoints.len()
+            }
+            ProxyRotationStrategy::Random => {
+                let mixed = request_index
+                    .wrapping_add(0x9e37_79b9_7f4a_7c15)
+                    .wrapping_mul(0xbf58_476d_1ce4_e5b9);
+                (mixed as usize) % runtime.endpoints.len()
+            }
+            ProxyRotationStrategy::StickyHost => {
+                let mut hasher = DefaultHasher::new();
+                target.host_str().unwrap_or_default().hash(&mut hasher);
+                (hasher.finish() as usize) % runtime.endpoints.len()
+            }
+        };
+        runtime.selections[endpoint_index].fetch_add(1, Ordering::Relaxed);
+        Some(runtime.endpoints[endpoint_index].clone())
+    }
+
+    fn update(&self, input: ProxyConfigurationInput) -> Result<(), EngineError> {
+        if input.endpoints.len() > MAX_PROXY_ENDPOINTS {
+            return Err(EngineError::InvalidProxy(format!(
+                "代理数量不能超过 {MAX_PROXY_ENDPOINTS}"
+            )));
+        }
+        let mut endpoints = Vec::with_capacity(input.endpoints.len());
+        let mut unique = HashSet::new();
+        for value in &input.endpoints {
+            let normalized = if value.contains("://") {
+                value.trim().to_owned()
+            } else {
+                format!("http://{}", value.trim())
+            };
+            let url = reqwest::Url::parse(&normalized)
+                .map_err(|_| EngineError::InvalidProxy("代理地址格式无效".to_owned()))?;
+            if !matches!(url.scheme(), "http" | "https")
+                || url.host_str().is_none()
+                || url.port_or_known_default().is_none()
+                || !matches!(url.path(), "" | "/")
+                || url.query().is_some()
+                || url.fragment().is_some()
+            {
+                return Err(EngineError::InvalidProxy(
+                    "代理仅支持 HTTP/HTTPS 根地址".to_owned(),
+                ));
+            }
+            if unique.insert(url.as_str().to_owned()) {
+                endpoints.push(url);
+            }
+        }
+        if input.enabled && endpoints.is_empty() {
+            return Err(EngineError::InvalidProxy(
+                "启用代理前至少配置一个代理地址".to_owned(),
+            ));
+        }
+        let runtime = ProxyRuntime::configured(input, endpoints);
+        let mut active = self
+            .runtime
+            .write()
+            .map_err(|_| EngineError::InvalidProxy("代理池状态不可用".to_owned()))?;
+        *active = Arc::new(runtime);
+        Ok(())
+    }
+
+    fn status(&self) -> ProxyConfigurationStatus {
+        let Ok(runtime) = self.runtime.read().map(|value| value.clone()) else {
+            return ProxyRuntime::direct().status();
+        };
+        runtime.status()
+    }
+}
+
+impl ProxyRuntime {
+    fn direct() -> Self {
+        Self {
+            enabled: false,
+            strategy: ProxyRotationStrategy::RoundRobin,
+            rotation_every: 1,
+            bypass_local: true,
+            endpoints: Vec::new(),
+            endpoint_ids: Vec::new(),
+            selections: Vec::new(),
+            cursor: AtomicU64::new(0),
+        }
+    }
+
+    fn configured(input: ProxyConfigurationInput, endpoints: Vec<reqwest::Url>) -> Self {
+        let endpoint_ids = endpoints
+            .iter()
+            .map(|url| format!("{:x}", Sha256::digest(url.as_str().as_bytes()))[..12].to_owned())
+            .collect::<Vec<_>>();
+        let selections = (0..endpoints.len()).map(|_| AtomicU64::new(0)).collect();
+        Self {
+            enabled: input.enabled,
+            strategy: input.strategy,
+            rotation_every: input.rotation_every.clamp(1, 10_000),
+            bypass_local: input.bypass_local,
+            endpoints,
+            endpoint_ids,
+            selections,
+            cursor: AtomicU64::new(0),
+        }
+    }
+
+    fn status(&self) -> ProxyConfigurationStatus {
+        ProxyConfigurationStatus {
+            enabled: self.enabled,
+            strategy: self.strategy,
+            rotation_every: self.rotation_every,
+            bypass_local: self.bypass_local,
+            total_selections: self.cursor.load(Ordering::Relaxed),
+            endpoints: self
+                .endpoints
+                .iter()
+                .enumerate()
+                .map(|(index, url)| ProxyEndpointStatus {
+                    id: self.endpoint_ids[index].clone(),
+                    address: masked_proxy_url(url),
+                    selections: self.selections[index].load(Ordering::Relaxed),
+                })
+                .collect(),
+        }
+    }
+}
+
+fn masked_proxy_url(url: &reqwest::Url) -> String {
+    let mut masked = url.clone();
+    if !masked.username().is_empty() {
+        let _ = masked.set_password(Some("******"));
+    }
+    masked.to_string().trim_end_matches('/').to_owned()
+}
+
+fn is_local_target(url: &reqwest::Url) -> bool {
+    let Some(host) = url.host_str() else {
+        return false;
+    };
+    if host.eq_ignore_ascii_case("localhost") {
+        return true;
+    }
+    host.parse::<IpAddr>().is_ok_and(|address| match address {
+        IpAddr::V4(address) => {
+            address.is_loopback()
+                || address.is_private()
+                || address.is_link_local()
+                || address.is_unspecified()
+        }
+        IpAddr::V6(address) => {
+            address.is_loopback()
+                || address.is_unique_local()
+                || address.is_unicast_link_local()
+                || address.is_unspecified()
+        }
+    })
 }
 
 impl RedisCoordinator {
@@ -259,15 +519,19 @@ fn install_crypto_provider() {
 impl HuntEngine {
     pub async fn new(store: HuntStore) -> Result<Self, EngineError> {
         install_crypto_provider();
+        let proxy_selector = DynamicProxySelector::new();
         let client = Client::builder()
             .timeout(HTTP_TIMEOUT)
             .redirect(reqwest::redirect::Policy::none())
             .user_agent("OpenHand-ai_jungler/0.1")
+            .no_proxy()
+            .proxy(proxy_selector.proxy())
             .build()
             .context("初始化扫描 HTTP 客户端失败")?;
         Ok(Self {
             sources: Arc::new(SourceRegistry::new(client.clone())),
             client,
+            proxy_selector,
             store,
             credentials: Arc::new(RwLock::new(SourceCredentials::default())),
             ai_extractor: Arc::new(RwLock::new(None)),
@@ -478,6 +742,12 @@ impl HuntEngine {
         if input.github_token.is_some() {
             credentials.github_token = secret(input.github_token);
         }
+        if input.gitee_token.is_some() {
+            credentials.gitee_token = secret(input.gitee_token);
+        }
+        if input.gitcode_token.is_some() {
+            credentials.gitcode_token = secret(input.gitcode_token);
+        }
         if input.fofa_email.is_some() {
             credentials.fofa_email = secret(input.fofa_email);
         }
@@ -493,9 +763,19 @@ impl HuntEngine {
         let credentials = self.credentials.read().await;
         SourceConfigurationStatus {
             github: credentials.github_token.is_some(),
+            gitee: credentials.gitee_token.is_some(),
+            gitcode: credentials.gitcode_token.is_some(),
             fofa: credentials.fofa_email.is_some() && credentials.fofa_key.is_some(),
             shodan: credentials.shodan_key.is_some(),
         }
+    }
+
+    pub fn update_proxy(&self, input: ProxyConfigurationInput) -> Result<(), EngineError> {
+        self.proxy_selector.update(input)
+    }
+
+    pub fn proxy_status(&self) -> ProxyConfigurationStatus {
+        self.proxy_selector.status()
     }
 
     pub async fn update_ai_extractor(&self, input: AiExtractorInput) -> Result<(), EngineError> {
@@ -1567,5 +1847,56 @@ mod tests {
         assert!(is_resumable(ScanStage::Cancelled));
         assert!(is_resumable(ScanStage::Failed));
         assert!(is_resumable(ScanStage::Fingerprinting));
+    }
+
+    #[test]
+    fn rotates_and_masks_proxy_endpoints() {
+        let selector = DynamicProxySelector::new();
+        selector
+            .update(ProxyConfigurationInput {
+                enabled: true,
+                strategy: ProxyRotationStrategy::RoundRobin,
+                rotation_every: 1,
+                bypass_local: true,
+                endpoints: vec![
+                    "user:secret@127.0.0.1:8080".to_owned(),
+                    "http://127.0.0.2:8081".to_owned(),
+                ],
+            })
+            .unwrap();
+        let target = reqwest::Url::parse("https://example.com").unwrap();
+        assert_eq!(
+            selector.select(&target).unwrap().host_str(),
+            Some("127.0.0.1")
+        );
+        assert_eq!(
+            selector.select(&target).unwrap().host_str(),
+            Some("127.0.0.2")
+        );
+        let status = selector.status();
+        assert_eq!(status.total_selections, 2);
+        assert_eq!(
+            status.endpoints[0].address,
+            "http://user:******@127.0.0.1:8080"
+        );
+        assert!(!status.endpoints[0].address.contains("secret"));
+        assert!(
+            selector
+                .select(&reqwest::Url::parse("http://127.0.0.1:9000").unwrap())
+                .is_none()
+        );
+    }
+
+    #[test]
+    fn rejects_enabled_empty_proxy_pool() {
+        let selector = DynamicProxySelector::new();
+        assert!(
+            selector
+                .update(ProxyConfigurationInput {
+                    enabled: true,
+                    ..ProxyConfigurationInput::default()
+                })
+                .is_err()
+        );
     }
 }

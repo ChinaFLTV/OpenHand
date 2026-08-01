@@ -23,8 +23,19 @@ pub enum SourceKind {
     Manual,
     Github,
     GithubArtifact,
+    Gitee,
+    Gitcode,
     Fofa,
     Shodan,
+}
+
+#[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ContentEncoding {
+    Base64,
+    Base64Url,
+    Url,
+    Hex,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
@@ -70,6 +81,8 @@ pub struct ScanRule {
     pub enabled: bool,
     pub credential_patterns: Vec<String>,
     pub context_terms: Vec<String>,
+    #[serde(default)]
+    pub content_encodings: Vec<ContentEncoding>,
     pub model_paths: Vec<String>,
     #[serde(default)]
     pub balance_paths: Vec<String>,

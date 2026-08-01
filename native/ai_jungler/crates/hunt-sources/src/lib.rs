@@ -19,6 +19,10 @@ const MAX_SOURCE_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 const MAX_GITHUB_FILE_BYTES: usize = 512 * 1024;
 const MAX_ARTIFACT_CONTEXT_BYTES: usize = 16 * 1024;
 const GITHUB_CONTENT_CONCURRENCY: usize = 6;
+const MAX_GIT_REPOSITORIES: usize = 5;
+const MAX_GIT_FILES_PER_REPOSITORY: usize = 8;
+const GIT_REPOSITORY_CONCURRENCY: usize = 3;
+const GIT_CONTENT_CONCURRENCY: usize = 4;
 static URL_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"https?://[^\s\"'<>\\]{4,2048}"#).expect("内置 URL 正则必须有效")
 });
@@ -26,6 +30,8 @@ static URL_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
 #[derive(Clone, Default)]
 pub struct SourceCredentials {
     pub github_token: Option<SecretString>,
+    pub gitee_token: Option<SecretString>,
+    pub gitcode_token: Option<SecretString>,
     pub fofa_email: Option<SecretString>,
     pub fofa_key: Option<SecretString>,
     pub shodan_key: Option<SecretString>,
@@ -80,6 +86,26 @@ impl SourceRegistry {
                 SourceKind::GithubArtifact,
             )),
         );
+        sources.insert(
+            SourceKind::Gitee,
+            Box::new(GitPlatformSource::new(
+                client.clone(),
+                SourceKind::Gitee,
+                "Gitee",
+                "https://gitee.com/api/v5",
+                "https://gitee.com",
+            )),
+        );
+        sources.insert(
+            SourceKind::Gitcode,
+            Box::new(GitPlatformSource::new(
+                client.clone(),
+                SourceKind::Gitcode,
+                "GitCode",
+                "https://api.gitcode.com/api/v5",
+                "https://gitcode.com",
+            )),
+        );
         sources.insert(SourceKind::Fofa, Box::new(FofaSource::new(client.clone())));
         sources.insert(SourceKind::Shodan, Box::new(ShodanSource::new(client)));
         Self { sources }
@@ -104,6 +130,16 @@ impl SourceRegistry {
             .get(&SourceKind::Github)
             .expect("内置 GitHub 数据源必须存在")
             .as_ref();
+        let gitee = self
+            .sources
+            .get(&SourceKind::Gitee)
+            .expect("内置 Gitee 数据源必须存在")
+            .as_ref();
+        let gitcode = self
+            .sources
+            .get(&SourceKind::Gitcode)
+            .expect("内置 GitCode 数据源必须存在")
+            .as_ref();
         let fofa = self
             .sources
             .get(&SourceKind::Fofa)
@@ -114,12 +150,14 @@ impl SourceRegistry {
             .get(&SourceKind::Shodan)
             .expect("内置 Shodan 数据源必须存在")
             .as_ref();
-        let (github, fofa, shodan) = futures::join!(
+        let (github, gitee, gitcode, fofa, shodan) = futures::join!(
             quota_or_status(github, credentials),
+            quota_or_status(gitee, credentials),
+            quota_or_status(gitcode, credentials),
             quota_or_status(fofa, credentials),
             quota_or_status(shodan, credentials),
         );
-        vec![github, fofa, shodan]
+        vec![github, gitee, gitcode, fofa, shodan]
     }
 }
 
@@ -307,6 +345,373 @@ impl AssetSource for GithubSource {
             resets_at: chrono::DateTime::from_timestamp(quota.reset, 0),
             message: "GitHub Code Search 配额正常。".to_owned(),
         })
+    }
+}
+
+struct GitPlatformSource {
+    client: Client,
+    kind: SourceKind,
+    platform: &'static str,
+    api_base: &'static str,
+    web_base: &'static str,
+}
+
+impl GitPlatformSource {
+    fn new(
+        client: Client,
+        kind: SourceKind,
+        platform: &'static str,
+        api_base: &'static str,
+        web_base: &'static str,
+    ) -> Self {
+        Self {
+            client,
+            kind,
+            platform,
+            api_base,
+            web_base,
+        }
+    }
+
+    fn token<'a>(&self, credentials: &'a SourceCredentials) -> Option<&'a SecretString> {
+        match self.kind {
+            SourceKind::Gitee => credentials.gitee_token.as_ref(),
+            SourceKind::Gitcode => credentials.gitcode_token.as_ref(),
+            _ => None,
+        }
+    }
+
+    fn authorized_get(&self, url: impl reqwest::IntoUrl, token: &str) -> reqwest::RequestBuilder {
+        let request = self.client.get(url);
+        match self.kind {
+            SourceKind::Gitee => request.query(&[("access_token", token)]),
+            SourceKind::Gitcode => request.header("PRIVATE-TOKEN", token).bearer_auth(token),
+            _ => request,
+        }
+    }
+}
+
+#[derive(Deserialize)]
+#[serde(untagged)]
+enum GitPlatformSearchResponse {
+    Items { items: Vec<GitPlatformRepository> },
+    List(Vec<GitPlatformRepository>),
+}
+
+impl GitPlatformSearchResponse {
+    fn into_repositories(self) -> Vec<GitPlatformRepository> {
+        match self {
+            Self::Items { items } | Self::List(items) => items,
+        }
+    }
+}
+
+#[derive(Clone, Deserialize)]
+struct GitPlatformRepository {
+    full_name: Option<String>,
+    html_url: Option<String>,
+    default_branch: Option<String>,
+}
+
+#[derive(Clone, Deserialize)]
+struct GitTreeEntry {
+    path: String,
+    #[serde(rename = "type")]
+    kind: String,
+    sha: String,
+    size: Option<u64>,
+}
+
+#[derive(Deserialize)]
+struct GitTreeResponse {
+    #[serde(default)]
+    tree: Vec<GitTreeEntry>,
+}
+
+#[async_trait]
+impl AssetSource for GitPlatformSource {
+    fn kind(&self) -> SourceKind {
+        self.kind
+    }
+
+    async fn discover(
+        &self,
+        request: &ScanRequest,
+        credentials: &SourceCredentials,
+    ) -> Result<Vec<Candidate>, SourceError> {
+        let token = self
+            .token(credentials)
+            .ok_or(SourceError::MissingCredential(self.platform))?;
+        let query = source_query(
+            request,
+            match self.kind {
+                SourceKind::Gitee => "gitee",
+                SourceKind::Gitcode => "gitcode",
+                _ => unreachable!("代码托管数据源类型固定"),
+            },
+        )
+        .unwrap_or_else(|| default_repository_query(request));
+        let repositories = self
+            .repositories_for_query(&query, token.expose_secret())
+            .await?;
+        let source = self.clone_for_tasks();
+        let token = token.expose_secret().to_owned();
+        let batches = stream::iter(repositories.into_iter().take(MAX_GIT_REPOSITORIES).map(
+            |repository| {
+                let source = source.clone_for_tasks();
+                let token = token.clone();
+                async move { source.repository_candidates(&token, repository).await }
+            },
+        ))
+        .buffer_unordered(GIT_REPOSITORY_CONCURRENCY);
+        futures::pin_mut!(batches);
+        let mut candidates = Vec::new();
+        while let Some(batch) = batches.next().await {
+            for candidate in batch.into_iter().flatten() {
+                candidates.push(candidate);
+                if candidates.len() >= MAX_SOURCE_RESULTS {
+                    return Ok(candidates);
+                }
+            }
+        }
+        Ok(candidates)
+    }
+
+    async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
+        let token = self
+            .token(credentials)
+            .ok_or(SourceError::MissingCredential(self.platform))?;
+        let response = self
+            .authorized_get(format!("{}/user", self.api_base), token.expose_secret())
+            .send()
+            .await
+            .map_err(|_| SourceError::Transport(self.platform))?;
+        ensure_success(self.platform, response.status())?;
+        let remaining = response
+            .headers()
+            .get("x-ratelimit-remaining")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse().ok());
+        let limit = response
+            .headers()
+            .get("x-ratelimit-limit")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse().ok());
+        let resets_at = response
+            .headers()
+            .get("x-ratelimit-reset")
+            .and_then(|value| value.to_str().ok())
+            .and_then(|value| value.parse().ok())
+            .and_then(|value| chrono::DateTime::from_timestamp(value, 0));
+        Ok(SourceQuota {
+            source: self.kind,
+            configured: true,
+            available: true,
+            remaining,
+            limit,
+            resets_at,
+            message: format!("{} 访问令牌有效。", self.platform),
+        })
+    }
+}
+
+impl GitPlatformSource {
+    fn clone_for_tasks(&self) -> Self {
+        Self::new(
+            self.client.clone(),
+            self.kind,
+            self.platform,
+            self.api_base,
+            self.web_base,
+        )
+    }
+
+    async fn repositories_for_query(
+        &self,
+        query: &str,
+        token: &str,
+    ) -> Result<Vec<GitPlatformRepository>, SourceError> {
+        if let Some((owner, repository)) = direct_repository(query) {
+            let response = self
+                .authorized_get(
+                    format!(
+                        "{}/repos/{}/{}",
+                        self.api_base,
+                        urlencoding::encode(owner),
+                        urlencoding::encode(repository)
+                    ),
+                    token,
+                )
+                .send()
+                .await
+                .map_err(|_| SourceError::Transport(self.platform))?;
+            ensure_success(self.platform, response.status())?;
+            return parse_json_limited::<GitPlatformRepository>(self.platform, response)
+                .await
+                .map(|repository| vec![repository]);
+        }
+
+        let response = self
+            .authorized_get(format!("{}/search/repositories", self.api_base), token)
+            .query(&[
+                ("q", query.to_owned()),
+                ("page", "1".to_owned()),
+                ("per_page", MAX_GIT_REPOSITORIES.to_string()),
+            ])
+            .send()
+            .await
+            .map_err(|_| SourceError::Transport(self.platform))?;
+        ensure_success(self.platform, response.status())?;
+        parse_json_limited::<GitPlatformSearchResponse>(self.platform, response)
+            .await
+            .map(GitPlatformSearchResponse::into_repositories)
+    }
+
+    async fn repository_candidates(
+        &self,
+        token: &str,
+        repository: GitPlatformRepository,
+    ) -> Option<Vec<Candidate>> {
+        let full_name = repository.full_name?.trim().to_owned();
+        let branch = repository.default_branch?.trim().to_owned();
+        let (owner, name) = full_name.rsplit_once('/')?;
+        if owner.is_empty() || name.is_empty() || branch.is_empty() {
+            return None;
+        }
+        let response = self
+            .authorized_get(
+                format!(
+                    "{}/repos/{}/{}/git/trees/{}",
+                    self.api_base,
+                    urlencoding::encode(owner),
+                    urlencoding::encode(name),
+                    urlencoding::encode(&branch)
+                ),
+                token,
+            )
+            .query(&[("recursive", "1")])
+            .send()
+            .await
+            .ok()?;
+        if !response.status().is_success() {
+            return None;
+        }
+        let mut files = parse_json_limited::<GitTreeResponse>(self.platform, response)
+            .await
+            .ok()?
+            .tree
+            .into_iter()
+            .filter(|entry| {
+                entry.kind == "blob"
+                    && entry
+                        .size
+                        .is_none_or(|size| size <= MAX_GITHUB_FILE_BYTES as u64)
+                    && git_file_priority(&entry.path).is_some()
+            })
+            .collect::<Vec<_>>();
+        files.sort_by_key(|entry| git_file_priority(&entry.path).unwrap_or(u8::MAX));
+        files.truncate(MAX_GIT_FILES_PER_REPOSITORY);
+
+        let source = self.clone_for_tasks();
+        let token = token.to_owned();
+        let artifact_root = repository
+            .html_url
+            .filter(|value| value.starts_with(self.web_base))
+            .unwrap_or_else(|| format!("{}/{}", self.web_base, full_name));
+        let batches = stream::iter(files.into_iter().map(|file| {
+            let source = source.clone_for_tasks();
+            let token = token.clone();
+            let owner = owner.to_owned();
+            let name = name.to_owned();
+            let branch = branch.clone();
+            let artifact_root = artifact_root.clone();
+            async move {
+                source
+                    .file_candidates(&token, &owner, &name, &branch, &artifact_root, file)
+                    .await
+            }
+        }))
+        .buffer_unordered(GIT_CONTENT_CONCURRENCY);
+        futures::pin_mut!(batches);
+        let mut candidates = Vec::new();
+        while let Some(batch) = batches.next().await {
+            candidates.extend(batch.unwrap_or_default());
+            if candidates.len() >= MAX_SOURCE_RESULTS {
+                candidates.truncate(MAX_SOURCE_RESULTS);
+                break;
+            }
+        }
+        Some(candidates)
+    }
+
+    #[allow(clippy::too_many_arguments)]
+    async fn file_candidates(
+        &self,
+        token: &str,
+        owner: &str,
+        repository: &str,
+        branch: &str,
+        artifact_root: &str,
+        file: GitTreeEntry,
+    ) -> Option<Vec<Candidate>> {
+        let response = self
+            .authorized_get(
+                format!(
+                    "{}/repos/{}/{}/git/blobs/{}",
+                    self.api_base,
+                    urlencoding::encode(owner),
+                    urlencoding::encode(repository),
+                    urlencoding::encode(&file.sha)
+                ),
+                token,
+            )
+            .send()
+            .await
+            .ok()?;
+        if !response.status().is_success() {
+            return None;
+        }
+        let content = parse_json_limited::<GithubContentResponse>(self.platform, response)
+            .await
+            .ok()?;
+        let encoded = content.content?.replace(['\r', '\n'], "");
+        let decoded = match content.encoding.as_deref() {
+            Some("base64") | None => STANDARD.decode(encoded).ok()?,
+            _ => return None,
+        };
+        if decoded.len() > MAX_GITHUB_FILE_BYTES {
+            return None;
+        }
+        let text = String::from_utf8_lossy(&decoded);
+        let artifact_url = format!(
+            "{}/blob/{}/{}",
+            artifact_root.trim_end_matches(".git").trim_end_matches('/'),
+            encode_path(branch),
+            encode_path(&file.path)
+        );
+        Some(
+            URL_PATTERN
+                .find_iter(&text)
+                .take(50)
+                .map(|url| Candidate {
+                    source: self.kind,
+                    target: trim_url_punctuation(url.as_str()),
+                    discovered_at: Utc::now(),
+                    metadata: BTreeMap::from([
+                        (CANDIDATE_ARTIFACT_URL_KEY.to_owned(), artifact_url.clone()),
+                        (
+                            CANDIDATE_ARTIFACT_TEXT_KEY.to_owned(),
+                            surrounding_text(
+                                &text,
+                                url.start(),
+                                url.end(),
+                                MAX_ARTIFACT_CONTEXT_BYTES,
+                            ),
+                        ),
+                    ]),
+                })
+                .collect(),
+        )
     }
 }
 
@@ -613,6 +1018,112 @@ fn source_query(request: &ScanRequest, key: &str) -> Option<String> {
         .map(ToOwned::to_owned)
 }
 
+fn default_repository_query(request: &ScanRequest) -> String {
+    request
+        .authorized_scope
+        .first()
+        .map(|value| value.trim().trim_start_matches("*.").to_owned())
+        .filter(|value| !value.is_empty())
+        .or_else(|| request.vendors.first().cloned())
+        .unwrap_or_else(|| "AI".to_owned())
+}
+
+fn direct_repository(query: &str) -> Option<(&str, &str)> {
+    let value = query.trim();
+    if value.contains(char::is_whitespace) || value.contains("://") {
+        return None;
+    }
+    let (owner, repository) = value.rsplit_once('/')?;
+    if owner.is_empty()
+        || repository.is_empty()
+        || owner.parse::<IpAddr>().is_ok()
+        || !owner
+            .split('/')
+            .chain(std::iter::once(repository))
+            .all(|segment| {
+                !segment.is_empty()
+                    && segment.chars().all(|character| {
+                        character.is_ascii_alphanumeric() || "._-".contains(character)
+                    })
+            })
+    {
+        return None;
+    }
+    Some((owner, repository))
+}
+
+fn git_file_priority(path: &str) -> Option<u8> {
+    let lowered = path.to_ascii_lowercase();
+    if lowered.split('/').any(|segment| {
+        matches!(
+            segment,
+            ".git" | "node_modules" | "vendor" | "target" | "build" | "dist" | "coverage"
+        )
+    }) {
+        return None;
+    }
+    let name = lowered.rsplit('/').next().unwrap_or_default();
+    if name == ".env"
+        || name.starts_with(".env.")
+        || lowered.contains("secret")
+        || lowered.contains("credential")
+        || lowered.contains("application.")
+        || lowered.contains("config")
+    {
+        return Some(0);
+    }
+    let extension = name.rsplit_once('.').map(|(_, extension)| extension);
+    if matches!(
+        extension,
+        Some("yaml" | "yml" | "json" | "toml" | "ini" | "conf" | "properties" | "xml")
+    ) {
+        return Some(1);
+    }
+    if matches!(extension, Some("md" | "txt" | "rst")) {
+        return Some(2);
+    }
+    if matches!(
+        extension,
+        Some(
+            "c" | "cc"
+                | "cpp"
+                | "cs"
+                | "dart"
+                | "go"
+                | "h"
+                | "hpp"
+                | "java"
+                | "js"
+                | "jsx"
+                | "kt"
+                | "kts"
+                | "m"
+                | "mm"
+                | "php"
+                | "ps1"
+                | "py"
+                | "rb"
+                | "rs"
+                | "sh"
+                | "swift"
+                | "ts"
+                | "tsx"
+        )
+    ) || matches!(name, "dockerfile" | "makefile")
+    {
+        return Some(3);
+    }
+    None
+}
+
+fn encode_path(value: &str) -> String {
+    value
+        .split('/')
+        .map(|segment| urlencoding::encode(segment))
+        .collect::<Vec<_>>()
+        .join("/")
+}
+
 fn default_github_query(request: &ScanRequest) -> String {
     let scope = request
         .authorized_scope
@@ -756,5 +1267,27 @@ mod tests {
         let context = surrounding_text(&text, start, start + url.len(), 16 * 1024);
         assert!(context.len() <= 16 * 1024);
         assert!(context.contains(url));
+    }
+
+    #[test]
+    fn recognizes_direct_repository_and_prioritizes_configuration() {
+        assert_eq!(direct_repository("team/project"), Some(("team", "project")));
+        assert_eq!(direct_repository("10.10.0.0/16"), None);
+        assert_eq!(git_file_priority("deploy/.env.production"), Some(0));
+        assert_eq!(git_file_priority("src/main.rs"), Some(3));
+        assert_eq!(git_file_priority("node_modules/pkg/index.js"), None);
+    }
+
+    #[test]
+    fn accepts_git_platform_repository_response_shapes() {
+        let list: GitPlatformSearchResponse =
+            serde_json::from_str(r#"[{"full_name":"team/project","default_branch":"main"}]"#)
+                .unwrap();
+        let wrapped: GitPlatformSearchResponse = serde_json::from_str(
+            r#"{"items":[{"full_name":"team/project","default_branch":"main"}]}"#,
+        )
+        .unwrap();
+        assert_eq!(list.into_repositories().len(), 1);
+        assert_eq!(wrapped.into_repositories().len(), 1);
     }
 }
