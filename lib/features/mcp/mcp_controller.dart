@@ -270,7 +270,8 @@ class McpController extends ChangeNotifier {
   final SerialTaskQueue _operationQueue = SerialTaskQueue();
   final OpenHandSingleFlight<void> _refreshFlight =
       OpenHandSingleFlight<void>();
-  Future<void>? _runtimeReadyFuture;
+  late final OpenHandRetryableAsyncCache<void> _runtimeReadyCache =
+      OpenHandRetryableAsyncCache<void>(_loadRuntimeReady);
   final OpenHandSingleFlight<void> _runtimeCatalogWarmupFlight =
       OpenHandSingleFlight<void>();
   late final OpenHandDebouncer _pageActivationWorkDebouncer = OpenHandDebouncer(
@@ -288,8 +289,10 @@ class McpController extends ChangeNotifier {
   ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
 
   McpKeywordIndex? _keywordIndex;
-  Future<void>? _keywordIndexLoadFuture;
-  Future<void>? _toolCatalogCacheLoadFuture;
+  late final OpenHandRetryableAsyncCache<void> _keywordIndexLoadCache =
+      OpenHandRetryableAsyncCache<void>(_loadKeywordIndex);
+  late final OpenHandRetryableAsyncCache<void> _toolCatalogCacheLoadCache =
+      OpenHandRetryableAsyncCache<void>(_loadToolCatalogCache);
   Map<String, McpCachedToolCatalog> _cachedToolCatalogs =
       const <String, McpCachedToolCatalog>{};
   int _keywordIndexRevision = 0;
@@ -301,13 +304,7 @@ class McpController extends ChangeNotifier {
   bool get isBuildingKeywordIndex => _keywordIndexService.isBuilding;
 
   /// 启动期惰性加载落盘索引；幂等。
-  Future<void> ensureKeywordIndexLoaded() {
-    final existing = _keywordIndexLoadFuture;
-    if (existing != null) return existing;
-    final future = _loadKeywordIndex();
-    _keywordIndexLoadFuture = future;
-    return future;
-  }
+  Future<void> ensureKeywordIndexLoaded() => _keywordIndexLoadCache.load();
 
   Future<void> _loadKeywordIndex() async {
     final revision = _keywordIndexRevision;
@@ -320,19 +317,15 @@ class McpController extends ChangeNotifier {
   }
 
   /// 等待服务器配置、关键词索引和上次完整工具目录完成本地恢复。
-  Future<void> ensureRuntimeReady() {
-    final existing = _runtimeReadyFuture;
-    if (existing != null) return existing;
-    final future =
-        Future.wait<void>(<Future<void>>[
-          refresh(),
-          ensureKeywordIndexLoaded(),
-          _ensureToolCatalogCacheLoaded(),
-        ]).then<void>((_) {
-          if (!_isDisposed) _restoreCachedToolCatalogs();
-        });
-    _runtimeReadyFuture = future;
-    return future;
+  Future<void> ensureRuntimeReady() => _runtimeReadyCache.load();
+
+  Future<void> _loadRuntimeReady() async {
+    await Future.wait<void>(<Future<void>>[
+      refresh(),
+      ensureKeywordIndexLoaded(),
+      _ensureToolCatalogCacheLoaded(),
+    ]);
+    if (!_isDisposed) _restoreCachedToolCatalogs();
   }
 
   /// 首次对话仅扫描本地缓存缺失的服务，并限制前台等待时间。
@@ -377,13 +370,8 @@ class McpController extends ChangeNotifier {
     );
   }
 
-  Future<void> _ensureToolCatalogCacheLoaded() {
-    final existing = _toolCatalogCacheLoadFuture;
-    if (existing != null) return existing;
-    final future = _loadToolCatalogCache();
-    _toolCatalogCacheLoadFuture = future;
-    return future;
-  }
+  Future<void> _ensureToolCatalogCacheLoaded() =>
+      _toolCatalogCacheLoadCache.load();
 
   Future<void> _loadToolCatalogCache() async {
     final loaded = await _toolCatalogCacheService.load();

@@ -93,6 +93,8 @@ part 'state/_ai_session_stream_throttle.dart';
 part 'state/_ai_session_utils.dart';
 
 const int _deviceIdFileMaxBytes = 4 * 1024;
+const Duration _networkSnapshotCacheTtl = Duration(seconds: 30);
+const Duration _networkSnapshotLoadTimeout = Duration(milliseconds: 900);
 const int _maxCachedStreamThroughputSessions = 64;
 const int _telemetryMaxNestingDepth = 32;
 const int _telemetryMaxContainerItems = 4096;
@@ -109,6 +111,11 @@ typedef WriteCommandConfirmationCallback =
     Future<BashCommandApprovalDecision> Function(
       BashCommandApprovalRequest request,
     );
+
+typedef _LocalNetworkSnapshot = ({
+  List<String> ipAddresses,
+  List<Map<String, Object?>> interfaces,
+});
 
 class AiStreamThroughputSnapshot {
   const AiStreamThroughputSnapshot({
@@ -1042,14 +1049,12 @@ class AiSessionController extends ChangeNotifier {
   /// 同一会话上是否有手动压缩正在进行（避免重复并发触发）。
   final Set<String> _manualCompactionInflight = <String>{};
 
-  // 进程级缓存：device id 与本机网络拓扑在应用生命周期内基本不会变化，
-  // 但每次创建新会话都做一次磁盘读 / `NetworkInterface.list()` 网卡枚举
-  // (后者带 900 ms 超时，最坏 case 直接卡 UI 一秒)。把首个结果缓存为
-  // Future，之后所有 `createSession` 直接 await 同一个 Future 即可，
-  // 既保留首启 lazy 加载的成本，又避免重复 I/O 击穿主线程。
+  // 设备 ID 在进程内固定；网络拓扑使用短时缓存，兼顾创建速度与 VPN、Wi-Fi
+  // 切换后的元数据准确性。刷新失败时不更新时间戳，后续创建可继续重试。
   Future<String>? _deviceIdFuture;
-  Future<({List<String> ipAddresses, List<Map<String, Object?>> interfaces})>?
-  _networkSnapshotFuture;
+  _LocalNetworkSnapshot? _networkSnapshot;
+  DateTime? _networkSnapshotAt;
+  Future<_LocalNetworkSnapshot>? _networkSnapshotRefreshFuture;
   String? _currentSessionId;
   AiSessionDeletionNotice? _lastDeletionNotice;
   String? _editingMessageId;
@@ -1706,11 +1711,9 @@ class AiSessionController extends ChangeNotifier {
   }
 
   Future<void> refresh() async {
-    // F4 预热：device id (磁盘) 与本机网卡枚举 (900ms timeout) 是新建会话
-    // 的关键路径输入。在 refresh 启动阶段先把这两个 future 触发出去，等到
-    // 用户首次"新建会话"时通常已经命中缓存，避免首次创建被网卡枚举堵 1s。
+    // 预热设备 ID 与本机网卡枚举，避免首次创建会话等待磁盘和系统调用。
     _deviceIdFuture ??= _readOrCreateDeviceId();
-    _networkSnapshotFuture ??= _localNetworkSnapshot();
+    unawaited(_localNetworkSnapshot());
     await _enqueueOperation(() async {
       _isLoading = true;
       _isMessagesHydrating = false;
@@ -2626,11 +2629,9 @@ class AiSessionController extends ChangeNotifier {
     AiSessionRuntimeContext runtimeContext,
   ) async {
     final now = _clock().toUtc();
-    // 进程级缓存 + 并行：device id (磁盘) 与 network snapshot (网卡枚举，
-    // 含 900 ms 超时) 互不依赖，并行 await 让 createSession 的关键路径
-    // 由「串行 I/O」收敛为「max(两路)」，再叠加缓存命中后的接近零延时。
+    // 设备 ID 与网络快照互不依赖，并行加载可缩短首次创建会话的等待时间。
     final deviceIdFuture = _deviceIdFuture ??= _readOrCreateDeviceId();
-    final networkFuture = _networkSnapshotFuture ??= _localNetworkSnapshot();
+    final networkFuture = _localNetworkSnapshot();
     final results = await Future.wait<Object>(<Future<Object>>[
       deviceIdFuture,
       networkFuture,
@@ -2723,11 +2724,35 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
-  Future<({List<String> ipAddresses, List<Map<String, Object?>> interfaces})>
-  _localNetworkSnapshot() async {
+  Future<_LocalNetworkSnapshot> _localNetworkSnapshot() {
+    final cached = _networkSnapshot;
+    final cachedAt = _networkSnapshotAt;
+    final cacheAge = cachedAt == null
+        ? null
+        : _clock().toUtc().difference(cachedAt);
+    if (cached != null &&
+        cacheAge != null &&
+        cacheAge >= Duration.zero &&
+        cacheAge < _networkSnapshotCacheTtl) {
+      return Future<_LocalNetworkSnapshot>.value(cached);
+    }
+    final pending = _networkSnapshotRefreshFuture;
+    if (pending != null) return pending;
+
+    late final Future<_LocalNetworkSnapshot> refresh;
+    refresh = _refreshLocalNetworkSnapshot().whenComplete(() {
+      if (identical(_networkSnapshotRefreshFuture, refresh)) {
+        _networkSnapshotRefreshFuture = null;
+      }
+    });
+    _networkSnapshotRefreshFuture = refresh;
+    return refresh;
+  }
+
+  Future<_LocalNetworkSnapshot> _refreshLocalNetworkSnapshot() async {
     try {
       final interfaces = await NetworkInterface.list().timeout(
-        const Duration(milliseconds: 900),
+        _networkSnapshotLoadTimeout,
       );
       final ipAddresses = <String>{};
       final interfaceRows = <Map<String, Object?>>[];
@@ -2737,22 +2762,28 @@ class AiSessionController extends ChangeNotifier {
           addresses.add(address.address);
           ipAddresses.add(address.address);
         }
-        interfaceRows.add(<String, Object?>{
-          'name': iface.name,
-          'index': iface.index,
-          'addresses': addresses,
-        });
+        interfaceRows.add(
+          Map<String, Object?>.unmodifiable(<String, Object?>{
+            'name': iface.name,
+            'index': iface.index,
+            'addresses': List<String>.unmodifiable(addresses),
+          }),
+        );
       }
-      return (
-        ipAddresses: ipAddresses.toList(growable: false),
-        interfaces: interfaceRows,
+      final snapshot = (
+        ipAddresses: List<String>.unmodifiable(ipAddresses),
+        interfaces: List<Map<String, Object?>>.unmodifiable(interfaceRows),
       );
+      _networkSnapshot = snapshot;
+      _networkSnapshotAt = _clock().toUtc();
+      return snapshot;
     } catch (error, stack) {
       silentLog('ai_session_controller', '获取本地网络快照', error, stack);
-      return (
-        ipAddresses: const <String>[],
-        interfaces: const <Map<String, Object?>>[],
-      );
+      return _networkSnapshot ??
+          (
+            ipAddresses: const <String>[],
+            interfaces: const <Map<String, Object?>>[],
+          );
     }
   }
 
