@@ -139,7 +139,7 @@ class _AiExposureServiceCard extends StatelessWidget {
                     children: [
                       Expanded(child: identity),
                       const SizedBox(width: 16),
-                      Flexible(child: actions),
+                      Expanded(child: actions),
                     ],
                   ),
                 const SizedBox(height: 16),

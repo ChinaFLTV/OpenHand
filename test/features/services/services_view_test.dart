@@ -27,11 +27,14 @@ void main() {
             ChangeNotifierProvider<ServicesController>.value(value: services),
             ChangeNotifierProvider<SettingsController>.value(value: settings),
           ],
-          child: const MaterialApp(
-            locale: Locale('zh'),
+          child: MaterialApp(
+            locale: const Locale('zh'),
             localizationsDelegates: AppLocalizations.localizationsDelegates,
             supportedLocales: AppLocalizations.supportedLocales,
-            home: Scaffold(body: ServicesView()),
+            theme: ThemeData(
+              cardTheme: const CardThemeData(margin: EdgeInsets.zero),
+            ),
+            home: const Scaffold(body: ServicesView()),
           ),
         ),
       );
@@ -45,6 +48,13 @@ void main() {
       expect(
         find.descendant(of: cardFinder, matching: find.byType(IconButton)),
         findsNWidgets(10),
+      );
+      final lastAction = find
+          .descendant(of: cardFinder, matching: find.byType(IconButton))
+          .last;
+      expect(
+        tester.getRect(cardFinder).right - tester.getRect(lastAction).right,
+        closeTo(18, 0.01),
       );
       final card = tester.widget<Card>(cardFinder);
       final shape = card.shape! as RoundedRectangleBorder;

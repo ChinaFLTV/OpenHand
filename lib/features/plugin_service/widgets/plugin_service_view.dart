@@ -343,6 +343,7 @@ class _PluginCard extends StatelessWidget {
     };
 
     return Card(
+      key: ValueKey<String>('plugin-card-${plugin.id}'),
       elevation: 0,
       clipBehavior: Clip.antiAlias,
       child: Padding(
@@ -549,15 +550,13 @@ class _PluginCard extends StatelessWidget {
             icon: const Icon(Icons.delete_outline_rounded, size: 18),
           ),
         // 操作中
-        OpenHandBusyStatusIcon(
-          busy:
-              plugin.isBusy &&
-              !plugin.isInstalled &&
-              plugin.status != PluginStatus.notInstalled,
-          icon: null,
-          size: 24,
-          strokeWidth: 2.5,
-        ),
+        if (plugin.isBusy && !plugin.isInstalled)
+          const OpenHandBusyStatusIcon(
+            busy: true,
+            icon: null,
+            size: 24,
+            strokeWidth: 2.5,
+          ),
       ],
     );
   }
