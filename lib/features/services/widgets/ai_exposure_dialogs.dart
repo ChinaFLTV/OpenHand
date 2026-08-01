@@ -20,6 +20,10 @@ const double _kSectionGap = 18;
 const double _kItemGap = 12;
 const double _kItemActionGap = 8;
 const double _kMetricBreakpoint = 720;
+const EdgeInsets _kFilterChipPadding = EdgeInsets.symmetric(
+  horizontal: 12,
+  vertical: 6,
+);
 const List<AiExposureSource> _kCredentialSources = <AiExposureSource>[
   AiExposureSource.github,
   AiExposureSource.fofa,
@@ -1989,6 +1993,7 @@ class _ServiceFilterChip extends StatelessWidget {
       label: label,
       onSelected: onSelected,
       showCheckmark: icon == null,
+      padding: _kFilterChipPadding,
       elevation: 0,
       pressElevation: 0,
       shadowColor: Colors.transparent,
