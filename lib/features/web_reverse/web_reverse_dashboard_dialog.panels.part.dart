@@ -1569,6 +1569,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
   }
 
   Future<void> _capture() async {
+    if (_capturing) return;
     setState(() => _capturing = true);
     final r = await widget.controller.takeHeapSnapshot();
     if (!mounted) return;
@@ -1606,10 +1607,9 @@ class _MemoryPanelState extends State<_MemoryPanel> {
     }
   }
 
-  /// 比较 _snapA 与 _snapB：把两份 .heapsnapshot 在 isolate 里解析成
-  /// 「constructor → 字节累计/节点数」聚合表，再做 delta 排序，输出节点
-  /// 数 / 字节数 总差以及 top-growth 构造器列表。两份缺一即提示。
+  /// 在隔离线程比较最近两份堆快照。
   Future<void> _compareSnapshots() async {
+    if (_capturing) return;
     final a = _snapA;
     final b = _snapB;
     if (a == null || b == null) {
@@ -1629,13 +1629,34 @@ class _MemoryPanelState extends State<_MemoryPanel> {
       return;
     }
     setState(() => _capturing = true);
-    final fut = compute(_heapDiffWorker, <String, String>{
-      'a': a.json,
-      'b': b.json,
-    });
-    final result = await fut;
+    late final _HeapDiffResult result;
+    try {
+      result = await compute(_heapDiffWorker, <String, String>{
+        'a': a.json,
+        'b': b.json,
+      });
+    } catch (error, stack) {
+      silentLog('web_reverse_dashboard_dialog', '比较堆快照', error, stack);
+      if (mounted) {
+        showOpenHandErrorSnack(
+          context,
+          openHandLocalizedText(
+            context,
+            zh: '堆快照比较失败',
+            zhHant: '堆快照比較失敗',
+            en: 'Heap snapshot comparison failed',
+            fr: 'Échec de la comparaison des snapshots du tas',
+            de: 'Heap-Snapshot-Vergleich fehlgeschlagen',
+            ja: 'ヒープスナップショットの比較に失敗しました',
+          ),
+          duration: kOpenHandSnackBarBriefDuration,
+        );
+      }
+      return;
+    } finally {
+      if (mounted) setState(() => _capturing = false);
+    }
     if (!mounted) return;
-    setState(() => _capturing = false);
     webReverseToolDialogs.show<void>(
       context: context,
       builder: (_) => _SnapshotDiffDialog(
@@ -1767,7 +1788,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
               ),
               const SizedBox(width: 8),
               OutlinedButton.icon(
-                onPressed: (_snapA != null && _snapB != null)
+                onPressed: (!_capturing && _snapA != null && _snapB != null)
                     ? _compareSnapshots
                     : null,
                 icon: const Icon(Icons.compare_arrows_rounded, size: 18),
@@ -4765,7 +4786,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
       }
       final raw = read.text!;
       final decoded = jsonDecode(raw);
-      if (decoded is! List) throw const FormatException('not a list');
+      if (decoded is! List) throw const FormatException('结果不是列表。');
       final steps = stringKeyedMapListFromValue(decoded);
       widget.controller.setRecorderSteps(steps);
       if (!mounted) return;
@@ -5471,7 +5492,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
     try {
       final decoded = decodeStringKeyedJsonMap(widget.traceJson);
       if (decoded == null) {
-        throw const FormatException('Trace JSON must be an object.');
+        throw const FormatException('跟踪数据 JSON 必须是对象。');
       }
       final raw = decoded['traceEvents'];
       final list = raw is List ? raw : const <Object?>[];
@@ -6005,7 +6026,7 @@ int _heapIntAt(List<Object?> values, int index, {int fallback = 0}) {
 _HeapAggResult _aggregateHeap(String src) {
   final m = decodeStringKeyedJsonMap(src);
   if (m == null) {
-    throw const FormatException('Heap snapshot JSON must be an object.');
+    throw const FormatException('堆快照 JSON 必须是对象。');
   }
   final snapshot = stringKeyedMapFromValue(m['snapshot']);
   final meta = stringKeyedMapFromValue(snapshot['meta']);
@@ -6066,12 +6087,7 @@ _HeapAggResult _aggregateHeap(String src) {
   );
 }
 
-/// 快照对比弹窗：上方两行 raw bytes / 节点数 / 自有大小 delta，下方
-/// DataTable 列出 top growth constructor（默认按字节增长降序）。
-///
-/// Stage E 增强：点击表格任一行 → 右侧弹出「保持者链」侧栏，
-/// 后台 isolate 解析 snapshot.edges 反向构造邻接表，从该 ctor 的代表实
-/// 例往上走最多 5 跳，把可达的 retainer 链路渲染成树形列表。
+/// 展示两份堆快照的增量，并按需解析所选构造器的保持者链。
 class _SnapshotDiffDialog extends StatefulWidget {
   const _SnapshotDiffDialog({
     required this.whenA,
@@ -6108,19 +6124,32 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
   }
 
   Future<void> _onRowTap(String label) async {
+    if (_retainerLoading) return;
     setState(() {
       _selectedLabel = label;
       _retainerLoading = true;
       _retainerResult = null;
     });
-    final r = await compute(_findRetainerChainsWorker, <String, String>{
-      'json': widget.bJson,
-      'label': label,
-    });
+    late final _RetainerChainResult result;
+    try {
+      result = await compute(_findRetainerChainsWorker, <String, String>{
+        'json': widget.bJson,
+        'label': label,
+      });
+    } catch (error, stack) {
+      silentLog('web_reverse_dashboard_dialog', '解析堆快照保持者链', error, stack);
+      result = _RetainerChainResult(
+        label: label,
+        found: false,
+        totalInstances: 0,
+        chains: const <_RetainerChain>[],
+        error: '保持者链解析失败。',
+      );
+    }
     if (!mounted) return;
     setState(() {
       _retainerLoading = false;
-      _retainerResult = r;
+      _retainerResult = result;
     });
   }
 
@@ -6463,8 +6492,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
   }
 }
 
-/// 单条 retainer 链：path 是从 root 到目标实例的节点链（label，从外到内）。
-/// shortest 字段单独保存最短链长度，方便上层渲染时排序。
+/// 单条保持者链，路径从目标实例向外延伸。
 class _RetainerChain {
   const _RetainerChain({required this.path});
   final List<String> path;
@@ -6495,7 +6523,7 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
   try {
     final m = decodeStringKeyedJsonMap(src);
     if (m == null) {
-      throw const FormatException('Heap snapshot JSON must be an object.');
+      throw const FormatException('堆快照 JSON 必须是对象。');
     }
     final snapshot = stringKeyedMapFromValue(m['snapshot']);
     final meta = stringKeyedMapFromValue(snapshot['meta']);
@@ -6519,7 +6547,7 @@ _RetainerChainResult _findRetainerChainsWorker(Map<String, String> input) {
     final iEdgeTo = edgeFields.indexOf('to_node');
     final iEdgeName = edgeFields.indexOf('name_or_index');
     if (nLen <= 0 || eLen <= 0 || iType < 0 || iEdgeTo < 0) {
-      throw const FormatException('Invalid heap snapshot field metadata.');
+      throw const FormatException('堆快照字段元数据无效。');
     }
     final typeNames = _heapFirstStringList(meta['node_types'], const [
       'object',
