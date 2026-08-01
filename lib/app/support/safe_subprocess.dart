@@ -38,7 +38,10 @@ final Map<int, Process> _trackedProcessGroups = <int, Process>{};
 final Expando<bool> _trackedProcessGroupLeaders = Expando<bool>(
   'openhand.processGroupLeader',
 );
-Future<_ProcessGroupLauncher?>? _processGroupLauncherProbe;
+final _processGroupLauncherCache =
+    OpenHandRetryableAsyncCache<_ProcessGroupLauncher?>(
+      _probeProcessGroupLauncher,
+    );
 Timer? _processGroupPruneTimer;
 Future<void>? _trackedChildrenCleanupFuture;
 _TrackedChildrenCleanupPhase _trackedChildrenCleanupPhase =
@@ -925,49 +928,63 @@ List<int> trackedChildPidsSnapshot() => List<int>.unmodifiable(<int>{
   ..._trackedProcessGroups.keys,
 });
 
-Future<_ProcessGroupLauncher?> _resolveProcessGroupLauncher() {
-  if (_processGroupLauncherProbe != null) return _processGroupLauncherProbe!;
-  _processGroupLauncherProbe = () async {
-    const candidates = <String>[
-      '/usr/bin/setsid',
-      '/usr/local/bin/setsid',
-      '/opt/homebrew/bin/setsid',
-    ];
+Future<_ProcessGroupLauncher?> _resolveProcessGroupLauncher() async {
+  try {
+    return await _processGroupLauncherCache.load();
+  } catch (error, stack) {
+    silentLog('safe_subprocess', '探测进程组启动器', error, stack);
+    return null;
+  }
+}
+
+Future<_ProcessGroupLauncher?> _probeProcessGroupLauncher() async {
+  const candidates = <String>[
+    '/usr/bin/setsid',
+    '/usr/local/bin/setsid',
+    '/opt/homebrew/bin/setsid',
+  ];
+  Object? probeError;
+  StackTrace? probeStack;
+  try {
     final directLauncher = await _firstExistingProcessExecutable(candidates);
     if (directLauncher != null) {
       return _ProcessGroupLauncher(directLauncher);
     }
-    try {
-      final result = await runTrackedProcessOrFailed(
-        '/bin/sh',
-        <String>['-lc', 'command -v setsid 2>/dev/null'],
-        timeout: const Duration(seconds: 2),
-        tag: 'safe_subprocess.setsid_probe',
-        startInNewProcessGroup: false,
-      );
-      final path = nullIfBlank(result.stdout as String);
-      if (path != null && await _isProcessExecutableFile(path)) {
-        return _ProcessGroupLauncher(path);
-      }
-    } catch (error, stack) {
-      silentLog('safe_subprocess', '解析 setsid 命令路径', error, stack);
+    final result = await runTrackedProcessOrFailed(
+      '/bin/sh',
+      <String>['-lc', 'command -v setsid 2>/dev/null'],
+      timeout: const Duration(seconds: 2),
+      tag: 'safe_subprocess.setsid_probe',
+      startInNewProcessGroup: false,
+    );
+    if (result.exitCode < 0) {
+      throw StateError('setsid 命令路径探测未正常完成。');
     }
-    // macOS does not ship coreutils `setsid`. System Perl exposes the same
-    // syscall, so use a direct argv-preserving exec shim rather than silently
-    // losing process-tree cleanup on the primary desktop platform.
-    const perl = '/usr/bin/perl';
-    if (Platform.isMacOS && await _isProcessExecutableFile(perl)) {
-      return const _ProcessGroupLauncher(perl, <String>[
-        '-MPOSIX',
-        '-e',
-        'defined POSIX::setsid() or die "setsid failed: \$!"; '
-            'exec @ARGV; die "exec failed: \$!";',
-        '--',
-      ]);
+    final path = nullIfBlank(result.stdout as String);
+    if (path != null && await _isProcessExecutableFile(path)) {
+      return _ProcessGroupLauncher(path);
     }
-    return null;
-  }();
-  return _processGroupLauncherProbe!;
+  } catch (error, stack) {
+    probeError = error;
+    probeStack = stack;
+  }
+
+  // macOS 未内置 coreutils setsid，改用系统 Perl 调用同名系统接口，
+  // 保留原始参数边界并确保可终止完整进程树。
+  const perl = '/usr/bin/perl';
+  if (Platform.isMacOS && await _isProcessExecutableFile(perl)) {
+    return const _ProcessGroupLauncher(perl, <String>[
+      '-MPOSIX',
+      '-e',
+      'defined POSIX::setsid() or die "setsid failed: \$!"; '
+          'exec @ARGV; die "exec failed: \$!";',
+      '--',
+    ]);
+  }
+  if (probeError != null) {
+    Error.throwWithStackTrace(probeError, probeStack ?? StackTrace.current);
+  }
+  return null;
 }
 
 bool _sendSignalToProcessGroupDirect(int processGroupId, ProcessSignal signal) {
