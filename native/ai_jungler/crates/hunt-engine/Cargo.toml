@@ -1,0 +1,24 @@
+[package]
+name = "hunt-engine"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[dependencies]
+anyhow.workspace = true
+chrono.workspace = true
+futures.workspace = true
+hunt-core = { path = "../hunt-core" }
+hunt-sources = { path = "../hunt-sources" }
+hunt-store = { path = "../hunt-store" }
+reqwest.workspace = true
+redis.workspace = true
+rustls.workspace = true
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+sha2.workspace = true
+thiserror.workspace = true
+tokio.workspace = true
+tokio-util.workspace = true
+uuid.workspace = true

@@ -33,6 +33,7 @@ import 'features/mcp/index.dart';
 import 'features/memory/index.dart';
 import 'features/message_gateway/index.dart';
 import 'features/plugin_service/index.dart';
+import 'features/services/index.dart';
 import 'features/settings/service/throttle_auto_sync_service.dart';
 import 'features/skills/index.dart';
 import 'features/thread_template_runtime/index.dart';
@@ -176,6 +177,7 @@ Future<void> _bootstrap() async {
   final instructionsModuleFuture = InstructionsModule.bootstrap();
   final memoryModuleFuture = MemoryModule.bootstrap();
   final agentsModuleFuture = AgentsModule.bootstrap();
+  final servicesModuleFuture = ServicesModule.bootstrap();
   final pluginServiceModuleFuture = PluginServiceModule.bootstrap();
   final knowledgeBaseModuleFuture = KnowledgeBaseModule.bootstrap();
   // 预加载输出格式控制 Prompt 片段；未就绪时 AiPromptBuilder 会回退到内置兜底。
@@ -227,6 +229,10 @@ Future<void> _bootstrap() async {
   final agents = await agentsModuleFuture;
   agentsControllerHandle = agents.controller;
   _runMainBackgroundTask(agents.controller.refresh(), '刷新智能体');
+  final services = await servicesModuleFuture;
+  services.controller.attachSelectedAiModelProvider(
+    () => settingsController.selectedAiModel,
+  );
   // CronsController 先注册 agent 处理器，再把数据库加载和调度器启动放到后台。
   final crons = await cronsModuleFuture;
   final cronsController = crons.controller;
@@ -436,6 +442,7 @@ Future<void> _bootstrap() async {
     ..register('技能控制器', skills.controller.dispose)
     ..register('记忆控制器', memory.controller.dispose)
     ..register('智能体控制器', agents.controller.dispose)
+    ..register('扫描服务控制器', services.controller.shutdown)
     ..register('指令控制器', instructions.controller.dispose)
     ..register('模板运行时联动控制器', templateRuntimeLinkageController.dispose)
     ..register('插件服务控制器', pluginService.controller.dispose)
@@ -518,6 +525,7 @@ Future<void> _bootstrap() async {
         ...HooksModule.providers(hooks),
         ...MemoryModule.providers(memory),
         ...AgentsModule.providers(agents),
+        ...ServicesModule.providers(services),
         ...CronsModule.providers(crons),
         ...InstructionsModule.providers(instructions),
         ...MessageGatewayModule.providers(messageGateway),

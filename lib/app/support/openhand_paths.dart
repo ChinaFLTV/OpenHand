@@ -91,6 +91,14 @@ abstract final class OpenHandPaths {
     return p.join(defaultRootDirectoryPath(), 'message_gateway');
   }
 
+  static String defaultAiExposureServiceDirectoryPath() {
+    return p.join(
+      defaultRootDirectoryPath(),
+      'services',
+      'ai_infrastructure_exposure',
+    );
+  }
+
   /// Logs directory used by background workers for opt-in disk logging.
   /// May be absent on a fresh install.
   static String defaultLogsDirectoryPath() {

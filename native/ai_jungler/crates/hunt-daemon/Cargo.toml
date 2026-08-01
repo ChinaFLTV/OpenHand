@@ -1,0 +1,27 @@
+[package]
+name = "hunt-daemon"
+version.workspace = true
+edition.workspace = true
+license.workspace = true
+
+[[bin]]
+name = "ai_jungler"
+path = "src/main.rs"
+
+[dependencies]
+anyhow.workspace = true
+axum.workspace = true
+futures.workspace = true
+hunt-core = { path = "../hunt-core" }
+hunt-engine = { path = "../hunt-engine" }
+hunt-store = { path = "../hunt-store" }
+secrecy.workspace = true
+serde.workspace = true
+serde_json.workspace = true
+subtle.workspace = true
+tokio.workspace = true
+tokio-stream.workspace = true
+tower-http.workspace = true
+tracing.workspace = true
+tracing-subscriber.workspace = true
+uuid.workspace = true

@@ -1,0 +1,109 @@
+name: AI 扫描引擎跨平台构建
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - "native/ai_jungler/**"
+      - "scripts/build_ai_jungler.sh"
+      - "scripts/verify_ai_jungler_assets.sh"
+      - ".github/workflows/ai-jungler.yml"
+  pull_request:
+    paths:
+      - "native/ai_jungler/**"
+      - "scripts/build_ai_jungler.sh"
+      - "scripts/verify_ai_jungler_assets.sh"
+      - ".github/workflows/ai-jungler.yml"
+
+permissions:
+  contents: read
+
+jobs:
+  test:
+    name: Rust 检查与测试
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装 Rust
+        run: rustup show
+      - name: 检查格式
+        run: cargo fmt --manifest-path native/ai_jungler/Cargo.toml --all -- --check
+      - name: 检查工作区
+        run: cargo check --manifest-path native/ai_jungler/Cargo.toml --workspace --locked
+      - name: 执行 Clippy
+        run: cargo clippy --manifest-path native/ai_jungler/Cargo.toml --workspace --all-targets --locked -- -D warnings
+      - name: 执行测试
+        run: cargo test --manifest-path native/ai_jungler/Cargo.toml --workspace --locked
+
+  build:
+    name: 构建 ${{ matrix.platform }}
+    needs: test
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - platform: darwin-arm64
+            target: aarch64-apple-darwin
+            runner: macos-15
+          - platform: darwin-x64
+            target: x86_64-apple-darwin
+            runner: macos-15-intel
+          - platform: windows-arm64
+            target: aarch64-pc-windows-msvc
+            runner: windows-11-arm
+          - platform: windows-x64
+            target: x86_64-pc-windows-msvc
+            runner: windows-2022
+          - platform: linux-arm64
+            target: aarch64-unknown-linux-gnu
+            runner: ubuntu-24.04-arm
+          - platform: linux-x64
+            target: x86_64-unknown-linux-gnu
+            runner: ubuntu-24.04
+    runs-on: ${{ matrix.runner }}
+    steps:
+      - uses: actions/checkout@v4
+      - name: 安装编译目标
+        shell: bash
+        run: rustup target add "${{ matrix.target }}"
+      - name: 构建并生成清单
+        shell: bash
+        run: scripts/build_ai_jungler.sh "${{ matrix.platform }}"
+      - name: 校验产物
+        shell: bash
+        run: scripts/verify_ai_jungler_assets.sh "${{ matrix.platform }}"
+      - name: 整理产物
+        shell: bash
+        run: |
+          mkdir -p "dist/${{ matrix.platform }}"
+          cp -R "assets/ai_jungler/${{ matrix.platform }}/." "dist/${{ matrix.platform }}/"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-jungler-${{ matrix.platform }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 14
+
+  package:
+    name: 汇总六平台产物
+    needs: build
+    runs-on: ubuntu-24.04
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with:
+          pattern: ai-jungler-*
+          path: assets/ai_jungler
+          merge-multiple: true
+      - name: 更新汇总清单
+        run: |
+          jq '.bundledPlatforms = .supportedPlatforms' assets/ai_jungler/manifest.json > assets/ai_jungler/manifest.tmp
+          mv assets/ai_jungler/manifest.tmp assets/ai_jungler/manifest.json
+      - name: 校验全部产物
+        run: scripts/verify_ai_jungler_assets.sh all
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ai-jungler-all-platforms
+          path: assets/ai_jungler
+          if-no-files-found: error
+          retention-days: 30

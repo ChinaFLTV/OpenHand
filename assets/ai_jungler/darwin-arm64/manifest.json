@@ -1,0 +1,7 @@
+{
+  "engine": "ai_jungler",
+  "version": "0.1.0",
+  "platform": "darwin-arm64",
+  "executable": "ai_jungler",
+  "sha256": "ae072998b6ae6c3cd724d1ceb7e0cc1adf872f46f0d54028f6c77bf6f9c0480c"
+}

@@ -61,3 +61,5 @@ assets/web/chunks/
 assets/web/assets/
 
 .vscode
+
+/native/ai_jungler/target/

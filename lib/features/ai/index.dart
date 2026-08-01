@@ -60,6 +60,7 @@ export 'service/model_registry/ai_model_scanner.dart';
 export 'service/model_registry/ai_title_model_resolver.dart';
 export 'service/operations/ai_embeddings_service.dart';
 export 'service/operations/ai_minimax_voice_service.dart';
+export 'service/operations/ai_operation_http.dart';
 export 'service/operations/ai_rerank_service.dart';
 export 'service/operations/ai_translation_service.dart';
 export 'service/operations/ai_tts_playback_service.dart';

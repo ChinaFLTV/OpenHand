@@ -1,0 +1,55 @@
+[workspace]
+resolver = "2"
+members = [
+  "crates/hunt-core",
+  "crates/hunt-sources",
+  "crates/hunt-engine",
+  "crates/hunt-store",
+  "crates/hunt-daemon",
+]
+
+[workspace.package]
+version = "0.1.0"
+edition = "2024"
+license = "Proprietary"
+authors = ["OpenHand"]
+
+[workspace.dependencies]
+aes-gcm = "0.10.3"
+anyhow = "1.0.100"
+async-trait = "0.1.89"
+axum = "0.8.8"
+base64 = "0.22.1"
+chrono = { version = "0.4.42", features = ["serde"] }
+futures = "0.3.31"
+hex = "0.4.3"
+http = "1.4.0"
+ipnet = "2.11.0"
+rand = "0.9.2"
+regex = "1.12.2"
+redis = { version = "0.32.7", default-features = false, features = ["tokio-rustls-comp", "connection-manager"] }
+reqwest = { version = "0.13.1", default-features = false, features = ["json", "query", "rustls-no-provider", "stream"] }
+rustls = { version = "0.23.43", default-features = false, features = ["ring", "std", "tls12"] }
+rusqlite = { version = "0.38.0", features = ["bundled"] }
+secrecy = { version = "0.10.3", features = ["serde"] }
+serde = { version = "1.0.228", features = ["derive"] }
+serde_json = "1.0.149"
+sha2 = "0.10.9"
+sqlx-core = { version = "=0.8.6", default-features = false, features = ["_rt-tokio", "_tls-rustls-ring-webpki", "chrono", "json"] }
+sqlx-postgres = { version = "=0.8.6", default-features = false, features = ["chrono", "json"] }
+subtle = "2.6.1"
+thiserror = "2.0.17"
+tokio = { version = "1.49.0", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio-stream = { version = "0.1.18", features = ["sync"] }
+tokio-util = "0.7.18"
+tower-http = { version = "0.6.8", features = ["limit", "timeout", "trace"] }
+tracing = "0.1.44"
+tracing-subscriber = { version = "0.3.22", features = ["env-filter", "fmt"] }
+url = { version = "2.5.8", features = ["serde"] }
+uuid = { version = "1.19.0", features = ["serde", "v4"] }
+zeroize = "1.8.2"
+
+[profile.release]
+lto = "thin"
+codegen-units = 1
+strip = true

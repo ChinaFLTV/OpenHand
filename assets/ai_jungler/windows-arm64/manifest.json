@@ -1,0 +1,7 @@
+{
+  "engine": "ai_jungler",
+  "version": "0.1.0",
+  "platform": "windows-arm64",
+  "executable": "ai_jungler.exe",
+  "sha256": "8dfcd2c3414bce52df4bd6d789c3d718da161b6abe36a4fd2a9854061d331c10"
+}

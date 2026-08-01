@@ -1,0 +1,7 @@
+{
+  "engine": "ai_jungler",
+  "version": "0.1.0",
+  "platform": "linux-arm64",
+  "executable": "ai_jungler",
+  "sha256": "772bc0dd4e3ef4961ffcb64338a19ee94d110f79e3537242ef954b18c46f9329"
+}

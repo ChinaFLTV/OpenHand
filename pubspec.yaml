@@ -46,6 +46,8 @@ dependencies:
   xterm: ^4.0.0
   flutter_pty: ^0.4.2
 dev_dependencies:
+  flutter_test:
+    sdk: flutter
   flutter_lints: ^6.0.0
 
 dependency_overrides:
@@ -75,6 +77,13 @@ flutter:
     - assets/prompts/android_reverse_expert/
     - assets/prompts/android_reverse_expert/snippets/
     - assets/branding/
+    - assets/ai_jungler/
+    - assets/ai_jungler/darwin-arm64/
+    - assets/ai_jungler/darwin-x64/
+    - assets/ai_jungler/windows-arm64/
+    - assets/ai_jungler/windows-x64/
+    - assets/ai_jungler/linux-arm64/
+    - assets/ai_jungler/linux-x64/
     - assets/web/
     - assets/web/chunks/
     - assets/web/assets/
