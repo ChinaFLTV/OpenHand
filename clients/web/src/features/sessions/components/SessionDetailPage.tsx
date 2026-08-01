@@ -190,6 +190,7 @@ import {
   buildHeightPrefix,
   clampMessageRowHeight,
   initialVirtualMessageRange,
+  rebaseVirtualMessageRange,
   resolveVirtualMessageRange,
   remainingNewerMessageCount,
   shouldVirtualizeMessageList,
@@ -2766,6 +2767,11 @@ function VirtualMessageList({
     () => messages.map((message) => message.id),
     [membershipKey],
   );
+  const previousMembershipRef = useRef({
+    key: membershipKey,
+    messageIds,
+    virtualized,
+  });
   const revealIndex = revealTarget == null
     ? -1
     : messageIds.indexOf(revealTarget.messageId);
@@ -2800,33 +2806,39 @@ function VirtualMessageList({
     }
   }, [totalHeight]);
 
-  const previousVirtualizedRef = useRef(virtualized);
-  useEffect(() => {
-    const enteredVirtualization = virtualized && !previousVirtualizedRef.current;
-    previousVirtualizedRef.current = virtualized;
-    setRange((current) => {
-      const next = initialVirtualMessageRange(messages.length);
-      if (!virtualized) {
-        return current.start === 0 && current.end === messages.length
-          ? current
-          : { start: 0, end: messages.length };
-      }
-      // 首屏分页只有 10 条，低于虚拟化阈值；服务端窗口补齐后列表才切到虚拟化。
-      // 此刻必须重新贴回尾部，否则 range 会停在最旧的几条上，紧接着被自动跟随
-      // 拉到底 —— 同一批消息在一次「打开」里被完整渲染两遍。
-      if (enteredVirtualization) {
-        return next;
-      }
-      // 仅高度变化时保留已测量范围；成员越界时从尾部重新定位。
-      if (current.end > messages.length || current.start >= messages.length) {
-        return next;
-      }
-      if (messages.length > 0 && current.end - current.start > messages.length) {
-        return next;
-      }
-      return current;
-    });
-  }, [messages.length, virtualized]);
+  const previousMembership = previousMembershipRef.current;
+  const membershipChanged = previousMembership.key !== membershipKey;
+  const enteredVirtualization = virtualized && !previousMembership.virtualized;
+  const initialRange = initialVirtualMessageRange(messages.length);
+  let renderRange = range;
+  if (!virtualized) {
+    renderRange = { start: 0, end: messages.length };
+  } else if (enteredVirtualization) {
+    // 首屏分页低于虚拟化阈值，服务端窗口补齐后应在当前渲染中直接贴回尾部。
+    renderRange = initialRange;
+  } else if (membershipChanged) {
+    // 同长度换窗也必须立即按消息标识重定位，避免先挂载错误范围再二次替换。
+    renderRange = rebaseVirtualMessageRange(
+      previousMembership.messageIds,
+      messageIds,
+      range,
+    ) ?? initialRange;
+  } else if (
+    range.end > messages.length ||
+    range.start >= messages.length ||
+    (messages.length > 0 && range.end - range.start > messages.length)
+  ) {
+    renderRange = initialRange;
+  }
+
+  useLayoutEffect(() => {
+    previousMembershipRef.current = { key: membershipKey, messageIds, virtualized };
+    setRange((current) =>
+      current.start === renderRange.start && current.end === renderRange.end
+        ? current
+        : renderRange,
+    );
+  }, [membershipKey, messageIds, renderRange.end, renderRange.start, virtualized]);
 
   const scheduleHeightCommit = useCallback(() => {
     if (isTranscriptScrollActive()) {
@@ -3065,8 +3077,8 @@ function VirtualMessageList({
     );
   }
 
-  const safeStart = Math.min(range.start, messages.length);
-  const safeEnd = Math.max(safeStart, Math.min(range.end, messages.length));
+  const safeStart = Math.min(renderRange.start, messages.length);
+  const safeEnd = Math.max(safeStart, Math.min(renderRange.end, messages.length));
   const visibleMessages = messages.slice(safeStart, safeEnd);
   const topSpacer = virtualMessageTop(heightPrefix, safeStart);
 

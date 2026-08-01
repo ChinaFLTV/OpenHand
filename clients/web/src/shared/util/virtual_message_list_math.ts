@@ -20,6 +20,44 @@ export interface VirtualMessageRange {
   end: number;
 }
 
+/**
+ * 消息窗口前插、裁剪或换窗后，按仍存活的消息标识重定位当前渲染范围。
+ * 返回 null 表示新旧窗口没有交集，调用方应回退到默认尾部范围。
+ */
+export function rebaseVirtualMessageRange<T>(
+  previousIds: readonly T[],
+  nextIds: readonly T[],
+  current: VirtualMessageRange,
+): VirtualMessageRange | null {
+  if (previousIds.length === 0 || nextIds.length === 0) return null;
+  const previousStart = Math.max(
+    0,
+    Math.min(previousIds.length, Math.floor(current.start)),
+  );
+  const previousEnd = Math.max(
+    previousStart,
+    Math.min(previousIds.length, Math.floor(current.end)),
+  );
+  const span = previousEnd - previousStart;
+  if (span <= 0) return null;
+
+  const nextIndexById = new Map<T, number>();
+  for (let index = 0; index < nextIds.length; index += 1) {
+    nextIndexById.set(nextIds[index]!, index);
+  }
+  for (let index = previousStart; index < previousEnd; index += 1) {
+    const nextAnchorIndex = nextIndexById.get(previousIds[index]!);
+    if (nextAnchorIndex == null) continue;
+    const maxStart = Math.max(0, nextIds.length - Math.min(span, nextIds.length));
+    const start = Math.max(
+      0,
+      Math.min(maxStart, nextAnchorIndex - (index - previousStart)),
+    );
+    return { start, end: Math.min(nextIds.length, start + span) };
+  }
+  return null;
+}
+
 export function boundLiveMessageWindow<T>(
   messages: T[],
   windowOffset: number,

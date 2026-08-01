@@ -105,6 +105,7 @@ const OVERSIZED_MARKDOWN_PREVIEW_MAX_CHARS = 12 * 1024;
 /// 表格或代码块；打开长会话时将这类卡片推迟到空闲帧解析，能明显降低
 /// 首屏主线程尖峰，同时短消息仍保持同步渲染，避免闪烁。
 const MARKDOWN_DEFERRED_PARSE_THRESHOLD = 8 * 1024;
+const HISTORICAL_MARKDOWN_DEFERRED_PARSE_THRESHOLD = 768;
 const MARKDOWN_PLACEHOLDER_MIN_HEIGHT_PX = 44;
 const MARKDOWN_PLACEHOLDER_MAX_HEIGHT_PX = 520;
 const MARKDOWN_PLACEHOLDER_CHARS_PER_LINE = 92;
@@ -384,6 +385,8 @@ interface MarkdownProps {
   /// 父级消息正在流式追加内容。流式阶段保持渲染树稳定，避免占位态
   /// 与 Markdown 树来回切换造成卡片闪烁。
   streaming?: boolean;
+  /// 历史消息重新进入虚拟窗口时，避免缓存命中绕过帧调度。
+  deferInitialRender?: boolean;
 }
 
 const HTML_LIKELY_TAG_RE = /<\s*(?:!doctype|html|body|div|span|p|h[1-6]|ul|ol|li|table|thead|tbody|tfoot|tr|td|th|caption|col|colgroup|a|img|br|hr|pre|code|strong|em|b|i|u|s|del|ins|mark|small|sub|sup|abbr|cite|q|blockquote|section|article|header|footer|nav|main|aside|button|form|input|textarea|select|option|label|fieldset|legend|details|summary|figure|figcaption|time|progress|meter|style|script|link|meta|iframe|video|audio|canvas|svg|path|rect|circle|ellipse|line|polyline|polygon|text|g|defs|use|symbol)\b/i;
@@ -684,15 +687,27 @@ function HtmlBodyPlaceholder({ source }: { source: string }) {
   );
 }
 
-const DeferredHtmlBody = memo(function DeferredHtmlBody({ source, mono }: { source: string; mono: boolean }) {
+const DeferredHtmlBody = memo(function DeferredHtmlBody({
+  source,
+  mono,
+  deferInitialRender,
+}: {
+  source: string;
+  mono: boolean;
+  deferInitialRender: boolean;
+}) {
   const hostRef = useRef<HTMLDivElement | null>(null);
   const renderKey = useMemo(() => contentCacheKey('html-render', source), [source]);
-  const nearViewportRef = useRef(htmlRenderReadyCache.has(renderKey));
+  const nearViewportRef = useRef(
+    !deferInitialRender && htmlRenderReadyCache.has(renderKey),
+  );
   const [nearViewport, setNearViewport] = useState(() => nearViewportRef.current);
-  const [renderReady, setRenderReady] = useState(() => htmlRenderReadyCache.has(renderKey));
+  const [renderReady, setRenderReady] = useState(
+    () => !deferInitialRender && htmlRenderReadyCache.has(renderKey),
+  );
 
   useEffect(() => {
-    if (htmlRenderReadyCache.has(renderKey)) {
+    if (!deferInitialRender && htmlRenderReadyCache.has(renderKey)) {
       nearViewportRef.current = true;
       setNearViewport(true);
       setRenderReady(true);
@@ -704,7 +719,7 @@ const DeferredHtmlBody = memo(function DeferredHtmlBody({ source, mono }: { sour
     } else {
       setNearViewport(false);
     }
-  }, [renderKey]);
+  }, [deferInitialRender, renderKey]);
 
   useEffect(() => {
     if (nearViewport) return;
@@ -740,7 +755,7 @@ const DeferredHtmlBody = memo(function DeferredHtmlBody({ source, mono }: { sour
 
   useEffect(() => {
     if (!nearViewport || renderReady) return;
-    if (htmlRenderReadyCache.has(renderKey)) {
+    if (!deferInitialRender && htmlRenderReadyCache.has(renderKey)) {
       setRenderReady(true);
       return;
     }
@@ -749,7 +764,7 @@ const DeferredHtmlBody = memo(function DeferredHtmlBody({ source, mono }: { sour
       setRenderReady(true);
     });
     return cancel;
-  }, [nearViewport, renderKey, renderReady]);
+  }, [deferInitialRender, nearViewport, renderKey, renderReady]);
 
   return (
     <div ref={hostRef} class="oh-html-body-deferred">
@@ -766,16 +781,49 @@ function HtmlPreviewIcon({ name, size = 14 }: { name: 'render' | 'external'; siz
   return <svg {...common}><rect x="4" y="5" width="16" height="14" rx="2.5" /><path d="M8 9h8M8 13h5" /></svg>;
 }
 
-const ProgressiveHtmlBody = memo(function ProgressiveHtmlBody({ source, mono }: { source: string; mono: boolean }) {
-  const profile = useMemo(() => htmlRenderProfile(source), [source]);
-  const [expanded, setExpanded] = useState(() => !profile.complex);
+const ProgressiveHtmlBody = memo(function ProgressiveHtmlBody({
+  source,
+  mono,
+  deferInitialRender,
+}: {
+  source: string;
+  mono: boolean;
+  deferInitialRender: boolean;
+}) {
+  const profileKey = useMemo(() => profileCacheKey('html-profile', source), [source]);
+  const [profileState, setProfileState] = useState<{
+    key: string;
+    profile: HtmlRenderProfile;
+  } | null>(() => {
+    if (deferInitialRender && !htmlRenderProfileCache.has(profileKey)) return null;
+    return { key: profileKey, profile: htmlRenderProfile(source) };
+  });
+  const profile = profileState?.key === profileKey ? profileState.profile : null;
+  const [expandedProfileKey, setExpandedProfileKey] = useState<string | null>(null);
 
   useEffect(() => {
-    setExpanded(!profile.complex);
-  }, [profile.complex, source]);
+    if (profile != null) return;
+    if (!deferInitialRender || htmlRenderProfileCache.has(profileKey)) {
+      setProfileState({ key: profileKey, profile: htmlRenderProfile(source) });
+      return;
+    }
+    return htmlFrameScheduler.schedule(() => {
+      setProfileState({ key: profileKey, profile: htmlRenderProfile(source) });
+    });
+  }, [deferInitialRender, profile, profileKey, source]);
 
-  if (!profile.complex || expanded) {
-    return <DeferredHtmlBody source={source} mono={mono} />;
+  if (profile == null) {
+    return <HtmlBodyPlaceholder source={source} />;
+  }
+
+  if (!profile.complex || expandedProfileKey === profileKey) {
+    return (
+      <DeferredHtmlBody
+        source={source}
+        mono={mono}
+        deferInitialRender={deferInitialRender}
+      />
+    );
   }
 
   return (
@@ -787,7 +835,7 @@ const ProgressiveHtmlBody = memo(function ProgressiveHtmlBody({ source, mono }: 
         <button
           type="button"
           class="oh-html-progressive-button oh-tap-press"
-          onClick={() => setExpanded(true)}
+          onClick={() => setExpandedProfileKey(profileKey)}
         >
           <HtmlPreviewIcon name="render" />
           <span>显示完整卡片</span>
@@ -1191,7 +1239,7 @@ function MarkdownRenderPlaceholder({ source }: { source: string }) {
 /// memo 是长会话的关键护栏：react-markdown 内部不缓存 AST，组件体每执行
 /// 一次就是一整条 remark → rehype → highlight/katex 管线。父级（会话页）
 /// 任意 state 变更都会波及窗口内全部卡片，未 memo 时等于每次都全量重解析。
-export const Markdown = memo(function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false }: MarkdownProps) {
+export const Markdown = memo(function Markdown({ source, raw = false, mono = false, format = 'markdown', htmlFallback = 'markdown', streaming = false, deferInitialRender = false }: MarkdownProps) {
   const content = source ?? '';
   const tooBig = content.length > CONTENT_TOO_BIG_CHARS;
   const markdownContent = useMemo(
@@ -1215,8 +1263,13 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
   // 帧节流。中等以上内容 (> MARKDOWN_DEFERRED_PARSE_THRESHOLD) 首次挂载时
   // 先骨架占位, 把 react-markdown / rehype 解析推迟到下一空闲帧
   // (帧节流调度器), 避免长会话首屏多卡片同步 parse 撑爆主线程。
+  const shouldDeferHistoricalParse = deferInitialRender && (
+    content.length > HISTORICAL_MARKDOWN_DEFERRED_PARSE_THRESHOLD
+    || FENCED_CODE_RE.test(content)
+    || MATH_DELIMITER_RE.test(content)
+  );
   const shouldDeferParse = !streaming && !raw && format !== 'plain_text' && !stickyLooksHtml && !tooBig
-    && content.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD;
+    && (content.length > MARKDOWN_DEFERRED_PARSE_THRESHOLD || shouldDeferHistoricalParse);
   const markdownReadyKey = useMemo(
     () =>
       shouldDeferParse
@@ -1225,7 +1278,7 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
     [format, htmlFallback, markdownContent, shouldDeferParse],
   );
   const [parseReady, setParseReady] = useState(
-    () => !shouldDeferParse || markdownParseReadyCache.has(markdownReadyKey),
+    () => !shouldDeferParse || (!deferInitialRender && markdownParseReadyCache.has(markdownReadyKey)),
   );
   const lastSourceRef = useRef<string>(content);
   useEffect(() => {
@@ -1234,7 +1287,7 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
       lastSourceRef.current = content;
       return;
     }
-    if (markdownParseReadyCache.has(markdownReadyKey)) {
+    if (!deferInitialRender && markdownParseReadyCache.has(markdownReadyKey)) {
       if (!parseReady) setParseReady(true);
       lastSourceRef.current = content;
       return;
@@ -1248,7 +1301,7 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
       setParseReady(true);
     });
     return cancel;
-  }, [shouldDeferParse, content, parseReady, markdownReadyKey]);
+  }, [shouldDeferParse, content, deferInitialRender, parseReady, markdownReadyKey]);
 
   // 流式节流：parseReady=true 之后的内容变更走 coalesce —— 增量较小
   // 且距上次 flush 不到 80ms 时延迟到本批结束再 setState，避免 SSE 每 tick
@@ -1518,7 +1571,7 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
       return <HtmlBodyPlaceholder source={content || ' '} />;
     }
     if (stickyLooksHtml) {
-      return <ProgressiveHtmlBody source={content} mono={mono} />;
+      return <ProgressiveHtmlBody source={content} mono={mono} deferInitialRender={deferInitialRender} />;
     }
     if (htmlFallback === 'plain_text') {
       return (
@@ -1543,7 +1596,7 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
     if (streaming) {
       return <HtmlBodyPlaceholder source={content || ' '} />;
     }
-    return <ProgressiveHtmlBody source={content} mono={mono} />;
+    return <ProgressiveHtmlBody source={content} mono={mono} deferInitialRender={deferInitialRender} />;
   }
 
   // tooBig 守卫仅针对 markdown（解析开销大）；plain_text/html 已在上方提前返回。

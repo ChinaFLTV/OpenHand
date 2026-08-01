@@ -2111,6 +2111,7 @@ function StreamingMarkdownReveal({
   mono,
   format,
   htmlFallback,
+  deferInitialRender,
 }: {
   content: string;
   streaming: boolean;
@@ -2119,6 +2120,7 @@ function StreamingMarkdownReveal({
   mono: boolean;
   format?: 'markdown' | 'plain_text' | 'html';
   htmlFallback?: 'markdown' | 'plain_text';
+  deferInitialRender: boolean;
 }) {
   const contentIsHtml = looksLikeRenderableHtml(content);
   const canStageContent = streaming && format !== 'html' && !contentIsHtml;
@@ -2149,6 +2151,7 @@ function StreamingMarkdownReveal({
           format={format}
           htmlFallback={htmlFallback}
           streaming={streaming || staging}
+          deferInitialRender={deferInitialRender}
         />
       </div>
     </div>
@@ -3101,6 +3104,7 @@ function MessageCardImpl({
                     : effectiveFormat
               }
               htmlFallback={contentHtmlFallback}
+              deferInitialRender={!shouldAnimate}
             />
           )
         )}

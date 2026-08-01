@@ -2014,7 +2014,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     if (widget.data.length > deferredThreshold &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
         !_canRenderMarkdownAsPlainText(widget.data) &&
-        !hasWarmAst) {
+        (initial || !hasWarmAst)) {
       // 流式抽搐修复：仅在「真·首挂载」（_children == null）
       // 时铺轻量占位；后续 didUpdateWidget（流式 chunk / 主题变化）路径
       // 保留上一帧已解析好的富文本，等帧节流回调 setState 再无缝替换。
