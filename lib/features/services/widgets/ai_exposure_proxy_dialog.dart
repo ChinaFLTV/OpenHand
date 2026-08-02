@@ -97,170 +97,198 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final text = openHandTextResolver(context);
     final status = context.watch<ServicesController>().proxyStatus;
     final activeCount = _endpoints.where((endpoint) => endpoint.enabled).length;
-    final statusSelections = <String, int>{
+    final statusStatistics = <String, AiExposureProxyUsageStatistics>{
       for (final item
           in status?.endpoints ?? const <AiExposureProxyEndpointStatus>[])
-        item.address: item.selections,
+        item.id: item.statistics,
     };
     final visibleEndpoints = _sortedEndpoints();
     return ServiceDialogInteractionTheme(
       child: Padding(
         padding: const EdgeInsets.all(22),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            OpenHandResponsiveHeaderLayout(
-              compactBreakpoint: 620,
-              identity: Row(
-                children: [
-                  Container(
-                    width: 42,
-                    height: 42,
-                    decoration: BoxDecoration(
-                      color: colors.primaryContainer,
-                      borderRadius: BorderRadius.circular(8),
-                    ),
-                    alignment: Alignment.center,
-                    child: Icon(
-                      Icons.lan_outlined,
-                      color: colors.onPrimaryContainer,
-                    ),
-                  ),
-                  const SizedBox(width: 12),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Text(
-                          text(zh: '网络代理与代理池', en: 'Network proxy pool'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleLarge,
-                        ),
-                        Text(
-                          _enabled
-                              ? text(
-                                  zh: '$activeCount 个启用节点 · ${_strategyLabel(_strategy, text)}',
-                                  en: '$activeCount active · ${_strategyLabel(_strategy, text)}',
-                                )
-                              : text(zh: '当前使用直接连接', en: 'Direct connection'),
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant,
-                          ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              actions: IconButton(
-                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                onPressed: _busy
-                    ? null
-                    : () {
-                        _cancelInspection();
-                        Navigator.of(context).maybePop();
-                      },
-                icon: const Icon(Icons.close_rounded),
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildSettingsPanel(context),
-            const SizedBox(height: 14),
-            _buildEndpointToolbar(context),
-            if (_inspectionBusy) ...[
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: ClipRRect(
-                      borderRadius: BorderRadius.circular(99),
-                      child: LinearProgressIndicator(
-                        value: _inspectionTotal == 0
-                            ? null
-                            : _inspectionCompleted / _inspectionTotal,
-                        minHeight: 6,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Text(
-                    '$_inspectionCompleted/$_inspectionTotal',
-                    style: theme.textTheme.labelMedium,
-                  ),
-                ],
-              ),
-            ],
-            const SizedBox(height: 12),
-            Expanded(
-              child: _endpoints.isEmpty
-                  ? Center(
-                      child: Text(
-                        text(
-                          zh: '代理池为空，可手工添加或批量导入 TXT/JSON。',
-                          en: 'Add a proxy or import a TXT/JSON pool.',
-                        ),
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    )
-                  : ListView.builder(
-                      cacheExtent: 480,
-                      itemCount: visibleEndpoints.length,
-                      padding: const EdgeInsets.only(bottom: 4),
-                      itemBuilder: (context, index) {
-                        final endpoint = visibleEndpoints[index];
-                        return Padding(
-                          padding: const EdgeInsets.only(bottom: 8),
-                          child: _ProxyEndpointCard(
-                            key: ValueKey<String>(endpoint.url),
-                            endpoint: endpoint,
-                            selections: statusSelections[endpoint.maskedUrl],
-                            testing: _testingUrls.contains(endpoint.url),
-                            busy: _busy || _inspectionBusy,
-                            onEnabledChanged: (enabled) => _updateEndpoint(
-                              endpoint.url,
-                              endpoint.copyWith(enabled: enabled),
-                            ),
-                            onTest: () => _testEndpoint(endpoint.url),
-                            onExport: () => _exportOne(endpoint),
-                            onEdit: () => _editEndpoint(endpoint),
-                            onDelete: () => setState(() {
-                              _endpoints.removeWhere(
-                                (item) => item.url == endpoint.url,
-                              );
-                              _invalidateEndpointSortCache();
-                            }),
-                          ),
-                        );
-                      },
-                    ),
-            ),
-            const SizedBox(height: 14),
-            Wrap(
-              alignment: WrapAlignment.center,
-              spacing: kOpenHandDialogActionSpacing,
-              runSpacing: kOpenHandDialogActionSpacing,
+        child: CustomScrollView(
+          physics: openHandDialogAwareScrollPhysics(context),
+          slivers: [
+            SliverList.list(
               children: [
-                OpenHandDialogActionButton.secondary(
-                  onPressed: _busy
-                      ? null
-                      : () {
-                          _cancelInspection();
-                          Navigator.of(context).maybePop();
-                        },
-                  label: text(zh: '取消', en: 'Cancel'),
+                OpenHandResponsiveHeaderLayout(
+                  compactBreakpoint: 620,
+                  identity: Row(
+                    children: [
+                      Container(
+                        width: 42,
+                        height: 42,
+                        decoration: BoxDecoration(
+                          color: colors.primaryContainer,
+                          borderRadius: BorderRadius.circular(8),
+                        ),
+                        alignment: Alignment.center,
+                        child: Icon(
+                          Icons.lan_outlined,
+                          color: colors.onPrimaryContainer,
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Expanded(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Text(
+                              text(zh: '网络代理与代理池', en: 'Network proxy pool'),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleLarge,
+                            ),
+                            Text(
+                              _enabled
+                                  ? text(
+                                      zh: '$activeCount 个启用节点 · ${_strategyLabel(_strategy, text)}',
+                                      en: '$activeCount active · ${_strategyLabel(_strategy, text)}',
+                                    )
+                                  : text(
+                                      zh: '当前使用直接连接',
+                                      en: 'Direct connection',
+                                    ),
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.bodySmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                    ],
+                  ),
+                  actions: IconButton.filledTonal(
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).closeButtonTooltip,
+                    onPressed: _busy
+                        ? null
+                        : () {
+                            _cancelInspection();
+                            Navigator.of(context).maybePop();
+                          },
+                    icon: const Icon(Icons.close_rounded),
+                  ),
                 ),
-                OpenHandDialogActionButton.primary(
-                  icon: Icons.save_rounded,
-                  busy: _busy,
-                  onPressed: _busy || _inspectionBusy ? null : _save,
-                  label: text(zh: '应用代理设置', en: 'Apply proxy settings'),
+                const SizedBox(height: 14),
+                _ProxyPoolOverview(
+                  endpoints: _endpoints,
+                  statusStatistics: statusStatistics,
+                  inFlight: status?.inFlight ?? 0,
                 ),
+                const SizedBox(height: 14),
+                _buildSettingsPanel(context),
+                const SizedBox(height: 14),
+                _buildEndpointToolbar(context),
+                if (_inspectionBusy) ...[
+                  const SizedBox(height: 10),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: ClipRRect(
+                          borderRadius: BorderRadius.circular(99),
+                          child: LinearProgressIndicator(
+                            value: _inspectionTotal == 0
+                                ? null
+                                : _inspectionCompleted / _inspectionTotal,
+                            minHeight: 6,
+                          ),
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Text(
+                        '$_inspectionCompleted/$_inspectionTotal',
+                        style: theme.textTheme.labelMedium,
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 12),
               ],
+            ),
+            if (_endpoints.isEmpty)
+              SliverToBoxAdapter(
+                child: SizedBox(
+                  height: 160,
+                  child: Center(
+                    child: Text(
+                      text(
+                        zh: '代理池为空，可手工添加或批量导入 TXT/JSON。',
+                        en: 'Add a proxy or import a TXT/JSON pool.',
+                      ),
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ),
+              )
+            else
+              SliverList.builder(
+                itemCount: visibleEndpoints.length,
+                itemBuilder: (context, index) {
+                  final endpoint = visibleEndpoints[index];
+                  return Padding(
+                    padding: const EdgeInsets.only(bottom: 8),
+                    child: _ProxyEndpointCard(
+                      key: ValueKey<String>(endpoint.url),
+                      endpoint: endpoint,
+                      statistics:
+                          statusStatistics[endpoint.runtimeId] ??
+                          endpoint.statistics,
+                      testing: _testingUrls.contains(endpoint.url),
+                      busy: _busy || _inspectionBusy,
+                      onEnabledChanged: (enabled) => _updateEndpoint(
+                        endpoint.url,
+                        endpoint.copyWith(enabled: enabled),
+                      ),
+                      onTest: () => _testEndpoint(endpoint.url),
+                      onDetails: () => _showEndpointDetails(
+                        endpoint,
+                        statusStatistics[endpoint.runtimeId] ??
+                            endpoint.statistics,
+                      ),
+                      onExport: () => _exportOne(endpoint),
+                      onEdit: () => _editEndpoint(endpoint),
+                      onDelete: () => setState(() {
+                        _endpoints.removeWhere(
+                          (item) => item.url == endpoint.url,
+                        );
+                        _invalidateEndpointSortCache();
+                      }),
+                    ),
+                  );
+                },
+              ),
+            SliverToBoxAdapter(
+              child: Padding(
+                padding: const EdgeInsets.only(top: 6),
+                child: Wrap(
+                  alignment: WrapAlignment.center,
+                  spacing: kOpenHandDialogActionSpacing,
+                  runSpacing: kOpenHandDialogActionSpacing,
+                  children: [
+                    OpenHandDialogActionButton.secondary(
+                      onPressed: _busy
+                          ? null
+                          : () {
+                              _cancelInspection();
+                              Navigator.of(context).maybePop();
+                            },
+                      label: text(zh: '取消', en: 'Cancel'),
+                    ),
+                    OpenHandDialogActionButton.primary(
+                      icon: Icons.save_rounded,
+                      busy: _busy,
+                      onPressed: _busy || _inspectionBusy ? null : _save,
+                      label: text(zh: '应用代理设置', en: 'Apply proxy settings'),
+                    ),
+                  ],
+                ),
+              ),
             ),
           ],
         ),
@@ -583,51 +611,50 @@ class _ProxyDialogState extends State<_ProxyDialog> {
 
   Widget _buildEndpointToolbar(BuildContext context) {
     final text = openHandTextResolver(context);
-    final actions = ServiceDialogIconActions(
-      children: [
-        IconButton.filledTonal(
-          tooltip: text(zh: '添加代理', en: 'Add proxy'),
-          onPressed: _busy || _inspectionBusy ? null : _addEndpoint,
-          icon: const Icon(Icons.add_rounded),
-        ),
-        IconButton.filledTonal(
-          tooltip: text(zh: '批量导入', en: 'Bulk import'),
-          onPressed: _busy || _inspectionBusy ? null : _import,
-          icon: const Icon(Icons.upload_file_rounded),
-        ),
-        IconButton.filledTonal(
-          tooltip: text(zh: '导出代理池', en: 'Export pool'),
-          onPressed: _endpoints.isEmpty || _busy || _inspectionBusy
-              ? null
-              : _exportAll,
-          icon: const Icon(Icons.download_rounded),
-        ),
-        PopupMenuButton<_ProxySort>(
-          tooltip: text(zh: '排序节点', en: 'Sort nodes'),
-          enabled: !_busy && !_inspectionBusy,
-          initialValue: _sort,
-          onSelected: (value) => setState(() {
-            _sort = value;
-            _invalidateEndpointSortCache();
-          }),
-          itemBuilder: (_) => [
-            PopupMenuItem(
-              value: _ProxySort.nameAscending,
-              child: Text(text(zh: '按名称升序', en: 'Name ascending')),
-            ),
-            PopupMenuItem(
-              value: _ProxySort.latencyAscending,
-              child: Text(text(zh: '按延迟升序', en: 'Latency ascending')),
-            ),
-            PopupMenuItem(
-              value: _ProxySort.latencyDescending,
-              child: Text(text(zh: '按延迟降序', en: 'Latency descending')),
-            ),
-          ],
-          icon: const Icon(Icons.sort_rounded),
-        ),
-      ],
-    );
+    final actionChildren = <Widget>[
+      IconButton.filledTonal(
+        tooltip: text(zh: '添加代理', en: 'Add proxy'),
+        onPressed: _busy || _inspectionBusy ? null : _addEndpoint,
+        icon: const Icon(Icons.add_rounded),
+      ),
+      IconButton.filledTonal(
+        tooltip: text(zh: '批量导入', en: 'Bulk import'),
+        onPressed: _busy || _inspectionBusy ? null : _import,
+        icon: const Icon(Icons.upload_file_rounded),
+      ),
+      IconButton.filledTonal(
+        tooltip: text(zh: '导出代理池', en: 'Export pool'),
+        onPressed: _endpoints.isEmpty || _busy || _inspectionBusy
+            ? null
+            : _exportAll,
+        icon: const Icon(Icons.download_rounded),
+      ),
+      PopupMenuButton<_ProxySort>(
+        tooltip: text(zh: '排序节点', en: 'Sort nodes'),
+        enabled: !_busy && !_inspectionBusy,
+        initialValue: _sort,
+        onSelected: (value) => setState(() {
+          _sort = value;
+          _invalidateEndpointSortCache();
+        }),
+        itemBuilder: (_) => [
+          PopupMenuItem(
+            value: _ProxySort.nameAscending,
+            child: Text(text(zh: '按名称升序', en: 'Name ascending')),
+          ),
+          PopupMenuItem(
+            value: _ProxySort.latencyAscending,
+            child: Text(text(zh: '按延迟升序', en: 'Latency ascending')),
+          ),
+          PopupMenuItem(
+            value: _ProxySort.latencyDescending,
+            child: Text(text(zh: '按延迟降序', en: 'Latency descending')),
+          ),
+        ],
+        icon: const Icon(Icons.sort_rounded),
+      ),
+    ];
+    final actions = ServiceDialogIconActions(children: actionChildren);
     return Row(
       children: [
         Expanded(
@@ -682,11 +709,38 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       showOpenHandErrorSnack(context, '该代理已存在。');
       return;
     }
+    final sameEndpoint = endpoint.url == updated.url;
     _updateEndpoint(
       endpoint.url,
-      updated.copyWith(enabled: endpoint.enabled, samples: endpoint.samples),
+      updated.copyWith(
+        enabled: endpoint.enabled,
+        samples: sameEndpoint ? endpoint.samples : updated.samples,
+        statistics: sameEndpoint ? endpoint.statistics : updated.statistics,
+        identity: sameEndpoint ? endpoint.identity : updated.identity,
+      ),
     );
   }
+
+  Future<void> _showEndpointDetails(
+    AiExposureProxyEndpoint endpoint,
+    AiExposureProxyUsageStatistics statistics,
+  ) => _showProxyEndpointDetails(
+    context,
+    endpoint: endpoint,
+    statistics: statistics,
+    onIdentity: (identity) async {
+      final current = _endpoints
+          .where((item) => item.url == endpoint.url)
+          .firstOrNull;
+      if (current != null && mounted) {
+        _updateEndpoint(endpoint.url, current.copyWith(identity: identity));
+      }
+      await context.read<ServicesController>().updateProxyIdentity(
+        endpoint.url,
+        identity,
+      );
+    },
+  );
 
   Future<void> _testEndpoint(String url) async {
     if (_inspectionRunning || _testingUrls.contains(url)) return;
@@ -810,8 +864,17 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       var accepted = 0;
       for (final endpoint in imported.endpoints) {
         if (merged.length >= _kMaxProxyEndpoints) break;
-        if (!merged.containsKey(endpoint.url)) accepted++;
-        merged[endpoint.url] = endpoint;
+        final existing = merged[endpoint.url];
+        if (existing == null) {
+          accepted++;
+          merged[endpoint.url] = endpoint;
+        } else {
+          merged[endpoint.url] = endpoint.copyWith(
+            samples: existing.samples,
+            statistics: existing.statistics,
+            identity: existing.identity,
+          );
+        }
       }
       if (!mounted) return;
       setState(() {
@@ -904,6 +967,468 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 }
 
+class _ProxyPoolOverview extends StatelessWidget {
+  const _ProxyPoolOverview({
+    required this.endpoints,
+    required this.statusStatistics,
+    required this.inFlight,
+  });
+
+  final List<AiExposureProxyEndpoint> endpoints;
+  final Map<String, AiExposureProxyUsageStatistics> statusStatistics;
+  final int inFlight;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final text = openHandTextResolver(context);
+    final statistics = endpoints
+        .map(
+          (endpoint) =>
+              statusStatistics[endpoint.runtimeId] ?? endpoint.statistics,
+        )
+        .toList(growable: false);
+    final requests = statistics.fold<int>(
+      0,
+      (sum, item) => sum + item.requests,
+    );
+    final successes = statistics.fold<int>(
+      0,
+      (sum, item) => sum + item.successes,
+    );
+    final failures = statistics.fold<int>(
+      0,
+      (sum, item) => sum + item.failures,
+    );
+    final timeouts = statistics.fold<int>(
+      0,
+      (sum, item) => sum + item.timeouts,
+    );
+    final completed = successes + failures + timeouts;
+    final responseTime = statistics.fold<int>(
+      0,
+      (sum, item) => sum + item.totalResponseTimeMs,
+    );
+    final requestSamples =
+        statistics.expand((item) => item.recentRequests).toList()
+          ..sort((left, right) => left.at.compareTo(right.at));
+    final recent = requestSamples.length <= kAiExposureProxyRequestSampleLimit
+        ? requestSamples
+        : requestSamples.sublist(
+            requestSamples.length - kAiExposureProxyRequestSampleLimit,
+          );
+    final sortedLatencies =
+        requestSamples
+            .map((item) => item.responseTimeMs)
+            .toList(growable: false)
+          ..sort();
+    final p95 = sortedLatencies.isEmpty
+        ? 0
+        : sortedLatencies[((sortedLatencies.length - 1) * 0.95).round()];
+    final healthy = endpoints
+        .where((item) => item.enabled && item.latestSample?.reachable == true)
+        .length;
+    final identified = endpoints.where((item) => item.identity != null).length;
+    final regions = endpoints
+        .map((item) => item.identity?.countryCode.trim() ?? '')
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .length;
+    final metrics = <_ProxyPoolMetricData>[
+      _ProxyPoolMetricData(
+        Icons.hub_outlined,
+        text(zh: '节点总数', en: 'Nodes'),
+        '${endpoints.length}',
+        text(
+          zh: '启用 ${endpoints.where((item) => item.enabled).length} · 健康 $healthy',
+          en: '${endpoints.where((item) => item.enabled).length} active · $healthy healthy',
+        ),
+        colors.primary,
+      ),
+      _ProxyPoolMetricData(
+        Icons.route_outlined,
+        text(zh: '请求总数', en: 'Requests'),
+        '$requests',
+        text(zh: '执行中 $inFlight', en: '$inFlight in flight'),
+        OpenHandStatusColors.info,
+      ),
+      _ProxyPoolMetricData(
+        Icons.task_alt_rounded,
+        text(zh: '成功数量', en: 'Succeeded'),
+        '$successes',
+        completed == 0
+            ? '--'
+            : '${(successes * 100 / completed).toStringAsFixed(1)}%',
+        OpenHandStatusColors.success,
+      ),
+      _ProxyPoolMetricData(
+        Icons.error_outline_rounded,
+        text(zh: '失败数量', en: 'Failed'),
+        '$failures',
+        completed == 0
+            ? '--'
+            : '${(failures * 100 / completed).toStringAsFixed(1)}%',
+        OpenHandStatusColors.error,
+      ),
+      _ProxyPoolMetricData(
+        Icons.timer_off_outlined,
+        text(zh: '超时数量', en: 'Timeouts'),
+        '$timeouts',
+        completed == 0
+            ? '--'
+            : '${(timeouts * 100 / completed).toStringAsFixed(1)}%',
+        OpenHandStatusColors.warning,
+      ),
+      _ProxyPoolMetricData(
+        Icons.av_timer_rounded,
+        text(zh: '平均响应', en: 'Average'),
+        '${completed == 0 ? 0 : (responseTime / completed).round()} ms',
+        'P95 $p95 ms',
+        colors.tertiary,
+      ),
+      _ProxyPoolMetricData(
+        Icons.public_rounded,
+        text(zh: '身份识别', en: 'Identified'),
+        '$identified/${endpoints.length}',
+        text(zh: '$regions 个国家/地区', en: '$regions regions'),
+        const Color(0xff0891b2),
+      ),
+      _ProxyPoolMetricData(
+        Icons.shield_outlined,
+        text(zh: '高干净度', en: 'Clean exits'),
+        '${endpoints.where((item) => item.identity?.cleanliness == 'high').length}',
+        text(zh: '身份检测结果', en: 'Identity results'),
+        const Color(0xff16a34a),
+      ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: colors.primary.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+                border: Border.all(
+                  color: colors.primary.withValues(alpha: 0.28),
+                ),
+              ),
+              child: Icon(
+                Icons.monitor_heart_outlined,
+                size: 19,
+                color: colors.primary,
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                text(zh: '代理池实时运维', en: 'Proxy pool operations'),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ),
+            Text(
+              text(zh: '最近 24 次请求样本', en: 'Latest 24 request samples'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            if (constraints.maxWidth < 700) {
+              return SizedBox(
+                height: 82,
+                child: ListView.separated(
+                  scrollDirection: Axis.horizontal,
+                  physics: openHandDialogAwareScrollPhysics(context),
+                  itemCount: metrics.length,
+                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  itemBuilder: (context, index) => SizedBox(
+                    width: 154,
+                    child: _ProxyPoolMetricTile(data: metrics[index]),
+                  ),
+                ),
+              );
+            }
+            final columns = constraints.maxWidth >= 1050 ? 8 : 4;
+            const gap = 8.0;
+            final width =
+                (constraints.maxWidth - gap * (columns - 1)) / columns;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: metrics
+                  .map(
+                    (item) => SizedBox(
+                      width: width,
+                      child: _ProxyPoolMetricTile(data: item),
+                    ),
+                  )
+                  .toList(growable: false),
+            );
+          },
+        ),
+        const SizedBox(height: 10),
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final latency = _ProxyPoolChartPanel(
+              icon: Icons.show_chart_rounded,
+              title: text(zh: '请求响应趋势', en: 'Response trend'),
+              child: CustomPaint(
+                painter: OpenHandSmoothLineChartPainter(
+                  series: <OpenHandChartSeries>[
+                    OpenHandChartSeries(
+                      label: 'latency',
+                      values: recent
+                          .map((item) => item.responseTimeMs.toDouble())
+                          .toList(growable: false),
+                      color: colors.primary,
+                    ),
+                  ],
+                  gridColor: colors.outlineVariant.withValues(alpha: 0.55),
+                  labelColor: colors.onSurfaceVariant,
+                  emptyLabel: text(zh: '暂无请求样本', en: 'No request samples'),
+                  valueSuffix: ' ms',
+                  textDirection: Directionality.of(context),
+                ),
+              ),
+            );
+            final distribution = _ProxyPoolChartPanel(
+              icon: Icons.donut_large_rounded,
+              title: text(zh: '请求结果分布', en: 'Outcome distribution'),
+              child: Row(
+                children: [
+                  SizedBox.square(
+                    dimension: 74,
+                    child: CustomPaint(
+                      painter: OpenHandDonutChartPainter(
+                        values: <int>[successes, failures, timeouts],
+                        colors: const <Color>[
+                          OpenHandStatusColors.success,
+                          OpenHandStatusColors.error,
+                          OpenHandStatusColors.warning,
+                        ],
+                        trackColor: colors.surfaceContainerHighest,
+                      ),
+                      child: Center(
+                        child: Text(
+                          '$completed',
+                          style: theme.textTheme.titleSmall?.copyWith(
+                            fontWeight: FontWeight.w900,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  const SizedBox(width: 14),
+                  Expanded(
+                    child: Wrap(
+                      spacing: 12,
+                      runSpacing: 8,
+                      children: [
+                        _ProxyLegend(
+                          label: text(
+                            zh: '成功 $successes',
+                            en: 'Success $successes',
+                          ),
+                          color: OpenHandStatusColors.success,
+                        ),
+                        _ProxyLegend(
+                          label: text(
+                            zh: '失败 $failures',
+                            en: 'Failed $failures',
+                          ),
+                          color: OpenHandStatusColors.error,
+                        ),
+                        _ProxyLegend(
+                          label: text(
+                            zh: '超时 $timeouts',
+                            en: 'Timeout $timeouts',
+                          ),
+                          color: OpenHandStatusColors.warning,
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
+            );
+            if (constraints.maxWidth < 720) {
+              final width = constraints.maxWidth < 340
+                  ? 300.0
+                  : constraints.maxWidth * 0.9;
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                physics: openHandDialogAwareScrollPhysics(context),
+                child: Row(
+                  children: [
+                    SizedBox(width: width, child: latency),
+                    const SizedBox(width: 8),
+                    SizedBox(width: width, child: distribution),
+                  ],
+                ),
+              );
+            }
+            return Row(
+              children: [
+                Expanded(child: latency),
+                const SizedBox(width: 8),
+                Expanded(child: distribution),
+              ],
+            );
+          },
+        ),
+      ],
+    );
+  }
+}
+
+class _ProxyPoolMetricData {
+  const _ProxyPoolMetricData(
+    this.icon,
+    this.label,
+    this.value,
+    this.detail,
+    this.color,
+  );
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String detail;
+  final Color color;
+}
+
+class _ProxyPoolMetricTile extends StatelessWidget {
+  const _ProxyPoolMetricTile({required this.data});
+  final _ProxyPoolMetricData data;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      height: 82,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      decoration: BoxDecoration(
+        color: data.color.withValues(alpha: 0.07),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: data.color.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(data.icon, size: 16, color: data.color),
+              const SizedBox(width: 6),
+              Expanded(
+                child: Text(
+                  data.label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const Spacer(),
+          Text(
+            data.value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleMedium?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+          Text(
+            data.detail,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(color: data.color),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProxyPoolChartPanel extends StatelessWidget {
+  const _ProxyPoolChartPanel({
+    required this.icon,
+    required this.title,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      height: 118,
+      padding: const EdgeInsets.all(10),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 16, color: colors.primary),
+              const SizedBox(width: 6),
+              Text(
+                title,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 6),
+          Expanded(child: child),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProxyLegend extends StatelessWidget {
+  const _ProxyLegend({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 5),
+      Text(label, style: Theme.of(context).textTheme.labelSmall),
+    ],
+  );
+}
+
 Future<AiExposureProxyEndpoint?> _showEndpointEditor(
   BuildContext context, {
   AiExposureProxyEndpoint? initial,
@@ -920,6 +1445,897 @@ Future<AiExposureProxyEndpoint?> _showEndpointEditor(
     ),
   );
 }
+
+Future<void> _showProxyEndpointDetails(
+  BuildContext context, {
+  required AiExposureProxyEndpoint endpoint,
+  required AiExposureProxyUsageStatistics statistics,
+  required Future<void> Function(AiExposureProxyIdentity identity) onIdentity,
+}) => showAnimatedDialog<void>(
+  context: context,
+  builder: (_) => buildOpenHandDialog(
+    maxWidth: kOpenHandDialogWidthStandard,
+    maxHeight: kOpenHandDialogHeightTall,
+    child: ServiceDialogInteractionTheme(
+      child: _ProxyEndpointDetailsDialog(
+        endpoint: endpoint.copyWith(statistics: statistics),
+        onIdentity: onIdentity,
+      ),
+    ),
+  ),
+);
+
+class _ProxyEndpointDetailsDialog extends StatefulWidget {
+  const _ProxyEndpointDetailsDialog({
+    required this.endpoint,
+    required this.onIdentity,
+  });
+
+  final AiExposureProxyEndpoint endpoint;
+  final Future<void> Function(AiExposureProxyIdentity identity) onIdentity;
+
+  @override
+  State<_ProxyEndpointDetailsDialog> createState() =>
+      _ProxyEndpointDetailsDialogState();
+}
+
+class _ProxyEndpointDetailsDialogState
+    extends State<_ProxyEndpointDetailsDialog> {
+  final AiExposureProxyProbe _probe = const AiExposureProxyProbe();
+  late AiExposureProxyEndpoint _endpoint;
+  bool _loadingIdentity = false;
+  String? _identityError;
+
+  @override
+  void initState() {
+    super.initState();
+    _endpoint = widget.endpoint;
+    if (_endpoint.identity == null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) => _refreshIdentity());
+    }
+  }
+
+  Future<void> _refreshIdentity() async {
+    if (_loadingIdentity) return;
+    setState(() {
+      _loadingIdentity = true;
+      _identityError = null;
+    });
+    try {
+      final identity = await _probe.inspectIdentity(_endpoint);
+      if (!mounted) return;
+      setState(() => _endpoint = _endpoint.copyWith(identity: identity));
+      await widget.onIdentity(identity);
+    } on FormatException catch (error) {
+      if (mounted) setState(() => _identityError = error.message);
+    } catch (_) {
+      if (mounted) setState(() => _identityError = '代理身份查询失败');
+    } finally {
+      if (mounted) setState(() => _loadingIdentity = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final text = openHandTextResolver(context);
+    final proxyStatus = context.watch<ServicesController>().proxyStatus;
+    AiExposureProxyUsageStatistics? runtimeStatistics;
+    for (final item
+        in proxyStatus?.endpoints ?? const <AiExposureProxyEndpointStatus>[]) {
+      if (item.id == _endpoint.runtimeId) {
+        runtimeStatistics = item.statistics;
+        break;
+      }
+    }
+    final statistics = runtimeStatistics ?? _endpoint.statistics;
+    final completed = statistics.completed;
+    final recentLatencies =
+        statistics.recentRequests
+            .map((item) => item.responseTimeMs)
+            .toList(growable: false)
+          ..sort();
+    final p95 = recentLatencies.isEmpty
+        ? 0
+        : recentLatencies[((recentLatencies.length - 1) * 0.95).round()];
+    final tone = _proxyHealthTone(context, _endpoint, false);
+    return Padding(
+      padding: const EdgeInsets.all(22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OpenHandResponsiveHeaderLayout(
+            compactBreakpoint: 560,
+            identity: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: tone.color.withValues(alpha: 0.12),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: tone.color.withValues(alpha: 0.32),
+                    ),
+                  ),
+                  child: Icon(Icons.dns_outlined, color: tone.color),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        text(zh: '代理节点详情', en: 'Proxy node details'),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        '${_endpoint.displayName} · ${_endpoint.maskedUrl}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontFamily: 'monospace',
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: Wrap(
+              spacing: 8,
+              children: [
+                IconButton.filledTonal(
+                  tooltip: text(zh: '刷新出口身份', en: 'Refresh identity'),
+                  onPressed: _loadingIdentity ? null : _refreshIdentity,
+                  icon: _loadingIdentity
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.travel_explore_rounded),
+                ),
+                IconButton(
+                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 10),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _ProxyMetric(
+                icon: tone.icon,
+                label: tone.label,
+                color: tone.color,
+              ),
+              _ProxyMetric(
+                icon: Icons.security_rounded,
+                label: _endpoint.identity == null
+                    ? text(zh: '身份待识别', en: 'Identity pending')
+                    : _cleanlinessLabel(_endpoint.identity!.cleanliness, text),
+                color: _cleanlinessColor(
+                  _endpoint.identity?.cleanliness,
+                  colors,
+                ),
+              ),
+              _ProxyMetric(
+                icon: Icons.public_rounded,
+                label: _networkTypeLabel(_endpoint.identity?.networkType, text),
+                color: colors.primary,
+              ),
+              if (statistics.lastUsedAt != null)
+                _ProxyMetric(
+                  icon: Icons.schedule_rounded,
+                  label: text(
+                    zh: '最近使用 ${_timeLabel(statistics.lastUsedAt!)}',
+                    en: 'Used ${_timeLabel(statistics.lastUsedAt!)}',
+                  ),
+                  color: colors.onSurfaceVariant,
+                ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            child: SingleChildScrollView(
+              physics: openHandDialogAwareScrollPhysics(context),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  _buildIdentitySection(context),
+                  const SizedBox(height: 12),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final metrics = <_ProxyPoolMetricData>[
+                        _ProxyPoolMetricData(
+                          Icons.route_outlined,
+                          text(zh: '使用次数', en: 'Requests'),
+                          '${statistics.requests}',
+                          text(
+                            zh: '执行中 ${statistics.inFlight}',
+                            en: '${statistics.inFlight} in flight',
+                          ),
+                          OpenHandStatusColors.info,
+                        ),
+                        _ProxyPoolMetricData(
+                          Icons.task_alt_rounded,
+                          text(zh: '成功', en: 'Success'),
+                          '${statistics.successes}',
+                          completed == 0
+                              ? '--'
+                              : '${(statistics.successRate * 100).toStringAsFixed(1)}%',
+                          OpenHandStatusColors.success,
+                        ),
+                        _ProxyPoolMetricData(
+                          Icons.error_outline_rounded,
+                          text(zh: '失败', en: 'Failed'),
+                          '${statistics.failures}',
+                          text(
+                            zh: '连续 ${statistics.consecutiveFailures}',
+                            en: '${statistics.consecutiveFailures} consecutive',
+                          ),
+                          OpenHandStatusColors.error,
+                        ),
+                        _ProxyPoolMetricData(
+                          Icons.timer_off_outlined,
+                          text(zh: '超时', en: 'Timeout'),
+                          '${statistics.timeouts}',
+                          completed == 0
+                              ? '--'
+                              : '${(statistics.timeouts * 100 / completed).toStringAsFixed(1)}%',
+                          OpenHandStatusColors.warning,
+                        ),
+                        _ProxyPoolMetricData(
+                          Icons.av_timer_rounded,
+                          text(zh: '平均响应', en: 'Average'),
+                          '${statistics.averageResponseTimeMs} ms',
+                          'P95 $p95 ms',
+                          colors.primary,
+                        ),
+                        _ProxyPoolMetricData(
+                          Icons.vertical_align_bottom_rounded,
+                          text(zh: '最短响应', en: 'Minimum'),
+                          '${statistics.minResponseTimeMs} ms',
+                          text(zh: '请求头响应', en: 'Header response'),
+                          const Color(0xff0891b2),
+                        ),
+                        _ProxyPoolMetricData(
+                          Icons.vertical_align_top_rounded,
+                          text(zh: '最长响应', en: 'Maximum'),
+                          '${statistics.maxResponseTimeMs} ms',
+                          text(zh: '请求头响应', en: 'Header response'),
+                          colors.tertiary,
+                        ),
+                        _ProxyPoolMetricData(
+                          Icons.speed_rounded,
+                          text(zh: '探测延迟', en: 'Probe latency'),
+                          '${_endpoint.latestSample?.latencyMs ?? 0} ms',
+                          '${_endpoint.samples.length} samples',
+                          tone.color,
+                        ),
+                      ];
+                      final columns = constraints.maxWidth >= 760 ? 4 : 2;
+                      const gap = 8.0;
+                      final width =
+                          (constraints.maxWidth - gap * (columns - 1)) /
+                          columns;
+                      return Wrap(
+                        spacing: gap,
+                        runSpacing: gap,
+                        children: metrics
+                            .map(
+                              (item) => SizedBox(
+                                width: width,
+                                child: _ProxyPoolMetricTile(data: item),
+                              ),
+                            )
+                            .toList(growable: false),
+                      );
+                    },
+                  ),
+                  const SizedBox(height: 12),
+                  _buildCharts(context, statistics),
+                  const SizedBox(height: 12),
+                  _buildHttpDistribution(context, statistics),
+                  const SizedBox(height: 12),
+                  _buildRecentRequests(context, statistics),
+                ],
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildIdentitySection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final text = openHandTextResolver(context);
+    final identity = _endpoint.identity;
+    return _ProxyDetailSection(
+      icon: Icons.badge_outlined,
+      title: text(zh: '出口身份与地理归属', en: 'Exit identity and location'),
+      trailing: _loadingIdentity
+          ? const SizedBox.square(
+              dimension: 18,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : null,
+      child: identity == null
+          ? Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                Text(
+                  _identityError ??
+                      text(
+                        zh: '正在通过该代理识别出口 IP 与网络归属。',
+                        en: 'Resolving the exit identity through this proxy.',
+                      ),
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: _identityError == null
+                        ? colors.onSurfaceVariant
+                        : OpenHandStatusColors.error,
+                  ),
+                ),
+                if (_identityError != null) ...[
+                  const SizedBox(height: 10),
+                  Align(
+                    alignment: AlignmentDirectional.centerStart,
+                    child: OpenHandDialogActionButton.secondary(
+                      icon: Icons.refresh_rounded,
+                      onPressed: _loadingIdentity ? null : _refreshIdentity,
+                      label: text(zh: '重新识别', en: 'Retry'),
+                    ),
+                  ),
+                ],
+              ],
+            )
+          : LayoutBuilder(
+              builder: (context, constraints) {
+                final uri = Uri.parse(_endpoint.url);
+                final fields = <({String label, String value, IconData icon})>[
+                  (
+                    label: text(zh: '出口 IP', en: 'Exit IP'),
+                    value: identity.exitIp,
+                    icon: Icons.language_rounded,
+                  ),
+                  (
+                    label: text(zh: 'IP 类型', en: 'IP type'),
+                    value: identity.ipType,
+                    icon: Icons.device_hub_rounded,
+                  ),
+                  (
+                    label: text(zh: '网络类型', en: 'Network type'),
+                    value: _networkTypeLabel(identity.networkType, text),
+                    icon: Icons.account_tree_outlined,
+                  ),
+                  (
+                    label: text(zh: '干净度', en: 'Cleanliness'),
+                    value: _cleanlinessLabel(identity.cleanliness, text),
+                    icon: Icons.verified_user_outlined,
+                  ),
+                  (
+                    label: text(zh: '地理位置', en: 'Location'),
+                    value: identity.location.isEmpty ? '--' : identity.location,
+                    icon: Icons.location_on_outlined,
+                  ),
+                  (
+                    label: text(zh: '洲 / 国家代码', en: 'Continent / country code'),
+                    value:
+                        '${identity.continent.isEmpty ? '--' : identity.continent} · ${identity.countryCode.isEmpty ? '--' : identity.countryCode}',
+                    icon: Icons.public_rounded,
+                  ),
+                  (
+                    label: text(zh: '时区 / 币种', en: 'Timezone / currency'),
+                    value:
+                        '${identity.timezone.isEmpty ? '--' : identity.timezone} · ${identity.currency.isEmpty ? '--' : identity.currency}',
+                    icon: Icons.schedule_rounded,
+                  ),
+                  (
+                    label: text(zh: '邮政编码', en: 'Postal code'),
+                    value: identity.postalCode.isEmpty
+                        ? '--'
+                        : identity.postalCode,
+                    icon: Icons.local_post_office_outlined,
+                  ),
+                  (
+                    label: text(zh: 'ISP', en: 'ISP'),
+                    value: identity.isp.isEmpty ? '--' : identity.isp,
+                    icon: Icons.cell_tower_rounded,
+                  ),
+                  (
+                    label: text(zh: '组织', en: 'Organization'),
+                    value: identity.organization.isEmpty
+                        ? '--'
+                        : identity.organization,
+                    icon: Icons.business_outlined,
+                  ),
+                  (
+                    label: text(zh: '自治系统', en: 'Autonomous system'),
+                    value: <String>[
+                      identity.asn,
+                      identity.asName,
+                    ].where((item) => item.trim().isNotEmpty).join(' · '),
+                    icon: Icons.hub_outlined,
+                  ),
+                  (
+                    label: text(zh: '坐标', en: 'Coordinates'),
+                    value:
+                        identity.latitude == null || identity.longitude == null
+                        ? '--'
+                        : '${identity.latitude!.toStringAsFixed(4)}, ${identity.longitude!.toStringAsFixed(4)}',
+                    icon: Icons.my_location_rounded,
+                  ),
+                  (
+                    label: text(zh: '代理协议', en: 'Proxy protocol'),
+                    value:
+                        '${uri.scheme.toUpperCase()} · ${uri.host}:${uri.port}',
+                    icon: Icons.lock_outline_rounded,
+                  ),
+                  (
+                    label: text(zh: '认证状态', en: 'Authentication'),
+                    value: uri.userInfo.isEmpty
+                        ? text(zh: '无认证', en: 'No authentication')
+                        : text(zh: '用户名与密码', en: 'Username and password'),
+                    icon: Icons.key_outlined,
+                  ),
+                ];
+                final columns = constraints.maxWidth >= 680 ? 3 : 1;
+                const gap = 8.0;
+                final width =
+                    (constraints.maxWidth - gap * (columns - 1)) / columns;
+                return Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    Wrap(
+                      spacing: gap,
+                      runSpacing: gap,
+                      children: fields
+                          .map(
+                            (field) => SizedBox(
+                              width: width,
+                              child: _ProxyDetailField(
+                                icon: field.icon,
+                                label: field.label,
+                                value: field.value.isEmpty ? '--' : field.value,
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                    ),
+                    const SizedBox(height: 10),
+                    Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: [
+                        _ProxyMetric(
+                          icon: Icons.phone_android_rounded,
+                          label: identity.mobile
+                              ? text(zh: '移动网络', en: 'Mobile network')
+                              : text(zh: '非移动网络', en: 'Not mobile'),
+                          color: identity.mobile
+                              ? OpenHandStatusColors.warning
+                              : colors.onSurfaceVariant,
+                        ),
+                        _ProxyMetric(
+                          icon: Icons.vpn_lock_outlined,
+                          label: identity.proxy
+                              ? text(zh: '代理特征已识别', en: 'Proxy detected')
+                              : text(zh: '未识别代理特征', en: 'No proxy flag'),
+                          color: identity.proxy
+                              ? OpenHandStatusColors.warning
+                              : OpenHandStatusColors.success,
+                        ),
+                        _ProxyMetric(
+                          icon: Icons.cloud_outlined,
+                          label: identity.hosting
+                              ? text(zh: '数据中心托管', en: 'Hosting network')
+                              : text(zh: '非托管网络', en: 'Not hosting'),
+                          color: identity.hosting
+                              ? OpenHandStatusColors.info
+                              : OpenHandStatusColors.success,
+                        ),
+                        _ProxyMetric(
+                          icon: Icons.update_rounded,
+                          label: _timeLabel(identity.observedAt),
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ],
+                    ),
+                  ],
+                );
+              },
+            ),
+    );
+  }
+
+  Widget _buildCharts(
+    BuildContext context,
+    AiExposureProxyUsageStatistics statistics,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    final text = openHandTextResolver(context);
+    final requestChart = _ProxyPoolChartPanel(
+      icon: Icons.show_chart_rounded,
+      title: text(zh: '真实请求耗时', en: 'Request latency'),
+      child: CustomPaint(
+        painter: OpenHandSmoothLineChartPainter(
+          series: <OpenHandChartSeries>[
+            OpenHandChartSeries(
+              label: 'requests',
+              values: statistics.recentRequests
+                  .map((item) => item.responseTimeMs.toDouble())
+                  .toList(growable: false),
+              color: colors.primary,
+            ),
+          ],
+          gridColor: colors.outlineVariant.withValues(alpha: 0.55),
+          labelColor: colors.onSurfaceVariant,
+          emptyLabel: text(zh: '暂无真实请求', en: 'No request samples'),
+          valueSuffix: ' ms',
+          textDirection: Directionality.of(context),
+        ),
+      ),
+    );
+    final probeChart = _ProxyPoolChartPanel(
+      icon: Icons.network_ping_rounded,
+      title: text(zh: '巡检连接延迟', en: 'Probe latency'),
+      child: CustomPaint(
+        painter: OpenHandSmoothLineChartPainter(
+          series: <OpenHandChartSeries>[
+            OpenHandChartSeries(
+              label: 'probe',
+              values: _endpoint.samples
+                  .where((item) => item.reachable)
+                  .map((item) => item.latencyMs!.toDouble())
+                  .toList(growable: false),
+              color: OpenHandStatusColors.info,
+            ),
+          ],
+          gridColor: colors.outlineVariant.withValues(alpha: 0.55),
+          labelColor: colors.onSurfaceVariant,
+          emptyLabel: text(zh: '暂无巡检样本', en: 'No probe samples'),
+          valueSuffix: ' ms',
+          textDirection: Directionality.of(context),
+        ),
+      ),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 680) {
+          return Column(
+            children: [requestChart, const SizedBox(height: 8), probeChart],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: requestChart),
+            const SizedBox(width: 8),
+            Expanded(child: probeChart),
+          ],
+        );
+      },
+    );
+  }
+
+  Widget _buildHttpDistribution(
+    BuildContext context,
+    AiExposureProxyUsageStatistics statistics,
+  ) {
+    final values = <({String label, int value, Color color})>[
+      (
+        label: '2xx',
+        value: statistics.status2xx,
+        color: OpenHandStatusColors.success,
+      ),
+      (
+        label: '3xx',
+        value: statistics.status3xx,
+        color: OpenHandStatusColors.info,
+      ),
+      (
+        label: '4xx',
+        value: statistics.status4xx,
+        color: OpenHandStatusColors.warning,
+      ),
+      (
+        label: '5xx',
+        value: statistics.status5xx,
+        color: OpenHandStatusColors.error,
+      ),
+    ];
+    final maxValue = values.fold<int>(
+      1,
+      (max, item) => item.value > max ? item.value : max,
+    );
+    return _ProxyDetailSection(
+      icon: Icons.http_rounded,
+      title: openHandLocalizedText(
+        context,
+        zh: 'HTTP 状态码分布',
+        en: 'HTTP status distribution',
+      ),
+      child: Column(
+        children: values
+            .map(
+              (item) => Padding(
+                padding: const EdgeInsets.symmetric(vertical: 5),
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 42,
+                      child: Text(
+                        item.label,
+                        style: Theme.of(context).textTheme.labelMedium,
+                      ),
+                    ),
+                    Expanded(
+                      child: ClipRRect(
+                        borderRadius: BorderRadius.circular(99),
+                        child: LinearProgressIndicator(
+                          value: item.value / maxValue,
+                          minHeight: 8,
+                          color: item.color,
+                          backgroundColor: item.color.withValues(alpha: 0.1),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    SizedBox(
+                      width: 48,
+                      child: Text(
+                        '${item.value}',
+                        textAlign: TextAlign.end,
+                        style: Theme.of(context).textTheme.labelLarge,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+
+  Widget _buildRecentRequests(
+    BuildContext context,
+    AiExposureProxyUsageStatistics statistics,
+  ) {
+    final text = openHandTextResolver(context);
+    final requests = statistics.recentRequests.reversed
+        .take(12)
+        .toList(growable: false);
+    return _ProxyDetailSection(
+      icon: Icons.history_rounded,
+      title: text(zh: '最近请求记录', en: 'Recent requests'),
+      trailing: Text(
+        '${requests.length}/$kAiExposureProxyRequestSampleLimit',
+        style: Theme.of(context).textTheme.labelMedium,
+      ),
+      child: requests.isEmpty
+          ? Text(
+              text(zh: '该节点尚无真实请求记录。', en: 'No request records yet.'),
+              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            )
+          : Column(
+              children: requests
+                  .map((item) {
+                    final color = item.succeeded
+                        ? OpenHandStatusColors.success
+                        : item.timedOut
+                        ? OpenHandStatusColors.warning
+                        : OpenHandStatusColors.error;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 5),
+                      child: Row(
+                        children: [
+                          Icon(
+                            item.succeeded
+                                ? Icons.check_circle_outline_rounded
+                                : item.timedOut
+                                ? Icons.timer_off_outlined
+                                : Icons.error_outline_rounded,
+                            size: 18,
+                            color: color,
+                          ),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: Text(
+                              item.succeeded
+                                  ? text(zh: '请求成功', en: 'Succeeded')
+                                  : item.timedOut
+                                  ? text(zh: '请求超时', en: 'Timed out')
+                                  : text(zh: '请求失败', en: 'Failed'),
+                              style: Theme.of(context).textTheme.bodyMedium,
+                            ),
+                          ),
+                          if (item.statusCode != null)
+                            SizedBox(
+                              width: 56,
+                              child: Text(
+                                'HTTP ${item.statusCode}',
+                                style: Theme.of(context).textTheme.labelSmall,
+                              ),
+                            ),
+                          SizedBox(
+                            width: 72,
+                            child: Text(
+                              '${item.responseTimeMs} ms',
+                              textAlign: TextAlign.end,
+                              style: Theme.of(context).textTheme.labelMedium,
+                            ),
+                          ),
+                          const SizedBox(width: 12),
+                          SizedBox(
+                            width: 58,
+                            child: Text(
+                              _timeLabel(item.at),
+                              textAlign: TextAlign.end,
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+    );
+  }
+}
+
+class _ProxyDetailSection extends StatelessWidget {
+  const _ProxyDetailSection({
+    required this.icon,
+    required this.title,
+    required this.child,
+    this.trailing,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+  final Widget? trailing;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 32,
+                height: 32,
+                decoration: BoxDecoration(
+                  color: colors.primary.withValues(alpha: 0.11),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, size: 18, color: colors.primary),
+              ),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ProxyDetailField extends StatelessWidget {
+  const _ProxyDetailField({
+    required this.icon,
+    required this.label,
+    required this.value,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      height: 64,
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+      decoration: BoxDecoration(
+        color: colors.surface.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(7),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.75),
+        ),
+      ),
+      child: Row(
+        children: [
+          Icon(icon, size: 17, color: colors.primary),
+          const SizedBox(width: 8),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                Text(
+                  value,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+String _networkTypeLabel(String? value, OpenHandLocalizedTextResolver text) =>
+    switch (value) {
+      'mobile' => text(zh: '移动网络', en: 'Mobile'),
+      'datacenter' => text(zh: '数据中心', en: 'Datacenter'),
+      'public_proxy' => text(zh: '公共代理', en: 'Public proxy'),
+      'residential' => text(zh: '住宅/运营商', en: 'Residential / ISP'),
+      _ => text(zh: '待识别', en: 'Pending'),
+    };
+
+String _cleanlinessLabel(String? value, OpenHandLocalizedTextResolver text) =>
+    switch (value) {
+      'high' => text(zh: '高干净度', en: 'High cleanliness'),
+      'medium' => text(zh: '中等干净度', en: 'Medium cleanliness'),
+      'low' => text(zh: '低干净度', en: 'Low cleanliness'),
+      _ => text(zh: '干净度待识别', en: 'Cleanliness pending'),
+    };
+
+Color _cleanlinessColor(String? value, ColorScheme colors) => switch (value) {
+  'high' => OpenHandStatusColors.success,
+  'medium' => OpenHandStatusColors.warning,
+  'low' => OpenHandStatusColors.error,
+  _ => colors.onSurfaceVariant,
+};
 
 class _ProxyEndpointEditor extends StatefulWidget {
   const _ProxyEndpointEditor({
@@ -1150,22 +2566,24 @@ class _ProxyEndpointCard extends StatelessWidget {
   const _ProxyEndpointCard({
     super.key,
     required this.endpoint,
-    required this.selections,
+    required this.statistics,
     required this.testing,
     required this.busy,
     required this.onEnabledChanged,
     required this.onTest,
+    required this.onDetails,
     required this.onExport,
     required this.onEdit,
     required this.onDelete,
   });
 
   final AiExposureProxyEndpoint endpoint;
-  final int? selections;
+  final AiExposureProxyUsageStatistics statistics;
   final bool testing;
   final bool busy;
   final ValueChanged<bool> onEnabledChanged;
   final VoidCallback onTest;
+  final VoidCallback onDetails;
   final VoidCallback onExport;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -1248,15 +2666,43 @@ class _ProxyEndpointCard extends StatelessWidget {
                       label: '${sample!.latencyMs} ms',
                       color: tone.color,
                     ),
-                  if (selections != null)
-                    _ProxyMetric(
-                      icon: Icons.route_outlined,
-                      label: text(
-                        zh: '请求 $selections',
-                        en: '$selections requests',
-                      ),
-                      color: colors.onSurfaceVariant,
+                  _ProxyMetric(
+                    icon: Icons.route_outlined,
+                    label: text(
+                      zh: '请求 ${statistics.requests}',
+                      en: '${statistics.requests} requests',
                     ),
+                    color: colors.onSurfaceVariant,
+                  ),
+                  _ProxyMetric(
+                    icon: Icons.check_circle_outline_rounded,
+                    label: text(
+                      zh: '成功 ${statistics.successes}',
+                      en: '${statistics.successes} success',
+                    ),
+                    color: OpenHandStatusColors.success,
+                  ),
+                  _ProxyMetric(
+                    icon: Icons.error_outline_rounded,
+                    label: text(
+                      zh: '失败 ${statistics.failures}',
+                      en: '${statistics.failures} failed',
+                    ),
+                    color: OpenHandStatusColors.error,
+                  ),
+                  _ProxyMetric(
+                    icon: Icons.timer_off_outlined,
+                    label: text(
+                      zh: '超时 ${statistics.timeouts}',
+                      en: '${statistics.timeouts} timeout',
+                    ),
+                    color: OpenHandStatusColors.warning,
+                  ),
+                  _ProxyMetric(
+                    icon: Icons.av_timer_rounded,
+                    label: '${statistics.averageResponseTimeMs} ms',
+                    color: colors.primary,
+                  ),
                   if (sample != null)
                     _ProxyMetric(
                       icon: Icons.schedule_rounded,
@@ -1282,44 +2728,48 @@ class _ProxyEndpointCard extends StatelessWidget {
       ],
     );
     final chart = _ProxyLatencyChart(endpoint: endpoint);
-    final actions = ServiceDialogIconActions(
-      children: [
-        Tooltip(
-          message: endpoint.enabled
-              ? text(zh: '禁用此节点', en: 'Disable node')
-              : text(zh: '启用此节点', en: 'Enable node'),
-          child: Switch(
-            value: endpoint.enabled,
-            onChanged: busy ? null : onEnabledChanged,
-          ),
+    final actionChildren = <Widget>[
+      Tooltip(
+        message: endpoint.enabled
+            ? text(zh: '禁用此节点', en: 'Disable node')
+            : text(zh: '启用此节点', en: 'Enable node'),
+        child: Switch(
+          value: endpoint.enabled,
+          onChanged: busy ? null : onEnabledChanged,
         ),
-        IconButton(
-          tooltip: text(zh: '测试连通性与延迟', en: 'Test connectivity'),
-          onPressed: busy || testing ? null : onTest,
-          icon: testing
-              ? const SizedBox.square(
-                  dimension: 18,
-                  child: CircularProgressIndicator(strokeWidth: 2),
-                )
-              : const Icon(Icons.speed_rounded),
-        ),
-        IconButton(
-          tooltip: text(zh: '编辑代理配置', en: 'Edit proxy settings'),
-          onPressed: busy ? null : onEdit,
-          icon: const Icon(Icons.edit_outlined),
-        ),
-        IconButton(
-          tooltip: text(zh: '导出此代理', en: 'Export proxy'),
-          onPressed: busy ? null : onExport,
-          icon: const Icon(Icons.file_download_outlined),
-        ),
-        IconButton(
-          tooltip: text(zh: '移除代理', en: 'Remove proxy'),
-          onPressed: busy ? null : onDelete,
-          icon: const Icon(Icons.delete_outline_rounded),
-        ),
-      ],
-    );
+      ),
+      IconButton(
+        tooltip: text(zh: '测试连通性与延迟', en: 'Test connectivity'),
+        onPressed: busy || testing ? null : onTest,
+        icon: testing
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.speed_rounded),
+      ),
+      IconButton(
+        tooltip: text(zh: '查看代理详情', en: 'View proxy details'),
+        onPressed: onDetails,
+        icon: const Icon(Icons.manage_search_rounded),
+      ),
+      IconButton(
+        tooltip: text(zh: '编辑代理配置', en: 'Edit proxy settings'),
+        onPressed: busy ? null : onEdit,
+        icon: const Icon(Icons.edit_outlined),
+      ),
+      IconButton(
+        tooltip: text(zh: '导出此代理', en: 'Export proxy'),
+        onPressed: busy ? null : onExport,
+        icon: const Icon(Icons.file_download_outlined),
+      ),
+      IconButton(
+        tooltip: text(zh: '移除代理', en: 'Remove proxy'),
+        onPressed: busy ? null : onDelete,
+        icon: const Icon(Icons.delete_outline_rounded),
+      ),
+    ];
+    final actions = ServiceDialogIconActions(children: actionChildren);
     return AnimatedContainer(
       duration: openHandMotionDuration(
         context,
@@ -1350,7 +2800,12 @@ class _ProxyEndpointCard extends StatelessWidget {
                 const SizedBox(height: 8),
                 Align(
                   alignment: AlignmentDirectional.centerEnd,
-                  child: actions,
+                  child: Wrap(
+                    alignment: WrapAlignment.end,
+                    spacing: kServiceDialogItemActionGap,
+                    runSpacing: 4,
+                    children: actionChildren,
+                  ),
                 ),
               ],
             );

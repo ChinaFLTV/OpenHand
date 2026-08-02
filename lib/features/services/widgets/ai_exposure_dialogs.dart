@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
@@ -1326,7 +1327,10 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             onChanged: (value) => setState(() => _postgresqlEnabled = value),
           ),
           AnimatedSize(
-            duration: const Duration(milliseconds: 220),
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 220),
+            ),
             curve: Curves.easeOutCubic,
             child: _postgresqlEnabled
                 ? Padding(
@@ -1358,7 +1362,10 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             onChanged: (value) => setState(() => _redisEnabled = value),
           ),
           AnimatedSize(
-            duration: const Duration(milliseconds: 220),
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 220),
+            ),
             curve: Curves.easeOutCubic,
             child: _redisEnabled
                 ? Padding(
@@ -1598,6 +1605,7 @@ class _DialogFrame extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final cs = theme.colorScheme;
     return Padding(
       padding: _kDialogPadding,
       child: Column(
@@ -1606,15 +1614,38 @@ class _DialogFrame extends StatelessWidget {
         children: [
           Row(
             children: [
-              Icon(icon, color: theme.colorScheme.primary),
-              const SizedBox(width: 10),
-              Expanded(child: Text(title, style: theme.textTheme.titleLarge)),
-              IconButton(
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: cs.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
+                ),
+                child: Icon(icon, color: cs.onPrimaryContainer),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Text(
+                  title,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleLarge?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+              IconButton.filledTonal(
                 tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                 onPressed: () => Navigator.of(context).maybePop(),
                 icon: const Icon(Icons.close_rounded),
               ),
             ],
+          ),
+          const SizedBox(height: 12),
+          Container(
+            height: 1,
+            color: cs.outlineVariant.withValues(alpha: 0.75),
           ),
           const SizedBox(height: _kSectionGap),
           Flexible(
@@ -1693,17 +1724,26 @@ class _MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final tone = _serviceMetricTone(data.icon, cs);
     return Container(
       constraints: const BoxConstraints(minHeight: 76),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+        color: tone.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.outlineVariant),
+        border: Border.all(color: tone.withValues(alpha: 0.28)),
       ),
       child: Row(
         children: [
-          Icon(data.icon, size: 20, color: cs.primary),
+          Container(
+            width: 34,
+            height: 34,
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(data.icon, size: 19, color: tone),
+          ),
           const SizedBox(width: 10),
           Expanded(
             child: Column(
@@ -1740,22 +1780,56 @@ class _SectionTitle extends StatelessWidget {
   final String title;
 
   @override
-  Widget build(BuildContext context) => Row(
-    children: [
-      Icon(icon, size: 19, color: Theme.of(context).colorScheme.primary),
-      const SizedBox(width: 8),
-      Expanded(
-        child: Text(
-          title,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: Theme.of(
-            context,
-          ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    return Row(
+      children: [
+        Container(
+          width: 32,
+          height: 32,
+          decoration: BoxDecoration(
+            color: cs.primary.withValues(alpha: 0.11),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: cs.primary.withValues(alpha: 0.24)),
+          ),
+          child: Icon(icon, size: 18, color: cs.primary),
         ),
-      ),
-    ],
-  );
+        const SizedBox(width: 9),
+        Expanded(
+          child: Text(
+            title,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w900,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+Color _serviceMetricTone(IconData icon, ColorScheme colors) {
+  if (icon == Icons.cloud_done_outlined ||
+      icon == Icons.check_circle_outline_rounded ||
+      icon == Icons.verified_outlined ||
+      icon == Icons.fact_check_outlined) {
+    return const Color(0xff16a34a);
+  }
+  if (icon == Icons.error_outline_rounded ||
+      icon == Icons.cloud_off_outlined ||
+      icon == Icons.warning_amber_rounded) {
+    return const Color(0xffdc2626);
+  }
+  if (icon == Icons.storage_rounded || icon == Icons.dns_outlined) {
+    return const Color(0xff0891b2);
+  }
+  if (icon == Icons.memory_rounded || icon == Icons.speed_rounded) {
+    return colors.tertiary;
+  }
+  return colors.primary;
 }
 
 class _DependencyRow extends StatelessWidget {

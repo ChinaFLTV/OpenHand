@@ -7,10 +7,16 @@ use hunt_core::{
     SourceQuota,
 };
 use regex::Regex;
-use reqwest::{Client, Response, StatusCode};
+use reqwest::{Client, IntoUrl, Response, StatusCode};
 use secrecy::{ExposeSecret, SecretString};
-use serde::{Deserialize, de::DeserializeOwned};
-use std::{collections::BTreeMap, net::IpAddr, sync::LazyLock};
+use serde::{Deserialize, Serialize, de::DeserializeOwned};
+use std::{
+    collections::BTreeMap,
+    fmt,
+    net::IpAddr,
+    sync::{Arc, LazyLock},
+    time::{Duration, Instant},
+};
 use thiserror::Error;
 
 const MAX_SOURCE_RESULTS: usize = 1_000;
@@ -26,6 +32,140 @@ const GIT_CONTENT_CONCURRENCY: usize = 4;
 static URL_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
     Regex::new(r#"https?://[^\s\"'<>\\]{4,2048}"#).expect("内置 URL 正则必须有效")
 });
+
+#[derive(Clone, Copy, Debug)]
+pub enum HttpRequestOutcome {
+    Success(u16),
+    Failure(u16),
+    Timeout,
+    TransportFailure,
+}
+
+pub struct HttpRequestObservation {
+    pub ticket: u64,
+    pub client: Client,
+}
+
+pub trait HttpRequestObserver: Send + Sync {
+    fn begin(&self, target: &reqwest::Url) -> reqwest::Result<Option<HttpRequestObservation>>;
+    fn complete(&self, ticket: Option<u64>, elapsed: Duration, outcome: HttpRequestOutcome);
+}
+
+#[derive(Clone)]
+pub struct ObservedHttpClient {
+    client: Client,
+    observer: Arc<dyn HttpRequestObserver>,
+}
+
+impl ObservedHttpClient {
+    pub fn new(client: Client, observer: Arc<dyn HttpRequestObserver>) -> Self {
+        Self { client, observer }
+    }
+
+    pub fn get(&self, url: impl IntoUrl) -> ObservedRequestBuilder {
+        ObservedRequestBuilder::new(self.clone(), self.client.get(url))
+    }
+
+    pub fn post(&self, url: impl IntoUrl) -> ObservedRequestBuilder {
+        ObservedRequestBuilder::new(self.clone(), self.client.post(url))
+    }
+}
+
+pub struct ObservedRequestBuilder {
+    client: ObservedHttpClient,
+    request: reqwest::RequestBuilder,
+}
+
+struct HttpRequestCompletion {
+    observer: Arc<dyn HttpRequestObserver>,
+    ticket: Option<u64>,
+    started: Instant,
+}
+
+impl HttpRequestCompletion {
+    fn new(observer: Arc<dyn HttpRequestObserver>, ticket: Option<u64>) -> Self {
+        Self {
+            observer,
+            ticket,
+            started: Instant::now(),
+        }
+    }
+
+    fn complete(mut self, outcome: HttpRequestOutcome) {
+        let ticket = self.ticket.take();
+        self.observer
+            .complete(ticket, self.started.elapsed(), outcome);
+    }
+}
+
+impl Drop for HttpRequestCompletion {
+    fn drop(&mut self) {
+        if let Some(ticket) = self.ticket.take() {
+            self.observer.complete(
+                Some(ticket),
+                self.started.elapsed(),
+                HttpRequestOutcome::TransportFailure,
+            );
+        }
+    }
+}
+
+impl ObservedRequestBuilder {
+    fn new(client: ObservedHttpClient, request: reqwest::RequestBuilder) -> Self {
+        Self { client, request }
+    }
+
+    pub fn header(self, name: &str, value: &str) -> Self {
+        Self {
+            request: self.request.header(name, value),
+            ..self
+        }
+    }
+
+    pub fn bearer_auth<T: fmt::Display>(self, token: T) -> Self {
+        Self {
+            request: self.request.bearer_auth(token),
+            ..self
+        }
+    }
+
+    pub fn query<T: Serialize + ?Sized>(self, query: &T) -> Self {
+        Self {
+            request: self.request.query(query),
+            ..self
+        }
+    }
+
+    pub fn json<T: Serialize + ?Sized>(self, value: &T) -> Self {
+        Self {
+            request: self.request.json(value),
+            ..self
+        }
+    }
+
+    pub async fn send(self) -> reqwest::Result<Response> {
+        let request = self.request.build()?;
+        let observation = self.client.observer.begin(request.url())?;
+        let ticket = observation.as_ref().map(|value| value.ticket);
+        let client = observation
+            .map(|value| value.client)
+            .unwrap_or_else(|| self.client.client.clone());
+        let completion = HttpRequestCompletion::new(self.client.observer.clone(), ticket);
+        let response = client.execute(request).await;
+        let outcome = match &response {
+            Ok(response)
+                if response.status().is_success() || response.status().is_redirection() =>
+            {
+                HttpRequestOutcome::Success(response.status().as_u16())
+            }
+            Ok(response) => HttpRequestOutcome::Failure(response.status().as_u16()),
+            Err(error) if error.is_timeout() => HttpRequestOutcome::Timeout,
+            Err(_) => HttpRequestOutcome::TransportFailure,
+        };
+        completion.complete(outcome);
+        response
+    }
+}
 
 #[derive(Clone, Default)]
 pub struct SourceCredentials {
@@ -72,7 +212,7 @@ pub struct SourceRegistry {
 }
 
 impl SourceRegistry {
-    pub fn new(client: Client) -> Self {
+    pub fn new(client: ObservedHttpClient) -> Self {
         let mut sources: BTreeMap<SourceKind, Box<dyn AssetSource>> = BTreeMap::new();
         sources.insert(SourceKind::Manual, Box::new(ManualSource));
         sources.insert(
@@ -211,12 +351,12 @@ impl AssetSource for ManualSource {
 }
 
 struct GithubSource {
-    client: Client,
+    client: ObservedHttpClient,
     kind: SourceKind,
 }
 
 impl GithubSource {
-    fn new(client: Client, kind: SourceKind) -> Self {
+    fn new(client: ObservedHttpClient, kind: SourceKind) -> Self {
         Self { client, kind }
     }
 }
@@ -349,7 +489,7 @@ impl AssetSource for GithubSource {
 }
 
 struct GitPlatformSource {
-    client: Client,
+    client: ObservedHttpClient,
     kind: SourceKind,
     platform: &'static str,
     api_base: &'static str,
@@ -358,7 +498,7 @@ struct GitPlatformSource {
 
 impl GitPlatformSource {
     fn new(
-        client: Client,
+        client: ObservedHttpClient,
         kind: SourceKind,
         platform: &'static str,
         api_base: &'static str,
@@ -381,7 +521,7 @@ impl GitPlatformSource {
         }
     }
 
-    fn authorized_get(&self, url: impl reqwest::IntoUrl, token: &str) -> reqwest::RequestBuilder {
+    fn authorized_get(&self, url: impl reqwest::IntoUrl, token: &str) -> ObservedRequestBuilder {
         let request = self.client.get(url);
         match self.kind {
             SourceKind::Gitee => request.query(&[("access_token", token)]),
@@ -716,11 +856,11 @@ impl GitPlatformSource {
 }
 
 struct FofaSource {
-    client: Client,
+    client: ObservedHttpClient,
 }
 
 impl FofaSource {
-    fn new(client: Client) -> Self {
+    fn new(client: ObservedHttpClient) -> Self {
         Self { client }
     }
 }
@@ -817,11 +957,11 @@ impl AssetSource for FofaSource {
 }
 
 struct ShodanSource {
-    client: Client,
+    client: ObservedHttpClient,
 }
 
 impl ShodanSource {
-    fn new(client: Client) -> Self {
+    fn new(client: ObservedHttpClient) -> Self {
         Self { client }
     }
 }
@@ -928,7 +1068,7 @@ impl AssetSource for ShodanSource {
 }
 
 async fn github_item_candidates(
-    client: Client,
+    client: ObservedHttpClient,
     kind: SourceKind,
     token: String,
     item: GithubCodeItem,
@@ -1242,6 +1382,21 @@ fn unlimited_quota(source: SourceKind, message: &str) -> SourceQuota {
 mod tests {
     use super::*;
 
+    #[derive(Default)]
+    struct CompletionObserver {
+        outcomes: std::sync::Mutex<Vec<HttpRequestOutcome>>,
+    }
+
+    impl HttpRequestObserver for CompletionObserver {
+        fn begin(&self, _target: &reqwest::Url) -> reqwest::Result<Option<HttpRequestObservation>> {
+            unreachable!()
+        }
+
+        fn complete(&self, _ticket: Option<u64>, _elapsed: Duration, outcome: HttpRequestOutcome) {
+            self.outcomes.lock().unwrap().push(outcome);
+        }
+    }
+
     #[test]
     fn accepts_fofa_error_without_results() {
         let response: FofaSearchResponse =
@@ -1256,6 +1411,16 @@ mod tests {
             SourceError::Transport("FOFA").to_string(),
             "FOFA 网络请求失败。"
         );
+    }
+
+    #[test]
+    fn cancelled_request_completes_observation() {
+        let observer = Arc::new(CompletionObserver::default());
+        let completion = HttpRequestCompletion::new(observer.clone(), Some(1));
+        drop(completion);
+        let outcomes = observer.outcomes.lock().unwrap();
+        assert_eq!(outcomes.len(), 1);
+        assert!(matches!(outcomes[0], HttpRequestOutcome::TransportFailure));
     }
 
     #[test]

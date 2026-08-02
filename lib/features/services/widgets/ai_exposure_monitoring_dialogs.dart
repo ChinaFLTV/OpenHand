@@ -6,10 +6,12 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/localized_text.dart';
@@ -160,7 +162,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                     running ? Icons.stop_rounded : Icons.play_arrow_rounded,
                   ),
                 ),
-                IconButton(
+                IconButton.filledTonal(
                   tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.close_rounded),
@@ -243,7 +245,10 @@ class _OperationsDialogState extends State<_OperationsDialog> {
           const SizedBox(height: 14),
           Expanded(
             child: AnimatedSwitcher(
-              duration: const Duration(milliseconds: 220),
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 220),
+              ),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
               child: SingleChildScrollView(
@@ -280,7 +285,18 @@ class _OverviewPanel extends StatelessWidget {
   Widget build(BuildContext context) {
     final history = controller.history;
     final results = controller.results;
+    final proxy = controller.proxyStatus;
+    final completed = history.where((item) => item.stage == 'completed').length;
     final failed = history.where((item) => item.stage == 'failed').length;
+    final cancelled = history.where((item) => item.stage == 'cancelled').length;
+    final processed = history.fold<int>(
+      0,
+      (sum, item) => sum + item.progress.processed,
+    );
+    final discovered = history.fold<int>(
+      0,
+      (sum, item) => sum + item.progress.discovered,
+    );
     final valid = results
         .where((item) => item.category == AiExposureResultCategory.valid)
         .length;
@@ -293,6 +309,25 @@ class _OverviewPanel extends StatelessWidget {
     final errors = controller.logs
         .where((item) => item.level == 'error')
         .length;
+    final durations = history
+        .where((item) => item.finishedAt != null)
+        .map(
+          (item) => item.finishedAt!
+              .difference(item.createdAt)
+              .inMilliseconds
+              .clamp(0, 86400000)
+              .toDouble(),
+        )
+        .toList(growable: false);
+    final averageDuration = durations.isEmpty
+        ? 0
+        : (durations.reduce((left, right) => left + right) / durations.length)
+              .round();
+    final historyTrend = history.reversed.take(24).toList(growable: false);
+    final stageCounts = <String, int>{};
+    for (final item in history) {
+      stageCounts.update(item.stage, (count) => count + 1, ifAbsent: () => 1);
+    }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -304,51 +339,202 @@ class _OverviewPanel extends StatelessWidget {
               Icons.work_history_outlined,
               '任务总数',
               '${history.length}',
-              '失败 $failed',
+              '完成 $completed · 失败 $failed',
+              color: Theme.of(context).colorScheme.primary,
             ),
             _Metric(
               Icons.fact_check_outlined,
               '结果总数',
               '${results.length}',
               '有效 $valid',
+              color: OpenHandStatusColors.info,
             ),
             _Metric(
               Icons.workspace_premium_outlined,
               '高价值',
               '$highValue',
               '优先处置',
+              color: const Color(0xffa855f7),
+            ),
+            _Metric(
+              Icons.radar_rounded,
+              '累计处理',
+              '$processed',
+              '发现 $discovered',
+              color: const Color(0xff0891b2),
+            ),
+            _Metric(
+              Icons.timer_outlined,
+              '平均任务耗时',
+              _duration((averageDuration / 1000).round()),
+              '已完成 ${durations.length} 项',
+              color: Theme.of(context).colorScheme.tertiary,
             ),
             _Metric(
               Icons.travel_explore_rounded,
               '已配置源',
               '${controller.sourceStatus.values.where((item) => item).length}',
               '共 5 个凭证源',
+              color: OpenHandStatusColors.success,
             ),
             _Metric(
               Icons.rule_rounded,
               '启用规则',
               '${controller.rules.where((item) => item.enabled).length}',
               '总计 ${controller.rules.length}',
+              color: const Color(0xff0f766e),
             ),
             _Metric(
               Icons.lan_outlined,
               '代理选路',
-              '${controller.proxyStatus?.totalSelections ?? 0}',
-              controller.proxyStatus?.enabled == true ? '代理池已启用' : '直接连接',
+              '${proxy?.totalSelections ?? 0}',
+              proxy?.enabled == true
+                  ? '成功 ${proxy!.totalSuccesses} · 超时 ${proxy.totalTimeouts}'
+                  : '直接连接',
+              color: OpenHandStatusColors.info,
+            ),
+            _Metric(
+              Icons.speed_rounded,
+              '代理平均响应',
+              '${proxy?.averageResponseTimeMs ?? 0} ms',
+              proxy?.enabled == true ? '执行中 ${proxy!.inFlight}' : '代理未启用',
+              color: Theme.of(context).colorScheme.secondary,
             ),
             _Metric(
               Icons.warning_amber_rounded,
               '警告日志',
               '$warnings',
               '保留 ${controller.logs.length}',
+              color: OpenHandStatusColors.warning,
             ),
             _Metric(
               Icons.error_outline_rounded,
               '错误日志',
               '$errors',
               errors == 0 ? '状态正常' : '需要检查',
+              color: OpenHandStatusColors.error,
+            ),
+            _Metric(
+              Icons.cancel_outlined,
+              '已取消任务',
+              '$cancelled',
+              history.isEmpty
+                  ? '--'
+                  : '${((completed * 100) / history.length).toStringAsFixed(1)}% 完成率',
+              color: Theme.of(context).colorScheme.outline,
             ),
           ],
+        ),
+        const SizedBox(height: 14),
+        _OpsPanelGrid(
+          children: [
+            _TrendPanel(
+              icon: Icons.show_chart_rounded,
+              title: '任务处理趋势',
+              subtitle: '最近 ${historyTrend.length} 个任务',
+              series: <OpenHandChartSeries>[
+                OpenHandChartSeries(
+                  label: 'processed',
+                  values: historyTrend
+                      .map((item) => item.progress.processed.toDouble())
+                      .toList(growable: false),
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                OpenHandChartSeries(
+                  label: 'valid',
+                  values: historyTrend
+                      .map((item) => item.progress.valid.toDouble())
+                      .toList(growable: false),
+                  color: OpenHandStatusColors.success,
+                ),
+              ],
+              suffix: ' 项',
+            ),
+            _TrendPanel(
+              icon: Icons.timelapse_rounded,
+              title: '任务耗时趋势',
+              subtitle: '仅统计已结束任务',
+              series: <OpenHandChartSeries>[
+                OpenHandChartSeries(
+                  label: 'duration',
+                  values: historyTrend
+                      .map(
+                        (item) =>
+                            (item.finishedAt
+                                        ?.difference(item.createdAt)
+                                        .inMilliseconds ??
+                                    0)
+                                .clamp(0, 86400000)
+                                .toDouble(),
+                      )
+                      .toList(growable: false),
+                  color: Theme.of(context).colorScheme.tertiary,
+                ),
+              ],
+              suffix: ' ms',
+            ),
+            _DistributionPanel(
+              icon: Icons.donut_large_rounded,
+              title: '结果分类分布',
+              centerValue: '${results.length}',
+              items: [
+                _DistributionItem('有效', valid, OpenHandStatusColors.success),
+                _DistributionItem('高价值', highValue, const Color(0xffa855f7)),
+                _DistributionItem(
+                  '可疑',
+                  results
+                      .where(
+                        (item) =>
+                            item.category ==
+                            AiExposureResultCategory.suspicious,
+                      )
+                      .length,
+                  OpenHandStatusColors.warning,
+                ),
+                _DistributionItem(
+                  '蜜罐',
+                  results
+                      .where(
+                        (item) =>
+                            item.category == AiExposureResultCategory.honeypot,
+                      )
+                      .length,
+                  OpenHandStatusColors.error,
+                ),
+              ],
+            ),
+            _DistributionPanel(
+              icon: Icons.account_tree_outlined,
+              title: '任务状态分布',
+              centerValue: '${history.length}',
+              items: [
+                _DistributionItem(
+                  '完成',
+                  stageCounts['completed'] ?? 0,
+                  OpenHandStatusColors.success,
+                ),
+                _DistributionItem(
+                  '失败',
+                  stageCounts['failed'] ?? 0,
+                  OpenHandStatusColors.error,
+                ),
+                _DistributionItem(
+                  '取消',
+                  stageCounts['cancelled'] ?? 0,
+                  OpenHandStatusColors.warning,
+                ),
+                _DistributionItem(
+                  '执行中',
+                  history.length - completed - failed - cancelled,
+                  OpenHandStatusColors.info,
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        _RecentActivityPanel(
+          entries: controller.logs.reversed.take(8).toList(growable: false),
         ),
       ],
     );
@@ -406,8 +592,13 @@ class _Console extends StatelessWidget {
             _consoleLine(
               'proxy',
               proxy?.enabled == true
-                  ? '${proxy!.endpoints.length} endpoints · selected=${proxy.totalSelections}'
+                  ? '${proxy!.endpoints.length} endpoints · total=${proxy.totalSelections} ok=${proxy.totalSuccesses} failed=${proxy.totalFailures} timeout=${proxy.totalTimeouts} avg=${proxy.averageResponseTimeMs}ms'
                   : 'direct',
+              true,
+            ),
+            _consoleLine(
+              'workload',
+              'jobs=${controller.history.length} results=${controller.results.length} logs=${controller.logs.length}',
               true,
             ),
             _consoleLine(
@@ -416,11 +607,21 @@ class _Console extends StatelessWidget {
               true,
             ),
             _consoleLine(
+              'database',
+              controller.health?.databasePath ?? '--',
+              controller.health?.databasePath.isNotEmpty == true,
+            ),
+            _consoleLine(
               'extractor',
               controller.aiExtractorStatus?.configured == true
                   ? controller.aiExtractorStatus?.model ?? 'configured'
                   : 'deterministic rules',
               true,
+            ),
+            _consoleLine(
+              'policy',
+              'rules=${controller.rules.where((item) => item.enabled).length}/${controller.rules.length} concurrency=${controller.defaultConcurrency}',
+              controller.rules.any((item) => item.enabled),
             ),
           ],
         ),
@@ -467,9 +668,160 @@ class _PipelinePanel extends StatelessWidget {
       'completed',
     ];
     final activeIndex = progress == null ? -1 : stages.indexOf(progress.stage);
+    final history = controller.history;
+    final totalProcessed = history.fold<int>(
+      0,
+      (sum, item) => sum + item.progress.processed,
+    );
+    final totalCandidates = history.fold<int>(
+      0,
+      (sum, item) => sum + item.progress.candidates,
+    );
+    final totalValid = history.fold<int>(
+      0,
+      (sum, item) => sum + item.progress.valid,
+    );
+    final totalHighValue = history.fold<int>(
+      0,
+      (sum, item) => sum + item.progress.highValue,
+    );
+    final trend = history.reversed.take(24).toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _MetricGrid(
+          metrics: [
+            _Metric(
+              Icons.play_circle_outline_rounded,
+              '当前状态',
+              progress?.isRunning == true ? '执行中' : '空闲',
+              progress == null ? '等待任务' : _stageName(progress.stage),
+              color: progress?.isRunning == true
+                  ? OpenHandStatusColors.success
+                  : Theme.of(context).colorScheme.outline,
+            ),
+            _Metric(
+              Icons.checklist_rounded,
+              '累计处理',
+              '$totalProcessed',
+              '${history.length} 个任务',
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            _Metric(
+              Icons.filter_alt_outlined,
+              '候选目标',
+              '$totalCandidates',
+              totalProcessed == 0
+                  ? '--'
+                  : '${(totalCandidates * 100 / totalProcessed).toStringAsFixed(1)}% 候选率',
+              color: OpenHandStatusColors.info,
+            ),
+            _Metric(
+              Icons.verified_outlined,
+              '有效结果',
+              '$totalValid',
+              totalCandidates == 0
+                  ? '--'
+                  : '${(totalValid * 100 / totalCandidates).toStringAsFixed(1)}% 有效率',
+              color: OpenHandStatusColors.success,
+            ),
+            _Metric(
+              Icons.workspace_premium_outlined,
+              '高价值结果',
+              '$totalHighValue',
+              totalValid == 0
+                  ? '--'
+                  : '${(totalHighValue * 100 / totalValid).toStringAsFixed(1)}% 占有效结果',
+              color: const Color(0xffa855f7),
+            ),
+            _Metric(
+              Icons.speed_rounded,
+              '任务并发',
+              '${controller.defaultConcurrency}',
+              '配置上限 128',
+              color: Theme.of(context).colorScheme.tertiary,
+            ),
+            _Metric(
+              Icons.layers_outlined,
+              '全量扫描',
+              '${history.where((item) => item.mode == AiExposureScanMode.full).length}',
+              '其余为增量扫描',
+              color: const Color(0xff0891b2),
+            ),
+            _Metric(
+              Icons.restart_alt_rounded,
+              '可恢复任务',
+              '${history.where((item) => item.isResumable).length}',
+              '失败或中断任务',
+              color: OpenHandStatusColors.warning,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _OpsPanelGrid(
+          children: [
+            _TrendPanel(
+              icon: Icons.multiline_chart_rounded,
+              title: '处理漏斗趋势',
+              subtitle: '处理 / 候选 / 有效',
+              series: <OpenHandChartSeries>[
+                OpenHandChartSeries(
+                  label: 'processed',
+                  values: trend
+                      .map((item) => item.progress.processed.toDouble())
+                      .toList(growable: false),
+                  color: Theme.of(context).colorScheme.primary,
+                ),
+                OpenHandChartSeries(
+                  label: 'candidates',
+                  values: trend
+                      .map((item) => item.progress.candidates.toDouble())
+                      .toList(growable: false),
+                  color: OpenHandStatusColors.info,
+                ),
+                OpenHandChartSeries(
+                  label: 'valid',
+                  values: trend
+                      .map((item) => item.progress.valid.toDouble())
+                      .toList(growable: false),
+                  color: OpenHandStatusColors.success,
+                ),
+              ],
+              suffix: ' 项',
+            ),
+            _DistributionPanel(
+              icon: Icons.schema_outlined,
+              title: '扫描模式分布',
+              centerValue: '${history.length}',
+              items: [
+                _DistributionItem(
+                  '全量扫描',
+                  history
+                      .where((item) => item.mode == AiExposureScanMode.full)
+                      .length,
+                  Theme.of(context).colorScheme.primary,
+                ),
+                _DistributionItem(
+                  '增量扫描',
+                  history
+                      .where(
+                        (item) => item.mode == AiExposureScanMode.incremental,
+                      )
+                      .length,
+                  OpenHandStatusColors.info,
+                ),
+                _DistributionItem(
+                  '主动验证',
+                  history
+                      .where((item) => item.authorizedScope.isNotEmpty)
+                      .length,
+                  OpenHandStatusColors.warning,
+                ),
+              ],
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         _Section(
           title: '当前任务',
           icon: Icons.radar_rounded,
@@ -555,53 +907,206 @@ class _SourcesPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return _Section(
-      title: '资产发现数据源',
-      icon: Icons.travel_explore_rounded,
-      child: Column(
-        children: AiExposureSource.values
-            .map((source) {
-              final credentialKey = switch (source) {
-                AiExposureSource.github ||
-                AiExposureSource.githubArtifact => 'github',
-                AiExposureSource.gitee => 'gitee',
-                AiExposureSource.gitcode => 'gitcode',
-                AiExposureSource.fofa => 'fofa',
-                AiExposureSource.shodan => 'shodan',
-                AiExposureSource.manual => 'manual',
-              };
-              final configured =
-                  source == AiExposureSource.manual ||
-                  controller.sourceStatus[credentialKey] == true;
-              final quota = controller.quotas
-                  .where((item) => item.source == source)
-                  .firstOrNull;
-              return ListTile(
-                contentPadding: EdgeInsets.zero,
-                leading: CircleAvatar(
-                  radius: 18,
-                  child: Icon(_sourceIcon(source), size: 18),
-                ),
-                title: Text(_sourceName(source)),
-                subtitle: Text(
-                  quota?.message ??
-                      (configured ? '凭证已配置，等待配额检查。' : '尚未配置访问凭证。'),
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                trailing: _StatusPill(
-                  icon: configured
-                      ? Icons.check_rounded
-                      : Icons.key_off_outlined,
-                  label: configured ? '可用' : '待配置',
-                  color: configured
-                      ? Colors.green
-                      : Theme.of(context).colorScheme.outline,
-                ),
-              );
-            })
-            .toList(growable: false),
-      ),
+    final resultCounts = <AiExposureSource, int>{};
+    final jobCounts = <AiExposureSource, int>{};
+    for (final result in controller.results) {
+      resultCounts.update(
+        result.source,
+        (value) => value + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    for (final job in controller.history) {
+      for (final source in job.sources.toSet()) {
+        jobCounts.update(source, (value) => value + 1, ifAbsent: () => 1);
+      }
+    }
+    final configured = controller.sourceStatus.values
+        .where((item) => item)
+        .length;
+    final available = controller.quotas.where((item) => item.available).length;
+    final remaining = controller.quotas.fold<int>(
+      0,
+      (sum, item) => sum + (item.remaining ?? 0),
+    );
+    final sourceItems = AiExposureSource.values
+        .where((item) => item != AiExposureSource.githubArtifact)
+        .map(
+          (source) => _DistributionItem(
+            _sourceName(source),
+            resultCounts[source] ?? 0,
+            _sourceColor(source, Theme.of(context).colorScheme),
+          ),
+        )
+        .toList(growable: false);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MetricGrid(
+          metrics: [
+            _Metric(
+              Icons.key_rounded,
+              '已配置凭证源',
+              '$configured/5',
+              '手工目标无需凭证',
+              color: OpenHandStatusColors.success,
+            ),
+            _Metric(
+              Icons.cloud_done_outlined,
+              '配额可用源',
+              '$available',
+              '已完成实时配额探测',
+              color: OpenHandStatusColors.info,
+            ),
+            _Metric(
+              Icons.data_usage_rounded,
+              '剩余配额',
+              '$remaining',
+              '仅汇总可计数来源',
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            _Metric(
+              Icons.travel_explore_rounded,
+              '启用发现源',
+              '${controller.enabledSources.length}',
+              '共 ${AiExposureSource.values.length} 类',
+              color: const Color(0xff0891b2),
+            ),
+            _Metric(
+              Icons.work_history_outlined,
+              '来源调用任务',
+              '${jobCounts.values.fold<int>(0, (sum, item) => sum + item)}',
+              '一个任务可包含多个来源',
+              color: Theme.of(context).colorScheme.tertiary,
+            ),
+            _Metric(
+              Icons.fact_check_outlined,
+              '来源产出结果',
+              '${controller.results.length}',
+              '${resultCounts.length} 个来源有产出',
+              color: const Color(0xff0f766e),
+            ),
+            _Metric(
+              Icons.warning_amber_rounded,
+              '配额异常',
+              '${controller.quotas.where((item) => item.configured && !item.available).length}',
+              '需检查凭证或网络',
+              color: OpenHandStatusColors.warning,
+            ),
+            _Metric(
+              Icons.key_off_outlined,
+              '待配置来源',
+              '${5 - configured}',
+              '可在服务设置中补齐',
+              color: Theme.of(context).colorScheme.outline,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _OpsPanelGrid(
+          children: [
+            _DistributionPanel(
+              icon: Icons.pie_chart_outline_rounded,
+              title: '结果来源分布',
+              centerValue: '${controller.results.length}',
+              items: sourceItems,
+            ),
+            _DistributionPanel(
+              icon: Icons.hub_outlined,
+              title: '任务来源覆盖',
+              centerValue:
+                  '${jobCounts.values.fold<int>(0, (sum, item) => sum + item)}',
+              items: AiExposureSource.values
+                  .where((item) => item != AiExposureSource.githubArtifact)
+                  .map(
+                    (source) => _DistributionItem(
+                      _sourceName(source),
+                      jobCounts[source] ?? 0,
+                      _sourceColor(source, Theme.of(context).colorScheme),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _Section(
+          title: '资产发现数据源',
+          icon: Icons.travel_explore_rounded,
+          child: Column(
+            children: AiExposureSource.values
+                .map((source) {
+                  final credentialKey = switch (source) {
+                    AiExposureSource.github ||
+                    AiExposureSource.githubArtifact => 'github',
+                    AiExposureSource.gitee => 'gitee',
+                    AiExposureSource.gitcode => 'gitcode',
+                    AiExposureSource.fofa => 'fofa',
+                    AiExposureSource.shodan => 'shodan',
+                    AiExposureSource.manual => 'manual',
+                  };
+                  final isConfigured =
+                      source == AiExposureSource.manual ||
+                      controller.sourceStatus[credentialKey] == true;
+                  final quota = controller.quotas
+                      .where((item) => item.source == source)
+                      .firstOrNull;
+                  final quotaText = quota?.limit == null
+                      ? quota?.message
+                      : '${quota!.remaining ?? 0}/${quota.limit} · ${quota.message}';
+                  return ListTile(
+                    contentPadding: EdgeInsets.zero,
+                    leading: CircleAvatar(
+                      radius: 18,
+                      backgroundColor: _sourceColor(
+                        source,
+                        Theme.of(context).colorScheme,
+                      ).withValues(alpha: 0.12),
+                      child: Icon(
+                        _sourceIcon(source),
+                        size: 18,
+                        color: _sourceColor(
+                          source,
+                          Theme.of(context).colorScheme,
+                        ),
+                      ),
+                    ),
+                    title: Text(_sourceName(source)),
+                    subtitle: Text(
+                      quotaText ??
+                          (isConfigured ? '凭证已配置，等待配额检查。' : '尚未配置访问凭证。'),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                    ),
+                    trailing: _StatusPill(
+                      icon:
+                          quota?.available == true ||
+                              source == AiExposureSource.manual
+                          ? Icons.check_rounded
+                          : isConfigured
+                          ? Icons.warning_amber_rounded
+                          : Icons.key_off_outlined,
+                      label:
+                          quota?.available == true ||
+                              source == AiExposureSource.manual
+                          ? '可用'
+                          : isConfigured
+                          ? '待检查'
+                          : '待配置',
+                      color:
+                          quota?.available == true ||
+                              source == AiExposureSource.manual
+                          ? OpenHandStatusColors.success
+                          : isConfigured
+                          ? OpenHandStatusColors.warning
+                          : Theme.of(context).colorScheme.outline,
+                    ),
+                  );
+                })
+                .toList(growable: false),
+          ),
+        ),
+      ],
     );
   }
 }
@@ -618,8 +1123,153 @@ class _SecurityPanel extends StatelessWidget {
         .where((rule) => rule.enabled)
         .expand((rule) => rule.contentEncodings)
         .toSet();
+    final enabledRules = controller.rules
+        .where((rule) => rule.enabled)
+        .toList();
+    final patterns = enabledRules.fold<int>(
+      0,
+      (sum, rule) => sum + rule.credentialPatterns.length,
+    );
+    final contextTerms = enabledRules.fold<int>(
+      0,
+      (sum, rule) => sum + rule.contextTerms.length,
+    );
+    final modelPaths = enabledRules.fold<int>(
+      0,
+      (sum, rule) => sum + rule.modelPaths.length,
+    );
+    final balancePaths = enabledRules.fold<int>(
+      0,
+      (sum, rule) => sum + rule.balancePaths.length,
+    );
+    final vendorCounts = <String, int>{};
+    for (final rule in enabledRules) {
+      vendorCounts.update(rule.vendor, (value) => value + 1, ifAbsent: () => 1);
+    }
+    final dependencyReady = <bool>[
+      controller.isRunning,
+      dependencies?.postgresql.connected == true,
+      dependencies?.redis.connected == true,
+      controller.aiExtractorStatus?.configured == true,
+    ].where((item) => item).length;
     return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
+        _MetricGrid(
+          metrics: [
+            _Metric(
+              Icons.rule_rounded,
+              '启用规则',
+              '${enabledRules.length}/${controller.rules.length}',
+              '${vendorCounts.length} 个供应商',
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            _Metric(
+              Icons.fingerprint_rounded,
+              '凭证模式',
+              '$patterns',
+              '$contextTerms 个上下文词',
+              color: const Color(0xff0f766e),
+            ),
+            _Metric(
+              Icons.api_rounded,
+              '模型端点',
+              '$modelPaths',
+              '$balancePaths 个余额端点',
+              color: OpenHandStatusColors.info,
+            ),
+            _Metric(
+              Icons.code_rounded,
+              '编码识别',
+              '${encodings.length}/4',
+              '多层内容解码',
+              color: const Color(0xff0891b2),
+            ),
+            _Metric(
+              Icons.lan_outlined,
+              '代理请求',
+              '${proxy?.totalSelections ?? 0}',
+              proxy?.enabled == true
+                  ? '${proxy!.endpoints.length} 个节点'
+                  : '直接连接',
+              color: Theme.of(context).colorScheme.secondary,
+            ),
+            _Metric(
+              Icons.task_alt_rounded,
+              '代理成功',
+              '${proxy?.totalSuccesses ?? 0}',
+              '${proxy?.averageResponseTimeMs ?? 0} ms 平均响应',
+              color: OpenHandStatusColors.success,
+            ),
+            _Metric(
+              Icons.report_gmailerrorred_rounded,
+              '代理异常',
+              '${(proxy?.totalFailures ?? 0) + (proxy?.totalTimeouts ?? 0)}',
+              '失败 ${proxy?.totalFailures ?? 0} · 超时 ${proxy?.totalTimeouts ?? 0}',
+              color: OpenHandStatusColors.error,
+            ),
+            _Metric(
+              Icons.hub_outlined,
+              '依赖就绪',
+              '$dependencyReady/4',
+              '核心 / PostgreSQL / Redis / GPT',
+              color: dependencyReady >= 1
+                  ? OpenHandStatusColors.success
+                  : OpenHandStatusColors.warning,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _OpsPanelGrid(
+          children: [
+            _DistributionPanel(
+              icon: Icons.security_rounded,
+              title: '代理可靠性分布',
+              centerValue: '${proxy?.totalSelections ?? 0}',
+              items: [
+                _DistributionItem(
+                  '成功',
+                  proxy?.totalSuccesses ?? 0,
+                  OpenHandStatusColors.success,
+                ),
+                _DistributionItem(
+                  '失败',
+                  proxy?.totalFailures ?? 0,
+                  OpenHandStatusColors.error,
+                ),
+                _DistributionItem(
+                  '超时',
+                  proxy?.totalTimeouts ?? 0,
+                  OpenHandStatusColors.warning,
+                ),
+                _DistributionItem(
+                  '执行中',
+                  proxy?.inFlight ?? 0,
+                  OpenHandStatusColors.info,
+                ),
+              ],
+            ),
+            _DistributionPanel(
+              icon: Icons.category_outlined,
+              title: '启用规则供应商分布',
+              centerValue: '${enabledRules.length}',
+              items: vendorCounts.entries
+                  .take(8)
+                  .toList(growable: false)
+                  .asMap()
+                  .entries
+                  .map(
+                    (entry) => _DistributionItem(
+                      entry.value.key,
+                      entry.value.value,
+                      _chartColor(entry.key, Theme.of(context).colorScheme),
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
         _Section(
           title: '扫描规则与编码识别',
           icon: Icons.rule_rounded,
@@ -666,8 +1316,17 @@ class _SecurityPanel extends StatelessWidget {
                 name: '请求出口',
                 ready: true,
                 detail: proxy?.enabled == true
-                    ? '代理池 ${proxy!.endpoints.length} 个节点，累计选路 ${proxy.totalSelections} 次'
+                    ? '代理池 ${proxy!.endpoints.length} 个节点，累计 ${proxy.totalSelections} 次，执行中 ${proxy.inFlight}'
                     : '直接连接',
+              ),
+              _DependencyLine(
+                name: '代理可靠性',
+                ready:
+                    proxy?.enabled != true ||
+                    (proxy!.totalFailures + proxy.totalTimeouts) == 0,
+                detail: proxy?.enabled == true
+                    ? '成功 ${proxy!.totalSuccesses} · 失败 ${proxy.totalFailures} · 超时 ${proxy.totalTimeouts} · 平均 ${proxy.averageResponseTimeMs}ms'
+                    : '未启用代理统计',
               ),
               _DependencyLine(
                 name: '本地旁路',
@@ -703,6 +1362,30 @@ class _SecurityPanel extends StatelessWidget {
                 detail: '本地任务、规则、结果与日志存储',
               ),
               _DependencyLine(
+                name: '资产发现适配器',
+                ready: controller.sourceStatus.values.any((item) => item),
+                detail:
+                    'Manual / GitHub / Gitee / GitCode / FOFA / Shodan，已配置 ${controller.sourceStatus.values.where((item) => item).length}/5',
+              ),
+              _DependencyLine(
+                name: '指纹与规则引擎',
+                ready: enabledRules.isNotEmpty,
+                detail:
+                    '${enabledRules.length} 条启用规则 · $patterns 条凭证模式 · ${encodings.length} 类编码',
+              ),
+              _DependencyLine(
+                name: '主动验证器',
+                ready: modelPaths > 0,
+                detail: '$modelPaths 个模型端点 · $balancePaths 个余额端点',
+              ),
+              _DependencyLine(
+                name: '任务事件流',
+                ready: controller.isRunning,
+                detail: controller.hasActiveScan
+                    ? '实时推送进度、日志与结果事件'
+                    : '已就绪，当前无活动任务',
+              ),
+              _DependencyLine(
                 name: 'PostgreSQL',
                 ready: dependencies?.postgresql.connected == true,
                 detail: dependencies?.postgresql.message ?? '未启用',
@@ -726,11 +1409,12 @@ class _SecurityPanel extends StatelessWidget {
 }
 
 class _Metric {
-  const _Metric(this.icon, this.label, this.value, this.detail);
+  const _Metric(this.icon, this.label, this.value, this.detail, {this.color});
   final IconData icon;
   final String label;
   final String value;
   final String detail;
+  final Color? color;
 }
 
 class _MetricGrid extends StatelessWidget {
@@ -771,17 +1455,26 @@ class _MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    final color = metric.color ?? cs.primary;
     return Container(
       height: 112,
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.32),
+        color: color.withValues(alpha: 0.07),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.outlineVariant),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Row(
         children: [
-          Icon(metric.icon, color: cs.primary),
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: 0.12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(metric.icon, size: 20, color: color),
+          ),
           const SizedBox(width: 12),
           Expanded(
             child: Column(
@@ -804,9 +1497,7 @@ class _MetricTile extends StatelessWidget {
                   metric.detail,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(color: color),
                 ),
               ],
             ),
@@ -860,6 +1551,385 @@ class _Section extends StatelessWidget {
     );
   }
 }
+
+class _OpsPanelGrid extends StatelessWidget {
+  const _OpsPanelGrid({required this.children});
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final columns = constraints.maxWidth >= 820 ? 2 : 1;
+      const gap = 12.0;
+      final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: children
+            .map((child) => SizedBox(width: width, child: child))
+            .toList(growable: false),
+      );
+    },
+  );
+}
+
+class _TrendPanel extends StatelessWidget {
+  const _TrendPanel({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.series,
+    required this.suffix,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<OpenHandChartSeries> series;
+  final String suffix;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      height: 260,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              _OpsSectionIcon(icon: icon),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: CustomPaint(
+              painter: OpenHandSmoothLineChartPainter(
+                series: series,
+                gridColor: colors.outlineVariant.withValues(alpha: 0.58),
+                labelColor: colors.onSurfaceVariant,
+                emptyLabel: '暂无趋势数据',
+                valueSuffix: suffix,
+                textDirection: Directionality.of(context),
+              ),
+              size: Size.infinite,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: series
+                .map((item) => _OpsLegend(label: item.label, color: item.color))
+                .toList(growable: false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DistributionItem {
+  const _DistributionItem(this.label, this.value, this.color);
+  final String label;
+  final int value;
+  final Color color;
+}
+
+class _DistributionPanel extends StatelessWidget {
+  const _DistributionPanel({
+    required this.icon,
+    required this.title,
+    required this.centerValue,
+    required this.items,
+  });
+
+  final IconData icon;
+  final String title;
+  final String centerValue;
+  final List<_DistributionItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final visible = items.where((item) => item.value > 0).take(8).toList();
+    final maxValue = visible.fold<int>(
+      1,
+      (max, item) => item.value > max ? item.value : max,
+    );
+    return Container(
+      constraints: const BoxConstraints(minHeight: 260),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              _OpsSectionIcon(icon: icon),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (visible.isEmpty)
+            SizedBox(
+              height: 174,
+              child: Center(
+                child: Text(
+                  '暂无分布数据',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final donut = SizedBox.square(
+                  dimension: 112,
+                  child: CustomPaint(
+                    painter: OpenHandDonutChartPainter(
+                      values: visible.map((item) => item.value).toList(),
+                      colors: visible.map((item) => item.color).toList(),
+                      trackColor: colors.surfaceContainerHighest,
+                    ),
+                    child: Center(
+                      child: Text(
+                        centerValue,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+                final rows = Column(
+                  children: visible
+                      .map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: item.color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 7),
+                              SizedBox(
+                                width: 74,
+                                child: Text(
+                                  item.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelMedium,
+                                ),
+                              ),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(99),
+                                  child: LinearProgressIndicator(
+                                    value: item.value / maxValue,
+                                    minHeight: 7,
+                                    color: item.color,
+                                    backgroundColor: item.color.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              SizedBox(
+                                width: 42,
+                                child: Text(
+                                  '${item.value}',
+                                  textAlign: TextAlign.end,
+                                  style: theme.textTheme.labelLarge,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                );
+                if (constraints.maxWidth < 430) {
+                  return Column(
+                    children: [donut, const SizedBox(height: 12), rows],
+                  );
+                }
+                return Row(
+                  children: [
+                    donut,
+                    const SizedBox(width: 18),
+                    Expanded(child: rows),
+                  ],
+                );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _RecentActivityPanel extends StatelessWidget {
+  const _RecentActivityPanel({required this.entries});
+  final List<AiExposureLogEntry> entries;
+
+  @override
+  Widget build(BuildContext context) => _Section(
+    title: '最近运行事件',
+    icon: Icons.receipt_long_outlined,
+    child: entries.isEmpty
+        ? const Text('暂无运行事件。')
+        : Column(
+            children: entries
+                .map((entry) {
+                  final color = switch (entry.level) {
+                    'error' => OpenHandStatusColors.error,
+                    'warning' => OpenHandStatusColors.warning,
+                    _ => OpenHandStatusColors.info,
+                  };
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 5),
+                    child: Row(
+                      children: [
+                        Container(
+                          width: 4,
+                          height: 34,
+                          decoration: BoxDecoration(
+                            color: color,
+                            borderRadius: BorderRadius.circular(99),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Text(
+                            entry.message,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Text(
+                          _shortDateTime(entry.at),
+                          style: Theme.of(context).textTheme.labelSmall,
+                        ),
+                      ],
+                    ),
+                  );
+                })
+                .toList(growable: false),
+          ),
+  );
+}
+
+class _OpsSectionIcon extends StatelessWidget {
+  const _OpsSectionIcon({required this.icon});
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
+      ),
+      child: Icon(icon, size: 19, color: colors.primary),
+    );
+  }
+}
+
+class _OpsLegend extends StatelessWidget {
+  const _OpsLegend({required this.label, required this.color});
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    mainAxisSize: MainAxisSize.min,
+    children: [
+      Container(
+        width: 8,
+        height: 8,
+        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+      ),
+      const SizedBox(width: 5),
+      Text(label, style: Theme.of(context).textTheme.labelSmall),
+    ],
+  );
+}
+
+Color _chartColor(int index, ColorScheme colors) => <Color>[
+  colors.primary,
+  OpenHandStatusColors.success,
+  OpenHandStatusColors.info,
+  OpenHandStatusColors.warning,
+  const Color(0xffa855f7),
+  const Color(0xff0891b2),
+  colors.tertiary,
+  OpenHandStatusColors.error,
+][index % 8];
+
+Color _sourceColor(AiExposureSource source, ColorScheme colors) =>
+    switch (source) {
+      AiExposureSource.manual => colors.primary,
+      AiExposureSource.github => const Color(0xff475569),
+      AiExposureSource.githubArtifact => const Color(0xff64748b),
+      AiExposureSource.gitee => OpenHandStatusColors.error,
+      AiExposureSource.gitcode => const Color(0xff2563eb),
+      AiExposureSource.fofa => const Color(0xff0891b2),
+      AiExposureSource.shodan => OpenHandStatusColors.warning,
+    };
 
 class _StatusPill extends StatelessWidget {
   const _StatusPill({
@@ -1005,7 +2075,10 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
         if (_scroll.hasClients) {
           _scroll.animateTo(
             _scroll.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 220),
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 220),
+            ),
             curve: Curves.easeOutCubic,
           );
         }
@@ -1041,7 +2114,9 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                         text(zh: '服务日志监控', en: 'Service log monitor'),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.titleLarge,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                       Text(
                         text(
@@ -1087,7 +2162,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                       : controller.clearLogs,
                   icon: const Icon(Icons.cleaning_services_outlined),
                 ),
-                IconButton(
+                IconButton.filledTonal(
                   tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.close_rounded),
@@ -1374,6 +2449,10 @@ String _duration(int seconds) {
   final minutes = seconds % 3600 ~/ 60;
   return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
 }
+
+String _shortDateTime(DateTime value) =>
+    '${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')} '
+    '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
 
 String _sourceName(AiExposureSource source) => switch (source) {
   AiExposureSource.manual => '手工目标',

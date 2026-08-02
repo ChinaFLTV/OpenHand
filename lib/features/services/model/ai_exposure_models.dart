@@ -1,3 +1,7 @@
+import 'dart:convert';
+
+import 'package:crypto/crypto.dart';
+
 enum AiExposureServiceLifecycle { stopped, starting, running, stopping, error }
 
 enum AiExposureSource {
@@ -222,6 +226,7 @@ class AiExposureScanRule {
 }
 
 const int kAiExposureProxyLatencySampleLimit = 24;
+const int kAiExposureProxyRequestSampleLimit = 24;
 
 class AiExposureProxyProbeSample {
   const AiExposureProxyProbeSample({
@@ -258,12 +263,279 @@ class AiExposureProxyProbeSample {
   };
 }
 
+class AiExposureProxyRequestSample {
+  const AiExposureProxyRequestSample({
+    required this.at,
+    required this.result,
+    required this.responseTimeMs,
+    this.statusCode,
+  });
+
+  factory AiExposureProxyRequestSample.fromJson(Object? raw) {
+    final json = _jsonMap(raw);
+    final milliseconds = _nonNegativeInt(json['atMs'], max: 8640000000000000);
+    final rawResult = json['result'] as String?;
+    final result =
+        const <String>{'success', 'failure', 'timeout'}.contains(rawResult)
+        ? rawResult!
+        : 'failure';
+    final statusCode = (json['statusCode'] as num?)?.toInt();
+    return AiExposureProxyRequestSample(
+      at: milliseconds > 0
+          ? DateTime.fromMillisecondsSinceEpoch(milliseconds)
+          : DateTime.now(),
+      result: result,
+      responseTimeMs: _nonNegativeInt(json['responseTimeMs'], max: 600000),
+      statusCode: statusCode != null && statusCode >= 100 && statusCode <= 599
+          ? statusCode
+          : null,
+    );
+  }
+
+  final DateTime at;
+  final String result;
+  final int responseTimeMs;
+  final int? statusCode;
+
+  bool get succeeded => result == 'success';
+  bool get timedOut => result == 'timeout';
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'atMs': at.millisecondsSinceEpoch,
+    'result': result,
+    'responseTimeMs': responseTimeMs,
+    if (statusCode != null) 'statusCode': statusCode,
+  };
+}
+
+class AiExposureProxyUsageStatistics {
+  const AiExposureProxyUsageStatistics({
+    this.requests = 0,
+    this.successes = 0,
+    this.failures = 0,
+    this.timeouts = 0,
+    this.inFlight = 0,
+    this.totalResponseTimeMs = 0,
+    this.minResponseTimeMs = 0,
+    this.maxResponseTimeMs = 0,
+    this.status2xx = 0,
+    this.status3xx = 0,
+    this.status4xx = 0,
+    this.status5xx = 0,
+    this.consecutiveFailures = 0,
+    this.lastUsedAt,
+    this.lastSuccessAt,
+    this.lastFailureAt,
+    this.lastError = '',
+    this.recentRequests = const <AiExposureProxyRequestSample>[],
+  });
+
+  factory AiExposureProxyUsageStatistics.fromJson(Object? raw) {
+    final json = _jsonMap(raw);
+    final recent = (json['recentRequests'] as List? ?? const <Object?>[])
+        .map(AiExposureProxyRequestSample.fromJson)
+        .toList(growable: false);
+    DateTime? timestamp(String key) {
+      final value = _nonNegativeInt(json[key], max: 8640000000000000);
+      return value <= 0 ? null : DateTime.fromMillisecondsSinceEpoch(value);
+    }
+
+    return AiExposureProxyUsageStatistics(
+      requests: _nonNegativeInt(json['requests']),
+      successes: _nonNegativeInt(json['successes']),
+      failures: _nonNegativeInt(json['failures']),
+      timeouts: _nonNegativeInt(json['timeouts']),
+      inFlight: _nonNegativeInt(json['inFlight']),
+      totalResponseTimeMs: _nonNegativeInt(json['totalResponseTimeMs']),
+      minResponseTimeMs: _nonNegativeInt(json['minResponseTimeMs']),
+      maxResponseTimeMs: _nonNegativeInt(json['maxResponseTimeMs']),
+      status2xx: _nonNegativeInt(json['status2xx']),
+      status3xx: _nonNegativeInt(json['status3xx']),
+      status4xx: _nonNegativeInt(json['status4xx']),
+      status5xx: _nonNegativeInt(json['status5xx']),
+      consecutiveFailures: _nonNegativeInt(json['consecutiveFailures']),
+      lastUsedAt: timestamp('lastUsedAtMs'),
+      lastSuccessAt: timestamp('lastSuccessAtMs'),
+      lastFailureAt: timestamp('lastFailureAtMs'),
+      lastError: json['lastError'] as String? ?? '',
+      recentRequests: recent.length <= kAiExposureProxyRequestSampleLimit
+          ? recent
+          : recent.sublist(recent.length - kAiExposureProxyRequestSampleLimit),
+    );
+  }
+
+  final int requests;
+  final int successes;
+  final int failures;
+  final int timeouts;
+  final int inFlight;
+  final int totalResponseTimeMs;
+  final int minResponseTimeMs;
+  final int maxResponseTimeMs;
+  final int status2xx;
+  final int status3xx;
+  final int status4xx;
+  final int status5xx;
+  final int consecutiveFailures;
+  final DateTime? lastUsedAt;
+  final DateTime? lastSuccessAt;
+  final DateTime? lastFailureAt;
+  final String lastError;
+  final List<AiExposureProxyRequestSample> recentRequests;
+
+  int get completed => successes + failures + timeouts;
+  int get averageResponseTimeMs =>
+      completed == 0 ? 0 : (totalResponseTimeMs / completed).round();
+  double get successRate => completed == 0 ? 0 : successes / completed;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'requests': requests,
+    'successes': successes,
+    'failures': failures,
+    'timeouts': timeouts,
+    'totalResponseTimeMs': totalResponseTimeMs,
+    'minResponseTimeMs': minResponseTimeMs,
+    'maxResponseTimeMs': maxResponseTimeMs,
+    'status2xx': status2xx,
+    'status3xx': status3xx,
+    'status4xx': status4xx,
+    'status5xx': status5xx,
+    'consecutiveFailures': consecutiveFailures,
+    'lastUsedAtMs': lastUsedAt?.millisecondsSinceEpoch ?? 0,
+    'lastSuccessAtMs': lastSuccessAt?.millisecondsSinceEpoch ?? 0,
+    'lastFailureAtMs': lastFailureAt?.millisecondsSinceEpoch ?? 0,
+    if (lastError.isNotEmpty) 'lastError': lastError,
+    if (recentRequests.isNotEmpty)
+      'recentRequests': recentRequests
+          .map((item) => item.toJson())
+          .toList(growable: false),
+  };
+}
+
+class AiExposureProxyIdentity {
+  const AiExposureProxyIdentity({
+    required this.exitIp,
+    required this.ipType,
+    required this.networkType,
+    required this.cleanliness,
+    required this.continent,
+    required this.country,
+    required this.countryCode,
+    required this.region,
+    required this.city,
+    required this.district,
+    required this.postalCode,
+    required this.timezone,
+    required this.currency,
+    required this.isp,
+    required this.organization,
+    required this.asn,
+    required this.asName,
+    required this.mobile,
+    required this.proxy,
+    required this.hosting,
+    required this.latitude,
+    required this.longitude,
+    required this.observedAt,
+  });
+
+  factory AiExposureProxyIdentity.fromJson(Object? raw) {
+    final json = _jsonMap(raw);
+    return AiExposureProxyIdentity(
+      exitIp: json['exitIp'] as String? ?? '',
+      ipType: json['ipType'] as String? ?? '--',
+      networkType: json['networkType'] as String? ?? '--',
+      cleanliness: json['cleanliness'] as String? ?? '--',
+      continent: json['continent'] as String? ?? '',
+      country: json['country'] as String? ?? '',
+      countryCode: json['countryCode'] as String? ?? '',
+      region: json['region'] as String? ?? '',
+      city: json['city'] as String? ?? '',
+      district: json['district'] as String? ?? '',
+      postalCode: json['postalCode'] as String? ?? '',
+      timezone: json['timezone'] as String? ?? '',
+      currency: json['currency'] as String? ?? '',
+      isp: json['isp'] as String? ?? '',
+      organization: json['organization'] as String? ?? '',
+      asn: json['asn'] as String? ?? '',
+      asName: json['asName'] as String? ?? '',
+      mobile: json['mobile'] as bool? ?? false,
+      proxy: json['proxy'] as bool? ?? false,
+      hosting: json['hosting'] as bool? ?? false,
+      latitude: (json['latitude'] as num?)?.toDouble(),
+      longitude: (json['longitude'] as num?)?.toDouble(),
+      observedAt:
+          DateTime.tryParse(json['observedAt'] as String? ?? '') ??
+          DateTime.now(),
+    );
+  }
+
+  final String exitIp;
+  final String ipType;
+  final String networkType;
+  final String cleanliness;
+  final String continent;
+  final String country;
+  final String countryCode;
+  final String region;
+  final String city;
+  final String district;
+  final String postalCode;
+  final String timezone;
+  final String currency;
+  final String isp;
+  final String organization;
+  final String asn;
+  final String asName;
+  final bool mobile;
+  final bool proxy;
+  final bool hosting;
+  final double? latitude;
+  final double? longitude;
+  final DateTime observedAt;
+
+  String get location => <String>[
+    country,
+    region,
+    city,
+    district,
+  ].where((item) => item.trim().isNotEmpty).join(' / ');
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'exitIp': exitIp,
+    'ipType': ipType,
+    'networkType': networkType,
+    'cleanliness': cleanliness,
+    'continent': continent,
+    'country': country,
+    'countryCode': countryCode,
+    'region': region,
+    'city': city,
+    'district': district,
+    'postalCode': postalCode,
+    'timezone': timezone,
+    'currency': currency,
+    'isp': isp,
+    'organization': organization,
+    'asn': asn,
+    'asName': asName,
+    'mobile': mobile,
+    'proxy': proxy,
+    'hosting': hosting,
+    if (latitude != null) 'latitude': latitude,
+    if (longitude != null) 'longitude': longitude,
+    'observedAt': observedAt.toIso8601String(),
+  };
+}
+
 class AiExposureProxyEndpoint {
   const AiExposureProxyEndpoint({
     required this.url,
     this.name = '',
     this.enabled = true,
     this.samples = const <AiExposureProxyProbeSample>[],
+    this.statistics = const AiExposureProxyUsageStatistics(),
+    this.identity,
   });
 
   factory AiExposureProxyEndpoint.parse(String input) {
@@ -307,6 +579,10 @@ class AiExposureProxyEndpoint {
           : samples.sublist(
               samples.length - kAiExposureProxyLatencySampleLimit,
             ),
+      statistics: AiExposureProxyUsageStatistics.fromJson(json['statistics']),
+      identity: json['identity'] == null
+          ? null
+          : AiExposureProxyIdentity.fromJson(json['identity']),
     );
   }
 
@@ -314,6 +590,8 @@ class AiExposureProxyEndpoint {
   final String name;
   final bool enabled;
   final List<AiExposureProxyProbeSample> samples;
+  final AiExposureProxyUsageStatistics statistics;
+  final AiExposureProxyIdentity? identity;
 
   AiExposureProxyProbeSample? get latestSample => samples.lastOrNull;
 
@@ -328,10 +606,15 @@ class AiExposureProxyEndpoint {
   String get displayName =>
       name.trim().isEmpty ? Uri.parse(url).host : name.trim();
 
+  String get runtimeId =>
+      sha256.convert(utf8.encode(url)).toString().substring(0, 12);
+
   AiExposureProxyEndpoint copyWith({
     String? name,
     bool? enabled,
     List<AiExposureProxyProbeSample>? samples,
+    AiExposureProxyUsageStatistics? statistics,
+    AiExposureProxyIdentity? identity,
   }) => AiExposureProxyEndpoint(
     url: url,
     name: name ?? this.name,
@@ -339,6 +622,8 @@ class AiExposureProxyEndpoint {
     samples: List<AiExposureProxyProbeSample>.unmodifiable(
       samples ?? this.samples,
     ),
+    statistics: statistics ?? this.statistics,
+    identity: identity ?? this.identity,
   );
 
   AiExposureProxyEndpoint withSample(AiExposureProxyProbeSample sample) {
@@ -352,15 +637,18 @@ class AiExposureProxyEndpoint {
     return copyWith(samples: updated);
   }
 
-  Map<String, Object?> toJson() => <String, Object?>{
-    'url': url,
-    if (name.trim().isNotEmpty) 'name': name.trim(),
-    'enabled': enabled,
-    if (samples.isNotEmpty)
-      'samples': samples
-          .map((sample) => sample.toJson())
-          .toList(growable: false),
-  };
+  Map<String, Object?> toJson({bool includeStatistics = true}) =>
+      <String, Object?>{
+        'url': url,
+        if (name.trim().isNotEmpty) 'name': name.trim(),
+        'enabled': enabled,
+        if (samples.isNotEmpty)
+          'samples': samples
+              .map((sample) => sample.toJson())
+              .toList(growable: false),
+        if (includeStatistics) 'statistics': statistics.toJson(),
+        if (identity != null) 'identity': identity!.toJson(),
+      };
 }
 
 class AiExposureProxyConfiguration {
@@ -428,18 +716,22 @@ class AiExposureProxyConfiguration {
   List<AiExposureProxyEndpoint> get activeEndpoints =>
       endpoints.where((endpoint) => endpoint.enabled).toList(growable: false);
 
-  Map<String, Object?> toJson() => <String, Object?>{
-    'enabled': enabled,
-    'strategy': strategy.id,
-    'rotationEvery': rotationEvery.clamp(1, 10000),
-    'bypassLocal': bypassLocal,
-    'endpoints': endpoints
-        .map((endpoint) => endpoint.toJson())
-        .toList(growable: false),
-    'inspectionEnabled': inspectionEnabled,
-    'inspectionIntervalMinutes': inspectionIntervalMinutes.clamp(1, 1440),
-    'inspectionConcurrency': inspectionConcurrency.clamp(1, 32),
-  };
+  Map<String, Object?> toJson({bool includeStatistics = true}) =>
+      <String, Object?>{
+        'enabled': enabled,
+        'strategy': strategy.id,
+        'rotationEvery': rotationEvery.clamp(1, 10000),
+        'bypassLocal': bypassLocal,
+        'endpoints': endpoints
+            .map(
+              (endpoint) =>
+                  endpoint.toJson(includeStatistics: includeStatistics),
+            )
+            .toList(growable: false),
+        'inspectionEnabled': inspectionEnabled,
+        'inspectionIntervalMinutes': inspectionIntervalMinutes.clamp(1, 1440),
+        'inspectionConcurrency': inspectionConcurrency.clamp(1, 32),
+      };
 
   Map<String, Object?> toRuntimeJson() => <String, Object?>{
     'enabled': enabled,
@@ -447,7 +739,12 @@ class AiExposureProxyConfiguration {
     'rotationEvery': rotationEvery.clamp(1, 10000),
     'bypassLocal': bypassLocal,
     'endpoints': activeEndpoints
-        .map((endpoint) => endpoint.url)
+        .map(
+          (endpoint) => <String, Object?>{
+            'url': endpoint.url,
+            'statistics': endpoint.statistics.toJson(),
+          },
+        )
         .toList(growable: false),
   };
 
@@ -480,6 +777,7 @@ class AiExposureProxyEndpointStatus {
     required this.id,
     required this.address,
     required this.selections,
+    required this.statistics,
   });
 
   factory AiExposureProxyEndpointStatus.fromJson(Map<String, Object?> json) =>
@@ -487,11 +785,13 @@ class AiExposureProxyEndpointStatus {
         id: json['id'] as String? ?? '',
         address: json['address'] as String? ?? '',
         selections: (json['selections'] as num?)?.toInt() ?? 0,
+        statistics: AiExposureProxyUsageStatistics.fromJson(json['statistics']),
       );
 
   final String id;
   final String address;
   final int selections;
+  final AiExposureProxyUsageStatistics statistics;
 }
 
 class AiExposureProxyStatus {
@@ -501,6 +801,11 @@ class AiExposureProxyStatus {
     required this.rotationEvery,
     required this.bypassLocal,
     required this.totalSelections,
+    required this.totalSuccesses,
+    required this.totalFailures,
+    required this.totalTimeouts,
+    required this.inFlight,
+    required this.averageResponseTimeMs,
     required this.endpoints,
   });
 
@@ -511,6 +816,12 @@ class AiExposureProxyStatus {
         rotationEvery: (json['rotationEvery'] as num?)?.toInt() ?? 1,
         bypassLocal: json['bypassLocal'] as bool? ?? true,
         totalSelections: (json['totalSelections'] as num?)?.toInt() ?? 0,
+        totalSuccesses: (json['totalSuccesses'] as num?)?.toInt() ?? 0,
+        totalFailures: (json['totalFailures'] as num?)?.toInt() ?? 0,
+        totalTimeouts: (json['totalTimeouts'] as num?)?.toInt() ?? 0,
+        inFlight: (json['inFlight'] as num?)?.toInt() ?? 0,
+        averageResponseTimeMs:
+            (json['averageResponseTimeMs'] as num?)?.toInt() ?? 0,
         endpoints: (json['endpoints'] as List? ?? const <Object?>[])
             .map(
               (item) => AiExposureProxyEndpointStatus.fromJson(_jsonMap(item)),
@@ -523,6 +834,11 @@ class AiExposureProxyStatus {
   final int rotationEvery;
   final bool bypassLocal;
   final int totalSelections;
+  final int totalSuccesses;
+  final int totalFailures;
+  final int totalTimeouts;
+  final int inFlight;
+  final int averageResponseTimeMs;
   final List<AiExposureProxyEndpointStatus> endpoints;
 }
 
@@ -822,20 +1138,23 @@ class AiExposurePreferences {
   final String externalAddress;
   final AiExposureProxyConfiguration proxyConfiguration;
 
-  Map<String, Object?> toJson() => <String, Object?>{
-    'enabledSources': enabledSources
-        .map((source) => source.id)
-        .toList(growable: false),
-    'defaultConcurrency': defaultConcurrency,
-    'defaultValidationMode':
-        defaultValidationMode == AiExposureValidationMode.authorizedActive
-        ? 'authorized_active'
-        : 'passive',
-    'defaultGptAssisted': defaultGptAssisted,
-    'useBundledEngine': useBundledEngine,
-    'externalAddress': externalAddress,
-    'proxy': proxyConfiguration.toJson(),
-  };
+  Map<String, Object?> toJson({bool includeProxyStatistics = true}) =>
+      <String, Object?>{
+        'enabledSources': enabledSources
+            .map((source) => source.id)
+            .toList(growable: false),
+        'defaultConcurrency': defaultConcurrency,
+        'defaultValidationMode':
+            defaultValidationMode == AiExposureValidationMode.authorizedActive
+            ? 'authorized_active'
+            : 'passive',
+        'defaultGptAssisted': defaultGptAssisted,
+        'useBundledEngine': useBundledEngine,
+        'externalAddress': externalAddress,
+        'proxy': proxyConfiguration.toJson(
+          includeStatistics: includeProxyStatistics,
+        ),
+      };
 }
 
 Map<String, Object?> aiExposureJsonMap(Object? value) => _jsonMap(value);
@@ -847,3 +1166,8 @@ Map<String, Object?> _jsonMap(Object? value) => value is Map
 List<String> _stringList(Object? value) => value is List
     ? value.whereType<Object>().map((item) => '$item').toList(growable: false)
     : const <String>[];
+
+int _nonNegativeInt(Object? value, {int max = 0x1fffffffffffff}) {
+  final parsed = (value as num?)?.toInt() ?? 0;
+  return parsed.clamp(0, max).toInt();
+}

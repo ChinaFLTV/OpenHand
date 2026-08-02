@@ -12,6 +12,7 @@ import 'service/ai_jungler_runtime.dart';
 
 const int _kAiExposureMaxLogs = 5000;
 const int _kMaxProxyInspectionConcurrency = 32;
+const Duration _kProxyStatisticsSyncInterval = Duration(seconds: 5);
 
 class ServicesController extends ChangeNotifier {
   ServicesController({
@@ -62,9 +63,11 @@ class ServicesController extends ChangeNotifier {
   AiExposureProxyConfiguration _proxyConfiguration =
       AiExposureProxyConfiguration.defaults();
   Timer? _proxyInspectionTimer;
+  Timer? _proxyStatisticsTimer;
   bool _proxyInspectionBusy = false;
   bool _proxyInspectionRunning = false;
   int _proxyInspectionGeneration = 0;
+  bool _proxyStatisticsSyncing = false;
   final List<AiExposureLogEntry> _logs = <AiExposureLogEntry>[];
   String? _errorMessage;
   bool _busy = false;
@@ -143,6 +146,7 @@ class ServicesController extends ChangeNotifier {
         ),
       );
       await refreshData();
+      _scheduleProxyStatisticsSync();
     } catch (error, stack) {
       _lifecycle = _runtime.client == null
           ? AiExposureServiceLifecycle.error
@@ -174,6 +178,7 @@ class ServicesController extends ChangeNotifier {
       await client.updateProxy(_proxyConfiguration);
       _lifecycle = AiExposureServiceLifecycle.running;
       await refreshData();
+      _scheduleProxyStatisticsSync();
       return true;
     } catch (error, stack) {
       _lifecycle = _runtime.client == null
@@ -194,6 +199,9 @@ class ServicesController extends ChangeNotifier {
     _lifecycle = AiExposureServiceLifecycle.stopping;
     _notify();
     try {
+      await _syncProxyStatistics();
+      _proxyStatisticsTimer?.cancel();
+      _proxyStatisticsTimer = null;
       await _eventSubscription?.cancel();
       _eventSubscription = null;
       await _runtime.stop();
@@ -242,6 +250,7 @@ class ServicesController extends ChangeNotifier {
       _aiExtractorStatus = values[5] as AiExposureAiExtractorStatus;
       _dependencyStatus = values[6] as AiExposureDependencyStatus;
       _proxyStatus = values[7] as AiExposureProxyStatus;
+      await _mergeProxyStatistics(_proxyStatus!);
       _errorMessage = null;
     } catch (error, stack) {
       _errorMessage = '$error';
@@ -265,6 +274,7 @@ class ServicesController extends ChangeNotifier {
       _sourceStatus = values[2] as Map<String, bool>;
       _dependencyStatus = values[3] as AiExposureDependencyStatus;
       _proxyStatus = values[4] as AiExposureProxyStatus;
+      await _mergeProxyStatistics(_proxyStatus!);
       _errorMessage = null;
     } catch (error, stack) {
       _errorMessage = '$error';
@@ -396,7 +406,11 @@ class ServicesController extends ChangeNotifier {
         _proxyStatus = await client.proxyStatus();
       }
       _proxyConfiguration = configuration;
+      if (_proxyStatus != null) {
+        await _mergeProxyStatistics(_proxyStatus!);
+      }
       _scheduleProxyInspection();
+      _scheduleProxyStatisticsSync();
       await _persistPreferences();
       _errorMessage = null;
       _appendLog(
@@ -503,6 +517,97 @@ class ServicesController extends ChangeNotifier {
       Duration(minutes: configuration.inspectionIntervalMinutes.clamp(1, 1440)),
       (_) => unawaited(inspectAllProxies()),
     );
+  }
+
+  void _scheduleProxyStatisticsSync() {
+    _proxyStatisticsTimer?.cancel();
+    _proxyStatisticsTimer = null;
+    if (_client == null || !_proxyConfiguration.enabled) return;
+    _proxyStatisticsTimer = Timer.periodic(
+      _kProxyStatisticsSyncInterval,
+      (_) => unawaited(_syncProxyStatistics(notify: true)),
+    );
+  }
+
+  Future<void> _syncProxyStatistics({bool notify = false}) async {
+    if (_proxyStatisticsSyncing || _client == null || _disposed) return;
+    _proxyStatisticsSyncing = true;
+    try {
+      final status = await _client!.proxyStatus();
+      final changed = await _mergeProxyStatistics(status);
+      _proxyStatus = status;
+      if (notify && changed) _notify();
+    } catch (error, stack) {
+      silentLog('services_controller', '同步代理使用统计', error, stack);
+    } finally {
+      _proxyStatisticsSyncing = false;
+    }
+  }
+
+  Future<bool> _mergeProxyStatistics(AiExposureProxyStatus status) async {
+    final byId = <String, AiExposureProxyEndpointStatus>{
+      for (final item in status.endpoints) item.id: item,
+    };
+    var changed = false;
+    var runtimeChanged = false;
+    final changedEndpoints = <AiExposureProxyEndpoint>[];
+    final endpoints = _proxyConfiguration.endpoints
+        .map((endpoint) {
+          final runtime = byId[endpoint.runtimeId];
+          if (runtime == null) return endpoint;
+          final current = endpoint.statistics;
+          final next = runtime.statistics;
+          final statisticsChanged =
+              current.requests != next.requests ||
+              current.successes != next.successes ||
+              current.failures != next.failures ||
+              current.timeouts != next.timeouts ||
+              current.totalResponseTimeMs != next.totalResponseTimeMs ||
+              current.minResponseTimeMs != next.minResponseTimeMs ||
+              current.maxResponseTimeMs != next.maxResponseTimeMs ||
+              current.status2xx != next.status2xx ||
+              current.status3xx != next.status3xx ||
+              current.status4xx != next.status4xx ||
+              current.status5xx != next.status5xx ||
+              current.consecutiveFailures != next.consecutiveFailures ||
+              current.lastUsedAt != next.lastUsedAt ||
+              current.lastSuccessAt != next.lastSuccessAt ||
+              current.lastFailureAt != next.lastFailureAt ||
+              current.lastError != next.lastError ||
+              current.recentRequests.length != next.recentRequests.length;
+          final updated = endpoint.copyWith(statistics: next);
+          if (statisticsChanged) {
+            changed = true;
+            changedEndpoints.add(updated);
+          }
+          if (current.inFlight != next.inFlight) runtimeChanged = true;
+          return updated;
+        })
+        .toList(growable: false);
+    if (changed) {
+      await _preferencesStore.saveProxyStatistics(changedEndpoints);
+    }
+    if (changed || runtimeChanged) {
+      _proxyConfiguration = _proxyConfiguration.copyWith(endpoints: endpoints);
+    }
+    return changed || runtimeChanged;
+  }
+
+  Future<void> updateProxyIdentity(
+    String url,
+    AiExposureProxyIdentity identity,
+  ) async {
+    final index = _proxyConfiguration.endpoints.indexWhere(
+      (endpoint) => endpoint.url == url,
+    );
+    if (index < 0) return;
+    final endpoints = List<AiExposureProxyEndpoint>.of(
+      _proxyConfiguration.endpoints,
+    );
+    endpoints[index] = endpoints[index].copyWith(identity: identity);
+    _proxyConfiguration = _proxyConfiguration.copyWith(endpoints: endpoints);
+    await _persistPreferences();
+    _notify();
   }
 
   Future<void> refreshServiceLogs() async {
@@ -775,10 +880,13 @@ class ServicesController extends ChangeNotifier {
 
   Future<void> shutdown() async {
     if (_disposed) return;
+    await _syncProxyStatistics();
     _disposed = true;
     _proxyInspectionGeneration++;
     _proxyInspectionTimer?.cancel();
     _proxyInspectionTimer = null;
+    _proxyStatisticsTimer?.cancel();
+    _proxyStatisticsTimer = null;
     await _eventSubscription?.cancel();
     await _runtimeLogSubscription?.cancel();
     await _runtimeExitSubscription?.cancel();
