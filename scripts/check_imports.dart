@@ -6,8 +6,8 @@ import 'dart:io';
 ///      '<b>_controller.dart' 三者之一，视为深路径跨 feature import。
 ///   2. clients/web/src/features/<a>/**/*.{ts,tsx} 中禁止深路径
 ///      '@/features/<b>/<sub>/...' 或 '../<b>/<sub>/...'（b != a，sub 非 index*）。
-///   3. lib/ 业务代码禁止直接调用 Flutter 原生弹窗 API；统一通过
-///      shared/ui/animated_dialog.dart 接入全局弹窗动效。
+///   3. lib/ 业务代码禁止直接调用 Flutter 原生弹窗、菜单及底部面板 API；
+///      统一通过 shared/ui 的全局动画入口展示。
 ///
 /// 同 feature 内部 import 不限制；该脚本只约束跨 feature 深路径依赖。
 ///
@@ -104,9 +104,12 @@ Future<int> _scanDialogApis(String root) async {
     '${Platform.pathSeparator}ui${Platform.pathSeparator}animated_dialog.dart',
   );
   final forbiddenApi = RegExp(
-    r'\b(showDialog|showGeneralDialog|showCupertinoDialog|showModalBottomSheet)'
-    r'\s*(?:<[^>\n]+>)?\s*\('
-    r'|\b(DialogRoute|RawDialogRoute)\s*(?:<[^>\n]+>)?\s*\(',
+    r'\b(showDialog|showGeneralDialog|showAdaptiveDialog|showCupertinoDialog'
+    r'|showCupertinoModalPopup|showModalBottomSheet|showBottomSheet'
+    r'|showDatePicker|showDateRangePicker|showTimePicker|showAboutDialog'
+    r'|showLicensePage|showSearch|showMenu)\s*(?:<[^>\n]+>)?\s*\('
+    r'|\b(DialogRoute|RawDialogRoute|CupertinoDialogRoute'
+    r'|ModalBottomSheetRoute|PopupMenuRoute)\s*(?:<[^>\n]+>)?\s*\(',
   );
   var violations = 0;
 
@@ -122,7 +125,7 @@ Future<int> _scanDialogApis(String root) async {
         final api = match.group(1) ?? match.group(2) ?? '原生弹窗 API';
         stderr.writeln(
           '${entity.path}:${i + 1} 业务代码禁止直接调用 $api；'
-          '请使用 animated_dialog.dart 统一入口',
+          '请使用 shared/ui 的全局动画入口',
         );
         violations++;
       }
