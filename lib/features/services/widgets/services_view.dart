@@ -69,6 +69,14 @@ class _AiExposureServiceCard extends StatelessWidget {
             int resultCount,
             int enabledRuleCount,
             int configuredSourceCount,
+            int enabledSourceCount,
+            int defaultConcurrency,
+            AiExposureValidationMode defaultValidationMode,
+            bool defaultGptAssisted,
+            bool proxyEnabled,
+            int activeProxyCount,
+            bool postgresqlEnabled,
+            bool redisEnabled,
             String? error,
             bool busy,
           })
@@ -85,6 +93,16 @@ class _AiExposureServiceCard extends StatelessWidget {
             configuredSourceCount: controller.sourceStatus.values
                 .where((configured) => configured)
                 .length,
+            enabledSourceCount: controller.enabledSources.length,
+            defaultConcurrency: controller.defaultConcurrency,
+            defaultValidationMode: controller.defaultValidationMode,
+            defaultGptAssisted: controller.defaultGptAssisted,
+            proxyEnabled: controller.proxyConfiguration.enabled,
+            activeProxyCount: controller.proxyConfiguration.endpoints
+                .where((endpoint) => endpoint.enabled)
+                .length,
+            postgresqlEnabled: controller.postgresqlEnabled,
+            redisEnabled: controller.redisEnabled,
             error: controller.errorMessage,
             busy: controller.busy,
           ),
@@ -92,9 +110,33 @@ class _AiExposureServiceCard extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final l10n = AppLocalizations.of(context)!;
+    final text = openHandTextResolver(context);
     final controller = context.read<ServicesController>();
     final running = snapshot.lifecycle == AiExposureServiceLifecycle.running;
     final toneColor = running ? cs.primary : cs.outline;
+    final capabilitySummary = <String>[
+      text(
+        zh: '启用来源 ${snapshot.enabledSourceCount}',
+        en: 'Sources ${snapshot.enabledSourceCount}',
+      ),
+      snapshot.defaultValidationMode ==
+              AiExposureValidationMode.authorizedActive
+          ? text(zh: '授权主动验证', en: 'Authorized active validation')
+          : text(zh: '被动验证', en: 'Passive validation'),
+      text(
+        zh: '默认并发 ${snapshot.defaultConcurrency}',
+        en: 'Concurrency ${snapshot.defaultConcurrency}',
+      ),
+      snapshot.proxyEnabled
+          ? text(
+              zh: '代理节点 ${snapshot.activeProxyCount}',
+              en: 'Proxies ${snapshot.activeProxyCount}',
+            )
+          : text(zh: '网络直连', en: 'Direct connection'),
+      if (snapshot.defaultGptAssisted) text(zh: 'GPT 辅助', en: 'GPT assisted'),
+      if (snapshot.postgresqlEnabled) 'PostgreSQL',
+      if (snapshot.redisEnabled) 'Redis',
+    ].join(' · ');
 
     return Card(
       key: const ValueKey<String>('ai-infrastructure-exposure-service-card'),
@@ -213,11 +255,7 @@ class _AiExposureServiceCard extends StatelessWidget {
                 ],
                 const SizedBox(height: 14),
                 Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '暴露面发现 · 凭证风险识别 · 产品指纹 · 并发验证 · 加密归档',
-                    en: 'Exposure discovery · credential risk detection · fingerprinting · concurrent validation · encrypted archive',
-                  ),
+                  capabilitySummary,
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -228,8 +266,6 @@ class _AiExposureServiceCard extends StatelessWidget {
                   const SizedBox(height: 12),
                   _ServiceError(message: snapshot.error!),
                 ],
-                const SizedBox(height: 12),
-                _AuthorizationNotice(label: l10n.servicesAuthorizationHint),
               ],
             );
           },
@@ -550,33 +586,6 @@ class _ServiceError extends StatelessWidget {
             style: Theme.of(
               context,
             ).textTheme.bodySmall?.copyWith(color: cs.error),
-          ),
-        ),
-      ],
-    );
-  }
-}
-
-class _AuthorizationNotice extends StatelessWidget {
-  const _AuthorizationNotice({required this.label});
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(Icons.shield_outlined, size: 17, color: cs.onSurfaceVariant),
-        const SizedBox(width: 8),
-        Expanded(
-          child: Text(
-            label,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: cs.onSurfaceVariant,
-              height: 1.4,
-            ),
           ),
         ),
       ],
