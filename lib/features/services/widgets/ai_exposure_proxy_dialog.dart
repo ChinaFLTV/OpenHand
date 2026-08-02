@@ -109,6 +109,10 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         item.id: item.statistics,
     };
     final visibleEndpoints = _sortedEndpoints();
+    final visibleEndpointIndexByKey = <Key, int>{
+      for (var index = 0; index < visibleEndpoints.length; index++)
+        ValueKey<String>(visibleEndpoints[index].url): index,
+    };
     return ServiceDialogInteractionTheme(
       child: Padding(
         padding: const EdgeInsets.all(22),
@@ -233,13 +237,12 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                 ),
               )
             else
-              SliverList.builder(
-                itemCount: visibleEndpoints.length,
-                itemBuilder: (context, index) {
-                  final endpoint = visibleEndpoints[index];
-                  return KeyedSubtree(
-                    key: ValueKey<String>(endpoint.url),
-                    child: OpenHandListRemovalTransition(
+              SliverList(
+                delegate: SliverChildBuilderDelegate(
+                  (context, index) {
+                    final endpoint = visibleEndpoints[index];
+                    return OpenHandListRemovalTransition(
+                      key: ValueKey<String>(endpoint.url),
                       collapsed: _removingUrls.contains(endpoint.url),
                       child: Padding(
                         padding: const EdgeInsets.only(bottom: 8),
@@ -279,9 +282,12 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                           ),
                         ),
                       ),
-                    ),
-                  );
-                },
+                    );
+                  },
+                  childCount: visibleEndpoints.length,
+                  findChildIndexCallback: (key) =>
+                      visibleEndpointIndexByKey[key],
+                ),
               ),
             SliverToBoxAdapter(
               child: Padding(
