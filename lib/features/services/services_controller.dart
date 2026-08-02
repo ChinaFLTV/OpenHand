@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../plugin_service/index.dart';
 import 'data/ai_exposure_preferences_store.dart';
@@ -638,9 +639,11 @@ class ServicesController extends ChangeNotifier {
         configuration.activeEndpoints.isEmpty) {
       return;
     }
-    _proxyInspectionTimer = Timer.periodic(
+    _proxyInspectionTimer = startSafePeriodicTimer(
       Duration(minutes: configuration.inspectionIntervalMinutes.clamp(1, 1440)),
-      (_) => unawaited(inspectAllProxies()),
+      (_) => inspectAllProxies(),
+      onError: (error, stack) =>
+          silentLog('services_controller', '执行定时代理巡检', error, stack),
     );
   }
 
@@ -648,9 +651,11 @@ class ServicesController extends ChangeNotifier {
     _proxyStatisticsTimer?.cancel();
     _proxyStatisticsTimer = null;
     if (_client == null || !_proxyConfiguration.enabled) return;
-    _proxyStatisticsTimer = Timer.periodic(
+    _proxyStatisticsTimer = startSafePeriodicTimer(
       _kProxyStatisticsSyncInterval,
-      (_) => unawaited(_syncProxyStatistics(notify: true)),
+      (_) => _syncProxyStatistics(notify: true),
+      onError: (error, stack) =>
+          silentLog('services_controller', '执行定时代理统计同步', error, stack),
     );
   }
 
@@ -914,7 +919,13 @@ class ServicesController extends ChangeNotifier {
         .listen(
           (event) {
             if (!_disposed && generation == _eventSubscriptionGeneration) {
-              _handleEvent(jobId, event);
+              try {
+                _handleEvent(jobId, event);
+              } catch (error, stack) {
+                _errorMessage = '扫描服务返回了无效的实时事件。';
+                silentLog('services_controller', '解析扫描实时事件', error, stack);
+                _notify();
+              }
             }
           },
           onError: (Object error, StackTrace stack) {

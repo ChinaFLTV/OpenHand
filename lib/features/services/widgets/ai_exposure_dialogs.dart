@@ -17,6 +17,7 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../plugin_service/index.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
@@ -152,7 +153,7 @@ class _StatusDialogState extends State<_StatusDialog> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
-    _timer = Timer.periodic(_kStatusRefreshInterval, (_) => _refresh());
+    _timer = startSafePeriodicTimer(_kStatusRefreshInterval, (_) => _refresh());
   }
 
   @override

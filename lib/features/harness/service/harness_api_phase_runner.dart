@@ -113,26 +113,8 @@ Map<String, Object?> buildHarnessHandoffFailureRecord({
   };
 }
 
-/// Executes a single Harness Engineering phase using an API-based model
-/// (URL mode) instead of a CLI tool. This bridges the gap between the
-/// Harness phase orchestration protocol and the standard AI session
-/// infrastructure (chat service, protocol adapters, tool runtime, MCP,
-/// memory, skills).
-///
-/// The runner performs an iterative agentic loop:
-///   1. Send the phase prompt + tool catalog to the model
-///   2. Parse the response for text and tool calls
-///   3. Execute tool calls (file I/O, bash, MCP, skills)
-///   4. Feed tool results back to the model
-///   5. Repeat until the model returns only text (no tool calls)
-///      or the round limit is reached
-///
-/// When the conversation context approaches the compression threshold,
-/// instead of discarding middle turns (as the default thread does), the
-/// runner generates a structured **handoff document**, persists it to
-/// the steering/handoff directory, then starts a **new session** with the
-/// handoff document injected as context — enabling seamless relay
-/// execution across context windows.
+/// 通过标准 AI 会话基础设施执行单个 Harness Engineering 阶段。
+/// 上下文接近压缩阈值时生成并持久化交接文档，再由新会话接力执行。
 class HarnessApiPhaseRunner {
   HarnessApiPhaseRunner({
     required AiChatClient chatClient,
@@ -158,10 +140,7 @@ class HarnessApiPhaseRunner {
   )?
   confirmWriteCommand;
 
-  /// 当 ToolSearch 在某个 phase 内成功匹配若干工具时被回调。
-  /// `loadedNames`：本次新增的完整工具名（已去重，按 ToolSearch 返回顺序）。
-  /// `totalLoadedSoFar`：phase 累计已匹配工具数。
-  /// `phaseSessionId`：所属 phase 会话 id，便于 UI 区分。
+  /// ToolSearch 在当前阶段新增匹配工具时回调。
   final void Function({
     required String phaseSessionId,
     required List<String> loadedNames,
@@ -171,9 +150,7 @@ class HarnessApiPhaseRunner {
   })?
   onToolSearchLoaded;
 
-  /// 当一个 phase 真正结束（无论 success/failure/cancel）时被回调一次。
-  /// 调用方可借此清理与 `phaseSessionId` 相关的 UI 累计缓存（例如
-  /// ToolSearch 加载历史时间线），避免长会话累积。
+  /// 阶段结束时回调一次，供调用方清理对应 UI 缓存。
   final void Function({required String phaseSessionId})? onPhaseEnded;
 
   /// 按 phaseSessionId 记录 ToolSearch 已匹配的工具名，仅用于 UI 统计。
@@ -193,19 +170,7 @@ class HarnessApiPhaseRunner {
   /// 交接会话编号，用于生成唯一文件名。
   int _handoffSessionCounter = 0;
 
-  /// Executes a harness phase via API call with full tool loop.
-  ///
-  /// [model] is the AiModelConfig from settings.
-  /// [phasePrompt] is the full phase prompt built by the orchestrator.
-  /// [phase] identifies the execution phase for constraint enforcement.
-  /// [runtimeContext] provides memory, skills, MCP, and environment.
-  /// [persistenceDirectory] is the session persistence root for handoff docs.
-  /// [onLine] streams output lines for real-time display.
-  /// [cancelSignal] can be used to abort the execution.
-  /// 公开入口。在调用真正的 phase 执行体前，先把 `phaseSessionId` 计算
-  /// 出来，并以 try/finally 形式保证 `onPhaseEnded` 总会被回调一次（不论
-  /// 成功 / 失败 / 异常 / 取消）。调用方可借此清理与该 phase 相关的 UI
-  /// 累计缓存（如 ToolSearch 加载历史时间线）。
+  /// 执行阶段并保证结束回调始终触发。
   Future<HarnessApiPhaseResult> runPhase({
     required AiModelConfig model,
     required HarnessPhase phase,
@@ -269,12 +234,7 @@ class HarnessApiPhaseRunner {
     final adapter = AiProtocolRegistry.adapterFor(model.protocolType);
     final supportsNativeToolCalls = adapter.supportsToolCalls;
 
-    // phaseSessionId is computed by the public `runPhase` wrapper and passed
-    // in, so the same id flows to both the inner body and `onPhaseEnded`.
-
-    // Resolve tool catalog (builtin + MCP + skills) for both native tool-call
-    // adapters and XML fallback adapters. Non-native adapters receive the
-    // catalog in the system prompt, but not in the protocol-level `tools` field.
+    // 原生工具调用和 XML 降级共用同一工具目录。
     final rawToolCatalog = await _toolRuntimeService.resolveCatalog(
       runtimeContext: runtimeContext,
       templateId: _harnessTemplateId,
@@ -317,7 +277,6 @@ class HarnessApiPhaseRunner {
       );
     }
 
-    // Filter tools based on phase constraints using HE-specific affinity.
     AiResolvedToolCatalog filterToolsForCurrentPhase(
       AiResolvedToolCatalog catalog,
     ) {
@@ -359,7 +318,6 @@ class HarnessApiPhaseRunner {
         ..writeln('日期：${runtimeContext.todayLocalDate}')
         ..writeln('时区：${runtimeContext.timeZoneName}');
 
-      // Inject memory if enabled.
       if (runtimeContext.memoryEnabled &&
           runtimeContext.memoryEntries.isNotEmpty) {
         systemContent
@@ -371,7 +329,6 @@ class HarnessApiPhaseRunner {
         }
       }
 
-      // Render compressed tool catalog for HE phases.
       if (currentPhaseToolCatalog.definitions.isNotEmpty) {
         systemContent
           ..writeln()
@@ -382,8 +339,7 @@ class HarnessApiPhaseRunner {
           );
       }
 
-      // Inject compact XML tool instructions only if the model doesn't
-      // support native tool calls (e.g., CLI mode fallback).
+      // 不支持原生工具调用时注入紧凑 XML 协议。
       if (harnessPromptBuilder.shouldInjectXmlInstructions(adapter)) {
         systemContent
           ..writeln()
@@ -449,20 +405,16 @@ class HarnessApiPhaseRunner {
     var toolRound = 0;
     var totalToolCalls = 0;
     final previouslyReadFiles = <String>{};
-    // Phase-specific deny rules: read-only phases should not allow file writes.
     final denyRules = _denyRulesForPhase(phase);
 
     try {
       while (true) {
-        // Check cancellation.
         if (await isCancelSignalCompleted(cancelSignal)) {
           emit('');
           emit('⚠ 已中止');
           return const HarnessApiPhaseResult.failure('执行被用户中止。');
         }
 
-        // Handoff if approaching context window limit: generate a handoff
-        // document and restart the session instead of simple truncation.
         final handoffResult = await _handoffIfNeeded(
           conversation,
           model: model,
@@ -476,13 +428,11 @@ class HarnessApiPhaseRunner {
           cancelSignal: cancelSignal,
         );
         if (handoffResult != null) {
-          // Replace conversation with fresh session seeded with handoff.
           conversation
             ..clear()
             ..addAll(handoffResult);
         }
 
-        // Send API request.
         final AiChatCompletion completion;
         try {
           completion = await AiUsageTraceContext.runDerived(
@@ -515,18 +465,12 @@ class HarnessApiPhaseRunner {
           return HarnessApiPhaseResult.failure('API 请求失败：$safeError');
         }
 
-        // Emit the model's text reply.
-        // When the model provides native tool_calls alongside inline XML,
-        // strip the duplicate XML.  When native tool_calls is empty but
-        // the text contains <tool_calls> XML, parse the XML to recover
-        // the tool calls instead of discarding them.
+        // 原生调用优先；仅在原生调用缺失时解析文本中的 XML 调用。
         var toolCalls = completion.toolCalls;
         String reply;
         if (toolCalls.isNotEmpty) {
-          // Native tool calls present — strip duplicate XML from text.
           reply = _stripInlineToolCallsXml(completion.reply.trim());
         } else {
-          // No native tool calls — try parsing XML tool calls from text.
           final rawReply = completion.reply.trim();
           final parsedXmlCalls = _parseXmlToolCalls(rawReply);
           if (parsedXmlCalls.isNotEmpty) {
@@ -539,8 +483,7 @@ class HarnessApiPhaseRunner {
           }
         }
 
-        // Emit reasoning / thinking content as a separate segment so
-        // the dashboard renders it as an independent thinking card.
+        // 推理内容单独成段，供面板渲染为独立卡片。
         final reasoning = completion.reasoningContent;
         if (reasoning != null && reasoning.trim().isNotEmpty) {
           emit('');
@@ -551,9 +494,7 @@ class HarnessApiPhaseRunner {
         }
 
         if (reply.isNotEmpty) {
-          // Emit a role marker before the reply so the sub-conversation
-          // parser creates a separate card instead of merging the reply
-          // into the previous tool-call segment.
+          // 角色标记用于阻止回复与上一工具调用卡片合并。
           if (toolRound > 0 ||
               (reasoning != null && reasoning.trim().isNotEmpty)) {
             emit('');
@@ -590,7 +531,6 @@ class HarnessApiPhaseRunner {
         }
         totalToolCalls += toolCalls.length;
 
-        // Add assistant message (text + tool calls) to conversation.
         conversation.add(
           AiChatTurn(
             role: AiChatRole.assistant,
@@ -599,7 +539,6 @@ class HarnessApiPhaseRunner {
           ),
         );
 
-        // Execute tool calls.
         final effectiveToolCalls = toolCalls.length > maxToolCallsPerRound
             ? toolCalls.sublist(0, maxToolCallsPerRound)
             : toolCalls;
@@ -608,8 +547,6 @@ class HarnessApiPhaseRunner {
           emit('');
           emit('⚙ 工具调用：${toolCall.name}');
 
-          // Emit structured tool arguments so the phase card can render
-          // them separately from the tool output.
           final argsMap = _tryDecodeJsonMap(toolCall.arguments);
           if (argsMap.isNotEmpty) {
             try {
@@ -644,7 +581,6 @@ class HarnessApiPhaseRunner {
             silentLog('harness_api_phase_runner', '记录工具调用统计失败', error, stack);
           }
 
-          // Track read files for deduplication.
           if (toolCall.name.toLowerCase().contains('read')) {
             final args = argsMap.isNotEmpty
                 ? argsMap
@@ -689,7 +625,6 @@ class HarnessApiPhaseRunner {
             }
           }
 
-          // Emit structured status metadata for the phase card.
           final statusLabel = result.status.storageValue;
           final durLabel = '${result.durationMs}ms';
           final exitLabel = result.exitCode != null
@@ -718,7 +653,6 @@ class HarnessApiPhaseRunner {
             }
           }
 
-          // Add tool result to conversation.
           conversation.add(
             AiChatTurn(
               role: AiChatRole.tool,
@@ -742,12 +676,10 @@ class HarnessApiPhaseRunner {
           );
         }
 
-        // If we had to truncate tool calls, note the excess.
         if (toolCalls.length > maxToolCallsPerRound) {
           final skipped = toolCalls.length - maxToolCallsPerRound;
           emit('');
           emit('ℹ 跳过 $skipped 个超出单轮限制的工具调用。');
-          // Add error results for skipped tool calls.
           for (var i = maxToolCallsPerRound; i < toolCalls.length; i++) {
             conversation.add(
               AiChatTurn(
@@ -782,17 +714,11 @@ class HarnessApiPhaseRunner {
     return const HarnessApiPhaseResult.success();
   }
 
-  /// Returns deny rules appropriate for the phase.
-  /// Read-only phases deny destructive/modifying bash commands that could
-  /// alter the project codebase. Safe operations like `mkdir` and `touch`
-  /// are allowed since they don't destroy existing content and may be
-  /// needed to create steering directory structures.
+  /// 返回当前阶段的命令拒绝规则；只读阶段允许创建引导目录。
   List<AiDenyCommandRule> _denyRulesForPhase(HarnessPhase phase) {
     if (phase == HarnessPhase.implementing) {
       return const <AiDenyCommandRule>[];
     }
-    // Read-only phases: deny destructive/code-modifying commands.
-    // Allow mkdir/touch for creating steering directory structure.
     return const <AiDenyCommandRule>[
       AiDenyCommandRule(
         id: 'harness_readonly_phase',
@@ -809,10 +735,7 @@ class HarnessApiPhaseRunner {
     multiLine: true,
   );
 
-  /// Strips `<tool_calls>…</tool_calls>` XML blocks from the model's text
-  /// reply.  These are duplicate representations of tool calls that are
-  /// already available via the native `tool_calls` array and should not be
-  /// rendered as visible text.
+  /// 移除模型文本中与原生工具调用重复的 XML 块。
   static String _stripInlineToolCallsXml(String text) {
     if (!text.contains('<tool_calls>')) return text;
     return text
@@ -821,18 +744,12 @@ class HarnessApiPhaseRunner {
         .trim();
   }
 
-  /// XML tool call item pattern: matches individual `<tool_call>` blocks.
   static final RegExp _xmlToolCallItemPattern = RegExp(
     r'<tool_call>\s*<tool_name>\s*(.*?)\s*</tool_name>\s*<parameters>\s*([\s\S]*?)\s*</parameters>\s*</tool_call>',
     multiLine: true,
   );
 
-  /// Parses `<tool_calls>` XML from the model's text reply into a list of
-  /// [AiToolCall] objects.  Returns an empty list if no valid XML tool
-  /// calls are found.
-  ///
-  /// This is the fallback path for models that emit tool calls as XML text
-  /// rather than through the native function-calling API.
+  /// 将模型文本中的 XML 工具调用解析为原生调用对象。
   static List<AiToolCall> _parseXmlToolCalls(String text) {
     if (!text.contains('<tool_calls>')) return const <AiToolCall>[];
     final calls = <AiToolCall>[];
@@ -849,15 +766,13 @@ class HarnessApiPhaseRunner {
     return calls;
   }
 
-  /// Sanitizes an error message by masking any auth tokens or API keys that
-  /// might have leaked into error strings (e.g. from HTTP 401 responses).
+  /// 屏蔽错误信息中可能泄漏的认证令牌和 API 密钥。
   String _sanitizeError(String raw, AiModelConfig model) {
     var sanitized = raw;
     final token = model.token;
     if (token.isNotEmpty && token.length >= 8) {
       sanitized = sanitized.replaceAll(token, '****');
     }
-    // Mask query params that might contain keys (e.g. ?key=...).
     sanitized = sanitized.replaceAll(
       RegExp(
         r'[?&](key|token|api_key|apikey|access_token)=[^&\s]+',
@@ -868,7 +783,7 @@ class HarnessApiPhaseRunner {
     return clipTextWithEllipsis(sanitized, _maxErrorCharacters);
   }
 
-  /// Estimates the total token count of the conversation.
+  /// 估算会话占用的 Token 数量。
   int _estimateConversationTokens(
     List<AiChatTurn> conversation, {
     int charactersPerToken = _estimatedCharsPerToken,
@@ -883,12 +798,7 @@ class HarnessApiPhaseRunner {
     return totalChars ~/ math.max(1, charactersPerToken);
   }
 
-  /// Checks whether context has grown past the compression threshold and, if
-  /// so, triggers a handoff: asks the model to produce a structured handoff
-  /// document, persists it, then returns a fresh conversation seeded with
-  /// the handoff as context.
-  ///
-  /// Returns `null` when the context is still within budget (no handoff).
+  /// 上下文接近阈值时生成交接文档，并返回接力会话；无需交接时返回 `null`。
   Future<List<AiChatTurn>?> _handoffIfNeeded(
     List<AiChatTurn> conversation, {
     required AiModelConfig model,
@@ -903,8 +813,6 @@ class HarnessApiPhaseRunner {
   }) async {
     if (conversation.length <= _minConversationTurns) return null;
 
-    // Use the configurable compression threshold (from global AI settings)
-    // as the primary trigger, but also honour the model's context window.
     final compressionThresholdChars = runtimeContext.compressionThresholdChars;
     final modelCharBudget = contextWindowTokens * _estimatedCharsPerToken;
     final effectiveCharThreshold = math.min(
@@ -912,7 +820,6 @@ class HarnessApiPhaseRunner {
       modelCharBudget,
     );
 
-    // Estimate current conversation size in characters.
     var totalChars = 0;
     for (final turn in conversation) {
       totalChars += turn.content.length;
@@ -921,9 +828,7 @@ class HarnessApiPhaseRunner {
       }
     }
 
-    // Only trigger handoff when we've exceeded the threshold.
-    // Use 85% of threshold as trigger point to leave room for one more
-    // exchange before hitting the hard limit.
+    // 提前预留一轮交互空间，避免触及模型硬限制。
     if (totalChars < (effectiveCharThreshold * 0.85).round()) return null;
 
     emit('');
@@ -981,7 +886,6 @@ class HarnessApiPhaseRunner {
         reason: safeError,
         emit: emit,
       );
-      // Fallback: trim conversation the old way to keep going.
       _trimConversationFallback(
         conversation,
         contextWindowTokens: contextWindowTokens,
@@ -1259,7 +1163,7 @@ $phasePrompt
 ''';
   }
 
-  /// Simple fallback: trim old turns when handoff generation fails.
+  /// 交接失败时裁剪旧会话以继续执行。
   void _trimConversationFallback(
     List<AiChatTurn> conversation, {
     required int contextWindowTokens,

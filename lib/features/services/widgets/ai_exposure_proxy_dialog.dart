@@ -21,6 +21,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
 import '../service/ai_exposure_proxy_probe.dart';
 import '../services_controller.dart';
@@ -1341,7 +1342,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
 
   void _scheduleProbeResultFlush() {
     if (_resultFlushTimer?.isActive == true) return;
-    _resultFlushTimer = Timer(_kProbeResultFlushDelay, () {
+    _resultFlushTimer = startSafeTimer(_kProbeResultFlushDelay, () {
       _resultFlushTimer = null;
       _flushProbeResults();
     });

@@ -16,6 +16,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
 import 'service_dialog_controls.dart';
@@ -63,7 +64,10 @@ class _OperationsDialogState extends State<_OperationsDialog> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
-    _timer = Timer.periodic(_kOperationsRefreshInterval, (_) => _refresh());
+    _timer = startSafePeriodicTimer(
+      _kOperationsRefreshInterval,
+      (_) => _refresh(),
+    );
   }
 
   @override
