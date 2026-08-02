@@ -2325,9 +2325,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _lspDiagnosticsTimers.remove(filePath)?.cancel();
     _lspDiagnosticsTimers[filePath] = startSafeTimer(
       _editorLspDiagnosticsDebounce,
-      () {
-        unawaited(_refreshDiagnostics(filePath));
-      },
+      () => _refreshDiagnostics(filePath),
     );
   }
 
@@ -2486,9 +2484,10 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       unawaited(_refreshSymbols());
       return;
     }
-    _symbolRefreshTimer = startSafeTimer(_editorLspSymbolsDebounce, () {
-      unawaited(_refreshSymbols());
-    });
+    _symbolRefreshTimer = startSafeTimer(
+      _editorLspSymbolsDebounce,
+      _refreshSymbols,
+    );
   }
 
   Future<void> _refreshSymbols() async {
@@ -4433,7 +4432,8 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _diagnosticsByFile[filePath] = _mapLspDiagnostics(diagnostics);
         _diagnosticsStaleFiles.remove(filePath);
       });
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('file_explorer', '刷新 LSP 诊断', error, stack);
       if (!mounted || !widget.openFiles.contains(filePath)) {
         return;
       }
@@ -7071,16 +7071,14 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       );
       return;
     }
-    _signatureHelpDebounceTimer = startSafeTimer(delay, () {
+    _signatureHelpDebounceTimer = startSafeTimer(delay, () async {
       if (!mounted) {
         return;
       }
-      unawaited(
-        _requestSignatureHelp(
-          explicit: explicit,
-          triggerCharacter: triggerCharacter,
-          isRetrigger: _signatureHelpVisible,
-        ),
+      await _requestSignatureHelp(
+        explicit: explicit,
+        triggerCharacter: triggerCharacter,
+        isRetrigger: _signatureHelpVisible,
       );
     });
   }

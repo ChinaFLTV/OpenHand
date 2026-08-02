@@ -6014,7 +6014,7 @@ class WebMessagePlatformService {
         _sseSnapshotMinInterval - elapsed,
         () {
           throttleTimer = null;
-          unawaited(runSnapshot());
+          return runSnapshot();
         },
         onError: (error, stack) {
           silentLog('web_message_platform_service', '调度 SSE 快照', error, stack);

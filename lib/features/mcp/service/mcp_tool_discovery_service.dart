@@ -20,6 +20,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
@@ -2723,7 +2724,7 @@ class _StdioSession {
   void _scheduleStdoutDrain() {
     if (_stdoutDrainScheduled || _stdoutBuffer.isEmpty) return;
     _stdoutDrainScheduled = true;
-    Timer.run(() {
+    startSafeTimer(Duration.zero, () {
       _stdoutDrainScheduled = false;
       try {
         _drainStdoutBuffer();

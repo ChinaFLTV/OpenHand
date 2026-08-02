@@ -16,6 +16,7 @@ import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/version_compare.dart';
 
 /// 当前 LSP 子进程状态。
@@ -671,11 +672,19 @@ class WebReverseLspClient {
     if (_bufferDrainScheduled || _buf.isEmpty) return;
     final generation = _lifecycleGeneration;
     _bufferDrainScheduled = true;
-    Timer.run(() {
-      if (generation != _lifecycleGeneration) return;
-      _bufferDrainScheduled = false;
-      _drainStdoutBuffer();
-    });
+    startSafeTimer(
+      Duration.zero,
+      () {
+        if (generation != _lifecycleGeneration) return;
+        _bufferDrainScheduled = false;
+        _drainStdoutBuffer();
+      },
+      onError: (error, stack) {
+        if (generation != _lifecycleGeneration) return;
+        _bufferDrainScheduled = false;
+        _failProtocol('处理 LSP 输出失败：$error', stack: stack);
+      },
+    );
   }
 
   void _failProtocol(String message, {StackTrace? stack}) {

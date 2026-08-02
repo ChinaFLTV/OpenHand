@@ -1850,7 +1850,7 @@ class AiBashToolService {
       return;
     }
     session.idleTimer?.cancel();
-    session.idleTimer = startSafeTimer(_persistentSessionIdleTimeout, () {
+    session.idleTimer = startSafeTimer(_persistentSessionIdleTimeout, () async {
       session.idleTimer = null;
       if (_disposed ||
           session.inUse ||
@@ -1858,14 +1858,12 @@ class AiBashToolService {
           !identical(_persistentSessions[sessionId], session)) {
         return;
       }
-      unawaited(
-        _closePersistentSession(sessionId, expected: session).catchError((
-          Object error,
-          StackTrace stack,
-        ) {
-          silentLog('ai_bash_tool_service', '关闭空闲持久会话', error, stack);
-        }),
-      );
+      await _closePersistentSession(sessionId, expected: session).catchError((
+        Object error,
+        StackTrace stack,
+      ) {
+        silentLog('ai_bash_tool_service', '关闭空闲持久会话', error, stack);
+      });
     });
   }
 

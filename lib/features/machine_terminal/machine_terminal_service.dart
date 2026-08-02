@@ -1246,12 +1246,10 @@ class MachineTerminalService extends ChangeNotifier {
   void _startTerminalSoon(MachineTerminalSession terminal) {
     startSafeTimer(
       Duration.zero,
-      () {
+      () async {
         if (_isDisposed || terminal.isRunningOrStarting) return;
-        unawaited(
-          terminal.start().whenComplete(
-            () => _scheduleMetadataPersist(terminal.sessionId),
-          ),
+        await terminal.start().whenComplete(
+          () => _scheduleMetadataPersist(terminal.sessionId),
         );
       },
       onError: (error, stack) =>

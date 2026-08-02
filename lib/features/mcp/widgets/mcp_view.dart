@@ -2493,7 +2493,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     _endpointDiscoveryTimer?.cancel();
     _endpointDiscoveryTimer = startSafeTimer(
       _mcpOpsEndpointDiscoveryDebounce,
-      () => unawaited(_refreshAdvertisedHosts()),
+      _refreshAdvertisedHosts,
     );
     setState(() {
       _configMessage = null;

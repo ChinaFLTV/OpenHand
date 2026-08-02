@@ -2668,10 +2668,10 @@ class _AiLspSession {
       processedMessages += 1;
       if (processedMessages >= _maxMessagesPerDrain) {
         _bufferDrainScheduled = true;
-        Timer.run(() {
+        startSafeTimer(Duration.zero, () {
           _bufferDrainScheduled = false;
           if (!_shutdownRequested) _processBuffer();
-        });
+        }, onError: (error, stack) => _failProtocol(error, stack: stack));
         return;
       }
     }

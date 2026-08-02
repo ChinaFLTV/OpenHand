@@ -355,7 +355,7 @@ class _HeTokenUsageDialState extends State<_HeTokenUsageDial> {
     _refreshTimer?.cancel();
     _refreshTimer = startSafeTimer(_heTokenUsageRefreshDelay, () {
       _refreshTimer = null;
-      if (mounted) unawaited(_loadSummary());
+      if (mounted) return _loadSummary();
     });
   }
 

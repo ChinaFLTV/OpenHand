@@ -13,6 +13,7 @@ import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/argument_guards.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/duration_bounds.dart';
@@ -810,6 +811,14 @@ class McpServerOpsRuntime {
     var released = false;
     late final StreamController<List<int>> controller;
 
+    Future<void> closeController() async {
+      await runAsyncCleanupBounded(
+        controller.close,
+        onError: (error, stack) =>
+            silentLog('mcp_server_ops_runtime', '关闭 SSE 保活流', error, stack),
+      );
+    }
+
     void release() {
       if (released) return;
       released = true;
@@ -824,7 +833,7 @@ class McpServerOpsRuntime {
       if (released || timer != null) return;
       timer = startSafePeriodicTimer(
         _sseKeepAliveInterval,
-        (_) {
+        (_) async {
           if (released || controller.isClosed) return;
           ticks += 1;
           controller.add(
@@ -834,12 +843,12 @@ class McpServerOpsRuntime {
           );
           if (ticks < _sseKeepAliveTicks) return;
           release();
-          unawaited(controller.close());
+          await closeController();
         },
         onError: (error, stack) {
           silentLog('mcp_server_ops_runtime', '发送 SSE 保活消息', error, stack);
           release();
-          unawaited(controller.close());
+          unawaited(closeController());
         },
       );
     }
@@ -849,7 +858,7 @@ class McpServerOpsRuntime {
       onListen: () {
         if (!_activeSseTokens.contains(streamToken)) {
           release();
-          unawaited(Future<void>.microtask(controller.close));
+          unawaited(closeController());
           return;
         }
         _reservedSseTokens.remove(streamToken);

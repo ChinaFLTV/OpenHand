@@ -706,9 +706,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   void _restartProgressPolling() {
     _progressPollTimer?.cancel();
-    _progressPollTimer = startSafePeriodicTimer(_kNativeAudioPollInterval, (_) {
-      unawaited(_pollPlaybackState());
-    });
+    _progressPollTimer = startSafePeriodicTimer(
+      _kNativeAudioPollInterval,
+      (_) => _pollPlaybackState(),
+    );
   }
 
   Future<void> _pollPlaybackState() async {

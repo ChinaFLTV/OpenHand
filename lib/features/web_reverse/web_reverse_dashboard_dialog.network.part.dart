@@ -1109,95 +1109,101 @@ class _PendingFetchBanner extends StatelessWidget {
     BuildContext context,
     ({String requestId, String method, String url}) p,
   ) {
-    Future.microtask(() async {
-      if (!context.mounted) return;
-      final action = await webReverseToolDialogs.show<String>(
-        context: context,
-        builder: (dialogContext) => buildOpenHandAlertDialog(
-          title: Text(
-            openHandLocalizedText(
-              dialogContext,
-              zh: '处理拦截请求',
-              zhHant: '處理攔截請求',
-              en: 'Handle intercepted request',
-              fr: 'Traiter la requête interceptée',
-              de: 'Abgefangene Anfrage bearbeiten',
-              ja: '傍受リクエストを処理',
+    startSafeTimer(
+      Duration.zero,
+      () async {
+        if (!context.mounted) return;
+        final action = await webReverseToolDialogs.show<String>(
+          context: context,
+          builder: (dialogContext) => buildOpenHandAlertDialog(
+            title: Text(
+              openHandLocalizedText(
+                dialogContext,
+                zh: '处理拦截请求',
+                zhHant: '處理攔截請求',
+                en: 'Handle intercepted request',
+                fr: 'Traiter la requête interceptée',
+                de: 'Abgefangene Anfrage bearbeiten',
+                ja: '傍受リクエストを処理',
+              ),
             ),
-          ),
-          content: SizedBox(
-            width: 520,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '${p.method} ${p.url}',
-                  style: const TextStyle(
-                    fontFamily: kOpenHandMonospaceFontFamily,
-                    fontSize: 12,
+            content: SizedBox(
+              width: 520,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '${p.method} ${p.url}',
+                    style: const TextStyle(
+                      fontFamily: kOpenHandMonospaceFontFamily,
+                      fontSize: 12,
+                    ),
                   ),
+                ],
+              ),
+            ),
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(dialogContext).pop('Aborted'),
+                label: openHandLocalizedText(
+                  dialogContext,
+                  zh: '中止',
+                  zhHant: '中止',
+                  en: 'Abort',
+                  fr: 'Abandonner',
+                  de: 'Abbrechen',
+                  ja: '中止',
                 ),
-              ],
-            ),
+              ),
+              OpenHandDialogActionButton.secondary(
+                onPressed: () =>
+                    Navigator.of(dialogContext).pop('AccessDenied'),
+                label: 'AccessDenied',
+              ),
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(dialogContext).pop('TimedOut'),
+                label: 'TimedOut',
+              ),
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(dialogContext).pop('edit'),
+                label: openHandLocalizedText(
+                  dialogContext,
+                  zh: '修改放行',
+                  zhHant: '修改後放行',
+                  en: 'Modify & continue',
+                  fr: 'Modifier et continuer',
+                  de: 'Ändern & fortsetzen',
+                  ja: '変更して続行',
+                ),
+              ),
+              OpenHandDialogActionButton.primary(
+                onPressed: () => Navigator.of(dialogContext).pop('continue'),
+                label: openHandLocalizedText(
+                  dialogContext,
+                  zh: '继续',
+                  zhHant: '繼續',
+                  en: 'Continue',
+                  fr: 'Continuer',
+                  de: 'Fortsetzen',
+                  ja: '続行',
+                ),
+              ),
+            ],
           ),
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop('Aborted'),
-              label: openHandLocalizedText(
-                dialogContext,
-                zh: '中止',
-                zhHant: '中止',
-                en: 'Abort',
-                fr: 'Abandonner',
-                de: 'Abbrechen',
-                ja: '中止',
-              ),
-            ),
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop('AccessDenied'),
-              label: 'AccessDenied',
-            ),
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop('TimedOut'),
-              label: 'TimedOut',
-            ),
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(dialogContext).pop('edit'),
-              label: openHandLocalizedText(
-                dialogContext,
-                zh: '修改放行',
-                zhHant: '修改後放行',
-                en: 'Modify & continue',
-                fr: 'Modifier et continuer',
-                de: 'Ändern & fortsetzen',
-                ja: '変更して続行',
-              ),
-            ),
-            OpenHandDialogActionButton.primary(
-              onPressed: () => Navigator.of(dialogContext).pop('continue'),
-              label: openHandLocalizedText(
-                dialogContext,
-                zh: '继续',
-                zhHant: '繼續',
-                en: 'Continue',
-                fr: 'Continuer',
-                de: 'Fortsetzen',
-                ja: '続行',
-              ),
-            ),
-          ],
-        ),
-      );
-      if (action == null || !context.mounted) return;
-      if (action == 'continue') {
-        await controller.continueFetchRequest(p.requestId);
-      } else if (action == 'edit') {
-        await _showEditDialog(context, p);
-      } else {
-        await controller.abortFetchRequest(p.requestId, reason: action);
-      }
-    });
+        );
+        if (action == null || !context.mounted) return;
+        if (action == 'continue') {
+          await controller.continueFetchRequest(p.requestId);
+        } else if (action == 'edit') {
+          await _showEditDialog(context, p);
+        } else {
+          await controller.abortFetchRequest(p.requestId, reason: action);
+        }
+      },
+      onError: (error, stack) =>
+          silentLog('web_reverse_dashboard_dialog', '处理被拦截的网络请求', error, stack),
+    );
   }
 
   Future<void> _showEditDialog(

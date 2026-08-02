@@ -399,6 +399,21 @@ class AiBashBackgroundTool extends AiTool {
           await (removed ?? session).close(kill: true);
         });
       }
+      Future<void> finishExitedProcess() async {
+        try {
+          await terminateTrackedProcessTree(
+            process,
+            gracefulTimeout: Duration.zero,
+          );
+          await session.finishOutputAfterExit();
+          session.touch();
+          await session.closeProxy();
+          _pruneExitedSessions();
+        } catch (error, stack) {
+          silentLog('ai_bash_background', '收尾后台进程 $handle', error, stack);
+        }
+      }
+
       session.stdoutSubscription = process.stdout
           .transform(_backgroundOutputDecoder)
           .listen(
@@ -423,28 +438,12 @@ class AiBashBackgroundTool extends AiTool {
         process.exitCode.then<void>(
           (code) async {
             session.exitCode = code;
-            await terminateTrackedProcessTree(
-              process,
-              gracefulTimeout: Duration.zero,
-            );
-            await session.finishOutputAfterExit();
-            session.touch();
-            unawaited(session.closeProxy());
-            _pruneExitedSessions();
+            await finishExitedProcess();
           },
-          onError: (Object error, StackTrace stack) {
+          onError: (Object error, StackTrace stack) async {
             silentLog('ai_bash_background', '进程退出 $handle', error, stack);
             session.exitCode = -1;
-            unawaited(() async {
-              await terminateTrackedProcessTree(
-                process,
-                gracefulTimeout: Duration.zero,
-              );
-              await session.finishOutputAfterExit();
-              session.touch();
-              await session.closeProxy();
-              _pruneExitedSessions();
-            }());
+            await finishExitedProcess();
           },
         ),
       );
@@ -987,7 +986,7 @@ class _BgSession {
         _stderrDone.future,
       ]).timeout(_cleanupTimeout);
     } on TimeoutException {
-      // A descendant may still own inherited pipes; keep exit handling bounded.
+      // 子进程可能仍持有继承管道，超时后继续有界收尾。
     }
     alive = false;
   }

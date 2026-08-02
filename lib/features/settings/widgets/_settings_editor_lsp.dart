@@ -1385,7 +1385,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
     }
     _installRootValidationTimer = startSafeTimer(
       const Duration(milliseconds: 220),
-      () => unawaited(_refreshInstallRootValidation(generation)),
+      () => _refreshInstallRootValidation(generation),
     );
   }
 
@@ -1395,32 +1395,49 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
     );
     final backend = aiLspBackendById(_selectedBackendId);
     String? message;
+    var validationFailed = false;
     AiLspManagedInstallManifest? managedInstallManifest;
-    if (backend != null &&
-        AiLspManagedInstallService.supportsManagedInstall(backend)) {
-      final rootPath = _pathController.text.trim().isEmpty
-          ? widget.defaultInstallRoot
-          : _pathController.text;
-      message = await AiLspManagedInstallService.validateInstallRoot(
-        language: widget.language,
-        backend: backend,
-        settings: AiLspLanguageSettings(
-          backendId: _selectedBackendId,
-          rootPath: rootPath,
-          sdkPath: _sdkController.text.trim(),
-          version: _versionController.text.trim(),
-        ),
-      );
-      managedInstallManifest = AiLspManagedInstallService.peekManifest(
-        normalizedEnteredRoot,
-      );
-    } else if (normalizedEnteredRoot.isNotEmpty) {
-      managedInstallManifest = await AiLspManagedInstallService.readManifest(
-        normalizedEnteredRoot,
-      );
+    try {
+      if (backend != null &&
+          AiLspManagedInstallService.supportsManagedInstall(backend)) {
+        final rootPath = _pathController.text.trim().isEmpty
+            ? widget.defaultInstallRoot
+            : _pathController.text;
+        message = await AiLspManagedInstallService.validateInstallRoot(
+          language: widget.language,
+          backend: backend,
+          settings: AiLspLanguageSettings(
+            backendId: _selectedBackendId,
+            rootPath: rootPath,
+            sdkPath: _sdkController.text.trim(),
+            version: _versionController.text.trim(),
+          ),
+        );
+        managedInstallManifest = AiLspManagedInstallService.peekManifest(
+          normalizedEnteredRoot,
+        );
+      } else if (normalizedEnteredRoot.isNotEmpty) {
+        managedInstallManifest = await AiLspManagedInstallService.readManifest(
+          normalizedEnteredRoot,
+        );
+      }
+    } catch (error, stack) {
+      silentLog('settings_editor_lsp', '校验 LSP 安装目录', error, stack);
+      validationFailed = true;
     }
     if (!mounted || generation != _installRootValidationGeneration) {
       return;
+    }
+    if (validationFailed) {
+      message = openHandLocalizedText(
+        context,
+        zh: '无法校验安装目录，请检查权限后重试。',
+        zhHant: '無法驗證安裝目錄，請檢查權限後重試。',
+        en: 'The install root could not be validated. Check its permissions and retry.',
+        fr: 'Impossible de valider le dossier d’installation. Vérifiez ses autorisations et réessayez.',
+        de: 'Das Installationsverzeichnis konnte nicht geprüft werden. Prüfen Sie die Berechtigungen und versuchen Sie es erneut.',
+        ja: 'インストール先を検証できません。権限を確認して再試行してください。',
+      );
     }
     setState(() {
       _installRootValidationPending = false;
@@ -1526,9 +1543,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
     }
     _sdkVersionDetectionTimer = startSafeTimer(
       const Duration(milliseconds: 220),
-      () {
-        unawaited(_refreshSdkVersionDetection(normalizedSdkPath));
-      },
+      () => _refreshSdkVersionDetection(normalizedSdkPath),
     );
   }
 
@@ -1543,10 +1558,15 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
         _sdkVersionDetectionFailed = false;
       });
     }
-    final detected = await _detectSdkVersionForLanguage(
-      language: widget.language,
-      sdkPath: requestPath,
-    );
+    _DetectedSdkVersion? detected;
+    try {
+      detected = await _detectSdkVersionForLanguage(
+        language: widget.language,
+        sdkPath: requestPath,
+      );
+    } catch (error, stack) {
+      silentLog('settings_editor_lsp', '检测 SDK 版本', error, stack);
+    }
     if (!mounted) {
       return;
     }
