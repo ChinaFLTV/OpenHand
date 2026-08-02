@@ -20,6 +20,7 @@ import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
@@ -28,6 +29,7 @@ import '../services_controller.dart';
 import 'service_dialog_controls.dart';
 
 const int _kMaxProxyImportBytes = 4 * 1024 * 1024;
+const int _kMaxProxyImportRecords = 20000;
 const int _kMaxProxyEndpoints = 10000;
 const int _kProxyHighLatencyThresholdMs = 350;
 const double _kProxyEndpointListMaxHeight = 420;
@@ -1394,10 +1396,9 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     setState(() => _busy = true);
     try {
       final source = File(file.path);
-      if (await source.length() > _kMaxProxyImportBytes) {
-        throw const FormatException('代理文件不能超过 4 MB。');
-      }
-      final imported = _proxyEndpoints(await source.readAsString());
+      final imported = _proxyEndpoints(
+        await readBoundedFileString(source, maxBytes: _kMaxProxyImportBytes),
+      );
       final merged = <String, AiExposureProxyEndpoint>{
         for (final endpoint in _endpoints) endpoint.url: endpoint,
       };
@@ -4372,22 +4373,52 @@ _ProxyEndpointHealth _proxyEndpointHealth(AiExposureProxyEndpoint endpoint) {
         ? decoded
         : const <Object?>[];
     if (values.isEmpty) throw const FormatException('代理 JSON 配置无效。');
+    if (values.length > _kMaxProxyImportRecords) {
+      throw const FormatException('代理文件记录不能超过 $_kMaxProxyImportRecords 条。');
+    }
     for (final value in values) {
+      AiExposureProxyEndpoint? endpoint;
       try {
-        endpoints.add(AiExposureProxyEndpoint.fromJson(value));
+        endpoint = AiExposureProxyEndpoint.fromJson(value);
       } on FormatException {
         invalid++;
       }
+      if (endpoint == null) continue;
+      if (endpoints.length >= _kMaxProxyEndpoints) {
+        throw const FormatException('有效代理不能超过 $_kMaxProxyEndpoints 个。');
+      }
+      endpoints.add(endpoint);
     }
   } else {
-    for (final line in const LineSplitter().convert(content)) {
-      final value = line.trim();
+    var records = 0;
+    var lineStart = 0;
+    for (var index = 0; index <= content.length; index++) {
+      final atEnd = index == content.length;
+      final codeUnit = atEnd ? -1 : content.codeUnitAt(index);
+      if (!atEnd && codeUnit != 0x0A && codeUnit != 0x0D) continue;
+      final value = content.substring(lineStart, index).trim();
+      if (codeUnit == 0x0D &&
+          index + 1 < content.length &&
+          content.codeUnitAt(index + 1) == 0x0A) {
+        index++;
+      }
+      lineStart = index + 1;
       if (value.isEmpty || value.startsWith('#')) continue;
+      records++;
+      if (records > _kMaxProxyImportRecords) {
+        throw const FormatException('代理文件记录不能超过 $_kMaxProxyImportRecords 条。');
+      }
+      AiExposureProxyEndpoint? endpoint;
       try {
-        endpoints.add(AiExposureProxyEndpoint.parse(value));
+        endpoint = AiExposureProxyEndpoint.parse(value);
       } on FormatException {
         invalid++;
       }
+      if (endpoint == null) continue;
+      if (endpoints.length >= _kMaxProxyEndpoints) {
+        throw const FormatException('有效代理不能超过 $_kMaxProxyEndpoints 个。');
+      }
+      endpoints.add(endpoint);
     }
   }
   if (endpoints.isEmpty && invalid > 0) {
