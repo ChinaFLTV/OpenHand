@@ -80,7 +80,7 @@ class WebFetchScraplingBridge {
       'assets/tooling/webfetch_scrapling_bridge.py';
   static const String _pythonNotFoundCode = 'python_not_found';
   static const String _pythonNotFoundDetail =
-      'Python 3 not found. Install Python 3.10+ or set a custom executable path.';
+      '未找到 Python 3。请安装 Python 3.10 或更高版本，或配置自定义可执行文件路径。';
   static const Duration _defaultProcessStopTimeout = Duration(seconds: 2);
   static const Duration _defaultProcessKillTimeout = Duration(
     milliseconds: 250,
@@ -89,9 +89,12 @@ class WebFetchScraplingBridge {
   static const int _maxRuntimeEvents = 400;
   static const int _maxRuntimeLineCharacters = 4000;
   static const int _maxCapturedRuntimeLinesPerStream = 400;
+  static const int _maxPendingOperations = 32;
 
   _ScraplingProcessRuntime? _runtime;
-  final SerialTaskQueue _operationQueue = SerialTaskQueue();
+  final SerialTaskQueue _operationQueue = SerialTaskQueue(
+    maxPendingTasks: _maxPendingOperations,
+  );
   Future<void>? _disposeFuture;
   bool _disposed = false;
   Process? _runtimeCommandProcess;
@@ -100,7 +103,7 @@ class WebFetchScraplingBridge {
   WebFetchScraplingProbeStatus _lastProbe = const WebFetchScraplingProbeStatus(
     ready: false,
     code: 'not_started',
-    detail: 'Scrapling bridge not started.',
+    detail: 'Scrapling 桥接尚未启动。',
   );
   WebFetchScraplingProbeStatus get lastProbe => _lastProbe;
 
@@ -111,7 +114,7 @@ class WebFetchScraplingBridge {
       settings: settings,
       command: const <String>['-m', 'pip', 'install', 'scrapling[fetchers]'],
       tag: 'web_fetch_scrapling.install',
-      successMessage: '✓ Scrapling runtime installed.',
+      successMessage: 'Scrapling 运行时已安装。',
       failureCode: 'install_failed',
     );
   }
@@ -123,7 +126,7 @@ class WebFetchScraplingBridge {
       settings: settings,
       command: const <String>['-m', 'pip', 'uninstall', '-y', 'scrapling'],
       tag: 'web_fetch_scrapling.uninstall',
-      successMessage: '✓ Scrapling runtime removed.',
+      successMessage: 'Scrapling 运行时已移除。',
       failureCode: 'uninstall_failed',
       runtimeInstalledOnFailure: true,
       runtimeInstalledOnSuccess: false,
@@ -167,8 +170,11 @@ class WebFetchScraplingBridge {
     required int maxChars,
     required AiWebFetchScraplingSettings settings,
     Future<void>? cancelSignal,
-  }) {
-    return _runExclusive(() async {
+  }) async {
+    final operation = _runExclusive(() async {
+      if (await isCancelSignalCompleted(cancelSignal)) {
+        throw WebEngineHttpException('cancelled');
+      }
       final python = await _resolvePythonExecutable(settings);
       _throwIfDisposed();
       if (python == null) {
@@ -176,6 +182,9 @@ class WebFetchScraplingBridge {
         throw WebEngineHttpException(_lastProbe.code);
       }
       await _ensureReady(settings: settings, pythonExecutable: python);
+      if (await isCancelSignalCompleted(cancelSignal)) {
+        throw WebEngineHttpException('cancelled');
+      }
       final timeout = Duration(seconds: settings.requestTimeoutSeconds);
       final response = await _sendCommand(
         command: <String, Object?>{
@@ -208,7 +217,7 @@ class WebFetchScraplingBridge {
       _lastProbe = WebFetchScraplingProbeStatus(
         ready: true,
         code: 'ready',
-        detail: 'Scrapling bridge ready.',
+        detail: 'Scrapling 桥接已就绪。',
         pythonExecutable: python,
         updatedAt: DateTime.now().toUtc(),
         runtimeInstalled: true,
@@ -231,6 +240,12 @@ class WebFetchScraplingBridge {
         responseHeaders: headers,
       );
     });
+    final result = await awaitWithCancelSignal(
+      operation,
+      cancelSignal: cancelSignal,
+    );
+    if (result == null) throw WebEngineHttpException('cancelled');
+    return result;
   }
 
   Future<void> reset() => _runExclusive(_killProcess);
@@ -593,7 +608,7 @@ class WebFetchScraplingBridge {
     final ok = response['ok'] == true;
     final code = ok ? 'ready' : '${response['error'] ?? 'scrapling_not_ready'}';
     final detail = ok
-        ? 'Scrapling bridge ready.'
+        ? 'Scrapling 桥接已就绪。'
         : optionalStringFromValue(response['detail']) ?? code;
     return WebFetchScraplingProbeStatus(
       ready: ok,
@@ -757,7 +772,7 @@ class WebFetchScraplingBridge {
     _throwIfDisposed();
     yield const WebFetchScraplingRuntimeEvent(
       type: WebFetchScraplingRuntimeEventType.status,
-      line: 'Preparing runtime command...',
+      line: '正在准备运行时命令……',
     );
     yield WebFetchScraplingRuntimeEvent(
       type: WebFetchScraplingRuntimeEventType.command,
@@ -783,8 +798,7 @@ class WebFetchScraplingBridge {
     if (!attempt.succeeded && tlsBundle != null) {
       yield WebFetchScraplingRuntimeEvent(
         type: WebFetchScraplingRuntimeEventType.status,
-        line:
-            'Detected TLS certificate verification failure. Retrying with CA bundle: $tlsBundle',
+        line: '检测到 TLS 证书校验失败，正在使用 CA 证书包重试：$tlsBundle',
       );
       attempt = await _runRuntimeAttempt(
         python: python,
@@ -976,18 +990,18 @@ class WebFetchScraplingBridge {
   String _summarizeRuntimeFailure(_RuntimeAttemptResult result) {
     final combined = '${result.stdout}\n${result.stderr}'.toLowerCase();
     if (result.timedOut) {
-      return 'Runtime command timed out.';
+      return '运行时命令执行超时。';
     }
     if (combined.contains('certificate_verify_failed')) {
-      return 'TLS certificate verification failed while reaching PyPI. Check Python CA certificates, proxy interception certificates, or configure a valid certificate bundle for pip.';
+      return '访问 PyPI 时 TLS 证书校验失败。请检查 Python CA 证书、代理拦截证书或 pip 证书包配置。';
     }
     if (combined.contains('no matching distribution found')) {
-      return 'pip could not resolve the requested package version.';
+      return 'pip 无法解析请求的软件包版本。';
     }
     if (combined.contains('could not fetch url')) {
-      return 'pip could not fetch package metadata from PyPI.';
+      return 'pip 无法从 PyPI 获取软件包元数据。';
     }
-    return 'Process exited with code ${result.exitCode}.';
+    return '进程退出码：${result.exitCode}。';
   }
 
   Future<String> _ensureHelperScriptWritten() async {
@@ -1252,5 +1266,5 @@ class _TimeoutToken {
 
 class _BridgeProcessStartTimeout extends TimeoutException {
   _BridgeProcessStartTimeout(Duration duration)
-    : super('Scrapling bridge process start timed out.', duration);
+    : super('Scrapling 桥接进程启动超时。', duration);
 }
