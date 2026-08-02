@@ -3276,6 +3276,44 @@ Color _cleanlinessColor(String? value, ColorScheme colors) => switch (value) {
   _ => colors.onSurfaceVariant,
 };
 
+class _ProxyInputSuffixButton extends StatelessWidget {
+  const _ProxyInputSuffixButton({
+    required this.tooltip,
+    required this.onPressed,
+    required this.icon,
+  });
+
+  final String tooltip;
+  final VoidCallback onPressed;
+  final Widget icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Tooltip(
+      message: tooltip,
+      child: SizedBox.square(
+        dimension: 48,
+        child: InkResponse(
+          onTap: onPressed,
+          radius: 18,
+          hoverColor: colors.onSurfaceVariant.withValues(alpha: 0.07),
+          focusColor: colors.primary.withValues(alpha: 0.10),
+          splashColor: colors.primary.withValues(alpha: 0.12),
+          highlightColor: colors.primary.withValues(alpha: 0.07),
+          mouseCursor: SystemMouseCursors.click,
+          child: Center(
+            child: IconTheme.merge(
+              data: IconThemeData(size: 20, color: colors.onSurfaceVariant),
+              child: icon,
+            ),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class _ProxyEndpointEditor extends StatefulWidget {
   const _ProxyEndpointEditor({
     required this.initial,
@@ -3341,11 +3379,8 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
-    final inputIconStyle = IconButton.styleFrom(
-      backgroundColor: Colors.transparent,
-      foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
-    );
     final editing = widget.initial != null;
+    final proxyAddressParsed = _parsedProxyAddress == _rawProxy.text.trim();
     return Padding(
       padding: const EdgeInsets.all(22),
       child: SingleChildScrollView(
@@ -3388,22 +3423,22 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                     hintText: 'host:port:username:password',
                     errorText: _proxyAddressError,
                     border: const OutlineInputBorder(),
-                    suffixIcon: IconButton(
+                    suffixIcon: _ProxyInputSuffixButton(
                       tooltip: text(zh: '解析并填充表单', en: 'Parse and fill form'),
                       onPressed: () => _applyProxyAddress(reportInvalid: true),
-                      style: inputIconStyle,
                       icon: AnimatedSwitcher(
                         duration: openHandMotionDuration(
                           context,
                           const Duration(milliseconds: 220),
                         ),
                         child: Icon(
-                          _parsedProxyAddress == _rawProxy.text.trim()
+                          proxyAddressParsed
                               ? Icons.check_circle_outline_rounded
                               : Icons.auto_fix_high_rounded,
-                          key: ValueKey<bool>(
-                            _parsedProxyAddress == _rawProxy.text.trim(),
-                          ),
+                          key: ValueKey<bool>(proxyAddressParsed),
+                          color: proxyAddressParsed
+                              ? OpenHandStatusColors.success
+                              : null,
                         ),
                       ),
                     ),
@@ -3438,7 +3473,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                 ),
                 OpenHandVerticalRevealSwitcher(
                   presentKey: const ValueKey<String>('proxy-address-parsed'),
-                  child: _parsedProxyAddress == _rawProxy.text.trim()
+                  child: proxyAddressParsed
                       ? Padding(
                           padding: const EdgeInsets.only(top: 7),
                           child: Row(
@@ -3563,13 +3598,12 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                 decoration: InputDecoration(
                   labelText: text(zh: '密码（可选）', en: 'Password (optional)'),
                   border: const OutlineInputBorder(),
-                  suffixIcon: IconButton(
+                  suffixIcon: _ProxyInputSuffixButton(
                     tooltip: _obscurePassword
                         ? text(zh: '显示密码', en: 'Show password')
                         : text(zh: '隐藏密码', en: 'Hide password'),
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
-                    style: inputIconStyle,
                     icon: Icon(
                       _obscurePassword
                           ? Icons.visibility_outlined
