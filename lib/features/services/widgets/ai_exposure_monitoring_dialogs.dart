@@ -2977,6 +2977,20 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
     if (mounted) setState(() => _refreshing = false);
   }
 
+  void _scrollToLatest() {
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_scroll.hasClients) return;
+      _scroll.animateTo(
+        _scroll.position.maxScrollExtent,
+        duration: openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 220),
+        ),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ServicesController>();
@@ -2986,18 +3000,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
     final logs = _filtered(controller);
     if (_autoFollow && controller.logs.length != _lastLogCount) {
       _lastLogCount = controller.logs.length;
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scroll.hasClients) {
-          _scroll.animateTo(
-            _scroll.position.maxScrollExtent,
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 220),
-            ),
-            curve: Curves.easeOutCubic,
-          );
-        }
-      });
+      _scrollToLatest();
     }
     return Padding(
       padding: const EdgeInsets.all(22),
@@ -3054,6 +3057,19 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
               runSpacing: 8,
               children: [
                 ServiceDialogHeaderIconButton(
+                  tooltip: _autoFollow
+                      ? text(zh: '关闭自动跟随', en: 'Disable auto follow')
+                      : text(zh: '开启自动跟随', en: 'Enable auto follow'),
+                  onPressed: () {
+                    setState(() => _autoFollow = !_autoFollow);
+                    if (_autoFollow) _scrollToLatest();
+                  },
+                  icon: const Icon(Icons.vertical_align_bottom_rounded),
+                  tone: _autoFollow
+                      ? ServiceDialogHeaderActionTone.primary
+                      : ServiceDialogHeaderActionTone.neutral,
+                ),
+                ServiceDialogHeaderIconButton(
                   tooltip: text(zh: '刷新历史日志', en: 'Refresh history'),
                   onPressed: _refreshing || !controller.isRunning
                       ? null
@@ -3081,19 +3097,6 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                   tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.close_rounded),
-                ),
-                Row(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    const Icon(Icons.vertical_align_bottom_rounded, size: 18),
-                    const SizedBox(width: 6),
-                    Text(text(zh: '自动跟随', en: 'Auto follow')),
-                    const SizedBox(width: 6),
-                    Switch(
-                      value: _autoFollow,
-                      onChanged: (value) => setState(() => _autoFollow = value),
-                    ),
-                  ],
                 ),
               ],
             ),
@@ -3127,11 +3130,12 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
             runSpacing: 8,
             children: <String>['info', 'warning', 'error', 'runtime']
                 .map((level) {
-                  final color = _logColor(level, cs);
+                  final color = _logColor(level);
                   return ServiceFilterChip(
                     selected: _levels.contains(level),
                     icon: Icon(_logIcon(level), size: 16, color: color),
                     label: Text(_logLevelName(context, level)),
+                    accentColor: color,
                     onSelected: (selected) => setState(() {
                       if (selected) {
                         _levels.add(level);
@@ -3235,7 +3239,7 @@ class _LogRow extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final color = _logColor(entry.level, Theme.of(context).colorScheme);
+    final color = _logColor(entry.level);
     final local = entry.at.toLocal();
     final time =
         '${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}:${local.second.toString().padLeft(2, '0')}';
@@ -3302,11 +3306,11 @@ class _LogRow extends StatelessWidget {
   }
 }
 
-Color _logColor(String level, ColorScheme cs) => switch (level) {
-  'error' => const Color(0xffff5c6c),
-  'warning' => const Color(0xffffb14e),
-  'runtime' => const Color(0xff6fa8ed),
-  _ => const Color(0xff28d17c),
+Color _logColor(String level) => switch (level) {
+  'error' => OpenHandStatusColors.error,
+  'warning' => OpenHandStatusColors.warning,
+  'runtime' => const Color(0xff14b8a6),
+  _ => OpenHandStatusColors.info,
 };
 
 IconData _logIcon(String level) => switch (level) {
@@ -3348,7 +3352,9 @@ class _AnimatedLogScopeTabs extends StatelessWidget {
       ],
       selected: <_LogScope>{value},
       onSelectionChanged: (next) => onChanged(next.first),
+      showSelectedIcon: false,
       style: ButtonStyle(
+        minimumSize: const WidgetStatePropertyAll(Size(104, 40)),
         animationDuration: openHandMotionDuration(
           context,
           const Duration(milliseconds: 280),

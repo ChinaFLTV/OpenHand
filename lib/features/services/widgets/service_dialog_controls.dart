@@ -137,12 +137,14 @@ class ServiceFilterChip extends StatelessWidget {
     required this.selected,
     required this.onSelected,
     this.icon,
+    this.accentColor,
   });
 
   final Widget label;
   final bool selected;
   final ValueChanged<bool> onSelected;
   final Widget? icon;
+  final Color? accentColor;
 
   @override
   Widget build(BuildContext context) {
@@ -151,7 +153,14 @@ class ServiceFilterChip extends StatelessWidget {
     final chipTheme = ChipTheme.of(context);
     final backgroundColor =
         chipTheme.backgroundColor ?? colors.surfaceContainerHigh;
-    final selectedColor = chipTheme.selectedColor ?? colors.primaryContainer;
+    final selectedColor = accentColor == null
+        ? chipTheme.selectedColor ?? colors.primaryContainer
+        : Color.alphaBlend(
+            accentColor!.withValues(
+              alpha: theme.brightness == Brightness.dark ? 0.20 : 0.12,
+            ),
+            colors.surfaceContainerHigh,
+          );
     return FilterChip(
       selected: selected,
       label: Row(
@@ -172,6 +181,17 @@ class ServiceFilterChip extends StatelessWidget {
       shadowColor: Colors.transparent,
       selectedShadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
+      side: accentColor == null
+          ? null
+          : BorderSide(
+              color: accentColor!.withValues(alpha: selected ? 0.48 : 0.20),
+            ),
+      labelStyle: accentColor == null
+          ? null
+          : TextStyle(
+              color: selected ? colors.onSurface : colors.onSurfaceVariant,
+              fontWeight: selected ? FontWeight.w700 : FontWeight.w600,
+            ),
       color: WidgetStateProperty.resolveWith((states) {
         final base = states.contains(WidgetState.selected)
             ? selectedColor
