@@ -6,6 +6,7 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/platform_shell.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_deny_command_rule.dart';
@@ -520,9 +521,7 @@ class AiBashBackgroundTool extends AiTool {
         ),
       );
     }
-    final shell = Platform.environment['SHELL']?.trim().isNotEmpty == true
-        ? Platform.environment['SHELL']!.trim()
-        : '/bin/bash';
+    final shell = preferredPosixShellExecutable(requireBashCompatible: true);
     return _sandboxService.prepareShellCommand(
       toolName: 'BashBackground',
       command: cmd,

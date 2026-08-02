@@ -7,6 +7,7 @@ import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/node_package_manifest.dart';
+import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/version_compare.dart';
 
 const Duration _mcpNodeResolverIdleTimeout = Duration(seconds: 3);
@@ -155,10 +156,9 @@ Future<McpNodePackageResolution?> resolveInstalledMcpNodePackage(
 
 /// 按稳定优先级返回现有的绝对登录 Shell 路径。
 Future<List<String>> existingMcpLoginShells() async {
-  final preferred = Platform.environment['SHELL']?.trim();
+  final preferred = preferredPosixShellExecutable(requireBashCompatible: true);
   final candidates = <String>{
-    if (preferred != null && preferred.isNotEmpty && p.isAbsolute(preferred))
-      preferred,
+    if (p.isAbsolute(preferred)) preferred,
     '/bin/zsh',
     '/bin/bash',
   };

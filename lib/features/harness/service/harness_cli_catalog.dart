@@ -15,6 +15,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/path_safety.dart';
+import '../../../shared/util/platform_shell.dart';
 
 enum HarnessCliAuthProbeMode { commandExitCode, localStateFile }
 
@@ -723,7 +724,7 @@ Future<({bool success, String message})> _performCommandLogout(
 }
 
 String resolveHarnessCliShellExecutable() =>
-    Platform.environment['SHELL'] ?? '/bin/bash';
+    preferredPosixShellExecutable(requireBashCompatible: true);
 
 List<String> buildHarnessCliShellArgs(
   String command, {

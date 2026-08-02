@@ -6,18 +6,12 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/node_package_manifest.dart';
+import '../../../shared/util/platform_shell.dart';
 
 const Duration _pluginEnvironmentProbeTimeout = Duration(milliseconds: 500);
 
 String pluginShellExecutable() {
-  final shell = Platform.environment['SHELL']?.trim() ?? '';
-  final shellName = p.basename(shell);
-  if (p.isAbsolute(shell) && (shellName == 'bash' || shellName == 'zsh')) {
-    return p.normalize(shell);
-  }
-  if (Platform.isMacOS) return '/bin/zsh';
-  if (Platform.isWindows) return 'bash';
-  return '/bin/bash';
+  return preferredPosixShellExecutable(requireBashCompatible: true);
 }
 
 String pluginNvmDirectoryPath() => _pluginToolchainDirectoryPath(
