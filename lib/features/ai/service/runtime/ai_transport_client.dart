@@ -30,6 +30,8 @@ const int defaultAiTransportFileDownloadMaxBytes = 512 * kBytesPerMiB;
 const int defaultAiMultipartFileMaxBytes = 256 * kBytesPerMiB;
 const int defaultAiMultipartTotalMaxBytes = 512 * kBytesPerMiB;
 const int defaultAiMultipartMaxFiles = 128;
+const int _maxConcurrentAiTransportRequests = 16;
+const int _maxQueuedAiTransportRequests = 128;
 
 typedef AiMultipartFileLengthReader = Future<int> Function(String filePath);
 
@@ -107,6 +109,10 @@ class AiTransportClient {
   final http.Client _client;
   final bool _ownsClient;
   final AiMultipartFileLengthReader? _multipartFileLengthReader;
+  final OpenHandAsyncSemaphore _requestSlots = OpenHandAsyncSemaphore(
+    _maxConcurrentAiTransportRequests,
+    maxWaiters: _maxQueuedAiTransportRequests,
+  );
   final Set<Completer<void>> _activeAborts = <Completer<void>>{};
   bool _disposed = false;
 
@@ -198,9 +204,8 @@ class AiTransportClient {
     }, cancelSignal: cancelSignal);
   }
 
-  /// Sends JSON and lets [consume] process a bounded successful response
-  /// incrementally. HTTP failures are converted to a bounded
-  /// [AiTransportResponseException].
+  /// 发送 JSON，并由 [consume] 增量处理有界的成功响应。HTTP 失败响应会转换为
+  /// 有界的 [AiTransportResponseException]。
   Future<T> consumeJsonStream<T>({
     required Uri uri,
     required String method,
@@ -260,10 +265,8 @@ class AiTransportClient {
           try {
             return await consume(streamed, stream).timeout(
               remaining,
-              onTimeout: () => throw TimeoutException(
-                'HTTP response exceeded the request time limit.',
-                remaining,
-              ),
+              onTimeout: () =>
+                  throw TimeoutException('HTTP 响应超过请求时限。', remaining),
             );
           } finally {
             _cancelResponseStream(streamed.stream);
@@ -296,10 +299,7 @@ class AiTransportClient {
       Duration remainingPreparation() {
         final remaining = effectiveTimeout - preparation.elapsed;
         if (remaining <= Duration.zero) {
-          throw TimeoutException(
-            'Multipart request preparation exceeded its time limit.',
-            effectiveTimeout,
-          );
+          throw TimeoutException('Multipart 请求准备超过时限。', effectiveTimeout);
         }
         return remaining;
       }
@@ -319,10 +319,7 @@ class AiTransportClient {
 
         Future<void> addFile(String field, AiMultipartUploadFile upload) async {
           if (fileCount >= maxFiles) {
-            throw HttpException(
-              'Multipart request exceeds the $maxFiles file limit.',
-              uri: uri,
-            );
+            throw HttpException('Multipart 请求超过 $maxFiles 个文件上限。', uri: uri);
           }
           fileCount += 1;
           final file = File(upload.filePath);
@@ -332,7 +329,7 @@ class AiTransportClient {
             inspectedLength = await reader(upload.filePath).timeout(
               remainingPreparation(),
               onTimeout: () => throw TimeoutException(
-                'Multipart file inspection exceeded the request time limit.',
+                'Multipart 文件检查超过请求时限。',
                 effectiveTimeout,
               ),
             );
@@ -348,10 +345,7 @@ class AiTransportClient {
             remainingPreparation(),
           );
           if (!isRegularFileStat(preflightStat)) {
-            throw FileSystemException(
-              'Multipart upload path is not a regular file.',
-              file.path,
-            );
+            throw FileSystemException('Multipart 上传路径不是普通文件。', file.path);
           }
           final input = await _openMultipartInput(file, remainingPreparation);
           final lease = _AiMultipartFileLease(file: file, input: input);
@@ -361,10 +355,7 @@ class AiTransportClient {
               initialStat.size != preflightStat.size ||
               initialStat.modified != preflightStat.modified ||
               initialStat.changed != preflightStat.changed) {
-            throw FileSystemException(
-              'Multipart upload path changed before it was opened.',
-              file.path,
-            );
+            throw FileSystemException('Multipart 上传文件在打开前已变更。', file.path);
           }
           final length = await lease.input.run(
             (input) => input.length(),
@@ -377,20 +368,14 @@ class AiTransportClient {
             requestUri: uri,
           );
           if (length != initialStat.size) {
-            throw FileSystemException(
-              'Multipart upload path changed before it was opened.',
-              file.path,
-            );
+            throw FileSystemException('Multipart 上传文件在打开前已变更。', file.path);
           }
           if (inspectedLength != null && inspectedLength != length) {
-            throw FileSystemException(
-              'Multipart upload file changed during inspection.',
-              file.path,
-            );
+            throw FileSystemException('Multipart 上传文件在检查期间已变更。', file.path);
           }
           if (totalFileBytes > maxTotalBytes - length) {
             throw HttpException(
-              'Multipart files exceed the $maxTotalBytes byte total limit.',
+              'Multipart 文件总量超过 $maxTotalBytes 字节上限。',
               uri: uri,
             );
           }
@@ -429,7 +414,7 @@ class AiTransportClient {
         }
         if (request.contentLength > maxTotalBytes) {
           throw HttpException(
-            'Multipart request exceeds the $maxTotalBytes byte total limit.',
+            'Multipart 请求超过 $maxTotalBytes 字节总量上限。',
             uri: uri,
           );
         }
@@ -454,14 +439,11 @@ class AiTransportClient {
     required Uri requestUri,
   }) {
     if (length < 0) {
-      throw FileSystemException(
-        'Multipart file reported an invalid negative size.',
-        file.path,
-      );
+      throw FileSystemException('Multipart 文件报告了无效的负数大小。', file.path);
     }
     if (length > maxFileBytes) {
       throw HttpException(
-        'Multipart file exceeds the $maxFileBytes byte limit.',
+        'Multipart 文件超过 $maxFileBytes 字节上限。',
         uri: file.path.isEmpty ? requestUri : Uri.file(file.path),
       );
     }
@@ -476,10 +458,8 @@ class AiTransportClient {
     try {
       return await openFuture.timeout(
         timeout,
-        onTimeout: () => throw TimeoutException(
-          'Opening a multipart upload file timed out.',
-          timeout,
-        ),
+        onTimeout: () =>
+            throw TimeoutException('打开 Multipart 上传文件超时。', timeout),
       );
     } on TimeoutException {
       unawaited(_closeLateMultipartInput(openFuture));
@@ -503,27 +483,20 @@ class AiTransportClient {
         if (chunkIndex >= lease.chunkDigests.length ||
             sha256.convert(chunk).toString() !=
                 lease.chunkDigests[chunkIndex]) {
-          throw FileSystemException(
-            'Multipart upload file changed after it was inspected.',
-            lease.file.path,
-          );
+          throw FileSystemException('Multipart 上传文件在检查后已变更。', lease.file.path);
         }
         remaining -= chunk.length;
         chunkIndex += 1;
         yield chunk;
       }
       if (chunkIndex != lease.chunkDigests.length) {
-        throw FileSystemException(
-          'Multipart upload snapshot is inconsistent.',
-          lease.file.path,
-        );
+        throw FileSystemException('Multipart 上传文件快照不一致。', lease.file.path);
       }
     } finally {
       try {
         await lease.close().timeout(_fileCleanupTimeout);
       } catch (_) {
-        // The request result remains primary; outer lease cleanup retries the
-        // same in-flight close without retaining a second file handle.
+        // 保留请求结果为主结果；外层租约清理会复用同一关闭任务，不会保留第二个文件句柄。
       }
     }
   }
@@ -561,10 +534,7 @@ class AiTransportClient {
         finalStat.size != lease.length ||
         finalStat.modified != initialStat.modified ||
         finalStat.changed != initialStat.changed) {
-      throw FileSystemException(
-        'Multipart upload file changed while it was inspected.',
-        lease.file.path,
-      );
+      throw FileSystemException('Multipart 上传文件在检查时已变更。', lease.file.path);
     }
     await lease.input.run(
       (input) => input.setPosition(0),
@@ -586,10 +556,7 @@ class AiTransportClient {
         timeout: nextOperationTimeout(),
       );
       if (read <= 0) {
-        throw FileSystemException(
-          'Multipart upload file changed while it was being read.',
-          lease.file.path,
-        );
+        throw FileSystemException('Multipart 上传文件在读取时已变更。', lease.file.path);
       }
       offset += read;
     }
@@ -603,7 +570,7 @@ class AiTransportClient {
       final input = await openFuture;
       await input.close().timeout(_fileCleanupTimeout);
     } catch (_) {
-      // Preparation has already failed; late cleanup stays best effort.
+      // 准备阶段已经失败，延迟清理仅尽力执行。
     }
   }
 
@@ -616,7 +583,7 @@ class AiTransportClient {
           Object _,
           StackTrace _,
         ) {
-          // Preserve the primary request/preparation result.
+          // 保留主要的请求或准备结果。
         }),
     ]);
   }
@@ -657,9 +624,8 @@ class AiTransportClient {
     return response.bodyBytes;
   }
 
-  /// Streams a successful response to [destination] without retaining the
-  /// payload in memory. Non-success bodies remain bounded diagnostic previews.
-  /// A partial destination is removed when any limit or I/O operation fails.
+  /// 将成功响应流式写入 [destination]，不在内存中保留完整载荷。失败响应体仅保留
+  /// 有界诊断预览；任何边界或 I/O 操作失败时删除未完成文件。
   Future<AiTransportFileDownloadResult> downloadToFile({
     required Uri uri,
     required Map<String, String> headers,
@@ -769,23 +735,16 @@ class AiTransportClient {
         onTimeout: () {
           _abort(abort);
           unawaited(_cancelLateResponse(sendFuture));
-          throw TimeoutException(
-            'HTTP response headers exceeded the request time limit.',
-            effectiveTimeout,
-          );
+          throw TimeoutException('获取 HTTP 响应头超过请求时限。', effectiveTimeout);
         },
       );
       final remaining = remainingBudget();
       if (remaining <= Duration.zero) {
-        throw TimeoutException(
-          'HTTP response exceeded the request time limit.',
-          effectiveTimeout,
-        );
+        throw TimeoutException('HTTP 响应超过请求时限。', effectiveTimeout);
       }
       return await consume(streamed, remainingBudget);
     } finally {
-      // Completing after a successful body read is harmless and releases the
-      // callbacks retained by clients that observe the abort trigger.
+      // 成功读取响应体后触发取消信号不会产生副作用，并能释放客户端保留的回调。
       _abort(abort);
       stopwatch.stop();
     }
@@ -810,7 +769,7 @@ class AiTransportClient {
     }
     final remaining = remainingBudget();
     if (remaining <= Duration.zero) {
-      throw TimeoutException('HTTP response exceeded the request time limit.');
+      throw TimeoutException('HTTP 响应超过请求时限。');
     }
     final bodyBytes = await readBoundedByteStream(
       streamed.stream,
@@ -865,18 +824,15 @@ class AiTransportClient {
       final destinationExists = await _runWithinBudget(
         remainingBudget,
         destination.exists,
-        'Checking the download destination timed out.',
+        '检查下载目标超时。',
       );
       if (destinationExists) {
-        throw FileSystemException(
-          'Refusing to overwrite an existing download destination.',
-          destination.path,
-        );
+        throw FileSystemException('拒绝覆盖已存在的下载目标。', destination.path);
       }
       await _runWithinBudget(
         remainingBudget,
         () => destination.parent.create(recursive: true),
-        'Creating the download directory timed out.',
+        '创建下载目录超时。',
       );
       final openedOutput = await openBoundedRandomAccessFileLease(
         destination,
@@ -956,10 +912,7 @@ class AiTransportClient {
     final declaredLength = response.contentLength;
     if (declaredLength == null || declaredLength <= responseLimit) return;
     _cancelResponseStream(response.stream);
-    throw HttpException(
-      'HTTP response exceeds the $responseLimit byte limit.',
-      uri: requestUrl,
-    );
+    throw HttpException('HTTP 响应超过 $responseLimit 字节上限。', uri: requestUrl);
   }
 
   Future<T> _runWithinBudget<T>(
@@ -977,7 +930,7 @@ class AiTransportClient {
   Duration _requireRemainingBudget(Duration Function() remainingBudget) {
     final remaining = remainingBudget();
     if (remaining <= Duration.zero) {
-      throw TimeoutException('HTTP response exceeded the request time limit.');
+      throw TimeoutException('HTTP 响应超过请求时限。');
     }
     return remaining;
   }
@@ -986,6 +939,18 @@ class AiTransportClient {
     Future<T> Function(Completer<void> abort) operation, {
     Future<void>? cancelSignal,
   }) async {
+    if (_disposed) throw StateError('AI 传输客户端已释放。');
+    final acquired = cancelSignal == null
+        ? await _requestSlots.acquirePermit()
+        : await _requestSlots.acquireUnlessCancelled(cancelSignal);
+    if (!acquired) {
+      if (_disposed) throw StateError('AI 传输客户端已释放。');
+      throw http.RequestAbortedException();
+    }
+    if (_disposed) {
+      _requestSlots.release();
+      throw StateError('AI 传输客户端已释放。');
+    }
     final abort = _createAbort();
     if (cancelSignal != null) {
       unawaited(
@@ -999,12 +964,13 @@ class AiTransportClient {
       return await operation(abort);
     } finally {
       _abort(abort);
+      _requestSlots.release();
     }
   }
 
   Completer<void> _createAbort() {
     if (_disposed) {
-      throw StateError('AI transport client has been disposed.');
+      throw StateError('AI 传输客户端已释放。');
     }
     final abort = Completer<void>();
     _activeAborts.add(abort);
@@ -1024,8 +990,7 @@ class AiTransportClient {
       );
       unawaited(cancelStreamSubscriptionBounded<List<int>>(subscription));
     } catch (_) {
-      // The response has already been aborted; a synchronous listen failure
-      // carries no additional actionable information.
+      // 响应已中止，同步监听失败不再提供可操作信息。
     }
   }
 
@@ -1036,7 +1001,7 @@ class AiTransportClient {
       final response = await responseFuture;
       _cancelResponseStream(response.stream);
     } catch (_) {
-      // A late transport failure is already represented by the timeout.
+      // 延迟到达的传输失败已由超时结果表示。
     }
   }
 
@@ -1053,6 +1018,7 @@ class AiTransportClient {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _requestSlots.cancelWaiters();
     final aborts = _activeAborts.toList(growable: false);
     _activeAborts.clear();
     for (final abort in aborts) {
