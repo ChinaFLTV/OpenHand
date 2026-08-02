@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -27,6 +28,7 @@ import 'service_dialog_controls.dart';
 
 const int _kMaxProxyImportBytes = 4 * 1024 * 1024;
 const int _kMaxProxyEndpoints = 10000;
+const int _kProxyHighLatencyThresholdMs = 350;
 const double _kProxyEndpointListMaxHeight = 420;
 const double _kProxyEndpointScrollbarGutter = 20;
 const Duration _kProbeResultFlushDelay = Duration(milliseconds: 80);
@@ -34,6 +36,16 @@ const List<int> _kInspectionIntervals = <int>[5, 15, 30, 60, 180, 360];
 const List<int> _kInspectionConcurrencyOptions = <int>[1, 2, 4, 8, 16, 32];
 
 enum _ProxySort { nameAscending, latencyAscending, latencyDescending }
+
+enum _ProxyEndpointHealth {
+  disabled,
+  unchecked,
+  unavailable,
+  healthy,
+  highLatency,
+}
+
+enum _ProxyCleanup { unavailable, highLatency, abnormal }
 
 Future<void> showAiExposureProxyDialog(BuildContext context) =>
     showAnimatedDialog<void>(
@@ -488,6 +500,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   Future<void> _confirmDeleteEndpoints(
     Set<String> urls, {
     bool clearAll = false,
+    _ProxyCleanup? cleanup,
   }) async {
     if (urls.isEmpty ||
         _busy ||
@@ -503,33 +516,86 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final text = openHandTextResolver(context);
     final count = endpoints.length;
     final clearsPool = clearAll || count == _endpoints.length;
+    final cleanupTitle = switch (cleanup) {
+      _ProxyCleanup.unavailable => text(
+        zh: '删除全部不可用节点？',
+        en: 'Delete all unavailable nodes?',
+      ),
+      _ProxyCleanup.highLatency => text(
+        zh: '删除全部高延迟节点？',
+        en: 'Delete all high-latency nodes?',
+      ),
+      _ProxyCleanup.abnormal => text(
+        zh: '清理全部异常节点？',
+        en: 'Delete all unhealthy nodes?',
+      ),
+      null => null,
+    };
+    final cleanupMessage = switch (cleanup) {
+      _ProxyCleanup.unavailable => text(
+        zh: '将立即删除并保存 $count 个最近探测不可用的代理节点${clearsPool ? '，并停用代理池与定时巡检' : ''}。',
+        en: 'Immediately delete and save $count unavailable proxy nodes${clearsPool ? ', then disable the proxy pool and scheduled inspection' : ''}.',
+      ),
+      _ProxyCleanup.highLatency => text(
+        zh: '将立即删除并保存 $count 个延迟超过 $_kProxyHighLatencyThresholdMs ms 的代理节点${clearsPool ? '，并停用代理池与定时巡检' : ''}。',
+        en: 'Immediately delete and save $count proxy nodes above $_kProxyHighLatencyThresholdMs ms${clearsPool ? ', then disable the proxy pool and scheduled inspection' : ''}.',
+      ),
+      _ProxyCleanup.abnormal => text(
+        zh: '将立即删除并保存 $count 个不可用或高延迟代理节点${clearsPool ? '，并停用代理池与定时巡检' : ''}。',
+        en: 'Immediately delete and save $count unavailable or high-latency proxy nodes${clearsPool ? ', then disable the proxy pool and scheduled inspection' : ''}.',
+      ),
+      null => null,
+    };
+    final cleanupConfirmLabel = switch (cleanup) {
+      _ProxyCleanup.unavailable => text(zh: '删除不可用', en: 'Delete unavailable'),
+      _ProxyCleanup.highLatency => text(zh: '删除高延迟', en: 'Delete high latency'),
+      _ProxyCleanup.abnormal => text(zh: '清理异常', en: 'Clean unhealthy'),
+      null => null,
+    };
+    final cleanupIcon = switch (cleanup) {
+      _ProxyCleanup.unavailable => Icons.cloud_off_outlined,
+      _ProxyCleanup.highLatency => Icons.warning_amber_rounded,
+      _ProxyCleanup.abnormal => Icons.cleaning_services_outlined,
+      null => Icons.delete_outline_rounded,
+    };
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
-      title: clearsPool
-          ? text(zh: '清空代理池？', en: 'Clear proxy pool?')
-          : count == 1
-          ? text(zh: '删除代理节点？', en: 'Delete proxy node?')
-          : text(zh: '删除所选 $count 个节点？', en: 'Delete $count selected nodes?'),
-      message: clearsPool
-          ? text(
-              zh: '将立即移除并保存全部 $count 个代理节点；若代理池或定时巡检已启用，将同步停用。',
-              en: 'This immediately removes and saves all $count proxy nodes. The pool and scheduled inspection will be disabled if active.',
-            )
-          : count == 1
-          ? text(
-              zh: '将立即移除并保存“${endpoints.first.displayName}”。',
-              en: 'Immediately remove and save “${endpoints.first.displayName}”.',
-            )
-          : text(
-              zh: '将立即移除并保存所选 $count 个代理节点。',
-              en: 'Immediately remove and save the $count selected proxy nodes.',
-            ),
+      title:
+          cleanupTitle ??
+          (clearsPool
+              ? text(zh: '清空代理池？', en: 'Clear proxy pool?')
+              : count == 1
+              ? text(zh: '删除代理节点？', en: 'Delete proxy node?')
+              : text(
+                  zh: '删除所选 $count 个节点？',
+                  en: 'Delete $count selected nodes?',
+                )),
+      message:
+          cleanupMessage ??
+          (clearsPool
+              ? text(
+                  zh: '将立即移除并保存全部 $count 个代理节点；若代理池或定时巡检已启用，将同步停用。',
+                  en: 'This immediately removes and saves all $count proxy nodes. The pool and scheduled inspection will be disabled if active.',
+                )
+              : count == 1
+              ? text(
+                  zh: '将立即移除并保存“${endpoints.first.displayName}”。',
+                  en: 'Immediately remove and save “${endpoints.first.displayName}”.',
+                )
+              : text(
+                  zh: '将立即移除并保存所选 $count 个代理节点。',
+                  en: 'Immediately remove and save the $count selected proxy nodes.',
+                )),
       cancelLabel: text(zh: '取消', en: 'Cancel'),
-      confirmLabel: clearsPool
-          ? text(zh: '全部清空', en: 'Clear all')
-          : text(zh: '删除', en: 'Delete'),
+      confirmLabel:
+          cleanupConfirmLabel ??
+          (clearsPool
+              ? text(zh: '全部清空', en: 'Clear all')
+              : text(zh: '删除', en: 'Delete')),
       icon: Icon(
-        clearsPool
+        cleanup != null
+            ? cleanupIcon
+            : clearsPool
             ? Icons.delete_forever_outlined
             : Icons.delete_outline_rounded,
       ),
@@ -855,6 +921,25 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final allSelected =
         _endpoints.isNotEmpty &&
         _endpoints.every((endpoint) => _selectedUrls.contains(endpoint.url));
+    final unavailableUrls = <String>{};
+    final highLatencyUrls = <String>{};
+    for (final endpoint in _endpoints) {
+      switch (_proxyEndpointHealth(endpoint)) {
+        case _ProxyEndpointHealth.unavailable:
+          unavailableUrls.add(endpoint.url);
+        case _ProxyEndpointHealth.highLatency:
+          highLatencyUrls.add(endpoint.url);
+        case _ProxyEndpointHealth.disabled:
+        case _ProxyEndpointHealth.unchecked:
+        case _ProxyEndpointHealth.healthy:
+          break;
+      }
+    }
+    final cleanupTargets = <_ProxyCleanup, Set<String>>{
+      _ProxyCleanup.unavailable: unavailableUrls,
+      _ProxyCleanup.highLatency: highLatencyUrls,
+      _ProxyCleanup.abnormal: <String>{...unavailableUrls, ...highLatencyUrls},
+    };
     final sortLabel = switch (_sort) {
       _ProxySort.nameAscending => text(zh: '按名称升序', en: 'name ascending'),
       _ProxySort.latencyAscending => text(zh: '按延迟升序', en: 'latency ascending'),
@@ -979,6 +1064,57 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               )
             : null,
       ),
+      AnimatedPopupMenuButton<_ProxyCleanup>(
+        tooltip: text(zh: '快捷清理异常节点', en: 'Clean unhealthy nodes'),
+        enabled: !locked && !_selectionMode,
+        onSelected: (cleanup) {
+          final urls = cleanupTargets[cleanup] ?? const <String>{};
+          if (urls.isEmpty) return;
+          dismissOpenHandTooltipsSafely(debugLabel: '清理异常代理节点前收起工具提示');
+          unawaited(
+            _confirmDeleteEndpoints(Set<String>.from(urls), cleanup: cleanup),
+          );
+        },
+        itemBuilder: (_) => [
+          PopupMenuItem<_ProxyCleanup>(
+            value: _ProxyCleanup.unavailable,
+            enabled: unavailableUrls.isNotEmpty,
+            child: _ProxyCleanupMenuItem(
+              icon: Icons.cloud_off_outlined,
+              label: text(zh: '删除全部不可用节点', en: 'Delete all unavailable nodes'),
+              detail: text(zh: '最近一次探测不可达', en: 'Latest probe unreachable'),
+              count: unavailableUrls.length,
+            ),
+          ),
+          PopupMenuItem<_ProxyCleanup>(
+            value: _ProxyCleanup.highLatency,
+            enabled: highLatencyUrls.isNotEmpty,
+            child: _ProxyCleanupMenuItem(
+              icon: Icons.warning_amber_rounded,
+              label: text(zh: '删除全部高延迟节点', en: 'Delete all high-latency nodes'),
+              detail: text(
+                zh: '延迟超过 $_kProxyHighLatencyThresholdMs ms',
+                en: 'Latency above $_kProxyHighLatencyThresholdMs ms',
+              ),
+              count: highLatencyUrls.length,
+            ),
+          ),
+          PopupMenuItem<_ProxyCleanup>(
+            value: _ProxyCleanup.abnormal,
+            enabled: cleanupTargets[_ProxyCleanup.abnormal]!.isNotEmpty,
+            child: _ProxyCleanupMenuItem(
+              icon: Icons.cleaning_services_outlined,
+              label: text(zh: '清理全部异常节点', en: 'Delete all unhealthy nodes'),
+              detail: text(
+                zh: '不可用与高延迟节点',
+                en: 'Unavailable and high-latency nodes',
+              ),
+              count: cleanupTargets[_ProxyCleanup.abnormal]!.length,
+            ),
+          ),
+        ],
+        icon: const Icon(Icons.cleaning_services_outlined),
+      ),
       IconButton(
         tooltip: text(zh: '清空全部节点', en: 'Clear all nodes'),
         onPressed: _endpoints.isEmpty || locked
@@ -992,7 +1128,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         style: IconButton.styleFrom(foregroundColor: colors.error),
         icon: const Icon(Icons.delete_forever_outlined),
       ),
-      PopupMenuButton<_ProxySort>(
+      AnimatedPopupMenuButton<_ProxySort>(
         tooltip: text(zh: '排序节点', en: 'Sort nodes'),
         enabled: !locked && !_selectionMode,
         initialValue: _sort,
@@ -4061,6 +4197,69 @@ class _ProxyLatencyTooltip extends StatelessWidget {
   }
 }
 
+class _ProxyCleanupMenuItem extends StatelessWidget {
+  const _ProxyCleanupMenuItem({
+    required this.icon,
+    required this.label,
+    required this.detail,
+    required this.count,
+  });
+
+  final IconData icon;
+  final String label;
+  final String detail;
+  final int count;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final enabled = count > 0;
+    final color = enabled
+        ? theme.colorScheme.onSurfaceVariant
+        : theme.disabledColor;
+    return SizedBox(
+      width: 280,
+      child: Row(
+        children: [
+          Icon(icon, size: 20, color: color),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    color: enabled ? null : theme.disabledColor,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                Text(
+                  detail,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(color: color),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '$count',
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: enabled ? theme.colorScheme.primary : theme.disabledColor,
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
 class _ProxyMetric extends StatelessWidget {
   const _ProxyMetric({
     required this.icon,
@@ -4086,6 +4285,16 @@ class _ProxyMetric extends StatelessWidget {
   );
 }
 
+_ProxyEndpointHealth _proxyEndpointHealth(AiExposureProxyEndpoint endpoint) {
+  if (!endpoint.enabled) return _ProxyEndpointHealth.disabled;
+  final sample = endpoint.latestSample;
+  if (sample == null) return _ProxyEndpointHealth.unchecked;
+  if (!sample.reachable) return _ProxyEndpointHealth.unavailable;
+  return sample.latencyMs! <= _kProxyHighLatencyThresholdMs
+      ? _ProxyEndpointHealth.healthy
+      : _ProxyEndpointHealth.highLatency;
+}
+
 ({Color color, IconData icon, String label}) _proxyHealthTone(
   BuildContext context,
   AiExposureProxyEndpoint endpoint,
@@ -4099,40 +4308,33 @@ class _ProxyMetric extends StatelessWidget {
       label: text(zh: '检测中', en: 'Testing'),
     );
   }
-  if (!endpoint.enabled) {
-    return (
+  return switch (_proxyEndpointHealth(endpoint)) {
+    _ProxyEndpointHealth.disabled => (
       color: Theme.of(context).colorScheme.outline,
       icon: Icons.pause_circle_outline_rounded,
       label: text(zh: '已禁用', en: 'Disabled'),
-    );
-  }
-  final sample = endpoint.latestSample;
-  if (sample == null) {
-    return (
+    ),
+    _ProxyEndpointHealth.unchecked => (
       color: Theme.of(context).colorScheme.outline,
       icon: Icons.help_outline_rounded,
       label: text(zh: '未检测', en: 'Unchecked'),
-    );
-  }
-  if (!sample.reachable) {
-    return (
+    ),
+    _ProxyEndpointHealth.unavailable => (
       color: OpenHandStatusColors.error,
       icon: Icons.cloud_off_outlined,
       label: text(zh: '不可用', en: 'Unavailable'),
-    );
-  }
-  if (sample.latencyMs! <= 350) {
-    return (
+    ),
+    _ProxyEndpointHealth.healthy => (
       color: OpenHandStatusColors.success,
       icon: Icons.check_circle_outline_rounded,
       label: text(zh: '畅通', en: 'Healthy'),
-    );
-  }
-  return (
-    color: OpenHandStatusColors.warning,
-    icon: Icons.warning_amber_rounded,
-    label: text(zh: '高延迟', en: 'High latency'),
-  );
+    ),
+    _ProxyEndpointHealth.highLatency => (
+      color: OpenHandStatusColors.warning,
+      icon: Icons.warning_amber_rounded,
+      label: text(zh: '高延迟', en: 'High latency'),
+    ),
+  };
 }
 
 ({List<AiExposureProxyEndpoint> endpoints, int invalid}) _proxyEndpoints(
