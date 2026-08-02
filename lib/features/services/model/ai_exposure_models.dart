@@ -690,18 +690,20 @@ class AiExposureProxyEndpoint {
     return copyWith(samples: updated);
   }
 
-  Map<String, Object?> toJson({bool includeStatistics = true}) =>
-      <String, Object?>{
-        'url': url,
-        if (name.trim().isNotEmpty) 'name': name.trim(),
-        'enabled': enabled,
-        if (samples.isNotEmpty)
-          'samples': samples
-              .map((sample) => sample.toJson())
-              .toList(growable: false),
-        if (includeStatistics) 'statistics': statistics.toJson(),
-        if (identity != null) 'identity': identity!.toJson(),
-      };
+  Map<String, Object?> toJson({
+    bool includeStatistics = true,
+    bool includeSamples = true,
+  }) => <String, Object?>{
+    'url': url,
+    if (name.trim().isNotEmpty) 'name': name.trim(),
+    'enabled': enabled,
+    if (includeSamples && samples.isNotEmpty)
+      'samples': samples
+          .map((sample) => sample.toJson())
+          .toList(growable: false),
+    if (includeStatistics) 'statistics': statistics.toJson(),
+    if (identity != null) 'identity': identity!.toJson(),
+  };
 }
 
 class AiExposureProxyConfiguration {
@@ -769,22 +771,26 @@ class AiExposureProxyConfiguration {
   List<AiExposureProxyEndpoint> get activeEndpoints =>
       endpoints.where((endpoint) => endpoint.enabled).toList(growable: false);
 
-  Map<String, Object?> toJson({bool includeStatistics = true}) =>
-      <String, Object?>{
-        'enabled': enabled,
-        'strategy': strategy.id,
-        'rotationEvery': rotationEvery.clamp(1, 10000),
-        'bypassLocal': bypassLocal,
-        'endpoints': endpoints
-            .map(
-              (endpoint) =>
-                  endpoint.toJson(includeStatistics: includeStatistics),
-            )
-            .toList(growable: false),
-        'inspectionEnabled': inspectionEnabled,
-        'inspectionIntervalMinutes': inspectionIntervalMinutes.clamp(1, 1440),
-        'inspectionConcurrency': inspectionConcurrency.clamp(1, 32),
-      };
+  Map<String, Object?> toJson({
+    bool includeStatistics = true,
+    bool includeSamples = true,
+  }) => <String, Object?>{
+    'enabled': enabled,
+    'strategy': strategy.id,
+    'rotationEvery': rotationEvery.clamp(1, 10000),
+    'bypassLocal': bypassLocal,
+    'endpoints': endpoints
+        .map(
+          (endpoint) => endpoint.toJson(
+            includeStatistics: includeStatistics,
+            includeSamples: includeSamples,
+          ),
+        )
+        .toList(growable: false),
+    'inspectionEnabled': inspectionEnabled,
+    'inspectionIntervalMinutes': inspectionIntervalMinutes.clamp(1, 1440),
+    'inspectionConcurrency': inspectionConcurrency.clamp(1, 32),
+  };
 
   Map<String, Object?> toRuntimeJson() => <String, Object?>{
     'enabled': enabled,
@@ -1197,25 +1203,28 @@ class AiExposurePreferences {
   final bool redisEnabled;
   final AiExposureProxyConfiguration proxyConfiguration;
 
-  Map<String, Object?> toJson({bool includeProxyStatistics = true}) =>
-      <String, Object?>{
-        'enabledSources': enabledSources
-            .map((source) => source.id)
-            .toList(growable: false),
-        'defaultConcurrency': defaultConcurrency,
-        'defaultValidationMode':
-            defaultValidationMode == AiExposureValidationMode.authorizedActive
-            ? 'authorized_active'
-            : 'passive',
-        'defaultGptAssisted': defaultGptAssisted,
-        'useBundledEngine': useBundledEngine,
-        'externalAddress': externalAddress,
-        'postgresqlEnabled': postgresqlEnabled,
-        'redisEnabled': redisEnabled,
-        'proxy': proxyConfiguration.toJson(
-          includeStatistics: includeProxyStatistics,
-        ),
-      };
+  Map<String, Object?> toJson({
+    bool includeProxyStatistics = true,
+    bool includeProxySamples = true,
+  }) => <String, Object?>{
+    'enabledSources': enabledSources
+        .map((source) => source.id)
+        .toList(growable: false),
+    'defaultConcurrency': defaultConcurrency,
+    'defaultValidationMode':
+        defaultValidationMode == AiExposureValidationMode.authorizedActive
+        ? 'authorized_active'
+        : 'passive',
+    'defaultGptAssisted': defaultGptAssisted,
+    'useBundledEngine': useBundledEngine,
+    'externalAddress': externalAddress,
+    'postgresqlEnabled': postgresqlEnabled,
+    'redisEnabled': redisEnabled,
+    'proxy': proxyConfiguration.toJson(
+      includeStatistics: includeProxyStatistics,
+      includeSamples: includeProxySamples,
+    ),
+  };
 }
 
 Map<String, Object?> aiExposureJsonMap(Object? value) => _jsonMap(value);

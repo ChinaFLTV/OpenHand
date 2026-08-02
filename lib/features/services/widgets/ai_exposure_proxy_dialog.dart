@@ -79,6 +79,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   final Set<String> _removingUrls = <String>{};
   final Map<String, AiExposureProxyProbeSample> _pendingSamples =
       <String, AiExposureProxyProbeSample>{};
+  late final ServicesController _servicesController;
   late bool _enabled;
   late bool _bypassLocal;
   late bool _inspectionEnabled;
@@ -87,10 +88,12 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   late AiExposureProxyStrategy _strategy;
   late double _rotationEvery;
   late List<AiExposureProxyEndpoint> _endpoints;
+  Map<String, int>? _endpointIndexCache;
   _ProxySort _sort = _ProxySort.nameAscending;
   List<AiExposureProxyEndpoint>? _sortedEndpointCache;
   _ProxySort? _sortedEndpointCacheSort;
   Timer? _resultFlushTimer;
+  bool _pendingSamplesHandledByController = false;
   bool _busy = false;
   bool _inspectionBusy = false;
   bool _inspectionRunning = false;
@@ -102,7 +105,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   @override
   void initState() {
     super.initState();
-    final configuration = context.read<ServicesController>().proxyConfiguration;
+    _servicesController = context.read<ServicesController>();
+    final configuration = _servicesController.proxyConfiguration;
     _enabled = configuration.enabled;
     _bypassLocal = configuration.bypassLocal;
     _inspectionEnabled = configuration.inspectionEnabled;
@@ -116,6 +120,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   @override
   void dispose() {
     _inspectionGeneration++;
+    if (_inspectionRunning) _servicesController.cancelProxyInspection();
     _resultFlushTimer?.cancel();
     _endpointScrollController.dispose();
     super.dispose();
@@ -126,7 +131,9 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
-    final status = context.watch<ServicesController>().proxyStatus;
+    final controller = context.watch<ServicesController>();
+    final status = controller.proxyStatus;
+    final controllerInspectionBusy = controller.proxyInspectionBusy;
     final activeCount = _endpoints.where((endpoint) => endpoint.enabled).length;
     final statusStatistics = <String, AiExposureProxyUsageStatistics>{
       for (final item
@@ -141,6 +148,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final endpointTooltipsVisible =
         !_busy &&
         !_inspectionBusy &&
+        !controllerInspectionBusy &&
         _testingUrls.isEmpty &&
         _removingUrls.isEmpty;
     return ServiceDialogInteractionTheme(
@@ -221,9 +229,15 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                         inFlight: status?.inFlight ?? 0,
                       ),
                       const SizedBox(height: 14),
-                      _buildSettingsPanel(context),
+                      _buildSettingsPanel(
+                        context,
+                        controllerInspectionBusy: controllerInspectionBusy,
+                      ),
                       const SizedBox(height: 14),
-                      _buildEndpointToolbar(context),
+                      _buildEndpointToolbar(
+                        context,
+                        controllerInspectionBusy: controllerInspectionBusy,
+                      ),
                       if (_inspectionBusy) ...[
                         const SizedBox(height: 10),
                         Row(
@@ -461,12 +475,14 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     if (index < 0) return;
     setState(() {
       _endpoints[index] = updated;
+      if (url != updated.url) _endpointIndexCache = null;
       _invalidateEndpointSortCache();
     });
   }
 
   void _replaceEndpointsLocally(List<AiExposureProxyEndpoint> endpoints) {
     _endpoints = List<AiExposureProxyEndpoint>.of(endpoints);
+    _endpointIndexCache = null;
     final urls = _endpoints.map((endpoint) => endpoint.url).toSet();
     _selectedUrls.retainAll(urls);
     _invalidateEndpointSortCache();
@@ -642,7 +658,10 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     );
   }
 
-  Widget _buildSettingsPanel(BuildContext context) {
+  Widget _buildSettingsPanel(
+    BuildContext context, {
+    required bool controllerInspectionBusy,
+  }) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
@@ -871,6 +890,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               final inspect = FilledButton.tonalIcon(
                 onPressed: _inspectionBusy
                     ? _cancelInspection
+                    : controllerInspectionBusy
+                    ? null
                     : !_endpoints.any((item) => item.enabled)
                     ? null
                     : _inspectAll,
@@ -917,12 +938,16 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     );
   }
 
-  Widget _buildEndpointToolbar(BuildContext context) {
+  Widget _buildEndpointToolbar(
+    BuildContext context, {
+    required bool controllerInspectionBusy,
+  }) {
     final colors = Theme.of(context).colorScheme;
     final text = openHandTextResolver(context);
     final locked =
         _busy ||
         _inspectionBusy ||
+        controllerInspectionBusy ||
         _testingUrls.isNotEmpty ||
         _removingUrls.isNotEmpty;
     final allSelected =
@@ -1278,7 +1303,11 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   );
 
   Future<void> _testEndpoint(String url) async {
-    if (_inspectionRunning || _testingUrls.contains(url)) return;
+    if (_inspectionRunning ||
+        _servicesController.proxyInspectionBusy ||
+        _testingUrls.contains(url)) {
+      return;
+    }
     final endpoint = _endpoints.where((item) => item.url == url).firstOrNull;
     if (endpoint == null) return;
     setState(() => _testingUrls.add(url));
@@ -1290,53 +1319,45 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 
   Future<void> _inspectAll() async {
-    if (_inspectionBusy || _inspectionRunning || _testingUrls.isNotEmpty) {
+    if (_inspectionBusy ||
+        _inspectionRunning ||
+        _servicesController.proxyInspectionBusy ||
+        _testingUrls.isNotEmpty) {
       return;
     }
-    final endpoints = _endpoints
-        .where((endpoint) => endpoint.enabled)
-        .toList(growable: false);
-    if (endpoints.isEmpty) return;
+    final total = _endpoints.where((endpoint) => endpoint.enabled).length;
+    if (total == 0) return;
     final generation = ++_inspectionGeneration;
     _inspectionRunning = true;
+    _pendingSamplesHandledByController = true;
     setState(() {
       _inspectionBusy = true;
       _inspectionCompleted = 0;
-      _inspectionTotal = endpoints.length;
-      _testingUrls.addAll(endpoints.map((endpoint) => endpoint.url));
+      _inspectionTotal = total;
     });
-    var cursor = 0;
-    Future<void> worker() async {
-      while (mounted && generation == _inspectionGeneration) {
-        final index = cursor++;
-        if (index >= endpoints.length) return;
-        final endpoint = endpoints[index];
-        final sample = await _probe.inspect(endpoint);
-        if (!mounted || generation != _inspectionGeneration) return;
-        _pendingSamples[endpoint.url] = sample;
-        _testingUrls.remove(endpoint.url);
-        _inspectionCompleted++;
-        _scheduleProbeResultFlush();
-      }
-    }
 
     try {
-      await Future.wait<void>(
-        List<Future<void>>.generate(
-          endpoints.length < _normalizedInspectionConcurrency
-              ? endpoints.length
-              : _normalizedInspectionConcurrency,
-          (_) => worker(),
-        ),
+      final started = await _servicesController.inspectAllProxies(
+        concurrency: _normalizedInspectionConcurrency,
+        onResult: (url, sample, completed, total) {
+          if (!mounted || generation != _inspectionGeneration) return;
+          _pendingSamples[url] = sample;
+          _inspectionCompleted = completed;
+          _inspectionTotal = total;
+          _scheduleProbeResultFlush();
+        },
       );
-      if (!mounted || generation != _inspectionGeneration) return;
+      if (!started || !mounted || generation != _inspectionGeneration) return;
       _resultFlushTimer?.cancel();
       _resultFlushTimer = null;
       _flushProbeResults();
-      setState(() => _inspectionBusy = false);
     } finally {
       _inspectionRunning = false;
-      if (mounted && generation != _inspectionGeneration) {
+      _resultFlushTimer?.cancel();
+      _resultFlushTimer = null;
+      if (mounted) {
+        _flushProbeResults();
+        _pendingSamplesHandledByController = false;
         setState(() => _inspectionBusy = false);
       }
     }
@@ -1353,6 +1374,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   void _cancelInspection() {
     if (!_inspectionBusy) return;
     _inspectionGeneration++;
+    _servicesController.cancelProxyInspection();
     _resultFlushTimer?.cancel();
     _resultFlushTimer = null;
     _flushProbeResults();
@@ -1364,7 +1386,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     if (!mounted || _pendingSamples.isEmpty) return;
     final samples = Map<String, AiExposureProxyProbeSample>.of(_pendingSamples);
     _pendingSamples.clear();
-    final indexes = <String, int>{
+    final indexes = _endpointIndexCache ??= <String, int>{
       for (var index = 0; index < _endpoints.length; index++)
         _endpoints[index].url: index,
     };
@@ -1380,9 +1402,11 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         }
       }
     });
-    unawaited(
-      context.read<ServicesController>().saveProxyProbeSamples(samples),
-    );
+    if (!_pendingSamplesHandledByController) {
+      unawaited(
+        context.read<ServicesController>().saveProxyProbeSamples(samples),
+      );
+    }
   }
 
   Future<void> _import() async {

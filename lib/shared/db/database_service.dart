@@ -18,7 +18,7 @@ class DatabaseService {
   Database? _database;
   BoundedRandomAccessFileLease? _instanceLock;
 
-  static const int schemaVersion = 13;
+  static const int schemaVersion = 14;
   static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
@@ -51,6 +51,13 @@ class DatabaseService {
       endpoint_url    TEXT PRIMARY KEY,
       statistics_json TEXT NOT NULL,
       updated_at      TEXT NOT NULL
+    )
+  ''';
+  static const String _createAiExposureProxySamplesTableSql = '''
+    CREATE TABLE IF NOT EXISTS ai_exposure_proxy_samples (
+      endpoint_url TEXT PRIMARY KEY,
+      samples_json TEXT NOT NULL,
+      updated_at   TEXT NOT NULL
     )
   ''';
   static const List<int> _legacyHarnessPrefixCodeUnits = <int>[
@@ -401,6 +408,7 @@ class DatabaseService {
     _createKnowledgeBaseSchema(batch);
     _createAiUsageSchema(batch);
     batch.execute(_createAiExposureProxyStatisticsTableSql);
+    batch.execute(_createAiExposureProxySamplesTableSql);
 
     await batch.commit(noResult: true);
   }
@@ -694,6 +702,9 @@ class DatabaseService {
     }
     if (oldVersion < 13) {
       await db.execute(_createAiExposureProxyStatisticsTableSql);
+    }
+    if (oldVersion < 14) {
+      await db.execute(_createAiExposureProxySamplesTableSql);
     }
   }
 

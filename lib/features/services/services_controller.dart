@@ -17,15 +17,29 @@ const int _kAiExposureMaxLogs = 5000;
 const int _kAiExposureMaxCachedHistoryJobs = 20;
 const int _kAiExposureMaxCachedLogsPerJob = 2000;
 const int _kMaxProxyInspectionConcurrency = 32;
+const int _kProxyInspectionCheckpointSize = 512;
+const Duration _kProxyInspectionFirstRunDelay = Duration(seconds: 10);
 const Duration _kProxyStatisticsSyncInterval = Duration(seconds: 5);
+
+typedef AiExposureProxyInspectionResultCallback =
+    void Function(
+      String url,
+      AiExposureProxyProbeSample sample,
+      int completed,
+      int total,
+    );
 
 class ServicesController extends ChangeNotifier {
   ServicesController({
     AiJunglerRuntime? runtime,
     AiExposurePreferencesStore? preferencesStore,
     AiExposurePreferences? initialPreferences,
+    AiExposureProxyProbe? proxyProbe,
+    Duration proxyInspectionFirstRunDelay = _kProxyInspectionFirstRunDelay,
   }) : _runtime = runtime ?? AiJunglerRuntime(),
-       _preferencesStore = preferencesStore ?? AiExposurePreferencesStore() {
+       _preferencesStore = preferencesStore ?? AiExposurePreferencesStore(),
+       _proxyProbe = proxyProbe ?? const AiExposureProxyProbe(),
+       _proxyInspectionFirstRunDelay = proxyInspectionFirstRunDelay {
     final preferences = initialPreferences ?? AiExposurePreferences.defaults();
     _enabledSources = Set<AiExposureSource>.of(preferences.enabledSources);
     _defaultConcurrency = preferences.defaultConcurrency;
@@ -38,12 +52,13 @@ class ServicesController extends ChangeNotifier {
     _proxyConfiguration = preferences.proxyConfiguration;
     _runtimeLogSubscription = _runtime.logs.listen(_appendRuntimeLog);
     _runtimeExitSubscription = _runtime.exits.listen(_handleRuntimeExit);
-    _scheduleProxyInspection();
+    _scheduleProxyInspection(firstDelay: _proxyInspectionFirstRunDelay);
   }
 
   final AiJunglerRuntime _runtime;
   final AiExposurePreferencesStore _preferencesStore;
-  final AiExposureProxyProbe _proxyProbe = const AiExposureProxyProbe();
+  final AiExposureProxyProbe _proxyProbe;
+  final Duration _proxyInspectionFirstRunDelay;
   AiModelConfig? Function()? _selectedAiModelProvider;
   PluginServiceController? _pluginServiceController;
   VoidCallback? _pluginOperationListener;
@@ -76,9 +91,10 @@ class ServicesController extends ChangeNotifier {
       AiExposureProxyConfiguration.defaults();
   Timer? _proxyInspectionTimer;
   Timer? _proxyStatisticsTimer;
-  bool _proxyInspectionBusy = false;
   bool _proxyInspectionRunning = false;
+  bool _proxyInspectionCancelRequested = false;
   int _proxyInspectionGeneration = 0;
+  int _proxyInspectionScheduleGeneration = 0;
   final OpenHandSingleFlight<void> _proxyStatisticsSync =
       OpenHandSingleFlight<void>();
   final OpenHandSingleFlight<void> _serviceStatusRefresh =
@@ -124,7 +140,7 @@ class ServicesController extends ChangeNotifier {
   bool get scanBusy => _scanBusy;
   bool get isRunning => _lifecycle == AiExposureServiceLifecycle.running;
   bool get hasActiveScan => _progress?.isRunning ?? false;
-  bool get proxyInspectionBusy => _proxyInspectionBusy;
+  bool get proxyInspectionBusy => _proxyInspectionRunning;
   bool get ownsProcess => _runtime.ownsProcess;
   AiJunglerClient? get _client => _runtime.client;
 
@@ -488,6 +504,11 @@ class ServicesController extends ChangeNotifier {
     AiExposureProxyConfiguration configuration, {
     required String logMessage,
   }) async {
+    _proxyInspectionGeneration++;
+    _proxyInspectionCancelRequested = true;
+    _proxyInspectionScheduleGeneration++;
+    _proxyInspectionTimer?.cancel();
+    _proxyInspectionTimer = null;
     final previousConfiguration = _proxyConfiguration;
     final previousStatus = _proxyStatus;
     AiJunglerClient? updatedClient;
@@ -521,7 +542,7 @@ class ServicesController extends ChangeNotifier {
         _notify();
         return false;
       }
-      _scheduleProxyInspection();
+      _scheduleProxyInspection(firstDelay: _proxyInspectionFirstRunDelay);
       _scheduleProxyStatisticsSync();
       _errorMessage = null;
       _appendLog(
@@ -577,102 +598,180 @@ class ServicesController extends ChangeNotifier {
         endpoints[index].url: index,
     };
     var changed = false;
+    final changedEndpoints = <AiExposureProxyEndpoint>[];
     for (final entry in samples.entries) {
       final index = indexes[entry.key];
       if (index == null) continue;
       endpoints[index] = endpoints[index].withSample(entry.value);
+      changedEndpoints.add(endpoints[index]);
       changed = true;
     }
     if (!changed) return;
     _proxyConfiguration = _proxyConfiguration.copyWith(endpoints: endpoints);
-    await _persistPreferences();
+    await _persistProxySamples(changedEndpoints);
     _notify();
   }
 
-  Future<void> inspectAllProxies() async {
-    if (_proxyInspectionBusy || _proxyInspectionRunning || _disposed) return;
-    final endpoints = _proxyConfiguration.activeEndpoints;
-    if (endpoints.isEmpty) return;
+  Future<bool> inspectAllProxies({
+    int? concurrency,
+    AiExposureProxyInspectionResultCallback? onResult,
+  }) async {
+    if (_proxyInspectionRunning || _disposed) return false;
+    final configuration = _proxyConfiguration;
+    final targets = <(int, AiExposureProxyEndpoint)>[];
+    for (var index = 0; index < configuration.endpoints.length; index++) {
+      final endpoint = configuration.endpoints[index];
+      if (endpoint.enabled) targets.add((index, endpoint));
+    }
+    if (targets.isEmpty) return false;
     final generation = ++_proxyInspectionGeneration;
+    _proxyInspectionCancelRequested = false;
     _proxyInspectionRunning = true;
-    _proxyInspectionBusy = true;
     _notify();
-    final inspected = <String, AiExposureProxyProbeSample>{};
+    var pending = <(int, String, AiExposureProxyProbeSample)>[];
+    Future<bool>? persistence;
+    var persistenceFailed = false;
     var cursor = 0;
-    final concurrency = _proxyConfiguration.inspectionConcurrency.clamp(
-      1,
-      _kMaxProxyInspectionConcurrency,
-    );
+    var completed = 0;
+    var healthy = 0;
+    final workerCount = (concurrency ?? configuration.inspectionConcurrency)
+        .clamp(1, _kMaxProxyInspectionConcurrency);
+
+    Future<bool> persistCheckpoint({required bool force}) async {
+      if (persistenceFailed) return false;
+      while (persistence != null) {
+        if (!await persistence!) return false;
+      }
+      if (persistenceFailed) return false;
+      if ((!force && pending.length < _kProxyInspectionCheckpointSize) ||
+          pending.isEmpty) {
+        return !persistenceFailed;
+      }
+      if (_disposed || generation != _proxyInspectionGeneration) return false;
+      final batch = pending;
+      pending = <(int, String, AiExposureProxyProbeSample)>[];
+      final current = _proxyConfiguration;
+      final updatedEndpoints = List<AiExposureProxyEndpoint>.of(
+        current.endpoints,
+      );
+      final changedEndpoints = <AiExposureProxyEndpoint>[];
+      for (final (index, url, sample) in batch) {
+        if (index >= updatedEndpoints.length ||
+            updatedEndpoints[index].url != url) {
+          continue;
+        }
+        updatedEndpoints[index] = updatedEndpoints[index].withSample(sample);
+        changedEndpoints.add(updatedEndpoints[index]);
+      }
+      _proxyConfiguration = current.copyWith(endpoints: updatedEndpoints);
+      final saving = _persistProxySamples(changedEndpoints);
+      persistence = saving;
+      final saved = await saving;
+      if (identical(persistence, saving)) persistence = null;
+      if (!saved) persistenceFailed = true;
+      if (!_disposed && generation == _proxyInspectionGeneration) _notify();
+      return saved;
+    }
+
     Future<void> worker() async {
-      while (!_disposed && generation == _proxyInspectionGeneration) {
+      while (!_disposed &&
+          generation == _proxyInspectionGeneration &&
+          !_proxyInspectionCancelRequested &&
+          !persistenceFailed) {
         final index = cursor++;
-        if (index >= endpoints.length) return;
-        final endpoint = endpoints[index];
-        inspected[endpoint.url] = await _proxyProbe.inspect(endpoint);
+        if (index >= targets.length) return;
+        final (endpointIndex, endpoint) = targets[index];
+        final sample = await _proxyProbe.inspect(endpoint);
+        if (_disposed || generation != _proxyInspectionGeneration) return;
+        pending.add((endpointIndex, endpoint.url, sample));
+        completed++;
+        if (sample.reachable) healthy++;
+        onResult?.call(endpoint.url, sample, completed, targets.length);
+        if (pending.length >= _kProxyInspectionCheckpointSize &&
+            !await persistCheckpoint(force: false)) {
+          return;
+        }
       }
     }
 
     try {
       await Future.wait<void>(
         List<Future<void>>.generate(
-          endpoints.length.clamp(1, concurrency),
+          targets.length.clamp(1, workerCount),
           (_) => worker(),
         ),
       );
-      if (_disposed || generation != _proxyInspectionGeneration) return;
-      final updatedEndpoints = List<AiExposureProxyEndpoint>.of(
-        _proxyConfiguration.endpoints,
-      );
-      final indexes = <String, int>{
-        for (var index = 0; index < updatedEndpoints.length; index++)
-          updatedEndpoints[index].url: index,
-      };
-      for (final entry in inspected.entries) {
-        final index = indexes[entry.key];
-        if (index != null) {
-          updatedEndpoints[index] = updatedEndpoints[index].withSample(
-            entry.value,
-          );
-        }
+      if (_disposed || generation != _proxyInspectionGeneration) return false;
+      if (!await persistCheckpoint(force: true)) {
+        return false;
       }
-      _proxyConfiguration = _proxyConfiguration.copyWith(
-        endpoints: updatedEndpoints,
-      );
-      await _persistPreferences();
-      final healthy = inspected.values
-          .where((sample) => sample.reachable)
-          .length;
+      final cancelled = _proxyInspectionCancelRequested;
       _appendLog(
         AiExposureLogEntry(
-          level: healthy == inspected.length ? 'info' : 'warning',
-          message: '代理巡检完成：${inspected.length} 个节点，$healthy 个可连通。',
+          level: !cancelled && healthy == completed ? 'info' : 'warning',
+          message: cancelled
+              ? '代理巡检已停止：已完成 $completed 个节点，$healthy 个可连通。'
+              : '代理巡检完成：$completed 个节点，$healthy 个可连通。',
           at: DateTime.now(),
         ),
       );
+      return true;
     } catch (error, stack) {
       _errorMessage = '$error';
       silentLog('services_controller', '巡检代理节点', error, stack);
+      return false;
     } finally {
       _proxyInspectionRunning = false;
       if (!_disposed) {
-        _proxyInspectionBusy = false;
         _notify();
       }
     }
   }
 
-  void _scheduleProxyInspection() {
-    _proxyInspectionGeneration++;
+  void cancelProxyInspection() {
+    if (_proxyInspectionRunning) _proxyInspectionCancelRequested = true;
+  }
+
+  void _scheduleProxyInspection({Duration? firstDelay}) {
+    final generation = ++_proxyInspectionScheduleGeneration;
     _proxyInspectionTimer?.cancel();
     _proxyInspectionTimer = null;
     final configuration = _proxyConfiguration;
     if (!configuration.inspectionEnabled ||
-        configuration.activeEndpoints.isEmpty) {
+        !configuration.endpoints.any((endpoint) => endpoint.enabled)) {
       return;
     }
-    _proxyInspectionTimer = startSafePeriodicTimer(
-      Duration(minutes: configuration.inspectionIntervalMinutes.clamp(1, 1440)),
-      (_) => inspectAllProxies(),
+    _armProxyInspectionTimer(
+      generation,
+      firstDelay ??
+          Duration(
+            minutes: configuration.inspectionIntervalMinutes.clamp(1, 1440),
+          ),
+    );
+  }
+
+  void _armProxyInspectionTimer(int generation, Duration delay) {
+    _proxyInspectionTimer = startSafeTimer(
+      delay,
+      () async {
+        _proxyInspectionTimer = null;
+        if (_disposed || generation != _proxyInspectionScheduleGeneration) {
+          return;
+        }
+        await inspectAllProxies();
+        if (_disposed || generation != _proxyInspectionScheduleGeneration) {
+          return;
+        }
+        _armProxyInspectionTimer(
+          generation,
+          Duration(
+            minutes: _proxyConfiguration.inspectionIntervalMinutes.clamp(
+              1,
+              1440,
+            ),
+          ),
+        );
+      },
       onError: (error, stack) =>
           silentLog('services_controller', '执行定时代理巡检', error, stack),
     );
@@ -1129,6 +1228,19 @@ class ServicesController extends ChangeNotifier {
     }
   }
 
+  Future<bool> _persistProxySamples(
+    List<AiExposureProxyEndpoint> endpoints,
+  ) async {
+    try {
+      await _preferencesStore.saveProxySamples(endpoints);
+      return true;
+    } catch (error, stack) {
+      _errorMessage = '$error';
+      silentLog('services_controller', '保存代理巡检样本', error, stack);
+      return false;
+    }
+  }
+
   Future<void> _cancelEventSubscription() async {
     _eventSubscriptionGeneration++;
     final subscription = _eventSubscription;
@@ -1143,6 +1255,8 @@ class ServicesController extends ChangeNotifier {
   Future<void> shutdown() async {
     if (_disposed) return;
     _proxyInspectionGeneration++;
+    _proxyInspectionScheduleGeneration++;
+    _proxyInspectionCancelRequested = true;
     _proxyInspectionTimer?.cancel();
     _proxyInspectionTimer = null;
     _proxyStatisticsTimer?.cancel();
