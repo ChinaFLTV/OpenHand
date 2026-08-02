@@ -15,7 +15,9 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
@@ -25,6 +27,7 @@ import 'service_dialog_controls.dart';
 
 const int _kMaxProxyImportBytes = 4 * 1024 * 1024;
 const int _kMaxProxyEndpoints = 10000;
+const double _kProxyEndpointListMaxHeight = 420;
 const Duration _kProbeResultFlushDelay = Duration(milliseconds: 80);
 const List<int> _kInspectionIntervals = <int>[5, 15, 30, 60, 180, 360];
 const List<int> _kInspectionConcurrencyOptions = <int>[1, 2, 4, 8, 16, 32];
@@ -50,6 +53,7 @@ class _ProxyDialog extends StatefulWidget {
 
 class _ProxyDialogState extends State<_ProxyDialog> {
   final AiExposureProxyProbe _probe = const AiExposureProxyProbe();
+  final ScrollController _endpointScrollController = ScrollController();
   final Set<String> _testingUrls = <String>{};
   final Set<String> _selectedUrls = <String>{};
   final Set<String> _removingUrls = <String>{};
@@ -93,6 +97,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   void dispose() {
     _inspectionGeneration++;
     _resultFlushTimer?.cancel();
+    _endpointScrollController.dispose();
     super.dispose();
   }
 
@@ -113,212 +118,266 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       for (var index = 0; index < visibleEndpoints.length; index++)
         ValueKey<String>(visibleEndpoints[index].url): index,
     };
+    final endpointTooltipsVisible =
+        !_busy &&
+        !_inspectionBusy &&
+        _testingUrls.isEmpty &&
+        _removingUrls.isEmpty;
     return ServiceDialogInteractionTheme(
       child: Padding(
-        padding: const EdgeInsets.all(22),
-        child: CustomScrollView(
-          physics: openHandDialogAwareScrollPhysics(context),
-          slivers: [
-            SliverList.list(
-              children: [
-                OpenHandResponsiveHeaderLayout(
-                  compactBreakpoint: 620,
-                  identity: Row(
+        padding: const EdgeInsets.fromLTRB(22, 22, 22, 18),
+        child: Column(
+          children: [
+            Expanded(
+              child: CustomScrollView(
+                physics: openHandDialogAwareScrollPhysics(context),
+                slivers: [
+                  SliverList.list(
                     children: [
-                      Container(
-                        width: 42,
-                        height: 42,
-                        decoration: BoxDecoration(
-                          color: colors.primaryContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        alignment: Alignment.center,
-                        child: Icon(
-                          Icons.lan_outlined,
-                          color: colors.onPrimaryContainer,
-                        ),
-                      ),
-                      const SizedBox(width: 12),
-                      Expanded(
-                        child: Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
+                      OpenHandResponsiveHeaderLayout(
+                        compactBreakpoint: 620,
+                        identity: Row(
                           children: [
-                            Text(
-                              text(zh: '网络代理与代理池', en: 'Network proxy pool'),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.titleLarge,
+                            Container(
+                              width: 42,
+                              height: 42,
+                              decoration: BoxDecoration(
+                                color: colors.primaryContainer,
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              alignment: Alignment.center,
+                              child: Icon(
+                                Icons.lan_outlined,
+                                color: colors.onPrimaryContainer,
+                              ),
                             ),
-                            Text(
-                              _enabled
-                                  ? text(
-                                      zh: '$activeCount 个启用节点 · ${_strategyLabel(_strategy, text)}',
-                                      en: '$activeCount active · ${_strategyLabel(_strategy, text)}',
-                                    )
-                                  : text(
-                                      zh: '当前使用直接连接',
-                                      en: 'Direct connection',
+                            const SizedBox(width: 12),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    text(
+                                      zh: '网络代理与代理池',
+                                      en: 'Network proxy pool',
                                     ),
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: colors.onSurfaceVariant,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.titleLarge,
+                                  ),
+                                  Text(
+                                    _enabled
+                                        ? text(
+                                            zh: '$activeCount 个启用节点 · ${_strategyLabel(_strategy, text)}',
+                                            en: '$activeCount active · ${_strategyLabel(_strategy, text)}',
+                                          )
+                                        : text(
+                                            zh: '当前使用直接连接',
+                                            en: 'Direct connection',
+                                          ),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
                               ),
                             ),
                           ],
                         ),
-                      ),
-                    ],
-                  ),
-                  actions: ServiceDialogHeaderIconButton(
-                    tooltip: MaterialLocalizations.of(
-                      context,
-                    ).closeButtonTooltip,
-                    onPressed: _busy
-                        ? null
-                        : () {
-                            _cancelInspection();
-                            Navigator.of(context).maybePop();
-                          },
-                    icon: const Icon(Icons.close_rounded),
-                  ),
-                ),
-                const SizedBox(height: 14),
-                _ProxyPoolOverview(
-                  endpoints: _endpoints,
-                  statusStatistics: statusStatistics,
-                  inFlight: status?.inFlight ?? 0,
-                ),
-                const SizedBox(height: 14),
-                _buildSettingsPanel(context),
-                const SizedBox(height: 14),
-                _buildEndpointToolbar(context),
-                if (_inspectionBusy) ...[
-                  const SizedBox(height: 10),
-                  Row(
-                    children: [
-                      Expanded(
-                        child: ClipRRect(
-                          borderRadius: BorderRadius.circular(99),
-                          child: LinearProgressIndicator(
-                            value: _inspectionTotal == 0
-                                ? null
-                                : _inspectionCompleted / _inspectionTotal,
-                            minHeight: 6,
-                          ),
+                        actions: ServiceDialogHeaderIconButton(
+                          tooltip: MaterialLocalizations.of(
+                            context,
+                          ).closeButtonTooltip,
+                          onPressed: _busy ? null : _closeDialog,
+                          icon: const Icon(Icons.close_rounded),
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Text(
-                        '$_inspectionCompleted/$_inspectionTotal',
-                        style: theme.textTheme.labelMedium,
+                      const SizedBox(height: 14),
+                      _ProxyPoolOverview(
+                        endpoints: _endpoints,
+                        statusStatistics: statusStatistics,
+                        inFlight: status?.inFlight ?? 0,
                       ),
+                      const SizedBox(height: 14),
+                      _buildSettingsPanel(context),
+                      const SizedBox(height: 14),
+                      _buildEndpointToolbar(context),
+                      if (_inspectionBusy) ...[
+                        const SizedBox(height: 10),
+                        Row(
+                          children: [
+                            Expanded(
+                              child: ClipRRect(
+                                borderRadius: BorderRadius.circular(99),
+                                child: LinearProgressIndicator(
+                                  value: _inspectionTotal == 0
+                                      ? null
+                                      : _inspectionCompleted / _inspectionTotal,
+                                  minHeight: 6,
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            Text(
+                              '$_inspectionCompleted/$_inspectionTotal',
+                              style: theme.textTheme.labelMedium,
+                            ),
+                          ],
+                        ),
+                      ],
+                      const SizedBox(height: 12),
                     ],
+                  ),
+                  SliverToBoxAdapter(
+                    child: _endpoints.isEmpty
+                        ? SizedBox(
+                            height: 160,
+                            child: Center(
+                              child: Text(
+                                text(
+                                  zh: '代理池为空，可手工添加或批量导入 TXT/JSON。',
+                                  en: 'Add a proxy or import a TXT/JSON pool.',
+                                ),
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: colors.onSurfaceVariant,
+                                ),
+                              ),
+                            ),
+                          )
+                        : ConstrainedBox(
+                            constraints: const BoxConstraints(
+                              maxHeight: _kProxyEndpointListMaxHeight,
+                            ),
+                            child: OpenHandSafeScrollbar(
+                              controller: _endpointScrollController,
+                              thumbVisibility: true,
+                              thickness: 5,
+                              radius: const Radius.circular(99),
+                              child: TooltipVisibility(
+                                visible: endpointTooltipsVisible,
+                                child: ListView.builder(
+                                  controller: _endpointScrollController,
+                                  primary: false,
+                                  shrinkWrap: true,
+                                  physics: openHandDialogAwareScrollPhysics(
+                                    context,
+                                  ),
+                                  padding: const EdgeInsetsDirectional.only(
+                                    end: 10,
+                                  ),
+                                  itemCount: visibleEndpoints.length,
+                                  findChildIndexCallback: (key) =>
+                                      visibleEndpointIndexByKey[key],
+                                  itemBuilder: (context, index) {
+                                    final endpoint = visibleEndpoints[index];
+                                    return OpenHandListRemovalTransition(
+                                      key: ValueKey<String>(endpoint.url),
+                                      collapsed: _removingUrls.contains(
+                                        endpoint.url,
+                                      ),
+                                      child: Padding(
+                                        padding: const EdgeInsets.only(
+                                          bottom: 8,
+                                        ),
+                                        child: _ProxyEndpointCard(
+                                          endpoint: endpoint,
+                                          statistics:
+                                              statusStatistics[endpoint
+                                                  .runtimeId] ??
+                                              endpoint.statistics,
+                                          testing: _testingUrls.contains(
+                                            endpoint.url,
+                                          ),
+                                          busy:
+                                              _busy ||
+                                              _inspectionBusy ||
+                                              _removingUrls.isNotEmpty,
+                                          selectionMode: _selectionMode,
+                                          selected: _selectedUrls.contains(
+                                            endpoint.url,
+                                          ),
+                                          onSelectedChanged: (selected) =>
+                                              setState(() {
+                                                if (selected) {
+                                                  _selectedUrls.add(
+                                                    endpoint.url,
+                                                  );
+                                                } else {
+                                                  _selectedUrls.remove(
+                                                    endpoint.url,
+                                                  );
+                                                }
+                                              }),
+                                          onEnabledChanged: (enabled) =>
+                                              unawaited(
+                                                _setEndpointEnabled(
+                                                  endpoint.url,
+                                                  enabled,
+                                                ),
+                                              ),
+                                          onTest: () =>
+                                              _testEndpoint(endpoint.url),
+                                          onDetails: () => _showEndpointDetails(
+                                            endpoint,
+                                            statusStatistics[endpoint
+                                                    .runtimeId] ??
+                                                endpoint.statistics,
+                                          ),
+                                          onExport: () => _exportOne(endpoint),
+                                          onEdit: () => _editEndpoint(endpoint),
+                                          onDelete: () => unawaited(
+                                            _confirmDeleteEndpoints(<String>{
+                                              endpoint.url,
+                                            }),
+                                          ),
+                                        ),
+                                      ),
+                                    );
+                                  },
+                                ),
+                              ),
+                            ),
+                          ),
                   ),
                 ],
-                const SizedBox(height: 12),
-              ],
-            ),
-            if (_endpoints.isEmpty)
-              SliverToBoxAdapter(
-                child: SizedBox(
-                  height: 160,
-                  child: Center(
-                    child: Text(
-                      text(
-                        zh: '代理池为空，可手工添加或批量导入 TXT/JSON。',
-                        en: 'Add a proxy or import a TXT/JSON pool.',
-                      ),
-                      style: theme.textTheme.bodyMedium?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ),
-                ),
-              )
-            else
-              SliverList(
-                delegate: SliverChildBuilderDelegate(
-                  (context, index) {
-                    final endpoint = visibleEndpoints[index];
-                    return OpenHandListRemovalTransition(
-                      key: ValueKey<String>(endpoint.url),
-                      collapsed: _removingUrls.contains(endpoint.url),
-                      child: Padding(
-                        padding: const EdgeInsets.only(bottom: 8),
-                        child: _ProxyEndpointCard(
-                          endpoint: endpoint,
-                          statistics:
-                              statusStatistics[endpoint.runtimeId] ??
-                              endpoint.statistics,
-                          testing: _testingUrls.contains(endpoint.url),
-                          busy:
-                              _busy ||
-                              _inspectionBusy ||
-                              _removingUrls.isNotEmpty,
-                          selectionMode: _selectionMode,
-                          selected: _selectedUrls.contains(endpoint.url),
-                          onSelectedChanged: (selected) => setState(() {
-                            if (selected) {
-                              _selectedUrls.add(endpoint.url);
-                            } else {
-                              _selectedUrls.remove(endpoint.url);
-                            }
-                          }),
-                          onEnabledChanged: (enabled) => unawaited(
-                            _setEndpointEnabled(endpoint.url, enabled),
-                          ),
-                          onTest: () => _testEndpoint(endpoint.url),
-                          onDetails: () => _showEndpointDetails(
-                            endpoint,
-                            statusStatistics[endpoint.runtimeId] ??
-                                endpoint.statistics,
-                          ),
-                          onExport: () => _exportOne(endpoint),
-                          onEdit: () => _editEndpoint(endpoint),
-                          onDelete: () => unawaited(
-                            _confirmDeleteEndpoints(<String>{endpoint.url}),
-                          ),
-                        ),
-                      ),
-                    );
-                  },
-                  childCount: visibleEndpoints.length,
-                  findChildIndexCallback: (key) =>
-                      visibleEndpointIndexByKey[key],
-                ),
               ),
-            SliverToBoxAdapter(
-              child: Padding(
-                padding: const EdgeInsets.only(top: 6),
-                child: Wrap(
-                  alignment: WrapAlignment.center,
-                  spacing: kOpenHandDialogActionSpacing,
-                  runSpacing: kOpenHandDialogActionSpacing,
-                  children: [
-                    OpenHandDialogActionButton.secondary(
-                      onPressed: _busy
-                          ? null
-                          : () {
-                              _cancelInspection();
-                              Navigator.of(context).maybePop();
-                            },
-                      label: text(zh: '取消', en: 'Cancel'),
-                    ),
-                    OpenHandDialogActionButton.primary(
-                      icon: Icons.save_rounded,
-                      busy: _busy,
-                      onPressed: _busy || _inspectionBusy ? null : _save,
-                      label: text(zh: '应用代理设置', en: 'Apply proxy settings'),
-                    ),
-                  ],
-                ),
+            ),
+            Container(
+              width: double.infinity,
+              padding: const EdgeInsets.only(top: 14),
+              decoration: BoxDecoration(
+                border: Border(top: BorderSide(color: colors.outlineVariant)),
+              ),
+              child: Wrap(
+                alignment: WrapAlignment.center,
+                spacing: kOpenHandDialogActionSpacing,
+                runSpacing: kOpenHandDialogActionSpacing,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: _busy ? null : _closeDialog,
+                    label: text(zh: '取消', en: 'Cancel'),
+                  ),
+                  OpenHandDialogActionButton.primary(
+                    icon: Icons.save_rounded,
+                    busy: _busy,
+                    onPressed: _busy || _inspectionBusy ? null : _save,
+                    label: text(zh: '应用代理设置', en: 'Apply proxy settings'),
+                  ),
+                ],
               ),
             ),
           ],
         ),
       ),
     );
+  }
+
+  void _closeDialog() {
+    dismissOpenHandTooltipsSafely(debugLabel: '关闭代理池弹窗前收起工具提示');
+    _cancelInspection();
+    Navigator.of(context).maybePop();
   }
 
   List<AiExposureProxyEndpoint> _sortedEndpoints() {
@@ -404,6 +463,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     if (index < 0) return;
     final endpoints = List<AiExposureProxyEndpoint>.of(_endpoints);
     endpoints[index] = endpoints[index].copyWith(enabled: enabled);
+    dismissOpenHandTooltipsSafely(debugLabel: '切换代理节点状态前收起工具提示');
     setState(() => _busy = true);
     final updated = await _persistEndpoints(endpoints);
     if (!mounted) return;
@@ -469,6 +529,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final remaining = _endpoints
         .where((endpoint) => !removedUrls.contains(endpoint.url))
         .toList(growable: false);
+    dismissOpenHandTooltipsSafely(debugLabel: '删除代理节点前收起工具提示');
     setState(() {
       _busy = true;
       _removingUrls.addAll(removedUrls);
@@ -923,10 +984,13 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         tooltip: text(zh: '排序节点', en: 'Sort nodes'),
         enabled: !locked && !_selectionMode,
         initialValue: _sort,
-        onSelected: (value) => setState(() {
-          _sort = value;
-          _invalidateEndpointSortCache();
-        }),
+        onSelected: (value) {
+          dismissOpenHandTooltipsSafely(debugLabel: '排序代理节点前收起工具提示');
+          setState(() {
+            _sort = value;
+            _invalidateEndpointSortCache();
+          });
+        },
         itemBuilder: (_) => [
           PopupMenuItem(
             value: _ProxySort.nameAscending,
@@ -985,6 +1049,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         throw const FormatException('代理池已达到 10000 条上限。');
       }
       final endpoints = <AiExposureProxyEndpoint>[..._endpoints, endpoint];
+      dismissOpenHandTooltipsSafely(debugLabel: '新增代理节点前收起工具提示');
       setState(() => _busy = true);
       final updated = await _persistEndpoints(endpoints);
       if (!mounted) return;
@@ -1022,6 +1087,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       statistics: sameEndpoint ? endpoint.statistics : updated.statistics,
       identity: sameEndpoint ? endpoint.identity : updated.identity,
     );
+    dismissOpenHandTooltipsSafely(debugLabel: '更新代理节点前收起工具提示');
     setState(() => _busy = true);
     final saved = await _persistEndpoints(endpoints);
     if (!mounted) return;
@@ -1147,6 +1213,9 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       for (var index = 0; index < _endpoints.length; index++)
         _endpoints[index].url: index,
     };
+    if (_sort != _ProxySort.nameAscending) {
+      dismissOpenHandTooltipsSafely(debugLabel: '重排代理节点前收起工具提示');
+    }
     setState(() {
       _invalidateEndpointSortCache();
       for (final entry in samples.entries) {
@@ -1168,6 +1237,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       ],
     );
     if (file == null || !mounted) return;
+    dismissOpenHandTooltipsSafely(debugLabel: '导入代理节点前收起工具提示');
     setState(() => _busy = true);
     try {
       final source = File(file.path);
@@ -1282,7 +1352,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     );
     if (!mounted) return;
     setState(() => _busy = false);
-    if (updated) Navigator.of(context).maybePop();
+    if (updated) _closeDialog();
   }
 }
 
