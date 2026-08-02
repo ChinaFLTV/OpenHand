@@ -2783,14 +2783,26 @@ class _FormattedToolContent {
   final String? language;
 }
 
-// Bounded memo for _formatToolContent. During AI streaming the parent rebuilds
-// every ~72 ms and each tool-call bubble re-runs JSON/XML/YAML/TOML detection
-// on identical stdout/stderr/result text; memoising by raw content + fallback
-// avoids re-parsing and re-encoding on every frame. Capped to prevent
-// unbounded growth from unique tool output.
+class _FormattedToolContentCacheEntry {
+  const _FormattedToolContentCacheEntry({
+    required this.content,
+    required this.retainedCharacters,
+  });
+
+  final _FormattedToolContent content;
+  final int retainedCharacters;
+}
+
+// AI 流式响应约每 72ms 重建一次；缓存可避免相同工具输出反复执行
+// JSON/XML/YAML/TOML 检测。条目数和总字符数同时受限，防止大输出长期驻留。
 const int _formatToolContentCacheCap = 128;
-final Map<String, _FormattedToolContent> _formatToolContentCache =
-    <String, _FormattedToolContent>{};
+const int _formatToolContentCacheMaxCharacters = 4 * 1024 * 1024;
+final LifecycleLruCache<_FormattedToolContentCacheEntry>
+_formatToolContentCache = LifecycleLruCache<_FormattedToolContentCacheEntry>(
+  maxEntries: _formatToolContentCacheCap,
+  maxCost: _formatToolContentCacheMaxCharacters,
+  costOf: (entry) => entry.retainedCharacters,
+);
 
 _FormattedToolContent _formatToolContent(
   String rawContent, {
@@ -2804,21 +2816,24 @@ _FormattedToolContent _formatToolContent(
   final cacheKey = emptyFallback.isEmpty
       ? rawContent
       : '${rawContent.length}|$emptyFallback\u0000$rawContent';
-  final cached = _formatToolContentCache[cacheKey];
+  final cached = _formatToolContentCache.get(cacheKey);
   if (cached != null) {
-    return cached;
+    return cached.content;
   }
   final computed = _formatToolContentImpl(
     rawContent,
     emptyFallback: emptyFallback,
   );
-  if (_formatToolContentCache.length >= _formatToolContentCacheCap) {
-    // Drop an arbitrary entry. Unordered Map iteration is O(1) for first key,
-    // and strict LRU isn't worth the bookkeeping here — streaming workloads
-    // see the same few keys repeatedly within a short window.
-    _formatToolContentCache.remove(_formatToolContentCache.keys.first);
-  }
-  _formatToolContentCache[cacheKey] = computed;
+  _formatToolContentCache.put(
+    cacheKey,
+    _FormattedToolContentCacheEntry(
+      content: computed,
+      retainedCharacters:
+          cacheKey.length +
+          computed.text.length +
+          (computed.language?.length ?? 0),
+    ),
+  );
   return computed;
 }
 
