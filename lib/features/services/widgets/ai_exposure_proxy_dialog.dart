@@ -162,7 +162,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                       ),
                     ],
                   ),
-                  actions: IconButton.filledTonal(
+                  actions: ServiceDialogHeaderIconButton(
                     tooltip: MaterialLocalizations.of(
                       context,
                     ).closeButtonTooltip,
@@ -1607,7 +1607,7 @@ class _ProxyEndpointDetailsDialogState
             actions: Wrap(
               spacing: 8,
               children: [
-                IconButton.filledTonal(
+                ServiceDialogHeaderIconButton(
                   tooltip: text(zh: '刷新出口身份', en: 'Refresh identity'),
                   onPressed: _loadingIdentity ? null : _refreshIdentity,
                   icon: _loadingIdentity
@@ -1617,7 +1617,7 @@ class _ProxyEndpointDetailsDialogState
                         )
                       : const Icon(Icons.travel_explore_rounded),
                 ),
-                IconButton(
+                ServiceDialogHeaderIconButton(
                   tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.close_rounded),
@@ -2463,7 +2463,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                       style: Theme.of(context).textTheme.titleLarge,
                     ),
                   ),
-                  IconButton(
+                  ServiceDialogHeaderIconButton(
                     tooltip: MaterialLocalizations.of(
                       context,
                     ).closeButtonTooltip,

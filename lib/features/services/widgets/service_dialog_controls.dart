@@ -2,6 +2,69 @@ import 'package:flutter/material.dart';
 
 const double kServiceDialogItemActionGap = 8;
 
+enum ServiceDialogHeaderActionTone { neutral, primary }
+
+class ServiceDialogHeaderIconButton extends StatelessWidget {
+  const ServiceDialogHeaderIconButton({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.tone = ServiceDialogHeaderActionTone.neutral,
+  });
+
+  final String tooltip;
+  final Widget icon;
+  final VoidCallback? onPressed;
+  final ServiceDialogHeaderActionTone tone;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final isPrimary = tone == ServiceDialogHeaderActionTone.primary;
+    final background = isPrimary
+        ? colors.primary
+        : colors.surfaceContainerHighest;
+    final foreground = isPrimary ? colors.onPrimary : colors.onSurfaceVariant;
+    final interactionColor = isPrimary ? colors.onPrimary : colors.primary;
+
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: icon,
+      style: ButtonStyle(
+        backgroundColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) {
+            return colors.surfaceContainerHighest.withValues(alpha: 0.48);
+          }
+          final opacity = states.contains(WidgetState.pressed)
+              ? 0.14
+              : states.contains(WidgetState.hovered) ||
+                    states.contains(WidgetState.focused)
+              ? 0.08
+              : 0.0;
+          return opacity == 0
+              ? background
+              : Color.alphaBlend(
+                  interactionColor.withValues(alpha: opacity),
+                  background,
+                );
+        }),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? colors.onSurface.withValues(alpha: 0.38)
+              : foreground,
+        ),
+        shape: const WidgetStatePropertyAll(
+          RoundedRectangleBorder(
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+          ),
+        ),
+      ),
+    );
+  }
+}
+
 class ServiceDialogInteractionTheme extends StatelessWidget {
   const ServiceDialogInteractionTheme({super.key, required this.child});
 

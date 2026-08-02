@@ -167,7 +167,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                IconButton.filledTonal(
+                ServiceDialogHeaderIconButton(
                   tooltip: text(zh: '刷新运维数据', en: 'Refresh operations'),
                   onPressed: running && !_refreshing ? _refresh : null,
                   icon: _refreshing
@@ -177,7 +177,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                         )
                       : const Icon(Icons.refresh_rounded),
                 ),
-                IconButton.filledTonal(
+                ServiceDialogHeaderIconButton(
                   tooltip: running
                       ? text(zh: '停止服务', en: 'Stop service')
                       : text(zh: '启动服务', en: 'Start service'),
@@ -189,8 +189,9 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                   icon: Icon(
                     running ? Icons.stop_rounded : Icons.play_arrow_rounded,
                   ),
+                  tone: ServiceDialogHeaderActionTone.primary,
                 ),
-                IconButton.filledTonal(
+                ServiceDialogHeaderIconButton(
                   tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.close_rounded),
@@ -3043,7 +3044,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
               spacing: 8,
               runSpacing: 8,
               children: [
-                IconButton.filledTonal(
+                ServiceDialogHeaderIconButton(
                   tooltip: text(zh: '刷新历史日志', en: 'Refresh history'),
                   onPressed: _refreshing || !controller.isRunning
                       ? null
@@ -3055,19 +3056,19 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                         )
                       : const Icon(Icons.refresh_rounded),
                 ),
-                IconButton.filledTonal(
+                ServiceDialogHeaderIconButton(
                   tooltip: text(zh: '保存日志', en: 'Save logs'),
                   onPressed: logs.isEmpty ? null : () => _saveLogs(logs),
                   icon: const Icon(Icons.save_alt_rounded),
                 ),
-                IconButton.filledTonal(
+                ServiceDialogHeaderIconButton(
                   tooltip: text(zh: '清屏', en: 'Clear'),
                   onPressed: controller.logs.isEmpty
                       ? null
                       : controller.clearLogs,
                   icon: const Icon(Icons.cleaning_services_outlined),
                 ),
-                IconButton.filledTonal(
+                ServiceDialogHeaderIconButton(
                   tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                   onPressed: () => Navigator.of(context).maybePop(),
                   icon: const Icon(Icons.close_rounded),

@@ -2354,7 +2354,7 @@ class _DialogFrame extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton.filledTonal(
+              ServiceDialogHeaderIconButton(
                 tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                 onPressed: () => Navigator.of(context).maybePop(),
                 icon: const Icon(Icons.close_rounded),
