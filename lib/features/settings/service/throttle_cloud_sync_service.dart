@@ -134,6 +134,10 @@ class ThrottleCloudSyncService {
   final http.Client? _client;
   final http.Client Function() _clientFactory;
   final bool _registerCloudChangeHandler;
+  final OpenHandAsyncSemaphore _requestSlots = OpenHandAsyncSemaphore(
+    _maxConcurrentRequests,
+    maxWaiters: _maxQueuedRequests,
+  );
   final Set<http.Client> _activeOwnedClients = <http.Client>{};
   final Set<Completer<void>> _activeRequestAborts = <Completer<void>>{};
   final OpenHandAsyncOnce _disposeOnce = OpenHandAsyncOnce();
@@ -164,6 +168,7 @@ class ThrottleCloudSyncService {
 
   Future<void> _dispose() async {
     _disposed = true;
+    _requestSlots.cancelWaiters();
     for (final abort in _activeRequestAborts.toList(growable: false)) {
       if (!abort.isCompleted) abort.complete();
     }
@@ -193,6 +198,8 @@ class ThrottleCloudSyncService {
   /// 偶发的 TCP RTT 抖动，又能在用户网络明显异常时尽快回到 UI 兜底
   /// 提示，避免长时间无反馈。
   static const Duration _remoteRequestTimeout = Duration(seconds: 15);
+  static const int _maxConcurrentRequests = 4;
+  static const int _maxQueuedRequests = 32;
   static const Duration _responseIdleTimeout = Duration(seconds: 5);
   static const int _maxRequestBytes = 1024 * 1024;
   static const int _maxResponseBytes = 2 * 1024 * 1024;
@@ -345,6 +352,45 @@ class ThrottleCloudSyncService {
     request,
   ) async {
     if (_disposed) return ThrottleCloudSyncResult.failure(_disposedMessage);
+    final queueTimeoutSignal = Completer<void>();
+    final queueTimer = Timer(
+      _remoteRequestTimeout,
+      queueTimeoutSignal.complete,
+    );
+    late final bool acquired;
+    try {
+      acquired = await _requestSlots.acquireUnlessCancelled(
+        queueTimeoutSignal.future,
+      );
+    } on StateError {
+      return ThrottleCloudSyncResult.failure('云同步请求排队已满，请稍后再试。');
+    } finally {
+      queueTimer.cancel();
+    }
+    if (!acquired) {
+      return ThrottleCloudSyncResult.failure(
+        _disposed ? _disposedMessage : '云同步请求排队超时。',
+      );
+    }
+    if (_disposed) {
+      _requestSlots.release();
+      return ThrottleCloudSyncResult.failure(_disposedMessage);
+    }
+    try {
+      return await _runAcquiredHttpRequest(logAction, request);
+    } finally {
+      _requestSlots.release();
+    }
+  }
+
+  Future<ThrottleCloudSyncResult> _runAcquiredHttpRequest(
+    String logAction,
+    Future<ThrottleCloudSyncResult> Function(
+      http.Client client,
+      Future<void> cancelSignal,
+    )
+    request,
+  ) async {
     final ownsClient = _client == null;
     late final http.Client client;
     try {
