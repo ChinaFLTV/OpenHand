@@ -19,9 +19,9 @@ import 'data/crons_store.dart';
 import 'model/cron_parser.dart';
 import 'service/cron_executor.dart';
 
-/// Controller for managing cron job configurations and scheduling.
+/// 管理定时任务配置与调度。
 ///
-/// Follows the same ChangeNotifier + mutation queue pattern as HooksController.
+/// 沿用 HooksController 的 ChangeNotifier 与变更队列模式。
 class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   CronsController._({
     required CronsStore store,
@@ -32,14 +32,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
        _entriesView = List<CronEntry>.unmodifiable(entries),
        _isLoading = isLoading;
 
-  /// Constructs a [CronsController] synchronously without performing the
-  /// initial sqlite load, system seeding, signal-watcher binding, or
-  /// scheduler startup. Reports `isLoading == true` until the caller awaits
-  /// (or fires-and-forgets) [initialize].
-  ///
-  /// Used by `main.dart` to keep cron sqlite I/O off the boot critical
-  /// path. The user-visible `CronsView` and any UI that reads `entries`
-  /// must tolerate an empty list while `isLoading == true`.
+  /// 同步创建控制器，暂不加载 SQLite、补齐系统任务、绑定信号或启动调度器。
+  /// [initialize] 完成前保持 `isLoading == true`，条目列表可能为空。
   factory CronsController.uninitialized({CronsStore? store}) {
     return CronsController._(
       store: store ?? CronsStore(),
@@ -50,12 +44,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   static const Uuid _uuid = Uuid();
   static const int _maxConcurrentExecutions = 8;
-  static const Duration _maxTimedOutAgentLockRetention = Duration(seconds: 30);
 
-  /// Performs the deferred boot work: sqlite table ensure, full entries
-  /// load, system-managed Hermes Talker entry seeding/refresh, app lifecycle
-  /// observer + signal watcher registration, and scheduler startup. Safe to
-  /// invoke at most once — subsequent calls are no-ops.
+  /// 执行延迟初始化：加载数据、同步系统任务、绑定生命周期与信号监听并启动调度器。
+  /// 重复调用不会重复初始化。
   Future<void> initialize() async {
     if (_isDisposed) return;
     await _mutationQueue.enqueue(() async {
@@ -90,9 +81,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           needsSave = true;
         }
       }
-      // Seed the Hermes Talker self-learning system entry if needed, then
-      // refresh only system-managed display/scheduling fields. User-toggleable
-      // fields and runtime state are preserved.
+      // 按需补齐 Hermes Talker 自学习任务，仅刷新系统管理字段，保留用户配置与运行状态。
       final existingIndex = entries.indexWhere(
         (e) => e.id == selfLearningSystemEntryId,
       );
@@ -132,7 +121,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       //   * 是否存在完全由「全局设置 → MCP → 更新关键词映射模式」驱动；
       //   * 冷启动模式下条目应不存在（彻底删除）；
       //   * 定时间隔 / 每日定点模式下条目存在且强制 enabled=true，UI 禁止切换；
-      // 因此启动期不主动 seed —— 由 main.dart 的 IIFE 在 initialize() 之后
+      // 因此启动期不主动补齐，由 main.dart 的初始化逻辑在 initialize() 之后
       // 立即调用 updateMcpKeywordIndexSchedule(...) 同步当前设置。这里仅在
       // 已存在时刷新静态字段（名称/描述/超时/通知策略/tags），保持 cron
       // 表达式与 enabled 不变 —— 这两项由 settings 联动维护。
@@ -188,13 +177,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     }
   }
 
-  /// Stable id of the system-seeded Hermes Talker self-learning cron entry.
+  /// Hermes Talker 自学习系统任务的稳定 ID。
   static const String selfLearningSystemEntryId = 'self_learning.hermes_talker';
 
-  /// Tag that marks a cron entry as system-managed (read-only in UI).
+  /// 标记 UI 只读系统任务的标签。
   static const String systemTag = 'system';
 
-  /// Tag that associates a system entry with the Hermes Talker template.
+  /// 关联 Hermes Talker 模板的系统任务标签。
   static const String hermesTalkerTag = 'hermes_talker';
 
   static CronEntry _buildSelfLearningSystemEntry() {
@@ -387,10 +376,10 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
   final SerialTaskQueue _mutationQueue = SerialTaskQueue();
 
-  /// Active timers keyed by cron job id.
+  /// 按任务 ID 保存的活动定时器。
   final Map<String, Timer> _scheduledTimers = {};
 
-  /// Currently running jobs keyed by cron job id.
+  /// 按任务 ID 保存的运行中进程任务。
   final Map<String, CronExecutionHandle> _runningJobs = {};
 
   /// 进程任务启动完成前的短暂占位，防止状态通知同步重入造成重复启动。
@@ -399,19 +388,16 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   /// 智能体任务的执行令牌。超时后原任务仍未结束时保留令牌，避免重复调度。
   final Map<String, Object> _runningAgentJobTokens = <String, Object>{};
 
-  /// 超时智能体的单飞锁有界保留，避免不可取消的 Future 永久阻塞调度。
-  final Map<String, Timer> _timedOutAgentLockTimers = <String, Timer>{};
-
   /// 单个任务运行态令牌。配置变更后，旧执行结果不得回写新配置。
   final Map<String, Object> _entryRuntimeTokens = <String, Object>{};
 
   StreamSubscription<ProcessSignal>? _sigTermWatcher;
   StreamSubscription<ProcessSignal>? _sigIntWatcher;
 
-  /// Cached execution history keyed by cron job id.
+  /// 按任务 ID 缓存的执行历史。
   final Map<String, List<CronExecutionRecord>> _historyCache = {};
 
-  /// Detected system users for the run-as-user picker.
+  /// 供运行用户选择器使用的系统用户列表。
   List<String> _systemUsers = const <String>['root'];
 
   List<CronEntry> get entries => _entriesView;
@@ -480,7 +466,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     notifyListeners();
   }
 
-  // CRUD
+  // 增删改查
   Future<bool> addCron(CronEntry entry) async {
     return _commitMutation(() async {
       final now = DateTime.now();
@@ -569,17 +555,15 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   /// （`{scanned, triggered, skipped, errors}` 的 JSON 编码）。
   static const String hermesTalkerStatsKey = 'hermes_talker.stats';
 
-  /// Handler invoked for `CronScriptType.agent` entries. Bootstrap injects
-  /// this via [registerAgentHandler] to plug the Hermes Talker
-  /// `SelfLearningScheduler`. Handlers must never throw.
+  /// `CronScriptType.agent` 任务的进程内处理器，由启动流程注入 Hermes Talker
+  /// `SelfLearningScheduler`。处理器不应抛出异常。
   ///
   /// 返回的 [AgentHandlerResult.stdout] 写入历史记录的 stdout 字段，
   /// [AgentHandlerResult.appContext] 写入历史记录的 app_context 字段，
   /// 用于在 Crons 历史详情中展示富信息（例如 Hermes Talker 的会话报告）。
   Future<AgentHandlerResult> Function(CronEntry entry)? _agentHandler;
 
-  /// Registers (or replaces) the in-process handler for Agent-typed cron
-  /// entries. Passing `null` removes the handler.
+  /// 注册或替换智能体定时任务处理器，传入 `null` 时移除。
   void registerAgentHandler(
     Future<AgentHandlerResult> Function(CronEntry entry)? handler,
   ) {
@@ -617,7 +601,6 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           _observeTimedOutAgentCompletion(
             pending,
             entryId: entry.id,
-            timeoutSeconds: entry.timeoutSeconds,
             executionToken: executionToken,
           );
           rethrow;
@@ -665,19 +648,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     return keepsAgentLock;
   }
 
-  /// 原 Future 完成或有界保留期结束后释放超时任务的重入锁。
+  /// 原 Future 完成后释放超时任务的重入锁，避免不可取消任务重复堆积。
   void _observeTimedOutAgentCompletion(
     Future<AgentHandlerResult> pending, {
     required String entryId,
-    required int timeoutSeconds,
     required Object executionToken,
   }) {
     if (!identical(_runningAgentJobTokens[entryId], executionToken)) return;
-    _timedOutAgentLockTimers.remove(entryId)?.cancel();
-    _timedOutAgentLockTimers[entryId] = startSafeTimer(
-      _timedOutAgentLockRetention(timeoutSeconds),
-      () => _releaseAgentExecutionLock(entryId, executionToken),
-    );
 
     unawaited(
       pending.then<void>(
@@ -713,14 +690,14 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     });
   }
 
-  /// Manually trigger a cron job right now.
+  /// 立即手动执行定时任务。
   Future<void> runNow(String id) async {
     if (!_canExecuteInCurrentState) return;
     final index = _entries.indexWhere((item) => item.id == id);
     if (index < 0) return;
     final entry = _entries[index];
     if (!entry.enabled) return;
-    // Agent crons dispatch via [_agentHandler] and do not require a script payload.
+    // 智能体任务通过 [_agentHandler] 执行，无需脚本内容。
     if (entry.scriptType != CronScriptType.agent && !entry.hasScript) return;
     await _executeJob(entry, triggerType: 'manual');
   }
@@ -885,25 +862,23 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   void _shutdownSchedulersAndJobs({required bool permanent}) {
     if (permanent) _isPermanentlyStopped = true;
-    if (_isShuttingDown) return;
-    _isShuttingDown = true;
-    _runtimeGeneration++;
-    _cancelScheduledTimers();
-    for (final job in _runningJobs.values) {
-      job.cancel();
+    if (!_isShuttingDown) {
+      _isShuttingDown = true;
+      _runtimeGeneration++;
+      _cancelScheduledTimers();
+      for (final job in _runningJobs.values) {
+        job.cancel();
+      }
     }
+    if (!permanent) return;
     _runningJobs.clear();
     _startingJobTokens.clear();
     _runningAgentJobTokens.clear();
-    for (final timer in _timedOutAgentLockTimers.values) {
-      timer.cancel();
-    }
-    _timedOutAgentLockTimers.clear();
     _activeExecutionTokens.clear();
     _entryRuntimeTokens.clear();
   }
 
-  // Scheduling
+  // 调度
   void _startScheduler() {
     if (!_canExecuteInCurrentState) return;
     scanSystemUsers();
@@ -935,8 +910,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     if (!_canExecuteInCurrentState) return;
     _cancelTimer(entry.id);
     if (!entry.enabled) return;
-    // Agent crons are scheduled without a script payload; execution is routed
-    // through [_agentHandler] rather than [CronExecutor].
+    // 智能体任务无需脚本内容，通过 [_agentHandler] 而非 [CronExecutor] 执行。
     if (entry.scriptType != CronScriptType.agent && !entry.hasScript) return;
 
     final nextRun = CronParser.nextRun(entry.cronExpression);
@@ -944,13 +918,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
     final delay = nextRun.difference(DateTime.now());
     if (delay.isNegative) {
-      // If already past, schedule for 1 second from now.
+      // 计划时间已过时，延迟一秒执行。
       _scheduledTimers[entry.id] = startSafeTimer(
         const Duration(seconds: 1),
         () => _onTimerFired(entry.id),
       );
     } else {
-      // Cap timer at ~24 hours to avoid dart Timer overflow issues.
+      // 单次定时最长 24 小时，避免 Timer 处理超长时限时溢出。
       final cappedDelay = delay > const Duration(hours: 24)
           ? const Duration(hours: 24)
           : delay;
@@ -960,7 +934,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       );
     }
 
-    // Update nextRunAt on the entry without triggering persistence loop.
+    // 只更新内存中的下次运行时间，避免触发持久化循环。
     final index = _entries.indexWhere((e) => e.id == entry.id);
     if (index >= 0) {
       _entries[index] = _entries[index].copyWith(nextRunAt: nextRun);
@@ -981,12 +955,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     final nextRun = entry.nextRunAt;
 
     if (nextRun != null && now.isBefore(nextRun)) {
-      // Timer fired early (due to 24h cap). Re-schedule.
+      // 24 小时分段定时提前触发，继续调度剩余时间。
       _scheduleJob(entry);
       return;
     }
 
-    // Execute the job.
+    // 执行任务。
     _executeJob(entry);
   }
 
@@ -1147,18 +1121,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         _runningAgentJobTokens.containsKey(id);
   }
 
-  static Duration _timedOutAgentLockRetention(int timeoutSeconds) {
-    final seconds = timeoutSeconds.clamp(
-      1,
-      _maxTimedOutAgentLockRetention.inSeconds,
-    );
-    return Duration(seconds: seconds.toInt());
-  }
-
   void _releaseAgentExecutionLock(String entryId, Object executionToken) {
     if (!identical(_runningAgentJobTokens[entryId], executionToken)) return;
     _runningAgentJobTokens.remove(entryId);
-    _timedOutAgentLockTimers.remove(entryId)?.cancel();
     final index = _entries.indexWhere((entry) => entry.id == entryId);
     if (index >= 0) {
       final current = _entries[index];
