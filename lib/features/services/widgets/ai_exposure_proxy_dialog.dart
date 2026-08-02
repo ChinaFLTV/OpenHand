@@ -1405,7 +1405,7 @@ class _ProxyPoolChartPanel extends StatelessWidget {
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
