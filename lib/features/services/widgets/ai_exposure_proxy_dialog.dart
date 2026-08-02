@@ -10,6 +10,7 @@ import 'package:provider/provider.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
@@ -50,6 +51,8 @@ class _ProxyDialog extends StatefulWidget {
 class _ProxyDialogState extends State<_ProxyDialog> {
   final AiExposureProxyProbe _probe = const AiExposureProxyProbe();
   final Set<String> _testingUrls = <String>{};
+  final Set<String> _selectedUrls = <String>{};
+  final Set<String> _removingUrls = <String>{};
   final Map<String, AiExposureProxyProbeSample> _pendingSamples =
       <String, AiExposureProxyProbeSample>{};
   late bool _enabled;
@@ -67,6 +70,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   bool _busy = false;
   bool _inspectionBusy = false;
   bool _inspectionRunning = false;
+  bool _selectionMode = false;
   int _inspectionCompleted = 0;
   int _inspectionTotal = 0;
   int _inspectionGeneration = 0;
@@ -233,34 +237,48 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                 itemCount: visibleEndpoints.length,
                 itemBuilder: (context, index) {
                   final endpoint = visibleEndpoints[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: _ProxyEndpointCard(
-                      key: ValueKey<String>(endpoint.url),
-                      endpoint: endpoint,
-                      statistics:
-                          statusStatistics[endpoint.runtimeId] ??
-                          endpoint.statistics,
-                      testing: _testingUrls.contains(endpoint.url),
-                      busy: _busy || _inspectionBusy,
-                      onEnabledChanged: (enabled) => _updateEndpoint(
-                        endpoint.url,
-                        endpoint.copyWith(enabled: enabled),
+                  return KeyedSubtree(
+                    key: ValueKey<String>(endpoint.url),
+                    child: OpenHandListRemovalTransition(
+                      collapsed: _removingUrls.contains(endpoint.url),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: _ProxyEndpointCard(
+                          endpoint: endpoint,
+                          statistics:
+                              statusStatistics[endpoint.runtimeId] ??
+                              endpoint.statistics,
+                          testing: _testingUrls.contains(endpoint.url),
+                          busy:
+                              _busy ||
+                              _inspectionBusy ||
+                              _removingUrls.isNotEmpty,
+                          selectionMode: _selectionMode,
+                          selected: _selectedUrls.contains(endpoint.url),
+                          onSelectedChanged: (selected) => setState(() {
+                            if (selected) {
+                              _selectedUrls.add(endpoint.url);
+                            } else {
+                              _selectedUrls.remove(endpoint.url);
+                            }
+                          }),
+                          onEnabledChanged: (enabled) => _updateEndpoint(
+                            endpoint.url,
+                            endpoint.copyWith(enabled: enabled),
+                          ),
+                          onTest: () => _testEndpoint(endpoint.url),
+                          onDetails: () => _showEndpointDetails(
+                            endpoint,
+                            statusStatistics[endpoint.runtimeId] ??
+                                endpoint.statistics,
+                          ),
+                          onExport: () => _exportOne(endpoint),
+                          onEdit: () => _editEndpoint(endpoint),
+                          onDelete: () => unawaited(
+                            _confirmDeleteEndpoints(<String>{endpoint.url}),
+                          ),
+                        ),
                       ),
-                      onTest: () => _testEndpoint(endpoint.url),
-                      onDetails: () => _showEndpointDetails(
-                        endpoint,
-                        statusStatistics[endpoint.runtimeId] ??
-                            endpoint.statistics,
-                      ),
-                      onExport: () => _exportOne(endpoint),
-                      onEdit: () => _editEndpoint(endpoint),
-                      onDelete: () => setState(() {
-                        _endpoints.removeWhere(
-                          (item) => item.url == endpoint.url,
-                        );
-                        _invalidateEndpointSortCache();
-                      }),
                     ),
                   );
                 },
@@ -350,6 +368,84 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       _endpoints[index] = updated;
       _invalidateEndpointSortCache();
     });
+  }
+
+  Future<void> _confirmDeleteEndpoints(
+    Set<String> urls, {
+    bool clearAll = false,
+  }) async {
+    if (urls.isEmpty ||
+        _busy ||
+        _inspectionBusy ||
+        _testingUrls.isNotEmpty ||
+        _removingUrls.isNotEmpty) {
+      return;
+    }
+    final endpoints = _endpoints
+        .where((endpoint) => urls.contains(endpoint.url))
+        .toList(growable: false);
+    if (endpoints.isEmpty) return;
+    final text = openHandTextResolver(context);
+    final count = endpoints.length;
+    final clearsPool = clearAll || count == _endpoints.length;
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: clearsPool
+          ? text(zh: '清空代理池？', en: 'Clear proxy pool?')
+          : count == 1
+          ? text(zh: '删除代理节点？', en: 'Delete proxy node?')
+          : text(zh: '删除所选 $count 个节点？', en: 'Delete $count selected nodes?'),
+      message: clearsPool
+          ? text(
+              zh: '将移除全部 $count 个代理节点，并关闭代理池与定时巡检。应用代理设置后生效。',
+              en: 'This removes all $count proxy nodes and disables the pool and scheduled inspection. Changes take effect after applying settings.',
+            )
+          : count == 1
+          ? text(
+              zh: '将移除“${endpoints.first.displayName}”。应用代理设置后生效。',
+              en: 'Remove “${endpoints.first.displayName}”. Changes take effect after applying settings.',
+            )
+          : text(
+              zh: '将移除所选 $count 个代理节点。应用代理设置后生效。',
+              en: 'Remove the $count selected proxy nodes. Changes take effect after applying settings.',
+            ),
+      cancelLabel: text(zh: '取消', en: 'Cancel'),
+      confirmLabel: clearsPool
+          ? text(zh: '全部清空', en: 'Clear all')
+          : text(zh: '删除', en: 'Delete'),
+      icon: Icon(
+        clearsPool
+            ? Icons.delete_forever_outlined
+            : Icons.delete_outline_rounded,
+      ),
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+
+    final removedUrls = endpoints.map((endpoint) => endpoint.url).toSet();
+    setState(() => _removingUrls.addAll(removedUrls));
+    await awaitOpenHandListRemoval(context);
+    if (!mounted) return;
+    setState(() {
+      _endpoints.removeWhere((endpoint) => removedUrls.contains(endpoint.url));
+      _selectedUrls.removeAll(removedUrls);
+      _testingUrls.removeAll(removedUrls);
+      _pendingSamples.removeWhere((url, _) => removedUrls.contains(url));
+      _removingUrls.removeAll(removedUrls);
+      _invalidateEndpointSortCache();
+      if (_endpoints.isEmpty) {
+        _enabled = false;
+        _inspectionEnabled = false;
+      }
+      if (_selectedUrls.isEmpty) _selectionMode = false;
+    });
+    showOpenHandSuccessSnack(
+      context,
+      text(
+        zh: '已删除 $count 个代理节点，应用设置后生效。',
+        en: '$count proxy nodes removed. Apply settings to save the change.',
+      ),
+    );
   }
 
   Widget _buildSettingsPanel(BuildContext context) {
@@ -628,28 +724,162 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 
   Widget _buildEndpointToolbar(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final text = openHandTextResolver(context);
+    final locked =
+        _busy ||
+        _inspectionBusy ||
+        _testingUrls.isNotEmpty ||
+        _removingUrls.isNotEmpty;
+    final allSelected =
+        _endpoints.isNotEmpty &&
+        _endpoints.every((endpoint) => _selectedUrls.contains(endpoint.url));
+    final sortLabel = switch (_sort) {
+      _ProxySort.nameAscending => text(zh: '按名称升序', en: 'name ascending'),
+      _ProxySort.latencyAscending => text(zh: '按延迟升序', en: 'latency ascending'),
+      _ProxySort.latencyDescending => text(
+        zh: '按延迟降序',
+        en: 'latency descending',
+      ),
+    };
+    final summary = OpenHandContentStateSwitcher(
+      stateKey: _selectionMode ? 'selection' : 'summary',
+      alignment: AlignmentDirectional.centerStart,
+      child: _selectionMode
+          ? Row(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Tooltip(
+                  message: allSelected
+                      ? text(zh: '取消全选', en: 'Deselect all')
+                      : text(zh: '全选节点', en: 'Select all'),
+                  child: Checkbox(
+                    value: allSelected
+                        ? true
+                        : _selectedUrls.isEmpty
+                        ? false
+                        : null,
+                    tristate: true,
+                    onChanged: locked
+                        ? null
+                        : (_) => setState(() {
+                            if (allSelected) {
+                              _selectedUrls.clear();
+                            } else {
+                              _selectedUrls.addAll(
+                                _endpoints.map((endpoint) => endpoint.url),
+                              );
+                            }
+                          }),
+                  ),
+                ),
+                Flexible(
+                  child: Text(
+                    text(
+                      zh: '已选择 ${_selectedUrls.length} / ${_endpoints.length} 个节点',
+                      en: '${_selectedUrls.length} / ${_endpoints.length} selected',
+                    ),
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                      color: colors.primary,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+              ],
+            )
+          : Text(
+              text(
+                zh: '${_endpoints.length} 个节点 · $sortLabel',
+                en: '${_endpoints.length} nodes · $sortLabel',
+              ),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelLarge,
+            ),
+    );
     final actionChildren = <Widget>[
       IconButton.filledTonal(
         tooltip: text(zh: '添加代理', en: 'Add proxy'),
-        onPressed: _busy || _inspectionBusy ? null : _addEndpoint,
+        onPressed: locked || _selectionMode ? null : _addEndpoint,
         icon: const Icon(Icons.add_rounded),
       ),
       IconButton.filledTonal(
         tooltip: text(zh: '批量导入', en: 'Bulk import'),
-        onPressed: _busy || _inspectionBusy ? null : _import,
+        onPressed: locked || _selectionMode ? null : _import,
         icon: const Icon(Icons.upload_file_rounded),
       ),
       IconButton.filledTonal(
         tooltip: text(zh: '导出代理池', en: 'Export pool'),
-        onPressed: _endpoints.isEmpty || _busy || _inspectionBusy
+        onPressed: _endpoints.isEmpty || locked || _selectionMode
             ? null
             : _exportAll,
         icon: const Icon(Icons.download_rounded),
       ),
+      IconButton(
+        tooltip: _selectionMode
+            ? text(zh: '退出多选', en: 'Exit selection')
+            : text(zh: '多选节点', en: 'Select nodes'),
+        onPressed: _endpoints.isEmpty || locked
+            ? null
+            : () => setState(() {
+                _selectionMode = !_selectionMode;
+                if (!_selectionMode) _selectedUrls.clear();
+              }),
+        style: IconButton.styleFrom(
+          backgroundColor: _selectionMode
+              ? colors.primary
+              : colors.surfaceContainerHighest,
+          foregroundColor: _selectionMode
+              ? colors.onPrimary
+              : colors.onSurfaceVariant,
+        ),
+        icon: Icon(
+          _selectionMode
+              ? Icons.check_box_rounded
+              : Icons.checklist_rtl_rounded,
+        ),
+      ),
+      OpenHandInlineRevealSwitcher(
+        presentKey: const ValueKey<String>('delete-selected'),
+        child: _selectionMode
+            ? IconButton(
+                tooltip: text(zh: '删除所选节点', en: 'Delete selected'),
+                onPressed: _selectedUrls.isEmpty || locked
+                    ? null
+                    : () => unawaited(
+                        _confirmDeleteEndpoints(
+                          Set<String>.from(_selectedUrls),
+                        ),
+                      ),
+                style: IconButton.styleFrom(
+                  backgroundColor: colors.errorContainer,
+                  foregroundColor: colors.onErrorContainer,
+                ),
+                icon: const Icon(Icons.delete_sweep_outlined),
+              )
+            : null,
+      ),
+      IconButton(
+        tooltip: text(zh: '清空全部节点', en: 'Clear all nodes'),
+        onPressed: _endpoints.isEmpty || locked
+            ? null
+            : () => unawaited(
+                _confirmDeleteEndpoints(
+                  _endpoints.map((endpoint) => endpoint.url).toSet(),
+                  clearAll: true,
+                ),
+              ),
+        style: IconButton.styleFrom(
+          backgroundColor: colors.errorContainer,
+          foregroundColor: colors.onErrorContainer,
+        ),
+        icon: const Icon(Icons.delete_forever_outlined),
+      ),
       PopupMenuButton<_ProxySort>(
         tooltip: text(zh: '排序节点', en: 'Sort nodes'),
-        enabled: !_busy && !_inspectionBusy,
+        enabled: !locked && !_selectionMode,
         initialValue: _sort,
         onSelected: (value) => setState(() {
           _sort = value;
@@ -672,20 +902,23 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         icon: const Icon(Icons.sort_rounded),
       ),
     ];
-    final actions = ServiceDialogIconActions(children: actionChildren);
-    return Row(
-      children: [
-        Expanded(
-          child: Text(
-            text(
-              zh: '${_endpoints.length} 个节点 · 默认按名称排序',
-              en: '${_endpoints.length} nodes · sorted by name',
-            ),
-            style: Theme.of(context).textTheme.labelLarge,
-          ),
-        ),
-        actions,
-      ],
+    final actions = OpenHandTrailingToolbar(children: actionChildren);
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 720) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [summary, const SizedBox(height: 8), actions],
+          );
+        }
+        return Row(
+          children: [
+            Expanded(child: summary),
+            const SizedBox(width: 12),
+            Expanded(flex: 2, child: actions),
+          ],
+        );
+      },
     );
   }
 
@@ -2629,11 +2862,13 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
 
 class _ProxyEndpointCard extends StatelessWidget {
   const _ProxyEndpointCard({
-    super.key,
     required this.endpoint,
     required this.statistics,
     required this.testing,
     required this.busy,
+    required this.selectionMode,
+    required this.selected,
+    required this.onSelectedChanged,
     required this.onEnabledChanged,
     required this.onTest,
     required this.onDetails,
@@ -2646,6 +2881,9 @@ class _ProxyEndpointCard extends StatelessWidget {
   final AiExposureProxyUsageStatistics statistics;
   final bool testing;
   final bool busy;
+  final bool selectionMode;
+  final bool selected;
+  final ValueChanged<bool> onSelectedChanged;
   final ValueChanged<bool> onEnabledChanged;
   final VoidCallback onTest;
   final VoidCallback onDetails;
@@ -2663,6 +2901,25 @@ class _ProxyEndpointCard extends StatelessWidget {
     final details = Row(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
+        OpenHandInlineRevealSwitcher(
+          presentKey: const ValueKey<String>('proxy-selector'),
+          child: selectionMode
+              ? Padding(
+                  padding: const EdgeInsets.only(right: 6),
+                  child: Tooltip(
+                    message: selected
+                        ? text(zh: '取消选择', en: 'Deselect node')
+                        : text(zh: '选择节点', en: 'Select node'),
+                    child: Checkbox(
+                      value: selected,
+                      onChanged: busy
+                          ? null
+                          : (value) => onSelectedChanged(value == true),
+                    ),
+                  ),
+                )
+              : null,
+        ),
         AnimatedContainer(
           duration: openHandMotionDuration(
             context,
@@ -2813,12 +3070,12 @@ class _ProxyEndpointCard extends StatelessWidget {
             : text(zh: '启用此节点', en: 'Enable node'),
         child: Switch(
           value: endpoint.enabled,
-          onChanged: busy ? null : onEnabledChanged,
+          onChanged: busy || selectionMode ? null : onEnabledChanged,
         ),
       ),
       IconButton(
         tooltip: text(zh: '测试连通性与延迟', en: 'Test connectivity'),
-        onPressed: busy || testing ? null : onTest,
+        onPressed: busy || testing || selectionMode ? null : onTest,
         icon: testing
             ? const SizedBox.square(
                 dimension: 18,
@@ -2833,7 +3090,7 @@ class _ProxyEndpointCard extends StatelessWidget {
       ),
       IconButton(
         tooltip: text(zh: '编辑代理配置', en: 'Edit proxy settings'),
-        onPressed: busy ? null : onEdit,
+        onPressed: busy || selectionMode ? null : onEdit,
         icon: const Icon(Icons.edit_outlined),
       ),
       IconButton(
@@ -2843,7 +3100,8 @@ class _ProxyEndpointCard extends StatelessWidget {
       ),
       IconButton(
         tooltip: text(zh: '移除代理', en: 'Remove proxy'),
-        onPressed: busy ? null : onDelete,
+        onPressed: busy || selectionMode ? null : onDelete,
+        style: IconButton.styleFrom(foregroundColor: colors.error),
         icon: const Icon(Icons.delete_outline_rounded),
       ),
     ];
@@ -2856,12 +3114,16 @@ class _ProxyEndpointCard extends StatelessWidget {
       curve: Curves.easeOutCubic,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        color: endpoint.enabled
+        color: selected
+            ? colors.primaryContainer.withValues(alpha: 0.32)
+            : endpoint.enabled
             ? colors.surfaceContainerHighest.withValues(alpha: 0.26)
             : colors.surfaceContainerLow.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(
-          color: sample?.reachable == true
+          color: selected
+              ? colors.primary.withValues(alpha: 0.58)
+              : sample?.reachable == true
               ? tone.color.withValues(alpha: 0.36)
               : colors.outlineVariant,
         ),
