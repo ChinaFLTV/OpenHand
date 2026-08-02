@@ -50,8 +50,7 @@ class WebReverseCdpMcpBridgeDiagnostic {
     : status = WebReverseCdpMcpBridgeStatus.disabled,
       browserAlive = false,
       toolCount = 0,
-      message =
-          'AI-side CDP MCP is disabled for this Web Reverse session. Enable it from the setup dialog or debugger before preparing chrome-devtools-mcp.',
+      message = '当前 Web 逆向会话未启用 AI 侧 CDP MCP，可在设置对话框或调试器中启用。',
       serverName = null,
       cdpPort = null,
       browserUrl = null,
@@ -113,8 +112,10 @@ class WebReverseCdpMcpBridge {
   static const Duration defaultCatalogTimeout = Duration(minutes: 7);
   static const Duration defaultCatalogCacheTtl = Duration(minutes: 5);
   static const Duration defaultFailedCatalogRetryTtl = Duration(seconds: 30);
+  static const int _maxCatalogCacheEntries = 32;
+  static const int _maxConcurrentCatalogDiscoveries = 4;
   static const String _preparingCatalogWarning =
-      'OpenHand is preparing the transient CDP MCP catalog for this Web Reverse session.';
+      'OpenHand 正在为当前 Web 逆向会话准备临时 CDP MCP 工具目录。';
 
   final McpToolDiscoveryService _discoveryService;
   final bool _ownsDiscoveryService;
@@ -125,6 +126,7 @@ class WebReverseCdpMcpBridge {
   final Map<String, String> _serverSignaturesBySessionId = <String, String>{};
   final Map<String, _WebReverseCdpMcpCatalogCacheEntry> _catalogCache =
       <String, _WebReverseCdpMcpCatalogCacheEntry>{};
+  final Map<String, Future<void>> _serverStopsByName = <String, Future<void>>{};
 
   Future<WebReverseTransientMcpSnapshot> buildSnapshot({
     required bool enabled,
@@ -161,6 +163,7 @@ class WebReverseCdpMcpBridge {
         ),
       );
     }
+    await _syncServerSignature(sessionId, server);
     final cacheKey = _catalogCacheKey(sessionId, server);
     final catalog = await _discoverCatalog(server: server, cacheKey: cacheKey);
     return WebReverseTransientMcpSnapshot(
@@ -245,7 +248,7 @@ class WebReverseCdpMcpBridge {
     _serverSignaturesBySessionId.remove(sessionId);
     _catalogCache.removeWhere((key, _) => key.startsWith('$sessionId|'));
     if (serverName != null && serverName.isNotEmpty) {
-      unawaited(McpStdioProcessManager.instance.stopServer(serverName));
+      unawaited(_stopServer(serverName, '停止 Web 逆向 CDP MCP 服务'));
     }
   }
 
@@ -300,9 +303,6 @@ class WebReverseCdpMcpBridge {
       ],
       visibleTemplateIds: const <String>{templateId},
     );
-    if (syncLifecycle) {
-      _syncServerSignature(sessionId, server);
-    }
     return server;
   }
 
@@ -331,14 +331,34 @@ class WebReverseCdpMcpBridge {
     return candidate;
   }
 
-  void _syncServerSignature(String sessionId, McpServer server) {
+  Future<void> _syncServerSignature(String sessionId, McpServer server) async {
+    final activeStop = _serverStopsByName[server.name];
+    if (activeStop != null) await activeStop;
     final signature = server.summary;
     final previousSignature = _serverSignaturesBySessionId[sessionId];
+    _serverSignaturesBySessionId[sessionId] = signature;
     if (previousSignature != null && previousSignature != signature) {
       _catalogCache.removeWhere((key, _) => key.startsWith('$sessionId|'));
-      unawaited(McpStdioProcessManager.instance.stopServer(server.name));
+      await _stopServer(server.name, '重启配置已变更的 Web 逆向 CDP MCP 服务');
     }
-    _serverSignaturesBySessionId[sessionId] = signature;
+  }
+
+  Future<void> _stopServer(String serverName, String action) {
+    final active = _serverStopsByName[serverName];
+    if (active != null) return active;
+    late final Future<void> tracked;
+    tracked = McpStdioProcessManager.instance
+        .stopServer(serverName)
+        .catchError((Object error, StackTrace stack) {
+          silentLog('web_reverse_cdp_mcp_bridge', action, error, stack);
+        })
+        .whenComplete(() {
+          if (identical(_serverStopsByName[serverName], tracked)) {
+            _serverStopsByName.remove(serverName);
+          }
+        });
+    _serverStopsByName[serverName] = tracked;
+    return tracked;
   }
 
   String _catalogCacheKey(String sessionId, McpServer server) =>
@@ -369,6 +389,22 @@ class WebReverseCdpMcpBridge {
       }
     }
 
+    final pendingCount = _catalogCache.values
+        .where((entry) => entry.catalog == null)
+        .length;
+    if (pendingCount >= _maxConcurrentCatalogDiscoveries ||
+        _catalogCache.length >= _maxCatalogCacheEntries) {
+      return Future<McpToolCatalog>.value(
+        McpToolCatalog(
+          status: McpToolCatalogStatus.failed,
+          errorMessage: pendingCount >= _maxConcurrentCatalogDiscoveries
+              ? 'CDP MCP 工具发现任务已达到并发上限 $_maxConcurrentCatalogDiscoveries。'
+              : 'CDP MCP 工具目录缓存已达到容量上限 $_maxCatalogCacheEntries。',
+          lastScannedAt: now,
+        ),
+      );
+    }
+
     final entry = _WebReverseCdpMcpCatalogCacheEntry(createdAt: now);
     entry.future = _discoveryService
         .discoverTools(server)
@@ -377,10 +413,8 @@ class WebReverseCdpMcpBridge {
           onTimeout: () => McpToolCatalog(
             status: McpToolCatalogStatus.failed,
             errorMessage:
-                'OpenHand CDP MCP discovery timed out after '
-                '${catalogTimeout.inSeconds}s. OpenHand launches it with '
-                '`npx --yes $cdpMcpPackage --browser-url=<cdp>`. Refresh '
-                'MCP stdio cache or network/npm access, then retry the Web Reverse turn.',
+                'OpenHand CDP MCP 工具发现超过 ${catalogTimeout.inSeconds} 秒。'
+                '请检查 MCP stdio 缓存及网络或 npm 访问后重试。',
             lastScannedAt: DateTime.now().toUtc(),
           ),
         )
@@ -398,7 +432,7 @@ class WebReverseCdpMcpBridge {
             );
             final failed = McpToolCatalog(
               status: McpToolCatalogStatus.failed,
-              errorMessage: 'OpenHand CDP MCP discovery failed: $error',
+              errorMessage: 'OpenHand CDP MCP 工具发现失败：$error',
               lastScannedAt: DateTime.now().toUtc(),
             );
             entry.catalog = failed;
@@ -415,6 +449,20 @@ class WebReverseCdpMcpBridge {
           entry.catalog != null &&
           now.difference(entry.createdAt) >= catalogCacheTtl,
     );
+    while (_catalogCache.length >= _maxCatalogCacheEntries) {
+      String? oldestKey;
+      DateTime? oldestCreatedAt;
+      for (final item in _catalogCache.entries) {
+        if (item.value.catalog == null) continue;
+        if (oldestCreatedAt == null ||
+            item.value.createdAt.isBefore(oldestCreatedAt)) {
+          oldestKey = item.key;
+          oldestCreatedAt = item.value.createdAt;
+        }
+      }
+      if (oldestKey == null) break;
+      _catalogCache.remove(oldestKey);
+    }
   }
 
   WebReverseCdpMcpBridgeDiagnostic _diagnosticForUnavailable({
@@ -427,7 +475,7 @@ class WebReverseCdpMcpBridge {
         status: WebReverseCdpMcpBridgeStatus.unavailable,
         browserAlive: false,
         toolCount: 0,
-        message: 'No active session is available for transient CDP MCP.',
+        message: '当前没有可用于临时 CDP MCP 的活动会话。',
       );
     }
     if (sessionTemplateId != templateId) {
@@ -435,7 +483,7 @@ class WebReverseCdpMcpBridge {
         status: WebReverseCdpMcpBridgeStatus.unavailable,
         browserAlive: false,
         toolCount: 0,
-        message: 'Current session is not a Web Reverse Expert session.',
+        message: '当前会话不是 Web 逆向专家会话。',
       );
     }
     if (controller == null) {
@@ -443,7 +491,7 @@ class WebReverseCdpMcpBridge {
         status: WebReverseCdpMcpBridgeStatus.unavailable,
         browserAlive: false,
         toolCount: 0,
-        message: 'No Web Reverse CDP controller is attached.',
+        message: '当前未关联 Web 逆向 CDP 控制器。',
       );
     }
     final port = controller.cdpPort;
@@ -454,8 +502,7 @@ class WebReverseCdpMcpBridge {
         toolCount: 0,
         cdpPort: port,
         browserUrl: port == null ? null : webReverseCdpHttpOrigin(port),
-        message:
-            'The Web Reverse browser is not alive; live CDP MCP actions are unavailable.',
+        message: 'Web 逆向浏览器未运行，实时 CDP MCP 操作不可用。',
       );
     }
     return WebReverseCdpMcpBridgeDiagnostic(
@@ -464,7 +511,7 @@ class WebReverseCdpMcpBridge {
       toolCount: 0,
       cdpPort: port,
       browserUrl: port == null ? null : webReverseCdpHttpOrigin(port),
-      message: 'The live Web Reverse CDP port is not available yet.',
+      message: 'Web 逆向实时 CDP 端口尚不可用。',
     );
   }
 
@@ -486,17 +533,15 @@ class WebReverseCdpMcpBridge {
     };
     final message = switch (status) {
       WebReverseCdpMcpBridgeStatus.ready =>
-        'Transient chrome-devtools-mcp is ready for live CDP actions.',
+        '临时 chrome-devtools-mcp 已可执行实时 CDP 操作。',
       WebReverseCdpMcpBridgeStatus.failed =>
         catalog.tools.isEmpty && catalog.status == McpToolCatalogStatus.ready
-            ? 'Transient chrome-devtools-mcp returned no tools.'
-            : 'Transient chrome-devtools-mcp discovery failed.',
+            ? '临时 chrome-devtools-mcp 未返回工具。'
+            : '临时 chrome-devtools-mcp 工具发现失败。',
       WebReverseCdpMcpBridgeStatus.preparing =>
-        'Transient chrome-devtools-mcp catalog is being prepared via npx.',
-      WebReverseCdpMcpBridgeStatus.disabled =>
-        'AI-side CDP MCP is disabled for this Web Reverse session.',
-      WebReverseCdpMcpBridgeStatus.unavailable =>
-        'Transient chrome-devtools-mcp is unavailable.',
+        '正在通过 npx 准备临时 chrome-devtools-mcp 工具目录。',
+      WebReverseCdpMcpBridgeStatus.disabled => '当前 Web 逆向会话未启用 AI 侧 CDP MCP。',
+      WebReverseCdpMcpBridgeStatus.unavailable => '临时 chrome-devtools-mcp 不可用。',
     };
     return WebReverseCdpMcpBridgeDiagnostic(
       status: status,
