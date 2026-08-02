@@ -21,6 +21,7 @@ import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
+import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart' show AiPromptTemplatePolicies;
 import '../../mcp/index.dart';
 import '../../thread_template_runtime/index.dart';
@@ -483,6 +484,7 @@ class _PluginCard extends StatelessWidget {
     final isCheckingUpdate = controller.checkingPluginId == plugin.id;
     final isBusy = plugin.isBusy || controller.isBusy;
     final hasMcp = plugin.id == PluginCatalogIds.playwright;
+    final managedRuntime = plugin.metadata['runtime_managed'] == true;
 
     return Wrap(
       spacing: 6,
@@ -525,6 +527,8 @@ class _PluginCard extends StatelessWidget {
                 : l10n.pluginServiceActionEnable,
             onPressed: isBusy
                 ? null
+                : managedRuntime
+                ? () => _toggleManagedRuntime(context)
                 : () => controller.toggleEnabled(
                     plugin.id,
                     enabled: !plugin.enabled,
@@ -546,7 +550,9 @@ class _PluginCard extends StatelessWidget {
             icon: const Icon(Icons.download_rounded, size: 18),
           ),
         // 更新
-        if (plugin.isInstalled && plugin.hasUpdate && plugin.supportsInstall)
+        if (plugin.isInstalled &&
+            (plugin.hasUpdate || managedRuntime) &&
+            plugin.supportsInstall)
           IconButton.filledTonal(
             tooltip: l10n.pluginServiceActionUpdate,
             onPressed: isBusy ? null : () => _doUpdate(context),
@@ -639,6 +645,27 @@ class _PluginCard extends StatelessWidget {
       success
           ? l10n.pluginServiceUpdateSuccess(plugin.name)
           : l10n.pluginServiceUpdateFailure(plugin.name),
+      kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
+    );
+  }
+
+  Future<void> _toggleManagedRuntime(BuildContext context) async {
+    final action = plugin.enabled
+        ? openHandLocalizedText(context, zh: '停止', en: 'Stop')
+        : openHandLocalizedText(context, zh: '启动', en: 'Start');
+    final progress = _showOperationDialog(context, action, plugin.name);
+    final success = await controller.toggleManagedRuntime(
+      plugin.id,
+      enabled: !plugin.enabled,
+    );
+    await progress.dismiss(
+      logTag: 'plugin_service_view',
+      logAction: '关闭服务状态对话框',
+    );
+    if (!context.mounted) return;
+    flashOpenHandSnack(
+      context,
+      success ? '$action ${plugin.name}成功' : '$action ${plugin.name}失败',
       kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
     );
   }

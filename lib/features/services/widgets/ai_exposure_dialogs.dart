@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -5,14 +6,18 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
-import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
+import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../plugin_service/index.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
 import 'service_dialog_controls.dart';
@@ -21,6 +26,7 @@ const EdgeInsets _kDialogPadding = EdgeInsets.all(22);
 const double _kSectionGap = 18;
 const double _kItemGap = 12;
 const double _kMetricBreakpoint = 720;
+const Duration _kStatusRefreshInterval = Duration(seconds: 8);
 const List<AiExposureSource> _kCredentialSources = <AiExposureSource>[
   AiExposureSource.github,
   AiExposureSource.gitee,
@@ -128,25 +134,129 @@ Future<void> showAiExposureSettingsDialog(BuildContext context) =>
       ),
     );
 
-class _StatusDialog extends StatelessWidget {
+class _StatusDialog extends StatefulWidget {
   const _StatusDialog();
+
+  @override
+  State<_StatusDialog> createState() => _StatusDialogState();
+}
+
+class _StatusDialogState extends State<_StatusDialog> {
+  Timer? _timer;
+  bool _refreshing = false;
+  bool _databaseAccessible = false;
+  int? _databaseBytes;
+  DateTime? _databaseModifiedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    _timer = Timer.periodic(_kStatusRefreshInterval, (_) => _refresh());
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    if (!mounted || _refreshing) return;
+    final controller = context.read<ServicesController>();
+    setState(() => _refreshing = true);
+    if (controller.isRunning) await controller.refreshServiceStatus();
+    final path = controller.health?.databasePath.trim() ?? '';
+    var accessible = false;
+    int? bytes;
+    DateTime? modifiedAt;
+    if (path.isNotEmpty) {
+      try {
+        final stat = await File(path).stat();
+        accessible = stat.type == FileSystemEntityType.file;
+        if (accessible) {
+          bytes = stat.size;
+          modifiedAt = stat.modified;
+        }
+      } on FileSystemException {
+        accessible = false;
+      } on UnsupportedError {
+        accessible = false;
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _databaseAccessible = accessible;
+      _databaseBytes = bytes;
+      _databaseModifiedAt = modifiedAt;
+      _refreshing = false;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
     return Consumer<ServicesController>(
       builder: (context, controller, _) {
+        final theme = Theme.of(context);
         final health = controller.health;
         final running = controller.isRunning;
+        final progress = controller.progress;
         final dependencies = controller.dependencyStatus;
+        final proxy = controller.proxyStatus;
+        final proxySuccesses = proxy?.totalSuccesses ?? 0;
+        final proxyTimeouts = proxy?.totalTimeouts ?? 0;
+        final history = controller.history;
+        final results = controller.results;
+        final configuredSources = controller.sourceStatus.values
+            .where((configured) => configured)
+            .length;
+        final enabledRules = controller.rules
+            .where((rule) => rule.enabled)
+            .length;
+        final completedJobs = history
+            .where((entry) => entry.stage == 'completed')
+            .length;
+        final failedJobs = history
+            .where((entry) => entry.stage == 'failed')
+            .length;
+        final highValue = results
+            .where(
+              (result) => result.category == AiExposureResultCategory.highValue,
+            )
+            .length;
+        final warnings = controller.logs
+            .where((entry) => entry.level == 'warning')
+            .length;
+        final errors = controller.logs
+            .where((entry) => entry.level == 'error')
+            .length;
+        final recentHistory = history.take(18).toList().reversed.toList();
+        final lifecycleLabel = switch (controller.lifecycle) {
+          AiExposureServiceLifecycle.starting => text(
+            zh: '启动中',
+            en: 'Starting',
+          ),
+          AiExposureServiceLifecycle.running => text(zh: '运行中', en: 'Running'),
+          AiExposureServiceLifecycle.stopping => text(
+            zh: '停止中',
+            en: 'Stopping',
+          ),
+          AiExposureServiceLifecycle.error => text(zh: '异常', en: 'Error'),
+          AiExposureServiceLifecycle.stopped => text(zh: '已停止', en: 'Stopped'),
+        };
         return _DialogFrame(
           icon: Icons.monitor_heart_outlined,
           title: text(zh: '服务状态', en: 'Service status'),
+          subtitle: text(
+            zh: 'ai_jungler 运行健康、工作负载、附属服务与持久化状态',
+            en: 'ai_jungler health, workload, dependencies, and persistence',
+          ),
           footer: _DialogActions(
             actions: [
               OpenHandDialogActionButton.secondary(
                 icon: Icons.refresh_rounded,
-                onPressed: running ? controller.refreshServiceStatus : null,
+                onPressed: running && !_refreshing ? _refresh : null,
                 label: text(zh: '刷新状态', en: 'Refresh status'),
               ),
               OpenHandDialogActionButton.primary(
@@ -165,6 +275,8 @@ class _StatusDialog extends StatelessWidget {
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
+              _ServiceTelemetryConsole(controller: controller),
+              const SizedBox(height: 14),
               _MetricGrid(
                 items: [
                   _MetricData(
@@ -175,6 +287,26 @@ class _StatusDialog extends StatelessWidget {
                     value: running
                         ? text(zh: '已连接', en: 'Connected')
                         : text(zh: '未连接', en: 'Disconnected'),
+                    detail: controller.ownsProcess
+                        ? text(zh: 'OpenHand 托管进程', en: 'Managed process')
+                        : text(zh: '外部服务连接', en: 'External service'),
+                    color: running
+                        ? OpenHandStatusColors.success
+                        : theme.colorScheme.outline,
+                  ),
+                  _MetricData(
+                    icon: Icons.monitor_heart_rounded,
+                    label: text(zh: '生命周期', en: 'Lifecycle'),
+                    value: lifecycleLabel,
+                    detail: controller.busy
+                        ? text(zh: '状态切换中', en: 'Transitioning')
+                        : text(zh: '控制面已就绪', en: 'Control plane ready'),
+                    color: running
+                        ? OpenHandStatusColors.success
+                        : controller.lifecycle ==
+                              AiExposureServiceLifecycle.error
+                        ? OpenHandStatusColors.error
+                        : theme.colorScheme.outline,
                   ),
                   _MetricData(
                     icon: Icons.memory_rounded,
@@ -182,102 +314,435 @@ class _StatusDialog extends StatelessWidget {
                     value: health?.version.isNotEmpty == true
                         ? health!.version
                         : '--',
+                    detail: 'ai_jungler',
+                    color: theme.colorScheme.tertiary,
                   ),
                   _MetricData(
-                    icon: Icons.storage_rounded,
-                    label: text(zh: '运行时', en: 'Runtime'),
-                    value: controller.ownsProcess
-                        ? text(zh: '内嵌进程', en: 'Bundled process')
-                        : running
-                        ? text(zh: '外部服务', en: 'External service')
-                        : '--',
+                    icon: Icons.schedule_rounded,
+                    label: text(zh: '连续运行', en: 'Uptime'),
+                    value: _serviceDuration(health?.uptimeSeconds ?? 0),
+                    detail: text(zh: '当前进程周期', en: 'Current process cycle'),
+                    color: theme.colorScheme.primary,
                   ),
                   _MetricData(
-                    icon: Icons.auto_awesome_rounded,
-                    label: text(zh: 'GPT 辅助', en: 'GPT assistance'),
-                    value: controller.aiExtractorStatus?.configured == true
-                        ? controller.aiExtractorStatus?.model ?? '--'
-                        : text(zh: '未启用', en: 'Disabled'),
+                    icon: Icons.radar_rounded,
+                    label: text(zh: '当前任务', en: 'Current job'),
+                    value: progress?.isRunning == true
+                        ? _stageLabel(context, progress!.stage)
+                        : text(zh: '空闲', en: 'Idle'),
+                    detail: progress == null
+                        ? text(zh: '等待扫描任务', en: 'Awaiting scan')
+                        : '${progress.processed}/${progress.total}',
+                    color: progress?.isRunning == true
+                        ? OpenHandStatusColors.info
+                        : theme.colorScheme.outline,
+                  ),
+                  _MetricData(
+                    icon: Icons.work_history_outlined,
+                    label: text(zh: '任务归档', en: 'Job archive'),
+                    value: '${history.length}',
+                    detail: text(
+                      zh: '完成 $completedJobs · 失败 $failedJobs',
+                      en: '$completedJobs completed · $failedJobs failed',
+                    ),
+                    color: theme.colorScheme.primary,
+                  ),
+                  _MetricData(
+                    icon: Icons.fact_check_outlined,
+                    label: text(zh: '结果库存', en: 'Result inventory'),
+                    value: '${results.length}',
+                    detail: text(
+                      zh: '高价值 $highValue',
+                      en: '$highValue high value',
+                    ),
+                    color: OpenHandStatusColors.info,
+                  ),
+                  _MetricData(
+                    icon: Icons.travel_explore_rounded,
+                    label: text(zh: '凭证数据源', en: 'Credential sources'),
+                    value: '$configuredSources/5',
+                    detail: text(
+                      zh: '启用 ${controller.enabledSources.length} 类来源',
+                      en: '${controller.enabledSources.length} source types enabled',
+                    ),
+                    color: OpenHandStatusColors.success,
+                  ),
+                  _MetricData(
+                    icon: Icons.rule_rounded,
+                    label: text(zh: '规则覆盖', en: 'Rule coverage'),
+                    value: '$enabledRules/${controller.rules.length}',
+                    detail: text(
+                      zh: '并发 ${controller.defaultConcurrency}',
+                      en: 'Concurrency ${controller.defaultConcurrency}',
+                    ),
+                    color: const Color(0xff0f766e),
+                  ),
+                  _MetricData(
+                    icon: Icons.lan_outlined,
+                    label: text(zh: '代理请求', en: 'Proxy requests'),
+                    value: '${proxy?.totalSelections ?? 0}',
+                    detail: proxy?.enabled == true
+                        ? text(
+                            zh: '成功 $proxySuccesses · 超时 $proxyTimeouts',
+                            en: '$proxySuccesses ok · $proxyTimeouts timeout',
+                          )
+                        : text(zh: '直接连接', en: 'Direct connection'),
+                    color: const Color(0xff0891b2),
+                  ),
+                  _MetricData(
+                    icon: Icons.speed_rounded,
+                    label: text(zh: '代理平均响应', en: 'Proxy latency'),
+                    value: '${proxy?.averageResponseTimeMs ?? 0} ms',
+                    detail: text(
+                      zh: '执行中 ${proxy?.inFlight ?? 0}',
+                      en: '${proxy?.inFlight ?? 0} in flight',
+                    ),
+                    color: theme.colorScheme.secondary,
+                  ),
+                  _MetricData(
+                    icon: errors > 0
+                        ? Icons.error_outline_rounded
+                        : Icons.verified_outlined,
+                    label: text(zh: '运行事件', en: 'Runtime events'),
+                    value: '${controller.logs.length}',
+                    detail: text(
+                      zh: '警告 $warnings · 错误 $errors',
+                      en: '$warnings warnings · $errors errors',
+                    ),
+                    color: errors > 0
+                        ? OpenHandStatusColors.error
+                        : warnings > 0
+                        ? OpenHandStatusColors.warning
+                        : OpenHandStatusColors.success,
                   ),
                 ],
               ),
-              const SizedBox(height: _kSectionGap),
-              _SectionTitle(
-                icon: Icons.extension_outlined,
-                title: text(zh: '运行依赖', en: 'Runtime dependencies'),
-              ),
-              const SizedBox(height: _kItemGap),
-              _DependencyRow(
-                name: 'ai_jungler',
-                detail:
-                    health?.databasePath ??
-                    text(
-                      zh: 'OpenHand 自研 Rust 扫描引擎',
-                      en: 'OpenHand Rust scanner',
+              const SizedBox(height: 14),
+              _StatusPanelGrid(
+                children: [
+                  _StatusTrendPanel(
+                    title: text(zh: '任务处理趋势', en: 'Processing trend'),
+                    subtitle: text(
+                      zh: '最近 ${recentHistory.length} 个任务',
+                      en: 'Latest ${recentHistory.length} jobs',
                     ),
-                ready: running,
-                required: true,
+                    series: [
+                      OpenHandChartSeries(
+                        label: text(zh: '处理', en: 'Processed'),
+                        values: recentHistory
+                            .map((entry) => entry.progress.processed.toDouble())
+                            .toList(),
+                        color: theme.colorScheme.primary,
+                      ),
+                      OpenHandChartSeries(
+                        label: text(zh: '发现', en: 'Discovered'),
+                        values: recentHistory
+                            .map(
+                              (entry) => entry.progress.discovered.toDouble(),
+                            )
+                            .toList(),
+                        color: OpenHandStatusColors.info,
+                      ),
+                      OpenHandChartSeries(
+                        label: text(zh: '有效', en: 'Valid'),
+                        values: recentHistory
+                            .map((entry) => entry.progress.valid.toDouble())
+                            .toList(),
+                        color: OpenHandStatusColors.success,
+                      ),
+                    ],
+                  ),
+                  _StatusDistributionPanel(
+                    title: text(zh: '结果分类分布', en: 'Result distribution'),
+                    centerValue: '${results.length}',
+                    items: [
+                      _StatusDistributionItem(
+                        text(zh: '有效', en: 'Valid'),
+                        results
+                            .where(
+                              (item) =>
+                                  item.category ==
+                                  AiExposureResultCategory.valid,
+                            )
+                            .length,
+                        OpenHandStatusColors.success,
+                      ),
+                      _StatusDistributionItem(
+                        text(zh: '高价值', en: 'High value'),
+                        highValue,
+                        const Color(0xffa855f7),
+                      ),
+                      _StatusDistributionItem(
+                        text(zh: '可疑', en: 'Suspicious'),
+                        results
+                            .where(
+                              (item) =>
+                                  item.category ==
+                                  AiExposureResultCategory.suspicious,
+                            )
+                            .length,
+                        OpenHandStatusColors.warning,
+                      ),
+                      _StatusDistributionItem(
+                        text(zh: '蜜罐', en: 'Honeypot'),
+                        results
+                            .where(
+                              (item) =>
+                                  item.category ==
+                                  AiExposureResultCategory.honeypot,
+                            )
+                            .length,
+                        OpenHandStatusColors.error,
+                      ),
+                    ],
+                  ),
+                ],
               ),
-              const SizedBox(height: 8),
-              _DependencyRow(
-                name: 'PostgreSQL',
-                detail:
-                    dependencies?.postgresql.message ??
-                    text(
-                      zh: '未启用，本地使用 SQLite。',
-                      en: 'Disabled; using local SQLite.',
-                    ),
-                ready: dependencies?.postgresql.connected == true,
-                required: false,
-              ),
-              const SizedBox(height: 8),
-              _DependencyRow(
-                name: 'Redis',
-                detail:
-                    dependencies?.redis.message ??
-                    text(
-                      zh: '未启用，当前不进行跨实例目标协调。',
-                      en: 'Disabled; cross-instance target coordination is off.',
-                    ),
-                ready: dependencies?.redis.connected == true,
-                required: false,
-              ),
-              const SizedBox(height: 8),
-              _DependencyRow(
-                name: text(zh: 'OpenHand 模型', en: 'OpenHand model'),
-                detail:
-                    controller.selectedAiExtractorModelLabel ??
-                    text(
-                      zh: 'GPT 辅助提取未配置兼容模型。',
-                      en: 'No compatible model for assisted extraction.',
-                    ),
-                ready: controller.selectedAiExtractorModelLabel != null,
-                required: false,
-              ),
-              const SizedBox(height: _kSectionGap),
-              _SectionTitle(
-                icon: Icons.data_usage_rounded,
-                title: text(zh: '数据源配额', en: 'Source quotas'),
-              ),
-              const SizedBox(height: _kItemGap),
-              if (controller.quotas.isEmpty)
-                _EmptyLine(
-                  text: running
-                      ? text(
-                          zh: '刷新后显示 GitHub、Gitee、GitCode、FOFA 和 Shodan 状态。',
-                          en: 'Refresh GitHub, Gitee, GitCode, FOFA, and Shodan status.',
-                        )
-                      : text(
-                          zh: '启动服务后可查询数据源配额。',
-                          en: 'Start the service to query source quotas.',
+              OpenHandVerticalRevealSwitcher(
+                presentKey: progress == null
+                    ? null
+                    : ValueKey<String>(
+                        '${progress.jobId}-${progress.stage}-${progress.updatedAt.microsecondsSinceEpoch}',
+                      ),
+                child: progress == null
+                    ? null
+                    : Padding(
+                        padding: const EdgeInsets.only(top: 14),
+                        child: _StatusSectionCard(
+                          icon: Icons.radar_rounded,
+                          title: text(
+                            zh: '当前任务实时遥测',
+                            en: 'Current job telemetry',
+                          ),
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.stretch,
+                            children: [
+                              Text(progress.message),
+                              const SizedBox(height: 10),
+                              LinearProgressIndicator(
+                                value: progress.total > 0
+                                    ? progress.fraction
+                                    : null,
+                                minHeight: 8,
+                                borderRadius: BorderRadius.circular(99),
+                              ),
+                              const SizedBox(height: 10),
+                              Text(
+                                text(
+                                  zh: '发现 ${progress.discovered} · 候选 ${progress.candidates} · 有效 ${progress.valid} · 高价值 ${progress.highValue} · 已处理 ${progress.processed}/${progress.total}',
+                                  en: 'Discovered ${progress.discovered} · candidates ${progress.candidates} · valid ${progress.valid} · high value ${progress.highValue} · processed ${progress.processed}/${progress.total}',
+                                ),
+                              ),
+                            ],
+                          ),
                         ),
-                )
-              else
-                for (final quota in controller.quotas) ...[
-                  _QuotaRow(quota: quota),
-                  if (quota != controller.quotas.last)
-                    const SizedBox(height: 8),
+                      ),
+              ),
+              const SizedBox(height: 14),
+              _StatusPanelGrid(
+                children: [
+                  _StatusSectionCard(
+                    icon: Icons.hub_outlined,
+                    title: text(zh: '运行依赖矩阵', en: 'Dependency matrix'),
+                    child: Column(
+                      children: [
+                        _DependencyRow(
+                          name: 'ai_jungler',
+                          detail: text(
+                            zh: 'OpenHand 自研 Rust 扫描引擎',
+                            en: 'OpenHand Rust scanner',
+                          ),
+                          ready: running,
+                          required: true,
+                        ),
+                        const SizedBox(height: 10),
+                        _DependencyRow(
+                          name: 'SQLite WAL',
+                          detail: text(
+                            zh: '任务、规则、结果与日志本地持久化',
+                            en: 'Local jobs, rules, results, and logs',
+                          ),
+                          ready: _databaseAccessible,
+                          required: true,
+                        ),
+                        const SizedBox(height: 10),
+                        _DependencyRow(
+                          name: 'PostgreSQL',
+                          detail:
+                              dependencies?.postgresql.message ??
+                              text(zh: '未启用远程镜像', en: 'Remote mirror off'),
+                          ready: dependencies?.postgresql.connected == true,
+                          required: false,
+                        ),
+                        const SizedBox(height: 10),
+                        _DependencyRow(
+                          name: 'Redis',
+                          detail:
+                              dependencies?.redis.message ??
+                              text(
+                                zh: '未启用跨实例协调',
+                                en: 'Cross-instance coordination off',
+                              ),
+                          ready: dependencies?.redis.connected == true,
+                          required: false,
+                        ),
+                        const SizedBox(height: 10),
+                        _DependencyRow(
+                          name: text(zh: 'GPT 辅助提取', en: 'GPT extraction'),
+                          detail:
+                              controller.aiExtractorStatus?.model ??
+                              text(zh: '使用确定性规则', en: 'Deterministic rules'),
+                          ready:
+                              controller.aiExtractorStatus?.configured == true,
+                          required: false,
+                        ),
+                      ],
+                    ),
+                  ),
+                  _StatusSectionCard(
+                    icon: Icons.storage_rounded,
+                    title: text(zh: '持久化与完整性', en: 'Persistence integrity'),
+                    child: Column(
+                      children: [
+                        _StatusKeyValue(
+                          label: text(zh: '数据库文件', en: 'Database file'),
+                          value: _databaseAccessible
+                              ? formatByteSize(_databaseBytes ?? 0)
+                              : text(zh: '当前不可访问', en: 'Not accessible'),
+                        ),
+                        _StatusKeyValue(
+                          label: text(zh: '最后写入', en: 'Last write'),
+                          value: _databaseModifiedAt == null
+                              ? '--'
+                              : _dateTime(_databaseModifiedAt!),
+                        ),
+                        _StatusKeyValue(
+                          label: text(zh: '持久化记录', en: 'Persisted records'),
+                          value: text(
+                            zh: '任务 ${history.length} · 结果 ${results.length} · 规则 ${controller.rules.length}',
+                            en: '${history.length} jobs · ${results.length} results · ${controller.rules.length} rules',
+                          ),
+                        ),
+                        _StatusKeyValue(
+                          label: text(zh: '凭证保护', en: 'Credential protection'),
+                          value: 'AES-256-GCM',
+                        ),
+                        _StatusKeyValue(
+                          label: text(zh: '日志缓冲', en: 'Log buffer'),
+                          value: text(
+                            zh: '${controller.logs.length} 条',
+                            en: '${controller.logs.length} entries',
+                          ),
+                        ),
+                        OpenHandVerticalRevealSwitcher(
+                          presentKey: const ValueKey<String>(
+                            'status-database-path',
+                          ),
+                          child: health?.databasePath.isNotEmpty != true
+                              ? null
+                              : Padding(
+                                  padding: const EdgeInsets.only(top: 8),
+                                  child: Align(
+                                    alignment: AlignmentDirectional.centerStart,
+                                    child: SelectableText(
+                                      health!.databasePath,
+                                      style: theme.textTheme.bodySmall
+                                          ?.copyWith(
+                                            color: theme
+                                                .colorScheme
+                                                .onSurfaceVariant,
+                                            fontFamily: 'monospace',
+                                          ),
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
                 ],
+              ),
+              const SizedBox(height: 14),
+              _StatusPanelGrid(
+                children: [
+                  _StatusSectionCard(
+                    icon: Icons.data_usage_rounded,
+                    title: text(zh: '数据源配额与健康', en: 'Source quota health'),
+                    child: controller.quotas.isEmpty
+                        ? _EmptyLine(
+                            text: running
+                                ? text(
+                                    zh: '正在等待 GitHub、Gitee、GitCode、FOFA 与 Shodan 配额响应。',
+                                    en: 'Waiting for source quota responses.',
+                                  )
+                                : text(
+                                    zh: '启动服务后可查询数据源配额。',
+                                    en: 'Start the service to query quotas.',
+                                  ),
+                          )
+                        : Column(
+                            children: [
+                              for (
+                                var index = 0;
+                                index < controller.quotas.length;
+                                index++
+                              ) ...[
+                                _QuotaRow(quota: controller.quotas[index]),
+                                if (index < controller.quotas.length - 1)
+                                  const SizedBox(height: 10),
+                              ],
+                            ],
+                          ),
+                  ),
+                  _StatusSectionCard(
+                    icon: Icons.tune_rounded,
+                    title: text(zh: '运行配置快照', en: 'Runtime configuration'),
+                    child: Column(
+                      children: [
+                        _StatusKeyValue(
+                          label: text(zh: '引擎模式', en: 'Engine mode'),
+                          value: controller.useBundledEngine
+                              ? text(zh: 'OpenHand 托管', en: 'OpenHand managed')
+                              : text(zh: '外部服务', en: 'External service'),
+                        ),
+                        _StatusKeyValue(
+                          label: text(zh: '默认并发', en: 'Concurrency'),
+                          value: '${controller.defaultConcurrency}/128',
+                        ),
+                        _StatusKeyValue(
+                          label: text(zh: '验证策略', en: 'Validation'),
+                          value:
+                              controller.defaultValidationMode ==
+                                  AiExposureValidationMode.authorizedActive
+                              ? text(zh: '授权主动验证', en: 'Authorized active')
+                              : text(zh: '被动验证', en: 'Passive'),
+                        ),
+                        _StatusKeyValue(
+                          label: text(zh: '代理选路', en: 'Proxy routing'),
+                          value: proxy?.enabled == true
+                              ? '${proxy!.strategy.name} · ${proxy.endpoints.length}'
+                              : text(zh: '直接连接', en: 'Direct'),
+                        ),
+                        _StatusKeyValue(
+                          label: text(
+                            zh: 'PostgreSQL 镜像',
+                            en: 'PostgreSQL mirror',
+                          ),
+                          value: controller.postgresqlEnabled
+                              ? text(zh: '已选择', en: 'Selected')
+                              : text(zh: '未选择', en: 'Not selected'),
+                        ),
+                        _StatusKeyValue(
+                          label: text(zh: 'Redis 协调', en: 'Redis coordination'),
+                          value: controller.redisEnabled
+                              ? text(zh: '已选择', en: 'Selected')
+                              : text(zh: '未选择', en: 'Not selected'),
+                        ),
+                      ],
+                    ),
+                  ),
+                ],
+              ),
             ],
           ),
         );
@@ -364,16 +829,21 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (!controller.isRunning) ...[
-            _InlineNotice(
-              icon: Icons.power_settings_new_rounded,
-              text: text(
-                zh: '扫描服务尚未启动。请先返回服务卡启动服务。',
-                en: 'The scanner service is stopped. Start it from the service card first.',
-              ),
-            ),
-            const SizedBox(height: _kSectionGap),
-          ],
+          OpenHandVerticalRevealSwitcher(
+            presentKey: const ValueKey<String>('service-stopped-notice'),
+            child: controller.isRunning
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(bottom: _kSectionGap),
+                    child: _InlineNotice(
+                      icon: Icons.power_settings_new_rounded,
+                      text: text(
+                        zh: '扫描服务尚未启动。请先返回服务卡启动服务。',
+                        en: 'The scanner service is stopped. Start it from the service card first.',
+                      ),
+                    ),
+                  ),
+          ),
           TextField(
             controller: _name,
             maxLength: 120,
@@ -444,19 +914,25 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
               border: const OutlineInputBorder(),
             ),
           ),
-          if (_sources.contains(AiExposureSource.manual)) ...[
-            const SizedBox(height: _kItemGap),
-            TextField(
-              controller: _targets,
-              minLines: 3,
-              maxLines: 7,
-              decoration: InputDecoration(
-                labelText: text(zh: '手工目标', en: 'Manual targets'),
-                hintText: 'https://api.example.com\n10.10.2.8:8080',
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ],
+          OpenHandVerticalRevealSwitcher(
+            presentKey: const ValueKey<String>('manual-targets'),
+            slideBeginOffsetY: -.03,
+            child: !_sources.contains(AiExposureSource.manual)
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(top: _kItemGap),
+                    child: TextField(
+                      controller: _targets,
+                      minLines: 3,
+                      maxLines: 7,
+                      decoration: InputDecoration(
+                        labelText: text(zh: '手工目标', en: 'Manual targets'),
+                        hintText: 'https://api.example.com\n10.10.2.8:8080',
+                        border: const OutlineInputBorder(),
+                      ),
+                    ),
+                  ),
+          ),
           if (widget.custom) ...[
             const SizedBox(height: _kSectionGap),
             _SectionTitle(
@@ -1197,8 +1673,6 @@ class _SettingsDialog extends StatefulWidget {
 class _SettingsDialogState extends State<_SettingsDialog> {
   late final TextEditingController _address;
   final TextEditingController _token = TextEditingController();
-  final TextEditingController _postgresqlUrl = TextEditingController();
-  final TextEditingController _redisUrl = TextEditingController();
   late bool _bundled;
   late bool _postgresqlEnabled;
   late bool _redisEnabled;
@@ -1206,6 +1680,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   late bool _activeValidation;
   late bool _gptAssisted;
   bool _applying = false;
+  String? _dependencyOperationId;
 
   @override
   void initState() {
@@ -1213,9 +1688,8 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     final controller = context.read<ServicesController>();
     _address = TextEditingController(text: controller.externalAddress);
     _bundled = controller.useBundledEngine;
-    _postgresqlEnabled =
-        controller.dependencyStatus?.postgresql.configured == true;
-    _redisEnabled = controller.dependencyStatus?.redis.configured == true;
+    _postgresqlEnabled = controller.postgresqlEnabled;
+    _redisEnabled = controller.redisEnabled;
     _concurrency = controller.defaultConcurrency.toDouble();
     _activeValidation =
         controller.defaultValidationMode ==
@@ -1227,8 +1701,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   void dispose() {
     _address.dispose();
     _token.dispose();
-    _postgresqlUrl.dispose();
-    _redisUrl.dispose();
     super.dispose();
   }
 
@@ -1236,6 +1708,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
     final controller = context.watch<ServicesController>();
+    final pluginController = context.watch<PluginServiceController>();
     return _DialogFrame(
       icon: Icons.settings_outlined,
       title: text(zh: '服务设置', en: 'Service settings'),
@@ -1275,25 +1748,35 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             onSelectionChanged: (selection) =>
                 setState(() => _bundled = selection.first),
           ),
-          if (!_bundled) ...[
-            const SizedBox(height: _kSectionGap),
-            TextField(
-              controller: _address,
-              decoration: InputDecoration(
-                labelText: text(zh: '服务地址', en: 'Service address'),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-            const SizedBox(height: 10),
-            TextField(
-              controller: _token,
-              obscureText: true,
-              decoration: InputDecoration(
-                labelText: text(zh: '访问令牌', en: 'Access token'),
-                border: const OutlineInputBorder(),
-              ),
-            ),
-          ],
+          OpenHandVerticalRevealSwitcher(
+            presentKey: const ValueKey<String>('external-service-fields'),
+            slideBeginOffsetY: -.03,
+            child: _bundled
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(top: _kSectionGap),
+                    child: Column(
+                      children: [
+                        TextField(
+                          controller: _address,
+                          decoration: InputDecoration(
+                            labelText: text(zh: '服务地址', en: 'Service address'),
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                        const SizedBox(height: 10),
+                        TextField(
+                          controller: _token,
+                          obscureText: true,
+                          decoration: InputDecoration(
+                            labelText: text(zh: '访问令牌', en: 'Access token'),
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
           const SizedBox(height: _kSectionGap),
           _SectionTitle(
             icon: Icons.api_rounded,
@@ -1315,74 +1798,34 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             title: text(zh: '可选运行依赖', en: 'Optional dependencies'),
           ),
           const SizedBox(height: _kItemGap),
-          OpenHandAnimatedSwitchTile(
+          _ManagedDependencyTile(
+            plugin: pluginController.pluginById(PluginCatalogIds.postgresql),
             icon: Icons.storage_rounded,
-            disabledIcon: Icons.storage_outlined,
             title: 'PostgreSQL',
-            description: text(
-              zh: '镜像任务、结果、日志和增量目标。',
-              en: 'Mirror jobs, results, logs, and incremental targets.',
+            purpose: text(
+              zh: '持久化任务、结果、日志和增量目标。',
+              en: 'Persist jobs, results, logs, and incremental targets.',
             ),
-            value: _postgresqlEnabled,
-            onChanged: (value) => setState(() => _postgresqlEnabled = value),
-          ),
-          AnimatedSize(
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 220),
-            ),
-            curve: Curves.easeOutCubic,
-            child: _postgresqlEnabled
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: TextField(
-                      controller: _postgresqlUrl,
-                      keyboardType: TextInputType.url,
-                      obscureText: true,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: 'PostgreSQL URL',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink(),
+            selected: _postgresqlEnabled,
+            operating: _dependencyOperationId == PluginCatalogIds.postgresql,
+            onSelected: (value) => setState(() => _postgresqlEnabled = value),
+            onAction: (action) =>
+                _runDependencyAction(PluginCatalogIds.postgresql, action),
           ),
           const SizedBox(height: _kItemGap),
-          OpenHandAnimatedSwitchTile(
+          _ManagedDependencyTile(
+            plugin: pluginController.pluginById(PluginCatalogIds.redis),
             icon: Icons.hub_rounded,
-            disabledIcon: Icons.hub_outlined,
             title: 'Redis',
-            description: text(
+            purpose: text(
               zh: '协调多实例目标租约并减少重复扫描。',
               en: 'Coordinate target leases across scanner instances.',
             ),
-            value: _redisEnabled,
-            onChanged: (value) => setState(() => _redisEnabled = value),
-          ),
-          AnimatedSize(
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 220),
-            ),
-            curve: Curves.easeOutCubic,
-            child: _redisEnabled
-                ? Padding(
-                    padding: const EdgeInsets.only(top: 10),
-                    child: TextField(
-                      controller: _redisUrl,
-                      keyboardType: TextInputType.url,
-                      obscureText: true,
-                      autocorrect: false,
-                      enableSuggestions: false,
-                      decoration: const InputDecoration(
-                        labelText: 'Redis URL',
-                        border: OutlineInputBorder(),
-                      ),
-                    ),
-                  )
-                : const SizedBox.shrink(),
+            selected: _redisEnabled,
+            operating: _dependencyOperationId == PluginCatalogIds.redis,
+            onSelected: (value) => setState(() => _redisEnabled = value),
+            onAction: (action) =>
+                _runDependencyAction(PluginCatalogIds.redis, action),
           ),
           const SizedBox(height: _kSectionGap),
           _SectionTitle(
@@ -1465,6 +1908,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     setState(() => _applying = true);
     final text = openHandTextResolver(context);
     final controller = context.read<ServicesController>();
+    final pluginController = context.read<PluginServiceController>();
     try {
       await controller.updateScanPreferences(
         enabledSources: controller.enabledSources,
@@ -1532,30 +1976,21 @@ class _SettingsDialogState extends State<_SettingsDialog> {
         );
       }
 
-      final current = controller.dependencyStatus;
-      final postgresqlUrl = _dependencyUpdate(
-        enabled: _postgresqlEnabled,
-        configured: current?.postgresql.configured == true,
-        value: _postgresqlUrl.text,
-      );
-      final redisUrl = _dependencyUpdate(
-        enabled: _redisEnabled,
-        configured: current?.redis.configured == true,
-        value: _redisUrl.text,
-      );
-      if (_postgresqlEnabled &&
-          postgresqlUrl == null &&
-          current?.postgresql.configured != true) {
-        throw const FormatException('PostgreSQL URL 不能为空。');
+      if (_postgresqlEnabled) {
+        await _ensureManagedDependency(
+          pluginController,
+          PluginCatalogIds.postgresql,
+        );
       }
-      if (_redisEnabled &&
-          redisUrl == null &&
-          current?.redis.configured != true) {
-        throw const FormatException('Redis URL 不能为空。');
+      if (_redisEnabled) {
+        await _ensureManagedDependency(
+          pluginController,
+          PluginCatalogIds.redis,
+        );
       }
-      final updated = await controller.updateDependencies(
-        postgresqlUrl: postgresqlUrl,
-        redisUrl: redisUrl,
+      final updated = await controller.updateManagedDependencyPreferences(
+        postgresqlEnabled: _postgresqlEnabled,
+        redisEnabled: _redisEnabled,
       );
       if (!updated) {
         if (mounted) {
@@ -1576,14 +2011,280 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     }
   }
 
-  String? _dependencyUpdate({
-    required bool enabled,
-    required bool configured,
-    required String value,
-  }) {
-    if (!enabled) return configured ? '' : null;
-    final normalized = value.trim();
-    return normalized.isEmpty ? null : normalized;
+  Future<void> _ensureManagedDependency(
+    PluginServiceController pluginController,
+    String pluginId,
+  ) async {
+    final plugin = pluginController.pluginById(pluginId);
+    final name = plugin?.name ?? pluginId;
+    if (plugin == null) {
+      throw StateError('$name 状态尚未加载，请稍后重试。');
+    }
+    if (!plugin.supportsInstall) {
+      throw StateError('$name 是外部实例，无法作为 OpenHand 托管运行依赖。');
+    }
+    if (!plugin.isInstalled) {
+      final installed = await pluginController.installPlugin(pluginId);
+      if (!installed) {
+        throw StateError(pluginController.errorMessage ?? '$name 安装失败。');
+      }
+    }
+    final refreshed = pluginController.pluginById(pluginId);
+    if (refreshed?.enabled == true) return;
+    final started = await pluginController.toggleManagedRuntime(
+      pluginId,
+      enabled: true,
+    );
+    if (!started) {
+      throw StateError(pluginController.errorMessage ?? '$name 启动失败。');
+    }
+  }
+
+  Future<void> _runDependencyAction(
+    String pluginId,
+    _ManagedDependencyAction action,
+  ) async {
+    if (_applying || _dependencyOperationId != null) return;
+    final pluginController = context.read<PluginServiceController>();
+    final plugin = pluginController.pluginById(pluginId);
+    if (plugin == null) return;
+    if (action == _ManagedDependencyAction.uninstall) {
+      final confirmed = await showOpenHandConfirmDialog(
+        context: context,
+        title: '卸载 ${plugin.name}',
+        message: '将移除 OpenHand 托管容器并保留数据目录。',
+        cancelLabel: '取消',
+        confirmLabel: '卸载',
+        destructive: true,
+      );
+      if (!confirmed || !mounted) return;
+    }
+    setState(() => _dependencyOperationId = pluginId);
+    final success = switch (action) {
+      _ManagedDependencyAction.install => await pluginController.installPlugin(
+        pluginId,
+      ),
+      _ManagedDependencyAction.start =>
+        await pluginController.toggleManagedRuntime(pluginId, enabled: true),
+      _ManagedDependencyAction.stop =>
+        await pluginController.toggleManagedRuntime(pluginId, enabled: false),
+      _ManagedDependencyAction.update => await pluginController.updatePlugin(
+        pluginId,
+      ),
+      _ManagedDependencyAction.uninstall =>
+        await pluginController.uninstallPlugin(pluginId),
+    };
+    if (!mounted) return;
+    if (success &&
+        (action == _ManagedDependencyAction.stop ||
+            action == _ManagedDependencyAction.uninstall)) {
+      setState(() {
+        if (pluginId == PluginCatalogIds.postgresql) {
+          _postgresqlEnabled = false;
+        } else {
+          _redisEnabled = false;
+        }
+      });
+      await context
+          .read<ServicesController>()
+          .updateManagedDependencyPreferences(
+            postgresqlEnabled: _postgresqlEnabled,
+            redisEnabled: _redisEnabled,
+          );
+    }
+    if (!mounted) return;
+    flashOpenHandSnack(
+      context,
+      success
+          ? '${action.label} ${plugin.name}成功'
+          : pluginController.errorMessage ?? '${action.label} ${plugin.name}失败',
+      kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
+    );
+    setState(() => _dependencyOperationId = null);
+  }
+}
+
+enum _ManagedDependencyAction { install, start, stop, update, uninstall }
+
+extension on _ManagedDependencyAction {
+  String get label => switch (this) {
+    _ManagedDependencyAction.install => '安装',
+    _ManagedDependencyAction.start => '启动',
+    _ManagedDependencyAction.stop => '停止',
+    _ManagedDependencyAction.update => '升级',
+    _ManagedDependencyAction.uninstall => '卸载',
+  };
+}
+
+class _ManagedDependencyTile extends StatelessWidget {
+  const _ManagedDependencyTile({
+    required this.plugin,
+    required this.icon,
+    required this.title,
+    required this.purpose,
+    required this.selected,
+    required this.operating,
+    required this.onSelected,
+    required this.onAction,
+  });
+
+  final PluginInfo? plugin;
+  final IconData icon;
+  final String title;
+  final String purpose;
+  final bool selected;
+  final bool operating;
+  final ValueChanged<bool> onSelected;
+  final ValueChanged<_ManagedDependencyAction> onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isBusy = operating || plugin?.isBusy == true;
+    final installed = plugin?.isInstalled == true;
+    final running = installed && plugin!.enabled;
+    final statusColor = isBusy
+        ? colors.tertiary
+        : running
+        ? const Color(0xff2e7d5b)
+        : installed
+        ? const Color(0xffb26a00)
+        : plugin?.status == PluginStatus.error
+        ? colors.error
+        : colors.onSurfaceVariant;
+    final statusText = isBusy
+        ? '正在执行依赖操作…'
+        : plugin == null
+        ? '正在同步插件状态…'
+        : running
+        ? 'OpenHand 托管实例已安装并运行'
+        : installed
+        ? 'OpenHand 托管实例已安装，当前已停止'
+        : plugin!.status == PluginStatus.error
+        ? plugin!.errorMessage ?? '依赖状态异常'
+        : '未安装，启用后将按预置参数自动安装';
+
+    Widget actionButton(
+      _ManagedDependencyAction action,
+      IconData actionIcon, {
+      bool destructive = false,
+    }) {
+      return IconButton.filledTonal(
+        tooltip: '${action.label} $title',
+        onPressed: isBusy ? null : () => onAction(action),
+        style: destructive
+            ? IconButton.styleFrom(foregroundColor: colors.error)
+            : null,
+        icon: Icon(actionIcon, size: 18),
+      );
+    }
+
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: .65)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Container(
+                width: 38,
+                height: 38,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(icon, color: colors.onPrimaryContainer, size: 20),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 2),
+                    Text(
+                      purpose,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              const SizedBox(width: 10),
+              Switch(value: selected, onChanged: isBusy ? null : onSelected),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Row(
+            children: [
+              Icon(Icons.circle, size: 9, color: statusColor),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  statusText,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: statusColor,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 10),
+              if (isBusy)
+                const SizedBox.square(
+                  dimension: 34,
+                  child: Padding(
+                    padding: EdgeInsets.all(8),
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  ),
+                )
+              else
+                Wrap(
+                  spacing: 4,
+                  runSpacing: 4,
+                  children: [
+                    if (plugin?.status == PluginStatus.notInstalled &&
+                        plugin?.supportsInstall == true)
+                      actionButton(
+                        _ManagedDependencyAction.install,
+                        Icons.download_rounded,
+                      ),
+                    if (installed &&
+                        plugin!.metadata['runtime_managed'] == true)
+                      actionButton(
+                        running
+                            ? _ManagedDependencyAction.stop
+                            : _ManagedDependencyAction.start,
+                        running
+                            ? Icons.stop_circle_outlined
+                            : Icons.play_circle_outline_rounded,
+                      ),
+                    if (installed && plugin!.supportsInstall)
+                      actionButton(
+                        _ManagedDependencyAction.update,
+                        Icons.system_update_alt_rounded,
+                      ),
+                    if (installed && plugin!.supportsUninstall)
+                      actionButton(
+                        _ManagedDependencyAction.uninstall,
+                        Icons.delete_outline_rounded,
+                        destructive: true,
+                      ),
+                  ],
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
   }
 }
 
@@ -1592,12 +2293,14 @@ class _DialogFrame extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.child,
+    this.subtitle,
     this.footer,
     this.scrollable = true,
   });
 
   final IconData icon;
   final String title;
+  final String? subtitle;
   final Widget child;
   final Widget? footer;
   final bool scrollable;
@@ -1626,13 +2329,29 @@ class _DialogFrame extends StatelessWidget {
               ),
               const SizedBox(width: 12),
               Expanded(
-                child: Text(
-                  title,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleLarge?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    if (subtitle?.trim().isNotEmpty == true) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
                 ),
               ),
               IconButton.filledTonal(
@@ -1684,10 +2403,14 @@ class _MetricData {
     required this.icon,
     required this.label,
     required this.value,
+    this.detail,
+    this.color,
   });
   final IconData icon;
   final String label;
   final String value;
+  final String? detail;
+  final Color? color;
 }
 
 class _MetricGrid extends StatelessWidget {
@@ -1697,7 +2420,13 @@ class _MetricGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final columns = constraints.maxWidth >= _kMetricBreakpoint ? 3 : 2;
+      final columns = constraints.maxWidth >= 1020
+          ? 4
+          : constraints.maxWidth >= _kMetricBreakpoint
+          ? 3
+          : constraints.maxWidth >= 420
+          ? 2
+          : 1;
       final width =
           (constraints.maxWidth - _kItemGap * (columns - 1)) / columns;
       return Wrap(
@@ -1724,9 +2453,9 @@ class _MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final tone = _serviceMetricTone(data.icon, cs);
+    final tone = data.color ?? _serviceMetricTone(data.icon, cs);
     return Container(
-      constraints: const BoxConstraints(minHeight: 76),
+      constraints: const BoxConstraints(minHeight: 106),
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: tone.withValues(alpha: 0.07),
@@ -1761,11 +2490,498 @@ class _MetricTile extends StatelessWidget {
                   data.value,
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
+                  style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
+                if (data.detail?.trim().isNotEmpty == true) ...[
+                  const SizedBox(height: 2),
+                  Text(
+                    data.detail!,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(color: tone),
+                  ),
+                ],
               ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceTelemetryConsole extends StatelessWidget {
+  const _ServiceTelemetryConsole({required this.controller});
+
+  final ServicesController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final proxy = controller.proxyStatus;
+    final dependencies = controller.dependencyStatus;
+    final progress = controller.progress;
+    final configuredSources = controller.sourceStatus.values
+        .where((configured) => configured)
+        .length;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: const Color(0xff0b0e12),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+      ),
+      child: DefaultTextStyle(
+        style: const TextStyle(
+          color: Color(0xffd5dae3),
+          fontFamily: 'monospace',
+          fontSize: 13,
+          height: 1.55,
+        ),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            _line(
+              'service',
+              controller.isRunning ? 'READY' : 'STOPPED',
+              controller.isRunning,
+            ),
+            _line(
+              'engine',
+              'ai_jungler ${controller.health?.version ?? '--'} · uptime=${_serviceDuration(controller.health?.uptimeSeconds ?? 0)}',
+              controller.isRunning,
+            ),
+            _line(
+              'job',
+              progress == null
+                  ? 'idle'
+                  : '${progress.stage} ${progress.processed}/${progress.total}',
+              progress?.isRunning == true,
+            ),
+            _line(
+              'sources',
+              '$configuredSources/5 configured · enabled=${controller.enabledSources.length}',
+              configuredSources > 0,
+            ),
+            _line(
+              'proxy',
+              proxy?.enabled == true
+                  ? 'endpoints=${proxy!.endpoints.length} selections=${proxy.totalSelections} ok=${proxy.totalSuccesses} failed=${proxy.totalFailures} timeout=${proxy.totalTimeouts} avg=${proxy.averageResponseTimeMs}ms'
+                  : 'direct connection',
+              proxy?.enabled != true || proxy!.totalFailures == 0,
+            ),
+            _line(
+              'storage',
+              'SQLite WAL · PostgreSQL=${dependencies?.postgresql.connected == true ? 'ready' : 'off'} · Redis=${dependencies?.redis.connected == true ? 'ready' : 'off'}',
+              controller.isRunning,
+            ),
+            _line(
+              'workload',
+              'jobs=${controller.history.length} results=${controller.results.length} rules=${controller.rules.where((rule) => rule.enabled).length}/${controller.rules.length} logs=${controller.logs.length}',
+              true,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _line(String name, String value, bool healthy) => Text.rich(
+    TextSpan(
+      children: [
+        const TextSpan(
+          text: '→ ',
+          style: TextStyle(color: Color(0xff28d17c)),
+        ),
+        TextSpan(
+          text: '$name ',
+          style: const TextStyle(color: Color(0xff6fa8ed)),
+        ),
+        TextSpan(
+          text: value,
+          style: TextStyle(
+            color: healthy ? const Color(0xffd5dae3) : const Color(0xffffb14e),
+          ),
+        ),
+      ],
+    ),
+  );
+}
+
+class _StatusPanelGrid extends StatelessWidget {
+  const _StatusPanelGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final columns = constraints.maxWidth >= 760 ? 2 : 1;
+      const gap = 12.0;
+      final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+      return Wrap(
+        spacing: gap,
+        runSpacing: gap,
+        children: children
+            .map((child) => SizedBox(width: width, child: child))
+            .toList(growable: false),
+      );
+    },
+  );
+}
+
+class _StatusTrendPanel extends StatelessWidget {
+  const _StatusTrendPanel({
+    required this.title,
+    required this.subtitle,
+    required this.series,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<OpenHandChartSeries> series;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      height: 258,
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const _StatusSectionIcon(icon: Icons.show_chart_rounded),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w900,
+                      ),
+                    ),
+                    Text(
+                      subtitle,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          Expanded(
+            child: CustomPaint(
+              painter: OpenHandSmoothLineChartPainter(
+                series: series,
+                gridColor: colors.outlineVariant.withValues(alpha: 0.58),
+                labelColor: colors.onSurfaceVariant,
+                emptyLabel: '暂无趋势数据',
+                valueSuffix: ' 项',
+                textDirection: Directionality.of(context),
+              ),
+              size: Size.infinite,
+            ),
+          ),
+          const SizedBox(height: 6),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: series
+                .map(
+                  (item) => Row(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: item.color,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 5),
+                      Text(item.label, style: theme.textTheme.labelSmall),
+                    ],
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusDistributionItem {
+  const _StatusDistributionItem(this.label, this.value, this.color);
+
+  final String label;
+  final int value;
+  final Color color;
+}
+
+class _StatusDistributionPanel extends StatelessWidget {
+  const _StatusDistributionPanel({
+    required this.title,
+    required this.centerValue,
+    required this.items,
+  });
+
+  final String title;
+  final String centerValue;
+  final List<_StatusDistributionItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final visible = items.where((item) => item.value > 0).toList();
+    final max = visible.fold<int>(
+      1,
+      (value, item) => item.value > value ? item.value : value,
+    );
+    return Container(
+      constraints: const BoxConstraints(minHeight: 258),
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              const _StatusSectionIcon(icon: Icons.donut_large_rounded),
+              const SizedBox(width: 9),
+              Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          if (visible.isEmpty)
+            SizedBox(
+              height: 174,
+              child: Center(
+                child: Text(
+                  '暂无分布数据',
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            )
+          else
+            LayoutBuilder(
+              builder: (context, constraints) {
+                final donut = SizedBox.square(
+                  dimension: 110,
+                  child: CustomPaint(
+                    painter: OpenHandDonutChartPainter(
+                      values: visible.map((item) => item.value).toList(),
+                      colors: visible.map((item) => item.color).toList(),
+                      trackColor: colors.surfaceContainerHighest,
+                    ),
+                    child: Center(
+                      child: Text(
+                        centerValue,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                    ),
+                  ),
+                );
+                final rows = Column(
+                  children: visible
+                      .map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.symmetric(vertical: 4),
+                          child: Row(
+                            children: [
+                              Container(
+                                width: 8,
+                                height: 8,
+                                decoration: BoxDecoration(
+                                  color: item.color,
+                                  shape: BoxShape.circle,
+                                ),
+                              ),
+                              const SizedBox(width: 7),
+                              SizedBox(
+                                width: 58,
+                                child: Text(
+                                  item.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelMedium,
+                                ),
+                              ),
+                              Expanded(
+                                child: ClipRRect(
+                                  borderRadius: BorderRadius.circular(99),
+                                  child: LinearProgressIndicator(
+                                    value: item.value / max,
+                                    minHeight: 7,
+                                    color: item.color,
+                                    backgroundColor: item.color.withValues(
+                                      alpha: 0.1,
+                                    ),
+                                  ),
+                                ),
+                              ),
+                              const SizedBox(width: 8),
+                              Text(
+                                '${item.value}',
+                                style: theme.textTheme.labelLarge,
+                              ),
+                            ],
+                          ),
+                        ),
+                      )
+                      .toList(growable: false),
+                );
+                return constraints.maxWidth < 440
+                    ? Column(
+                        children: [donut, const SizedBox(height: 12), rows],
+                      )
+                    : Row(
+                        children: [
+                          donut,
+                          const SizedBox(width: 18),
+                          Expanded(child: rows),
+                        ],
+                      );
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusSectionCard extends StatelessWidget {
+  const _StatusSectionCard({
+    required this.icon,
+    required this.title,
+    required this.child,
+  });
+
+  final IconData icon;
+  final String title;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              _StatusSectionIcon(icon: icon),
+              const SizedBox(width: 9),
+              Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _StatusSectionIcon extends StatelessWidget {
+  const _StatusSectionIcon({required this.icon});
+
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Container(
+      width: 34,
+      height: 34,
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
+      ),
+      child: Icon(icon, size: 19, color: colors.primary),
+    );
+  }
+}
+
+class _StatusKeyValue extends StatelessWidget {
+  const _StatusKeyValue({required this.label, required this.value});
+
+  final String label;
+  final String value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 6,
+            child: Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.labelLarge?.copyWith(
+                fontWeight: FontWeight.w700,
+              ),
             ),
           ),
         ],
@@ -3050,3 +4266,12 @@ String _time(DateTime value) =>
 
 String _dateTime(DateTime value) =>
     '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')} ${_time(value)}';
+
+String _serviceDuration(int seconds) {
+  final normalized = seconds < 0 ? 0 : seconds;
+  if (normalized < 60) return '${normalized}s';
+  final hours = normalized ~/ Duration.secondsPerHour;
+  final minutes =
+      normalized % Duration.secondsPerHour ~/ Duration.secondsPerMinute;
+  return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
+}

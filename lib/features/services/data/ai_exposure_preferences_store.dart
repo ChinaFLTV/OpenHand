@@ -76,6 +76,8 @@ class AiExposurePreferencesStore {
         defaultGptAssisted: preferences.defaultGptAssisted,
         useBundledEngine: preferences.useBundledEngine,
         externalAddress: preferences.externalAddress,
+        postgresqlEnabled: preferences.postgresqlEnabled,
+        redisEnabled: preferences.redisEnabled,
         proxyConfiguration: preferences.proxyConfiguration.copyWith(
           endpoints: endpoints,
         ),

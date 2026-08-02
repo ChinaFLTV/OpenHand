@@ -10,8 +10,56 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    const shape = RoundedRectangleBorder(
+      borderRadius: BorderRadius.all(Radius.circular(8)),
+    );
     return Theme(
-      data: theme.copyWith(hoverColor: Colors.transparent),
+      data: theme.copyWith(
+        hoverColor: Colors.transparent,
+        cardTheme: theme.cardTheme.copyWith(
+          margin: const EdgeInsets.all(0),
+          color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
+          surfaceTintColor: Colors.transparent,
+          shape: shape.copyWith(side: BorderSide(color: colors.outlineVariant)),
+        ),
+        inputDecorationTheme: theme.inputDecorationTheme.copyWith(
+          filled: true,
+          fillColor: colors.surfaceContainerHighest.withValues(alpha: 0.28),
+          border: const OutlineInputBorder(
+            borderRadius: BorderRadius.all(Radius.circular(8)),
+          ),
+          enabledBorder: OutlineInputBorder(
+            borderRadius: const BorderRadius.all(Radius.circular(8)),
+            borderSide: BorderSide(color: colors.outlineVariant),
+          ),
+          focusedBorder: OutlineInputBorder(
+            borderRadius: const BorderRadius.all(Radius.circular(8)),
+            borderSide: BorderSide(color: colors.primary, width: 1.4),
+          ),
+        ),
+        segmentedButtonTheme: SegmentedButtonThemeData(
+          style: ButtonStyle(
+            shape: const WidgetStatePropertyAll(shape),
+            side: WidgetStatePropertyAll(
+              BorderSide(color: colors.outlineVariant),
+            ),
+            backgroundColor: WidgetStateProperty.resolveWith((states) {
+              return states.contains(WidgetState.selected)
+                  ? colors.primaryContainer
+                  : colors.surfaceContainerHighest.withValues(alpha: 0.2);
+            }),
+            foregroundColor: WidgetStateProperty.resolveWith((states) {
+              return states.contains(WidgetState.selected)
+                  ? colors.onPrimaryContainer
+                  : colors.onSurfaceVariant;
+            }),
+          ),
+        ),
+        iconButtonTheme: const IconButtonThemeData(
+          style: ButtonStyle(shape: WidgetStatePropertyAll(shape)),
+        ),
+      ),
       child: child,
     );
   }

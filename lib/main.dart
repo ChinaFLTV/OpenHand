@@ -396,6 +396,7 @@ Future<void> _bootstrap() async {
   _runMainBackgroundTask(messageGateway.controller.initialize(), '初始化消息网关');
 
   final pluginService = await pluginServiceModuleFuture;
+  services.controller.attachPluginServiceController(pluginService.controller);
   _runMainBackgroundTask(pluginService.controller.initialize(), '初始化插件服务');
   agents.controller.setRuntimeAvailabilityProvider(
     () => AgentRuntimeAvailability.fromHermesPlugin(

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 
 import '../../app/support/silent_log.dart';
 import '../ai/index.dart';
+import '../plugin_service/index.dart';
 import 'data/ai_exposure_preferences_store.dart';
 import 'model/ai_exposure_models.dart';
 import 'service/ai_exposure_proxy_probe.dart';
@@ -28,6 +29,8 @@ class ServicesController extends ChangeNotifier {
     _defaultGptAssisted = preferences.defaultGptAssisted;
     _useBundledEngine = preferences.useBundledEngine;
     _externalAddress = preferences.externalAddress;
+    _postgresqlEnabled = preferences.postgresqlEnabled;
+    _redisEnabled = preferences.redisEnabled;
     _proxyConfiguration = preferences.proxyConfiguration;
     _runtimeLogSubscription = _runtime.logs.listen(_appendRuntimeLog);
     _runtimeExitSubscription = _runtime.exits.listen(_handleRuntimeExit);
@@ -38,6 +41,8 @@ class ServicesController extends ChangeNotifier {
   final AiExposurePreferencesStore _preferencesStore;
   final AiExposureProxyProbe _proxyProbe = const AiExposureProxyProbe();
   AiModelConfig? Function()? _selectedAiModelProvider;
+  PluginServiceController? _pluginServiceController;
+  VoidCallback? _pluginOperationListener;
   StreamSubscription<String>? _runtimeLogSubscription;
   StreamSubscription<int>? _runtimeExitSubscription;
   StreamSubscription<Map<String, Object?>>? _eventSubscription;
@@ -60,6 +65,8 @@ class ServicesController extends ChangeNotifier {
   late bool _defaultGptAssisted;
   late bool _useBundledEngine;
   late String _externalAddress;
+  late bool _postgresqlEnabled;
+  late bool _redisEnabled;
   AiExposureProxyConfiguration _proxyConfiguration =
       AiExposureProxyConfiguration.defaults();
   Timer? _proxyInspectionTimer;
@@ -93,6 +100,8 @@ class ServicesController extends ChangeNotifier {
   bool get defaultGptAssisted => _defaultGptAssisted;
   bool get useBundledEngine => _useBundledEngine;
   String get externalAddress => _externalAddress;
+  bool get postgresqlEnabled => _postgresqlEnabled;
+  bool get redisEnabled => _redisEnabled;
   String? get selectedAiExtractorModelLabel {
     final model = _selectedAiModelProvider?.call();
     if (model == null || model.apiDialect != AiApiDialect.openAiCompat) {
@@ -113,6 +122,29 @@ class ServicesController extends ChangeNotifier {
 
   void attachSelectedAiModelProvider(AiModelConfig? Function() provider) {
     _selectedAiModelProvider = provider;
+  }
+
+  /// 让服务依赖与插件中心共用同一个状态源和生命周期结果。
+  void attachPluginServiceController(PluginServiceController controller) {
+    if (identical(_pluginServiceController, controller)) return;
+    final previous = _pluginServiceController;
+    final listener = _pluginOperationListener;
+    if (previous != null && listener != null) {
+      previous.operationSuccessSignal.removeListener(listener);
+    }
+    _pluginServiceController = controller;
+    _pluginOperationListener = _handlePluginOperationSuccess;
+    controller.operationSuccessSignal.addListener(_pluginOperationListener!);
+  }
+
+  void _handlePluginOperationSuccess() {
+    final pluginId = _pluginServiceController?.lastSuccessfulPluginId;
+    if (_disposed ||
+        (pluginId != PluginCatalogIds.postgresql &&
+            pluginId != PluginCatalogIds.redis)) {
+      return;
+    }
+    unawaited(_syncManagedDependencies());
   }
 
   Future<void> startService() async {
@@ -137,6 +169,7 @@ class ServicesController extends ChangeNotifier {
       final client = await _runtime.startBundled();
       _health = await client.health();
       await client.updateProxy(_proxyConfiguration);
+      await _syncManagedDependencies();
       _lifecycle = AiExposureServiceLifecycle.running;
       _appendLog(
         AiExposureLogEntry(
@@ -176,6 +209,7 @@ class ServicesController extends ChangeNotifier {
       );
       _health = await client.health();
       await client.updateProxy(_proxyConfiguration);
+      await _syncManagedDependencies();
       _lifecycle = AiExposureServiceLifecycle.running;
       await refreshData();
       _scheduleProxyStatisticsSync();
@@ -679,6 +713,52 @@ class ServicesController extends ChangeNotifier {
     }
   }
 
+  /// 保存结构化的运行依赖选择，并使用 OpenHand 托管实例的默认连接地址。
+  Future<bool> updateManagedDependencyPreferences({
+    required bool postgresqlEnabled,
+    required bool redisEnabled,
+  }) async {
+    _postgresqlEnabled = postgresqlEnabled;
+    _redisEnabled = redisEnabled;
+    await _persistPreferences();
+    final updated = await _syncManagedDependencies();
+    _notify();
+    return updated;
+  }
+
+  Future<bool> _syncManagedDependencies() async {
+    final client = _client;
+    if (client == null) return true;
+    final plugins = _pluginServiceController;
+    final postgresql = plugins?.pluginById(PluginCatalogIds.postgresql);
+    final redis = plugins?.pluginById(PluginCatalogIds.redis);
+    final postgresqlUrl =
+        _postgresqlEnabled &&
+            postgresql?.isInstalled == true &&
+            postgresql!.enabled
+        ? ManagedServiceDefaults.postgresqlEndpoint
+        : '';
+    final redisUrl =
+        _redisEnabled && redis?.isInstalled == true && redis!.enabled
+        ? ManagedServiceDefaults.redisEndpoint
+        : '';
+    try {
+      await client.updateDependencies(
+        postgresqlUrl: postgresqlUrl,
+        redisUrl: redisUrl,
+      );
+      _dependencyStatus = await client.dependencyStatus();
+      _errorMessage = null;
+      _notify();
+      return true;
+    } catch (error, stack) {
+      _errorMessage = '$error';
+      silentLog('services_controller', '同步托管运行依赖', error, stack);
+      _notify();
+      return false;
+    }
+  }
+
   Future<void> updateScanPreferences({
     required Set<AiExposureSource> enabledSources,
     required int concurrency,
@@ -869,6 +949,8 @@ class ServicesController extends ChangeNotifier {
           defaultGptAssisted: _defaultGptAssisted,
           useBundledEngine: _useBundledEngine,
           externalAddress: _externalAddress,
+          postgresqlEnabled: _postgresqlEnabled,
+          redisEnabled: _redisEnabled,
           proxyConfiguration: _proxyConfiguration,
         ),
       );
@@ -887,6 +969,13 @@ class ServicesController extends ChangeNotifier {
     _proxyInspectionTimer = null;
     _proxyStatisticsTimer?.cancel();
     _proxyStatisticsTimer = null;
+    final pluginController = _pluginServiceController;
+    final pluginListener = _pluginOperationListener;
+    if (pluginController != null && pluginListener != null) {
+      pluginController.operationSuccessSignal.removeListener(pluginListener);
+    }
+    _pluginOperationListener = null;
+    _pluginServiceController = null;
     await _eventSubscription?.cancel();
     await _runtimeLogSubscription?.cancel();
     await _runtimeExitSubscription?.cancel();

@@ -1084,6 +1084,8 @@ class AiExposurePreferences {
     required this.defaultGptAssisted,
     required this.useBundledEngine,
     required this.externalAddress,
+    this.postgresqlEnabled = false,
+    this.redisEnabled = false,
     required this.proxyConfiguration,
   });
 
@@ -1126,6 +1128,8 @@ class AiExposurePreferences {
           (json['externalAddress'] as String?)?.trim().isNotEmpty == true
           ? (json['externalAddress'] as String).trim()
           : 'http://127.0.0.1:37821',
+      postgresqlEnabled: json['postgresqlEnabled'] as bool? ?? false,
+      redisEnabled: json['redisEnabled'] as bool? ?? false,
       proxyConfiguration: AiExposureProxyConfiguration.fromJson(json['proxy']),
     );
   }
@@ -1136,6 +1140,8 @@ class AiExposurePreferences {
   final bool defaultGptAssisted;
   final bool useBundledEngine;
   final String externalAddress;
+  final bool postgresqlEnabled;
+  final bool redisEnabled;
   final AiExposureProxyConfiguration proxyConfiguration;
 
   Map<String, Object?> toJson({bool includeProxyStatistics = true}) =>
@@ -1151,6 +1157,8 @@ class AiExposurePreferences {
         'defaultGptAssisted': defaultGptAssisted,
         'useBundledEngine': useBundledEngine,
         'externalAddress': externalAddress,
+        'postgresqlEnabled': postgresqlEnabled,
+        'redisEnabled': redisEnabled,
         'proxy': proxyConfiguration.toJson(
           includeStatistics: includeProxyStatistics,
         ),

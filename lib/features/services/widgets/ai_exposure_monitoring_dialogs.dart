@@ -14,6 +14,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
@@ -41,7 +42,7 @@ Future<void> showAiExposureLogMonitorDialog(BuildContext context) =>
       ),
     );
 
-enum _OperationsView { overview, pipeline, sources, security }
+enum _OperationsView { overview, pipeline, sources, network, storage, security }
 
 class _OperationsDialog extends StatefulWidget {
   const _OperationsDialog();
@@ -54,6 +55,9 @@ class _OperationsDialogState extends State<_OperationsDialog> {
   _OperationsView _view = _OperationsView.overview;
   Timer? _timer;
   bool _refreshing = false;
+  bool _databaseAccessible = false;
+  int? _databaseBytes;
+  DateTime? _databaseModifiedAt;
 
   @override
   void initState() {
@@ -72,9 +76,33 @@ class _OperationsDialogState extends State<_OperationsDialog> {
     if (!mounted || _refreshing) return;
     final controller = context.read<ServicesController>();
     if (!controller.isRunning) return;
-    _refreshing = true;
+    setState(() => _refreshing = true);
     await controller.refreshServiceStatus();
-    if (mounted) setState(() => _refreshing = false);
+    final path = controller.health?.databasePath.trim() ?? '';
+    var accessible = false;
+    int? bytes;
+    DateTime? modifiedAt;
+    if (path.isNotEmpty) {
+      try {
+        final stat = await File(path).stat();
+        accessible = stat.type == FileSystemEntityType.file;
+        if (accessible) {
+          bytes = stat.size;
+          modifiedAt = stat.modified;
+        }
+      } on FileSystemException {
+        accessible = false;
+      } on UnsupportedError {
+        accessible = false;
+      }
+    }
+    if (!mounted) return;
+    setState(() {
+      _databaseAccessible = accessible;
+      _databaseBytes = bytes;
+      _databaseModifiedAt = modifiedAt;
+      _refreshing = false;
+    });
   }
 
   @override
@@ -212,35 +240,53 @@ class _OperationsDialogState extends State<_OperationsDialog> {
             ],
           ),
           const SizedBox(height: 14),
-          SingleChildScrollView(
-            scrollDirection: Axis.horizontal,
-            child: SegmentedButton<_OperationsView>(
-              segments: [
-                ButtonSegment(
-                  value: _OperationsView.overview,
-                  icon: const Icon(Icons.dashboard_outlined),
-                  label: Text(text(zh: '运维总览', en: 'Overview')),
-                ),
-                ButtonSegment(
-                  value: _OperationsView.pipeline,
-                  icon: const Icon(Icons.account_tree_outlined),
-                  label: Text(text(zh: '任务管线', en: 'Pipeline')),
-                ),
-                ButtonSegment(
-                  value: _OperationsView.sources,
-                  icon: const Icon(Icons.travel_explore_rounded),
-                  label: Text(text(zh: '数据源', en: 'Sources')),
-                ),
-                ButtonSegment(
-                  value: _OperationsView.security,
-                  icon: const Icon(Icons.shield_outlined),
-                  label: Text(text(zh: '安全与依赖', en: 'Security')),
-                ),
-              ],
-              selected: <_OperationsView>{_view},
-              onSelectionChanged: (value) =>
-                  setState(() => _view = value.first),
-            ),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _OperationsTab(
+                value: _OperationsView.overview,
+                selected: _view == _OperationsView.overview,
+                icon: Icons.dashboard_outlined,
+                label: text(zh: '运维总览', en: 'Overview'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+              _OperationsTab(
+                value: _OperationsView.pipeline,
+                selected: _view == _OperationsView.pipeline,
+                icon: Icons.account_tree_outlined,
+                label: text(zh: '任务管线', en: 'Pipeline'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+              _OperationsTab(
+                value: _OperationsView.sources,
+                selected: _view == _OperationsView.sources,
+                icon: Icons.travel_explore_rounded,
+                label: text(zh: '数据源', en: 'Sources'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+              _OperationsTab(
+                value: _OperationsView.network,
+                selected: _view == _OperationsView.network,
+                icon: Icons.lan_outlined,
+                label: text(zh: '网络遥测', en: 'Network'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+              _OperationsTab(
+                value: _OperationsView.storage,
+                selected: _view == _OperationsView.storage,
+                icon: Icons.storage_rounded,
+                label: text(zh: '存储与持久化', en: 'Storage'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+              _OperationsTab(
+                value: _OperationsView.security,
+                selected: _view == _OperationsView.security,
+                icon: Icons.shield_outlined,
+                label: text(zh: '安全与依赖', en: 'Security'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+            ],
           ),
           const SizedBox(height: 14),
           Expanded(
@@ -264,6 +310,15 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                   _OperationsView.sources => _SourcesPanel(
                     controller: controller,
                   ),
+                  _OperationsView.network => _NetworkPanel(
+                    controller: controller,
+                  ),
+                  _OperationsView.storage => _StoragePanel(
+                    controller: controller,
+                    databaseAccessible: _databaseAccessible,
+                    databaseBytes: _databaseBytes,
+                    databaseModifiedAt: _databaseModifiedAt,
+                  ),
                   _OperationsView.security => _SecurityPanel(
                     controller: controller,
                   ),
@@ -275,6 +330,30 @@ class _OperationsDialogState extends State<_OperationsDialog> {
       ),
     );
   }
+}
+
+class _OperationsTab extends StatelessWidget {
+  const _OperationsTab({
+    required this.value,
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onSelected,
+  });
+
+  final _OperationsView value;
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final ValueChanged<_OperationsView> onSelected;
+
+  @override
+  Widget build(BuildContext context) => ServiceFilterChip(
+    selected: selected,
+    icon: Icon(icon, size: 17),
+    label: Text(label),
+    onSelected: (_) => onSelected(value),
+  );
 }
 
 class _OverviewPanel extends StatelessWidget {
@@ -1111,6 +1190,739 @@ class _SourcesPanel extends StatelessWidget {
   }
 }
 
+class _NetworkPanel extends StatelessWidget {
+  const _NetworkPanel({required this.controller});
+
+  final ServicesController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final configuration = controller.proxyConfiguration;
+    final endpoints = configuration.endpoints;
+    final activeEndpoints = configuration.activeEndpoints;
+    final inspected = endpoints
+        .where((endpoint) => endpoint.latestSample != null)
+        .length;
+    final reachable = endpoints
+        .where((endpoint) => endpoint.latestSample?.reachable == true)
+        .length;
+    final recentRequests =
+        endpoints
+            .expand((endpoint) => endpoint.statistics.recentRequests)
+            .toList()
+          ..sort((left, right) => left.at.compareTo(right.at));
+    final visibleRequests = recentRequests.length <= 48
+        ? recentRequests
+        : recentRequests.sublist(recentRequests.length - 48);
+    final requests = endpoints.fold<int>(
+      0,
+      (sum, endpoint) => sum + endpoint.statistics.requests,
+    );
+    final successes = endpoints.fold<int>(
+      0,
+      (sum, endpoint) => sum + endpoint.statistics.successes,
+    );
+    final failures = endpoints.fold<int>(
+      0,
+      (sum, endpoint) => sum + endpoint.statistics.failures,
+    );
+    final timeouts = endpoints.fold<int>(
+      0,
+      (sum, endpoint) => sum + endpoint.statistics.timeouts,
+    );
+    final totalResponseTime = endpoints.fold<int>(
+      0,
+      (sum, endpoint) => sum + endpoint.statistics.totalResponseTimeMs,
+    );
+    final completed = successes + failures + timeouts;
+    final averageLatency = completed == 0
+        ? 0
+        : (totalResponseTime / completed).round();
+    final p95Latency = _latencyPercentile(
+      visibleRequests.map((sample) => sample.responseTimeMs).toList(),
+      0.95,
+    );
+    final status2xx = endpoints.fold<int>(
+      0,
+      (sum, endpoint) => sum + endpoint.statistics.status2xx,
+    );
+    final status3xx = endpoints.fold<int>(
+      0,
+      (sum, endpoint) => sum + endpoint.statistics.status3xx,
+    );
+    final status4xx = endpoints.fold<int>(
+      0,
+      (sum, endpoint) => sum + endpoint.statistics.status4xx,
+    );
+    final status5xx = endpoints.fold<int>(
+      0,
+      (sum, endpoint) => sum + endpoint.statistics.status5xx,
+    );
+    final countryCounts = <String, int>{};
+    for (final endpoint in endpoints) {
+      final country = endpoint.identity?.country.trim();
+      if (country?.isNotEmpty == true) {
+        countryCounts.update(country!, (count) => count + 1, ifAbsent: () => 1);
+      }
+    }
+    final endpointItems =
+        endpoints
+            .map(
+              (endpoint) => _DistributionItem(
+                endpoint.displayName,
+                endpoint.statistics.requests,
+                endpoint.latestSample?.reachable == false
+                    ? OpenHandStatusColors.error
+                    : endpoint.enabled
+                    ? colors.primary
+                    : colors.outline,
+              ),
+            )
+            .toList()
+          ..sort((left, right) => right.value.compareTo(left.value));
+    final successRate = completed == 0 ? 0 : successes * 100 / completed;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MetricGrid(
+          metrics: [
+            _Metric(
+              Icons.route_outlined,
+              '选路状态',
+              configuration.enabled ? '代理池' : '直接连接',
+              configuration.enabled
+                  ? _proxyStrategyName(configuration.strategy)
+                  : '本机网络出口',
+              color: configuration.enabled ? colors.primary : colors.outline,
+            ),
+            _Metric(
+              Icons.dns_outlined,
+              '代理节点',
+              '${activeEndpoints.length}/${endpoints.length}',
+              '$inspected 个已巡检',
+              color: OpenHandStatusColors.info,
+            ),
+            _Metric(
+              Icons.cloud_done_outlined,
+              '可连通节点',
+              '$reachable',
+              inspected == 0
+                  ? '尚无巡检样本'
+                  : '${(reachable * 100 / inspected).toStringAsFixed(1)}% 可用率',
+              color: OpenHandStatusColors.success,
+            ),
+            _Metric(
+              Icons.swap_vert_rounded,
+              '累计请求',
+              '$requests',
+              '执行中 ${controller.proxyStatus?.inFlight ?? 0}',
+              color: colors.primary,
+            ),
+            _Metric(
+              Icons.check_circle_outline_rounded,
+              '成功请求',
+              '$successes',
+              '${successRate.toStringAsFixed(1)}% 成功率',
+              color: OpenHandStatusColors.success,
+            ),
+            _Metric(
+              Icons.error_outline_rounded,
+              '失败请求',
+              '$failures',
+              '连续失败 ${endpoints.fold<int>(0, (sum, endpoint) => sum + endpoint.statistics.consecutiveFailures)}',
+              color: OpenHandStatusColors.error,
+            ),
+            _Metric(
+              Icons.timer_off_outlined,
+              '超时请求',
+              '$timeouts',
+              completed == 0
+                  ? '--'
+                  : '${(timeouts * 100 / completed).toStringAsFixed(1)}% 超时率',
+              color: OpenHandStatusColors.warning,
+            ),
+            _Metric(
+              Icons.speed_rounded,
+              '平均响应',
+              '$averageLatency ms',
+              '全量完成请求',
+              color: colors.secondary,
+            ),
+            _Metric(
+              Icons.multiline_chart_rounded,
+              'p95 响应',
+              '$p95Latency ms',
+              '最近 ${visibleRequests.length} 个样本',
+              color: colors.tertiary,
+            ),
+            _Metric(
+              Icons.http_rounded,
+              'HTTP 2xx',
+              '$status2xx',
+              '3xx $status3xx · 4xx $status4xx · 5xx $status5xx',
+              color: OpenHandStatusColors.success,
+            ),
+            _Metric(
+              Icons.public_rounded,
+              '出口国家',
+              '${countryCounts.length}',
+              '${endpoints.where((endpoint) => endpoint.identity != null).length} 个已识别出口',
+              color: const Color(0xff0891b2),
+            ),
+            _Metric(
+              Icons.health_and_safety_outlined,
+              '巡检计划',
+              configuration.inspectionEnabled ? '已启用' : '未启用',
+              '${configuration.inspectionIntervalMinutes} 分钟 · 并发 ${configuration.inspectionConcurrency}',
+              color: configuration.inspectionEnabled
+                  ? OpenHandStatusColors.success
+                  : colors.outline,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _OpsPanelGrid(
+          children: [
+            _TrendPanel(
+              icon: Icons.query_stats_rounded,
+              title: '代理响应耗时趋势',
+              subtitle: '最近 ${visibleRequests.length} 个请求样本',
+              series: [
+                OpenHandChartSeries(
+                  label: 'response',
+                  values: visibleRequests
+                      .map((sample) => sample.responseTimeMs.toDouble())
+                      .toList(),
+                  color: colors.primary,
+                ),
+              ],
+              suffix: ' ms',
+            ),
+            _DistributionPanel(
+              icon: Icons.donut_large_rounded,
+              title: '请求结果分布',
+              centerValue: '$completed',
+              items: [
+                _DistributionItem(
+                  '成功',
+                  successes,
+                  OpenHandStatusColors.success,
+                ),
+                _DistributionItem('失败', failures, OpenHandStatusColors.error),
+                _DistributionItem('超时', timeouts, OpenHandStatusColors.warning),
+              ],
+            ),
+            _DistributionPanel(
+              icon: Icons.http_rounded,
+              title: 'HTTP 状态分布',
+              centerValue: '${status2xx + status3xx + status4xx + status5xx}',
+              items: [
+                _DistributionItem(
+                  '2xx',
+                  status2xx,
+                  OpenHandStatusColors.success,
+                ),
+                _DistributionItem('3xx', status3xx, OpenHandStatusColors.info),
+                _DistributionItem(
+                  '4xx',
+                  status4xx,
+                  OpenHandStatusColors.warning,
+                ),
+                _DistributionItem('5xx', status5xx, OpenHandStatusColors.error),
+              ],
+            ),
+            _DistributionPanel(
+              icon: Icons.account_tree_outlined,
+              title: '节点请求分布',
+              centerValue: '$requests',
+              items: endpointItems,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _OpsPanelGrid(
+          children: [
+            _Section(
+              title: '选路策略快照',
+              icon: Icons.alt_route_rounded,
+              child: Column(
+                children: [
+                  _OpsKeyValue(
+                    label: '调度策略',
+                    value: _proxyStrategyName(configuration.strategy),
+                  ),
+                  _OpsKeyValue(
+                    label: '轮换频率',
+                    value: '每 ${configuration.rotationEvery} 次请求',
+                  ),
+                  _OpsKeyValue(
+                    label: '本地地址绕过',
+                    value: configuration.bypassLocal ? '已启用' : '已停用',
+                  ),
+                  _OpsKeyValue(
+                    label: '自动巡检',
+                    value: configuration.inspectionEnabled
+                        ? '${configuration.inspectionIntervalMinutes} 分钟一次'
+                        : '未启用',
+                  ),
+                  _OpsKeyValue(
+                    label: '巡检并发',
+                    value: '${configuration.inspectionConcurrency}',
+                  ),
+                  _OpsKeyValue(
+                    label: '持久化样本',
+                    value: '${recentRequests.length} 条请求遥测',
+                  ),
+                ],
+              ),
+            ),
+            _Section(
+              title: '出口地域分布',
+              icon: Icons.public_rounded,
+              child: countryCounts.isEmpty
+                  ? const Text('尚未采集代理出口身份。')
+                  : Column(
+                      children:
+                          (countryCounts.entries.toList()..sort(
+                                (left, right) =>
+                                    right.value.compareTo(left.value),
+                              ))
+                              .map(
+                                (entry) => _DistributionBar(
+                                  label: entry.key,
+                                  value: entry.value,
+                                  maxValue: countryCounts.values.fold<int>(
+                                    1,
+                                    (max, value) => value > max ? value : max,
+                                  ),
+                                  color: colors.tertiary,
+                                ),
+                              )
+                              .toList(),
+                    ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _Section(
+          title: '代理端点健康明细',
+          icon: Icons.dns_outlined,
+          child: endpoints.isEmpty
+              ? const Text('代理池为空，当前所有请求使用直接连接。')
+              : Column(
+                  children: endpoints.take(20).map((endpoint) {
+                    final sample = endpoint.latestSample;
+                    final statistics = endpoint.statistics;
+                    final color = !endpoint.enabled
+                        ? colors.outline
+                        : sample?.reachable == false
+                        ? OpenHandStatusColors.error
+                        : sample?.reachable == true
+                        ? OpenHandStatusColors.success
+                        : OpenHandStatusColors.warning;
+                    final identity = endpoint.identity;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: CircleAvatar(
+                        radius: 18,
+                        backgroundColor: color.withValues(alpha: 0.12),
+                        child: Icon(Icons.lan_outlined, size: 18, color: color),
+                      ),
+                      title: Text(
+                        endpoint.displayName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        '${endpoint.maskedUrl} · ${identity?.exitIp.isNotEmpty == true ? identity!.exitIp : '出口待识别'} · ${identity?.location.isNotEmpty == true ? identity!.location : '地域待识别'}',
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      trailing: _StatusPill(
+                        icon: sample?.reachable == true
+                            ? Icons.check_rounded
+                            : sample?.reachable == false
+                            ? Icons.close_rounded
+                            : Icons.pending_outlined,
+                        label:
+                            '${sample?.latencyMs ?? 0} ms · ${statistics.requests} 次',
+                        color: color,
+                      ),
+                    );
+                  }).toList(),
+                ),
+        ),
+      ],
+    );
+  }
+}
+
+class _StoragePanel extends StatelessWidget {
+  const _StoragePanel({
+    required this.controller,
+    required this.databaseAccessible,
+    required this.databaseBytes,
+    required this.databaseModifiedAt,
+  });
+
+  final ServicesController controller;
+  final bool databaseAccessible;
+  final int? databaseBytes;
+  final DateTime? databaseModifiedAt;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final history = controller.history;
+    final results = controller.results;
+    final logs = controller.logs;
+    final rules = controller.rules;
+    final dependencies = controller.dependencyStatus;
+    final historyIds = history.map((entry) => entry.id).toSet();
+    final orphanResults = results
+        .where((result) => !historyIds.contains(result.jobId))
+        .length;
+    final missingEvidence = results
+        .where((result) => result.evidence.isEmpty)
+        .length;
+    final unfinished = history
+        .where(
+          (entry) => !const <String>{
+            'completed',
+            'failed',
+            'cancelled',
+          }.contains(entry.stage),
+        )
+        .length;
+    final resumable = history.where((entry) => entry.isResumable).length;
+    final failed = history.where((entry) => entry.stage == 'failed').length;
+    final integrityIssues = orphanResults + missingEvidence;
+    final recordCount =
+        history.length + results.length + logs.length + rules.length;
+    final chronological = history.take(24).toList().reversed.toList();
+    var cumulativeResults = 0;
+    final cumulativeResultValues = <double>[];
+    for (final entry in chronological) {
+      cumulativeResults += results
+          .where((result) => result.jobId == entry.id)
+          .length;
+      cumulativeResultValues.add(cumulativeResults.toDouble());
+    }
+    final credentialCounts = <String, int>{};
+    for (final result in results) {
+      credentialCounts.update(
+        result.credentialState,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
+    final stageCounts = <String, int>{};
+    for (final entry in history) {
+      stageCounts.update(entry.stage, (count) => count + 1, ifAbsent: () => 1);
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MetricGrid(
+          metrics: [
+            _Metric(
+              Icons.storage_rounded,
+              'SQLite 数据库',
+              databaseAccessible ? formatByteSize(databaseBytes ?? 0) : '--',
+              databaseAccessible ? 'WAL 持久化可访问' : '等待本地服务路径',
+              color: databaseAccessible
+                  ? OpenHandStatusColors.success
+                  : colors.outline,
+            ),
+            _Metric(
+              Icons.edit_calendar_outlined,
+              '最后写入',
+              databaseModifiedAt == null
+                  ? '--'
+                  : _shortDateTime(databaseModifiedAt!),
+              '数据库文件修改时间',
+              color: colors.primary,
+            ),
+            _Metric(
+              Icons.inventory_2_outlined,
+              '可见记录',
+              '$recordCount',
+              '任务、结果、规则与日志',
+              color: OpenHandStatusColors.info,
+            ),
+            _Metric(
+              Icons.work_history_outlined,
+              '任务归档',
+              '${history.length}',
+              '$unfinished 个未结束',
+              color: colors.primary,
+            ),
+            _Metric(
+              Icons.fact_check_outlined,
+              '结果归档',
+              '${results.length}',
+              '$missingEvidence 条缺少证据',
+              color: const Color(0xff0891b2),
+            ),
+            _Metric(
+              Icons.rule_folder_outlined,
+              '规则快照',
+              '${rules.length}',
+              '${rules.where((rule) => rule.enabled).length} 条启用',
+              color: const Color(0xff0f766e),
+            ),
+            _Metric(
+              Icons.receipt_long_outlined,
+              '日志缓冲',
+              '${logs.length}',
+              '信息 ${logs.where((entry) => entry.level == 'info').length} · 错误 ${logs.where((entry) => entry.level == 'error').length}',
+              color: colors.secondary,
+            ),
+            _Metric(
+              Icons.restart_alt_rounded,
+              '可恢复任务',
+              '$resumable',
+              '失败 $failed · 未结束 $unfinished',
+              color: OpenHandStatusColors.warning,
+            ),
+            _Metric(
+              Icons.cloud_sync_outlined,
+              'PostgreSQL 镜像',
+              dependencies?.postgresql.connected == true ? '在线' : '未连接',
+              dependencies?.postgresql.message ?? '未启用',
+              color: dependencies?.postgresql.connected == true
+                  ? OpenHandStatusColors.success
+                  : colors.outline,
+            ),
+            _Metric(
+              Icons.hub_outlined,
+              'Redis 协调',
+              dependencies?.redis.connected == true ? '在线' : '未连接',
+              dependencies?.redis.message ?? '未启用',
+              color: dependencies?.redis.connected == true
+                  ? OpenHandStatusColors.success
+                  : colors.outline,
+            ),
+            _Metric(
+              Icons.enhanced_encryption_outlined,
+              '凭证加密',
+              'AES-256-GCM',
+              '密钥文件独立保存',
+              color: colors.tertiary,
+            ),
+            _Metric(
+              integrityIssues == 0
+                  ? Icons.verified_outlined
+                  : Icons.warning_amber_rounded,
+              '一致性审计',
+              integrityIssues == 0 ? '通过' : '$integrityIssues 项',
+              '孤立结果 $orphanResults · 缺少证据 $missingEvidence',
+              color: integrityIssues == 0
+                  ? OpenHandStatusColors.success
+                  : OpenHandStatusColors.warning,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _OpsPanelGrid(
+          children: [
+            _TrendPanel(
+              icon: Icons.stacked_line_chart_rounded,
+              title: '归档增长趋势',
+              subtitle: '最近 ${chronological.length} 个任务的累计结果',
+              series: [
+                OpenHandChartSeries(
+                  label: 'results',
+                  values: cumulativeResultValues,
+                  color: colors.primary,
+                ),
+              ],
+              suffix: ' 条',
+            ),
+            _TrendPanel(
+              icon: Icons.data_saver_on_rounded,
+              title: '任务写入负载',
+              subtitle: '已处理与发现记录',
+              series: [
+                OpenHandChartSeries(
+                  label: 'processed',
+                  values: chronological
+                      .map((entry) => entry.progress.processed.toDouble())
+                      .toList(),
+                  color: OpenHandStatusColors.info,
+                ),
+                OpenHandChartSeries(
+                  label: 'discovered',
+                  values: chronological
+                      .map((entry) => entry.progress.discovered.toDouble())
+                      .toList(),
+                  color: OpenHandStatusColors.success,
+                ),
+              ],
+              suffix: ' 条',
+            ),
+            _DistributionPanel(
+              icon: Icons.pie_chart_outline_rounded,
+              title: '记录类型分布',
+              centerValue: '$recordCount',
+              items: [
+                _DistributionItem('任务', history.length, colors.primary),
+                _DistributionItem(
+                  '结果',
+                  results.length,
+                  OpenHandStatusColors.info,
+                ),
+                _DistributionItem('规则', rules.length, colors.tertiary),
+                _DistributionItem('日志', logs.length, colors.secondary),
+              ],
+            ),
+            _DistributionPanel(
+              icon: Icons.account_tree_outlined,
+              title: '任务归档状态',
+              centerValue: '${history.length}',
+              items: stageCounts.entries
+                  .map(
+                    (entry) => _DistributionItem(
+                      _stageName(entry.key),
+                      entry.value,
+                      switch (entry.key) {
+                        'completed' => OpenHandStatusColors.success,
+                        'failed' => OpenHandStatusColors.error,
+                        'cancelled' => OpenHandStatusColors.warning,
+                        _ => OpenHandStatusColors.info,
+                      },
+                    ),
+                  )
+                  .toList(),
+            ),
+            _DistributionPanel(
+              icon: Icons.key_outlined,
+              title: '凭证状态分布',
+              centerValue: '${results.length}',
+              items: credentialCounts.entries
+                  .map(
+                    (entry) => _DistributionItem(
+                      entry.key,
+                      entry.value,
+                      _credentialStateColor(entry.key, colors),
+                    ),
+                  )
+                  .toList(),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _OpsPanelGrid(
+          children: [
+            _Section(
+              title: '持久化子系统',
+              icon: Icons.storage_rounded,
+              child: Column(
+                children: [
+                  _DependencyLine(
+                    name: 'SQLite',
+                    ready: databaseAccessible,
+                    detail: databaseAccessible
+                        ? 'WAL 日志模式 · 外键约束开启 · ${formatByteSize(databaseBytes ?? 0)}'
+                        : '等待本地数据库文件',
+                  ),
+                  _DependencyLine(
+                    name: '凭证密钥库',
+                    ready: controller.isRunning,
+                    detail: 'AES-256-GCM · 数据库与密钥文件权限隔离',
+                  ),
+                  _DependencyLine(
+                    name: 'PostgreSQL 镜像',
+                    ready: dependencies?.postgresql.connected == true,
+                    detail: dependencies?.postgresql.message ?? '未启用',
+                  ),
+                  _DependencyLine(
+                    name: 'Redis 目标协调',
+                    ready: dependencies?.redis.connected == true,
+                    detail: dependencies?.redis.message ?? '未启用',
+                  ),
+                  _DependencyLine(
+                    name: '任务事件归档',
+                    ready: controller.isRunning,
+                    detail: '${logs.length} 条运行事件 · ${history.length} 个任务快照',
+                  ),
+                ],
+              ),
+            ),
+            _Section(
+              title: '一致性与恢复能力',
+              icon: Icons.rule_folder_outlined,
+              child: Column(
+                children: [
+                  _OpsKeyValue(label: '孤立结果', value: '$orphanResults'),
+                  _OpsKeyValue(label: '缺少证据结果', value: '$missingEvidence'),
+                  _OpsKeyValue(label: '未结束任务', value: '$unfinished'),
+                  _OpsKeyValue(label: '可恢复任务', value: '$resumable'),
+                  _OpsKeyValue(label: '失败任务', value: '$failed'),
+                  _OpsKeyValue(
+                    label: '审计结论',
+                    value: integrityIssues == 0 ? '记录关系完整' : '存在待复核记录',
+                    color: integrityIssues == 0
+                        ? OpenHandStatusColors.success
+                        : OpenHandStatusColors.warning,
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _Section(
+          title: '最近持久化任务',
+          icon: Icons.history_rounded,
+          child: history.isEmpty
+              ? const Text('暂无任务归档。')
+              : Column(
+                  children: history.take(12).map((entry) {
+                    final resultCount = results
+                        .where((result) => result.jobId == entry.id)
+                        .length;
+                    return ListTile(
+                      contentPadding: EdgeInsets.zero,
+                      leading: Icon(_stageIcon(entry.stage)),
+                      title: Text(
+                        entry.name,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                      subtitle: Text(
+                        '${_shortDateTime(entry.finishedAt ?? entry.createdAt)} · 处理 ${entry.progress.processed} · 结果 $resultCount',
+                      ),
+                      trailing: _StatusPill(
+                        icon: _stageIcon(entry.stage),
+                        label: _stageName(entry.stage),
+                        color: entry.stage == 'completed'
+                            ? OpenHandStatusColors.success
+                            : entry.stage == 'failed'
+                            ? OpenHandStatusColors.error
+                            : OpenHandStatusColors.warning,
+                      ),
+                    );
+                  }).toList(),
+                ),
+        ),
+        if (controller.health?.databasePath.isNotEmpty == true) ...[
+          const SizedBox(height: 12),
+          _Section(
+            title: '数据库位置',
+            icon: Icons.folder_open_outlined,
+            child: SelectableText(
+              controller.health!.databasePath,
+              style: const TextStyle(fontFamily: 'monospace'),
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+}
+
 class _SecurityPanel extends StatelessWidget {
   const _SecurityPanel({required this.controller});
   final ServicesController controller;
@@ -1457,7 +2269,7 @@ class _MetricTile extends StatelessWidget {
     final cs = theme.colorScheme;
     final color = metric.color ?? cs.primary;
     return Container(
-      height: 112,
+      constraints: const BoxConstraints(minHeight: 112),
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.07),
@@ -1550,6 +2362,99 @@ class _Section extends StatelessWidget {
       ),
     );
   }
+}
+
+class _OpsKeyValue extends StatelessWidget {
+  const _OpsKeyValue({required this.label, required this.value, this.color});
+
+  final String label;
+  final String value;
+  final Color? color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Expanded(
+            flex: 4,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            flex: 6,
+            child: Text(
+              value,
+              maxLines: 2,
+              overflow: TextOverflow.ellipsis,
+              textAlign: TextAlign.end,
+              style: theme.textTheme.labelLarge?.copyWith(
+                color: color,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DistributionBar extends StatelessWidget {
+  const _DistributionBar({
+    required this.label,
+    required this.value,
+    required this.maxValue,
+    required this.color,
+  });
+
+  final String label;
+  final int value;
+  final int maxValue;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 5),
+    child: Row(
+      children: [
+        SizedBox(
+          width: 92,
+          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: ClipRRect(
+            borderRadius: BorderRadius.circular(99),
+            child: LinearProgressIndicator(
+              value: maxValue <= 0 ? 0 : value / maxValue,
+              minHeight: 8,
+              color: color,
+              backgroundColor: color.withValues(alpha: 0.1),
+            ),
+          ),
+        ),
+        const SizedBox(width: 8),
+        SizedBox(
+          width: 42,
+          child: Text(
+            '$value',
+            textAlign: TextAlign.end,
+            style: Theme.of(context).textTheme.labelLarge,
+          ),
+        ),
+      ],
+    ),
+  );
 }
 
 class _OpsPanelGrid extends StatelessWidget {
@@ -2442,6 +3347,32 @@ class _AnimatedLogScopeTabs extends StatelessWidget {
     );
   }
 }
+
+int _latencyPercentile(List<int> values, double percentile) {
+  if (values.isEmpty) return 0;
+  values.sort();
+  final index = ((values.length - 1) * percentile.clamp(0, 1)).round();
+  return values[index];
+}
+
+String _proxyStrategyName(AiExposureProxyStrategy strategy) =>
+    switch (strategy) {
+      AiExposureProxyStrategy.fixed => '固定节点',
+      AiExposureProxyStrategy.roundRobin => '轮询调度',
+      AiExposureProxyStrategy.random => '随机调度',
+      AiExposureProxyStrategy.stickyHost => '目标粘滞',
+    };
+
+Color _credentialStateColor(String state, ColorScheme colors) =>
+    switch (state) {
+      'valid' => OpenHandStatusColors.success,
+      'candidate' => OpenHandStatusColors.info,
+      'rate_limited' => OpenHandStatusColors.warning,
+      'invalid' || 'unauthorized' => OpenHandStatusColors.error,
+      'unreachable' => colors.tertiary,
+      'duplicate' => colors.secondary,
+      _ => colors.outline,
+    };
 
 String _duration(int seconds) {
   if (seconds < 60) return '${seconds}s';

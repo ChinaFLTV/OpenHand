@@ -47,6 +47,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   bool _isOperating = false;
   String? _checkingPluginId;
   String? _errorMessage;
+  String? _lastSuccessfulPluginId;
   final OpenHandSingleFlight<void> _refreshAllPluginsFlight =
       OpenHandSingleFlight<void>();
   final BoundedLogBuffer _operationLogs = BoundedLogBuffer();
@@ -62,6 +63,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   int get operationLogRevision => _operationLogs.revision;
   ValueListenable<int> get operationSuccessSignal =>
       _operationSuccessPulse.listenable;
+  String? get lastSuccessfulPluginId => _lastSuccessfulPluginId;
 
   PluginInfo? pluginById(String id) {
     for (final p in _plugins) {
@@ -140,6 +142,7 @@ class PluginServiceController extends ManagedChangeNotifier {
     if (previous == null || !next.isInstalled) {
       return next.isInstalled ? next : next.copyWith(enabled: true);
     }
+    if (next.metadata['runtime_managed'] == true) return next;
     return next.copyWith(enabled: previous.enabled);
   }
 
@@ -277,6 +280,10 @@ class PluginServiceController extends ManagedChangeNotifier {
         PluginCatalogIds.qdrant => _lifecycle.installQdrant(
           onProgress: _addLog,
         ),
+        PluginCatalogIds.postgresql => _lifecycle.installPostgresql(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.redis => _lifecycle.installRedis(onProgress: _addLog),
         _ => _unknownPluginOperation(),
       },
     );
@@ -322,6 +329,10 @@ class PluginServiceController extends ManagedChangeNotifier {
         ),
         PluginCatalogIds.docker => _lifecycle.updateDocker(onProgress: _addLog),
         PluginCatalogIds.qdrant => _lifecycle.updateQdrant(onProgress: _addLog),
+        PluginCatalogIds.postgresql => _lifecycle.updatePostgresql(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.redis => _lifecycle.updateRedis(onProgress: _addLog),
         _ => _unknownPluginOperation(),
       },
     );
@@ -409,6 +420,40 @@ class PluginServiceController extends ManagedChangeNotifier {
         PluginCatalogIds.qdrant => _lifecycle.uninstallQdrant(
           onProgress: _addLog,
         ),
+        PluginCatalogIds.postgresql => _lifecycle.uninstallPostgresql(
+          onProgress: _addLog,
+        ),
+        PluginCatalogIds.redis => _lifecycle.uninstallRedis(
+          onProgress: _addLog,
+        ),
+        _ => _unknownPluginOperation(),
+      },
+    );
+  }
+
+  /// 切换 OpenHand 托管服务容器的运行状态。
+  Future<bool> toggleManagedRuntime(
+    String pluginId, {
+    required bool enabled,
+  }) async {
+    final plugin = pluginById(pluginId);
+    if (plugin == null || !plugin.isInstalled) return false;
+    if (plugin.metadata['runtime_managed'] != true) {
+      toggleEnabled(pluginId, enabled: enabled);
+      return true;
+    }
+    return _runPluginLifecycleOperation(
+      pluginId: pluginId,
+      transientStatus: PluginStatus.updating,
+      operation: () => switch (pluginId) {
+        PluginCatalogIds.postgresql =>
+          enabled
+              ? _lifecycle.startPostgresql(onProgress: _addLog)
+              : _lifecycle.stopPostgresql(onProgress: _addLog),
+        PluginCatalogIds.redis =>
+          enabled
+              ? _lifecycle.startRedis(onProgress: _addLog)
+              : _lifecycle.stopRedis(onProgress: _addLog),
         _ => _unknownPluginOperation(),
       },
     );
@@ -442,6 +487,7 @@ class PluginServiceController extends ManagedChangeNotifier {
           _setPluginOperationFailure(pluginId, verificationError);
           return false;
         }
+        _lastSuccessfulPluginId = pluginId;
         _operationSuccessPulse.emit();
         return true;
       }

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -12,6 +13,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/localized_text.dart';
@@ -399,80 +401,96 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
-          LayoutBuilder(
-            builder: (context, constraints) {
-              final strategy = DropdownButtonFormField<AiExposureProxyStrategy>(
-                initialValue: _strategy,
-                decoration: InputDecoration(
-                  labelText: text(zh: '代理策略', en: 'Proxy strategy'),
-                  border: const OutlineInputBorder(),
-                ),
-                items: AiExposureProxyStrategy.values
-                    .map(
-                      (item) => DropdownMenuItem(
-                        value: item,
-                        child: Text(_strategyLabel(item, text)),
-                      ),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) {
-                  if (value != null) setState(() => _strategy = value);
-                },
-              );
-              final bypass = Row(
+          AnimatedOpacity(
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 240),
+            ),
+            curve: Curves.easeOutCubic,
+            opacity: _enabled ? 1 : .46,
+            child: IgnorePointer(
+              ignoring: !_enabled,
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  Checkbox(
-                    value: _bypassLocal,
-                    onChanged: (value) =>
-                        setState(() => _bypassLocal = value == true),
+                  const SizedBox(height: 12),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      final strategy =
+                          DropdownButtonFormField<AiExposureProxyStrategy>(
+                            initialValue: _strategy,
+                            decoration: InputDecoration(
+                              labelText: text(zh: '代理策略', en: 'Proxy strategy'),
+                              border: const OutlineInputBorder(),
+                            ),
+                            items: AiExposureProxyStrategy.values
+                                .map(
+                                  (item) => DropdownMenuItem(
+                                    value: item,
+                                    child: Text(_strategyLabel(item, text)),
+                                  ),
+                                )
+                                .toList(growable: false),
+                            onChanged: (value) {
+                              if (value != null) {
+                                setState(() => _strategy = value);
+                              }
+                            },
+                          );
+                      final bypass = Row(
+                        children: [
+                          Checkbox(
+                            value: _bypassLocal,
+                            onChanged: (value) =>
+                                setState(() => _bypassLocal = value == true),
+                          ),
+                          const SizedBox(width: 6),
+                          Expanded(
+                            child: Text(
+                              text(zh: '本地与私网直连', en: 'Bypass local networks'),
+                            ),
+                          ),
+                        ],
+                      );
+                      if (constraints.maxWidth < 680) {
+                        return Column(
+                          children: [
+                            strategy,
+                            const SizedBox(height: 8),
+                            bypass,
+                          ],
+                        );
+                      }
+                      return Row(
+                        children: [
+                          Expanded(child: strategy),
+                          const SizedBox(width: 14),
+                          Expanded(child: bypass),
+                        ],
+                      );
+                    },
                   ),
-                  const SizedBox(width: 6),
-                  Expanded(
-                    child: Text(
-                      text(zh: '本地与私网直连', en: 'Bypass local networks'),
+                  const SizedBox(height: 8),
+                  Text(
+                    text(
+                      zh: '每 ${_rotationEvery.round()} 次请求轮换',
+                      en: 'Rotate every ${_rotationEvery.round()} requests',
                     ),
+                    style: theme.textTheme.labelLarge,
+                  ),
+                  Slider(
+                    value: _rotationEvery,
+                    min: 1,
+                    max: 100,
+                    divisions: 99,
+                    label: '${_rotationEvery.round()}',
+                    onChanged: _strategy == AiExposureProxyStrategy.roundRobin
+                        ? (value) => setState(() => _rotationEvery = value)
+                        : null,
                   ),
                 ],
-              );
-              if (constraints.maxWidth < 680) {
-                return Column(
-                  children: [strategy, const SizedBox(height: 8), bypass],
-                );
-              }
-              return Row(
-                children: [
-                  Expanded(child: strategy),
-                  const SizedBox(width: 14),
-                  Expanded(child: bypass),
-                ],
-              );
-            },
-          ),
-          const SizedBox(height: 8),
-          Row(
-            children: [
-              Expanded(
-                child: Text(
-                  text(
-                    zh: '每 ${_rotationEvery.round()} 次请求轮换',
-                    en: 'Rotate every ${_rotationEvery.round()} requests',
-                  ),
-                  style: theme.textTheme.labelLarge,
-                ),
               ),
-              Text('${_rotationEvery.round()}'),
-            ],
-          ),
-          Slider(
-            value: _rotationEvery,
-            min: 1,
-            max: 100,
-            divisions: 99,
-            label: '${_rotationEvery.round()}',
-            onChanged: _strategy == AiExposureProxyStrategy.roundRobin
-                ? (value) => setState(() => _rotationEvery = value)
-                : null,
+            ),
           ),
           Divider(height: 20, color: colors.outlineVariant),
           LayoutBuilder(
@@ -1764,197 +1782,223 @@ class _ProxyEndpointDetailsDialogState
     return _ProxyDetailSection(
       icon: Icons.badge_outlined,
       title: text(zh: '出口身份与地理归属', en: 'Exit identity and location'),
-      trailing: _loadingIdentity
-          ? const SizedBox.square(
-              dimension: 18,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          : null,
-      child: identity == null
-          ? Column(
-              crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [
-                Text(
-                  _identityError ??
-                      text(
-                        zh: '正在通过该代理识别出口 IP 与网络归属。',
-                        en: 'Resolving the exit identity through this proxy.',
-                      ),
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: _identityError == null
-                        ? colors.onSurfaceVariant
-                        : OpenHandStatusColors.error,
-                  ),
-                ),
-                if (_identityError != null) ...[
-                  const SizedBox(height: 10),
-                  Align(
-                    alignment: AlignmentDirectional.centerStart,
-                    child: OpenHandDialogActionButton.secondary(
-                      icon: Icons.refresh_rounded,
-                      onPressed: _loadingIdentity ? null : _refreshIdentity,
-                      label: text(zh: '重新识别', en: 'Retry'),
+      trailing: OpenHandInlineRevealSwitcher(
+        presentKey: const ValueKey<String>('identity-loading'),
+        child: _loadingIdentity
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : null,
+      ),
+      child: OpenHandContentStateSwitcher(
+        stateKey: identity != null
+            ? 'identity-ready'
+            : _identityError != null
+            ? 'identity-error'
+            : 'identity-loading',
+        alignment: AlignmentDirectional.topStart,
+        child: identity == null
+            ? Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Text(
+                    _identityError ??
+                        text(
+                          zh: '正在通过该代理识别出口 IP 与网络归属。',
+                          en: 'Resolving the exit identity through this proxy.',
+                        ),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: _identityError == null
+                          ? colors.onSurfaceVariant
+                          : OpenHandStatusColors.error,
                     ),
                   ),
-                ],
-              ],
-            )
-          : LayoutBuilder(
-              builder: (context, constraints) {
-                final uri = Uri.parse(_endpoint.url);
-                final fields = <({String label, String value, IconData icon})>[
-                  (
-                    label: text(zh: '出口 IP', en: 'Exit IP'),
-                    value: identity.exitIp,
-                    icon: Icons.language_rounded,
-                  ),
-                  (
-                    label: text(zh: 'IP 类型', en: 'IP type'),
-                    value: identity.ipType,
-                    icon: Icons.device_hub_rounded,
-                  ),
-                  (
-                    label: text(zh: '网络类型', en: 'Network type'),
-                    value: _networkTypeLabel(identity.networkType, text),
-                    icon: Icons.account_tree_outlined,
-                  ),
-                  (
-                    label: text(zh: '干净度', en: 'Cleanliness'),
-                    value: _cleanlinessLabel(identity.cleanliness, text),
-                    icon: Icons.verified_user_outlined,
-                  ),
-                  (
-                    label: text(zh: '地理位置', en: 'Location'),
-                    value: identity.location.isEmpty ? '--' : identity.location,
-                    icon: Icons.location_on_outlined,
-                  ),
-                  (
-                    label: text(zh: '洲 / 国家代码', en: 'Continent / country code'),
-                    value:
-                        '${identity.continent.isEmpty ? '--' : identity.continent} · ${identity.countryCode.isEmpty ? '--' : identity.countryCode}',
-                    icon: Icons.public_rounded,
-                  ),
-                  (
-                    label: text(zh: '时区 / 币种', en: 'Timezone / currency'),
-                    value:
-                        '${identity.timezone.isEmpty ? '--' : identity.timezone} · ${identity.currency.isEmpty ? '--' : identity.currency}',
-                    icon: Icons.schedule_rounded,
-                  ),
-                  (
-                    label: text(zh: '邮政编码', en: 'Postal code'),
-                    value: identity.postalCode.isEmpty
-                        ? '--'
-                        : identity.postalCode,
-                    icon: Icons.local_post_office_outlined,
-                  ),
-                  (
-                    label: text(zh: 'ISP', en: 'ISP'),
-                    value: identity.isp.isEmpty ? '--' : identity.isp,
-                    icon: Icons.cell_tower_rounded,
-                  ),
-                  (
-                    label: text(zh: '组织', en: 'Organization'),
-                    value: identity.organization.isEmpty
-                        ? '--'
-                        : identity.organization,
-                    icon: Icons.business_outlined,
-                  ),
-                  (
-                    label: text(zh: '自治系统', en: 'Autonomous system'),
-                    value: <String>[
-                      identity.asn,
-                      identity.asName,
-                    ].where((item) => item.trim().isNotEmpty).join(' · '),
-                    icon: Icons.hub_outlined,
-                  ),
-                  (
-                    label: text(zh: '坐标', en: 'Coordinates'),
-                    value:
-                        identity.latitude == null || identity.longitude == null
-                        ? '--'
-                        : '${identity.latitude!.toStringAsFixed(4)}, ${identity.longitude!.toStringAsFixed(4)}',
-                    icon: Icons.my_location_rounded,
-                  ),
-                  (
-                    label: text(zh: '代理协议', en: 'Proxy protocol'),
-                    value:
-                        '${uri.scheme.toUpperCase()} · ${uri.host}:${uri.port}',
-                    icon: Icons.lock_outline_rounded,
-                  ),
-                  (
-                    label: text(zh: '认证状态', en: 'Authentication'),
-                    value: uri.userInfo.isEmpty
-                        ? text(zh: '无认证', en: 'No authentication')
-                        : text(zh: '用户名与密码', en: 'Username and password'),
-                    icon: Icons.key_outlined,
-                  ),
-                ];
-                final columns = constraints.maxWidth >= 680 ? 3 : 1;
-                const gap = 8.0;
-                final width =
-                    (constraints.maxWidth - gap * (columns - 1)) / columns;
-                return Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    Wrap(
-                      spacing: gap,
-                      runSpacing: gap,
-                      children: fields
-                          .map(
-                            (field) => SizedBox(
-                              width: width,
-                              child: _ProxyDetailField(
-                                icon: field.icon,
-                                label: field.label,
-                                value: field.value.isEmpty ? '--' : field.value,
+                  OpenHandVerticalRevealSwitcher(
+                    presentKey: const ValueKey<String>('identity-retry'),
+                    child: _identityError == null
+                        ? null
+                        : Padding(
+                            padding: const EdgeInsets.only(top: 10),
+                            child: Align(
+                              alignment: AlignmentDirectional.centerStart,
+                              child: OpenHandDialogActionButton.secondary(
+                                icon: Icons.refresh_rounded,
+                                onPressed: _loadingIdentity
+                                    ? null
+                                    : _refreshIdentity,
+                                label: text(zh: '重新识别', en: 'Retry'),
                               ),
                             ),
-                          )
-                          .toList(growable: false),
+                          ),
+                  ),
+                ],
+              )
+            : LayoutBuilder(
+                builder: (context, constraints) {
+                  final uri = Uri.parse(_endpoint.url);
+                  final fields = <({String label, String value, IconData icon})>[
+                    (
+                      label: text(zh: '出口 IP', en: 'Exit IP'),
+                      value: identity.exitIp,
+                      icon: Icons.language_rounded,
                     ),
-                    const SizedBox(height: 10),
-                    Wrap(
-                      spacing: 8,
-                      runSpacing: 8,
-                      children: [
-                        _ProxyMetric(
-                          icon: Icons.phone_android_rounded,
-                          label: identity.mobile
-                              ? text(zh: '移动网络', en: 'Mobile network')
-                              : text(zh: '非移动网络', en: 'Not mobile'),
-                          color: identity.mobile
-                              ? OpenHandStatusColors.warning
-                              : colors.onSurfaceVariant,
-                        ),
-                        _ProxyMetric(
-                          icon: Icons.vpn_lock_outlined,
-                          label: identity.proxy
-                              ? text(zh: '代理特征已识别', en: 'Proxy detected')
-                              : text(zh: '未识别代理特征', en: 'No proxy flag'),
-                          color: identity.proxy
-                              ? OpenHandStatusColors.warning
-                              : OpenHandStatusColors.success,
-                        ),
-                        _ProxyMetric(
-                          icon: Icons.cloud_outlined,
-                          label: identity.hosting
-                              ? text(zh: '数据中心托管', en: 'Hosting network')
-                              : text(zh: '非托管网络', en: 'Not hosting'),
-                          color: identity.hosting
-                              ? OpenHandStatusColors.info
-                              : OpenHandStatusColors.success,
-                        ),
-                        _ProxyMetric(
-                          icon: Icons.update_rounded,
-                          label: _timeLabel(identity.observedAt),
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ],
+                    (
+                      label: text(zh: 'IP 类型', en: 'IP type'),
+                      value: identity.ipType,
+                      icon: Icons.device_hub_rounded,
                     ),
-                  ],
-                );
-              },
-            ),
+                    (
+                      label: text(zh: '网络类型', en: 'Network type'),
+                      value: _networkTypeLabel(identity.networkType, text),
+                      icon: Icons.account_tree_outlined,
+                    ),
+                    (
+                      label: text(zh: '干净度', en: 'Cleanliness'),
+                      value: _cleanlinessLabel(identity.cleanliness, text),
+                      icon: Icons.verified_user_outlined,
+                    ),
+                    (
+                      label: text(zh: '地理位置', en: 'Location'),
+                      value: identity.location.isEmpty
+                          ? '--'
+                          : identity.location,
+                      icon: Icons.location_on_outlined,
+                    ),
+                    (
+                      label: text(
+                        zh: '洲 / 国家代码',
+                        en: 'Continent / country code',
+                      ),
+                      value:
+                          '${identity.continent.isEmpty ? '--' : identity.continent} · ${identity.countryCode.isEmpty ? '--' : identity.countryCode}',
+                      icon: Icons.public_rounded,
+                    ),
+                    (
+                      label: text(zh: '时区 / 币种', en: 'Timezone / currency'),
+                      value:
+                          '${identity.timezone.isEmpty ? '--' : identity.timezone} · ${identity.currency.isEmpty ? '--' : identity.currency}',
+                      icon: Icons.schedule_rounded,
+                    ),
+                    (
+                      label: text(zh: '邮政编码', en: 'Postal code'),
+                      value: identity.postalCode.isEmpty
+                          ? '--'
+                          : identity.postalCode,
+                      icon: Icons.local_post_office_outlined,
+                    ),
+                    (
+                      label: text(zh: 'ISP', en: 'ISP'),
+                      value: identity.isp.isEmpty ? '--' : identity.isp,
+                      icon: Icons.cell_tower_rounded,
+                    ),
+                    (
+                      label: text(zh: '组织', en: 'Organization'),
+                      value: identity.organization.isEmpty
+                          ? '--'
+                          : identity.organization,
+                      icon: Icons.business_outlined,
+                    ),
+                    (
+                      label: text(zh: '自治系统', en: 'Autonomous system'),
+                      value: <String>[
+                        identity.asn,
+                        identity.asName,
+                      ].where((item) => item.trim().isNotEmpty).join(' · '),
+                      icon: Icons.hub_outlined,
+                    ),
+                    (
+                      label: text(zh: '坐标', en: 'Coordinates'),
+                      value:
+                          identity.latitude == null ||
+                              identity.longitude == null
+                          ? '--'
+                          : '${identity.latitude!.toStringAsFixed(4)}, ${identity.longitude!.toStringAsFixed(4)}',
+                      icon: Icons.my_location_rounded,
+                    ),
+                    (
+                      label: text(zh: '代理协议', en: 'Proxy protocol'),
+                      value:
+                          '${uri.scheme.toUpperCase()} · ${uri.host}:${uri.port}',
+                      icon: Icons.lock_outline_rounded,
+                    ),
+                    (
+                      label: text(zh: '认证状态', en: 'Authentication'),
+                      value: uri.userInfo.isEmpty
+                          ? text(zh: '无认证', en: 'No authentication')
+                          : text(zh: '用户名与密码', en: 'Username and password'),
+                      icon: Icons.key_outlined,
+                    ),
+                  ];
+                  final columns = constraints.maxWidth >= 680 ? 3 : 1;
+                  const gap = 8.0;
+                  final width =
+                      (constraints.maxWidth - gap * (columns - 1)) / columns;
+                  return Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Wrap(
+                        spacing: gap,
+                        runSpacing: gap,
+                        children: fields
+                            .map(
+                              (field) => SizedBox(
+                                width: width,
+                                child: _ProxyDetailField(
+                                  icon: field.icon,
+                                  label: field.label,
+                                  value: field.value.isEmpty
+                                      ? '--'
+                                      : field.value,
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                      ),
+                      const SizedBox(height: 10),
+                      Wrap(
+                        spacing: 8,
+                        runSpacing: 8,
+                        children: [
+                          _ProxyMetric(
+                            icon: Icons.phone_android_rounded,
+                            label: identity.mobile
+                                ? text(zh: '移动网络', en: 'Mobile network')
+                                : text(zh: '非移动网络', en: 'Not mobile'),
+                            color: identity.mobile
+                                ? OpenHandStatusColors.warning
+                                : colors.onSurfaceVariant,
+                          ),
+                          _ProxyMetric(
+                            icon: Icons.vpn_lock_outlined,
+                            label: identity.proxy
+                                ? text(zh: '代理特征已识别', en: 'Proxy detected')
+                                : text(zh: '未识别代理特征', en: 'No proxy flag'),
+                            color: identity.proxy
+                                ? OpenHandStatusColors.warning
+                                : OpenHandStatusColors.success,
+                          ),
+                          _ProxyMetric(
+                            icon: Icons.cloud_outlined,
+                            label: identity.hosting
+                                ? text(zh: '数据中心托管', en: 'Hosting network')
+                                : text(zh: '非托管网络', en: 'Not hosting'),
+                            color: identity.hosting
+                                ? OpenHandStatusColors.info
+                                : OpenHandStatusColors.success,
+                          ),
+                          _ProxyMetric(
+                            icon: Icons.update_rounded,
+                            label: _timeLabel(identity.observedAt),
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ],
+                      ),
+                    ],
+                  );
+                },
+              ),
+      ),
     );
   }
 
@@ -2681,12 +2725,16 @@ class _ProxyEndpointCard extends StatelessWidget {
                     label: tone.label,
                     color: tone.color,
                   ),
-                  if (sample?.latencyMs != null)
-                    _ProxyMetric(
-                      icon: Icons.speed_rounded,
-                      label: '${sample!.latencyMs} ms',
-                      color: tone.color,
-                    ),
+                  OpenHandInlineRevealSwitcher(
+                    presentKey: const ValueKey<String>('probe-latency'),
+                    child: sample?.latencyMs == null
+                        ? null
+                        : _ProxyMetric(
+                            icon: Icons.speed_rounded,
+                            label: '${sample!.latencyMs} ms',
+                            color: tone.color,
+                          ),
+                  ),
                   _ProxyMetric(
                     icon: Icons.route_outlined,
                     label: text(
@@ -2724,25 +2772,34 @@ class _ProxyEndpointCard extends StatelessWidget {
                     label: '${statistics.averageResponseTimeMs} ms',
                     color: colors.primary,
                   ),
-                  if (sample != null)
-                    _ProxyMetric(
-                      icon: Icons.schedule_rounded,
-                      label: _timeLabel(sample.checkedAt),
-                      color: colors.onSurfaceVariant,
-                    ),
+                  OpenHandInlineRevealSwitcher(
+                    presentKey: const ValueKey<String>('probe-time'),
+                    child: sample == null
+                        ? null
+                        : _ProxyMetric(
+                            icon: Icons.schedule_rounded,
+                            label: _timeLabel(sample.checkedAt),
+                            color: colors.onSurfaceVariant,
+                          ),
+                  ),
                 ],
               ),
-              if (sample?.error?.isNotEmpty == true) ...[
-                const SizedBox(height: 6),
-                Text(
-                  sample!.error!,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: OpenHandStatusColors.error,
-                  ),
-                ),
-              ],
+              OpenHandVerticalRevealSwitcher(
+                presentKey: const ValueKey<String>('probe-error'),
+                child: sample?.error?.isNotEmpty == true
+                    ? Padding(
+                        padding: const EdgeInsets.only(top: 6),
+                        child: Text(
+                          sample!.error!,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: OpenHandStatusColors.error,
+                          ),
+                        ),
+                      )
+                    : null,
+              ),
             ],
           ),
         ),
@@ -2846,55 +2903,251 @@ class _ProxyEndpointCard extends StatelessWidget {
   }
 }
 
-class _ProxyLatencyChart extends StatelessWidget {
+class _ProxyLatencyChart extends StatefulWidget {
   const _ProxyLatencyChart({required this.endpoint});
 
   final AiExposureProxyEndpoint endpoint;
 
   @override
+  State<_ProxyLatencyChart> createState() => _ProxyLatencyChartState();
+}
+
+class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
+  static const double _tooltipWidth = 176;
+  int? _hoveredIndex;
+
+  void _updateHoveredSample(
+    PointerHoverEvent event,
+    double width,
+    int sampleCount,
+  ) {
+    if (sampleCount == 0 || width <= 16) return;
+    final ratio = ((event.localPosition.dx - 8) / (width - 16)).clamp(0.0, 1.0);
+    final index = (ratio * (sampleCount - 1)).round();
+    if (index != _hoveredIndex) setState(() => _hoveredIndex = index);
+  }
+
+  @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final values = endpoint.samples
+    final samples = widget.endpoint.samples
         .where((sample) => sample.reachable)
+        .toList(growable: false);
+    final values = samples
         .map((sample) => sample.latencyMs!.toDouble())
         .toList(growable: false);
     final revision =
-        endpoint.latestSample?.checkedAt.microsecondsSinceEpoch ?? 0;
+        widget.endpoint.latestSample?.checkedAt.microsecondsSinceEpoch ?? 0;
+    final hoveredIndex = _hoveredIndex == null || samples.isEmpty
+        ? null
+        : _hoveredIndex!.clamp(0, samples.length - 1);
+    final hoveredSample = hoveredIndex == null ? null : samples[hoveredIndex];
     return SizedBox(
       height: 70,
-      child: TweenAnimationBuilder<double>(
-        key: ValueKey<int>(revision),
-        tween: Tween<double>(begin: 0, end: 1),
-        duration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 460),
-        ),
-        curve: Curves.easeOutBack,
-        builder: (context, progress, _) {
-          final scale = progress.clamp(0.0, 1.0);
-          return CustomPaint(
-            painter: OpenHandSmoothLineChartPainter(
-              series: <OpenHandChartSeries>[
-                OpenHandChartSeries(
-                  label: 'latency',
-                  values: values.map((value) => value * scale).toList(),
-                  color: colors.primary,
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final pointX = hoveredIndex == null || samples.length <= 1
+              ? 8.0
+              : 8 +
+                    (constraints.maxWidth - 16) *
+                        hoveredIndex /
+                        (samples.length - 1);
+          final tooltipLeft = (pointX - _tooltipWidth / 2).clamp(
+            0.0,
+            (constraints.maxWidth - _tooltipWidth).clamp(0.0, double.infinity),
+          );
+          return MouseRegion(
+            cursor: samples.isEmpty
+                ? MouseCursor.defer
+                : SystemMouseCursors.precise,
+            onHover: (event) => _updateHoveredSample(
+              event,
+              constraints.maxWidth,
+              samples.length,
+            ),
+            onExit: (_) {
+              if (_hoveredIndex != null) setState(() => _hoveredIndex = null);
+            },
+            child: Stack(
+              clipBehavior: Clip.none,
+              children: [
+                Positioned.fill(
+                  child: TweenAnimationBuilder<double>(
+                    key: ValueKey<int>(revision),
+                    tween: Tween<double>(begin: 0, end: 1),
+                    duration: openHandMotionDuration(
+                      context,
+                      const Duration(milliseconds: 460),
+                    ),
+                    curve: Curves.easeOutBack,
+                    builder: (context, progress, _) {
+                      final scale = progress.clamp(0.0, 1.0);
+                      return CustomPaint(
+                        painter: OpenHandSmoothLineChartPainter(
+                          series: <OpenHandChartSeries>[
+                            OpenHandChartSeries(
+                              label: 'latency',
+                              values: values
+                                  .map((value) => value * scale)
+                                  .toList(),
+                              color: colors.primary,
+                            ),
+                          ],
+                          gridColor: colors.outlineVariant.withValues(
+                            alpha: 0.55,
+                          ),
+                          labelColor: colors.onSurfaceVariant,
+                          emptyLabel: openHandLocalizedText(
+                            context,
+                            zh: '暂无延迟样本',
+                            en: 'No latency samples',
+                          ),
+                          valueSuffix: ' ms',
+                          textDirection: Directionality.of(context),
+                        ),
+                        size: Size.infinite,
+                      );
+                    },
+                  ),
+                ),
+                if (hoveredSample != null)
+                  Positioned(
+                    left: pointX.clamp(0.0, constraints.maxWidth),
+                    top: 8,
+                    bottom: 16,
+                    child: IgnorePointer(
+                      child: Container(
+                        width: 1,
+                        color: colors.primary.withValues(alpha: 0.38),
+                      ),
+                    ),
+                  ),
+                AnimatedPositioned(
+                  duration: openHandMotionDuration(
+                    context,
+                    const Duration(milliseconds: 180),
+                  ),
+                  curve: Curves.easeOutCubic,
+                  left: tooltipLeft,
+                  top: 2,
+                  width: _tooltipWidth,
+                  child: IgnorePointer(
+                    child: AnimatedSwitcher(
+                      duration: openHandMotionDuration(
+                        context,
+                        const Duration(milliseconds: 220),
+                      ),
+                      switchInCurve: Curves.easeOutCubic,
+                      switchOutCurve: Curves.easeInCubic,
+                      transitionBuilder: (child, animation) => FadeTransition(
+                        opacity: animation,
+                        child: ScaleTransition(
+                          alignment: Alignment.bottomCenter,
+                          scale: Tween<double>(
+                            begin: .92,
+                            end: 1,
+                          ).animate(animation),
+                          child: child,
+                        ),
+                      ),
+                      child: hoveredSample == null
+                          ? const SizedBox.shrink(
+                              key: ValueKey<String>('latency-tooltip-empty'),
+                            )
+                          : _ProxyLatencyTooltip(
+                              key: ValueKey<DateTime>(hoveredSample.checkedAt),
+                              sample: hoveredSample,
+                              index: hoveredIndex! + 1,
+                              total: samples.length,
+                            ),
+                    ),
+                  ),
                 ),
               ],
-              gridColor: colors.outlineVariant.withValues(alpha: 0.55),
-              labelColor: colors.onSurfaceVariant,
-              emptyLabel: openHandLocalizedText(
-                context,
-                zh: '暂无延迟样本',
-                en: 'No latency samples',
-              ),
-              valueSuffix: ' ms',
-              textDirection: Directionality.of(context),
             ),
-            size: Size.infinite,
           );
         },
+      ),
+    );
+  }
+}
+
+class _ProxyLatencyTooltip extends StatelessWidget {
+  const _ProxyLatencyTooltip({
+    super.key,
+    required this.sample,
+    required this.index,
+    required this.total,
+  });
+
+  final AiExposureProxyProbeSample sample;
+  final int index;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: colors.primary.withValues(alpha: .32)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: .16),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.speed_rounded, size: 14, color: colors.primary),
+                const SizedBox(width: 5),
+                Expanded(
+                  child: Text(
+                    '${sample.latencyMs} ms',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      color: colors.primary,
+                    ),
+                  ),
+                ),
+                Text('$index/$total', style: theme.textTheme.labelSmall),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Text(
+              _dateTimeLabel(sample.checkedAt),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              sample.statusCode == null
+                  ? openHandLocalizedText(
+                      context,
+                      zh: '连接成功',
+                      en: 'Connection succeeded',
+                    )
+                  : 'HTTP ${sample.statusCode}',
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: OpenHandStatusColors.success,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -3035,4 +3288,11 @@ String _timeLabel(DateTime value) {
   final local = value.toLocal();
   String two(int number) => number.toString().padLeft(2, '0');
   return '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
+}
+
+String _dateTimeLabel(DateTime value) {
+  final local = value.toLocal();
+  String two(int number) => number.toString().padLeft(2, '0');
+  return '${local.year}-${two(local.month)}-${two(local.day)} '
+      '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
 }

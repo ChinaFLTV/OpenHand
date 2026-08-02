@@ -12,6 +12,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/version_compare.dart';
 import '../model/plugin_info.dart';
+import 'managed_service_defaults.dart';
 import 'plugin_environment_probe.dart';
 import 'plugin_toolchain_shell.dart';
 
@@ -52,6 +53,51 @@ Map<String, Object?>? _qdrantInspectMetadataFromDecoded(Object? decoded) {
     'grpc_endpoint': '127.0.0.1:${PluginScannerService.qdrantGrpcPort}',
     'data_directory': PluginScannerService._extractHostDataDirectory(
       inspect['Mounts'],
+    ),
+  };
+}
+
+Map<String, Object?>? _managedDatabaseMetadataFromDecoded(
+  Object? decoded, {
+  required String containerName,
+  required String endpoint,
+  required String dataDestination,
+}) {
+  if (decoded is! List || decoded.isEmpty || decoded.first is! Map) {
+    return null;
+  }
+  final inspect = stringKeyedMapFromValue(decoded.first);
+  final state = stringKeyedMapFromValue(inspect['State']);
+  final config = stringKeyedMapFromValue(inspect['Config']);
+  final networkSettings = stringKeyedMapFromValue(inspect['NetworkSettings']);
+  final hostConfig = stringKeyedMapFromValue(inspect['HostConfig']);
+  final labels = stringKeyedMapFromValue(config['Labels']);
+  final running = boolFromValue(state['Running']);
+  return <String, Object?>{
+    'runtime_managed': true,
+    'docker_daemon_running': true,
+    'openhand_managed':
+        boolFromValue(labels['openhand.managed']) ||
+        boolFromValue(labels['com.openhand.managed']),
+    'container_id': '${inspect['Id'] ?? ''}'.trim(),
+    'container_name': containerName,
+    'container_status': '${state['Status'] ?? ''}'.trim(),
+    'running': running,
+    'service_running': running,
+    'started_at': '${state['StartedAt'] ?? ''}'.trim(),
+    'finished_at': '${state['FinishedAt'] ?? ''}'.trim(),
+    'restart_count': optionalNonNegativeIntFromValue(state['RestartCount']),
+    'exit_code': optionalNonNegativeIntFromValue(state['ExitCode']),
+    'image': '${config['Image'] ?? ''}'.trim(),
+    'image_id': '${inspect['Image'] ?? ''}'.trim(),
+    'ports': PluginScannerService._formatDockerPorts(networkSettings['Ports']),
+    'restart_policy': PluginScannerService._formatRestartPolicy(
+      hostConfig['RestartPolicy'],
+    ),
+    'endpoint': endpoint,
+    'data_directory': PluginScannerService._extractHostDataDirectory(
+      inspect['Mounts'],
+      destination: dataDestination,
     ),
   };
 }
@@ -506,6 +552,8 @@ class PluginScannerService {
       PluginCatalogIds.anythingAnalyzer => _anythingAnalyzerNotInstalled,
       PluginCatalogIds.docker => _dockerNotInstalled,
       PluginCatalogIds.qdrant => _qdrantNotInstalled,
+      PluginCatalogIds.postgresql => _postgresqlNotInstalled,
+      PluginCatalogIds.redis => _redisNotInstalled,
       _ => PluginInfo(
         id: id,
         name: id,
@@ -985,7 +1033,11 @@ class PluginScannerService {
             name: 'Docker',
             description: '容器运行环境，用于运行 Qdrant 本地向量数据库服务',
             status: PluginStatus.error,
-            dependents: <String>[PluginCatalogIds.qdrant],
+            dependents: <String>[
+              PluginCatalogIds.qdrant,
+              PluginCatalogIds.postgresql,
+              PluginCatalogIds.redis,
+            ],
             metadata: <String, Object?>{
               'desktop_app_detected': true,
               'daemon_running': false,
@@ -1039,7 +1091,11 @@ class PluginScannerService {
           status: PluginStatus.installed,
           installedVersion: version,
           installPath: installPath,
-          dependents: const <String>[PluginCatalogIds.qdrant],
+          dependents: const <String>[
+            PluginCatalogIds.qdrant,
+            PluginCatalogIds.postgresql,
+            PluginCatalogIds.redis,
+          ],
           metadata: metadata,
         );
       }
@@ -1050,7 +1106,11 @@ class PluginScannerService {
         status: PluginStatus.error,
         installedVersion: version,
         installPath: installPath,
-        dependents: const <String>[PluginCatalogIds.qdrant],
+        dependents: const <String>[
+          PluginCatalogIds.qdrant,
+          PluginCatalogIds.postgresql,
+          PluginCatalogIds.redis,
+        ],
         metadata: metadata,
         errorMessage: 'docker CLI 可用，但 Docker daemon 未运行或不可访问。',
       );
@@ -1163,75 +1223,147 @@ class PluginScannerService {
   }
 
   Future<PluginInfo> scanPostgresql() async {
-    try {
-      final cli = await _shellRun('command -v psql');
-      final ready = await _shellRun(
-        'pg_isready -h 127.0.0.1 -p 5432 2>/dev/null',
-      );
-      final cliAvailable = cli.exitCode == 0;
-      final serviceRunning = ready.exitCode == 0;
-      final versionResult = cliAvailable
-          ? await _shellRun('psql --version')
-          : null;
-      final version = versionResult == null || versionResult.exitCode != 0
-          ? null
-          : _extractLooseVersion(versionResult.stdout.toString());
-      return PluginInfo(
-        id: PluginCatalogIds.postgresql,
-        name: 'PostgreSQL',
-        description: '关系型数据库服务，供 AI 暴露面扫描保存任务与审计数据',
-        status: serviceRunning
-            ? PluginStatus.installed
-            : cliAvailable
-            ? PluginStatus.error
-            : PluginStatus.notInstalled,
-        installedVersion: version,
-        installPath: cliAvailable
-            ? extractPluginAbsolutePath(cli.stdout.toString())
-            : null,
-        supportsUninstall: false,
-        supportsInstall: false,
-        metadata: <String, Object?>{
-          'external_service': true,
-          'cli_available': cliAvailable,
-          'service_running': serviceRunning,
-          'endpoint': 'postgresql://127.0.0.1:5432',
-        },
-        errorMessage: cliAvailable && !serviceRunning
-            ? '已检测到 PostgreSQL 客户端，但本机 5432 端口服务未就绪。'
-            : null,
-      );
-    } catch (error, stack) {
-      silentLog('plugin_scanner', '扫描 PostgreSQL', error, stack);
-    }
-    return _postgresqlNotInstalled;
+    return _scanManagedDatabase(
+      id: PluginCatalogIds.postgresql,
+      name: 'PostgreSQL',
+      description: '关系型数据库服务，供 AI 暴露面扫描保存任务与审计数据',
+      containerName: ManagedServiceDefaults.postgresqlContainerName,
+      endpoint: ManagedServiceDefaults.postgresqlEndpoint,
+      dataDestination: ManagedServiceDefaults.postgresqlDataDestination,
+      cliCommand: 'psql',
+      versionCommand: 'psql --version',
+      readinessCommand:
+          'pg_isready -h 127.0.0.1 -p ${ManagedServiceDefaults.postgresqlPort} 2>/dev/null',
+      fallback: _postgresqlNotInstalled,
+    );
   }
 
   Future<PluginInfo> scanRedis() async {
+    return _scanManagedDatabase(
+      id: PluginCatalogIds.redis,
+      name: 'Redis',
+      description: '内存数据存储服务，供 AI 暴露面扫描执行缓存与任务队列',
+      containerName: ManagedServiceDefaults.redisContainerName,
+      endpoint: ManagedServiceDefaults.redisEndpoint,
+      dataDestination: ManagedServiceDefaults.redisDataDestination,
+      cliCommand: 'redis-cli',
+      versionCommand: 'redis-cli --version',
+      readinessCommand:
+          'redis-cli -h 127.0.0.1 -p ${ManagedServiceDefaults.redisPort} ping 2>/dev/null',
+      expectedReadinessOutput: 'PONG',
+      fallback: _redisNotInstalled,
+    );
+  }
+
+  Future<PluginInfo> _scanManagedDatabase({
+    required String id,
+    required String name,
+    required String description,
+    required String containerName,
+    required String endpoint,
+    required String dataDestination,
+    required String cliCommand,
+    required String versionCommand,
+    required String readinessCommand,
+    required PluginInfo fallback,
+    String? expectedReadinessOutput,
+  }) async {
     try {
-      final cli = await _shellRun('command -v redis-cli');
-      final ping = await _shellRun(
-        'redis-cli -h 127.0.0.1 -p 6379 ping 2>/dev/null',
-      );
+      final dockerPath = await _shellRun('command -v docker');
+      final dockerAvailable = dockerPath.exitCode == 0;
+      var dockerDaemonRunning = false;
+      if (dockerAvailable) {
+        final dockerInfo = await _shellRun('docker info --format "{{json .}}"');
+        dockerDaemonRunning = dockerInfo.exitCode == 0;
+        if (dockerDaemonRunning) {
+          final inspect = await _shellRun(
+            'docker inspect ${pluginToolchainShellQuote(containerName)}',
+          );
+          if (inspect.exitCode == 0) {
+            final metadata = _managedDatabaseMetadataFromDecoded(
+              _decodeOptionalJson(inspect.stdout.toString()),
+              containerName: containerName,
+              endpoint: endpoint,
+              dataDestination: dataDestination,
+            );
+            if (metadata == null) {
+              return fallback.copyWith(
+                status: PluginStatus.error,
+                errorMessage: '无法解析 $name 容器信息。',
+              );
+            }
+            final image = '${metadata['image'] ?? ''}'.trim();
+            final installedVersion = image.contains(':')
+                ? image.split(':').last
+                : null;
+            if (metadata['openhand_managed'] != true) {
+              return PluginInfo(
+                id: id,
+                name: name,
+                description: description,
+                status: PluginStatus.error,
+                installedVersion: installedVersion,
+                supportsUninstall: false,
+                supportsInstall: false,
+                metadata: <String, Object?>{
+                  ...metadata,
+                  'runtime_managed': false,
+                  'external_service': true,
+                },
+                errorMessage: '检测到同名 $name 容器，但缺少 OpenHand 管理标记。',
+              );
+            }
+            final running = metadata['running'] == true;
+            final dataDirectory = '${metadata['data_directory'] ?? ''}'.trim();
+            return PluginInfo(
+              id: id,
+              name: name,
+              description: description,
+              status: PluginStatus.installed,
+              enabled: running,
+              installedVersion: installedVersion,
+              installPath: dataDirectory.isEmpty ? null : dataDirectory,
+              dependencies: const <String>[PluginCatalogIds.docker],
+              metadata: metadata,
+            );
+          }
+        }
+      }
+
+      final cli = await _shellRun('command -v $cliCommand');
+      final ready = await _shellRun(readinessCommand);
       final cliAvailable = cli.exitCode == 0;
       final serviceRunning =
-          ping.exitCode == 0 &&
-          ping.stdout.toString().trim().toUpperCase() == 'PONG';
+          ready.exitCode == 0 &&
+          (expectedReadinessOutput == null ||
+              ready.stdout.toString().trim().toUpperCase() ==
+                  expectedReadinessOutput.toUpperCase());
       final versionResult = cliAvailable
-          ? await _shellRun('redis-cli --version')
+          ? await _shellRun(versionCommand)
           : null;
       final version = versionResult == null || versionResult.exitCode != 0
           ? null
           : _extractLooseVersion(versionResult.stdout.toString());
+      if (!serviceRunning) {
+        return fallback.copyWith(
+          installedVersion: version,
+          installPath: cliAvailable
+              ? extractPluginAbsolutePath(cli.stdout.toString())
+              : null,
+          metadata: <String, Object?>{
+            ...fallback.metadata,
+            'runtime_managed': true,
+            'docker_daemon_running': dockerDaemonRunning,
+            'cli_available': cliAvailable,
+            'service_running': false,
+          },
+        );
+      }
       return PluginInfo(
-        id: PluginCatalogIds.redis,
-        name: 'Redis',
-        description: '内存数据存储服务，供 AI 暴露面扫描执行缓存与任务队列',
-        status: serviceRunning
-            ? PluginStatus.installed
-            : cliAvailable
-            ? PluginStatus.error
-            : PluginStatus.notInstalled,
+        id: id,
+        name: name,
+        description: description,
+        status: PluginStatus.error,
         installedVersion: version,
         installPath: cliAvailable
             ? extractPluginAbsolutePath(cli.stdout.toString())
@@ -1240,18 +1372,18 @@ class PluginScannerService {
         supportsInstall: false,
         metadata: <String, Object?>{
           'external_service': true,
+          'runtime_managed': false,
+          'docker_daemon_running': dockerDaemonRunning,
           'cli_available': cliAvailable,
-          'service_running': serviceRunning,
-          'endpoint': 'redis://127.0.0.1:6379',
+          'service_running': true,
+          'endpoint': endpoint,
         },
-        errorMessage: cliAvailable && !serviceRunning
-            ? '已检测到 Redis 客户端，但本机 6379 端口服务未就绪。'
-            : null,
+        errorMessage: '检测到外部 $name 服务，OpenHand 不会接管或卸载该实例。',
       );
     } catch (error, stack) {
-      silentLog('plugin_scanner', '扫描 Redis', error, stack);
+      silentLog('plugin_scanner', '扫描 $name', error, stack);
     }
-    return _redisNotInstalled;
+    return fallback;
   }
 
   static String _formatDockerPorts(Object? value) {
@@ -1283,13 +1415,16 @@ class PluginScannerService {
     return '$name ($maximumRetryCount)';
   }
 
-  static String _extractHostDataDirectory(Object? mounts) {
+  static String _extractHostDataDirectory(
+    Object? mounts, {
+    String destination = '/qdrant/storage',
+  }) {
     if (mounts is! List) return '';
     for (final mount in mounts) {
       if (mount is! Map) continue;
       final mountMap = stringKeyedMapFromValue(mount);
-      final destination = '${mountMap['Destination'] ?? ''}'.trim();
-      if (destination == '/qdrant/storage') {
+      final mountDestination = '${mountMap['Destination'] ?? ''}'.trim();
+      if (mountDestination == destination) {
         return '${mountMap['Source'] ?? ''}'.trim();
       }
     }
@@ -1424,7 +1559,11 @@ class PluginScannerService {
     name: 'Docker',
     description: '容器运行环境，用于运行 Qdrant 本地向量数据库服务',
     status: PluginStatus.notInstalled,
-    dependents: <String>[PluginCatalogIds.qdrant],
+    dependents: <String>[
+      PluginCatalogIds.qdrant,
+      PluginCatalogIds.postgresql,
+      PluginCatalogIds.redis,
+    ],
   );
 
   static const _qdrantNotInstalled = PluginInfo(
@@ -1440,11 +1579,13 @@ class PluginScannerService {
     name: 'PostgreSQL',
     description: '关系型数据库服务，供 AI 暴露面扫描保存任务与审计数据',
     status: PluginStatus.notInstalled,
-    supportsUninstall: false,
-    supportsInstall: false,
+    dependencies: <String>[PluginCatalogIds.docker],
     metadata: <String, Object?>{
-      'external_service': true,
-      'endpoint': 'postgresql://127.0.0.1:5432',
+      'runtime_managed': true,
+      'endpoint': ManagedServiceDefaults.postgresqlEndpoint,
+      'container_name': ManagedServiceDefaults.postgresqlContainerName,
+      'image': ManagedServiceDefaults.postgresqlImage,
+      'ports': '127.0.0.1:${ManagedServiceDefaults.postgresqlPort}',
     },
   );
 
@@ -1453,11 +1594,13 @@ class PluginScannerService {
     name: 'Redis',
     description: '内存数据存储服务，供 AI 暴露面扫描执行缓存与任务队列',
     status: PluginStatus.notInstalled,
-    supportsUninstall: false,
-    supportsInstall: false,
+    dependencies: <String>[PluginCatalogIds.docker],
     metadata: <String, Object?>{
-      'external_service': true,
-      'endpoint': 'redis://127.0.0.1:6379',
+      'runtime_managed': true,
+      'endpoint': ManagedServiceDefaults.redisEndpoint,
+      'container_name': ManagedServiceDefaults.redisContainerName,
+      'image': ManagedServiceDefaults.redisImage,
+      'ports': '127.0.0.1:${ManagedServiceDefaults.redisPort}',
     },
   );
 

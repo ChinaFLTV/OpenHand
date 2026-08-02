@@ -1,3 +1,4 @@
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -17,7 +18,7 @@ void main() {
       await controller.shutdown();
       await tester.binding.setSurfaceSize(null);
     });
-    await tester.binding.setSurfaceSize(const Size(1440, 1000));
+    await tester.binding.setSurfaceSize(const Size(1800, 1000));
     await _pumpDialogHarness(
       tester,
       controller: controller,
@@ -49,6 +50,50 @@ void main() {
     expect(tester.takeException(), isNull);
   });
 
+  testWidgets('代理延迟趋势悬浮展示完整探测信息', (tester) async {
+    final controller = ServicesController(
+      initialPreferences: _preferencesWithProxy(),
+    );
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await controller.shutdown();
+      await tester.binding.setSurfaceSize(null);
+    });
+    await tester.binding.setSurfaceSize(const Size(1440, 1000));
+    await _pumpDialogHarness(
+      tester,
+      controller: controller,
+      onOpen: showAiExposureProxyDialog,
+    );
+
+    final chart = find.byWidgetPredicate(
+      (widget) =>
+          widget is MouseRegion && widget.cursor == SystemMouseCursors.precise,
+    );
+    await tester.scrollUntilVisible(
+      chart,
+      360,
+      scrollable: find
+          .descendant(
+            of: find.byType(CustomScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    final mouseRegion = tester.widget<MouseRegion>(chart);
+    mouseRegion.onHover!(const PointerHoverEvent(position: Offset(95, 35)));
+    await tester.pumpAndSettle();
+
+    expect(find.text('2026-08-02 12:00:00'), findsOneWidget);
+    expect(find.text('86 ms'), findsNWidgets(2));
+    expect(find.text('HTTP 204'), findsOneWidget);
+    expect(find.text('1/1'), findsOneWidget);
+
+    mouseRegion.onExit!(const PointerExitEvent());
+    await tester.pumpAndSettle();
+    expect(find.text('2026-08-02 12:00:00'), findsNothing);
+  });
+
   testWidgets('服务运维弹窗适配宽窄视口', (tester) async {
     final controller = ServicesController();
     addTearDown(() async {
@@ -65,10 +110,17 @@ void main() {
 
     expect(find.text('AI 基础设施扫描服务运维'), findsOneWidget);
     expect(tester.takeException(), isNull);
-    for (final tab in const <String>['任务管线', '数据源', '安全与依赖', '运维总览']) {
-      await tester.tap(find.text(tab));
+    for (final tab in const <String>[
+      '任务管线',
+      '数据源',
+      '网络遥测',
+      '存储与持久化',
+      '安全与依赖',
+      '运维总览',
+    ]) {
+      await tester.tap(find.text(tab), warnIfMissed: false);
       await tester.pumpAndSettle();
-      expect(tester.takeException(), isNull);
+      expect(tester.takeException(), isNull, reason: '切换到 $tab 后不应溢出');
     }
     await tester.binding.setSurfaceSize(const Size(480, 760));
     await tester.pumpAndSettle();

@@ -42,6 +42,8 @@ void main() {
       defaultGptAssisted: defaults.defaultGptAssisted,
       useBundledEngine: defaults.useBundledEngine,
       externalAddress: defaults.externalAddress,
+      postgresqlEnabled: true,
+      redisEnabled: true,
       proxyConfiguration: defaults.proxyConfiguration.copyWith(
         endpoints: <AiExposureProxyEndpoint>[endpoint],
       ),
@@ -71,6 +73,8 @@ void main() {
 
     final store = AiExposurePreferencesStore();
     final migrated = await store.load();
+    expect(migrated.postgresqlEnabled, isTrue);
+    expect(migrated.redisEnabled, isTrue);
     expect(migrated.proxyConfiguration.endpoints.single.statistics.requests, 9);
     expect(
       await DatabaseService.instance.database.query(
@@ -87,11 +91,15 @@ void main() {
       whereArgs: const <Object?>['ai_exposure_preferences_v1'],
     );
     final encodedPreferences = jsonDecode(settings.single['value'] as String);
+    expect(encodedPreferences['postgresqlEnabled'], isTrue);
+    expect(encodedPreferences['redisEnabled'], isTrue);
     final encodedEndpoint =
         (encodedPreferences['proxy']['endpoints'] as List).single as Map;
     expect(encodedEndpoint.containsKey('statistics'), isFalse);
 
     final loaded = await store.load();
+    expect(loaded.postgresqlEnabled, isTrue);
+    expect(loaded.redisEnabled, isTrue);
     expect(loaded.proxyConfiguration.endpoints.single.statistics.requests, 9);
     expect(loaded.proxyConfiguration.endpoints.single.statistics.successes, 6);
 
