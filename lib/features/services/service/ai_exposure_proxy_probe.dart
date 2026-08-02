@@ -12,6 +12,8 @@ const String _kProxyProbeTarget =
     'http://connectivitycheck.gstatic.com/generate_204';
 const String _kProxyIdentityTarget =
     'http://ip-api.com/json/?fields=status,message,query,continent,country,countryCode,regionName,city,district,zip,lat,lon,timezone,currency,isp,org,as,asname,mobile,proxy,hosting';
+const List<int> _kHttpLineBreak = <int>[0x0d, 0x0a];
+const List<int> _kHttpHeaderBreak = <int>[0x0d, 0x0a, 0x0d, 0x0a];
 
 class AiExposureProxyProbe {
   const AiExposureProxyProbe();
@@ -118,10 +120,13 @@ class AiExposureProxyProbe {
             return buffer;
           })
           .timeout(_kProxyProbeTimeout);
-      final raw = utf8.decode(response.takeBytes());
-      final headerEnd = raw.indexOf('\r\n\r\n');
+      final raw = response.takeBytes();
+      final headerEnd = _indexOfBytes(raw, _kHttpHeaderBreak);
       if (headerEnd < 0) throw const FormatException('代理身份响应格式无效');
-      final header = raw.substring(0, headerEnd);
+      final header = ascii.decode(
+        Uint8List.sublistView(raw, 0, headerEnd),
+        allowInvalid: true,
+      );
       final status = int.tryParse(
         RegExp(r'^HTTP/\d(?:\.\d)?\s+(\d{3})\b').firstMatch(header)?.group(1) ??
             '',
@@ -130,10 +135,14 @@ class AiExposureProxyProbe {
       if (status == null || status < 200 || status >= 300) {
         throw FormatException('代理身份查询返回 HTTP ${status ?? '--'}');
       }
+      final encodedBody = Uint8List.sublistView(
+        raw,
+        headerEnd + _kHttpHeaderBreak.length,
+      );
       final body = header.toLowerCase().contains('transfer-encoding: chunked')
-          ? _decodeChunkedBody(raw.substring(headerEnd + 4))
-          : raw.substring(headerEnd + 4);
-      final decoded = jsonDecode(body);
+          ? _decodeChunkedBody(encodedBody)
+          : encodedBody;
+      final decoded = jsonDecode(utf8.decode(body));
       if (decoded is! Map || decoded['status'] != 'success') {
         throw FormatException(
           '${decoded is Map ? decoded['message'] : ''}'.trim().isEmpty
@@ -187,6 +196,8 @@ class AiExposureProxyProbe {
       );
     } on TimeoutException {
       throw const FormatException('代理身份查询超时');
+    } on HandshakeException {
+      throw const FormatException('HTTPS 代理握手失败');
     } on SocketException {
       throw const FormatException('无法连接代理节点');
     } finally {
@@ -207,25 +218,54 @@ String _requestHead(Uri proxy, {String target = _kProxyProbeTarget}) {
       '\r\n';
 }
 
-String _decodeChunkedBody(String source) {
-  final output = StringBuffer();
+Uint8List _decodeChunkedBody(Uint8List source) {
+  final output = BytesBuilder(copy: false);
   var offset = 0;
   while (offset < source.length) {
-    final lineEnd = source.indexOf('\r\n', offset);
+    final lineEnd = _indexOfBytes(source, _kHttpLineBreak, offset);
     if (lineEnd < 0) throw const FormatException('代理身份分块响应无效');
     final size = int.tryParse(
-      source.substring(offset, lineEnd).split(';').first.trim(),
+      ascii
+          .decode(
+            Uint8List.sublistView(source, offset, lineEnd),
+            allowInvalid: true,
+          )
+          .split(';')
+          .first
+          .trim(),
       radix: 16,
     );
-    if (size == null) throw const FormatException('代理身份分块响应无效');
-    if (size == 0) break;
-    final start = lineEnd + 2;
+    if (size == null || size < 0) {
+      throw const FormatException('代理身份分块响应无效');
+    }
+    if (size == 0) return output.takeBytes();
+    final start = lineEnd + _kHttpLineBreak.length;
     final end = start + size;
-    if (end > source.length) throw const FormatException('代理身份响应不完整');
-    output.write(source.substring(start, end));
-    offset = end + 2;
+    if (end + _kHttpLineBreak.length > source.length ||
+        source[end] != _kHttpLineBreak[0] ||
+        source[end + 1] != _kHttpLineBreak[1]) {
+      throw const FormatException('代理身份响应不完整');
+    }
+    output.add(Uint8List.sublistView(source, start, end));
+    offset = end + _kHttpLineBreak.length;
   }
-  return output.toString();
+  throw const FormatException('代理身份响应不完整');
+}
+
+int _indexOfBytes(Uint8List source, List<int> pattern, [int start = 0]) {
+  if (pattern.isEmpty || start < 0) return -1;
+  final lastStart = source.length - pattern.length;
+  for (var index = start; index <= lastStart; index++) {
+    var matched = true;
+    for (var patternIndex = 0; patternIndex < pattern.length; patternIndex++) {
+      if (source[index + patternIndex] != pattern[patternIndex]) {
+        matched = false;
+        break;
+      }
+    }
+    if (matched) return index;
+  }
+  return -1;
 }
 
 String? _proxyAuthorization(Uri proxy) {

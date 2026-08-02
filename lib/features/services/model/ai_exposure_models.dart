@@ -388,6 +388,39 @@ class AiExposureProxyUsageStatistics {
       completed == 0 ? 0 : (totalResponseTimeMs / completed).round();
   double get successRate => completed == 0 ? 0 : successes / completed;
 
+  bool hasSamePersistedState(AiExposureProxyUsageStatistics other) {
+    if (requests != other.requests ||
+        successes != other.successes ||
+        failures != other.failures ||
+        timeouts != other.timeouts ||
+        totalResponseTimeMs != other.totalResponseTimeMs ||
+        minResponseTimeMs != other.minResponseTimeMs ||
+        maxResponseTimeMs != other.maxResponseTimeMs ||
+        status2xx != other.status2xx ||
+        status3xx != other.status3xx ||
+        status4xx != other.status4xx ||
+        status5xx != other.status5xx ||
+        consecutiveFailures != other.consecutiveFailures ||
+        lastUsedAt != other.lastUsedAt ||
+        lastSuccessAt != other.lastSuccessAt ||
+        lastFailureAt != other.lastFailureAt ||
+        lastError != other.lastError ||
+        recentRequests.length != other.recentRequests.length) {
+      return false;
+    }
+    for (var index = 0; index < recentRequests.length; index++) {
+      final current = recentRequests[index];
+      final next = other.recentRequests[index];
+      if (current.at != next.at ||
+          current.result != next.result ||
+          current.responseTimeMs != next.responseTimeMs ||
+          current.statusCode != next.statusCode) {
+        return false;
+      }
+    }
+    return true;
+  }
+
   Map<String, Object?> toJson() => <String, Object?>{
     'requests': requests,
     'successes': successes,

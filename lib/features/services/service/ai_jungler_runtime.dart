@@ -13,6 +13,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/async_concurrency.dart';
 import 'ai_jungler_client.dart';
 
 const Duration _kAiJunglerLaunchTimeout = Duration(seconds: 10);
@@ -85,6 +86,7 @@ class AiJunglerRuntime {
           .transform(const LineSplitter())
           .listen(
             (line) {
+              if (_disposed || generation != _generation) return;
               if (!ready.isCompleted) {
                 final parsed = _parseReadyLine(line);
                 if (parsed != null) {
@@ -95,6 +97,7 @@ class AiJunglerRuntime {
               if (line.trim().isNotEmpty) _logs.add(line);
             },
             onError: (Object error, StackTrace stack) {
+              if (_disposed || generation != _generation) return;
               if (!ready.isCompleted) ready.completeError(error, stack);
               silentLog('ai_jungler_runtime', '读取扫描引擎标准输出', error, stack);
             },
@@ -104,9 +107,11 @@ class AiJunglerRuntime {
           .transform(const LineSplitter())
           .listen(
             (line) {
+              if (_disposed || generation != _generation) return;
               if (line.trim().isNotEmpty) _logs.add(line);
             },
             onError: (Object error, StackTrace stack) {
+              if (_disposed || generation != _generation) return;
               silentLog('ai_jungler_runtime', '读取扫描引擎错误输出', error, stack);
             },
           );
@@ -235,10 +240,22 @@ class AiJunglerRuntime {
   }
 
   Future<void> _cancelSubscriptions() async {
-    await _stdoutSubscription?.cancel();
-    await _stderrSubscription?.cancel();
+    final stdoutSubscription = _stdoutSubscription;
+    final stderrSubscription = _stderrSubscription;
     _stdoutSubscription = null;
     _stderrSubscription = null;
+    await Future.wait<bool>(<Future<bool>>[
+      cancelStreamSubscriptionBounded<String>(
+        stdoutSubscription,
+        onError: (error, stack) =>
+            silentLog('ai_jungler_runtime', '取消扫描引擎标准输出订阅', error, stack),
+      ),
+      cancelStreamSubscriptionBounded<String>(
+        stderrSubscription,
+        onError: (error, stack) =>
+            silentLog('ai_jungler_runtime', '取消扫描引擎错误输出订阅', error, stack),
+      ),
+    ]);
   }
 
   Future<String> _resolveExecutable() async {

@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../../../shared/util/async_concurrency.dart';
 import '../model/ai_exposure_models.dart';
 
 const Duration _kAiJunglerRequestTimeout = Duration(seconds: 15);
@@ -291,7 +292,7 @@ Future<String> _readUtf8Response(
   required int maxBytes,
 }) async {
   if (response.contentLength > maxBytes) {
-    await response.listen((_) {}).cancel();
+    await cancelStreamSubscriptionBounded<List<int>>(response.listen((_) {}));
     throw AiJunglerApiException(
       '扫描引擎响应超过 $maxBytes 字节限制。',
       statusCode: response.statusCode,

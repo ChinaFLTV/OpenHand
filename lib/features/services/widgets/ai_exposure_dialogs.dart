@@ -1095,12 +1095,23 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
     }
     setState(() => _submitting = true);
     final controller = context.read<ServicesController>();
-    await controller.updateScanPreferences(
+    final preferencesUpdated = await controller.updateScanPreferences(
       enabledSources: _sources,
       concurrency: _concurrency.round(),
       validationMode: _validationMode,
       gptAssisted: _gptAssisted,
     );
+    if (!preferencesUpdated) {
+      if (mounted) {
+        setState(() => _submitting = false);
+        showOpenHandErrorSnack(
+          context,
+          controller.errorMessage ??
+              text(zh: '保存扫描参数失败。', en: 'Failed to save scan settings.'),
+        );
+      }
+      return;
+    }
     await controller.startScan(
       AiExposureScanRequest(
         name: _name.text.trim(),
@@ -1541,12 +1552,22 @@ class _ToolsDialogState extends State<_ToolsDialog> {
   Future<void> _save() async {
     setState(() => _saving = true);
     final controller = context.read<ServicesController>();
-    await controller.updateScanPreferences(
+    final preferencesUpdated = await controller.updateScanPreferences(
       enabledSources: _enabledSources,
       concurrency: controller.defaultConcurrency,
       validationMode: controller.defaultValidationMode,
       gptAssisted: controller.defaultGptAssisted,
     );
+    if (!preferencesUpdated) {
+      if (mounted) {
+        setState(() => _saving = false);
+        showOpenHandErrorSnack(
+          context,
+          controller.errorMessage ?? '保存扫描工具设置失败。',
+        );
+      }
+      return;
+    }
     await controller.updateSourceCredentials(
       githubToken: _githubToken.text,
       giteeToken: _giteeToken.text,
@@ -1910,7 +1931,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     final controller = context.read<ServicesController>();
     final pluginController = context.read<PluginServiceController>();
     try {
-      await controller.updateScanPreferences(
+      final scanPreferencesUpdated = await controller.updateScanPreferences(
         enabledSources: controller.enabledSources,
         concurrency: _concurrency.round(),
         validationMode: _activeValidation
@@ -1918,13 +1939,37 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             : AiExposureValidationMode.passive,
         gptAssisted: _gptAssisted,
       );
+      if (!scanPreferencesUpdated) {
+        if (mounted) {
+          showOpenHandErrorSnack(
+            context,
+            controller.errorMessage ??
+                text(zh: '保存扫描参数失败。', en: 'Failed to save scan settings.'),
+          );
+        }
+        return;
+      }
       if (_bundled) {
+        final runtimePreferencesUpdated = await controller
+            .updateRuntimePreferences(
+              useBundledEngine: true,
+              externalAddress: _address.text,
+            );
+        if (!runtimePreferencesUpdated) {
+          if (mounted) {
+            showOpenHandErrorSnack(
+              context,
+              controller.errorMessage ??
+                  text(
+                    zh: '保存扫描运行模式失败。',
+                    en: 'Failed to save scanner runtime mode.',
+                  ),
+            );
+          }
+          return;
+        }
         if (!controller.isRunning || !controller.ownsProcess) {
           if (controller.isRunning) await controller.stopService();
-          await controller.updateRuntimePreferences(
-            useBundledEngine: true,
-            externalAddress: _address.text,
-          );
           await controller.startService();
         }
         if (!controller.isRunning || !controller.ownsProcess) {
@@ -1940,10 +1985,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           }
           return;
         }
-        await controller.updateRuntimePreferences(
-          useBundledEngine: true,
-          externalAddress: _address.text,
-        );
       } else {
         final reconnect =
             !controller.isRunning ||
@@ -1970,10 +2011,24 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             return;
           }
         }
-        await controller.updateRuntimePreferences(
-          useBundledEngine: false,
-          externalAddress: _address.text,
-        );
+        final runtimePreferencesUpdated = await controller
+            .updateRuntimePreferences(
+              useBundledEngine: false,
+              externalAddress: _address.text,
+            );
+        if (!runtimePreferencesUpdated) {
+          if (mounted) {
+            showOpenHandErrorSnack(
+              context,
+              controller.errorMessage ??
+                  text(
+                    zh: '保存扫描运行模式失败。',
+                    en: 'Failed to save scanner runtime mode.',
+                  ),
+            );
+          }
+          return;
+        }
       }
 
       if (_postgresqlEnabled) {
@@ -2060,7 +2115,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       if (!confirmed || !mounted) return;
     }
     setState(() => _dependencyOperationId = pluginId);
-    final success = switch (action) {
+    var success = switch (action) {
       _ManagedDependencyAction.install => await pluginController.installPlugin(
         pluginId,
       ),
@@ -2075,6 +2130,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
         await pluginController.uninstallPlugin(pluginId),
     };
     if (!mounted) return;
+    String? preferenceError;
     if (success &&
         (action == _ManagedDependencyAction.stop ||
             action == _ManagedDependencyAction.uninstall)) {
@@ -2085,19 +2141,34 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           _redisEnabled = false;
         }
       });
-      await context
-          .read<ServicesController>()
+      final servicesController = context.read<ServicesController>();
+      final updated = await servicesController
           .updateManagedDependencyPreferences(
             postgresqlEnabled: _postgresqlEnabled,
             redisEnabled: _redisEnabled,
           );
+      if (!updated) {
+        success = false;
+        preferenceError = servicesController.errorMessage;
+        if (mounted) {
+          setState(() {
+            if (pluginId == PluginCatalogIds.postgresql) {
+              _postgresqlEnabled = true;
+            } else {
+              _redisEnabled = true;
+            }
+          });
+        }
+      }
     }
     if (!mounted) return;
     flashOpenHandSnack(
       context,
       success
           ? '${action.label} ${plugin.name}成功'
-          : pluginController.errorMessage ?? '${action.label} ${plugin.name}失败',
+          : preferenceError ??
+                pluginController.errorMessage ??
+                '${action.label} ${plugin.name}失败',
       kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
     );
     setState(() => _dependencyOperationId = null);

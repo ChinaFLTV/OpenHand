@@ -34,6 +34,10 @@ const double _kProxyEndpointScrollbarGutter = 20;
 const Duration _kProbeResultFlushDelay = Duration(milliseconds: 80);
 const List<int> _kInspectionIntervals = <int>[5, 15, 30, 60, 180, 360];
 const List<int> _kInspectionConcurrencyOptions = <int>[1, 2, 4, 8, 16, 32];
+const XTypeGroup _kProxyJsonFileType = XTypeGroup(
+  label: 'JSON',
+  extensions: <String>['json'],
+);
 
 enum _ProxySort { nameAscending, latencyAscending, latencyDescending }
 
@@ -1431,14 +1435,29 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     }
   }
 
-  Future<void> _exportAll() async {
-    final location = await getSaveLocation(
-      suggestedName: 'openhand-ai-exposure-proxies.json',
-      acceptedTypeGroups: const <XTypeGroup>[
-        XTypeGroup(label: 'JSON', extensions: <String>['json']),
-      ],
-    );
-    if (location == null) return;
+  Future<void> _exportPayload({
+    required String suggestedName,
+    required String payload,
+    required String successMessage,
+  }) async {
+    if (_busy) return;
+    setState(() => _busy = true);
+    try {
+      final location = await getSaveLocation(
+        suggestedName: suggestedName,
+        acceptedTypeGroups: const <XTypeGroup>[_kProxyJsonFileType],
+      );
+      if (location == null) return;
+      await writeFileAtomically(File(location.path), payload);
+      if (mounted) showOpenHandSuccessSnack(context, successMessage);
+    } catch (error) {
+      if (mounted) showOpenHandErrorSnack(context, '导出代理配置失败：$error');
+    } finally {
+      if (mounted) setState(() => _busy = false);
+    }
+  }
+
+  Future<void> _exportAll() {
     final payload = const JsonEncoder.withIndent('  ')
         .convert(<String, Object?>{
           'type': 'openhand_ai_exposure_proxy_pool',
@@ -1454,18 +1473,14 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               .map((endpoint) => endpoint.toJson())
               .toList(growable: false),
         });
-    await writeFileAtomically(File(location.path), payload);
-    if (mounted) showOpenHandSuccessSnack(context, '代理池已导出。');
+    return _exportPayload(
+      suggestedName: 'openhand-ai-exposure-proxies.json',
+      payload: payload,
+      successMessage: '代理池已导出。',
+    );
   }
 
-  Future<void> _exportOne(AiExposureProxyEndpoint endpoint) async {
-    final location = await getSaveLocation(
-      suggestedName: 'openhand-ai-exposure-proxy.json',
-      acceptedTypeGroups: const <XTypeGroup>[
-        XTypeGroup(label: 'JSON', extensions: <String>['json']),
-      ],
-    );
-    if (location == null) return;
+  Future<void> _exportOne(AiExposureProxyEndpoint endpoint) {
     final payload = const JsonEncoder.withIndent('  ').convert(
       <String, Object?>{
         'type': 'openhand_ai_exposure_proxy',
@@ -1473,8 +1488,11 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         ...endpoint.toJson(),
       },
     );
-    await writeFileAtomically(File(location.path), payload);
-    if (mounted) showOpenHandSuccessSnack(context, '代理配置已导出。');
+    return _exportPayload(
+      suggestedName: 'openhand-ai-exposure-proxy.json',
+      payload: payload,
+      successMessage: '代理配置已导出。',
+    );
   }
 
   Future<void> _save() async {

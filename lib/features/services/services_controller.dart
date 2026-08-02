@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../ai/index.dart';
 import '../plugin_service/index.dart';
 import 'data/ai_exposure_preferences_store.dart';
@@ -46,6 +47,7 @@ class ServicesController extends ChangeNotifier {
   StreamSubscription<String>? _runtimeLogSubscription;
   StreamSubscription<int>? _runtimeExitSubscription;
   StreamSubscription<Map<String, Object?>>? _eventSubscription;
+  int _eventSubscriptionGeneration = 0;
   AiExposureServiceLifecycle _lifecycle = AiExposureServiceLifecycle.stopped;
   AiExposureHealth? _health;
   AiExposureProgress? _progress;
@@ -74,7 +76,10 @@ class ServicesController extends ChangeNotifier {
   bool _proxyInspectionBusy = false;
   bool _proxyInspectionRunning = false;
   int _proxyInspectionGeneration = 0;
-  bool _proxyStatisticsSyncing = false;
+  final OpenHandSingleFlight<void> _proxyStatisticsSync =
+      OpenHandSingleFlight<void>();
+  final OpenHandSingleFlight<void> _serviceStatusRefresh =
+      OpenHandSingleFlight<void>();
   final List<AiExposureLogEntry> _logs = <AiExposureLogEntry>[];
   String? _errorMessage;
   bool _busy = false;
@@ -233,11 +238,10 @@ class ServicesController extends ChangeNotifier {
     _lifecycle = AiExposureServiceLifecycle.stopping;
     _notify();
     try {
-      await _syncProxyStatistics();
       _proxyStatisticsTimer?.cancel();
       _proxyStatisticsTimer = null;
-      await _eventSubscription?.cancel();
-      _eventSubscription = null;
+      await _syncProxyStatistics();
+      await _cancelEventSubscription();
       await _runtime.stop();
       _lifecycle = AiExposureServiceLifecycle.stopped;
       _health = null;
@@ -264,8 +268,8 @@ class ServicesController extends ChangeNotifier {
   }
 
   Future<void> refreshData() async {
-    final client = _requireClient();
     try {
+      final client = _requireClient();
       final values = await Future.wait<Object>(<Future<Object>>[
         client.health(),
         client.history(),
@@ -293,28 +297,30 @@ class ServicesController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> refreshServiceStatus() async {
-    final client = _requireClient();
-    try {
-      final values = await Future.wait<Object>(<Future<Object>>[
-        client.health(),
-        client.quotas(),
-        client.sourceStatus(),
-        client.dependencyStatus(),
-        client.proxyStatus(),
-      ]);
-      _health = values[0] as AiExposureHealth;
-      _quotas = values[1] as List<AiExposureQuota>;
-      _sourceStatus = values[2] as Map<String, bool>;
-      _dependencyStatus = values[3] as AiExposureDependencyStatus;
-      _proxyStatus = values[4] as AiExposureProxyStatus;
-      await _mergeProxyStatistics(_proxyStatus!);
-      _errorMessage = null;
-    } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '刷新扫描服务状态', error, stack);
-    }
-    _notify();
+  Future<void> refreshServiceStatus() {
+    return _serviceStatusRefresh.run(() async {
+      try {
+        final client = _requireClient();
+        final values = await Future.wait<Object>(<Future<Object>>[
+          client.health(),
+          client.quotas(),
+          client.sourceStatus(),
+          client.dependencyStatus(),
+          client.proxyStatus(),
+        ]);
+        _health = values[0] as AiExposureHealth;
+        _quotas = values[1] as List<AiExposureQuota>;
+        _sourceStatus = values[2] as Map<String, bool>;
+        _dependencyStatus = values[3] as AiExposureDependencyStatus;
+        _proxyStatus = values[4] as AiExposureProxyStatus;
+        await _mergeProxyStatistics(_proxyStatus!);
+        _errorMessage = null;
+      } catch (error, stack) {
+        _errorMessage = '$error';
+        silentLog('services_controller', '刷新扫描服务状态', error, stack);
+      }
+      _notify();
+    });
   }
 
   Future<void> startScan(AiExposureScanRequest request) async {
@@ -450,6 +456,9 @@ class ServicesController extends ChangeNotifier {
     AiExposureProxyConfiguration configuration, {
     required String logMessage,
   }) async {
+    final previousConfiguration = _proxyConfiguration;
+    final previousStatus = _proxyStatus;
+    AiJunglerClient? updatedClient;
     try {
       if (configuration.endpoints.length > 10000) {
         throw const FormatException('代理池最多支持 10000 个代理。');
@@ -461,15 +470,27 @@ class ServicesController extends ChangeNotifier {
       final client = _client;
       if (client != null) {
         await client.updateProxy(configuration);
+        updatedClient = client;
         _proxyStatus = await client.proxyStatus();
       }
       _proxyConfiguration = configuration;
       if (_proxyStatus != null) {
         await _mergeProxyStatistics(_proxyStatus!);
       }
+      if (!await _persistPreferences()) {
+        final restored = await _restoreProxyConfiguration(
+          previousConfiguration,
+          previousStatus,
+          updatedClient,
+        );
+        if (!restored) {
+          _errorMessage = '${_errorMessage ?? '保存代理设置失败。'}；运行时配置恢复失败，请重启扫描服务。';
+        }
+        _notify();
+        return false;
+      }
       _scheduleProxyInspection();
       _scheduleProxyStatisticsSync();
-      await _persistPreferences();
       _errorMessage = null;
       _appendLog(
         AiExposureLogEntry(
@@ -481,9 +502,33 @@ class ServicesController extends ChangeNotifier {
       _notify();
       return true;
     } catch (error, stack) {
-      _errorMessage = '$error';
+      final restored = await _restoreProxyConfiguration(
+        previousConfiguration,
+        previousStatus,
+        updatedClient,
+      );
+      _errorMessage = restored ? '$error' : '$error；运行时配置恢复失败，请重启扫描服务。';
       silentLog('services_controller', '更新扫描网络代理', error, stack);
       _notify();
+      return false;
+    }
+  }
+
+  Future<bool> _restoreProxyConfiguration(
+    AiExposureProxyConfiguration configuration,
+    AiExposureProxyStatus? status,
+    AiJunglerClient? updatedClient,
+  ) async {
+    _proxyConfiguration = configuration;
+    _proxyStatus = status;
+    _scheduleProxyInspection();
+    _scheduleProxyStatisticsSync();
+    if (updatedClient == null) return true;
+    try {
+      await updatedClient.updateProxy(configuration);
+      return true;
+    } catch (error, stack) {
+      silentLog('services_controller', '恢复扫描网络代理', error, stack);
       return false;
     }
   }
@@ -610,18 +655,18 @@ class ServicesController extends ChangeNotifier {
   }
 
   Future<void> _syncProxyStatistics({bool notify = false}) async {
-    if (_proxyStatisticsSyncing || _client == null || _disposed) return;
-    _proxyStatisticsSyncing = true;
-    try {
-      final status = await _client!.proxyStatus();
-      final changed = await _mergeProxyStatistics(status);
-      _proxyStatus = status;
-      if (notify && changed) _notify();
-    } catch (error, stack) {
-      silentLog('services_controller', '同步代理使用统计', error, stack);
-    } finally {
-      _proxyStatisticsSyncing = false;
-    }
+    final client = _client;
+    if (client == null || _disposed) return;
+    await _proxyStatisticsSync.run(() async {
+      try {
+        final status = await client.proxyStatus();
+        final changed = await _mergeProxyStatistics(status);
+        _proxyStatus = status;
+        if (notify && changed) _notify();
+      } catch (error, stack) {
+        silentLog('services_controller', '同步代理使用统计', error, stack);
+      }
+    });
   }
 
   Future<bool> _mergeProxyStatistics(AiExposureProxyStatus status) async {
@@ -637,24 +682,7 @@ class ServicesController extends ChangeNotifier {
           if (runtime == null) return endpoint;
           final current = endpoint.statistics;
           final next = runtime.statistics;
-          final statisticsChanged =
-              current.requests != next.requests ||
-              current.successes != next.successes ||
-              current.failures != next.failures ||
-              current.timeouts != next.timeouts ||
-              current.totalResponseTimeMs != next.totalResponseTimeMs ||
-              current.minResponseTimeMs != next.minResponseTimeMs ||
-              current.maxResponseTimeMs != next.maxResponseTimeMs ||
-              current.status2xx != next.status2xx ||
-              current.status3xx != next.status3xx ||
-              current.status4xx != next.status4xx ||
-              current.status5xx != next.status5xx ||
-              current.consecutiveFailures != next.consecutiveFailures ||
-              current.lastUsedAt != next.lastUsedAt ||
-              current.lastSuccessAt != next.lastSuccessAt ||
-              current.lastFailureAt != next.lastFailureAt ||
-              current.lastError != next.lastError ||
-              current.recentRequests.length != next.recentRequests.length;
+          final statisticsChanged = !current.hasSamePersistedState(next);
           final updated = endpoint.copyWith(statistics: next);
           if (statisticsChanged) {
             changed = true;
@@ -764,9 +792,16 @@ class ServicesController extends ChangeNotifier {
     required bool postgresqlEnabled,
     required bool redisEnabled,
   }) async {
+    final previousPostgresqlEnabled = _postgresqlEnabled;
+    final previousRedisEnabled = _redisEnabled;
     _postgresqlEnabled = postgresqlEnabled;
     _redisEnabled = redisEnabled;
-    await _persistPreferences();
+    if (!await _persistPreferences()) {
+      _postgresqlEnabled = previousPostgresqlEnabled;
+      _redisEnabled = previousRedisEnabled;
+      _notify();
+      return false;
+    }
     final updated = await _syncManagedDependencies();
     _notify();
     return updated;
@@ -805,31 +840,53 @@ class ServicesController extends ChangeNotifier {
     }
   }
 
-  Future<void> updateScanPreferences({
+  Future<bool> updateScanPreferences({
     required Set<AiExposureSource> enabledSources,
     required int concurrency,
     required AiExposureValidationMode validationMode,
     bool? gptAssisted,
   }) async {
+    final previousSources = _enabledSources;
+    final previousConcurrency = _defaultConcurrency;
+    final previousValidationMode = _defaultValidationMode;
+    final previousGptAssisted = _defaultGptAssisted;
     _enabledSources = enabledSources.isEmpty
         ? <AiExposureSource>{AiExposureSource.manual}
         : Set<AiExposureSource>.of(enabledSources);
     _defaultConcurrency = concurrency.clamp(1, 128);
     _defaultValidationMode = validationMode;
     if (gptAssisted != null) _defaultGptAssisted = gptAssisted;
-    await _persistPreferences();
+    if (!await _persistPreferences()) {
+      _enabledSources = previousSources;
+      _defaultConcurrency = previousConcurrency;
+      _defaultValidationMode = previousValidationMode;
+      _defaultGptAssisted = previousGptAssisted;
+      _notify();
+      return false;
+    }
+    _errorMessage = null;
     _notify();
+    return true;
   }
 
-  Future<void> updateRuntimePreferences({
+  Future<bool> updateRuntimePreferences({
     required bool useBundledEngine,
     required String externalAddress,
   }) async {
+    final previousUseBundledEngine = _useBundledEngine;
+    final previousExternalAddress = _externalAddress;
     _useBundledEngine = useBundledEngine;
     final normalizedAddress = externalAddress.trim();
     if (normalizedAddress.isNotEmpty) _externalAddress = normalizedAddress;
-    await _persistPreferences();
+    if (!await _persistPreferences()) {
+      _useBundledEngine = previousUseBundledEngine;
+      _externalAddress = previousExternalAddress;
+      _notify();
+      return false;
+    }
+    _errorMessage = null;
     _notify();
+    return true;
   }
 
   Future<List<AiExposureLogEntry>> loadHistoryLogs(String jobId) async {
@@ -850,17 +907,27 @@ class ServicesController extends ChangeNotifier {
   }
 
   Future<void> _watchJob(String jobId) async {
-    await _eventSubscription?.cancel();
+    await _cancelEventSubscription();
+    final generation = ++_eventSubscriptionGeneration;
     _eventSubscription = _requireClient()
         .events(jobId)
         .listen(
-          (event) => _handleEvent(jobId, event),
+          (event) {
+            if (!_disposed && generation == _eventSubscriptionGeneration) {
+              _handleEvent(jobId, event);
+            }
+          },
           onError: (Object error, StackTrace stack) {
+            if (_disposed || generation != _eventSubscriptionGeneration) return;
             _errorMessage = '$error';
             silentLog('services_controller', '接收扫描实时事件', error, stack);
             _notify();
           },
-          onDone: () => unawaited(_handleEventStreamDone(jobId)),
+          onDone: () {
+            if (!_disposed && generation == _eventSubscriptionGeneration) {
+              unawaited(_handleEventStreamDone(jobId));
+            }
+          },
           cancelOnError: false,
         );
   }
@@ -872,7 +939,7 @@ class ServicesController extends ChangeNotifier {
           aiExposureJsonMap(event['progress']),
         );
         if (!(_progress?.isRunning ?? false)) {
-          unawaited(_refreshHistoryAndResults());
+          unawaited(_refreshHistoryAndResultsSafely());
         }
       case 'result':
         final result = AiExposureResult.fromJson(
@@ -917,6 +984,17 @@ class ServicesController extends ChangeNotifier {
     ]);
     _history = values[0] as List<AiExposureHistoryEntry>;
     _results = values[1] as List<AiExposureResult>;
+  }
+
+  Future<void> _refreshHistoryAndResultsSafely() async {
+    try {
+      await _refreshHistoryAndResults();
+    } catch (error, stack) {
+      if (_disposed) return;
+      _errorMessage = '$error';
+      silentLog('services_controller', '刷新扫描历史与结果', error, stack);
+      _notify();
+    }
   }
 
   void _appendRuntimeLog(String message) {
@@ -985,7 +1063,7 @@ class ServicesController extends ChangeNotifier {
     _aiExtractorStatus = await _requireClient().aiExtractorStatus();
   }
 
-  Future<void> _persistPreferences() async {
+  Future<bool> _persistPreferences() async {
     try {
       await _preferencesStore.save(
         AiExposurePreferences(
@@ -1000,21 +1078,34 @@ class ServicesController extends ChangeNotifier {
           proxyConfiguration: _proxyConfiguration,
         ),
       );
+      return true;
     } catch (error, stack) {
       _errorMessage = '$error';
       silentLog('services_controller', '保存扫描服务设置', error, stack);
+      return false;
     }
+  }
+
+  Future<void> _cancelEventSubscription() async {
+    _eventSubscriptionGeneration++;
+    final subscription = _eventSubscription;
+    _eventSubscription = null;
+    await cancelStreamSubscriptionBounded<Map<String, Object?>>(
+      subscription,
+      onError: (error, stack) =>
+          silentLog('services_controller', '取消扫描实时事件订阅', error, stack),
+    );
   }
 
   Future<void> shutdown() async {
     if (_disposed) return;
-    await _syncProxyStatistics();
-    _disposed = true;
     _proxyInspectionGeneration++;
     _proxyInspectionTimer?.cancel();
     _proxyInspectionTimer = null;
     _proxyStatisticsTimer?.cancel();
     _proxyStatisticsTimer = null;
+    await _syncProxyStatistics();
+    _disposed = true;
     final pluginController = _pluginServiceController;
     final pluginListener = _pluginOperationListener;
     if (pluginController != null && pluginListener != null) {
@@ -1022,9 +1113,21 @@ class ServicesController extends ChangeNotifier {
     }
     _pluginOperationListener = null;
     _pluginServiceController = null;
-    await _eventSubscription?.cancel();
-    await _runtimeLogSubscription?.cancel();
-    await _runtimeExitSubscription?.cancel();
+    await _cancelEventSubscription();
+    await Future.wait<bool>(<Future<bool>>[
+      cancelStreamSubscriptionBounded<String>(
+        _runtimeLogSubscription,
+        onError: (error, stack) =>
+            silentLog('services_controller', '取消扫描运行日志订阅', error, stack),
+      ),
+      cancelStreamSubscriptionBounded<int>(
+        _runtimeExitSubscription,
+        onError: (error, stack) =>
+            silentLog('services_controller', '取消扫描退出事件订阅', error, stack),
+      ),
+    ]);
+    _runtimeLogSubscription = null;
+    _runtimeExitSubscription = null;
     await _runtime.dispose();
     super.dispose();
   }
