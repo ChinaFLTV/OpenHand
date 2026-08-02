@@ -731,6 +731,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     // 避免每次健康检查都重新启动一个完整的 MCP 进程（冷启动可能需要数分钟）。
     final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
     if (processInfo.isRunning && processInfo.pid != null) {
+      // Windows 没有 POSIX `kill -0`；进程管理器会在 exitCode 完成时同步状态。
+      if (Platform.isWindows) return;
       // 验证进程是否仍然存活（发送 signal 0 不会杀死进程，只检查是否存在）
       try {
         final checkResult = await runTrackedProcessOrFailed(
@@ -2301,7 +2303,7 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
 
   final rawCommandField = server.command.trim();
   // 兼容：用户经常把整条命令行（"npx chrome-devtools-mcp@latest"）粘进
-  // "启动命令" 字段，而不是只填可执行文件名。这里 POSIX 风格拆词：第一段
+  // "启动命令" 字段，而不是只填可执行文件名。这里按当前平台拆词：第一段
   // 当作真正的可执行名，剩下的 token 作为 args 前缀拼到用户手填的 args 前。
   // 同时支持单 / 双引号包裹的 token，比如 `"node /path with space/x.js"`。
   final tokens = tokenizeMcpShellCommand(rawCommandField);
@@ -2313,7 +2315,7 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
 
   // 快速路径：对 npx 命令，尝试直接定位已全局安装的包入口脚本用 node 执行。
   // 这避免了 npx 的启动开销和隔离缓存中的下载/兼容性问题。
-  final isNpxCommand = rawCommand == 'npx' || rawCommand.endsWith('/npx');
+  final isNpxCommand = isMcpNpxCommand(rawCommand);
   final packageArgIndex = isNpxCommand ? firstMcpNpxPackageArgIndex(args) : -1;
   if (isNpxCommand && packageArgIndex >= 0 && !Platform.isWindows) {
     final packageName = args[packageArgIndex];

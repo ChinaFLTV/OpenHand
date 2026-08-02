@@ -9,10 +9,10 @@ const int kMcpStdioMaxPendingRequests = 256;
 const int kMcpStdioMaxPendingWrites = 256;
 final RegExp _mcpShellWhitespacePattern = RegExp(r'\s');
 
-List<String> tokenizeMcpShellCommand(String input) {
+List<String> tokenizeMcpShellCommand(String input, {bool? isWindows}) {
   final trimmed = input.trim();
   if (trimmed.isEmpty) return const <String>[];
-  if (!trimmed.contains(_mcpShellWhitespacePattern)) return <String>[trimmed];
+  final useWindowsRules = isWindows ?? Platform.isWindows;
   final tokens = <String>[];
   final buffer = StringBuffer();
   var inSingle = false;
@@ -20,7 +20,8 @@ List<String> tokenizeMcpShellCommand(String input) {
   var hasContent = false;
   for (var index = 0; index < trimmed.length; index++) {
     final character = trimmed[index];
-    if (!inSingle &&
+    if (!useWindowsRules &&
+        !inSingle &&
         !inDouble &&
         character == '\\' &&
         index + 1 < trimmed.length) {
@@ -54,6 +55,22 @@ List<String> tokenizeMcpShellCommand(String input) {
   if (inSingle || inDouble) return <String>[trimmed];
   if (hasContent) tokens.add(buffer.toString());
   return tokens.isEmpty ? <String>[trimmed] : tokens;
+}
+
+bool isMcpNpxCommand(String executable) {
+  final fileName = executable
+      .trim()
+      .replaceAll('\\', '/')
+      .split('/')
+      .last
+      .toLowerCase();
+  return const <String>{
+    'npx',
+    'npx.cmd',
+    'npx.bat',
+    'npx.exe',
+    'npx.ps1',
+  }.contains(fileName);
 }
 
 int firstMcpNpxPackageArgIndex(List<String> args) {

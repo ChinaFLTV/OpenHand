@@ -212,6 +212,7 @@ class McpStdioProcessManager extends ChangeNotifier {
           ...runtimeEnvironment,
           ...server.environment,
         },
+        runInShell: launch.runInShell,
       );
       if (!_isCurrentStart(name, generation)) {
         unawaited(_terminateUnmanagedProcess(process));
@@ -1439,9 +1440,15 @@ String _serverFingerprint(McpServer server) {
 }
 
 class _DirectLaunch {
-  const _DirectLaunch({required this.executable, required this.args});
+  const _DirectLaunch({
+    required this.executable,
+    required this.args,
+    this.runInShell = false,
+  });
+
   final String executable;
   final List<String> args;
+  final bool runInShell;
 }
 
 /// 解析 STDIO MCP 服务的直接启动参数。
@@ -1450,13 +1457,16 @@ class _DirectLaunch {
 /// 兼容用户把整条命令粘进 command 字段的情况（如 "npx chrome-devtools-mcp@latest"）。
 Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
   final command = server.command.trim();
-  // 拆词：兼容 command="npx pkg@latest" 的写法
+  // 拆词：兼容 command="npx pkg@latest" 的写法。
   final tokens = tokenizeMcpShellCommand(command);
+  if (tokens.isEmpty) {
+    throw const FormatException('MCP stdio 启动命令不能为空。');
+  }
   final executable = tokens.first;
   final inlineArgs = tokens.length > 1 ? tokens.sublist(1) : const <String>[];
   final allArgs = [...inlineArgs, ...server.args];
 
-  final isNpx = executable == 'npx' || executable.endsWith('/npx');
+  final isNpx = isMcpNpxCommand(executable);
 
   final packageArgIndex = isNpx ? firstMcpNpxPackageArgIndex(allArgs) : -1;
   if (isNpx && packageArgIndex >= 0) {
@@ -1466,13 +1476,23 @@ Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
         : const <String>[];
 
     // 优先在受支持的本地 Node 版本管理器中定位已安装包。
-    final resolved = await _resolveNpxPackagePath(packageName);
+    final resolved = Platform.isWindows
+        ? null
+        : await _resolveNpxPackagePath(packageName);
     if (resolved != null) {
       return _DirectLaunch(
         executable: resolved.nodeBin,
         args: [resolved.entryScript, ...extraArgs],
       );
     }
+  }
+
+  if (Platform.isWindows) {
+    return _DirectLaunch(
+      executable: executable,
+      args: allArgs,
+      runInShell: true,
+    );
   }
 
   // 回退：通过登录 Shell 执行原始命令。
