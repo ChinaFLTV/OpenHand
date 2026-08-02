@@ -5,7 +5,6 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/oh_pill.dart';
-import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
@@ -642,10 +641,5 @@ Future<void> _handleAction(BuildContext context, _ServiceAction action) async {
       await showAiExposureNewHuntDialog(context, custom: true);
     case _ServiceAction.settings:
       await showAiExposureSettingsDialog(context);
-  }
-  if (!context.mounted) return;
-  final error = context.read<ServicesController>().errorMessage;
-  if (error != null && error.trim().isNotEmpty) {
-    showOpenHandErrorSnack(context, error, maxLines: 4);
   }
 }
