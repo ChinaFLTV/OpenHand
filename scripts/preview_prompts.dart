@@ -7,6 +7,8 @@
 import 'dart:io';
 
 import 'package:openhand/features/ai/service/prompt/ai_prompt_template_assembly.dart';
+import 'package:openhand/shared/util/bounded_delete.dart';
+import 'package:path/path.dart' as p;
 
 List<AiPromptTemplatePolicy> get _templates => AiPromptTemplatePolicies
     .byTemplateId
@@ -58,9 +60,12 @@ String _readOrEmpty(String path) {
   return f.readAsStringSync().trim();
 }
 
-void main() {
-  final outRoot = Directory('build/preview');
-  if (outRoot.existsSync()) outRoot.deleteSync(recursive: true);
+Future<void> main() async {
+  final buildRoot = Directory(p.absolute('build'));
+  final outRoot = Directory(p.join(buildRoot.path, 'preview'));
+  if (outRoot.existsSync()) {
+    await deletePathBounded(outRoot.path, allowedRoot: buildRoot.path);
+  }
   outRoot.createSync(recursive: true);
 
   print('试运行预览输出：${outRoot.absolute.path}');

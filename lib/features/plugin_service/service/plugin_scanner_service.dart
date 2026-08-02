@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
@@ -1432,16 +1433,24 @@ class PluginScannerService {
   }
 
   static String _openHandToolBin(String name) {
-    final home = Platform.environment['HOME'] ?? '';
-    return '$home/.openhand/android_reverse_tools/bin/$name';
+    return p.join(
+      OpenHandPaths.defaultAndroidReverseToolsDirectoryPath(),
+      'bin',
+      name,
+    );
   }
 
   static List<String> _anythingAnalyzerAppCandidates() {
-    final home = Platform.environment['HOME'] ?? '';
+    final toolRoot = OpenHandPaths.defaultAndroidReverseToolsDirectoryPath();
     return <String>[
       '/Applications/Anything Analyzer.app',
-      '$home/Applications/Anything Analyzer.app',
-      '$home/.openhand/android_reverse_tools/anything-analyzer/Anything Analyzer.app',
+      p.join(
+        OpenHandPaths.homeDirectoryPath(),
+        'Applications',
+        'Anything Analyzer.app',
+      ),
+      p.join(toolRoot, 'anything-analyzer', 'current', 'Anything Analyzer.app'),
+      p.join(toolRoot, 'anything-analyzer', 'Anything Analyzer.app'),
     ];
   }
 

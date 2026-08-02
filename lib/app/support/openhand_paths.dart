@@ -63,26 +63,21 @@ abstract final class OpenHandPaths {
     return p.join(defaultRootDirectoryPath(), 'tool_usage_promotion.json');
   }
 
-  /// Root directory used for all OpenHand on-disk artifacts (`~/.openhand`).
-  /// Centralising this path keeps the data-cleanup module aligned with the
-  /// rest of the storage layout and avoids ad-hoc `p.join(home, '.openhand')`
-  /// duplication across features.
+  /// OpenHand 所有磁盘数据的默认根目录（`~/.openhand`）。
   static String defaultRootDirectoryPath() {
     return p.join(homeDirectoryPath(), '.openhand');
   }
 
-  /// Filesystem cache directory used by background workers and best-effort
-  /// scratch space. The directory is created lazily by callers and may be
-  /// absent on a fresh install.
+  static String defaultAndroidReverseToolsDirectoryPath() {
+    return p.join(defaultRootDirectoryPath(), 'android_reverse_tools');
+  }
+
+  /// 后台任务与临时文件共用的缓存目录，由调用方按需创建。
   static String defaultCacheDirectoryPath() {
     return p.join(defaultRootDirectoryPath(), 'cache');
   }
 
-  /// Persistent cache for remote AI media URLs (images / videos / audio).
-  ///
-  /// This is deliberately nested under the app cache root while data-cleanup
-  /// treats it as multimedia data, so users can audit and clear generated media
-  /// cache without wiping unrelated worker caches.
+  /// 远程 AI 图片、视频和音频的持久缓存目录。
   static String defaultMediaCacheDirectoryPath() {
     return p.join(defaultCacheDirectoryPath(), 'media');
   }
@@ -99,8 +94,7 @@ abstract final class OpenHandPaths {
     );
   }
 
-  /// Logs directory used by background workers for opt-in disk logging.
-  /// May be absent on a fresh install.
+  /// 后台任务按需写入的日志目录。
   static String defaultLogsDirectoryPath() {
     return p.join(defaultRootDirectoryPath(), 'logs');
   }

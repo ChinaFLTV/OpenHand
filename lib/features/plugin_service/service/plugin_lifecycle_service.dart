@@ -1,13 +1,19 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+
+import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_delete.dart';
+import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/physical_path_safety.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/version_compare.dart';
 import 'managed_service_defaults.dart';
@@ -1999,11 +2005,67 @@ fi
   }
 
   String _androidReverseToolRoot() {
-    final home = Platform.environment['HOME'] ?? '';
-    return '$home/.openhand/android_reverse_tools';
+    return p.absolute(OpenHandPaths.defaultAndroidReverseToolsDirectoryPath());
   }
 
-  String _androidReverseToolBinDir() => '${_androidReverseToolRoot()}/bin';
+  String _androidReverseToolBinDir() =>
+      p.join(_androidReverseToolRoot(), 'bin');
+
+  Future<void> _prepareAndroidReverseToolDirectories(
+    Iterable<String> directories,
+  ) async {
+    final appRoot = p.absolute(OpenHandPaths.defaultRootDirectoryPath());
+    final toolRoot = _androidReverseToolRoot();
+    await createDirectoryBounded(Directory(appRoot));
+    if (!await isPhysicalPathWithinOrEqual(appRoot, toolRoot)) {
+      throw StateError('Android 逆向工具目录超出 OpenHand 数据根目录。');
+    }
+    await createDirectoryBounded(Directory(toolRoot));
+    if (!await isPhysicalPathWithinOrEqual(appRoot, toolRoot)) {
+      throw StateError('Android 逆向工具目录超出 OpenHand 数据根目录。');
+    }
+
+    for (final directory in directories) {
+      if (!await isPhysicalPathWithinOrEqual(toolRoot, directory)) {
+        throw StateError('Android 逆向工具子目录超出受管目录。');
+      }
+      await createDirectoryBounded(Directory(directory));
+      if (!await isPhysicalPathWithinOrEqual(toolRoot, directory)) {
+        throw StateError('Android 逆向工具子目录超出受管目录。');
+      }
+    }
+  }
+
+  Future<void> _validateAndroidReverseToolFileDestination(String path) async {
+    final toolRoot = _androidReverseToolRoot();
+    final type = await FileSystemEntity.type(
+      path,
+      followLinks: false,
+    ).timeout(_pluginLifecycleProbeTimeout);
+    if (type != FileSystemEntityType.notFound &&
+        type != FileSystemEntityType.file) {
+      throw StateError('Android 逆向工具文件目标类型不安全。');
+    }
+    if (!await isPhysicalPathWithinOrEqual(toolRoot, path)) {
+      throw StateError('Android 逆向工具文件目标超出受管目录。');
+    }
+  }
+
+  PluginOperationResult _androidReversePathFailure({
+    required String label,
+    required String action,
+    required Object error,
+  }) {
+    final detail = switch (error) {
+      TimeoutException() => '工具目录操作超时。',
+      StateError() => error.message,
+      _ => '无法安全访问或清理 OpenHand 托管工具目录。',
+    };
+    return PluginOperationResult(
+      success: false,
+      message: '$label $action失败: $detail',
+    );
+  }
 
   Future<PluginOperationResult> _installOrUpdateGitPythonTool({
     required String label,
@@ -2016,11 +2078,61 @@ fi
     void Function(String line)? onProgress,
   }) async {
     onProgress?.call('正在安装/更新 $label…');
+    if (!await _isExecutableAvailable('git')) {
+      return PluginOperationResult(
+        success: false,
+        message: '$label 安装失败: 未找到 git。',
+      );
+    }
+    if (!await _isExecutableAvailable('python3')) {
+      return PluginOperationResult(
+        success: false,
+        message: '$label 安装失败: 未找到 python3。',
+      );
+    }
     final root = _androidReverseToolRoot();
-    final target = '$root/$directoryName';
+    final target = p.join(root, directoryName);
     final binDir = _androidReverseToolBinDir();
-    final shimPath = '$binDir/$shimName';
-    final entrypointPath = '$target/$entrypoint';
+    final shimPath = p.join(binDir, shimName);
+    final entrypointPath = p.join(target, entrypoint);
+    late final bool updateExisting;
+    try {
+      await _prepareAndroidReverseToolDirectories(<String>[binDir]);
+      await _validateAndroidReverseToolFileDestination(shimPath);
+      final targetType = await FileSystemEntity.type(
+        target,
+        followLinks: false,
+      ).timeout(_pluginLifecycleProbeTimeout);
+      final gitDirectory = p.join(target, '.git');
+      final gitType = targetType == FileSystemEntityType.directory
+          ? await FileSystemEntity.type(
+              gitDirectory,
+              followLinks: false,
+            ).timeout(_pluginLifecycleProbeTimeout)
+          : FileSystemEntityType.notFound;
+      updateExisting =
+          targetType == FileSystemEntityType.directory &&
+          gitType == FileSystemEntityType.directory &&
+          await isPhysicalPathWithinOrEqual(root, target) &&
+          await isPhysicalPathWithinOrEqual(root, gitDirectory);
+      if (!updateExisting && targetType != FileSystemEntityType.notFound) {
+        await deletePathBounded(target, allowedRoot: root);
+      }
+      if (!updateExisting && !await isPhysicalPathWithinOrEqual(root, target)) {
+        throw StateError('Android 逆向工具安装目录超出受管目录。');
+      }
+    } catch (error) {
+      if (error is! FileSystemException &&
+          error is! TimeoutException &&
+          error is! StateError) {
+        rethrow;
+      }
+      return _androidReversePathFailure(
+        label: label,
+        action: '安装',
+        error: error,
+      );
+    }
     final shim =
         '#!/usr/bin/env bash\n'
         'exec python3 ${_pluginShellQuote(entrypointPath)} "\$@"\n';
@@ -2034,19 +2146,16 @@ fi
     final pipStep = pipPackages.isEmpty
         ? ''
         : 'python3 -m pip install --user --upgrade ${pipPackages.map(_pluginShellQuote).join(' ')}';
+    final sourceStep = updateExisting
+        ? 'git -C ${_pluginShellQuote(target)} pull --ff-only'
+        : 'git clone --depth 1 ${_pluginShellQuote(repoUrl)} ${_pluginShellQuote(target)}';
     final script =
         '''
 set -euo pipefail
-if ! command -v git >/dev/null 2>&1; then echo "git not found" >&2; exit 127; fi
-if ! command -v python3 >/dev/null 2>&1; then echo "python3 not found" >&2; exit 127; fi
-mkdir -p ${_pluginShellQuote(binDir)}
+if ! command -v git >/dev/null 2>&1; then echo "未找到 git" >&2; exit 127; fi
+if ! command -v python3 >/dev/null 2>&1; then echo "未找到 python3" >&2; exit 127; fi
 $brewStep
-if [ -d ${_pluginShellQuote(target)}/.git ]; then
-  git -C ${_pluginShellQuote(target)} pull --ff-only
-else
-  rm -rf ${_pluginShellQuote(target)}
-  git clone --depth 1 ${_pluginShellQuote(repoUrl)} ${_pluginShellQuote(target)}
-fi
+$sourceStep
 $pipStep
 printf %s ${_pluginShellQuote(shim)} > ${_pluginShellQuote(shimPath)}
 chmod +x ${_pluginShellQuote(shimPath)}
@@ -2077,26 +2186,38 @@ printf '%s\\n' ${_pluginShellQuote('$label shim: $shimPath')}
     required String shimName,
     void Function(String line)? onProgress,
   }) async {
+    onProgress?.call('正在卸载 $label…');
     final root = _androidReverseToolRoot();
-    final script =
-        '''
-set -euo pipefail
-rm -rf ${_pluginShellQuote('$root/$directoryName')}
-rm -f ${_pluginShellQuote('${_androidReverseToolBinDir()}/$shimName')}
-''';
-    final result = await _runWithProgress(
-      pluginShellExecutable(),
-      ['-c', script],
-      onProgress: onProgress,
-      timeout: const Duration(seconds: 20),
-    );
-    if (result.exitCode == 0) {
+    try {
+      final rootType = await FileSystemEntity.type(
+        root,
+        followLinks: false,
+      ).timeout(_pluginLifecycleProbeTimeout);
+      if (rootType == FileSystemEntityType.notFound) {
+        return PluginOperationResult(success: true, message: '$label 已卸载');
+      }
+      final appRoot = p.absolute(OpenHandPaths.defaultRootDirectoryPath());
+      if (!await isPhysicalPathWithinOrEqual(appRoot, root)) {
+        throw StateError('Android 逆向工具目录超出 OpenHand 数据根目录。');
+      }
+      await deletePathBounded(p.join(root, directoryName), allowedRoot: root);
+      await deletePathBounded(
+        p.join(_androidReverseToolBinDir(), shimName),
+        allowedRoot: root,
+      );
       return PluginOperationResult(success: true, message: '$label 已卸载');
+    } catch (error) {
+      if (error is! FileSystemException &&
+          error is! TimeoutException &&
+          error is! StateError) {
+        rethrow;
+      }
+      return _androidReversePathFailure(
+        label: label,
+        action: '卸载',
+        error: error,
+      );
     }
-    return PluginOperationResult(
-      success: false,
-      message: '$label 卸载失败: ${_processErrorMessage(result)}',
-    );
   }
 
   Future<PluginOperationResult> _installOrUpdateAnythingAnalyzer({
@@ -2104,15 +2225,40 @@ rm -f ${_pluginShellQuote('${_androidReverseToolBinDir()}/$shimName')}
   }) async {
     onProgress?.call('正在下载 Anything Analyzer 最新发布包…');
     final root = _androidReverseToolRoot();
-    final target = '$root/anything-analyzer';
+    final target = p.join(root, 'anything-analyzer');
     final binDir = _androidReverseToolBinDir();
-    final shimPath = '$binDir/anything-analyzer';
+    final shimPath = p.join(binDir, 'anything-analyzer');
+    final current = p.join(target, 'current');
+    late final Directory stagingDirectory;
+    late final String stagingCurrent;
+    try {
+      await _prepareAndroidReverseToolDirectories(<String>[target, binDir]);
+      await _validateAndroidReverseToolFileDestination(shimPath);
+      stagingDirectory = await Directory(root)
+          .createTemp('anything-analyzer-install-')
+          .timeout(_pluginLifecycleProbeTimeout);
+      if (!await isPhysicalPathWithinOrEqual(root, stagingDirectory.path)) {
+        throw StateError('Anything Analyzer 临时安装目录超出受管目录。');
+      }
+      stagingCurrent = p.join(stagingDirectory.path, 'current');
+      await createDirectoryBounded(Directory(stagingCurrent));
+    } catch (error) {
+      if (error is! FileSystemException &&
+          error is! TimeoutException &&
+          error is! StateError) {
+        rethrow;
+      }
+      return _androidReversePathFailure(
+        label: 'Anything Analyzer',
+        action: '安装',
+        error: error,
+      );
+    }
     final script =
         '''
 set -euo pipefail
-if ! command -v curl >/dev/null 2>&1; then echo "curl not found" >&2; exit 127; fi
-if ! command -v python3 >/dev/null 2>&1; then echo "python3 not found" >&2; exit 127; fi
-mkdir -p ${_pluginShellQuote(target)} ${_pluginShellQuote(binDir)}
+if ! command -v curl >/dev/null 2>&1; then echo "未找到 curl" >&2; exit 127; fi
+if ! command -v python3 >/dev/null 2>&1; then echo "未找到 python3" >&2; exit 127; fi
 META="\$(curl -fsSL https://api.github.com/repos/Mouseww/anything-analyzer/releases/latest)"
 ASSET="\$(printf '%s' "\$META" | python3 -c '
 import json, platform, sys
@@ -2137,38 +2283,42 @@ for pattern in patterns:
             raise SystemExit(0)
 raise SystemExit(3)
 ')"
-if [ -z "\$ASSET" ]; then echo "No compatible Anything Analyzer release asset found" >&2; exit 3; fi
+if [ -z "\$ASSET" ]; then echo "未找到兼容的 Anything Analyzer 发布包" >&2; exit 3; fi
 NAME="\${ASSET##*/}"
-PKG="${_pluginShellQuote(target)}/\$NAME"
+PKG="${_pluginShellQuote(stagingDirectory.path)}/\$NAME"
 curl -fL "\$ASSET" -o "\$PKG"
-rm -rf ${_pluginShellQuote(target)}/current
-mkdir -p ${_pluginShellQuote(target)}/current
 case "\$NAME" in
   *.dmg)
-    MOUNT="\$(hdiutil attach -nobrowse -readonly "\$PKG" | awk '/\\/Volumes\\// {for (i=1;i<=NF;i++) if (\$i ~ /^\\/Volumes\\//) {print \$i; exit}}')"
+    MOUNT=${_pluginShellQuote(p.join(stagingDirectory.path, 'mount'))}
+    mkdir -p "\$MOUNT"
+    trap 'hdiutil detach "\$MOUNT" >/dev/null 2>&1 || true; rmdir "\$MOUNT" >/dev/null 2>&1 || true' EXIT
+    hdiutil attach -nobrowse -readonly -mountpoint "\$MOUNT" "\$PKG" >/dev/null
     APP="\$(find "\$MOUNT" -maxdepth 2 -name '*.app' -type d | head -1)"
-    cp -R "\$APP" ${_pluginShellQuote(target)}/current/
+    if [ -z "\$APP" ]; then echo "安装包中未找到 Anything Analyzer 应用" >&2; exit 5; fi
+    cp -R "\$APP" ${_pluginShellQuote(stagingCurrent)}/
     hdiutil detach "\$MOUNT" >/dev/null
+    rmdir "\$MOUNT"
+    trap - EXIT
     ;;
   *.zip)
-    if ! command -v unzip >/dev/null 2>&1; then echo "unzip not found" >&2; exit 127; fi
-    unzip -q "\$PKG" -d ${_pluginShellQuote(target)}/current
+    if ! command -v unzip >/dev/null 2>&1; then echo "未找到 unzip" >&2; exit 127; fi
+    unzip -q "\$PKG" -d ${_pluginShellQuote(stagingCurrent)}
     ;;
   *.AppImage)
-    cp "\$PKG" ${_pluginShellQuote(target)}/current/Anything-Analyzer.AppImage
-    chmod +x ${_pluginShellQuote(target)}/current/Anything-Analyzer.AppImage
+    cp "\$PKG" ${_pluginShellQuote(stagingCurrent)}/Anything-Analyzer.AppImage
+    chmod +x ${_pluginShellQuote(stagingCurrent)}/Anything-Analyzer.AppImage
     ;;
   *.exe)
-    cp "\$PKG" ${_pluginShellQuote(target)}/current/
+    cp "\$PKG" ${_pluginShellQuote(stagingCurrent)}/
     ;;
   *)
-    echo "Unsupported asset: \$NAME" >&2
+    echo "不支持的安装包：\$NAME" >&2
     exit 4
     ;;
 esac
 cat > ${_pluginShellQuote(shimPath)} <<'SHIM'
 #!/usr/bin/env bash
-ROOT="\$HOME/.openhand/android_reverse_tools/anything-analyzer/current"
+ROOT=${_pluginShellQuote(current)}
 APP="\$(find "\$ROOT" -maxdepth 2 -name '*.app' -type d 2>/dev/null | head -1)"
 if [ -n "\$APP" ]; then
   exec open -a "\$APP" --args "\$@"
@@ -2177,7 +2327,7 @@ APPIMAGE="\$(find "\$ROOT" -maxdepth 2 -name '*.AppImage' -type f 2>/dev/null | 
 if [ -n "\$APPIMAGE" ]; then
   exec "\$APPIMAGE" "\$@"
 fi
-echo "Anything Analyzer app bundle not found under \$ROOT" >&2
+echo "在 \$ROOT 下未找到 Anything Analyzer 应用" >&2
 exit 2
 SHIM
 chmod +x ${_pluginShellQuote(shimPath)}
@@ -2190,16 +2340,90 @@ printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
       timeout: _packageOperationTimeout,
       environment: pluginProxyEnvironment(),
     );
-    if (result.exitCode == 0) {
+    if (result.exitCode != 0) {
+      try {
+        await deletePathBounded(stagingDirectory.path, allowedRoot: root);
+      } catch (error) {
+        if (error is! FileSystemException &&
+            error is! TimeoutException &&
+            error is! StateError) {
+          rethrow;
+        }
+        return _androidReversePathFailure(
+          label: 'Anything Analyzer',
+          action: '安装',
+          error: error,
+        );
+      }
+      return PluginOperationResult(
+        success: false,
+        message: 'Anything Analyzer 安装失败: ${_processErrorMessage(result)}',
+      );
+    }
+
+    try {
+      final backup = p.join(target, 'current.previous');
+      await deletePathBounded(backup, allowedRoot: root);
+      final currentType = await FileSystemEntity.type(
+        current,
+        followLinks: false,
+      ).timeout(_pluginLifecycleProbeTimeout);
+      var hasBackup = false;
+      if (currentType == FileSystemEntityType.directory) {
+        if (!await isPhysicalPathWithinOrEqual(root, current)) {
+          throw StateError('Anything Analyzer 当前安装目录超出受管目录。');
+        }
+        await Directory(
+          current,
+        ).rename(backup).timeout(_pluginLifecycleProbeTimeout);
+        hasBackup = true;
+      } else if (currentType != FileSystemEntityType.notFound) {
+        await deletePathBounded(current, allowedRoot: root);
+      }
+      try {
+        await Directory(
+          stagingCurrent,
+        ).rename(current).timeout(_pluginLifecycleProbeTimeout);
+      } catch (error, stack) {
+        if (hasBackup) {
+          await Directory(
+            backup,
+          ).rename(current).timeout(_pluginLifecycleProbeTimeout);
+        }
+        Error.throwWithStackTrace(error, stack);
+      }
+      await deletePathBounded(backup, allowedRoot: root);
+      await deletePathBounded(stagingDirectory.path, allowedRoot: root);
       return PluginOperationResult(
         success: true,
         message: 'Anything Analyzer 已安装或更新：$shimPath',
       );
+    } catch (error) {
+      if (error is! FileSystemException &&
+          error is! TimeoutException &&
+          error is! StateError) {
+        rethrow;
+      }
+      try {
+        await deletePathBounded(stagingDirectory.path, allowedRoot: root);
+      } catch (cleanupError) {
+        if (cleanupError is! FileSystemException &&
+            cleanupError is! TimeoutException &&
+            cleanupError is! StateError) {
+          rethrow;
+        }
+        return _androidReversePathFailure(
+          label: 'Anything Analyzer',
+          action: '安装',
+          error: cleanupError,
+        );
+      }
+      return _androidReversePathFailure(
+        label: 'Anything Analyzer',
+        action: '安装',
+        error: error,
+      );
     }
-    return PluginOperationResult(
-      success: false,
-      message: 'Anything Analyzer 安装失败: ${_processErrorMessage(result)}',
-    );
   }
 
   Future<PluginOperationResult> installJava({
