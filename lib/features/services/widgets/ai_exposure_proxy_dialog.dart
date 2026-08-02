@@ -2401,46 +2401,49 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
     final editing = widget.initial != null;
     return Padding(
       padding: const EdgeInsets.all(22),
-      child: Form(
-        key: _formKey,
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    editing
-                        ? text(zh: '编辑代理节点', en: 'Edit proxy node')
-                        : text(zh: '新增代理节点', en: 'Add proxy node'),
-                    style: Theme.of(context).textTheme.titleLarge,
+      child: SingleChildScrollView(
+        physics: openHandDialogAwareScrollPhysics(context),
+        child: Form(
+          key: _formKey,
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: Text(
+                      editing
+                          ? text(zh: '编辑代理节点', en: 'Edit proxy node')
+                          : text(zh: '新增代理节点', en: 'Add proxy node'),
+                      style: Theme.of(context).textTheme.titleLarge,
+                    ),
                   ),
-                ),
-                IconButton(
-                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-                  onPressed: widget.onCancel,
-                  icon: const Icon(Icons.close_rounded),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            TextFormField(
-              controller: _name,
-              decoration: InputDecoration(
-                labelText: text(zh: '节点名称', en: 'Node name'),
-                hintText: text(zh: '例如：香港线路 1', en: 'e.g. Hong Kong 1'),
-                border: const OutlineInputBorder(),
+                  IconButton(
+                    tooltip: MaterialLocalizations.of(
+                      context,
+                    ).closeButtonTooltip,
+                    onPressed: widget.onCancel,
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
               ),
-              maxLength: 80,
-            ),
-            const SizedBox(height: 10),
-            Row(
-              children: [
-                SizedBox(
-                  width: 118,
-                  child: DropdownButtonFormField<String>(
+              const SizedBox(height: 16),
+              TextFormField(
+                controller: _name,
+                decoration: InputDecoration(
+                  labelText: text(zh: '节点名称', en: 'Node name'),
+                  hintText: text(zh: '例如：香港线路 1', en: 'e.g. Hong Kong 1'),
+                  border: const OutlineInputBorder(),
+                ),
+                maxLength: 80,
+              ),
+              const SizedBox(height: 10),
+              LayoutBuilder(
+                builder: (context, constraints) {
+                  final scheme = DropdownButtonFormField<String>(
                     initialValue: _scheme,
+                    isExpanded: true,
                     decoration: InputDecoration(
                       labelText: text(zh: '协议', en: 'Scheme'),
                       border: const OutlineInputBorder(),
@@ -2452,11 +2455,8 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                     onChanged: (value) {
                       if (value != null) setState(() => _scheme = value);
                     },
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: TextFormField(
+                  );
+                  final host = TextFormField(
                     controller: _host,
                     decoration: InputDecoration(
                       labelText: text(zh: '主机', en: 'Host'),
@@ -2465,12 +2465,8 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                     validator: (value) => value == null || value.trim().isEmpty
                         ? text(zh: '请输入主机', en: 'Enter a host')
                         : null,
-                  ),
-                ),
-                const SizedBox(width: 10),
-                SizedBox(
-                  width: 110,
-                  child: TextFormField(
+                  );
+                  final port = TextFormField(
                     controller: _port,
                     keyboardType: TextInputType.number,
                     decoration: InputDecoration(
@@ -2483,58 +2479,83 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                           ? text(zh: '端口无效', en: 'Invalid port')
                           : null;
                     },
+                  );
+                  if (constraints.maxWidth < 420) {
+                    return Column(
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(child: scheme),
+                            const SizedBox(width: 10),
+                            Expanded(child: port),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        host,
+                      ],
+                    );
+                  }
+                  return Row(
+                    children: [
+                      SizedBox(width: 118, child: scheme),
+                      const SizedBox(width: 10),
+                      Expanded(child: host),
+                      const SizedBox(width: 10),
+                      SizedBox(width: 110, child: port),
+                    ],
+                  );
+                },
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _username,
+                decoration: InputDecoration(
+                  labelText: text(zh: '用户名（可选）', en: 'Username (optional)'),
+                  border: const OutlineInputBorder(),
+                ),
+              ),
+              const SizedBox(height: 10),
+              TextFormField(
+                controller: _password,
+                obscureText: _obscurePassword,
+                decoration: InputDecoration(
+                  labelText: text(zh: '密码（可选）', en: 'Password (optional)'),
+                  border: const OutlineInputBorder(),
+                  suffixIcon: IconButton(
+                    tooltip: _obscurePassword
+                        ? text(zh: '显示密码', en: 'Show password')
+                        : text(zh: '隐藏密码', en: 'Hide password'),
+                    onPressed: () =>
+                        setState(() => _obscurePassword = !_obscurePassword),
+                    icon: Icon(
+                      _obscurePassword
+                          ? Icons.visibility_outlined
+                          : Icons.visibility_off_outlined,
+                    ),
                   ),
                 ),
-              ],
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _username,
-              decoration: InputDecoration(
-                labelText: text(zh: '用户名（可选）', en: 'Username (optional)'),
-                border: const OutlineInputBorder(),
               ),
-            ),
-            const SizedBox(height: 10),
-            TextFormField(
-              controller: _password,
-              obscureText: _obscurePassword,
-              decoration: InputDecoration(
-                labelText: text(zh: '密码（可选）', en: 'Password (optional)'),
-                border: const OutlineInputBorder(),
-                suffixIcon: IconButton(
-                  tooltip: _obscurePassword
-                      ? text(zh: '显示密码', en: 'Show password')
-                      : text(zh: '隐藏密码', en: 'Hide password'),
-                  onPressed: () =>
-                      setState(() => _obscurePassword = !_obscurePassword),
-                  icon: Icon(
-                    _obscurePassword
-                        ? Icons.visibility_outlined
-                        : Icons.visibility_off_outlined,
+              const SizedBox(height: 18),
+              Wrap(
+                alignment: WrapAlignment.end,
+                spacing: kOpenHandDialogActionSpacing,
+                runSpacing: kOpenHandDialogActionSpacing,
+                children: [
+                  OpenHandDialogActionButton.secondary(
+                    onPressed: widget.onCancel,
+                    label: text(zh: '取消', en: 'Cancel'),
                   ),
-                ),
+                  OpenHandDialogActionButton.primary(
+                    icon: Icons.check_rounded,
+                    onPressed: _submit,
+                    label: editing
+                        ? text(zh: '保存修改', en: 'Save changes')
+                        : text(zh: '添加节点', en: 'Add node'),
+                  ),
+                ],
               ),
-            ),
-            const SizedBox(height: 18),
-            Row(
-              mainAxisAlignment: MainAxisAlignment.end,
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  onPressed: widget.onCancel,
-                  label: text(zh: '取消', en: 'Cancel'),
-                ),
-                const SizedBox(width: 8),
-                OpenHandDialogActionButton.primary(
-                  icon: Icons.check_rounded,
-                  onPressed: _submit,
-                  label: editing
-                      ? text(zh: '保存修改', en: 'Save changes')
-                      : text(zh: '添加节点', en: 'Add node'),
-                ),
-              ],
-            ),
-          ],
+            ],
+          ),
         ),
       ),
     );

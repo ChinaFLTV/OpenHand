@@ -74,6 +74,41 @@ void main() {
     await tester.pumpAndSettle();
     expect(tester.takeException(), isNull);
   });
+
+  testWidgets('新增代理节点弹窗不会溢出协议选择框', (tester) async {
+    final controller = ServicesController();
+    addTearDown(() async {
+      await tester.pumpWidget(const SizedBox.shrink());
+      await controller.shutdown();
+      await tester.binding.setSurfaceSize(null);
+    });
+    await tester.binding.setSurfaceSize(const Size(560, 760));
+    await _pumpDialogHarness(
+      tester,
+      controller: controller,
+      onOpen: showAiExposureProxyDialog,
+    );
+
+    final addButton = find.byTooltip('添加代理');
+    await tester.scrollUntilVisible(
+      addButton,
+      280,
+      scrollable: find
+          .descendant(
+            of: find.byType(CustomScrollView),
+            matching: find.byType(Scrollable),
+          )
+          .first,
+    );
+    await tester.tap(addButton);
+    await tester.pumpAndSettle();
+    expect(find.text('新增代理节点'), findsOneWidget);
+    expect(tester.takeException(), isNull);
+
+    await tester.binding.setSurfaceSize(const Size(380, 760));
+    await tester.pumpAndSettle();
+    expect(tester.takeException(), isNull);
+  });
 }
 
 Future<void> _pumpDialogHarness(
