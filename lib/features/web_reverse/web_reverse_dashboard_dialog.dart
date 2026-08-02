@@ -668,6 +668,7 @@ Future<void> showWebReverseDashboardDialog(
   BuildContext context, {
   required WebReverseSessionController controller,
   required String sessionId,
+  required Future<void> Function() onRestartBrowser,
   Future<bool> Function(bool enabled)? onCdpMcpEnabledChanged,
 }) {
   return webReverseToolDialogs.show<void>(
@@ -676,6 +677,7 @@ Future<void> showWebReverseDashboardDialog(
       controller: controller,
       sessionId: sessionId,
       onCdpMcpEnabledChanged: onCdpMcpEnabledChanged,
+      onRestartBrowser: onRestartBrowser,
     ),
   );
 }
@@ -685,10 +687,12 @@ class _WebReverseDashboardDialog extends StatefulWidget {
     required this.controller,
     required this.sessionId,
     required this.onCdpMcpEnabledChanged,
+    required this.onRestartBrowser,
   });
   final WebReverseSessionController controller;
   final String sessionId;
   final Future<bool> Function(bool enabled)? onCdpMcpEnabledChanged;
+  final Future<void> Function() onRestartBrowser;
 
   @override
   State<_WebReverseDashboardDialog> createState() =>
@@ -1754,7 +1758,10 @@ class _WebReverseDashboardDialogState
     bool reduceMotion,
   ) {
     return switch (_tab) {
-      _Tab.browser => _BrowserBody(controller: ctrl),
+      _Tab.browser => _BrowserBody(
+        controller: ctrl,
+        onRestartBrowser: widget.onRestartBrowser,
+      ),
       _Tab.overview => _OverviewBody(controller: ctrl),
       _Tab.network => _NetworkBody(
         state: this,

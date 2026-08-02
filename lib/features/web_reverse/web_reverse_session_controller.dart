@@ -117,6 +117,10 @@ class WebReverseSessionController extends ChangeNotifier {
 
   bool get isRunning => _started && !_stopped && isBrowserAlive;
 
+  /// 即使 CDP 已断连，只要控制器仍持有浏览器进程，就必须继续占用运行时名额。
+  bool get hasManagedBrowserProcess =>
+      _launchResult != null || _stopBrowserTask != null;
+
   /// 真实判定外部浏览器进程是否还活着。CDP WebSocket 自身有重连，但当
   /// `_closed=true` 时表示重连已彻底失败 → 浏览器多半被用户手动关掉了。
   /// `isRunning` 只在浏览器 CDP 仍可用时为真，断连后 UI / Prompt 都应
@@ -495,6 +499,7 @@ class WebReverseSessionController extends ChangeNotifier {
         await _safeStop();
         return;
       }
+      _resumeCronTimers();
       _startAliveWatchdog();
       _safeNotify();
     } catch (error, stack) {
@@ -3429,6 +3434,7 @@ class WebReverseSessionController extends ChangeNotifier {
               !identical(_browserCdp, cdp)) {
             return;
           }
+          _pauseCronTimers();
           _resetScreencastRuntimeState(resetRefCount: false);
           _errorMessage = '浏览器已断开（进程异常退出），可点击「重启浏览器」恢复。';
           _safeNotify();
@@ -3814,6 +3820,21 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 最近一次成功跑完的时刻（UI 显示「上次执行 X 秒前」用）。
   DateTime? cronLastRunAt(String id) => _cronLastRun[id];
 
+  void _pauseCronTimers() {
+    for (final timer in _cronTimers.values) {
+      timer.cancel();
+    }
+    _cronTimers.clear();
+  }
+
+  void _resumeCronTimers() {
+    _pauseCronTimers();
+    if (!isBrowserAlive) return;
+    for (final cron in _crons.where((item) => item.enabled)) {
+      _scheduleCron(cron);
+    }
+  }
+
   Future<void> replaceCrons(List<WebReverseCron> items) async {
     final normalized = items
         .where(
@@ -3833,10 +3854,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final start = normalized.length > maxSavedCrons
         ? normalized.length - maxSavedCrons
         : 0;
-    for (final t in _cronTimers.values) {
-      t.cancel();
-    }
-    _cronTimers.clear();
+    _pauseCronTimers();
     _crons
       ..clear()
       ..addAll(normalized.skip(start));
@@ -3949,6 +3967,7 @@ class WebReverseSessionController extends ChangeNotifier {
 
   void _scheduleCron(WebReverseCron c) {
     _cronTimers.remove(c.id)?.cancel();
+    if (!isBrowserAlive) return;
     final dur = Duration(seconds: c.intervalSeconds);
     _cronTimers[c.id] = startNonOverlappingPeriodicTimer(
       dur,
@@ -3967,6 +3986,14 @@ class WebReverseSessionController extends ChangeNotifier {
     Timer? scheduledTimer,
   }) async {
     if (c.code.length > maxSavedScriptCodeChars) return null;
+    if (!isBrowserAlive) {
+      if (scheduledTimer != null &&
+          identical(_cronTimers[c.id], scheduledTimer)) {
+        scheduledTimer.cancel();
+        _cronTimers.remove(c.id);
+      }
+      return null;
+    }
     if (scheduledTimer != null &&
         !identical(_cronTimers[c.id], scheduledTimer)) {
       return null;
@@ -4542,7 +4569,10 @@ class WebReverseSessionController extends ChangeNotifier {
     if (active != null) return active;
     late final Future<void> task;
     task = _stopBrowserOnce().whenComplete(() {
-      if (identical(_stopBrowserTask, task)) _stopBrowserTask = null;
+      if (identical(_stopBrowserTask, task)) {
+        _stopBrowserTask = null;
+        _safeNotify();
+      }
     });
     _stopBrowserTask = task;
     return task;
@@ -4550,6 +4580,7 @@ class WebReverseSessionController extends ChangeNotifier {
 
   Future<void> _stopBrowserOnce() async {
     _stopAliveWatchdog();
+    _pauseCronTimers();
     await stopRecording();
     await stopMemorySampling();
     await _stopTraceRecording();
@@ -4664,6 +4695,7 @@ class WebReverseSessionController extends ChangeNotifier {
     final stoppingBrowser = _stopBrowserTask;
     if (stoppingBrowser != null) await stoppingBrowser;
     _stopAliveWatchdog();
+    _pauseCronTimers();
     await stopRecording();
     await stopMemorySampling();
     await _stopTraceRecording();
@@ -8482,10 +8514,7 @@ class WebReverseSessionController extends ChangeNotifier {
     if (active != null) return active;
     _disposed = true;
     _stopped = true;
-    for (final t in _cronTimers.values) {
-      t.cancel();
-    }
-    _cronTimers.clear();
+    _pauseCronTimers();
     final shutdown =
         () async {
           try {

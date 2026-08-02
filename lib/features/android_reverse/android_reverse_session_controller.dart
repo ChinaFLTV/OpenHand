@@ -21,6 +21,7 @@ import 'android_reverse_toolchain_diagnostics.dart';
 const String _kTag = 'android_reverse_session_controller';
 const String _kAndroidReverseBashExecutable = 'bash';
 const String _kAndroidReverseChmodExecutable = 'chmod';
+const String _kNetworkCaptureDisplayCommand = '启动 mitmdump 捕获';
 const Duration _kDeviceWatchdogInterval = Duration(seconds: 8);
 const Duration _kDeviceReportTimeout = Duration(seconds: 18);
 const Duration _kPackageReportTimeout = Duration(seconds: 12);
@@ -221,12 +222,15 @@ class AndroidReverseSessionController extends ChangeNotifier {
   Future<void>? _networkCaptureStopFuture;
   int _networkCaptureGeneration = 0;
   Future<void>? _startFuture;
+  Future<void>? _stopFuture;
   Future<void>? _deviceRefreshFuture;
   Future<void>? _shutdownFuture;
   bool _deviceRefreshQueued = false;
   int _processRefreshGeneration = 0;
 
-  bool get isRunning => _state == AndroidReverseSessionState.running;
+  bool get isRunning =>
+      _state == AndroidReverseSessionState.running ||
+      _state == AndroidReverseSessionState.deviceLost;
 
   void clearErrorMessage() {
     if (_errorMessage == null) return;
@@ -235,10 +239,17 @@ class AndroidReverseSessionController extends ChangeNotifier {
   }
 
   Future<void> start() {
+    if (_disposed || isRunning) {
+      return Future<void>.value();
+    }
+    final stopping = _stopFuture;
+    if (stopping != null) {
+      return stopping.then((_) => start());
+    }
     final active = _startFuture;
     if (active != null) return active;
-    if (_disposed || _state != AndroidReverseSessionState.idle) {
-      return Future<void>.value();
+    if (_state == AndroidReverseSessionState.stopped) {
+      _state = AndroidReverseSessionState.idle;
     }
     late final Future<void> starting;
     starting = _startOnce().whenComplete(() {
@@ -268,7 +279,20 @@ class AndroidReverseSessionController extends ChangeNotifier {
     _safeNotify();
   }
 
-  Future<void> stop() async {
+  Future<void> stop() {
+    final active = _stopFuture;
+    if (active != null) return active;
+    late final Future<void> stopping;
+    stopping = _stopOnce().whenComplete(() {
+      if (identical(_stopFuture, stopping)) {
+        _stopFuture = null;
+      }
+    });
+    _stopFuture = stopping;
+    return stopping;
+  }
+
+  Future<void> _stopOnce() async {
     _networkCaptureGeneration += 1;
     _watchdogTimer?.cancel();
     _watchdogTimer = null;
@@ -298,6 +322,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     final shutdown =
         () async {
           final startingSession = _startFuture;
+          final stoppingSession = _stopFuture;
           final startingCapture = _networkCaptureStartFuture;
           final refreshing = _deviceRefreshFuture;
           await Future.wait<bool>(<Future<bool>>[
@@ -307,6 +332,13 @@ class AndroidReverseSessionController extends ChangeNotifier {
                 timeout: _kRuntimeCleanupTimeout,
                 onError: (error, stack) =>
                     silentLog(_kTag, '等待会话启动', error, stack),
+              ),
+            if (stoppingSession != null)
+              runAsyncCleanupBounded(
+                () => stoppingSession,
+                timeout: _kRuntimeCleanupTimeout,
+                onError: (error, stack) =>
+                    silentLog(_kTag, '等待会话停止', error, stack),
               ),
             if (startingCapture != null)
               runAsyncCleanupBounded(
@@ -1246,6 +1278,17 @@ class AndroidReverseSessionController extends ChangeNotifier {
   }
 
   Future<AdbCommandResult> startNetworkCapture({int port = 8080}) {
+    if (!isRunning) {
+      return Future<AdbCommandResult>.value(
+        const AdbCommandResult(
+          args: <String>['network-capture', 'start'],
+          exitCode: -1,
+          stdout: '',
+          stderr: 'Android 逆向运行时未启动。',
+          displayCommand: _kNetworkCaptureDisplayCommand,
+        ),
+      );
+    }
     final active = _networkCaptureStartFuture;
     if (active != null) return active;
     final generation = ++_networkCaptureGeneration;
@@ -1272,7 +1315,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       exitCode: -1,
       stdout: '',
       stderr: '网络捕获启动已取消。',
-      displayCommand: 'start mitmdump capture',
+      displayCommand: _kNetworkCaptureDisplayCommand,
     );
   }
 
@@ -1290,8 +1333,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['network-capture', 'start'],
         exitCode: -1,
         stdout: '',
-        stderr: 'Invalid proxy port: $port',
-        displayCommand: 'start mitmdump capture',
+        stderr: '代理端口无效：$port',
+        displayCommand: _kNetworkCaptureDisplayCommand,
       );
     }
     if (_networkCaptureProcess != null) {
@@ -1299,8 +1342,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['network-capture', 'start'],
         exitCode: 0,
         stdout: networkCaptureTranscript,
-        stderr: 'mitmdump is already running.',
-        displayCommand: 'start mitmdump capture',
+        stderr: 'mitmdump 已在运行。',
+        displayCommand: _kNetworkCaptureDisplayCommand,
       );
     }
     if (Platform.isWindows) {
@@ -1308,8 +1351,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['network-capture', 'start'],
         exitCode: -1,
         stdout: '',
-        stderr: 'mitmdump capture requires a POSIX shell environment.',
-        displayCommand: 'start mitmdump capture',
+        stderr: 'mitmdump 捕获需要 POSIX Shell 环境。',
+        displayCommand: _kNetworkCaptureDisplayCommand,
       );
     }
     Process? startedProcess;
@@ -1323,7 +1366,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
           args: <String>['network-capture', 'start'],
           exitCode: 127,
           stdout: '',
-          stderr: 'mitmdump not found. Install mitmproxy first.',
+          stderr: '未找到 mitmdump，请先安装 mitmproxy。',
           displayCommand: 'mitmdump',
         );
       }

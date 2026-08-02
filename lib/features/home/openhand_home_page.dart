@@ -412,7 +412,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _desktopNavigationWidth,
   );
 
-  // Active Harness Engineering session (null when no HE session is running).
+  // 当前运行的 Harness 工程会话；没有运行中会话时为空。
   HarnessOrchestrator? _activeHarnessOrchestrator;
   HarnessSessionConfig? _activeHarnessConfig;
   bool _heFullAccessPermission = false;
@@ -427,20 +427,33 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   );
   HarnessPhase? _lastHarnessAwaitingApprovalPhase;
 
-  // Active Web Reverse Expert sessions, keyed by session id. Each holds a
-  // controller managing one external Chrome process + CDP channel.
+  // Web 逆向控制器按会话保存，每个运行中的控制器管理一个浏览器进程和 CDP 通道。
+  static const int _maxActiveReverseRuntimes = 4;
+  static const int _maxRetainedReverseControllersPerType =
+      _maxActiveReverseRuntimes;
+  static const int _maxWebReverseRestoreDetectionAttempts = 3;
   final Map<String, WebReverseSessionController> _webReverseControllers =
       <String, WebReverseSessionController>{};
+  final Map<String, Future<WebReverseSessionController?>>
+  _webReverseRestoreTasks = <String, Future<WebReverseSessionController?>>{};
   final Map<String, String> _webReverseRuntimeMetadataSignatures =
       <String, String>{};
   late final OpenHandDebouncer _webReverseRuntimeMetadataDebouncer =
       OpenHandDebouncer(delay: _webReverseRuntimeMetadataDebounce);
 
-  // Active Android Reverse Expert sessions, keyed by session id.
+  // Android 逆向控制器按会话保存。
   final Map<String, AndroidReverseSessionController>
   _androidReverseControllers = <String, AndroidReverseSessionController>{};
   final Map<String, String> _androidReverseRuntimeMetadataSignatures =
       <String, String>{};
+  final Set<Object> _reverseRuntimeLeases = <Object>{};
+  final Map<String, Object> _reverseRuntimeLeasesBySessionId =
+      <String, Object>{};
+  final Map<String, int> _reverseRuntimeOperationCounts = <String, int>{};
+  final Map<String, Future<void>> _reverseRuntimeStopTasks =
+      <String, Future<void>>{};
+  final Map<String, Future<void>> _reverseControllerDisposalTasks =
+      <String, Future<void>>{};
 
   // Programming Expert: file explorer & inline editor state.
   bool _fileExplorerVisible = false;
@@ -1101,16 +1114,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _activeHarnessOrchestrator?.dispose();
     _webReverseCdpMcpBridge.dispose();
     for (final entry in _webReverseControllers.entries) {
-      _disposeWebReverseControllerAfterStop(entry.key, entry.value);
+      unawaited(_disposeWebReverseControllerAfterStop(entry.key, entry.value));
     }
     _webReverseControllers.clear();
+    _webReverseRestoreTasks.clear();
     _webReverseRuntimeMetadataDebouncer.cancel();
     _webReverseRuntimeMetadataSignatures.clear();
     for (final entry in _androidReverseControllers.entries) {
-      _disposeAndroidReverseController(entry.key, entry.value);
+      unawaited(_disposeAndroidReverseController(entry.key, entry.value));
     }
     _androidReverseControllers.clear();
     _androidReverseRuntimeMetadataSignatures.clear();
+    _reverseRuntimeLeasesBySessionId.clear();
+    _reverseRuntimeLeases.clear();
+    _reverseRuntimeOperationCounts.clear();
+    _reverseRuntimeStopTasks.clear();
+    _reverseControllerDisposalTasks.clear();
     _harnessSessionSaveDebouncer.dispose();
     _editorTabsSaveDebouncer.cancel();
     // Flush pending editor tabs before disposal.
@@ -1584,10 +1603,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
 
     final webReverseController = _webReverseControllers.remove(sessionId);
+    _webReverseRestoreTasks.remove(sessionId);
     _webReverseRuntimeMetadataSignatures.remove(sessionId);
     _webReverseCdpMcpBridge.stopSession(sessionId);
     if (webReverseController != null) {
-      _disposeWebReverseControllerAfterStop(sessionId, webReverseController);
+      unawaited(
+        _disposeWebReverseControllerAfterStop(sessionId, webReverseController),
+      );
     }
 
     final androidReverseController = _androidReverseControllers.remove(
@@ -1595,7 +1617,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
     _androidReverseRuntimeMetadataSignatures.remove(sessionId);
     if (androidReverseController != null) {
-      _disposeAndroidReverseController(sessionId, androidReverseController);
+      unawaited(
+        _disposeAndroidReverseController(sessionId, androidReverseController),
+      );
+    }
+    if (webReverseController == null &&
+        androidReverseController == null &&
+        !_reverseRuntimeOperationCounts.containsKey(sessionId) &&
+        !_reverseRuntimeStopTasks.containsKey(sessionId) &&
+        !_reverseControllerDisposalTasks.containsKey(sessionId)) {
+      _releaseReverseRuntimeSlot(sessionId);
     }
     _removeTemplateRuntimeLinkage(sessionId);
   }
@@ -3550,6 +3581,229 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
+  Object? _reserveReverseRuntimeSlot() {
+    if (_reverseRuntimeLeases.length >= _maxActiveReverseRuntimes) return null;
+    final lease = Object();
+    _reverseRuntimeLeases.add(lease);
+    return lease;
+  }
+
+  void _bindReverseRuntimeSlot(Object lease, String sessionId) {
+    _reverseRuntimeLeasesBySessionId[sessionId] = lease;
+  }
+
+  bool _acquireReverseRuntimeSlot(String sessionId) {
+    if (_reverseRuntimeLeasesBySessionId.containsKey(sessionId)) return true;
+    final lease = _reserveReverseRuntimeSlot();
+    if (lease == null) return false;
+    _bindReverseRuntimeSlot(lease, sessionId);
+    return true;
+  }
+
+  void _releaseReverseRuntimeReservation(Object lease) {
+    _reverseRuntimeLeases.remove(lease);
+  }
+
+  void _releaseReverseRuntimeSlot(String sessionId) {
+    final lease = _reverseRuntimeLeasesBySessionId.remove(sessionId);
+    if (lease != null) _reverseRuntimeLeases.remove(lease);
+  }
+
+  void _releaseReverseRuntimeSlotIfUnchanged(
+    String sessionId,
+    Object? expectedLease,
+  ) {
+    final currentLease = _reverseRuntimeLeasesBySessionId[sessionId];
+    if (!identical(currentLease, expectedLease) || currentLease == null) return;
+    _reverseRuntimeLeasesBySessionId.remove(sessionId);
+    _reverseRuntimeLeases.remove(currentLease);
+  }
+
+  Future<AiSession?> _createReverseSessionWithReservedRuntime({
+    required Object runtimeLease,
+    required String templateId,
+    required AiSessionRuntimeContext? runtimeContext,
+    required AiSessionMode initialMode,
+    required bool initialFullAccessPermission,
+  }) async {
+    var bound = false;
+    try {
+      final created = await _createSession(
+        templateId: templateId,
+        runtimeContext: runtimeContext,
+        initialMode: initialMode,
+        initialFullAccessPermission: initialFullAccessPermission,
+      );
+      if (!created || !mounted) return null;
+      final controller = context.read<AiSessionController>();
+      final session = controller.currentSession;
+      if (session == null) return null;
+      _bindReverseRuntimeSlot(runtimeLease, session.id);
+      bound = true;
+      return session;
+    } finally {
+      if (!bound) _releaseReverseRuntimeReservation(runtimeLease);
+    }
+  }
+
+  Future<bool> _configureNewReverseSession({
+    required String sessionId,
+    required String? providerConfigId,
+    required String? modelId,
+    required String metadataKey,
+    required Object metadataValue,
+    required String runtimeLabel,
+  }) async {
+    try {
+      await _applyNewSessionModelSelection(
+        sessionId: sessionId,
+        providerConfigId: providerConfigId,
+        modelId: modelId,
+      );
+      if (!mounted) return false;
+      final updated = await context
+          .read<AiSessionController>()
+          .updateSessionMetadata(sessionId, <String, Object?>{
+            metadataKey: metadataValue,
+          });
+      if (!updated) throw StateError('$runtimeLabel 会话配置保存失败。');
+      return mounted;
+    } catch (error, stack) {
+      silentLog('openhand_home_page', '配置 $runtimeLabel 会话', error, stack);
+      if (mounted) {
+        showFriendlyErrorSnackBar(
+          context,
+          message: '$error',
+          fallback: '$runtimeLabel 会话配置失败',
+        );
+      }
+      return false;
+    }
+  }
+
+  void _beginReverseRuntimeOperation(String sessionId) {
+    _reverseRuntimeOperationCounts.update(
+      sessionId,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+  }
+
+  void _finishReverseRuntimeOperation(String sessionId) {
+    final count = _reverseRuntimeOperationCounts[sessionId] ?? 0;
+    if (count <= 1) {
+      _reverseRuntimeOperationCounts.remove(sessionId);
+    } else {
+      _reverseRuntimeOperationCounts[sessionId] = count - 1;
+    }
+  }
+
+  void _releaseInactiveReverseRuntimeSlot(
+    String sessionId, {
+    required bool active,
+  }) {
+    if (!active && !_reverseRuntimeOperationCounts.containsKey(sessionId)) {
+      _releaseReverseRuntimeSlot(sessionId);
+    }
+  }
+
+  String _reverseRuntimeCapacityMessage(BuildContext context) {
+    return openHandLocalizedText(
+      context,
+      zh: '最多同时运行 $_maxActiveReverseRuntimes 个逆向会话，请先停止一个运行时。',
+      zhHant: '最多同時執行 $_maxActiveReverseRuntimes 個逆向會話，請先停止一個執行環境。',
+      en: 'At most $_maxActiveReverseRuntimes reverse sessions can run at once. Stop one runtime first.',
+      fr: 'Au maximum $_maxActiveReverseRuntimes sessions d’analyse inverse peuvent fonctionner simultanément. Arrêtez d’abord un environnement.',
+      de: 'Es können höchstens $_maxActiveReverseRuntimes Reverse-Sitzungen gleichzeitig laufen. Beenden Sie zuerst eine Laufzeit.',
+      ja: '同時に実行できるリバースセッションは最大 $_maxActiveReverseRuntimes 件です。先に実行中の環境を停止してください。',
+    );
+  }
+
+  Future<void> _startReverseRuntime({
+    required String sessionId,
+    required Future<void> Function() start,
+    required bool Function() isActive,
+  }) async {
+    final stopping = _reverseRuntimeStopTasks[sessionId];
+    if (stopping != null) await stopping;
+    final disposing = _reverseControllerDisposalTasks[sessionId];
+    if (disposing != null) await disposing;
+    if (!mounted) throw StateError('页面已关闭，无法启动逆向运行时。');
+    if (!_acquireReverseRuntimeSlot(sessionId)) {
+      throw _ReverseRuntimeCapacityException(
+        mounted ? _reverseRuntimeCapacityMessage(context) : '逆向运行时已达到容量上限。',
+      );
+    }
+    _beginReverseRuntimeOperation(sessionId);
+    try {
+      await start();
+    } finally {
+      _finishReverseRuntimeOperation(sessionId);
+      _releaseInactiveReverseRuntimeSlot(sessionId, active: isActive());
+    }
+  }
+
+  Future<void> restartWebReverseBrowser(
+    String sessionId,
+    WebReverseSessionController controller,
+  ) {
+    return _startReverseRuntime(
+      sessionId: sessionId,
+      start: controller.restartBrowser,
+      isActive: () => controller.hasManagedBrowserProcess,
+    );
+  }
+
+  void _trimRetainedWebReverseControllers({bool makeRoom = false}) {
+    final limit = makeRoom
+        ? _maxRetainedReverseControllersPerType - 1
+        : _maxRetainedReverseControllersPerType;
+    while (_webReverseControllers.length > limit) {
+      String? sessionId;
+      WebReverseSessionController? controller;
+      for (final entry in _webReverseControllers.entries) {
+        if (!entry.value.hasManagedBrowserProcess &&
+            !_reverseRuntimeOperationCounts.containsKey(entry.key) &&
+            !_reverseRuntimeStopTasks.containsKey(entry.key) &&
+            !_reverseControllerDisposalTasks.containsKey(entry.key)) {
+          sessionId = entry.key;
+          controller = entry.value;
+          break;
+        }
+      }
+      if (sessionId == null || controller == null) return;
+      unawaited(_persistWebReverseRuntimeMetadata(sessionId, controller));
+      _webReverseControllers.remove(sessionId);
+      _webReverseRuntimeMetadataSignatures.remove(sessionId);
+      _webReverseCdpMcpBridge.stopSession(sessionId);
+      unawaited(_disposeWebReverseControllerAfterStop(sessionId, controller));
+    }
+  }
+
+  void _trimRetainedAndroidReverseControllers({bool makeRoom = false}) {
+    final limit = makeRoom
+        ? _maxRetainedReverseControllersPerType - 1
+        : _maxRetainedReverseControllersPerType;
+    while (_androidReverseControllers.length > limit) {
+      String? sessionId;
+      AndroidReverseSessionController? controller;
+      for (final entry in _androidReverseControllers.entries) {
+        if (!entry.value.isRunning &&
+            !_reverseRuntimeOperationCounts.containsKey(entry.key) &&
+            !_reverseRuntimeStopTasks.containsKey(entry.key) &&
+            !_reverseControllerDisposalTasks.containsKey(entry.key)) {
+          sessionId = entry.key;
+          controller = entry.value;
+          break;
+        }
+      }
+      if (sessionId == null || controller == null) return;
+      _androidReverseControllers.remove(sessionId);
+      _androidReverseRuntimeMetadataSignatures.remove(sessionId);
+      unawaited(_disposeAndroidReverseController(sessionId, controller));
+    }
+  }
+
   /// 创建一个 Web 逆向专家会话：弹设置对话框 → 启动浏览器/CDP →
   /// 把 controller 绑到 session.id → 写入会话 metadata → 拼 prompt 发送。
   Future<bool> _showWebReverseSetupAndCreate({
@@ -3573,27 +3827,22 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       initialSelectedModelId: initialModel?.modelId,
     );
     if (!mounted || setup == null) return false;
-    final created = await _createSession(
+    final runtimeLease = _reserveReverseRuntimeSlot();
+    if (runtimeLease == null) {
+      showOpenHandErrorSnack(context, _reverseRuntimeCapacityMessage(context));
+      return false;
+    }
+    final session = await _createReverseSessionWithReservedRuntime(
+      runtimeLease: runtimeLease,
       templateId: 'web_reverse_expert',
       runtimeContext: runtimeContext,
       initialMode: initialMode,
       initialFullAccessPermission: initialFullAccessPermission,
     );
-    if (!created || !mounted) return false;
-    final sessionController = context.read<AiSessionController>();
-    final session = sessionController.currentSession;
-    if (session == null) return created;
+    if (session == null) return false;
+    const created = true;
     _beginPendingAutoStartSubmission(session.id);
     _replaceComposerText('');
-    await _applyNewSessionModelSelection(
-      sessionId: session.id,
-      providerConfigId: setup.selectedModelConfigId,
-      modelId: setup.selectedModelId,
-    );
-    if (!mounted) {
-      _clearPendingAutoStartSubmission(session.id);
-      return created;
-    }
     // 把 user-data-dir 在 session.id 就绪后改写为 `<root>/profile_<browser>_<sid>`，
     // 这样每个会话各占一个 profile 目录，从源头规避另一个 Chrome 实例
     // 抓着同一 user-data-dir 时触发的 "Profile is in use" 锁导致 CDP 起不来。
@@ -3602,27 +3851,45 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final scopedConfig = setup.config.copyWith(
       userDataDir: sessionScopedUserDataDir,
     );
-    // 写入 metadata，便于 SessionDetailPage / 调试胶囊定位 controller。
-    await sessionController.updateSessionMetadata(session.id, <String, Object?>{
-      'web_reverse_config': scopedConfig.toJson(),
-    });
-    if (!mounted) {
+    final configured = await _configureNewReverseSession(
+      sessionId: session.id,
+      providerConfigId: setup.selectedModelConfigId,
+      modelId: setup.selectedModelId,
+      metadataKey: 'web_reverse_config',
+      metadataValue: scopedConfig.toJson(),
+      runtimeLabel: 'Web 逆向',
+    );
+    if (!configured) {
+      _releaseReverseRuntimeSlot(session.id);
       _clearPendingAutoStartSubmission(session.id);
       return created;
     }
-    // 启动 controller。
+    if (!mounted ||
+        !context.read<AiSessionController>().sessions.any(
+          (item) => item.id == session.id,
+        )) {
+      _releaseReverseRuntimeSlot(session.id);
+      _clearPendingAutoStartSubmission(session.id);
+      return created;
+    }
+    // 启动控制器。
     final controller = WebReverseSessionController(
       config: scopedConfig,
       executablePath: setup.executablePath,
       artifactsRootDir: '$userDataDirRoot/sessions/${session.id}',
     );
+    _trimRetainedWebReverseControllers(makeRoom: true);
     _webReverseControllers[session.id] = controller;
     controller.addListener(_onWebReverseControllerChanged);
     var launchOk = false;
     var runtimePersisted = false;
     try {
-      await controller.start();
-      launchOk = true;
+      await _startReverseRuntime(
+        sessionId: session.id,
+        start: controller.start,
+        isActive: () => controller.hasManagedBrowserProcess,
+      );
+      launchOk = controller.isBrowserAlive;
       runtimePersisted = await _persistWebReverseRuntimeMetadata(
         session.id,
         controller,
@@ -3653,19 +3920,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (!launchOk) {
       await _persistWebReverseRuntimeMetadata(session.id, controller);
-      // 启动失败则把 dead controller 摘除，避免胶囊点击拿到残骸。
-      controller.removeListener(_onWebReverseControllerChanged);
+      // 启动失败时移除失效控制器，避免调试入口继续引用残留对象。
       _webReverseControllers.remove(session.id);
       _webReverseRuntimeMetadataSignatures.remove(session.id);
       _webReverseCdpMcpBridge.stopSession(session.id);
-      // 必须先 await stop() 才能 dispose；旧顺序会触发
-      // dispose 后 notifyListeners 断言。
-      try {
-        await controller.stop();
-      } catch (e, st) {
-        silentLog('openhand_home_page', '停止 Web 逆向', e, st);
-      }
-      controller.dispose();
+      await _disposeWebReverseControllerAfterStop(session.id, controller);
       _clearPendingAutoStartSubmission(session.id);
       return created;
     }
@@ -3681,7 +3940,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _webReverseControllers.remove(session.id);
       _webReverseRuntimeMetadataSignatures.remove(session.id);
       _webReverseCdpMcpBridge.stopSession(session.id);
-      _disposeWebReverseControllerAfterStop(session.id, controller);
+      unawaited(_disposeWebReverseControllerAfterStop(session.id, controller));
       _clearPendingAutoStartSubmission(session.id);
       return created;
     }
@@ -3732,33 +3991,76 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (!entry.value.isBrowserAlive) {
         _webReverseCdpMcpBridge.stopSession(entry.key);
       }
+      _releaseInactiveReverseRuntimeSlot(
+        entry.key,
+        active: entry.value.hasManagedBrowserProcess,
+      );
     }
+    _trimRetainedWebReverseControllers();
     setState(() {});
     _scheduleWebReverseRuntimeMetadataSync();
   }
 
-  void _disposeWebReverseControllerAfterStop(
+  Future<void> _disposeWebReverseControllerAfterStop(
     String sessionId,
     WebReverseSessionController controller,
   ) {
     controller.removeListener(_onWebReverseControllerChanged);
     _removeTemplateRuntimeLinkage(sessionId);
-    unawaited(
-      (() async {
-        try {
-          await controller.stop();
-        } catch (error, stack) {
-          silentLog(
-            'openhand_home_page',
-            '释放 Web 逆向控制器 $sessionId',
-            error,
-            stack,
-          );
-        } finally {
-          controller.dispose();
-        }
-      })(),
+    return _disposeReverseRuntimeController(
+      sessionId: sessionId,
+      operation: '释放 Web 逆向控制器 $sessionId',
+      stop: controller.stop,
+      dispose: controller.dispose,
     );
+  }
+
+  Future<void> _disposeReverseRuntimeController({
+    required String sessionId,
+    required String operation,
+    required Future<void> Function() stop,
+    required void Function() dispose,
+    void Function()? afterStop,
+  }) {
+    final active = _reverseControllerDisposalTasks[sessionId];
+    if (active != null) {
+      return active.then(
+        (_) => _disposeReverseRuntimeController(
+          sessionId: sessionId,
+          operation: operation,
+          stop: stop,
+          dispose: dispose,
+          afterStop: afterStop,
+        ),
+      );
+    }
+    final expectedLease = _reverseRuntimeLeasesBySessionId[sessionId];
+    late final Future<void> task;
+    task =
+        (() async {
+          _beginReverseRuntimeOperation(sessionId);
+          try {
+            await stop();
+          } catch (error, stack) {
+            silentLog('openhand_home_page', operation, error, stack);
+          } finally {
+            _finishReverseRuntimeOperation(sessionId);
+            try {
+              afterStop?.call();
+              dispose();
+            } catch (error, stack) {
+              silentLog('openhand_home_page', '$operation：释放对象', error, stack);
+            } finally {
+              _releaseReverseRuntimeSlotIfUnchanged(sessionId, expectedLease);
+            }
+          }
+        })().whenComplete(() {
+          if (identical(_reverseControllerDisposalTasks[sessionId], task)) {
+            _reverseControllerDisposalTasks.remove(sessionId);
+          }
+        });
+    _reverseControllerDisposalTasks[sessionId] = task;
+    return task;
   }
 
   // ── Android Reverse ─────────────────────────────────────────────────────
@@ -3796,6 +4098,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       config: config,
       artifactsRootDir: _androidReverseArtifactsRootDir(session.id),
     );
+    _trimRetainedAndroidReverseControllers(makeRoom: true);
     _androidReverseControllers[session.id] = controller;
     controller.addListener(_onAndroidReverseControllerChanged);
     unawaited(_persistAndroidReverseRuntimeMetadata(session.id, controller));
@@ -3836,6 +4139,24 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return;
     }
+    try {
+      await _startReverseRuntime(
+        sessionId: session.id,
+        start: controller.start,
+        isActive: () => controller.isRunning,
+      );
+    } catch (error, stack) {
+      silentLog('openhand_home_page', '启动 Android 逆向调试面板运行时', error, stack);
+      if (dialogContext.mounted) {
+        showFriendlyErrorSnackBar(
+          dialogContext,
+          message: '$error',
+          fallback: 'Android 逆向运行时启动失败',
+        );
+      }
+      return;
+    }
+    if (!controller.isRunning) return;
     if (!dialogContext.mounted) return;
     await showAndroidReverseDashboardDialog(
       dialogContext,
@@ -3864,7 +4185,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       initialSelectedModelId: initialModel?.modelId,
     );
     if (!mounted || setup == null) return false;
-    final created = await _createSession(
+    final runtimeLease = _reserveReverseRuntimeSlot();
+    if (runtimeLease == null) {
+      showOpenHandErrorSnack(context, _reverseRuntimeCapacityMessage(context));
+      return false;
+    }
+    final session = await _createReverseSessionWithReservedRuntime(
+      runtimeLease: runtimeLease,
       templateId: 'android_reverse_expert',
       runtimeContext: runtimeContext,
       initialMode:
@@ -3874,26 +4201,29 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
           initialFullAccessPermission ??
           settingsController.aiDefaultFullAccessPermission,
     );
-    if (!created || !mounted) return false;
-    final sessionController = context.read<AiSessionController>();
-    final session = sessionController.currentSession;
-    if (session == null) return created;
+    if (session == null) return false;
+    const created = true;
     _beginPendingAutoStartSubmission(session.id);
     _replaceComposerText('');
     final config = setup.config;
-    await _applyNewSessionModelSelection(
+    final configured = await _configureNewReverseSession(
       sessionId: session.id,
       providerConfigId: setup.selectedModelConfigId,
       modelId: setup.selectedModelId,
+      metadataKey: 'android_reverse_config',
+      metadataValue: config.toJson(),
+      runtimeLabel: 'Android 逆向',
     );
-    if (!mounted) {
+    if (!configured) {
+      _releaseReverseRuntimeSlot(session.id);
       _clearPendingAutoStartSubmission(session.id);
       return created;
     }
-    await sessionController.updateSessionMetadata(session.id, <String, Object?>{
-      'android_reverse_config': config.toJson(),
-    });
-    if (!mounted) {
+    if (!mounted ||
+        !context.read<AiSessionController>().sessions.any(
+          (item) => item.id == session.id,
+        )) {
+      _releaseReverseRuntimeSlot(session.id);
       _clearPendingAutoStartSubmission(session.id);
       return created;
     }
@@ -3901,10 +4231,17 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       config: config,
       artifactsRootDir: _androidReverseArtifactsRootDir(session.id),
     );
+    _trimRetainedAndroidReverseControllers(makeRoom: true);
     _androidReverseControllers[session.id] = controller;
     controller.addListener(_onAndroidReverseControllerChanged);
+    var launchOk = false;
     try {
-      await controller.start();
+      await _startReverseRuntime(
+        sessionId: session.id,
+        start: controller.start,
+        isActive: () => controller.isRunning,
+      );
+      launchOk = controller.isRunning;
     } catch (error, stack) {
       silentLog('openhand_home_page', '启动 Android 逆向', error, stack);
       if (mounted) {
@@ -3916,6 +4253,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
     }
     await _persistAndroidReverseRuntimeMetadata(session.id, controller);
+    if (!launchOk) {
+      _androidReverseControllers.remove(session.id);
+      _androidReverseRuntimeMetadataSignatures.remove(session.id);
+      await _disposeAndroidReverseController(session.id, controller);
+      _clearPendingAutoStartSubmission(session.id);
+      return created;
+    }
     if (!mounted) {
       _clearPendingAutoStartSubmission(session.id);
       return created;
@@ -3923,7 +4267,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (_autoStartSubmissionWasStopped(session.id)) {
       _androidReverseControllers.remove(session.id);
       _androidReverseRuntimeMetadataSignatures.remove(session.id);
-      _disposeAndroidReverseController(session.id, controller);
+      unawaited(_disposeAndroidReverseController(session.id, controller));
       _clearPendingAutoStartSubmission(session.id);
       return created;
     }
@@ -3947,32 +4291,28 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) return;
     setState(() {});
     for (final entry in _androidReverseControllers.entries) {
+      _releaseInactiveReverseRuntimeSlot(
+        entry.key,
+        active: entry.value.isRunning,
+      );
       unawaited(_persistAndroidReverseRuntimeMetadata(entry.key, entry.value));
     }
+    _trimRetainedAndroidReverseControllers();
   }
 
-  void _disposeAndroidReverseController(
+  Future<void> _disposeAndroidReverseController(
     String sessionId,
     AndroidReverseSessionController controller,
   ) {
     controller.removeListener(_onAndroidReverseControllerChanged);
     _removeTemplateRuntimeLinkage(sessionId);
-    unawaited(
-      (() async {
-        try {
-          await controller.stop();
-        } catch (error, stack) {
-          silentLog(
-            'openhand_home_page',
-            '释放 Android 逆向控制器 $sessionId',
-            error,
-            stack,
-          );
-        } finally {
-          _androidReverseRuntimeMetadataSignatures.remove(sessionId);
-          controller.dispose();
-        }
-      })(),
+    return _disposeReverseRuntimeController(
+      sessionId: sessionId,
+      operation: '释放 Android 逆向控制器 $sessionId',
+      stop: controller.stop,
+      dispose: controller.dispose,
+      afterStop: () =>
+          _androidReverseRuntimeMetadataSignatures.remove(sessionId),
     );
   }
 
@@ -3994,7 +4334,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
             'android_reverse_runtime': metadata,
           });
       if (!updated) return false;
-      _androidReverseRuntimeMetadataSignatures[sessionId] = signature;
+      if (identical(_androidReverseControllers[sessionId], controller)) {
+        _androidReverseRuntimeMetadataSignatures[sessionId] = signature;
+      }
       return true;
     } catch (error, stack) {
       silentLog(
@@ -4562,7 +4904,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         <String, Object?>{'web_reverse_cdp_runtime': metadata},
       );
       if (!updated) return false;
-      _webReverseRuntimeMetadataSignatures[sessionId] = signature;
+      if (identical(_webReverseControllers[sessionId], controller)) {
+        _webReverseRuntimeMetadataSignatures[sessionId] = signature;
+      }
       return true;
     } catch (error, stack) {
       silentLog(
@@ -4781,6 +5125,37 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   /// 若 metadata 缺失 / 浏览器探测失败 / 启动异常都会安全降级，错误以 SnackBar 通知。
   Future<WebReverseSessionController?> restoreWebReverseSession(
     AiSession session,
+  ) {
+    final existing = _webReverseControllers[session.id];
+    if (existing != null) return Future.value(existing);
+    final restoring = _webReverseRestoreTasks[session.id];
+    if (restoring != null) return restoring;
+    if (!_acquireReverseRuntimeSlot(session.id)) {
+      if (mounted) {
+        showOpenHandErrorSnack(
+          context,
+          _reverseRuntimeCapacityMessage(context),
+        );
+      }
+      return Future<WebReverseSessionController?>.value();
+    }
+    late final Future<WebReverseSessionController?> task;
+    task = _restoreWebReverseSessionOnce(session).whenComplete(() {
+      final controller = _webReverseControllers[session.id];
+      _releaseInactiveReverseRuntimeSlot(
+        session.id,
+        active: controller?.hasManagedBrowserProcess ?? false,
+      );
+      if (identical(_webReverseRestoreTasks[session.id], task)) {
+        _webReverseRestoreTasks.remove(session.id);
+      }
+    });
+    _webReverseRestoreTasks[session.id] = task;
+    return task;
+  }
+
+  Future<WebReverseSessionController?> _restoreWebReverseSessionOnce(
+    AiSession session,
   ) async {
     final existing = _webReverseControllers[session.id];
     if (existing != null) return existing;
@@ -4799,16 +5174,32 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return null;
     }
-    // 重新探测一次，不强求是配置里的 browserKind——用户机器可能已变更。
-    final probe = await WebReverseBrowserDetector().detect();
-    if (!mounted) return null;
-    if (!probe.isInstalled) {
+    // 不强制沿用配置中的浏览器类型，用户机器上的可用浏览器可能已经变化。
+    final detector = WebReverseBrowserDetector();
+    var attempts = 0;
+    var probe = await detector.detect();
+    while (!probe.isInstalled &&
+        attempts < _maxWebReverseRestoreDetectionAttempts - 1) {
+      attempts += 1;
+      if (!mounted) return null;
       final decision = await showWebReverseInstallGuideDialog(context);
       if (decision == null ||
           decision == WebReverseInstallGuideDecision.cancelled) {
         return null;
       }
-      return restoreWebReverseSession(session);
+      probe = await detector.detect();
+    }
+    if (!mounted) return null;
+    if (!probe.isInstalled) {
+      showOpenHandErrorSnack(
+        context,
+        openHandLocalizedText(
+          context,
+          zh: '连续检测 $_maxWebReverseRestoreDetectionAttempts 次仍未找到可用浏览器，请完成安装后重试。',
+          en: 'No supported browser was found after $_maxWebReverseRestoreDetectionAttempts checks. Finish installation and try again.',
+        ),
+      );
+      return null;
     }
     // 兼容旧 metadata：早期版本的 userDataDir 形如 `<root>/profile_<browser>`，
     // 多个会话会共享同一目录而触发 Profile 锁。这里在 restore 时按 sessionId
@@ -4835,18 +5226,30 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         );
       }
     }
+    if (!mounted ||
+        !context.read<AiSessionController>().sessions.any(
+          (item) => item.id == session.id,
+        )) {
+      _releaseReverseRuntimeSlot(session.id);
+      return null;
+    }
     final controller = WebReverseSessionController(
       config: effectiveConfig,
       executablePath: probe.executablePath!,
       artifactsRootDir:
           '${OpenHandPaths.defaultRootDirectoryPath()}/web_reverse/sessions/${session.id}',
     );
+    _trimRetainedWebReverseControllers(makeRoom: true);
     _webReverseControllers[session.id] = controller;
     controller.addListener(_onWebReverseControllerChanged);
     var launchOk = false;
     try {
-      await controller.start();
-      launchOk = true;
+      await _startReverseRuntime(
+        sessionId: session.id,
+        start: controller.start,
+        isActive: () => controller.hasManagedBrowserProcess,
+      );
+      launchOk = controller.isBrowserAlive;
       await _persistWebReverseRuntimeMetadata(session.id, controller);
     } on WebReverseLaunchException catch (error, stack) {
       silentLog(
@@ -4874,18 +5277,10 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     if (!launchOk) {
       await _persistWebReverseRuntimeMetadata(session.id, controller);
-      controller.removeListener(_onWebReverseControllerChanged);
       _webReverseControllers.remove(session.id);
       _webReverseRuntimeMetadataSignatures.remove(session.id);
       _webReverseCdpMcpBridge.stopSession(session.id);
-      // 必须先 await stop()，stop 内部的收尾 I/O 才能在 dispose 之前完成；
-      // 旧实现 unawaited(stop) + dispose() 会触发 dispose 后的 notifyListeners。
-      try {
-        await controller.stop();
-      } catch (error, stack) {
-        silentLog('openhand_home_page', '恢复 Web 逆向后停止', error, stack);
-      }
-      controller.dispose();
+      await _disposeWebReverseControllerAfterStop(session.id, controller);
       return null;
     }
     return controller;
@@ -6206,9 +6601,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     );
   }
 
-  /// Shows a bottom sheet that lets the user refine the creation options for
-  /// the currently selected mode. Returns the picked options or `null` if the
-  /// user dismissed the sheet without committing a change.
+  /// 打开当前创建模式的选项面板；用户未确认时返回 `null`。
   Future<AiCreationOptions?> _showCreationOptionsSheet(
     _CreationMode mode,
     AiCreationOptions initial,
@@ -6236,6 +6629,52 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         selectedModel: selectedModel,
       ),
     );
+  }
+
+  Future<bool> _ensureReverseRuntimeReadyForSubmission(
+    AiSession? session,
+  ) async {
+    if (session == null) return true;
+    try {
+      if (session.templateId == WebReverseCdpMcpBridge.templateId) {
+        var controller = _webReverseControllers[session.id];
+        controller ??= await restoreWebReverseSession(session);
+        if (controller == null || !mounted) return false;
+        if (!controller.isBrowserAlive) {
+          await restartWebReverseBrowser(session.id, controller);
+        }
+        if (!controller.isBrowserAlive) {
+          throw StateError('Web 逆向浏览器未连接。');
+        }
+      } else if (session.templateId ==
+          TemplateRuntimeDependencyRegistry.androidReverse.templateId) {
+        final controller = ensureAndroidReverseControllerFor(session);
+        if (controller == null) {
+          throw StateError('Android 逆向会话缺少运行配置。');
+        }
+        if (!controller.isRunning) {
+          await _startReverseRuntime(
+            sessionId: session.id,
+            start: controller.start,
+            isActive: () => controller.isRunning,
+          );
+        }
+        if (!controller.isRunning) {
+          throw StateError('Android 逆向运行时未启动。');
+        }
+      }
+      return true;
+    } catch (error, stack) {
+      silentLog('openhand_home_page', '准备逆向会话运行时', error, stack);
+      if (mounted) {
+        showFriendlyErrorSnackBar(
+          context,
+          message: '$error',
+          fallback: '逆向会话运行时准备失败',
+        );
+      }
+      return false;
+    }
   }
 
   Future<_SubmitTextOutcome> _submitTextToSession(
@@ -6287,10 +6726,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       return _SubmitTextOutcome.failedBeforeSubmit;
     }
-    if (initialSession?.templateId == WebReverseCdpMcpBridge.templateId &&
-        _webReverseControllers[targetSessionId] == null) {
-      await restoreWebReverseSession(initialSession!);
-      if (!mounted) return _SubmitTextOutcome.failedBeforeSubmit;
+    if (!await _ensureReverseRuntimeReadyForSubmission(initialSession)) {
+      return _SubmitTextOutcome.failedBeforeSubmit;
     }
     final initialUserMessageCount = initialSession != null
         ? _visibleUserMessageCount(initialSession)
@@ -7180,26 +7617,52 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final webReverseController = _webReverseControllers[sessionId];
     if (webReverseController != null) {
       _webReverseCdpMcpBridge.stopSession(sessionId);
-      unawaited(
-        webReverseController.stop().catchError((
-          Object error,
-          StackTrace stack,
-        ) {
-          silentLog('openhand_home_page', '停止 Web 逆向运行时', error, stack);
-        }),
+      _stopReverseRuntimeController(
+        sessionId: sessionId,
+        operation: '停止 Web 逆向运行时',
+        stop: webReverseController.stop,
+        isActive: () => webReverseController.hasManagedBrowserProcess,
       );
     }
     final androidReverseController = _androidReverseControllers[sessionId];
     if (androidReverseController != null) {
-      unawaited(
-        androidReverseController.stop().catchError((
-          Object error,
-          StackTrace stack,
-        ) {
-          silentLog('openhand_home_page', '停止 Android 逆向运行时', error, stack);
-        }),
+      _stopReverseRuntimeController(
+        sessionId: sessionId,
+        operation: '停止 Android 逆向运行时',
+        stop: androidReverseController.stop,
+        isActive: () => androidReverseController.isRunning,
       );
     }
+  }
+
+  void _stopReverseRuntimeController({
+    required String sessionId,
+    required String operation,
+    required Future<void> Function() stop,
+    required bool Function() isActive,
+  }) {
+    if (_reverseRuntimeStopTasks.containsKey(sessionId)) return;
+    late final Future<void> task;
+    task =
+        (() async {
+          _beginReverseRuntimeOperation(sessionId);
+          try {
+            await stop();
+          } catch (error, stack) {
+            silentLog('openhand_home_page', operation, error, stack);
+          } finally {
+            _finishReverseRuntimeOperation(sessionId);
+            _releaseInactiveReverseRuntimeSlot(sessionId, active: isActive());
+            _trimRetainedWebReverseControllers();
+            _trimRetainedAndroidReverseControllers();
+          }
+        })().whenComplete(() {
+          if (identical(_reverseRuntimeStopTasks[sessionId], task)) {
+            _reverseRuntimeStopTasks.remove(sessionId);
+          }
+        });
+    _reverseRuntimeStopTasks[sessionId] = task;
+    unawaited(task);
   }
 
   void _scheduleScrollToBottom({
@@ -9840,4 +10303,13 @@ String _openhandHomePaTitleGenerationFailedLabel(BuildContext context) {
     zh: '标题生成失败',
     en: 'Title Generation Failed',
   );
+}
+
+class _ReverseRuntimeCapacityException implements Exception {
+  const _ReverseRuntimeCapacityException(this.message);
+
+  final String message;
+
+  @override
+  String toString() => message;
 }

@@ -63,9 +63,13 @@ final Map<LogicalKeyboardKey, (String, String?, int?)> _kCdpSpecialKey = {
 };
 
 class _BrowserBody extends StatefulWidget {
-  const _BrowserBody({required this.controller});
+  const _BrowserBody({
+    required this.controller,
+    required this.onRestartBrowser,
+  });
 
   final WebReverseSessionController controller;
+  final Future<void> Function() onRestartBrowser;
 
   @override
   State<_BrowserBody> createState() => _BrowserBodyState();
@@ -348,7 +352,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
     );
     setState(() => _restartBrowserInFlight = true);
     try {
-      await widget.controller.restartBrowser();
+      await widget.onRestartBrowser();
       if (!widget.controller.isBrowserAlive) {
         throw StateError(disconnectedAfterRestartMessage);
       }

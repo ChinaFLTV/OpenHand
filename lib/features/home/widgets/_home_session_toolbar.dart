@@ -2592,6 +2592,8 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
           widget.sessionId,
           enabled: enabled,
         ),
+        onRestartBrowser: () =>
+            state.restartWebReverseBrowser(widget.sessionId, ctrl),
       );
       return;
     }
@@ -2617,6 +2619,8 @@ class _WebReverseDebugPillState extends State<_WebReverseDebugPill> {
             widget.sessionId,
             enabled: enabled,
           ),
+          onRestartBrowser: () =>
+              state.restartWebReverseBrowser(widget.sessionId, restored),
         );
       }
     } finally {
