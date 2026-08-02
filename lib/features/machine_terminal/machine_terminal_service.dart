@@ -58,6 +58,9 @@ const Duration _historyPersistDebounce = Duration(milliseconds: 650);
 const Duration _terminalStopGraceDuration = Duration(milliseconds: 900);
 const Duration _terminalForceStopWaitDuration = Duration(milliseconds: 500);
 const Duration _terminalFilesystemProbeTimeout = Duration(seconds: 3);
+const Duration _workspaceLoadQueueTimeout = Duration(seconds: 15);
+const int _maxConcurrentWorkspaceLoads = 4;
+const int _maxPendingWorkspaceLoads = 32;
 const int _shutdownConcurrency = 4;
 const Duration _shutdownStepTimeout = Duration(milliseconds: 1500);
 const String _machineTerminalSurface = 'openhand_machine_terminal';
@@ -504,6 +507,10 @@ class MachineTerminalService extends ChangeNotifier {
       <String, Future<void>>{};
   final Map<String, String> _lastPersistedHistoryDigestBySession =
       <String, String>{};
+  final OpenHandAsyncSemaphore _workspaceLoadSemaphore = OpenHandAsyncSemaphore(
+    _maxConcurrentWorkspaceLoads,
+    maxWaiters: _maxPendingWorkspaceLoads,
+  );
   Future<void>? _shutdownFuture;
 
   int _terminalCounter = 0;
@@ -1002,6 +1009,7 @@ class MachineTerminalService extends ChangeNotifier {
   }
 
   Future<void> _shutdownResources() async {
+    _workspaceLoadSemaphore.cancelWaiters();
     for (final timer in _metadataPersistTimers.values) {
       timer.cancel();
     }
@@ -1140,7 +1148,7 @@ class MachineTerminalService extends ChangeNotifier {
     final generation = _workspaceLoadGenerations[normalizedSessionId] ?? 0;
     late final Future<_MachineTerminalWorkspace> tracked;
     tracked =
-        _loadWorkspace(
+        _loadWorkspaceWithPermit(
           sessionId: normalizedSessionId,
           workingDirectory: workingDirectory,
           generation: generation,
@@ -1155,6 +1163,40 @@ class MachineTerminalService extends ChangeNotifier {
         });
     _workspaceLoads[normalizedSessionId] = tracked;
     return tracked;
+  }
+
+  Future<_MachineTerminalWorkspace> _loadWorkspaceWithPermit({
+    required String sessionId,
+    required int generation,
+    String? workingDirectory,
+  }) async {
+    final queueTimeoutSignal = Completer<void>();
+    final queueTimer = startSafeTimer(
+      _workspaceLoadQueueTimeout,
+      queueTimeoutSignal.complete,
+    );
+    final acquired = await _workspaceLoadSemaphore.acquireUnlessCancelled(
+      queueTimeoutSignal.future,
+    );
+    queueTimer.cancel();
+    if (!acquired) {
+      if (_isDisposed) throw StateError('终端服务已关闭。');
+      throw TimeoutException('终端工作区加载排队超时。', _workspaceLoadQueueTimeout);
+    }
+    try {
+      if (_isDisposed ||
+          _workspaceDisposals.containsKey(sessionId) ||
+          (_workspaceLoadGenerations[sessionId] ?? 0) != generation) {
+        throw StateError('终端工作区加载已取消。');
+      }
+      return await _loadWorkspace(
+        sessionId: sessionId,
+        generation: generation,
+        workingDirectory: workingDirectory,
+      );
+    } finally {
+      _workspaceLoadSemaphore.release();
+    }
   }
 
   Future<_MachineTerminalWorkspace> _loadWorkspace({
@@ -1281,10 +1323,7 @@ class MachineTerminalService extends ChangeNotifier {
     ).timeout(defaultBoundedFileReadIdleTimeout);
     if (type == FileSystemEntityType.notFound) return null;
     if (type != FileSystemEntityType.file) {
-      throw FileSystemException(
-        '终端历史记录不是普通文件。',
-        file.path,
-      );
+      throw FileSystemException('终端历史记录不是普通文件。', file.path);
     }
     try {
       final decoded = jsonDecode(
