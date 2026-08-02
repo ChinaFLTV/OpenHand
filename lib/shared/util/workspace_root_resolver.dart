@@ -208,7 +208,7 @@ final class WorkspaceRootResolver {
       throw ArgumentError.value(
         maxMarkers,
         'maxMarkers',
-        'Must be between 1 and $_maxAllowedMarkers.',
+        '必须介于 1 和 $_maxAllowedMarkers 之间。',
       );
     }
     final normalized = <String>{};
@@ -218,18 +218,14 @@ final class WorkspaceRootResolver {
           marker == '.' ||
           marker == '..' ||
           p.basename(marker) != marker) {
-        throw ArgumentError.value(
-          rawMarker,
-          'markers',
-          'Markers must be non-empty path basenames.',
-        );
+        throw ArgumentError.value(rawMarker, 'markers', '标记必须是非空路径基本名称。');
       }
       normalized.add(marker);
       if (normalized.length > maxMarkers) {
         throw ArgumentError.value(
           markers,
           'markers',
-          'Must contain at most $maxMarkers unique markers.',
+          '最多只能包含 $maxMarkers 个唯一标记。',
         );
       }
     }

@@ -474,7 +474,6 @@ extension on _SettingsViewState {
       }
       final validationMessage =
           await AiLspManagedInstallService.validateInstallRoot(
-            language: language,
             backend: installBackend,
             settings: settings,
           );
@@ -1404,7 +1403,6 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
             ? widget.defaultInstallRoot
             : _pathController.text;
         message = await AiLspManagedInstallService.validateInstallRoot(
-          language: widget.language,
           backend: backend,
           settings: AiLspLanguageSettings(
             backendId: _selectedBackendId,

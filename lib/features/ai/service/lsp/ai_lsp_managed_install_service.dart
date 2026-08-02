@@ -88,17 +88,33 @@ class AiLspManagedInstallManifest {
       if (optionalStringFromValue(decoded['managed_by']) != 'openhand') {
         return null;
       }
+      final backendId = stringFromValue(decoded['backend_id']);
+      final language = stringFromValue(decoded['language']);
+      final version = stringFromValue(decoded['version']);
+      final installKind = stringFromValue(decoded['install_kind']);
+      final installRootPath = OpenHandPaths.normalizeOptionalPath(
+        optionalStringFromValue(decoded['install_root_path']) ?? normalizedRoot,
+      );
+      final installedAt = utcDateTimeFromValue(decoded['installed_at']);
+      if (backendId.isEmpty ||
+          language.isEmpty ||
+          version.isEmpty ||
+          !AiLspManagedInstallKind.values.any(
+            (kind) => kind.name == installKind,
+          ) ||
+          installKind == AiLspManagedInstallKind.none.name ||
+          installedAt == null ||
+          !p.isAbsolute(installRootPath) ||
+          !p.equals(installRootPath, normalizedRoot)) {
+        return null;
+      }
       return AiLspManagedInstallManifest(
-        backendId: stringFromValue(decoded['backend_id']),
-        language: stringFromValue(decoded['language']),
-        version: stringFromValue(decoded['version']),
-        installKind: stringFromValue(decoded['install_kind']),
-        installRootPath:
-            optionalStringFromValue(decoded['install_root_path']) ??
-            normalizedRoot,
-        installedAt:
-            utcDateTimeFromValue(decoded['installed_at']) ??
-            DateTime.fromMillisecondsSinceEpoch(0, isUtc: true),
+        backendId: backendId,
+        language: language,
+        version: version,
+        installKind: installKind,
+        installRootPath: installRootPath,
+        installedAt: installedAt,
       );
     } catch (_) {
       return null;
@@ -108,6 +124,8 @@ class AiLspManagedInstallManifest {
 
 abstract final class AiLspManagedInstallService {
   static final String _currentArchitecture = _detectArchitecture();
+  static const String _installRootInspectionError = '无法检查所选安装目录，请确认权限后重试。';
+  static const int _minimumInstallRootDepth = 2;
   static const int _manifestCacheMaxEntries = 128;
   static const int _manifestMaxPendingReads = 64;
   static const Duration _manifestCacheTtl = Duration(minutes: 1);
@@ -174,18 +192,20 @@ abstract final class AiLspManagedInstallService {
   }
 
   static Future<String?> validateInstallRoot({
-    required String language,
     required AiLspBackendDescriptor backend,
     required AiLspLanguageSettings settings,
   }) async {
     if (!supportsManagedInstall(backend)) {
-      return 'This backend does not support in-app managed installation on the current platform.';
+      return '当前后端在此平台不支持应用内托管安装。';
     }
     final normalizedRoot = OpenHandPaths.normalizeOptionalPath(
       settings.rootPath,
     );
     if (normalizedRoot.isEmpty) {
-      return 'Choose an install root before starting the download.';
+      return '开始下载前，请先选择安装目录。';
+    }
+    if (_isDangerousInstallRoot(normalizedRoot)) {
+      return '请选择绝对路径下的专用子目录，不能使用共享目录或顶层目录。';
     }
     late final FileSystemEntityType entityType;
     try {
@@ -194,14 +214,11 @@ abstract final class AiLspManagedInstallService {
         followLinks: false,
       );
     } on FileSystemException {
-      return 'The selected install root could not be inspected. Check its permissions and try again.';
+      return _installRootInspectionError;
     }
     if (entityType != FileSystemEntityType.notFound &&
         entityType != FileSystemEntityType.directory) {
-      return 'The selected install root must be a real directory, not a file or symbolic link.';
-    }
-    if (_isDangerousInstallRoot(normalizedRoot, language: language)) {
-      return 'Choose a dedicated subdirectory for this LSP install instead of a shared or top-level folder.';
+      return '所选安装目录必须是真实目录，不能是文件或符号链接。';
     }
     final manifest = await readManifest(normalizedRoot, forceRefresh: true);
     if (entityType == FileSystemEntityType.notFound) {
@@ -214,22 +231,22 @@ abstract final class AiLspManagedInstallService {
         maxEntries: 2,
       );
     } on FileSystemException {
-      return 'The selected install root could not be inspected. Check its permissions and try again.';
+      return _installRootInspectionError;
     }
     final hasNonManifestEntry = listing.entries.any(
       (entry) => p.basename(entry.path) != _managedInstallManifestFileName,
     );
     if (!hasNonManifestEntry && listing.truncated) {
-      return 'The selected install root could not be inspected completely. Choose a local folder or try again.';
+      return '未能完整检查所选安装目录，请选择本地目录或重试。';
     }
     if (!hasNonManifestEntry) {
       return null;
     }
     if (manifest == null) {
-      return 'The selected folder is not empty. Use an empty folder or an existing OpenHand-managed LSP install root.';
+      return '所选目录不为空，请使用空目录或现有的 OpenHand 托管 LSP 安装目录。';
     }
     if (manifest.backendId != backend.id) {
-      return 'The selected folder is already managed for ${manifest.backendId}. Pick a different folder or clean the existing install first.';
+      return '所选目录已由 ${manifest.backendId} 托管，请改用其他目录或先清理现有安装。';
     }
     return null;
   }
@@ -243,6 +260,10 @@ abstract final class AiLspManagedInstallService {
     final normalizedRoot = OpenHandPaths.normalizeOptionalPath(rootPath);
     if (normalizedRoot.isEmpty) {
       return;
+    }
+    if (_isDangerousInstallRoot(normalizedRoot) ||
+        !supportsManagedInstall(backend)) {
+      throw StateError('LSP 托管安装目录不符合安全要求。');
     }
     final manifest = AiLspManagedInstallManifest(
       backendId: backend.id,
@@ -262,25 +283,25 @@ abstract final class AiLspManagedInstallService {
 
   static Future<void> deleteManagedInstall(String rootPath) async {
     final normalizedRoot = OpenHandPaths.normalizeOptionalPath(rootPath);
+    if (_isDangerousInstallRoot(normalizedRoot)) {
+      throw StateError('拒绝清理不安全的 LSP 托管安装目录。');
+    }
     final entityType = await FileSystemEntity.type(
       normalizedRoot,
       followLinks: false,
     );
     if (entityType != FileSystemEntityType.directory) {
-      throw StateError(
-        'The selected path is not a real managed-install directory.',
-      );
+      throw StateError('所选路径不是真实的托管安装目录。');
     }
     final manifest = await readManifest(normalizedRoot, forceRefresh: true);
     if (manifest == null) {
-      throw StateError(
-        'The selected folder is not an OpenHand-managed LSP install.',
-      );
+      throw StateError('所选目录不是 OpenHand 托管的 LSP 安装目录。');
     }
     final directory = Directory(normalizedRoot);
     await deletePathBounded(
-      p.absolute(directory.path),
+      directory.path,
       policy: _managedInstallDeletePolicy,
+      allowedRoot: p.dirname(directory.path),
     );
     _manifestReads.remove(normalizedRoot);
     _storeCachedManifest(normalizedRoot, null);
@@ -293,7 +314,8 @@ abstract final class AiLspManagedInstallService {
     final installRootPath = OpenHandPaths.normalizeOptionalPath(
       settings.rootPath,
     );
-    if (installRootPath.isEmpty || !supportsManagedInstall(backend)) {
+    if (_isDangerousInstallRoot(installRootPath) ||
+        !supportsManagedInstall(backend)) {
       return null;
     }
     final version = settings.normalizedVersion;
@@ -349,25 +371,32 @@ abstract final class AiLspManagedInstallService {
     };
   }
 
-  static bool _isDangerousInstallRoot(
-    String normalizedRoot, {
-    required String language,
-  }) {
+  static bool _isDangerousInstallRoot(String normalizedRoot) {
+    if (normalizedRoot.isEmpty ||
+        normalizedRoot.contains('\u0000') ||
+        !p.isAbsolute(normalizedRoot)) {
+      return true;
+    }
     final home = OpenHandPaths.homeDirectoryPath();
     final openhandRoot = p.join(home, '.openhand');
     final sharedLspRoot = OpenHandPaths.defaultLspDirectoryPath();
-    final languageRoot = OpenHandPaths.defaultLspDirectoryPathForLanguage(
-      language,
-    );
+    final currentDirectory = p.normalize(p.absolute(Directory.current.path));
+    final systemTemp = p.normalize(p.absolute(Directory.systemTemp.path));
     final filesystemRoot = p.rootPrefix(normalizedRoot);
-    return p.equals(normalizedRoot, filesystemRoot) ||
+    if (p.equals(normalizedRoot, filesystemRoot) ||
         p.equals(normalizedRoot, home) ||
         p.equals(normalizedRoot, openhandRoot) ||
         p.equals(normalizedRoot, sharedLspRoot) ||
-        nullIfBlank(normalizedRoot) == null ||
-        p.equals(normalizedRoot, languageRoot) == false &&
-            p.equals(normalizedRoot, p.dirname(languageRoot)) &&
-            p.basename(normalizedRoot) == p.basename(sharedLspRoot);
+        p.equals(normalizedRoot, currentDirectory) ||
+        p.equals(normalizedRoot, systemTemp)) {
+      return true;
+    }
+    final relative = p.relative(normalizedRoot, from: filesystemRoot);
+    return p
+            .split(relative)
+            .where((segment) => segment.isNotEmpty && segment != '.')
+            .length <
+        _minimumInstallRootDepth;
   }
 
   static AiLspManagedInstallPlan _buildNpmLocalPlan(
@@ -592,7 +621,7 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallPlan(
       shellCommand: lines.join('\n'),
       previewCommand:
-          'Download Dart SDK into ${OpenHandPaths.shortenHomePath(installRootPath)} and expose dart via ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
+          '下载 Dart SDK 到 ${OpenHandPaths.shortenHomePath(installRootPath)}，并通过 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))} 提供 dart 可执行文件',
       installRootPath: installRootPath,
     );
   }
@@ -625,7 +654,7 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallPlan(
       shellCommand: lines.join('\n'),
       previewCommand:
-          'Download rust-analyzer from the official GitHub release into ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
+          '从 GitHub 官方发行版下载 rust-analyzer 到 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
       installRootPath: installRootPath,
     );
   }
@@ -660,7 +689,7 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallPlan(
       shellCommand: lines.join('\n'),
       previewCommand:
-          'Download Eclipse JDTLS into ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))} and expose jdtls via ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
+          '下载 Eclipse JDTLS 到 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))}，并通过 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))} 提供 jdtls 可执行文件',
       installRootPath: installRootPath,
     );
   }
@@ -694,7 +723,7 @@ abstract final class AiLspManagedInstallService {
                 r'    exec "$candidate" "$@"',
                 r'  fi',
                 r'done',
-                r'echo "OpenHand: Kotlin language server executable was not found after installation." >&2',
+                r'echo "OpenHand：安装后未找到 Kotlin 语言服务器可执行文件。" >&2',
                 r'exit 1',
               ],
             ),
@@ -703,7 +732,7 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallPlan(
       shellCommand: lines.join('\n'),
       previewCommand:
-          'Download Kotlin Language Server into ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))} and expose kotlin-lsp via ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
+          '下载 Kotlin 语言服务器到 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))}，并通过 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))} 提供 kotlin-lsp 可执行文件',
       installRootPath: installRootPath,
     );
   }
@@ -742,7 +771,7 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallPlan(
       shellCommand: lines.join('\n'),
       previewCommand:
-          'Download the official LLVM archive into ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))} and expose clangd via ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
+          '下载 LLVM 官方压缩包到 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))}，并通过 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))} 提供 clangd 可执行文件',
       installRootPath: installRootPath,
     );
   }
@@ -780,7 +809,7 @@ abstract final class AiLspManagedInstallService {
                 r'    exec "$candidate" "$@"',
                 r'  fi',
                 r'done',
-                r'echo "OpenHand: OmniSharp executable was not found after installation." >&2',
+                r'echo "OpenHand：安装后未找到 OmniSharp 可执行文件。" >&2',
                 r'exit 1',
               ],
             ),
@@ -796,7 +825,7 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallPlan(
       shellCommand: lines.join('\n'),
       previewCommand:
-          'Download OmniSharp into ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))} and expose wrappers via ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
+          '下载 OmniSharp 到 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))}，并通过 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))} 提供启动包装器',
       installRootPath: installRootPath,
     );
   }
@@ -839,7 +868,7 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallPlan(
       shellCommand: lines.join('\n'),
       previewCommand:
-          'Download Lua Language Server into ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))} and expose via ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
+          '下载 Lua 语言服务器到 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))}，并通过 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))} 提供可执行文件',
       installRootPath: installRootPath,
     );
   }
@@ -879,7 +908,7 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallPlan(
       shellCommand: lines.join('\n'),
       previewCommand:
-          'Download ElixirLS into ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))} and expose via ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
+          '下载 ElixirLS 到 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'server'))}，并通过 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))} 提供可执行文件',
       installRootPath: installRootPath,
     );
   }
@@ -914,7 +943,7 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallPlan(
       shellCommand: lines.join('\n'),
       previewCommand:
-          'Download Terraform LS into ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
+          '下载 Terraform LS 到 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
       installRootPath: installRootPath,
     );
   }
@@ -950,7 +979,7 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallPlan(
       shellCommand: lines.join('\n'),
       previewCommand:
-          'Download Tinymist into ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
+          '下载 Tinymist 到 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
       installRootPath: installRootPath,
     );
   }
@@ -988,7 +1017,7 @@ abstract final class AiLspManagedInstallService {
     return AiLspManagedInstallPlan(
       shellCommand: lines.join('\n'),
       previewCommand:
-          'Download Clojure LSP into ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
+          '下载 Clojure LSP 到 ${OpenHandPaths.shortenHomePath(p.join(installRootPath, 'bin'))}',
       installRootPath: installRootPath,
     );
   }
@@ -1004,7 +1033,7 @@ abstract final class AiLspManagedInstallService {
         'export PATH=${_quotePosix('$sdkPath/bin')}:"\$PATH"',
       ...requiredCommands.map(
         (command) =>
-            'command -v $command >/dev/null 2>&1 || { echo "Missing required command: $command" >&2; exit 127; }',
+            'command -v $command >/dev/null 2>&1 || { echo "缺少必需命令：$command" >&2; exit 127; }',
       ),
       'ROOT=${_quotePosix(installRootPath)}',
       r'TMP_DIR="$(mktemp -d)"',
