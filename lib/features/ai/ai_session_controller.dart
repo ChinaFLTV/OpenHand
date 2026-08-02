@@ -542,11 +542,8 @@ class AiSessionController extends ChangeNotifier {
   static int _minimumMeaningfulLatinTitleWords = 2;
   static const String _defaultNewSessionTitle = '新会话';
   static const Duration _autoTitleRequestTimeout = Duration(seconds: 20);
-  // Sora-style media generation endpoints poll until the task finishes.
-  // Real-world durations: image ~30s-2min, video ~3-15min, audio ~1-3min.
-  // These timeouts must dwarf `connectTimeoutSeconds` so the polling loop
-  // gets a realistic budget; otherwise `.timeout(remaining)` in the poller
-  // collapses to microseconds and instantly fires TimeoutException.
+  // Sora 类媒体生成端点会轮询到任务结束，真实耗时通常远高于连接超时。
+  // 这里为完整轮询流程保留足够总时限，避免剩余时限过短而立即超时。
   static const Duration _imageGenerationTimeout = Duration(minutes: 5);
   static const Duration _videoGenerationTimeout = Duration(minutes: 15);
   static const Duration _audioGenerationTimeout = Duration(minutes: 5);
@@ -565,6 +562,9 @@ class AiSessionController extends ChangeNotifier {
   static const int _initialMessageHydrationCharacterBudget = 14000;
   static const int _olderMessageHydrationBatchSize = 12;
   static const Duration _initialMessageHydrationTimeout = Duration(seconds: 10);
+  static const Duration _sessionHydrationQueueTimeout = Duration(seconds: 8);
+  static const int _maxConcurrentSessionHydrations = 4;
+  static const int _maxPendingSessionHydrations = 64;
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
     switch (request.mode) {
@@ -973,6 +973,11 @@ class AiSessionController extends ChangeNotifier {
       <String, Future<AiSessionMessage?>>{};
   final Map<String, int> _sessionMessageContentLoadGenerations =
       <String, int>{};
+  final OpenHandAsyncSemaphore _sessionHydrationSemaphore =
+      OpenHandAsyncSemaphore(
+        _maxConcurrentSessionHydrations,
+        maxWaiters: _maxPendingSessionHydrations,
+      );
   final Map<String, Future<void>> _responseRegenerationRecoveryTasks =
       <String, Future<void>>{};
   final Set<String> _hydratingSessionMessageIds = <String>{};
@@ -1886,6 +1891,32 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
+  Future<T> _runSessionHydrationRead<T>(Future<T> Function() read) async {
+    final timeoutSignal = Completer<void>();
+    final timeoutTimer = startSafeTimer(
+      _sessionHydrationQueueTimeout,
+      timeoutSignal.complete,
+    );
+    late final bool acquired;
+    try {
+      acquired = await _sessionHydrationSemaphore.acquireUnlessCancelled(
+        timeoutSignal.future,
+      );
+    } finally {
+      timeoutTimer.cancel();
+    }
+    if (!acquired) {
+      if (_isDisposed) throw _disposedError;
+      throw TimeoutException('会话数据加载排队超时。', _sessionHydrationQueueTimeout);
+    }
+    try {
+      if (_isDisposed) throw _disposedError;
+      return await read();
+    } finally {
+      _sessionHydrationSemaphore.release();
+    }
+  }
+
   Future<AiSession?> ensureSessionMessageWindowHydrated(String sessionId) {
     final normalizedSessionId = sessionId.trim();
     if (normalizedSessionId.isEmpty) {
@@ -1992,7 +2023,23 @@ class AiSessionController extends ChangeNotifier {
     if (_hydratingSessionMessageIds.add(normalizedSessionId)) {
       notifyListeners();
     }
-    final task = _hydrateSessionMessages(normalizedSessionId);
+    late final Future<AiSession?> task;
+    task = _hydrateSessionMessages(normalizedSessionId).whenComplete(() {
+      if (identical(_sessionMessageHydrationTasks[normalizedSessionId], task)) {
+        _sessionMessageHydrationTasks.remove(normalizedSessionId);
+      }
+      if (!_sessionMessageHydrationTasks.containsKey(normalizedSessionId) &&
+          !_sessionOlderMessageHydrationTasks.containsKey(
+            normalizedSessionId,
+          ) &&
+          !_sessionMessageWindowHydrationTasks.containsKey(
+            normalizedSessionId,
+          ) &&
+          _hydratingSessionMessageIds.remove(normalizedSessionId)) {
+        notifyListeners();
+      }
+      _releaseDeletedSessionMarkerIfIdle(normalizedSessionId);
+    });
     _sessionMessageHydrationTasks[normalizedSessionId] = task;
     return task;
   }
@@ -2010,7 +2057,16 @@ class AiSessionController extends ChangeNotifier {
     if (existingTask != null) {
       return existingTask;
     }
-    final task = _hydrateSessionCacheStatistics(normalizedSessionId);
+    late final Future<AiSession?> task;
+    task = _hydrateSessionCacheStatistics(normalizedSessionId).whenComplete(() {
+      if (identical(
+        _sessionCacheStatsHydrationTasks[normalizedSessionId],
+        task,
+      )) {
+        _sessionCacheStatsHydrationTasks.remove(normalizedSessionId);
+      }
+      _releaseDeletedSessionMarkerIfIdle(normalizedSessionId);
+    });
     _sessionCacheStatsHydrationTasks[normalizedSessionId] = task;
     return task;
   }
@@ -2025,7 +2081,26 @@ class AiSessionController extends ChangeNotifier {
     if (existingTask != null) {
       return existingTask;
     }
-    final task = _loadOlderSessionMessages(normalizedSessionId);
+    late final Future<AiSession?> task;
+    task = _loadOlderSessionMessages(normalizedSessionId).whenComplete(() {
+      if (identical(
+        _sessionOlderMessageHydrationTasks[normalizedSessionId],
+        task,
+      )) {
+        _sessionOlderMessageHydrationTasks.remove(normalizedSessionId);
+      }
+      if (!_sessionOlderMessageHydrationTasks.containsKey(
+            normalizedSessionId,
+          ) &&
+          !_sessionMessageHydrationTasks.containsKey(normalizedSessionId) &&
+          !_sessionMessageWindowHydrationTasks.containsKey(
+            normalizedSessionId,
+          ) &&
+          _hydratingSessionMessageIds.remove(normalizedSessionId)) {
+        notifyListeners();
+      }
+      _releaseDeletedSessionMarkerIfIdle(normalizedSessionId);
+    });
     _sessionOlderMessageHydrationTasks[normalizedSessionId] = task;
     return task;
   }
@@ -2062,7 +2137,9 @@ class AiSessionController extends ChangeNotifier {
     required int generation,
   }) async {
     try {
-      final loaded = await _store.loadMessage(sessionId, messageId);
+      final loaded = await _runSessionHydrationRead(
+        () => _store.loadMessage(sessionId, messageId),
+      );
       if (loaded == null ||
           _isDisposed ||
           _deletedSessionIds.contains(sessionId) ||
@@ -2145,7 +2222,9 @@ class AiSessionController extends ChangeNotifier {
       }
       final fullSession = liveBeforeLoad.hasCompleteMessages
           ? liveBeforeLoad
-          : await _store.loadSessionStatisticsSnapshot(sessionId);
+          : await _runSessionHydrationRead(
+              () => _store.loadSessionStatisticsSnapshot(sessionId),
+            );
       if (fullSession == null ||
           _isDisposed ||
           _deletedSessionIds.contains(sessionId)) {
@@ -2190,9 +2269,6 @@ class AiSessionController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog('ai_session_controller', '补全会话缓存统计', error, stack);
       return _sessionById(sessionId);
-    } finally {
-      _sessionCacheStatsHydrationTasks.remove(sessionId);
-      _releaseDeletedSessionMarkerIfIdle(sessionId);
     }
   }
 
@@ -2244,11 +2320,13 @@ class AiSessionController extends ChangeNotifier {
       if (limit <= 0) {
         return current;
       }
-      final page = await _store.loadMessages(
-        sessionId,
-        limit: limit,
-        offset: offset,
-        deferTelemetryMetadata: true,
+      final page = await _runSessionHydrationRead(
+        () => _store.loadMessages(
+          sessionId,
+          limit: limit,
+          offset: offset,
+          deferTelemetryMetadata: true,
+        ),
       );
       if (_isDisposed || _deletedSessionIds.contains(sessionId)) {
         return null;
@@ -2297,14 +2375,6 @@ class AiSessionController extends ChangeNotifier {
         _friendlyAiSessionPersistenceError(error, operation: 'load'),
       );
       return null;
-    } finally {
-      _sessionOlderMessageHydrationTasks.remove(sessionId);
-      if (!_sessionMessageHydrationTasks.containsKey(sessionId) &&
-          !_sessionMessageWindowHydrationTasks.containsKey(sessionId) &&
-          _hydratingSessionMessageIds.remove(sessionId)) {
-        notifyListeners();
-      }
-      _releaseDeletedSessionMarkerIfIdle(sessionId);
     }
   }
 
@@ -2313,11 +2383,13 @@ class AiSessionController extends ChangeNotifier {
     required int generation,
   }) async {
     try {
-      final loaded = await _store.loadSessionTailWindow(
-        sessionId,
-        limit: _initialMessageHydrationWindowSize,
-        characterBudget: _initialMessageHydrationCharacterBudget,
-        sessionHeader: _sessionById(sessionId),
+      final loaded = await _runSessionHydrationRead(
+        () => _store.loadSessionTailWindow(
+          sessionId,
+          limit: _initialMessageHydrationWindowSize,
+          characterBudget: _initialMessageHydrationCharacterBudget,
+          sessionHeader: _sessionById(sessionId),
+        ),
       );
       if (loaded == null ||
           !_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {
@@ -2414,7 +2486,9 @@ class AiSessionController extends ChangeNotifier {
 
   Future<AiSession?> _hydrateSessionMessages(String sessionId) async {
     try {
-      final loaded = await _store.loadSession(sessionId);
+      final loaded = await _runSessionHydrationRead(
+        () => _store.loadSession(sessionId),
+      );
       if (loaded == null ||
           _isDisposed ||
           _deletedSessionIds.contains(sessionId) ||
@@ -2459,12 +2533,6 @@ class AiSessionController extends ChangeNotifier {
         _friendlyAiSessionPersistenceError(error, operation: 'load'),
       );
       return null;
-    } finally {
-      _sessionMessageHydrationTasks.remove(sessionId);
-      if (_hydratingSessionMessageIds.remove(sessionId)) {
-        notifyListeners();
-      }
-      _releaseDeletedSessionMarkerIfIdle(sessionId);
     }
   }
 
@@ -6987,6 +7055,7 @@ class AiSessionController extends ChangeNotifier {
     final completer = Completer<void>();
     _shutdownFuture = completer.future;
     _isDisposed = true;
+    _sessionHydrationSemaphore.cancelWaiters();
     _sessionMessageWindowHydrationTasks.clear();
     _sessionMessageWindowHydrationGenerations.clear();
     _sessionMessageHydrationTasks.clear();
