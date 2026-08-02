@@ -132,6 +132,7 @@ class McpStdioProcessManager extends ChangeNotifier {
   );
   static const int _defaultResponseBufferLimit = kBytesPerMiB;
   static const int _maxLogLineChars = 4 * kBytesPerKiB;
+  static const int _maxManagedProcesses = 64;
   static const int _maxRuntimeCacheScanEntries = 20000;
   static const Duration _runtimeCacheScanTimeout = Duration(seconds: 5);
   static const Duration _runtimeCacheStatTimeout = Duration(milliseconds: 500);
@@ -169,6 +170,12 @@ class McpStdioProcessManager extends ChangeNotifier {
       if (existing.configFingerprint == fingerprint) return;
       await stopServer(name);
     }
+    final managedProcessCount = _processes.values
+        .where((managed) => !managed.info.isStopped || managed.process != null)
+        .length;
+    if (managedProcessCount >= _maxManagedProcesses) {
+      throw StateError('MCP stdio 托管进程已达到上限 $_maxManagedProcesses。');
+    }
 
     final generation = _nextGeneration++;
     _processes[name] = _ManagedProcess(
@@ -183,7 +190,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     StreamSubscription<String>? stderrSubscription;
     try {
       // 解析实际的可执行文件和参数。对于 npx 命令，尝试直接定位已安装包的
-      // 入口脚本用 node 执行，避免 npx 的启动开销和 stdin 转发问题。
+      // 入口脚本并用 node 执行，避免 npx 的启动开销和标准输入转发问题。
       final launch = await _resolveDirectLaunch(server);
       if (!_isCurrentStart(name, generation)) {
         return;
@@ -235,12 +242,12 @@ class McpStdioProcessManager extends ChangeNotifier {
       _processes[name] = managed;
       notifyListeners();
 
-      // 监听 stdout - 同时用于日志、握手响应检测和 discovery 响应路由
+      // 监听标准输出，同时用于日志、握手响应检测和工具发现响应路由。
       stdoutSubscription = process.stdout
           .transform(utf8.decoder)
           .listen(
             (data) {
-              // 优先尝试路由到 discovery session 的 pending requests
+              // 优先尝试路由到工具发现会话的待处理请求。
               final routed = responseRouter.tryRoute(data);
               _appendLog(
                 name,
@@ -255,23 +262,23 @@ class McpStdioProcessManager extends ChangeNotifier {
               responseRouter.failAll(e is Object ? e : StateError('$e'));
               _appendLog(
                 name,
-                '[stdout error] $e',
+                '[标准输出异常] $e',
                 isStderr: true,
                 expectedGeneration: generation,
               );
             },
             onDone: () {
-              responseRouter.failAll(StateError('stdout closed'));
+              responseRouter.failAll(StateError('标准输出已关闭。'));
               _appendLog(
                 name,
-                '[stdout closed]',
+                '[标准输出已关闭]',
                 isStderr: false,
                 expectedGeneration: generation,
               );
             },
           );
 
-      // 监听 stderr
+      // 监听标准错误。
       stderrSubscription = process.stderr
           .transform(utf8.decoder)
           .listen(
@@ -283,19 +290,19 @@ class McpStdioProcessManager extends ChangeNotifier {
             ),
             onError: (e) => _appendLog(
               name,
-              '[stderr error] $e',
+              '[标准错误异常] $e',
               isStderr: true,
               expectedGeneration: generation,
             ),
             onDone: () => _appendLog(
               name,
-              '[stderr closed]',
+              '[标准错误已关闭]',
               isStderr: false,
               expectedGeneration: generation,
             ),
           );
 
-      // 持有订阅句柄，停止进程时显式 cancel，避免管道未及时关闭时泄漏监听器。
+      // 持有订阅句柄，停止进程时显式取消，避免管道未及时关闭时泄漏监听器。
       _processes[name] = managed.copyWith(
         stdoutSubscription: stdoutSubscription,
         stderrSubscription: stderrSubscription,
@@ -306,11 +313,11 @@ class McpStdioProcessManager extends ChangeNotifier {
         process.exitCode.then((code) {
           _appendLog(
             name,
-            '\n[${_timestamp()}] 进程已退出 (exit code: $code)',
+            '\n[${_timestamp()}] 进程已退出（退出码：$code）',
             isStderr: false,
             expectedGeneration: generation,
           );
-          responseRouter.failAll(StateError('process exited with code $code'));
+          responseRouter.failAll(StateError('进程已退出，退出码：$code。'));
           unawaited(
             Future.wait<void>(<Future<void>>[
               _cancelSubscriptionBounded(
@@ -614,12 +621,12 @@ class McpStdioProcessManager extends ChangeNotifier {
   }
 
   // ─────────────────────────────────────────────────────────────────────────
-  // Discovery Service 复用已运行进程的会话借用机制
+  // 工具发现服务复用已运行进程的会话借用机制
   // ─────────────────────────────────────────────────────────────────────────
 
   final Map<String, int> _sessionBorrowCount = {};
 
-  /// 尝试借用已运行且握手完成的进程供 discovery service 发送 tools/list。
+  /// 尝试借用已运行且握手完成的进程供工具发现服务发送 tools/list。
   /// 如果进程正在启动或握手尚未完成，最多等待 [_handshakeWaitTimeout]。
   /// 返回 null 表示无可用进程（未启动/已停止/等待超时），调用方应回退到启动新进程。
   /// 借用计数用于 stopServer 给已借出的请求一个短暂收尾窗口；停止请求仍会
@@ -631,7 +638,7 @@ class McpStdioProcessManager extends ChangeNotifier {
   ) async {
     if (_isDisposed || _isShuttingDown) return null;
     _ManagedProcess? managed = _processes[serverName];
-    // 完全不存在 entry — 调用方应先触发 startServer
+    // 完全不存在条目时，调用方应先触发 startServer。
     if (managed == null) {
       return null;
     }
@@ -769,9 +776,9 @@ class McpStdioProcessManager extends ChangeNotifier {
         continue; // 避免连续空行
       }
       if (isStderr) {
-        currentLogs.add('[stderr] $line');
+        currentLogs.add('[标准错误] $line');
       } else {
-        // stdout: 检测 JSON-RPC 响应并格式化摘要
+        // 标准输出：检测 JSON-RPC 响应并格式化摘要。
         final trimmed = line.trim();
         if (!wasTruncated &&
             trimmed.startsWith('{') &&
@@ -818,7 +825,7 @@ class McpStdioProcessManager extends ChangeNotifier {
 
       if (result is Map) {
         final resultMap = stringKeyedMapFromValue(result);
-        // initialize 响应
+        // initialize 方法响应。
         if (resultMap.containsKey('protocolVersion')) {
           final version = resultMap['protocolVersion'] ?? '?';
           final serverInfo = stringKeyedMapFromValue(resultMap['serverInfo']);
@@ -837,7 +844,7 @@ class McpStdioProcessManager extends ChangeNotifier {
           }
           return;
         }
-        // tools/list 响应
+        // tools/list 方法响应。
         if (resultMap.containsKey('tools')) {
           final tools = resultMap['tools'];
           if (tools is List) {
@@ -861,7 +868,7 @@ class McpStdioProcessManager extends ChangeNotifier {
             return;
           }
         }
-        // 其他 result 响应：紧凑摘要
+        // 其他 result 字段响应：生成紧凑摘要。
         final keys = resultMap.keys.take(5).join(', ');
         logs.add(
           '[jsonrpc:$id] ← 响应 {$keys${resultMap.length > 5 ? ", …" : ""}}',
@@ -869,7 +876,7 @@ class McpStdioProcessManager extends ChangeNotifier {
         return;
       }
 
-      // error 响应
+      // error 字段响应。
       final error = parsed['error'];
       if (error is Map) {
         final errorMap = stringKeyedMapFromValue(error);
@@ -879,7 +886,7 @@ class McpStdioProcessManager extends ChangeNotifier {
         return;
       }
 
-      // notification（无 id）
+      // 无 id 的通知消息。
       final method = parsed['method'];
       if (method != null) {
         logs.add('[jsonrpc] ← 通知: $method');
@@ -898,7 +905,7 @@ class McpStdioProcessManager extends ChangeNotifier {
     return clipTextWithEllipsis(line, _jsonRpcCompactLinePreviewChars);
   }
 
-  /// 启动后自动通过 stdin 发送 MCP initialize 请求完成协议握手。
+  /// 启动后自动通过标准输入发送 MCP initialize 请求完成协议握手。
   Future<void> _initializeMcpProtocol(
     String serverName,
     int generation,
@@ -990,7 +997,7 @@ class McpStdioProcessManager extends ChangeNotifier {
           expectedGeneration: generation,
         );
 
-        // 标记握手完成，允许 discovery service 复用此进程
+        // 标记握手完成，允许工具发现服务复用此进程。
         final current = _processes[serverName];
         if (current != null &&
             current.generation == generation &&
@@ -1128,7 +1135,7 @@ class McpStdioProcessManager extends ChangeNotifier {
 
   static McpToolDiscoveryException _stoppingException(String serverName) {
     return McpToolDiscoveryException(
-      'Stdio MCP server "$serverName" is stopping. Try again after it finishes stopping.',
+      'Stdio MCP 服务“$serverName”正在停止，请稍后重试。',
       isExpectedLifecycleCancellation: true,
     );
   }
@@ -1162,9 +1169,9 @@ class McpStdioProcessManager extends ChangeNotifier {
   }
 }
 
-/// 轻量级会话包装器，供 discovery service 通过已运行的进程发送 JSON-RPC 请求。
+/// 轻量级会话包装器，供工具发现服务通过已运行的进程发送 JSON-RPC 请求。
 /// 不拥有进程生命周期——进程由 McpStdioProcessManager 管理。
-/// 响应路由通过 McpStdioProcessManager 的 stdout 监听器完成。
+/// 响应路由通过 McpStdioProcessManager 的标准输出监听器完成。
 class ManagedStdioSession {
   ManagedStdioSession._(this._process, this._responseRouter);
 
@@ -1182,7 +1189,7 @@ class ManagedStdioSession {
     final requestIdText = '${payload['id']}';
     if (_cancelledRequestIds.remove(requestIdText)) {
       throw const McpToolDiscoveryException(
-        'MCP stdio request was cancelled.',
+        'MCP stdio 请求已取消。',
         isExpectedLifecycleCancellation: true,
       );
     }
@@ -1203,9 +1210,7 @@ class ManagedStdioSession {
       if (!completer.isCompleted) {
         completer.completeError(e, stack);
       }
-      throw McpToolDiscoveryException(
-        'Cannot write to managed stdio process: $e',
-      );
+      throw McpToolDiscoveryException('无法写入托管的 MCP stdio 进程：$e');
     } catch (e, stack) {
       _responseRouter.unregister(requestIdText);
       if (!completer.isCompleted) {
@@ -1216,9 +1221,7 @@ class ManagedStdioSession {
     try {
       return await completer.future.timeout(timeout ?? _requestTimeout);
     } on TimeoutException catch (_, stack) {
-      const error = McpToolDiscoveryException(
-        'Tool scan timed out waiting for response from managed stdio process.',
-      );
+      const error = McpToolDiscoveryException('等待托管 MCP stdio 进程响应超时。');
       if (!completer.isCompleted) {
         completer.completeError(error, stack);
       }
@@ -1240,8 +1243,8 @@ class ManagedStdioSession {
   }
 }
 
-/// 管理进程 stdout 中 JSON-RPC 响应的路由分发。
-/// stdout 数据可能跨多个 chunk 到达（尤其是大的 tools/list 响应），
+/// 管理进程标准输出中 JSON-RPC 响应的路由分发。
+/// 标准输出数据可能跨多个分块到达（尤其是较大的 tools/list 响应），
 /// 因此需要内部缓冲并按行边界解析。
 class _ManagedResponseRouter {
   _ManagedResponseRouter({required int maxBufferedChars})
@@ -1298,10 +1301,7 @@ class _ManagedResponseRouter {
     await writeMessage(stdin, <String, Object?>{
       'jsonrpc': '2.0',
       'method': 'notifications/cancelled',
-      'params': <String, Object?>{
-        'requestId': requestId,
-        'reason': 'Cancelled by user.',
-      },
+      'params': <String, Object?>{'requestId': requestId, 'reason': '用户已取消。'},
     });
   }
 
@@ -1329,7 +1329,7 @@ class _ManagedResponseRouter {
     failAll(error, stackTrace);
   }
 
-  /// 将 stdout 数据喂入路由器。数据可能跨多个 chunk 到达，
+  /// 将标准输出数据送入路由器。数据可能跨多个分块到达，
   /// 内部按换行符分割并尝试解析完整的 JSON-RPC 响应。
   /// 返回 true 表示成功路由了至少一个响应。
   bool tryRoute(String data) {
@@ -1445,7 +1445,7 @@ class _DirectLaunch {
 
 /// 解析 STDIO MCP 服务的直接启动参数。
 /// 对于 npx 命令，尝试定位已全局安装的包入口脚本，直接用 node 执行。
-/// 这避免了 npx 的启动开销、下载延迟、以及 login shell stdin 转发问题。
+/// 这避免了 npx 的启动开销、下载延迟以及登录 Shell 的标准输入转发问题。
 /// 兼容用户把整条命令粘进 command 字段的情况（如 "npx chrome-devtools-mcp@latest"）。
 Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
   final command = server.command.trim();
@@ -1474,9 +1474,9 @@ Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
     }
   }
 
-  // 回退：通过 login shell 执行原始命令
+  // 回退：通过登录 Shell 执行原始命令。
   final shell = await resolveMcpLoginShell();
-  // 使用 exec 替换 shell 进程，确保 stdin 直接连接到目标进程
+  // 使用 exec 替换 Shell 进程，确保标准输入直接连接到目标进程。
   return _DirectLaunch(
     executable: shell,
     args: <String>[
@@ -1501,7 +1501,7 @@ Future<McpNodePackageResolution?> _resolveNpxPackagePath(
   );
   if (installed != null) return installed;
 
-  // 通过 login shell 查询包管理器的动态全局目录（兜底）。
+  // 通过登录 Shell 查询包管理器的动态全局目录。
   try {
     final shell = await resolveMcpLoginShell();
     final result = await runTrackedProcessOrFailed(
