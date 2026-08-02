@@ -65,7 +65,7 @@ String pluginToolchainManagedCommandScript(
 ${pluginToolchainShellPrefix()}
 ${_pluginToolchainNpmGlobalBinFallbackScript(command)}
 if ! command -v $command >/dev/null 2>&1; then
-  printf '%s not found\\n' $command >&2
+  printf '未找到命令：%s\\n' $command >&2
   exit 127
 fi
 exec $invocation
@@ -103,17 +103,12 @@ command -v $command
 }
 
 String pluginToolchainShellPrefix() {
-  final home = Platform.environment['HOME'] ?? '';
-  final defaultVoltaHome = pluginToolchainShellQuote('$home/.volta');
-  final defaultPyenvRoot = pluginToolchainShellQuote('$home/.pyenv');
-  final defaultNvmDirectory = pluginToolchainShellQuote('$home/.nvm');
+  final voltaHome = pluginToolchainShellQuote(pluginVoltaHomeDirectoryPath());
+  final pyenvRoot = pluginToolchainShellQuote(pluginPyenvRootDirectoryPath());
+  final nvmDirectory = pluginToolchainShellQuote(pluginNvmDirectoryPath());
   return '''
-if [ -z "\${VOLTA_HOME:-}" ]; then
-  export VOLTA_HOME=$defaultVoltaHome
-fi
-if [ -z "\${PYENV_ROOT:-}" ]; then
-  export PYENV_ROOT=$defaultPyenvRoot
-fi
+export VOLTA_HOME=$voltaHome
+export PYENV_ROOT=$pyenvRoot
 export PATH="\$PYENV_ROOT/bin:/opt/homebrew/bin:/usr/local/bin:\$VOLTA_HOME/bin:\$PATH"
 if command -v pyenv >/dev/null 2>&1; then
   eval "\$(pyenv init -)"
@@ -121,9 +116,7 @@ fi
 if command -v fnm >/dev/null 2>&1; then
   eval "\$(fnm env)"
 fi
-if [ -z "\${NVM_DIR:-}" ]; then
-  export NVM_DIR=$defaultNvmDirectory
-fi
+export NVM_DIR=$nvmDirectory
 [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
 ''';
 }

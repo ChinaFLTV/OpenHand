@@ -194,10 +194,9 @@ class PluginScannerService {
   }
 
   Future<String> _readNvmDefaultAlias() async {
-    final home = Platform.environment['HOME'] ?? '';
-    final nvmDir = Platform.environment['NVM_DIR'] ?? '$home/.nvm';
+    final nvmDir = pluginNvmDirectoryPath();
     try {
-      final aliasFile = File('$nvmDir/alias/default');
+      final aliasFile = File(p.join(nvmDir, 'alias', 'default'));
       final alias = (await readBoundedFileString(
         aliasFile,
         maxBytes: _nvmAliasMaxBytes,
@@ -212,9 +211,8 @@ class PluginScannerService {
   /// 直接从 nvm 目录结构解析当前默认 Node 版本（不依赖 shell）。
   Future<({String version, String nodeBin, String npmBin})?>
   _resolveNvmDirect() async {
-    final home = Platform.environment['HOME'] ?? '';
-    final nvmDir = Platform.environment['NVM_DIR'] ?? '$home/.nvm';
-    final versionsDir = Directory('$nvmDir/versions/node');
+    final nvmDir = pluginNvmDirectoryPath();
+    final versionsDir = Directory(p.join(nvmDir, 'versions', 'node'));
     if (!await isDirectoryPath(versionsDir.path, followLinks: true)) {
       return null;
     }
@@ -224,7 +222,7 @@ class PluginScannerService {
       final listing = await listDirectoryBounded(versionsDir, maxEntries: 256);
       for (final entity in listing.entries) {
         if (entity is Directory) {
-          final name = entity.path.split('/').last;
+          final name = p.basename(entity.path);
           if (name.startsWith('v')) versions.add(name);
         }
       }
@@ -258,8 +256,22 @@ class PluginScannerService {
       resolvedVersion = versions.last;
     }
 
-    final nodeBin = '$nvmDir/versions/node/$resolvedVersion/bin/node';
-    final npmBin = '$nvmDir/versions/node/$resolvedVersion/bin/npm';
+    final nodeBin = p.join(
+      nvmDir,
+      'versions',
+      'node',
+      resolvedVersion,
+      'bin',
+      'node',
+    );
+    final npmBin = p.join(
+      nvmDir,
+      'versions',
+      'node',
+      resolvedVersion,
+      'bin',
+      'npm',
+    );
     if (!await isRegularFilePath(nodeBin, followLinks: true)) return null;
     return (version: resolvedVersion, nodeBin: nodeBin, npmBin: npmBin);
   }

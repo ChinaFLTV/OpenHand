@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/node_package_manifest.dart';
@@ -9,9 +10,38 @@ import '../../../shared/util/node_package_manifest.dart';
 const Duration _pluginEnvironmentProbeTimeout = Duration(milliseconds: 500);
 
 String pluginShellExecutable() {
-  final shell = Platform.environment['SHELL'];
-  if (shell != null && shell.isNotEmpty) return shell;
-  return '/bin/zsh';
+  final shell = Platform.environment['SHELL']?.trim() ?? '';
+  final shellName = p.basename(shell);
+  if (p.isAbsolute(shell) && (shellName == 'bash' || shellName == 'zsh')) {
+    return p.normalize(shell);
+  }
+  if (Platform.isMacOS) return '/bin/zsh';
+  if (Platform.isWindows) return 'bash';
+  return '/bin/bash';
+}
+
+String pluginNvmDirectoryPath() => _pluginToolchainDirectoryPath(
+  environmentName: 'NVM_DIR',
+  defaultDirectoryName: '.nvm',
+);
+
+String pluginPyenvRootDirectoryPath() => _pluginToolchainDirectoryPath(
+  environmentName: 'PYENV_ROOT',
+  defaultDirectoryName: '.pyenv',
+);
+
+String pluginVoltaHomeDirectoryPath() => _pluginToolchainDirectoryPath(
+  environmentName: 'VOLTA_HOME',
+  defaultDirectoryName: '.volta',
+);
+
+String _pluginToolchainDirectoryPath({
+  required String environmentName,
+  required String defaultDirectoryName,
+}) {
+  final configured = Platform.environment[environmentName]?.trim() ?? '';
+  if (p.isAbsolute(configured)) return p.normalize(configured);
+  return p.join(OpenHandPaths.homeDirectoryPath(), defaultDirectoryName);
 }
 
 Map<String, String> pluginProxyEnvironment() {
@@ -165,10 +195,12 @@ String? pluginPlaywrightDataDirectory({
 }
 
 Future<bool> pluginPyenvInstallationExists({String? homeDirectory}) {
-  final home = (homeDirectory ?? Platform.environment['HOME'] ?? '').trim();
-  if (home.isEmpty) return Future<bool>.value(false);
+  final root = homeDirectory == null
+      ? pluginPyenvRootDirectoryPath()
+      : p.join(homeDirectory.trim(), '.pyenv');
+  if (!p.isAbsolute(root)) return Future<bool>.value(false);
   return isRegularFilePath(
-    p.join(home, '.pyenv', 'bin', 'pyenv'),
+    p.join(root, 'bin', 'pyenv'),
     timeout: _pluginEnvironmentProbeTimeout,
     followLinks: true,
   );
@@ -182,10 +214,11 @@ Future<bool> pluginDockerDesktopInstallationExists({
   if (!(isMacOS ?? Platform.isMacOS)) return false;
   final systemApplications = (systemApplicationsDirectory ?? '/Applications')
       .trim();
-  final home = (homeDirectory ?? Platform.environment['HOME'] ?? '').trim();
+  final home = (homeDirectory ?? OpenHandPaths.homeDirectoryPath()).trim();
   final candidates = <String>{
-    if (systemApplications.isNotEmpty) p.join(systemApplications, 'Docker.app'),
-    if (home.isNotEmpty) p.join(home, 'Applications', 'Docker.app'),
+    if (p.isAbsolute(systemApplications))
+      p.join(systemApplications, 'Docker.app'),
+    if (p.isAbsolute(home)) p.join(home, 'Applications', 'Docker.app'),
   };
   for (final candidate in candidates) {
     if (await isDirectoryPath(

@@ -9,22 +9,25 @@ abstract final class OpenHandPaths {
 
   static String homeDirectoryPath() {
     final home = nullIfBlank(Platform.environment['HOME']);
-    if (home != null) {
+    if (home != null && p.isAbsolute(home)) {
       return _normalizeHomePath(home);
     }
 
     final userProfile = nullIfBlank(Platform.environment['USERPROFILE']);
-    if (userProfile != null) {
+    if (userProfile != null && p.isAbsolute(userProfile)) {
       return _normalizeHomePath(userProfile);
     }
 
     final homeDrive = nullIfBlank(Platform.environment['HOMEDRIVE']);
     final homePath = nullIfBlank(Platform.environment['HOMEPATH']);
-    if (homeDrive != null && homePath != null) {
-      return _normalizeHomePath('$homeDrive$homePath');
+    final windowsHome = homeDrive != null && homePath != null
+        ? '$homeDrive$homePath'
+        : null;
+    if (windowsHome != null && p.isAbsolute(windowsHome)) {
+      return _normalizeHomePath(windowsHome);
     }
 
-    return _normalizeHomePath(Directory.current.path);
+    return _normalizeHomePath(p.absolute(Directory.current.path));
   }
 
   static String defaultSkillsDirectoryPath() {

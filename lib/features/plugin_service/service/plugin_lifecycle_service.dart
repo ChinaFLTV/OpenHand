@@ -852,7 +852,11 @@ class PluginLifecycleService {
   }
 
   String _qdrantDataDirectory() {
-    return '${OpenHandPaths.homeDirectoryPath()}/.openhand/knowledge/qdrant';
+    return p.join(
+      OpenHandPaths.defaultRootDirectoryPath(),
+      'knowledge',
+      'qdrant',
+    );
   }
 
   /// 校验既有 Qdrant 容器确由 OpenHand 托管，不是则以 3 退出。
@@ -865,7 +869,7 @@ class PluginLifecycleService {
 if docker inspect $name >/dev/null 2>&1; then
   LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' $name 2>/dev/null || true)"
   if [ "\$LABEL" != "true" ]; then
-    echo "Existing container $_qdrantContainerName is not managed by OpenHand" >&2
+    echo "检测到同名但非 OpenHand 托管的容器：$_qdrantContainerName" >&2
     exit 3
   fi''';
   }
@@ -893,17 +897,21 @@ $pad${_pluginShellQuote(_qdrantImage)}''';
     return '''
 for i in \$(seq 1 30); do
   if curl -fsS http://127.0.0.1:$_qdrantRestPort/ >/dev/null 2>&1; then
-    docker ps --filter name=^/$_qdrantContainerName\$ --format 'container={{.ID}} image={{.Image}} status={{.Status}}'
+    docker ps --filter name=^/$_qdrantContainerName\$ --format '容器={{.ID}} 镜像={{.Image}} 状态={{.Status}}'
     exit 0
   fi
   sleep 1
 done
-echo "Qdrant health endpoint did not become ready" >&2
+echo "Qdrant 健康检查端点未就绪" >&2
 exit 4''';
   }
 
   String _managedDatabaseDataDirectory(String service) {
-    return '${OpenHandPaths.homeDirectoryPath()}/.openhand/services/$service';
+    return p.join(
+      OpenHandPaths.defaultRootDirectoryPath(),
+      'services',
+      service,
+    );
   }
 
   String _managedDatabaseGuard(String containerName) {
@@ -963,17 +971,17 @@ exit 4''';
 
   /// nvm 是 shell 函数而非可执行文件，需要先 source 初始化脚本。
   static String _nvmSourcePrefix() {
-    final home = Platform.environment['HOME'] ?? '';
+    final nvmDirectory = _pluginShellQuote(pluginNvmDirectoryPath());
     return '''
-export NVM_DIR="\${NVM_DIR:-$home/.nvm}"
+export NVM_DIR=$nvmDirectory
 [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
 ''';
   }
 
   static String _pythonShellPrefix() {
-    final home = Platform.environment['HOME'] ?? '';
+    final pyenvRoot = _pluginShellQuote(pluginPyenvRootDirectoryPath());
     return '''
-export PYENV_ROOT="\${PYENV_ROOT:-$home/.pyenv}"
+export PYENV_ROOT=$pyenvRoot
 export PATH="\$PYENV_ROOT/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH"
 if command -v pyenv >/dev/null 2>&1; then
   eval "\$(pyenv init -)"
@@ -1027,8 +1035,7 @@ fi
   }
 
   Future<bool> _isNvmAvailable() async {
-    final home = Platform.environment['HOME'] ?? '';
-    final nvmSh = File('$home/.nvm/nvm.sh');
+    final nvmSh = File(p.join(pluginNvmDirectoryPath(), 'nvm.sh'));
     return isRegularFilePath(nvmSh.path, followLinks: true);
   }
 
@@ -2159,7 +2166,7 @@ $sourceStep
 $pipStep
 printf %s ${_pluginShellQuote(shim)} > ${_pluginShellQuote(shimPath)}
 chmod +x ${_pluginShellQuote(shimPath)}
-printf '%s\\n' ${_pluginShellQuote('$label shim: $shimPath')}
+printf '%s\\n' ${_pluginShellQuote('$label 命令入口：$shimPath')}
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
@@ -2331,7 +2338,7 @@ echo "在 \$ROOT 下未找到 Anything Analyzer 应用" >&2
 exit 2
 SHIM
 chmod +x ${_pluginShellQuote(shimPath)}
-printf 'asset=%s\\nshim=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
+printf '安装包=%s\\n命令入口=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
@@ -3572,17 +3579,17 @@ ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: 
         '''
 set -euo pipefail
 if ! docker inspect ${_pluginShellQuote(_qdrantContainerName)} >/dev/null 2>&1; then
-  echo "Qdrant container not found"
+  echo "Qdrant 容器不存在"
   exit 0
 fi
 LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' ${_pluginShellQuote(_qdrantContainerName)} 2>/dev/null || true)"
 if [ "\$LABEL" != "true" ]; then
-  echo "Existing container $_qdrantContainerName is not managed by OpenHand" >&2
+  echo "检测到同名但非 OpenHand 托管的容器：$_qdrantContainerName" >&2
   exit 3
 fi
 docker stop ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
 docker rm ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
-echo "Preserved Qdrant data directory: ${_pluginShellQuote(dataDir)}"
+echo "已保留 Qdrant 数据目录：${_pluginShellQuote(dataDir)}"
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
