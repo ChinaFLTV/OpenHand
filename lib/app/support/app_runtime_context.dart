@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:characters/characters.dart';
 
+import '../../shared/util/platform_environment.dart';
 import '../model/app_info.dart';
 import 'openhand_paths.dart';
 
@@ -77,7 +78,7 @@ abstract final class AppRuntimeContext {
   }) {
     final entryLimit = maxEntries < 0 ? 0 : maxEntries;
     final valueCharLimit = maxValueChars < 0 ? 0 : maxValueChars;
-    final merged = <String, String>{...Platform.environment, ...overrides};
+    final merged = mergePlatformEnvironment(overrides);
 
     final keys = merged.keys.toList()
       ..sort((left, right) {

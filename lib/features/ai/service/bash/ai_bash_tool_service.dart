@@ -8,6 +8,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/platform_environment.dart';
 import '../../../../shared/util/platform_shell.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/timer_safety.dart';
@@ -1611,7 +1612,7 @@ class AiBashToolService {
         .resolveSubprocessEnvironment();
     final mergedEnvironment = proxyEnv.isEmpty
         ? null
-        : <String, String>{...Platform.environment, ...proxyEnv};
+        : mergePlatformEnvironment(proxyEnv);
     final process = await startTrackedProcessBounded(
       shellExecutable,
       shellArgs,

@@ -17,3 +17,30 @@ String? platformEnvironmentValue(
   }
   return null;
 }
+
+/// 合并平台环境变量；Windows 下按大小写无关语义覆盖同名键。
+Map<String, String> mergePlatformEnvironment(
+  Map<String, String> overrides, {
+  Map<String, String>? base,
+  bool? caseInsensitive,
+}) {
+  final baseValues = base ?? Platform.environment;
+  if (!(caseInsensitive ?? Platform.isWindows)) {
+    return <String, String>{...baseValues, ...overrides};
+  }
+
+  final result = <String, String>{};
+  final keysByNormalizedName = <String, String>{};
+  for (final values in <Map<String, String>>[baseValues, overrides]) {
+    for (final entry in values.entries) {
+      final normalizedName = entry.key.toLowerCase();
+      final previousKey = keysByNormalizedName[normalizedName];
+      if (previousKey != null && previousKey != entry.key) {
+        result.remove(previousKey);
+      }
+      result[entry.key] = entry.value;
+      keysByNormalizedName[normalizedName] = entry.key;
+    }
+  }
+  return result;
+}
