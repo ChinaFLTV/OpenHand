@@ -1,7 +1,6 @@
-// 安全 Scrollbar 包装：当 controller 未 attach、无 dimensions 或挂载多个
-// ScrollPosition 时透传 child（不绘制 thumb），仅在状态干净时委托给 framework
-// Scrollbar。用于规避 'has no ScrollPosition attached' FlutterError，同时让
-// 已 attach 场景的视觉/手感与原生 Scrollbar 完全一致。
+// 安全 Scrollbar 包装：始终保持滚动条与子树层级稳定；当 controller 未挂载、
+// 无尺寸或挂载多个 ScrollPosition 时关闭滑块与交互，状态干净后原位启用。
+// 用于同时规避控制器未挂载异常和滚动子树跨层级迁移导致的 GlobalKey 冲突。
 import 'dart:async';
 
 import 'package:flutter/material.dart';
@@ -46,9 +45,9 @@ Widget buildOpenHandImplicitScrollbar({
 ///
 /// 行为说明：
 ///   * `controller` 为 null 时退回到 `PrimaryScrollController.maybeOf(context)`；
-///     仍为 null 时透传 child，不喂给 framework Scrollbar。
+///     仍为 null 时保留滚动条层级，但关闭滑块绘制与交互。
 ///   * `controller.hasClients == false`、`controller.positions.length != 1`、
-///     `controller.position.haveDimensions == false` 时透传 child。
+///     `controller.position.haveDimensions == false` 时同样关闭绘制与交互。
 ///   * 全部条件满足后委托给 framework `Scrollbar`，参数原样透传。
 ///
 /// 通过 [NotificationListener<ScrollMetricsNotification>] + post-frame 检测
@@ -144,34 +143,32 @@ class _OpenHandSafeScrollbarState extends State<OpenHandSafeScrollbar> {
 
     final predicate =
         widget.notificationPredicate ?? defaultScrollNotificationPredicate;
-    final Widget content;
-    if (!safe) {
-      content = child;
-    } else if (widget.stabilizeMetrics) {
-      content = _OpenHandStableRawScrollbar(
-        controller: controller,
-        thumbVisibility: widget.thumbVisibility,
-        trackVisibility: widget.trackVisibility,
-        thickness: widget.thickness,
-        radius: widget.radius,
-        interactive: widget.interactive,
-        scrollbarOrientation: widget.scrollbarOrientation,
-        sourceNotificationPredicate: predicate,
-        child: child,
-      );
-    } else {
-      content = Scrollbar(
-        controller: controller,
-        thumbVisibility: widget.thumbVisibility,
-        trackVisibility: widget.trackVisibility,
-        thickness: widget.thickness,
-        radius: widget.radius,
-        interactive: widget.interactive,
-        scrollbarOrientation: widget.scrollbarOrientation,
-        notificationPredicate: predicate,
-        child: child,
-      );
-    }
+    final thumbVisibility = safe ? widget.thumbVisibility : false;
+    final trackVisibility = safe ? widget.trackVisibility : false;
+    final interactive = safe ? widget.interactive : false;
+    final Widget content = widget.stabilizeMetrics
+        ? _OpenHandStableRawScrollbar(
+            controller: controller,
+            thumbVisibility: thumbVisibility,
+            trackVisibility: trackVisibility,
+            thickness: widget.thickness,
+            radius: widget.radius,
+            interactive: interactive,
+            scrollbarOrientation: widget.scrollbarOrientation,
+            sourceNotificationPredicate: predicate,
+            child: child,
+          )
+        : Scrollbar(
+            controller: controller,
+            thumbVisibility: thumbVisibility,
+            trackVisibility: trackVisibility,
+            thickness: widget.thickness,
+            radius: widget.radius,
+            interactive: interactive,
+            scrollbarOrientation: widget.scrollbarOrientation,
+            notificationPredicate: predicate,
+            child: child,
+          );
 
     return NotificationListener<ScrollMetricsNotification>(
       onNotification: _onScrollMetrics,
