@@ -207,6 +207,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   static const Duration _stdioShutdownTimeout = Duration(milliseconds: 400);
   static const int _maxConcurrentOperations = 8;
   static const int _maxQueuedOperations = 64;
+  static const Duration _operationQueueTimeout = Duration(seconds: 30);
   static const int _maxStdoutMessagesPerDrain = 256;
   static const int _maxStdioStdoutBufferBytes = 4 * kBytesPerMiB;
   static const int _maxRedirects = 4;
@@ -1659,12 +1660,31 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Future<void>? cancelSignal,
   }) async {
     if (_isDisposed) throw StateError('MCP 工具发现服务已关闭。');
-    final acquired = cancelSignal == null
-        ? await _operationSlots.acquirePermit()
-        : await _operationSlots.acquireUnlessCancelled(cancelSignal);
+    final queueTimeoutSignal = Completer<void>();
+    final queueTimer = Timer(
+      _operationQueueTimeout,
+      queueTimeoutSignal.complete,
+    );
+    late final bool acquired;
+    try {
+      acquired = await _operationSlots.acquireUnlessCancelled(
+        combineCancelSignals(<Future<void>?>[
+          cancelSignal,
+          queueTimeoutSignal.future,
+        ])!,
+      );
+    } on StateError {
+      if (_isDisposed) throw StateError('MCP 工具发现服务已关闭。');
+      throw const McpToolDiscoveryException('MCP 操作排队已满。');
+    } finally {
+      queueTimer.cancel();
+    }
     if (!acquired) {
       if (_isDisposed) {
         throw StateError('MCP 工具发现服务已关闭。');
+      }
+      if (!await isCancelSignalCompleted(cancelSignal)) {
+        throw TimeoutException('MCP 操作排队超时。', _operationQueueTimeout);
       }
       throw const McpToolDiscoveryException('MCP 操作已取消。');
     }

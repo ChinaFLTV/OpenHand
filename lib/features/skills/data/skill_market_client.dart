@@ -41,6 +41,7 @@ class SkillMarketClient {
   static const int _maxBundleCacheEntries = 64;
   static const int _maxConcurrentRequests = 8;
   static const int _maxQueuedRequests = 64;
+  static const Duration _requestQueueTimeout = Duration(seconds: 30);
   static const Duration _requestTimeout = Duration(seconds: 14);
   static const Duration _downloadIdleTimeout = Duration(seconds: 18);
   static const Duration _downloadTotalTimeout = Duration(minutes: 5);
@@ -530,8 +531,23 @@ class SkillMarketClient {
     Future<T> Function(Future<void> cancelSignal) operation,
   ) async {
     if (_closed) throw StateError('技能市场客户端已关闭。');
-    final acquired = await _requestSlots.acquirePermit();
-    if (!acquired) throw StateError('技能市场客户端已关闭。');
+    final queueTimeoutSignal = Completer<void>();
+    final queueTimer = Timer(_requestQueueTimeout, queueTimeoutSignal.complete);
+    late final bool acquired;
+    try {
+      acquired = await _requestSlots.acquireUnlessCancelled(
+        queueTimeoutSignal.future,
+      );
+    } on StateError {
+      if (_closed) throw StateError('技能市场客户端已关闭。');
+      throw const SkillMarketException('技能市场请求排队已满。');
+    } finally {
+      queueTimer.cancel();
+    }
+    if (!acquired) {
+      if (_closed) throw StateError('技能市场客户端已关闭。');
+      throw TimeoutException('技能市场请求排队超时。', _requestQueueTimeout);
+    }
     if (_closed) {
       _requestSlots.release();
       throw StateError('技能市场客户端已关闭。');

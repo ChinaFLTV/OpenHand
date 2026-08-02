@@ -32,6 +32,7 @@ const int defaultAiMultipartTotalMaxBytes = 512 * kBytesPerMiB;
 const int defaultAiMultipartMaxFiles = 128;
 const int _maxConcurrentAiTransportRequests = 16;
 const int _maxQueuedAiTransportRequests = 128;
+const Duration _aiTransportQueueTimeout = Duration(seconds: 30);
 
 typedef AiMultipartFileLengthReader = Future<int> Function(String filePath);
 
@@ -940,12 +941,31 @@ class AiTransportClient {
     Future<void>? cancelSignal,
   }) async {
     if (_disposed) throw StateError('AI 传输客户端已释放。');
-    final acquired = cancelSignal == null
-        ? await _requestSlots.acquirePermit()
-        : await _requestSlots.acquireUnlessCancelled(cancelSignal);
+    final queueTimeoutSignal = Completer<void>();
+    final queueTimer = Timer(
+      _aiTransportQueueTimeout,
+      queueTimeoutSignal.complete,
+    );
+    late final bool acquired;
+    try {
+      acquired = await _requestSlots.acquireUnlessCancelled(
+        combineCancelSignals(<Future<void>?>[
+          cancelSignal,
+          queueTimeoutSignal.future,
+        ])!,
+      );
+    } on StateError {
+      if (_disposed) throw StateError('AI 传输客户端已释放。');
+      throw StateError('AI 传输请求排队已满。');
+    } finally {
+      queueTimer.cancel();
+    }
     if (!acquired) {
       if (_disposed) throw StateError('AI 传输客户端已释放。');
-      throw http.RequestAbortedException();
+      if (await isCancelSignalCompleted(cancelSignal)) {
+        throw http.RequestAbortedException();
+      }
+      throw TimeoutException('AI 传输请求排队超时。', _aiTransportQueueTimeout);
     }
     if (_disposed) {
       _requestSlots.release();
