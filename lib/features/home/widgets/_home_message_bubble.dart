@@ -7990,7 +7990,7 @@ class _UserSkillSelectionChip extends StatelessWidget {
           File(iconPath),
           width: 14,
           height: 14,
-          // Leading icon rendered at 14 logical px; cache at ~3x DPR.
+          // 按约三倍像素比缓存 14 逻辑像素的图标。
           cacheWidth: 42,
           cacheHeight: 42,
           fit: BoxFit.contain,
@@ -8010,9 +8010,11 @@ class _UserSkillSelectionChip extends StatelessWidget {
 /// 捕获并发固定为 1，避免 macOS 同时创建多个 WKWebView 引发卡顿。
 class _VideoThumbnailManager {
   static const int _failedCacheLimit = 512;
+  static const int _maxPendingCaptures = 32;
   static final OpenHandAsyncSemaphore _semaphore = OpenHandAsyncSemaphore(
     1,
     maxAllowedPermits: 1,
+    maxWaiters: _maxPendingCaptures,
   );
   // 单次进程内失败后不再为同一文件反复创建 WebView。
   static final Set<String> _failed = <String>{};
@@ -8061,6 +8063,7 @@ class _VideoThumbnailCaptureHost extends StatefulWidget {
 class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
     with WidgetsBindingObserver {
   static const Duration _thumbnailCaptureTimeout = Duration(seconds: 18);
+  static const Duration _thumbnailQueueTimeout = Duration(seconds: 30);
   static const Duration _thumbnailFileOperationTimeout = Duration(seconds: 5);
   static const int _maxThumbnailBytes = 1024 * 1024;
 
@@ -8102,20 +8105,33 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
   }
 
   Future<void> _start() async {
-    // 取号本身也会抛（信号量等待队列满 → StateError）。若让它逃逸，宿主既
-    // 拿不到结果回调也不会武装看门狗，卡片会永远停在占位态；统一按“抓取
-    // 失败”收口，让上层走既有的降级路径。
+    final queueTimeoutSignal = Completer<void>();
+    var queueTimedOut = false;
+    final queueTimer = startSafeTimer(_thumbnailQueueTimeout, () {
+      queueTimedOut = true;
+      queueTimeoutSignal.complete();
+    });
     var acquired = false;
     try {
       acquired = await _VideoThumbnailManager._acquireSlot(
-        _captureCancellation.future,
+        combineCancelSignals(<Future<void>>[
+          _captureCancellation.future,
+          queueTimeoutSignal.future,
+        ])!,
       );
     } catch (error, stack) {
       silentLog('home_message_bubble', '视频封面取号失败', error, stack);
-      _finish(null);
+      _finish(null, markFailed: false);
+      return;
+    } finally {
+      queueTimer.cancel();
+    }
+    if (!acquired) {
+      if (queueTimedOut && !_done && mounted) {
+        _finish(null, markFailed: false);
+      }
       return;
     }
-    if (!acquired) return;
     if (_done || !mounted) {
       _VideoThumbnailManager._releaseSlot();
       return;
@@ -8215,14 +8231,16 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
     }
   }
 
-  void _finish(String? path) {
+  void _finish(String? path, {bool markFailed = true}) {
     if (_done) return;
     _done = true;
     _watchdog?.cancel();
     if (!_captureCancellation.isCompleted) {
       _captureCancellation.complete();
     }
-    if (path == null) _VideoThumbnailManager._markFailed(widget.videoPath);
+    if (path == null && markFailed) {
+      _VideoThumbnailManager._markFailed(widget.videoPath);
+    }
     _deleteTempHtmlInBackground();
     if (_slotHeld) {
       _slotHeld = false;
