@@ -177,7 +177,7 @@ class _McpToolCallGuard {
 
   void throwIfExpired() {
     if (_cancelled || _stopwatch.elapsed >= _timeout) {
-      throw TimeoutException('MCP tool call deadline expired.');
+      throw TimeoutException('MCP 工具调用已超过时限。');
     }
   }
 }
@@ -205,6 +205,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   static const Duration _toolCallTimeout = Duration(seconds: 30);
   static const Duration _legacyEndpointTimeout = Duration(seconds: 4);
   static const Duration _stdioShutdownTimeout = Duration(milliseconds: 400);
+  static const int _maxConcurrentOperations = 8;
+  static const int _maxQueuedOperations = 64;
   static const int _maxStdoutMessagesPerDrain = 256;
   static const int _maxStdioStdoutBufferBytes = 4 * kBytesPerMiB;
   static const int _maxRedirects = 4;
@@ -221,118 +223,120 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
 
   final http.Client _client;
   final bool _ownsClient;
+  final OpenHandAsyncSemaphore _operationSlots = OpenHandAsyncSemaphore(
+    _maxConcurrentOperations,
+    maxWaiters: _maxQueuedOperations,
+  );
   final Set<Completer<void>> _activeOperationAborts = <Completer<void>>{};
   int _nextRequestId = 0;
   bool _isDisposed = false;
 
   @override
-  Future<McpToolCatalog> discoverTools(McpServer server) async {
-    final operationAbort = _beginOperation();
-    final scannedAt = DateTime.now().toUtc();
-    final scanTimeout = server.type == McpServerType.stdio
-        ? _stdioScanTimeout
-        : _scanTimeout;
-    try {
-      final discovered = await switch (server.type) {
-        McpServerType.streamableHttp => _discoverOverStreamableHttp(
-          server,
-          cancelSignal: operationAbort.future,
-        ),
-        McpServerType.sse => _discoverOverLegacySseWithFallback(
-          server,
-          cancelSignal: operationAbort.future,
-        ),
-        McpServerType.stdio => _discoverOverStdio(server),
-      }.timeout(scanTimeout);
-      return McpToolCatalog(
-        status: McpToolCatalogStatus.ready,
-        tools: discovered.tools,
-        isComplete: discovered.isComplete,
-        warningMessage: discovered.warningMessage,
-        serverInstructions: discovered.serverInstructions,
-        lastScannedAt: scannedAt,
-      );
-    } on TimeoutException {
-      return McpToolCatalog(
-        status: McpToolCatalogStatus.failed,
-        errorMessage: _friendlyTimeoutMessage(
-          server,
-          stage: 'discover',
-          limit: scanTimeout,
-        ),
-        lastScannedAt: scannedAt,
-      );
-    } on McpToolDiscoveryException catch (error) {
-      if (error.isExpectedLifecycleCancellation) {
-        return const McpToolCatalog();
+  Future<McpToolCatalog> discoverTools(McpServer server) {
+    return _runOperation((operationCancelSignal) async {
+      final scannedAt = DateTime.now().toUtc();
+      final scanTimeout = server.type == McpServerType.stdio
+          ? _stdioScanTimeout
+          : _scanTimeout;
+      try {
+        final discovered = await switch (server.type) {
+          McpServerType.streamableHttp => _discoverOverStreamableHttp(
+            server,
+            cancelSignal: operationCancelSignal,
+          ),
+          McpServerType.sse => _discoverOverLegacySseWithFallback(
+            server,
+            cancelSignal: operationCancelSignal,
+          ),
+          McpServerType.stdio => _discoverOverStdio(server),
+        }.timeout(scanTimeout);
+        return McpToolCatalog(
+          status: McpToolCatalogStatus.ready,
+          tools: discovered.tools,
+          isComplete: discovered.isComplete,
+          warningMessage: discovered.warningMessage,
+          serverInstructions: discovered.serverInstructions,
+          lastScannedAt: scannedAt,
+        );
+      } on TimeoutException {
+        return McpToolCatalog(
+          status: McpToolCatalogStatus.failed,
+          errorMessage: _friendlyTimeoutMessage(
+            server,
+            stage: 'discover',
+            limit: scanTimeout,
+          ),
+          lastScannedAt: scannedAt,
+        );
+      } on McpToolDiscoveryException catch (error) {
+        if (error.isExpectedLifecycleCancellation) {
+          return const McpToolCatalog();
+        }
+        return McpToolCatalog(
+          status: McpToolCatalogStatus.failed,
+          errorMessage: error.message,
+          lastScannedAt: scannedAt,
+        );
+      } catch (error) {
+        return McpToolCatalog(
+          status: McpToolCatalogStatus.failed,
+          errorMessage: _friendlyMcpDiscoveryError(server, error),
+          lastScannedAt: scannedAt,
+        );
       }
-      return McpToolCatalog(
-        status: McpToolCatalogStatus.failed,
-        errorMessage: error.message,
-        lastScannedAt: scannedAt,
-      );
-    } catch (error) {
-      return McpToolCatalog(
-        status: McpToolCatalogStatus.failed,
-        errorMessage: _friendlyMcpDiscoveryError(server, error),
-        lastScannedAt: scannedAt,
-      );
-    } finally {
-      _finishOperation(operationAbort);
-    }
+    });
   }
 
   @override
-  Future<McpServerHealth> checkHealth(McpServer server) async {
-    final operationAbort = _beginOperation();
-    final checkedAt = DateTime.now().toUtc();
-    final healthTimeout = server.type == McpServerType.stdio
-        ? _stdioHealthCheckTimeout
-        : _healthCheckTimeout;
-    try {
-      await switch (server.type) {
-        McpServerType.streamableHttp => _checkStreamableHttpHealth(
-          server,
-          cancelSignal: operationAbort.future,
-        ),
-        McpServerType.sse => _checkLegacySseHealthWithFallback(
-          server,
-          cancelSignal: operationAbort.future,
-        ),
-        McpServerType.stdio => _checkStdioHealth(server),
-      }.timeout(healthTimeout);
-      return McpServerHealth(
-        status: McpServerHealthStatus.healthy,
-        lastCheckedAt: checkedAt,
-      );
-    } on TimeoutException {
-      return McpServerHealth(
-        status: McpServerHealthStatus.unhealthy,
-        errorMessage: _friendlyTimeoutMessage(
-          server,
-          stage: 'health',
-          limit: healthTimeout,
-        ),
-        lastCheckedAt: checkedAt,
-      );
-    } on McpToolDiscoveryException catch (error) {
-      if (error.isExpectedLifecycleCancellation) {
-        return const McpServerHealth();
+  Future<McpServerHealth> checkHealth(McpServer server) {
+    return _runOperation((operationCancelSignal) async {
+      final checkedAt = DateTime.now().toUtc();
+      final healthTimeout = server.type == McpServerType.stdio
+          ? _stdioHealthCheckTimeout
+          : _healthCheckTimeout;
+      try {
+        await switch (server.type) {
+          McpServerType.streamableHttp => _checkStreamableHttpHealth(
+            server,
+            cancelSignal: operationCancelSignal,
+          ),
+          McpServerType.sse => _checkLegacySseHealthWithFallback(
+            server,
+            cancelSignal: operationCancelSignal,
+          ),
+          McpServerType.stdio => _checkStdioHealth(server),
+        }.timeout(healthTimeout);
+        return McpServerHealth(
+          status: McpServerHealthStatus.healthy,
+          lastCheckedAt: checkedAt,
+        );
+      } on TimeoutException {
+        return McpServerHealth(
+          status: McpServerHealthStatus.unhealthy,
+          errorMessage: _friendlyTimeoutMessage(
+            server,
+            stage: 'health',
+            limit: healthTimeout,
+          ),
+          lastCheckedAt: checkedAt,
+        );
+      } on McpToolDiscoveryException catch (error) {
+        if (error.isExpectedLifecycleCancellation) {
+          return const McpServerHealth();
+        }
+        return McpServerHealth(
+          status: McpServerHealthStatus.unhealthy,
+          errorMessage: error.message,
+          lastCheckedAt: checkedAt,
+        );
+      } catch (error) {
+        return McpServerHealth(
+          status: McpServerHealthStatus.unhealthy,
+          errorMessage: _friendlyMcpDiscoveryError(server, error),
+          lastCheckedAt: checkedAt,
+        );
       }
-      return McpServerHealth(
-        status: McpServerHealthStatus.unhealthy,
-        errorMessage: error.message,
-        lastCheckedAt: checkedAt,
-      );
-    } catch (error) {
-      return McpServerHealth(
-        status: McpServerHealthStatus.unhealthy,
-        errorMessage: _friendlyMcpDiscoveryError(server, error),
-        lastCheckedAt: checkedAt,
-      );
-    } finally {
-      _finishOperation(operationAbort);
-    }
+    });
   }
 
   @override
@@ -343,17 +347,12 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     String? toolCallId,
     Map<String, String>? customHeaders,
     Future<void>? cancelSignal,
-  }) async {
-    final operationAbort = _beginOperation();
-    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
-      cancelSignal,
-      operationAbort.future,
-    ])!;
-    final guard = _McpToolCallGuard(
-      timeout: _toolCallTimeout,
-      cancelSignal: effectiveCancelSignal,
-    );
-    try {
+  }) {
+    return _runOperation((operationCancelSignal) async {
+      final guard = _McpToolCallGuard(
+        timeout: _toolCallTimeout,
+        cancelSignal: operationCancelSignal,
+      );
       late final Map<String, Object?> result;
       try {
         result = await switch (server.type) {
@@ -380,18 +379,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           ),
         }.timeout(_toolCallTimeout);
       } on TimeoutException {
-        throw const McpToolDiscoveryException(
-          'Tool call timed out. The MCP server did not respond in time.',
-        );
+        throw const McpToolDiscoveryException('MCP 工具调用超时，服务未及时响应。');
       }
       return McpToolCallResult(
         outputText: _renderToolCallResult(result),
         isError: result['isError'] == true,
         rawResult: result,
       );
-    } finally {
-      _finishOperation(operationAbort);
-    }
+    }, cancelSignal: cancelSignal);
   }
 
   Future<_DiscoveredTools> _discoverOverStreamableHttp(
@@ -965,7 +960,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       final rawTools = result['tools'];
       if (rawTools is! List) {
         throw McpToolDiscoveryException(
-          'Tool scan failed because the server returned an invalid tools list.'
+          '工具扫描失败：服务返回了无效的工具列表。'
           '${_mcpServerResponseDetail(envelope)}',
         );
       }
@@ -1001,25 +996,17 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     if (cursor.isNotEmpty) {
-      warnings.add(
-        'Tool scan stopped after $_maxToolPages pages. The tool list may be incomplete.',
-      );
+      warnings.add('工具扫描达到 $_maxToolPages 页后停止，工具列表可能不完整。');
       warningResponse = lastEnvelope;
     }
     if (invalidTools > 0) {
-      warnings.add(
-        'Ignored $invalidTools invalid tool entr${invalidTools == 1 ? 'y' : 'ies'}.',
-      );
+      warnings.add('已忽略 $invalidTools 个无效工具条目。');
     }
     if (duplicateTools > 0) {
-      warnings.add(
-        'Ignored $duplicateTools duplicate tool entr${duplicateTools == 1 ? 'y' : 'ies'}.',
-      );
+      warnings.add('已忽略 $duplicateTools 个重复工具条目。');
     }
     if (metadataWarnings > 0) {
-      warnings.add(
-        '$metadataWarnings tool entr${metadataWarnings == 1 ? 'y has' : 'ies have'} incomplete metadata.',
-      );
+      warnings.add('$metadataWarnings 个工具条目的元数据不完整。');
     }
 
     return _DiscoveredTools(
@@ -1078,16 +1065,12 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     final resolvedInputSchema =
         inputSchema ?? const <String, Object?>{'type': 'object'};
     if (rawInputSchema == null) {
-      metadataWarnings.add('Missing input schema.');
+      metadataWarnings.add('缺少输入架构。');
     } else if (inputSchema == null) {
-      metadataWarnings.add(
-        'Input schema is not a structured object. Showing raw metadata instead.',
-      );
+      metadataWarnings.add('输入架构不是结构化对象，已改为显示原始元数据。');
     }
     if (rawOutputSchema != null && outputSchema == null) {
-      metadataWarnings.add(
-        'Output schema is not a structured object. Showing raw metadata instead.',
-      );
+      metadataWarnings.add('输出架构不是结构化对象，已改为显示原始元数据。');
     }
 
     return McpTool(
@@ -1170,7 +1153,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         timeout: effectiveRequestTimeout,
       );
       throw McpToolDiscoveryException(
-        'Tool scan request failed with HTTP ${response.statusCode}'
+        '工具扫描请求失败，HTTP 状态码 ${response.statusCode}'
         '${_mcpServerResponseDetail(responseBody)}',
       );
     }
@@ -1194,7 +1177,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       final message = _firstSseJsonRpcMessage(body, payload['id']);
       if (message == null) {
         throw McpToolDiscoveryException(
-          'Tool scan failed because the MCP server returned an invalid JSON-RPC response.'
+          '工具扫描失败：MCP 服务返回了无效的 JSON-RPC 响应。'
           '${_mcpServerResponseDetail(body)}',
         );
       }
@@ -1210,14 +1193,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       decoded = jsonDecode(body);
     } on FormatException {
       throw McpToolDiscoveryException(
-        'Tool scan failed because the MCP server returned content that is not valid JSON.'
+        '工具扫描失败：MCP 服务返回的内容不是有效 JSON。'
         '${_mcpServerResponseDetail(body)}',
       );
     }
     final message = _firstJsonRpcMessageForRequestId(decoded, payload['id']);
     if (message == null) {
       throw McpToolDiscoveryException(
-        'Tool scan failed because the MCP server returned an invalid JSON-RPC response.'
+        '工具扫描失败：MCP 服务返回了无效的 JSON-RPC 响应。'
         '${_mcpServerResponseDetail(body)}',
       );
     }
@@ -1247,7 +1230,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   bool _shouldFallbackFromLegacySse(McpToolDiscoveryException error) {
     final message = error.message.toLowerCase();
     return message.contains('sse endpoint') ||
+        message.contains('sse 端点') ||
         message.contains('message endpoint') ||
+        message.contains('消息端点') ||
         message.contains('http 301') ||
         message.contains('http 302') ||
         message.contains('http 303') ||
@@ -1258,7 +1243,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         message.contains('http 406') ||
         message.contains('http 415') ||
         message.contains('invalid json-rpc') ||
-        message.contains('did not return a response');
+        message.contains('无效的 json-rpc') ||
+        message.contains('did not return a response') ||
+        message.contains('未返回响应');
   }
 
   Map<String, Object?> _jsonRpcRequest({
@@ -1305,22 +1292,20 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
 
   Map<String, Object?> _extractResult(Map<String, Object?>? envelope) {
     if (envelope == null) {
-      throw const McpToolDiscoveryException(
-        'Tool scan failed because the MCP server did not return a response.',
-      );
+      throw const McpToolDiscoveryException('工具扫描失败：MCP 服务未返回响应。');
     }
     final error = optionalStringKeyedMapFromValue(envelope['error']);
     if (error != null) {
       final message = _readText(error['message']);
       throw McpToolDiscoveryException(
-        '${message.isEmpty ? 'Tool scan failed because the MCP server returned an error.' : message}'
+        '${message.isEmpty ? '工具扫描失败：MCP 服务返回错误。' : message}'
         '${_mcpServerResponseDetail(envelope)}',
       );
     }
     final result = optionalStringKeyedMapFromValue(envelope['result']);
     if (result == null) {
       throw McpToolDiscoveryException(
-        'Tool scan failed because the MCP server returned an invalid result payload.'
+        '工具扫描失败：MCP 服务返回了无效的结果载荷。'
         '${_mcpServerResponseDetail(envelope)}',
       );
     }
@@ -1330,9 +1315,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   Uri _parseServerUri(String rawUrl) {
     final uri = Uri.tryParse(rawUrl.trim());
     if (uri == null || !uri.hasScheme) {
-      throw const McpToolDiscoveryException(
-        'Tool scan failed because the MCP server URL is invalid.',
-      );
+      throw const McpToolDiscoveryException('工具扫描失败：MCP 服务地址无效。');
     }
     return uri;
   }
@@ -1661,6 +1644,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
+    _operationSlots.cancelWaiters();
     for (final abort in _activeOperationAborts.toList(growable: false)) {
       if (!abort.isCompleted) abort.complete();
     }
@@ -1670,16 +1654,37 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
   }
 
-  Completer<void> _beginOperation() {
+  Future<T> _runOperation<T>(
+    Future<T> Function(Future<void> cancelSignal) operation, {
+    Future<void>? cancelSignal,
+  }) async {
     if (_isDisposed) throw StateError('MCP 工具发现服务已关闭。');
+    final acquired = cancelSignal == null
+        ? await _operationSlots.acquirePermit()
+        : await _operationSlots.acquireUnlessCancelled(cancelSignal);
+    if (!acquired) {
+      if (_isDisposed) {
+        throw StateError('MCP 工具发现服务已关闭。');
+      }
+      throw const McpToolDiscoveryException('MCP 操作已取消。');
+    }
+    if (_isDisposed) {
+      _operationSlots.release();
+      throw StateError('MCP 工具发现服务已关闭。');
+    }
     final abort = Completer<void>();
     _activeOperationAborts.add(abort);
-    return abort;
-  }
-
-  void _finishOperation(Completer<void> abort) {
-    if (!abort.isCompleted) abort.complete();
-    _activeOperationAborts.remove(abort);
+    final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
+      cancelSignal,
+      abort.future,
+    ])!;
+    try {
+      return await operation(effectiveCancelSignal);
+    } finally {
+      if (!abort.isCompleted) abort.complete();
+      _activeOperationAborts.remove(abort);
+      _operationSlots.release();
+    }
   }
 }
 
@@ -1747,7 +1752,7 @@ Future<http.StreamedResponse> _sendRequestWithRedirects({
         timeout: requestTimeout,
       );
       throw McpToolDiscoveryException(
-        'Tool scan request followed too many redirects (${maxRedirects + 1})'
+        '工具扫描请求重定向次数过多（${maxRedirects + 1} 次）'
         '${_mcpServerResponseDetail(responseBody)}',
       );
     },
@@ -1912,7 +1917,7 @@ class _LegacySseSession {
         timeout: requestTimeout,
       );
       throw McpToolDiscoveryException(
-        'Tool scan could not connect to the SSE endpoint (HTTP ${response.statusCode})'
+        '工具扫描无法连接 SSE 端点（HTTP ${response.statusCode}）'
         '${_mcpServerResponseDetail(body)}',
       );
     }
@@ -1926,7 +1931,7 @@ class _LegacySseSession {
         timeout: requestTimeout,
       );
       throw McpToolDiscoveryException(
-        'Tool scan could not connect to the SSE endpoint because the server did not return an event stream'
+        '工具扫描无法连接 SSE 端点：服务未返回事件流。'
         '${_mcpServerResponseDetail(body)}',
       );
     }
@@ -1952,7 +1957,7 @@ class _LegacySseSession {
           ).toList(growable: false);
           if (decodedMessages.isEmpty) {
             throw McpToolDiscoveryException(
-              'Tool scan failed because the SSE endpoint returned an invalid JSON-RPC message.'
+              '工具扫描失败：SSE 端点返回了无效的 JSON-RPC 消息。'
               '${_mcpServerResponseDetail(event.data)}',
             );
           }
@@ -1966,7 +1971,7 @@ class _LegacySseSession {
           final surfacedError = error is McpToolDiscoveryException
               ? error
               : McpToolDiscoveryException(
-                  'Tool scan failed because the SSE endpoint returned content that is not valid JSON.'
+                  '工具扫描失败：SSE 端点返回的内容不是有效 JSON。'
                   '${_mcpServerResponseDetail(event.data)}',
                 );
           silentLog(
@@ -2006,9 +2011,7 @@ class _LegacySseSession {
           onDone: () {
             if (!endpointCompleter.isCompleted) {
               endpointCompleter.completeError(
-                const McpToolDiscoveryException(
-                  'Tool scan failed because the SSE endpoint closed before reporting a message endpoint.',
-                ),
+                const McpToolDiscoveryException('工具扫描失败：SSE 端点在报告消息端点前已关闭。'),
               );
             }
             if (!messages.isClosed) {
@@ -2049,9 +2052,8 @@ class _LegacySseSession {
         .firstWhere(
           (message) => '${message['id']}' == requestIdText,
           // 匹配响应到达前连接关闭时统一转换为超时，让调用方只处理一种失败模式。
-          orElse: () => throw TimeoutException(
-            'MCP stream closed before response for request $requestIdText',
-          ),
+          orElse: () =>
+              throw TimeoutException('MCP 流在请求 $requestIdText 返回响应前已关闭。'),
         )
         .timeout(timeout ?? _requestTimeout);
     observeMcpPendingFuture(responseFuture);
@@ -2061,12 +2063,12 @@ class _LegacySseSession {
       responseFuture,
       cancelSignal.then<Map<String, Object?>?>(
         (_) => throw const McpToolDiscoveryException(
-          'MCP request was cancelled.',
+          'MCP 请求已取消。',
           isExpectedLifecycleCancellation: true,
         ),
         onError: (Object _, StackTrace _) =>
             throw const McpToolDiscoveryException(
-              'MCP request was cancelled.',
+              'MCP 请求已取消。',
               isExpectedLifecycleCancellation: true,
             ),
       ),
@@ -2114,7 +2116,7 @@ class _LegacySseSession {
         timeout: effectiveTimeout,
       );
       throw McpToolDiscoveryException(
-        'Tool scan request failed with HTTP ${response.statusCode}'
+        '工具扫描请求失败，HTTP 状态码 ${response.statusCode}'
         '${_mcpServerResponseDetail(body)}',
       );
     }
@@ -2390,10 +2392,7 @@ Future<void> resetMcpStdioIsolatedCache() async {
   ).timeout(_mcpStdioFileOperationTimeout);
   if (type == FileSystemEntityType.notFound) return;
   if (type != FileSystemEntityType.directory) {
-    throw FileSystemException(
-      'MCP package cache is not a directory.',
-      dir.path,
-    );
+    throw FileSystemException('MCP 软件包缓存路径不是目录。', dir.path);
   }
   await deletePathBounded(p.absolute(dir.path), policy: _mcpCacheDeletePolicy);
 }
@@ -2596,14 +2595,12 @@ class _StdioSession {
   }) async {
     final requestIdText = '${payload['id']}';
     if (_pendingResponses.containsKey(requestIdText)) {
-      throw McpToolDiscoveryException(
-        'Duplicate MCP stdio request id: $requestIdText.',
-      );
+      throw McpToolDiscoveryException('MCP stdio 请求编号重复：$requestIdText。');
     }
     if (_pendingResponses.length >= kMcpStdioMaxPendingRequests) {
       throw McpToolDiscoveryException(
-        'MCP stdio has too many pending requests '
-        '(${_pendingResponses.length}/$kMcpStdioMaxPendingRequests).',
+        'MCP stdio 待处理请求过多'
+        '（${_pendingResponses.length}/$kMcpStdioMaxPendingRequests）。',
       );
     }
     final completer = Completer<Map<String, Object?>?>();
@@ -2662,7 +2659,7 @@ class _StdioSession {
         decoded = jsonDecode(payload);
       } on FormatException {
         throw McpToolDiscoveryException(
-          'Tool scan failed because the stdio MCP server returned content that is not valid JSON.'
+          '工具扫描失败：stdio MCP 服务返回的内容不是有效 JSON。'
           '${_mcpServerResponseDetail(payload)}',
         );
       }
@@ -2671,7 +2668,7 @@ class _StdioSession {
       ).toList(growable: false);
       if (decodedMessages.isEmpty) {
         throw McpToolDiscoveryException(
-          'Tool scan failed because the stdio MCP server returned an invalid JSON-RPC message.'
+          '工具扫描失败：stdio MCP 服务返回了无效的 JSON-RPC 消息。'
           '${_mcpServerResponseDetail(payload)}',
         );
       }
@@ -2781,13 +2778,13 @@ class _StdioSession {
   String _closedUnexpectedlyMessage() {
     final stderr = _stderrBuffer.toString().trim();
     final trace = _traceBuffer.toString().trim();
-    final traceSuffix = trace.isEmpty ? '' : ' Trace: $trace';
+    final traceSuffix = trace.isEmpty ? '' : ' 跟踪：$trace';
     if (stderr.isEmpty) {
-      return 'Tool scan failed because the stdio MCP server closed unexpectedly.$traceSuffix';
+      return '工具扫描失败：stdio MCP 服务意外关闭。$traceSuffix';
     }
     final hint = _diagnoseStdioStderr(stderr);
     final hintSuffix = hint.isEmpty ? '' : '\n\n$hint';
-    return 'Tool scan failed because the stdio MCP server closed unexpectedly: $stderr$traceSuffix$hintSuffix';
+    return '工具扫描失败：stdio MCP 服务意外关闭：$stderr$traceSuffix$hintSuffix';
   }
 
   Object _stdioSessionStreamError(Object error) {
@@ -2814,11 +2811,11 @@ class _StdioSession {
 
   String _stdoutOverflowMessage() {
     final trace = _traceBuffer.toString().trim();
-    final traceSuffix = trace.isEmpty ? '' : ' Trace: $trace';
+    final traceSuffix = trace.isEmpty ? '' : ' 跟踪：$trace';
     const maxMiB =
         DefaultMcpToolDiscoveryService._maxStdioStdoutBufferBytes ~/
         kBytesPerMiB;
-    return 'Tool scan failed because the stdio MCP server wrote more than $maxMiB MiB to stdout without a complete protocol message.$traceSuffix';
+    return '工具扫描失败：stdio MCP 服务向标准输出写入超过 $maxMiB MiB，仍未形成完整协议消息。$traceSuffix';
   }
 
   void _appendTrace(String message) {
@@ -2927,9 +2924,7 @@ class _StdioSession {
       } on StateError catch (error, stack) {
         if (!isExpectedMcpStdioSinkStateError(error)) {
           silentLog('mcp_stdio', '写入进程标准输入', error, stack);
-          throw McpToolDiscoveryException(
-            'Tool scan failed because stdin became unavailable: $error',
-          );
+          throw McpToolDiscoveryException('工具扫描失败：标准输入不可用：$error');
         }
         throw _closingWriteException;
       }
@@ -3185,7 +3180,7 @@ class _BoundedSseEventParser {
     if (addedBytes <= 0) return;
     if (_line.length + addedBytes > maxLineBytes) {
       throw McpToolDiscoveryException(
-        'MCP SSE line exceeds the ${formatByteSize(maxLineBytes)} safety limit.',
+        'MCP SSE 单行超过 ${formatByteSize(maxLineBytes)} 的安全上限。',
       );
     }
     if (chunk is Uint8List) {
@@ -3249,7 +3244,7 @@ class _BoundedSseEventParser {
         prospectiveDataBytes + (replacingEventName ? 0 : _eventNameBytes);
     if (prospectiveBytes > maxEventBytes) {
       throw McpToolDiscoveryException(
-        'MCP SSE event exceeds the ${formatByteSize(maxEventBytes)} safety limit.',
+        'MCP SSE 事件超过 ${formatByteSize(maxEventBytes)} 的安全上限。',
       );
     }
   }

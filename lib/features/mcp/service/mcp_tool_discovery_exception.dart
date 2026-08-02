@@ -1,5 +1,4 @@
-const String kMcpStdioSessionClosingMessage =
-    'Tool scan stopped because the stdio MCP session is closing.';
+const String kMcpStdioSessionClosingMessage = 'stdio MCP 会话正在关闭，工具扫描已停止。';
 
 bool isExpectedMcpToolDiscoveryLifecycleError(Object error) {
   return error is McpToolDiscoveryException &&

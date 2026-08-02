@@ -170,6 +170,7 @@ class McpController extends ChangeNotifier {
   static const int defaultAutoProbeConcurrency = 5;
   static const int _minAutoProbeConcurrency = 1;
   static const int _maxAutoProbeConcurrency = 32;
+  static const int _maxQueuedAutoProbeTasks = 128;
 
   final McpStore _store;
   final McpServerOpsStore _opsStore;
@@ -2347,6 +2348,9 @@ class McpController extends ChangeNotifier {
       _activeAutoProbeSlots += 1;
       _notifyAutoProbeMetricsChanged();
       return Future<bool>.value(true);
+    }
+    if (_autoProbeSlotWaiters.length >= _maxQueuedAutoProbeTasks) {
+      return Future<bool>.value(false);
     }
     final waiter = Completer<bool>();
     _autoProbeSlotWaiters.add(waiter);

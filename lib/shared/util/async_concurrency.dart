@@ -258,6 +258,9 @@ class OpenHandAsyncSemaphore {
     await _acquire();
   }
 
+  /// 等待许可并返回是否成功，供所有者主动取消等待队列。
+  Future<bool> acquirePermit() => _acquire();
+
   /// 等待许可；取消信号先完成时从队列移除并返回 `false`。
   Future<bool> acquireUnlessCancelled(Future<void> cancelSignal) {
     return _acquire(cancelSignal: cancelSignal);
@@ -291,6 +294,16 @@ class OpenHandAsyncSemaphore {
     if (waiter.settled || !_waiters.remove(waiter)) return;
     waiter.settled = true;
     waiter.completer.complete(false);
+  }
+
+  /// 取消全部排队任务，不影响已持有的许可。
+  void cancelWaiters() {
+    while (_waiters.isNotEmpty) {
+      final waiter = _waiters.removeFirst();
+      if (waiter.settled) continue;
+      waiter.settled = true;
+      waiter.completer.complete(false);
+    }
   }
 
   void release() {
