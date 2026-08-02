@@ -4,13 +4,13 @@ import 'dart:io';
 import 'dart:math' as math;
 import 'dart:typed_data';
 
-import 'package:archive/archive.dart' show Archive, ArchiveFile, ZipDecoder;
 import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_zip_archive.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../model/knowledge_base_settings.dart';
@@ -777,12 +777,13 @@ class PdfKnowledgeDocumentParser extends KnowledgeDocumentParser {
   }
 }
 
-Archive _zip(List<int> bytes, String path) {
+BoundedZipArchive _zip(Uint8List bytes, String path) {
   try {
-    final archive = ZipDecoder().decodeBytes(bytes);
-    if (archive.length > _maxKnowledgeArchiveEntries) {
-      throw const FormatException('压缩文档条目数量超过安全上限。');
-    }
+    final archive = BoundedZipArchive.decode(
+      bytes,
+      maxEntries: _maxKnowledgeArchiveEntries,
+      maxReadBytes: _maxKnowledgeArchiveXmlBytes,
+    );
     var xmlBytes = 0;
     for (final file in archive.files) {
       if (!file.isFile || !file.name.toLowerCase().endsWith('.xml')) {
@@ -802,7 +803,7 @@ Archive _zip(List<int> bytes, String path) {
   }
 }
 
-xml.XmlDocument _xmlArchiveFile(Archive archive, String path) {
+xml.XmlDocument _xmlArchiveFile(BoundedZipArchive archive, String path) {
   final file = archive.findFile(path);
   if (file == null || !file.isFile) {
     throw FormatException('文档缺少必要结构：$path');
@@ -810,7 +811,7 @@ xml.XmlDocument _xmlArchiveFile(Archive archive, String path) {
   return xml.XmlDocument.parse(_archiveFileText(file));
 }
 
-String _corePropertyTitle(Archive archive) {
+String _corePropertyTitle(BoundedZipArchive archive) {
   final file = archive.findFile('docProps/core.xml');
   if (file == null || !file.isFile) return '';
   try {
@@ -825,7 +826,7 @@ String _corePropertyTitle(Archive archive) {
   }
 }
 
-List<String> _xlsxSharedStrings(Archive archive) {
+List<String> _xlsxSharedStrings(BoundedZipArchive archive) {
   final file = archive.findFile('xl/sharedStrings.xml');
   if (file == null || !file.isFile) return const <String>[];
   final doc = xml.XmlDocument.parse(_archiveFileText(file));
@@ -835,7 +836,7 @@ List<String> _xlsxSharedStrings(Archive archive) {
   ).map(_trimmedOoxmlText).toList(growable: false);
 }
 
-List<String> _xlsxSheetNames(Archive archive) {
+List<String> _xlsxSheetNames(BoundedZipArchive archive) {
   final file = archive.findFile('xl/workbook.xml');
   if (file == null || !file.isFile) return const <String>[];
   try {
@@ -851,11 +852,11 @@ List<String> _xlsxSheetNames(Archive archive) {
   }
 }
 
-String _archiveFileText(ArchiveFile file) {
+String _archiveFileText(BoundedZipEntry file) {
   if (file.size < 0 || file.size > _maxKnowledgeArchiveEntryBytes) {
     throw FormatException('压缩文档条目超过安全上限：${file.name}。');
   }
-  return _decodeText(file.readBytes() ?? const <int>[]);
+  return _decodeText(file.readBytes(maxBytes: _maxKnowledgeArchiveEntryBytes));
 }
 
 List<List<String>> _xlsxRows(xml.XmlDocument doc, List<String> sharedStrings) {

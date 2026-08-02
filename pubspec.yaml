@@ -11,7 +11,6 @@ dependencies:
     sdk: flutter
   flutter_localizations:
     sdk: flutter
-  archive: ^4.0.9
   file_selector: ^1.0.3
   characters: ^1.4.1
   package_info_plus: ^10.0.0

@@ -2,7 +2,6 @@ import 'dart:async';
 import 'dart:collection';
 import 'dart:io';
 
-import 'package:archive/archive.dart';
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
@@ -15,6 +14,7 @@ import '../../../shared/util/bounded_copy.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/bounded_zip_archive.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/directory_cleanup.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -245,7 +245,11 @@ class SkillsRepository {
     );
 
     try {
-      final archive = ZipDecoder().decodeBytes(archiveBytes, verify: true);
+      final archive = BoundedZipArchive.decode(
+        archiveBytes,
+        maxEntries: _maxArchiveEntries,
+        maxReadBytes: _maxExtractedArchiveBytes,
+      );
       await _extractSkillArchive(archive, targetDirectory);
       final manifestFile = await _findFirstSkillManifest(targetDirectory);
       if (manifestFile == null) {
@@ -972,7 +976,7 @@ class SkillsRepository {
   }
 
   Future<void> _extractSkillArchive(
-    Archive archive,
+    BoundedZipArchive archive,
     Directory targetDirectory,
   ) async {
     if (archive.files.length > _maxArchiveEntries) {
@@ -1023,10 +1027,7 @@ class SkillsRepository {
         continue;
       }
 
-      final content = entry.file.readBytes();
-      if (content == null) {
-        throw const FileSystemException('无法读取技能归档条目。');
-      }
+      final content = entry.file.readBytes(maxBytes: _maxExtractedArchiveBytes);
       final outputFile = File(destinationPath);
       await writeBytesFileAtomically(outputFile, content);
     }
@@ -1361,6 +1362,6 @@ class _SkillManifestDocument {
 class _ArchiveEntryPlan {
   const _ArchiveEntryPlan({required this.file, required this.pathParts});
 
-  final ArchiveFile file;
+  final BoundedZipEntry file;
   final List<String> pathParts;
 }

@@ -13,6 +13,7 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/bounded_zip_archive.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/directory_cleanup.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -44,6 +45,8 @@ class AiAttachmentService {
   static const int _maxSpreadsheetRowsPerSheet = 32;
   static const int _maxSpreadsheetArchiveBytes = 8 * kBytesPerMiB;
   static const int _maxZipEntryBytes = 4 * kBytesPerMiB;
+  static const int _maxZipEntries = 4096;
+  static const int _maxZipReadBytes = 32 * kBytesPerMiB;
   static const int _maxStoredAttachmentBytes = kBytesPerGiB;
   static const int _maxImageRawBytesHardLimit = 64 * kBytesPerMiB;
   static const int _maxDecodedImagePixels = 40 * 1000 * 1000;
@@ -792,18 +795,19 @@ class AiAttachmentService {
         idleTimeout: defaultBoundedFileReadIdleTimeout,
         totalTimeout: defaultBoundedFileReadTotalTimeout,
       );
-      final archive = _ZipArchiveReader(
+      final archive = BoundedZipArchive.decode(
         Uint8List.fromList(bytes),
-        maxEntryBytes: _maxZipEntryBytes,
+        maxEntries: _maxZipEntries,
+        maxReadBytes: _maxZipReadBytes,
       );
-      final workbookXml = archive.readUtf8('xl/workbook.xml');
-      final relationsXml = archive.readUtf8('xl/_rels/workbook.xml.rels');
+      final workbookXml = _readZipUtf8(archive, 'xl/workbook.xml');
+      final relationsXml = _readZipUtf8(archive, 'xl/_rels/workbook.xml.rels');
       if (workbookXml == null || relationsXml == null) {
         return 'Unable to read workbook structure from the XLSX file.';
       }
       final workbookDocument = xml.XmlDocument.parse(workbookXml);
       final relationsDocument = xml.XmlDocument.parse(relationsXml);
-      final sharedStringsXml = archive.readUtf8('xl/sharedStrings.xml');
+      final sharedStringsXml = _readZipUtf8(archive, 'xl/sharedStrings.xml');
       final sharedStrings = sharedStringsXml == null
           ? const <String>[]
           : _parseSharedStrings(xml.XmlDocument.parse(sharedStringsXml));
@@ -836,7 +840,7 @@ class AiAttachmentService {
         if (targetPath == null) {
           continue;
         }
-        final sheetXml = archive.readUtf8(targetPath);
+        final sheetXml = _readZipUtf8(archive, targetPath);
         if (sheetXml == null) {
           continue;
         }
@@ -1133,151 +1137,13 @@ Map<String, Object?> _processRasterImageAttachment(Map<String, Object?> input) {
   return (bytes: bytes, width: current.width, height: current.height);
 }
 
-class _ZipArchiveReader {
-  _ZipArchiveReader(this.bytes, {required this.maxEntryBytes})
-    : _data = ByteData.sublistView(bytes);
-
-  final Uint8List bytes;
-  final int maxEntryBytes;
-  final ByteData _data;
-  Map<String, _ZipEntry>? _entries;
-
-  /// 所有条目的累计解压上限，防止大量小条目构造压缩炸弹。
-  static const int _maxCumulativeDecompressedBytes = 32 * kBytesPerMiB;
-  int _cumulativeDecompressedBytes = 0;
-
-  String? readUtf8(String name) {
-    final entry = _entryFor(name);
-    if (entry == null) {
-      return null;
-    }
-    final content = _readEntryBytes(entry);
-    if (content == null) {
-      return null;
-    }
-    try {
-      return utf8.decode(content);
-    } on FormatException {
-      return utf8.decode(content, allowMalformed: true);
-    }
-  }
-
-  _ZipEntry? _entryFor(String name) {
-    _entries ??= _parseEntries();
-    return _entries![name];
-  }
-
-  Map<String, _ZipEntry> _parseEntries() {
-    final endOfCentralDirectoryOffset = _findEndOfCentralDirectoryOffset();
-    if (endOfCentralDirectoryOffset == -1) {
-      return const <String, _ZipEntry>{};
-    }
-    final totalEntries = _readUint16(endOfCentralDirectoryOffset + 10);
-    final centralDirectoryOffset = _readUint32(
-      endOfCentralDirectoryOffset + 16,
-    );
-    final entries = <String, _ZipEntry>{};
-    var cursor = centralDirectoryOffset;
-    for (var index = 0; index < totalEntries; index++) {
-      if (_readUint32(cursor) != 0x02014b50) {
-        break;
-      }
-      final compressionMethod = _readUint16(cursor + 10);
-      final compressedSize = _readUint32(cursor + 20);
-      final uncompressedSize = _readUint32(cursor + 24);
-      final fileNameLength = _readUint16(cursor + 28);
-      final extraFieldLength = _readUint16(cursor + 30);
-      final fileCommentLength = _readUint16(cursor + 32);
-      final localHeaderOffset = _readUint32(cursor + 42);
-      final nameStart = cursor + 46;
-      final nameEnd = nameStart + fileNameLength;
-      final name = utf8.decode(
-        bytes.sublist(nameStart, nameEnd),
-        allowMalformed: true,
-      );
-      entries[name] = _ZipEntry(
-        name: name,
-        compressionMethod: compressionMethod,
-        compressedSize: compressedSize,
-        uncompressedSize: uncompressedSize,
-        localHeaderOffset: localHeaderOffset,
-      );
-      cursor = nameEnd + extraFieldLength + fileCommentLength;
-    }
-    return entries;
-  }
-
-  Uint8List? _readEntryBytes(_ZipEntry entry) {
-    if (entry.compressedSize > maxEntryBytes ||
-        entry.uncompressedSize > maxEntryBytes) {
-      return null;
-    }
-    // 校验累计解压大小，防止压缩炸弹。
-    if (_cumulativeDecompressedBytes + entry.uncompressedSize >
-        _maxCumulativeDecompressedBytes) {
-      return null;
-    }
-    final localHeaderOffset = entry.localHeaderOffset;
-    if (_readUint32(localHeaderOffset) != 0x04034b50) {
-      return null;
-    }
-    final fileNameLength = _readUint16(localHeaderOffset + 26);
-    final extraFieldLength = _readUint16(localHeaderOffset + 28);
-    final dataOffset =
-        localHeaderOffset + 30 + fileNameLength + extraFieldLength;
-    final dataEnd = dataOffset + entry.compressedSize;
-    if (dataOffset < 0 || dataEnd > bytes.length || dataOffset >= dataEnd) {
-      return null;
-    }
-    final payload = bytes.sublist(dataOffset, dataEnd);
-    if (entry.compressionMethod == 0) {
-      _cumulativeDecompressedBytes += payload.length;
-      return Uint8List.fromList(payload);
-    }
-    if (entry.compressionMethod == 8) {
-      try {
-        final decoded = ZLibCodec(raw: true).decode(payload);
-        if (decoded.length > maxEntryBytes) {
-          return null;
-        }
-        _cumulativeDecompressedBytes += decoded.length;
-        return Uint8List.fromList(decoded);
-      } on Object {
-        return null;
-      }
-    }
-    return null;
-  }
-
-  int _findEndOfCentralDirectoryOffset() {
-    final minOffset = math.max(0, bytes.length - 65557);
-    for (var offset = bytes.length - 22; offset >= minOffset; offset--) {
-      if (_readUint32(offset) == 0x06054b50) {
-        return offset;
-      }
-    }
-    return -1;
-  }
-
-  int _readUint16(int offset) => _data.getUint16(offset, Endian.little);
-
-  int _readUint32(int offset) => _data.getUint32(offset, Endian.little);
-}
-
-class _ZipEntry {
-  const _ZipEntry({
-    required this.name,
-    required this.compressionMethod,
-    required this.compressedSize,
-    required this.uncompressedSize,
-    required this.localHeaderOffset,
-  });
-
-  final String name;
-  final int compressionMethod;
-  final int compressedSize;
-  final int uncompressedSize;
-  final int localHeaderOffset;
+String? _readZipUtf8(BoundedZipArchive archive, String name) {
+  final entry = archive.findFile(name);
+  if (entry == null || !entry.isFile) return null;
+  final bytes = entry.readBytes(
+    maxBytes: AiAttachmentService._maxZipEntryBytes,
+  );
+  return utf8.decode(bytes, allowMalformed: true);
 }
 
 String _requireSafeStorageIdentifier(String value, {required String label}) {
