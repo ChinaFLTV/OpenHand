@@ -170,8 +170,7 @@ class AiChatCompletion {
 
   final String reply;
 
-  /// Reasoning / thinking content from models that support extended thinking
-  /// (e.g., deepseek-expert-reasoner). Null when not available.
+  /// 支持扩展思考的模型返回的推理内容；不可用时为 null。
   final String? reasoningContent;
 
   final AiTokenUsage? usage;
@@ -265,18 +264,16 @@ class AiChatStreamResult {
   final int? durationMs;
   final List<String> requestFallbacks;
 
-  /// The reason the model stopped generating.
+  /// 模型停止生成的原因。
   ///
-  /// Common values:
-  ///   - `'stop'` / `'end_turn'` — normal completion
-  ///   - `'length'` / `'max_tokens'` — output truncated due to token limit
-  ///   - `'tool_calls'` / `'tool_use'` — model requested tool execution
-  ///   - `null` — unknown or not reported
+  /// 常见值：
+  ///   - `'stop'` / `'end_turn'`：正常结束
+  ///   - `'length'` / `'max_tokens'`：达到令牌上限而截断
+  ///   - `'tool_calls'` / `'tool_use'`：模型请求执行工具
+  ///   - `null`：未知或服务端未返回
   final String? finishReason;
 
-  /// Whether the model output was truncated due to reaching the max output
-  /// token limit.  This is a common cause of "silent stops" where the model
-  /// appears to have finished but actually ran out of output budget.
+  /// 模型输出是否因达到最大输出令牌数而截断。
   bool get wasTruncated {
     final normalized = optionalLowercaseStringFromValue(finishReason);
     return normalized == 'length' || normalized == 'max_tokens';
@@ -326,6 +323,9 @@ class AiChatService implements AiChatClient {
 
   static const String _availabilityProbePrompt =
       'Reply with OK only if this model configuration works.';
+  static const int _maxConcurrentRequests = 16;
+  static const int _maxQueuedRequests = 128;
+  static const Duration _requestQueueTimeout = Duration(seconds: 30);
 
   /// SSE 单事件缓冲上限；超限立即终止响应，避免异常服务持续占用资源。
   int _maxStreamLineBufferBytes = 4 * kBytesPerMiB;
@@ -342,6 +342,10 @@ class AiChatService implements AiChatClient {
   final AiImageGenerationService _imageService;
   final bool _ownsImageService;
   final AiModelScanner? _modelScanner;
+  final OpenHandAsyncSemaphore _requestSlots = OpenHandAsyncSemaphore(
+    _maxConcurrentRequests,
+    maxWaiters: _maxQueuedRequests,
+  );
   final Set<Completer<void>> _activeRequestAborts = <Completer<void>>{};
   AiResponsesService? _responsesService;
   bool _disposed = false;
@@ -574,10 +578,7 @@ class AiChatService implements AiChatClient {
     );
   }
 
-  /// Throws an [AiChatException] with a user-friendly message when the caller
-  /// asks for video/audio output but the active model has no generation
-  /// capability. Without this guard the request would fall through to the
-  /// chat completions endpoint and surface as a confusing HTTP 405/404.
+  /// 请求视频或音频但模型不支持时，提前返回明确错误，避免误入聊天端点。
   void _assertCreationModeIsRoutable(
     AiModelConfig model,
     AiCreationRequest creationRequest,
@@ -602,9 +603,7 @@ class AiChatService implements AiChatClient {
     }
   }
 
-  /// Produces an [AiChatCompletion] by calling a dedicated media generation
-  /// endpoint and wrapping its output in the regular chat completion shape so
-  /// the rest of the app can stay oblivious.
+  /// 调用专用媒体端点，并将结果统一封装为聊天完成结构。
   Future<AiChatCompletion> _sendMediaGenerationCompletion({
     required AiModelConfig model,
     required List<AiChatTurn> messages,
@@ -642,10 +641,8 @@ class AiChatService implements AiChatClient {
           timeout: timeout,
           cancelSignal: cancelSignal,
         ),
-        AiCreationMode.none ||
-        AiCreationMode.deepResearch => throw const AiMediaGenerationException(
-          'No media generation mode was requested.',
-        ),
+        AiCreationMode.none || AiCreationMode.deepResearch =>
+          throw const AiMediaGenerationException('未指定媒体生成模式。'),
       };
     } on AiMediaGenerationCancelledException {
       throw const AiChatCancelledException();
@@ -680,7 +677,7 @@ class AiChatService implements AiChatClient {
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
     bool allowResponsesFallback = true,
   }) async {
-    final requestAbort = _beginRequest();
+    final requestAbort = await _beginRequest(cancelSignal);
     final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
       cancelSignal,
       requestAbort.future,
@@ -1027,14 +1024,9 @@ class AiChatService implements AiChatClient {
         final parsedReply = await adapter.parseAssistantMessage(response.body);
         final parsedToolCalls = adapter.parseToolCalls(response.body);
         final dsmlExtraction = extractDsmlToolCalls(parsedReply);
-        // Extract reasoning_content separately (for reasoning models like
-        // deepseek-expert-reasoner that return thinking in a dedicated field).
+        // 单独提取推理模型专用字段中的思考内容。
         final reasoningText = _extractReasoningContent(response.body);
-        // When the model's `content` field is empty, parseAssistantMessage
-        // falls back to `reasoning_content`, which means parsedReply IS the
-        // reasoning text.  Deduplicate: keep reasoning separate and clear
-        // the reply so the UI doesn't show the same text in both a thinking
-        // card and an assistant card.
+        // 正文为空时解析器会用推理内容兜底，此处去重以免 UI 重复展示。
         final replyIsReasoning =
             reasoningText != null && nullIfBlank(parsedReply) == reasoningText;
         return AiChatCompletion(
@@ -1077,8 +1069,7 @@ class AiChatService implements AiChatClient {
     }
   }
 
-  /// Extracts `reasoning_content` from an OpenAI-compatible response body.
-  /// Returns null if not present or empty.
+  /// 从 OpenAI 兼容响应中提取 `reasoning_content`，缺失或为空时返回 null。
   static String? _extractReasoningContent(String rawResponse) {
     try {
       final decoded = jsonDecode(rawResponse);
@@ -1128,7 +1119,7 @@ class AiChatService implements AiChatClient {
     AiInputCacheRuntimeConfig? inputCacheConfig,
     void Function(AiChatRequestTelemetry telemetry)? onRequestStarted,
   }) async {
-    final requestAbort = _beginRequest();
+    final requestAbort = await _beginRequest(cancelSignal);
     final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
       cancelSignal,
       requestAbort.future,
@@ -1300,9 +1291,7 @@ class AiChatService implements AiChatClient {
     );
     final routeFallbacks = <String>[];
     if (canUseResponses && creationRequest.mode == AiCreationMode.image) {
-      // Responses image output contains a large base64 payload. Keep it out of
-      // the bounded SSE event buffer and expose the one-shot result through the
-      // same synthetic stream contract used by dedicated media endpoints.
+      // Responses 图片包含大体积 base64 数据，改用合成流避免占满 SSE 缓冲。
       return _sendMessageAsSyntheticStream(
         model: model,
         messages: messages,
@@ -1351,9 +1340,7 @@ class AiChatService implements AiChatClient {
         );
       }
     }
-    // Media generation is a one-shot or bounded-poll protocol on dedicated
-    // endpoints, so wrap it in a synthetic stream that emits one textDelta
-    // containing the final markdown media reference.
+    // 专用媒体端点使用单次请求或有限轮询，以合成流统一返回最终媒体引用。
     if (usesDedicatedMediaGenerationEndpoint(model, creationRequest)) {
       return _sendMessageAsSyntheticStream(
         model: model,
@@ -1597,7 +1584,7 @@ class AiChatService implements AiChatClient {
         }
       }
       if (isHttpSuccessStatus(streamedResponse.statusCode)) {
-        // Retry succeeded; continue into the normal SSE reader below.
+        // 重试成功，继续读取 SSE。
       } else {
         final errorMessage = adapter.extractErrorMessage(finalErrorBody);
         final message = AiTransportDiagnosticMessages.httpStatus(
@@ -1690,7 +1677,7 @@ class AiChatService implements AiChatClient {
       if (citations.isNotEmpty) {
         final prefix = textBuffer.isEmpty ? '' : '\n\n';
         final sources = <String>[
-          '$prefix### Sources',
+          '$prefix### 来源',
           ...citations.entries.map(
             (entry) => '- [${entry.value}](${entry.key})',
           ),
@@ -1728,10 +1715,7 @@ class AiChatService implements AiChatClient {
         failStream('AI 响应中的工具调用数量超过安全上限。');
         return;
       }
-      // If the DSML parser detected incomplete markup AND finishReason was
-      // not already set, infer truncation.  Some API providers (especially
-      // third-party) may omit finish_reason, so the incomplete markup acts
-      // as a reliable fallback signal.
+      // 服务端未返回结束原因时，用未闭合的 DSML 标记判定输出已截断。
       final effectiveFinishReason =
           dsmlExtraction.hasTrailingIncompleteMarkup && finishReason == null
           ? 'length'
@@ -1814,7 +1798,7 @@ class AiChatService implements AiChatClient {
           if (!resultCompleter.isCompleted) {
             resultCompleter.completeError(
               AiChatException(
-                'API error: $errorMessage',
+                'API 错误：$errorMessage',
                 telemetry: telemetrySnapshot(
                   rawResponse: rawResponseBuffer.toString(),
                   finishReason: finishReason,
@@ -1851,7 +1835,7 @@ class AiChatService implements AiChatClient {
 
       emitGeneratedMediaIfPresent(decoded);
 
-      // Route to protocol-specific stream handler.
+      // 按协议分派流事件。
       if (isClaudeProtocol) {
         _processClaudeStreamEvent(
           decoded,
@@ -2141,7 +2125,7 @@ class AiChatService implements AiChatClient {
           return AiChatStreamingResponse.cancelled();
         }
         if (isHttpSuccessStatus(streamedResponse.statusCode)) {
-          // Retry succeeded; continue into the normal SSE reader below.
+          // 重试成功，继续读取 SSE。
         } else {
           responsesErrorBody = await _readChatHttpErrorBody(
             streamedResponse,
@@ -2323,9 +2307,7 @@ class AiChatService implements AiChatClient {
           reasoningBuffer.toString().trim().isEmpty &&
           resolvedToolCalls.isEmpty) {
         resultCompleter.completeError(
-          const AiResponsesPayloadException(
-            'Responses API stream returned no assistant content or tool calls.',
-          ),
+          const AiResponsesPayloadException('Responses API 响应流未返回助手内容或工具调用。'),
           StackTrace.current,
         );
         unawaited(closeEvents());
@@ -2410,7 +2392,7 @@ class AiChatService implements AiChatClient {
             decoded['response'] ?? decoded['error'] ?? decoded;
         final message = extractApiErrorMessage(
           jsonEncode(responseError),
-          emptyFallback: 'Responses API stream failed.',
+          emptyFallback: 'Responses API 响应流失败。',
         );
         if (!resultCompleter.isCompleted) {
           resultCompleter.completeError(
@@ -2496,9 +2478,7 @@ class AiChatService implements AiChatClient {
       cancel: () async {
         await completeStreamResult(wasCancelled: true);
         await cancelResponseStream();
-        // A single-subscription controller's close future does not complete
-        // until a listener observes done. Cancellation must not hang merely
-        // because the caller only awaits `result` and never listens to events.
+        // 单订阅流要在监听者收到结束事件后才完成 close，取消流程不能因此阻塞。
         unawaited(closeEvents());
       },
     );
@@ -2519,8 +2499,7 @@ class AiChatService implements AiChatClient {
   }) async {
     final controller = StreamController<AiChatStreamEvent>(sync: true);
     final completer = Completer<AiChatStreamResult>();
-    // Internal cancel signal so `cancel()` releases both the wrapper and the
-    // underlying abortable request when no external signal was supplied.
+    // 内部取消信号确保 `cancel()` 同时释放包装层和底层可取消请求。
     final internalCancelCompleter = Completer<void>();
     final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
       internalCancelCompleter.future,
@@ -2573,8 +2552,7 @@ class AiChatService implements AiChatClient {
             cancelSignal: effectiveCancelSignal,
           );
         }
-        // Keep the wrapper race so non-abortable provider-specific paths still
-        // release their UI state immediately.
+        // 保留竞速，确保不可中止的供应商链路也能立即释放 UI 状态。
         final raceFutures = <Future<Object?>>[
           completionFuture,
           _cancelSignalSentinel(
@@ -2772,11 +2750,11 @@ class AiChatService implements AiChatClient {
   @override
   Future<AiModelTestResult> testModel(AiModelConfig model) async {
     if (model.normalizedBaseUrl.isEmpty) {
-      throw const AiChatException('Missing base URL.');
+      throw const AiChatException('缺少 Base URL。');
     }
     final modelId = nullIfBlank(model.modelId);
     if (modelId == null) {
-      throw const AiChatException('Missing model ID.');
+      throw const AiChatException('缺少模型 ID。');
     }
     final baseProbeModel = model.copyWith(
       clearMaxTokens: true,
@@ -2811,7 +2789,7 @@ class AiChatService implements AiChatClient {
       final normalizedReply = nullIfBlank(completion.reply);
       if (normalizedReply == null) {
         throw AiChatException(
-          'Empty assistant reply.',
+          '助手回复为空。',
           telemetry:
               completion.requestUrl == null && completion.requestMethod == null
               ? null
@@ -2824,7 +2802,7 @@ class AiChatService implements AiChatClient {
                   startedAt: completion.startedAt,
                   endedAt: completion.endedAt,
                   durationMs: completion.durationMs,
-                  error: 'Empty assistant reply.',
+                  error: '助手回复为空。',
                 ),
         );
       }
@@ -2900,6 +2878,7 @@ class AiChatService implements AiChatClient {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
+    _requestSlots.cancelWaiters();
     for (final abort in _activeRequestAborts.toList(growable: false)) {
       if (!abort.isCompleted) abort.complete();
     }
@@ -2916,8 +2895,35 @@ class AiChatService implements AiChatClient {
     }
   }
 
-  Completer<void> _beginRequest() {
+  Future<Completer<void>> _beginRequest(Future<void>? cancelSignal) async {
     if (_disposed) throw StateError('AI 聊天服务已关闭。');
+    final queueTimeoutSignal = Completer<void>();
+    final queueTimer = Timer(_requestQueueTimeout, queueTimeoutSignal.complete);
+    late final bool acquired;
+    try {
+      acquired = await _requestSlots.acquireUnlessCancelled(
+        combineCancelSignals(<Future<void>?>[
+          cancelSignal,
+          queueTimeoutSignal.future,
+        ])!,
+      );
+    } on StateError {
+      if (_disposed) throw StateError('AI 聊天服务已关闭。');
+      throw const AiChatException('AI 聊天请求排队已满，请稍后再试。');
+    } finally {
+      queueTimer.cancel();
+    }
+    if (!acquired) {
+      if (_disposed) throw StateError('AI 聊天服务已关闭。');
+      if (await isCancelSignalCompleted(cancelSignal)) {
+        throw const AiChatCancelledException();
+      }
+      throw TimeoutException('AI 聊天请求排队超时。', _requestQueueTimeout);
+    }
+    if (_disposed) {
+      _requestSlots.release();
+      throw StateError('AI 聊天服务已关闭。');
+    }
     final abort = Completer<void>();
     _activeRequestAborts.add(abort);
     return abort;
@@ -2926,6 +2932,7 @@ class AiChatService implements AiChatClient {
   void _finishRequest(Completer<void> abort) {
     if (!abort.isCompleted) abort.complete();
     _activeRequestAborts.remove(abort);
+    _requestSlots.release();
   }
 }
 
@@ -2999,9 +3006,8 @@ String? _providerStreamErrorMessage(Map<String, Object?> payload) {
   final statusCode = optionalIntFromValue(values['status_code']);
   if (statusCode == null || statusCode == 0) return null;
   final statusMessage =
-      optionalStringFromValue(values['status_msg']) ??
-      'Provider request failed.';
-  return 'Provider stream failed ($statusCode): $statusMessage';
+      optionalStringFromValue(values['status_msg']) ?? '供应商请求失败。';
+  return '供应商响应流失败（$statusCode）：$statusMessage';
 }
 
 String? _mimoWebSearchWarningFromPayload(Map<String, Object?> payload) {
@@ -3014,7 +3020,7 @@ String? _mimoWebSearchWarningFromPayload(Map<String, Object?> payload) {
   return firstErrorMessageFromPayloads(candidates);
 }
 
-/// Processes a single SSE event block in OpenAI-compatible format.
+/// 处理单个 OpenAI 兼容 SSE 事件块。
 void _processOpenAiStreamEvent(
   Map<String, Object?> decoded, {
   required StringBuffer textBuffer,
@@ -3034,10 +3040,7 @@ void _processOpenAiStreamEvent(
         : stringKeyedMapFromValue(usageJson);
     final parsedUsage = AiTokenUsageParser.parseOpenAi(usageMap);
     if (parsedUsage != null && !parsedUsage.isEmpty) {
-      // Merge with the previous frame so cache_* fields surfaced in an
-      // earlier chunk are preserved when later chunks omit them. DeepSeek
-      // and a few self-hosted gateways emit the cache stats only in the
-      // very first/last chunk.
+      // 合并上一帧，保留仅在首尾分片出现的缓存统计字段。
       final merged = AiTokenUsageParser.carryForward(usage(), parsedUsage);
       setUsage(merged);
       emitEvent(AiChatStreamEvent.usage(merged));
@@ -3051,9 +3054,7 @@ void _processOpenAiStreamEvent(
     if (choice is! Map<String, Object?>) {
       continue;
     }
-    // Capture finish_reason from the final chunk – this tells us whether the
-    // model stopped normally ("stop"), was truncated ("length"), or wants
-    // tool execution ("tool_calls").
+    // 记录结束原因，用于区分正常结束、截断和工具调用。
     final choiceFinishReason = optionalStringFromValue(choice['finish_reason']);
     if (choiceFinishReason != null) {
       setFinishReason(choiceFinishReason);
@@ -3084,13 +3085,8 @@ void _processOpenAiStreamEvent(
         continue;
       }
       final toolCallMap = stringKeyedMapFromValue(rawToolCall);
-      // OpenAI streaming spec assigns each tool_call a stable `index`.
-      // Some non-strict OpenAI-compatible providers omit it and instead
-      // ship two complete tool_calls in a single chunk — both would then
-      // bucket into index=0 and their `arguments` strings would
-      // concatenate (`...}{"cmd":...`), producing un-decodable JSON.
-      // When the index is missing, fall back to keying by `id`, and only
-      // as a last resort assume continuation of the most-recent entry.
+      // OpenAI 流协议为每个工具调用分配稳定索引。兼容服务缺失索引时先按 ID
+      // 匹配，最后才视为最近工具调用的续帧，避免参数错误拼接。
       final id = optionalStringFromValue(toolCallMap['id']) ?? '';
       final rawIndex = optionalIntegralIntFromValue(toolCallMap['index']);
       final int index;
@@ -3161,16 +3157,16 @@ void _collectStreamCitations(
   }
 }
 
-/// Processes a single SSE event block in Claude/Anthropic streaming format.
+/// 处理单个 Claude/Anthropic SSE 事件块。
 ///
-/// Claude SSE events use a top-level `type` field to indicate the event kind:
-///   - `message_start` → initial message metadata + usage
-///   - `ping` → heartbeat, ignored
-///   - `content_block_start` → beginning of a content block (text/thinking)
-///   - `content_block_delta` → incremental text/thinking content
-///   - `content_block_stop` → end of current content block
-///   - `message_delta` → stop_reason + final usage
-///   - `message_stop` → end of message
+/// Claude SSE 使用顶层 `type` 标识事件类型：
+///   - `message_start`：初始消息元数据与用量
+///   - `ping`：心跳，忽略
+///   - `content_block_start`：内容块开始
+///   - `content_block_delta`：文本或思考增量
+///   - `content_block_stop`：内容块结束
+///   - `message_delta`：结束原因与最终用量
+///   - `message_stop`：消息结束
 void _processClaudeStreamEvent(
   Map<String, Object?> decoded, {
   required StringBuffer textBuffer,
@@ -3187,7 +3183,7 @@ void _processClaudeStreamEvent(
 
   switch (type) {
     case 'message_start':
-      // Extract initial usage from message_start.message.usage
+      // 提取初始用量。
       final message = decoded['message'];
       if (message is Map<String, Object?>) {
         final usageJson = message['usage'];
@@ -3211,7 +3207,7 @@ void _processClaudeStreamEvent(
       break;
 
     case 'content_block_start':
-      // Track tool_use blocks so we capture the tool id and name.
+      // 记录工具调用块的 ID 和名称。
       final contentBlock = decoded['content_block'];
       if (contentBlock is Map<String, Object?>) {
         final blockType = stringFromValue(contentBlock['type']);
@@ -3244,9 +3240,9 @@ void _processClaudeStreamEvent(
           emitEvent(AiChatStreamEvent.reasoningDelta(thinking));
         }
       } else if (deltaType == 'signature_delta') {
-        // Signature blocks — ignore for now.
+        // 暂不处理签名分片。
       } else if (deltaType == 'input_json_delta') {
-        // Tool call argument fragment (Claude tool_use streaming).
+        // Claude 工具调用参数分片。
         final partialJson = '${delta['partial_json'] ?? ''}';
         final index =
             optionalIntegralIntFromValue(decoded['index']) ?? toolCalls.length;
@@ -3270,7 +3266,7 @@ void _processClaudeStreamEvent(
       break;
 
     case 'message_delta':
-      // Final usage and stop_reason.
+      // 提取最终用量和结束原因。
       final deltaPayload = decoded['delta'];
       if (deltaPayload is Map<String, Object?>) {
         final stopReason = optionalStringFromValue(deltaPayload['stop_reason']);
@@ -3285,8 +3281,7 @@ void _processClaudeStreamEvent(
             : stringKeyedMapFromValue(usageJson);
         final parsedUsage = AiTokenUsageParser.parseClaude(usageMap);
         if (parsedUsage != null && !parsedUsage.isEmpty) {
-          // Merge with the message_start frame so cache_* fields are
-          // preserved even when message_delta only ships output_tokens.
+          // 与初始帧合并，保留最终帧未重复返回的缓存统计字段。
           final merged = AiTokenUsageParser.carryForward(usage(), parsedUsage);
           setUsage(merged);
           emitEvent(AiChatStreamEvent.usage(merged));
@@ -3298,8 +3293,7 @@ void _processClaudeStreamEvent(
       cancelSubscription();
 
     case 'error':
-      // The general in-stream error detection in processEventBlock handles
-      // this case because the decoded map has an `error` key.
+      // 通用流内错误检测会处理 `error` 字段。
       break;
 
     default:
@@ -3307,10 +3301,9 @@ void _processClaudeStreamEvent(
   }
 }
 
-/// Processes a single SSE event block in Gemini streaming format.
+/// 处理单个 Gemini SSE 事件块。
 ///
-/// Gemini streaming (`?alt=sse`) returns the same JSON structure as non-
-/// streaming but incrementally for each generated chunk:
+/// Gemini 流式接口（`?alt=sse`）按分片返回与非流式接口相同的 JSON 结构：
 /// ```json
 /// {
 ///   "candidates": [{
@@ -3322,7 +3315,7 @@ void _processClaudeStreamEvent(
 ///   "usageMetadata": { ... }
 /// }
 /// ```
-/// Tool calls appear as `functionCall` parts:
+/// 工具调用位于 `functionCall` 分片：
 /// ```json
 /// { "functionCall": { "name": "...", "args": {...} } }
 /// ```
@@ -3336,7 +3329,7 @@ void _processGeminiStreamEvent(
   required void Function(AiChatStreamEvent) emitEvent,
   required void Function(String) setFinishReason,
 }) {
-  // Parse usage metadata.
+  // 解析用量元数据。
   final usageJson = decoded['usageMetadata'];
   if (usageJson is Map) {
     final usageMap = usageJson is Map<String, Object?>
@@ -3350,17 +3343,17 @@ void _processGeminiStreamEvent(
     }
   }
 
-  // Parse candidates.
+  // 解析候选结果。
   final candidates = decoded['candidates'];
   if (candidates is! List<dynamic>) return;
   for (final candidate in candidates) {
     if (candidate is! Map<String, Object?>) continue;
-    // Capture finishReason from Gemini (e.g. "STOP", "MAX_TOKENS").
+    // 记录 Gemini 结束原因。
     final geminiFinishReason = optionalStringFromValue(
       candidate['finishReason'],
     );
     if (geminiFinishReason != null) {
-      // Normalize Gemini's "MAX_TOKENS" to "length" for consistency.
+      // 将 Gemini 的 `MAX_TOKENS` 统一为 `length`。
       final normalized = geminiFinishReason.toUpperCase() == 'MAX_TOKENS'
           ? 'length'
           : geminiFinishReason.toLowerCase();
@@ -3393,7 +3386,7 @@ void _processGeminiStreamEvent(
         continue;
       }
 
-      // Function call (tool use).
+      // 工具调用。
       final functionCall = part['functionCall'];
       if (functionCall is Map<String, Object?>) {
         final name = optionalStringFromValue(functionCall['name']);
@@ -3432,7 +3425,7 @@ class AiChatException implements Exception {
 }
 
 class AiChatCancelledException implements Exception {
-  const AiChatCancelledException([this.message = 'Request cancelled.']);
+  const AiChatCancelledException([this.message = '请求已取消。']);
 
   final String message;
 
@@ -3520,7 +3513,7 @@ extension on AiChatService {
         }
       }
     } catch (_) {
-      // Keep the original provider-test failure as the primary signal.
+      // 保留原始供应商测试错误作为主要诊断。
     } finally {
       if (ownsScanner) {
         scanner.dispose();
@@ -3541,7 +3534,7 @@ String _buildProviderProbeDetail(
   AiChatRequestTelemetry? telemetry,
   String? diagnosis,
 }) {
-  final base = nullIfBlank(message) ?? 'Unknown provider probe failure.';
+  final base = nullIfBlank(message) ?? '未知的供应商探测错误。';
   final extraLines = <String>[];
   final method = nullIfBlank(telemetry?.requestMethod);
   final url = nullIfBlank(telemetry?.requestUrl);
@@ -3725,8 +3718,8 @@ Future<http.StreamedResponse> _sendHttpRequestWithRedirects({
       );
       final responseText = nullIfBlank(responseBody);
       throw AiChatException(
-        'Too many redirects (${_maxAiChatRedirects + 1})'
-        '${responseText == null ? '' : ': $responseText'}',
+        '重定向次数超过上限（${_maxAiChatRedirects + 1}）'
+        '${responseText == null ? '' : '：$responseText'}',
       );
     },
   );
@@ -3790,10 +3783,10 @@ class _StreamingGeneratedMedia {
 
   String toMarkdown() {
     return switch (kind) {
-      'image' => '![AI Generated Image]($url)',
-      'audio' => '[AI Generated Audio]($url)',
-      'video' => '[AI Generated Video]($url)',
-      _ => '[AI Generated Media]($url)',
+      'image' => '![AI 生成的图片]($url)',
+      'audio' => '[AI 生成的音频]($url)',
+      'video' => '[AI 生成的视频]($url)',
+      _ => '[AI 生成的媒体]($url)',
     };
   }
 }
