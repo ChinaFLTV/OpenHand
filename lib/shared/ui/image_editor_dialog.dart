@@ -2379,7 +2379,7 @@ class _CropOverlayPainter extends CustomPainter {
   if (info.width > _imageEditorMaxSourceDimension ||
       info.height > _imageEditorMaxSourceDimension ||
       info.width > _imageEditorMaxSourcePixels ~/ info.height) {
-    throw const FormatException('Image dimensions exceed the editor limit.');
+    throw const FormatException('图片尺寸超过编辑器限制。');
   }
 
   final decoded = decoder.decode(sourceBytes, frame: 0);

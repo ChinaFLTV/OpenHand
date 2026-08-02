@@ -1,5 +1,4 @@
-/// Shared HTTP status helpers for code paths that only need generic status
-/// classification instead of domain-specific diagnostic messages.
+/// 通用 HTTP 状态分类工具，不包含领域诊断文案。
 library;
 
 const int kHttpSuccessStatusMin = 200;

@@ -1,23 +1,18 @@
 import 'dart:math' as math;
 
-/// Pure list-window math for long transcript open / scroll paths.
-///
-/// Keeps the first paint bound to a recent window so large histories
-/// (hundreds–thousands of messages) never force a full materialize on open.
+/// 长会话列表窗口算法，限制首帧和滚动路径的物化规模。
 abstract final class TranscriptListWindowing {
   static const int defaultInitialWindowSize = 8;
   static const int defaultWindowIncrement = 6;
   static const int defaultWindowingThreshold = 12;
 
-  /// Soft upper bound for UI-materialized rows after repeated reveal-older.
-  /// Beyond this, older rows stay in the data model but leave the active
-  /// render window until the user reveals them again (via load-earlier).
+  /// UI 同时物化的消息软上限，超出部分仍保留在数据层。
   static const int defaultMaxMaterializedWindow = 48;
   static const int defaultOpenFirstPaintCap = 4;
   static const int defaultWarmupMaxMessages = 8;
   static const int defaultHtmlWarmupMaxPerPass = 1;
 
-  /// Start index of the latest window for [messageCount] display messages.
+  /// 计算最近消息窗口的起始索引。
   static int initialWindowStartIndex(
     int messageCount, {
     int initialWindowSize = defaultInitialWindowSize,
@@ -43,9 +38,7 @@ abstract final class TranscriptListWindowing {
     return windowStart;
   }
 
-  /// After prepending [addedDisplayCount] older messages at the front of the
-  /// display list, shift the UI window so the previously visible tail stays
-  /// on screen while revealing [windowIncrement] older items.
+  /// 前插历史消息后移动窗口，保持原可见尾部稳定并展示一段更早内容。
   static int windowStartAfterHistoryPrepend({
     required int previousWindowStart,
     required int addedDisplayCount,
@@ -56,7 +49,7 @@ abstract final class TranscriptListWindowing {
     return math.max(0, previousWindowStart + added - increment);
   }
 
-  /// Reveal one older slice without going below zero.
+  /// 向前展示一段历史消息，结果不小于零。
   static int revealOlderWindowStart(
     int windowStart, {
     int windowIncrement = defaultWindowIncrement,
@@ -65,8 +58,7 @@ abstract final class TranscriptListWindowing {
     return math.max(0, windowStart - increment);
   }
 
-  /// Cap a growing UI window so repeated reveal-older cannot materialize an
-  /// unbounded number of rows on the open/scroll path.
+  /// 限制重复加载历史消息后的物化窗口规模。
   static int cappedWindowStart({
     required int preferredWindowStart,
     required int messageCount,
@@ -82,11 +74,7 @@ abstract final class TranscriptListWindowing {
     return math.max(preferred, minStartForCap);
   }
 
-  /// Calculate a bounded materialized range beginning at [preferredStart].
-  ///
-  /// The range slides toward history instead of growing an ever-larger suffix.
-  /// This keeps widget construction, rich-render warmup, and keyed-child lookup
-  /// independent of the total number of loaded transcript messages.
+  /// 从 [preferredStart] 计算有界物化区间。
   static ({int start, int end}) boundedRange({
     required int preferredStart,
     required int messageCount,
@@ -138,8 +126,7 @@ abstract final class TranscriptListWindowing {
     return clampWindowStart(previousWindowStart, nextCount);
   }
 
-  /// First-paint subset of a visible window: always keep the latest tail so
-  /// jump-to-bottom remains stable while older rows mount on later frames.
+  /// 计算首帧窗口尾部，保持贴底定位稳定。
   static int openFirstPaintStartIndex(
     int visibleCount, {
     int firstPaintCap = defaultOpenFirstPaintCap,

@@ -25,11 +25,8 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 import '../web_reverse_cdp_first_guard.dart';
 
-/// WebFetch 工具实现：
-/// 1. 从 [AiBuiltinToolConfig.webFetchSettings] 读取启用的引擎清单 / 缓存策略 /
-///    并行参数；缺省回落到默认配置（自动启用 Bing/DDG 兜底）。
-/// 2. 通过 [WebFetchOrchestrator] 并行/串行扇出抓取，按质量评分挑选胜出引擎的内容。
-/// 3. 把胜出内容喂给 background chat client，让模型按 user prompt 聚焦回答。
+/// WebFetch：按配置调度抓取引擎，选择最佳内容后由模型聚焦回答。
+/// 旧配置缺失时使用默认引擎。
 class AiWebFetchTool extends AiTool {
   AiWebFetchTool({
     required AiChatClient backgroundChatClient,
@@ -58,14 +55,11 @@ class AiWebFetchTool extends AiTool {
     final rawUrl = AiToolUtils.readString(args['url']);
     final prompt = AiToolUtils.readString(args['prompt']);
     if (rawUrl.isEmpty || prompt.isEmpty) {
-      return AiToolUtils.invalidResult(
-        'WebFetch',
-        'WebFetch requires url and prompt.',
-      );
+      return AiToolUtils.invalidResult('WebFetch', 'WebFetch 需要 url 和 prompt。');
     }
     final uri = tryParseValidHttpUrl(rawUrl);
     if (uri == null) {
-      return AiToolUtils.invalidResult('WebFetch', 'Invalid URL: $rawUrl');
+      return AiToolUtils.invalidResult('WebFetch', '无效网址：$rawUrl');
     }
     final cdpFirstDecision = WebReverseCdpFirstGuard.evaluateUrl(
       requestedUri: uri,
@@ -188,7 +182,7 @@ class AiWebFetchTool extends AiTool {
       );
     }
 
-    // 1) 缓存查询：同一 (url, prompt) 在 TTL 内直接复用。
+    // 优先复用有效期内的同网址、同提示词缓存。
     final cacheKey = WebFetchCacheStore.computeKey(
       url: rawUrl,
       prompt: prompt,
@@ -204,8 +198,8 @@ class AiWebFetchTool extends AiTool {
     if (cached != null) {
       progressReporter.emit(
         'cache.hit',
-        'Reused cached fetch (${cached.content.length} chars, '
-            'expires ${cached.expiresAt.toIso8601String()}).',
+        '已复用抓取缓存（${cached.content.length} 个字符，'
+            '过期时间：${cached.expiresAt.toIso8601String()}）。',
       );
       recordTelemetry(
         cacheStatus: 'hit',
@@ -229,9 +223,8 @@ class AiWebFetchTool extends AiTool {
       );
     }
 
-    progressReporter.emit('fetching', 'Dispatching to enabled fetch engines.');
+    progressReporter.emit('fetching', '正在调度已启用的抓取引擎。');
 
-    // 2) Orchestrator fan-out。
     final orchestrator = WebFetchOrchestrator(
       settings: settings,
       httpClient: _httpClient,
@@ -251,7 +244,7 @@ class AiWebFetchTool extends AiTool {
             'engine.${p.kind.name}.${p.stage.name}',
             p.message ??
                 (p.stage == WebFetchProgressStage.succeeded
-                    ? '${p.contentBytes} bytes in ${p.elapsedMs}ms'
+                    ? '在 ${p.elapsedMs} 毫秒内抓取 ${p.contentBytes} 字节'
                     : ''),
           );
         },
@@ -265,7 +258,7 @@ class AiWebFetchTool extends AiTool {
       );
       return errorResult(
         BashToolExecutionStatus.timedOut,
-        'WebFetch timed out while contacting fetch engines.',
+        'WebFetch 连接抓取引擎超时。',
       );
     } catch (error) {
       recordTelemetry(
@@ -289,9 +282,8 @@ class AiWebFetchTool extends AiTool {
         (r) => !r.isSuccess,
       );
       final detail = allFailed
-          ? 'All enabled fetch engines failed. '
-                'See `engines` metadata for per-engine diagnostics.'
-          : 'No content extracted from any fetch engine.';
+          ? '所有已启用的抓取引擎均失败，请查看 `engines` 元数据中的引擎诊断。'
+          : '所有抓取引擎均未提取到内容。';
       progressReporter.emit('completed', detail);
       recordTelemetry(
         cacheStatus: settings.cacheEnabled ? 'miss-empty' : 'disabled',
@@ -319,11 +311,10 @@ class AiWebFetchTool extends AiTool {
 
     progressReporter.emit(
       'extracted',
-      'Winner: ${orchestrationResult.winningKind?.name} '
-          '(${winner.content.length} chars). Asking model to focus on prompt.',
+      '已选择 ${orchestrationResult.winningKind?.name} '
+          '（${winner.content.length} 个字符），正在请求模型聚焦回答。',
     );
 
-    // 3) 让模型按 user prompt 聚焦回答（保留原 ai_web_fetch_tool 行为）。
     late final AiChatCompletion? completion;
     try {
       completion = await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
@@ -369,7 +360,7 @@ class AiWebFetchTool extends AiTool {
       );
       return errorResult(
         BashToolExecutionStatus.timedOut,
-        'WebFetch timed out while focusing on the fetched page.',
+        'WebFetch 聚焦处理抓取页面超时。',
       );
     } on AiChatException catch (error) {
       final msg = error.message.trim();
@@ -383,11 +374,11 @@ class AiWebFetchTool extends AiTool {
       return AiToolUtils.looksLikeTimeoutMessage(msg)
           ? errorResult(
               BashToolExecutionStatus.timedOut,
-              'WebFetch timed out while focusing on the fetched page.',
+              'WebFetch 聚焦处理抓取页面超时。',
             )
           : errorResult(
               BashToolExecutionStatus.failed,
-              'WebFetch failed while focusing on the fetched page: $msg',
+              'WebFetch 聚焦处理抓取页面失败：$msg',
             );
     } catch (error) {
       final msg = '$error';
@@ -401,7 +392,7 @@ class AiWebFetchTool extends AiTool {
       return AiToolUtils.looksLikeTimeoutMessage(msg)
           ? errorResult(
               BashToolExecutionStatus.timedOut,
-              'WebFetch timed out while focusing on the fetched page.',
+              'WebFetch 聚焦处理抓取页面超时。',
             )
           : errorResult(
               BashToolExecutionStatus.failed,
@@ -428,7 +419,7 @@ class AiWebFetchTool extends AiTool {
         ? winner.content
         : completion.reply.trim();
 
-    progressReporter.emit('completed', 'Fetch + focus answer ready.');
+    progressReporter.emit('completed', '抓取与聚焦回答已完成。');
 
     final engineSummaries = orchestrationResult.engineRuns
         .map(
@@ -437,7 +428,7 @@ class AiWebFetchTool extends AiTool {
         )
         .toList(growable: false);
 
-    // 4) 写本地持久化缓存（await chain 完成以保证下次可读）。
+    // 等待缓存持久化完成，确保下次可读。
     if (settings.cacheEnabled && output.trim().isNotEmpty) {
       try {
         await WebFetchCacheStore.instance.store(

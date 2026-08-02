@@ -66,9 +66,8 @@ const String _machineTerminalWorkspacePrefix = 'machine-terminal';
 const String _machineTerminalHistoryFileName = 'machine-terminal-history.json';
 const int _machineTerminalHistoryStorageSchemaVersion = 1;
 const int _machineTerminalHistoryMaxBytes = 32 * 1024 * 1024;
-const String _terminalBusyError =
-    'Another terminal command is already running.';
-const String _terminalNotRunningError = 'Machine terminal is not running.';
+const String _terminalBusyError = '已有其他终端命令正在运行。';
+const String _terminalNotRunningError = '终端未运行。';
 
 typedef MachineTerminalMetadataPersister =
     Future<void> Function(String sessionId, Map<String, Object?> metadata);
@@ -545,7 +544,7 @@ class MachineTerminalService extends ChangeNotifier {
       workingDirectory: workingDirectory,
     );
     if (_isDisposed) {
-      throw StateError('MachineTerminalService is shut down.');
+      throw StateError('终端服务已关闭。');
     }
     if (start) {
       final active = workspace.activeTerminal;
@@ -721,7 +720,7 @@ class MachineTerminalService extends ChangeNotifier {
     final workspace = await _requireWorkspace(sessionId);
     final terminal = workspace.terminalById(terminalId, includeDetached: true);
     if (terminal == null) {
-      throw StateError('Terminal not found: $terminalId.');
+      throw StateError('未找到终端：$terminalId。');
     }
     workspace.restore(terminal.id);
     if (start && !terminal.isRunningOrStarting) {
@@ -816,7 +815,7 @@ class MachineTerminalService extends ChangeNotifier {
     final terminal = await _requireTerminal(sessionId, terminalId);
     final wasRunning = terminal.status == MachineTerminalStatus.running;
     if (!await terminal.ensureRunning()) {
-      throw StateError('Machine terminal failed to start.');
+      throw StateError('终端启动失败。');
     }
     terminal.writeInput(appendNewline ? '$data\n' : data);
     if (!wasRunning) {
@@ -840,7 +839,7 @@ class MachineTerminalService extends ChangeNotifier {
         output: '',
         status: terminal.status,
         durationMs: 0,
-        error: 'Command is empty.',
+        error: '命令不能为空。',
       );
     }
     if (!await terminal.ensureRunning()) {
@@ -850,7 +849,7 @@ class MachineTerminalService extends ChangeNotifier {
         output: '',
         status: terminal.status,
         durationMs: 0,
-        error: 'Machine terminal failed to start.',
+        error: '终端启动失败。',
       );
     }
     final counter = ++_commandCounter;
@@ -893,7 +892,7 @@ class MachineTerminalService extends ChangeNotifier {
         final safeColumns = columns;
         final safeRows = rows;
         if (safeColumns == null || safeRows == null) {
-          throw ArgumentError('resize requires columns and rows.');
+          throw ArgumentError('调整尺寸需要列数和行数。');
         }
         await resizeTerminal(
           sessionId: sessionId,
@@ -915,7 +914,7 @@ class MachineTerminalService extends ChangeNotifier {
       case 'restore_terminal':
         final id = nullIfBlank(terminalId);
         if (id == null) {
-          throw ArgumentError('restore requires terminal_id.');
+          throw ArgumentError('恢复终端需要 terminal_id。');
         }
         await restoreTerminal(sessionId: sessionId, terminalId: id);
       case 'delete':
@@ -925,18 +924,18 @@ class MachineTerminalService extends ChangeNotifier {
       case 'remove':
         final id = nullIfBlank(terminalId);
         if (id == null) {
-          throw ArgumentError('delete requires terminal_id.');
+          throw ArgumentError('删除终端需要 terminal_id。');
         }
         await deleteTerminal(sessionId: sessionId, terminalId: id);
       case 'select':
         final id = nullIfBlank(terminalId);
         if (id == null) {
-          throw ArgumentError('select requires terminal_id.');
+          throw ArgumentError('选择终端需要 terminal_id。');
         }
         await selectTerminal(sessionId: sessionId, terminalId: id);
       default:
         throw ArgumentError(
-          'Unsupported terminal action "$action". Use start, stop, restart, clear, resize, new, duplicate, close, restore, delete, remove, or select.',
+          '不支持终端操作“$action”。可用操作：start、stop、restart、clear、resize、new、duplicate、close、restore、delete、remove、select。',
         );
     }
     return ensureWorkspace(
@@ -1127,11 +1126,11 @@ class MachineTerminalService extends ChangeNotifier {
     String? workingDirectory,
   }) {
     if (_isDisposed) {
-      throw StateError('MachineTerminalService is shut down.');
+      throw StateError('终端服务已关闭。');
     }
     final normalizedSessionId = _normalizeSessionId(sessionId);
     if (_workspaceDisposals.containsKey(normalizedSessionId)) {
-      throw StateError('Machine terminal workspace is being disposed.');
+      throw StateError('终端工作区正在释放。');
     }
     final loaded = _workspaces[normalizedSessionId];
     if (loaded != null) return Future<_MachineTerminalWorkspace>.value(loaded);
@@ -1186,7 +1185,7 @@ class MachineTerminalService extends ChangeNotifier {
         _workspaceDisposals.containsKey(sessionId) ||
         (_workspaceLoadGenerations[sessionId] ?? 0) != generation) {
       workspace.dispose();
-      throw StateError('Machine terminal workspace load was cancelled.');
+      throw StateError('终端工作区加载已取消。');
     }
     _workspaces[sessionId] = workspace;
     _workspaceLoadGenerations.remove(sessionId);
@@ -1206,7 +1205,7 @@ class MachineTerminalService extends ChangeNotifier {
     final terminal =
         workspace.terminalById(terminalId) ?? workspace.activeTerminal;
     if (terminal == null) {
-      throw StateError('No terminal is available for session $sessionId.');
+      throw StateError('会话 $sessionId 没有可用终端。');
     }
     return terminal;
   }
@@ -1283,7 +1282,7 @@ class MachineTerminalService extends ChangeNotifier {
     if (type == FileSystemEntityType.notFound) return null;
     if (type != FileSystemEntityType.file) {
       throw FileSystemException(
-        'Machine terminal history is not a regular file.',
+        '终端历史记录不是普通文件。',
         file.path,
       );
     }
@@ -1414,7 +1413,7 @@ class MachineTerminalService extends ChangeNotifier {
     final content = '${jsonEncode(payload)}\n';
     try {
       if (utf8.encode(content).length > _machineTerminalHistoryMaxBytes) {
-        throw StateError('Machine terminal history exceeds its size limit.');
+        throw StateError('终端历史记录超过大小限制。');
       }
       await writeFileAtomically(_workspaceHistoryFile(sessionId), content);
       _lastPersistedHistoryDigestBySession[sessionId] = digest;
@@ -1790,7 +1789,7 @@ class MachineTerminalSession {
               if (_status != MachineTerminalStatus.failed) {
                 _status = MachineTerminalStatus.stopped;
               }
-              _appendPlain('\r\n[OpenHand terminal exited: $code]\r\n');
+              _appendPlain('\r\n[OpenHand 终端已退出：$code]\r\n');
               _touch();
             })
             .catchError((Object error, StackTrace stack) {
@@ -2023,7 +2022,7 @@ class MachineTerminalSession {
         ),
         durationMs: stopwatch.elapsedMilliseconds,
         timedOut: true,
-        error: 'Timed out after ${timeout.inMilliseconds}ms.',
+        error: '命令执行超过 ${timeout.inMilliseconds} 毫秒。',
       );
     } catch (error, stack) {
       silentLog('machine_terminal', '执行终端命令', error, stack);
@@ -2034,7 +2033,7 @@ class MachineTerminalSession {
           _plainText(_outputSince(startOffset)).trimRight(),
         ),
         durationMs: stopwatch.elapsedMilliseconds,
-        error: 'Command execution failed.',
+        error: '命令执行失败。',
       );
     }
   }

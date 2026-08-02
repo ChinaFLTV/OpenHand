@@ -59,7 +59,7 @@ Future<T> _bindBounded<T>(
         try {
           await closeLateServer(server).timeout(timeout);
         } catch (_) {
-          // A late bind must never surface a second asynchronous failure.
+          // 延迟绑定的清理失败不能产生第二个异步异常。
         }
       }, onError: (Object _, StackTrace _) {}),
     );

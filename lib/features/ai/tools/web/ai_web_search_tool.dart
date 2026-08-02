@@ -25,13 +25,8 @@ import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 import '../web_reverse_cdp_first_guard.dart';
 
-/// WebSearch sub-agent 实现：
-/// 1. 从 [AiBuiltinToolConfig.webSearchSettings] 读取引擎清单 / 并行 / 模型策略
-/// 2. 通过 [WebSearchOrchestrator] 并行/串行调用启用的引擎
-/// 3. 把聚合后的命中喂给 background chat client，让模型按 summary prompt 生成
-///    最终回答；总结模型可跟随会话或固定为指定模型
-///
-/// 当 webSearchSettings 缺失（旧用户）时回落到默认配置（自动启用 bing+ddg 兜底）。
+/// WebSearch 子代理：按配置调度搜索引擎，再由总结模型生成最终回答。
+/// 旧配置缺失时使用默认引擎。
 class AiWebSearchTool extends AiTool {
   AiWebSearchTool({
     required AiChatClient backgroundChatClient,
@@ -48,10 +43,7 @@ class AiWebSearchTool extends AiTool {
         () => rootBundle.loadString(_summaryTemplateAsset, cache: false),
       );
 
-  /// 由 [AiSessionController._captureLatestRuntimeContext] 注入：
-  /// 当 webSearchSettings.modelMode == fixed 时,我们需要在所有 provider 列表里
-  /// 找出对应的 AiModelConfig 当作 sub-agent 的 model 句柄;
-  /// 同时也会传给 orchestrator 用于 kimi/grok/gemini provider key 复用。
+  /// 运行时注入的模型清单，供固定总结模型和搜索引擎复用配置。
   List<AiModelConfig> availableModels = const <AiModelConfig>[];
 
   @override
@@ -65,7 +57,7 @@ class AiWebSearchTool extends AiTool {
     if (query.length < 2) {
       return AiToolUtils.invalidResult(
         'WebSearch',
-        'WebSearch requires query with at least 2 characters.',
+        'WebSearch 的查询内容至少需要 2 个字符。',
       );
     }
     final allowedDomains = AiToolUtils.normalizeStringList(
@@ -146,8 +138,7 @@ class AiWebSearchTool extends AiTool {
       };
     }
 
-    // 记录一次完整调用到 telemetry store。失败 silentLog（store 内部
-    // 已 swallow），不阻塞主流程：fire-and-forget。
+    // 异步记录完整调用；存储层自行处理失败，不阻塞搜索流程。
     void recordTelemetry({
       required String cacheStatus,
       required bool success,
@@ -171,9 +162,7 @@ class AiWebSearchTool extends AiTool {
           );
         }
       }
-      // 命中 cache 不会有 orchestration，但仍然要把 cache 这一"伪引擎"
-      // 计入历史以便排查；UI 在统计成功率时只考虑 perEngine 不为空的项
-      // （orchestrator 真实跑过的）。
+      // 缓存命中没有引擎明细；成功率仅统计实际调度过的引擎。
       unawaited(
         WebSearchTelemetryStore.instance
             .recordCall(
@@ -206,17 +195,14 @@ class AiWebSearchTool extends AiTool {
       metadata: meta(),
     );
 
-    progressReporter.emit(
-      'searching',
-      'Dispatching to enabled search engines.',
-    );
+    progressReporter.emit('searching', '正在调度已启用的搜索引擎。');
 
     final summaryModel = _resolveSummaryModel(
       settings: settings,
       sessionModel: context.model,
     );
 
-    // 优先查本地缓存：同一 query+设置在 TTL 内直接复用 summary。
+    // 优先复用有效期内的同查询、同配置缓存。
     final cacheKey = WebSearchCacheStore.computeKey(
       query: query,
       settings: settings,
@@ -234,8 +220,8 @@ class AiWebSearchTool extends AiTool {
     if (cached != null) {
       progressReporter.emit(
         'cache.hit',
-        'Reused cached summary (${cached.summary.length} chars, '
-            'expires ${cached.expiresAt.toIso8601String()}).',
+        '已复用缓存摘要（${cached.summary.length} 个字符，'
+            '过期时间：${cached.expiresAt.toIso8601String()}）。',
       );
       recordTelemetry(
         cacheStatus: 'hit',
@@ -277,7 +263,7 @@ class AiWebSearchTool extends AiTool {
             'engine.${p.kind.name}.${p.stage.name}',
             p.message ??
                 (p.stage == WebSearchProgressStage.succeeded
-                    ? '${p.hitCount} hits in ${p.elapsedMs}ms'
+                    ? '在 ${p.elapsedMs} 毫秒内命中 ${p.hitCount} 条结果'
                     : ''),
           );
         },
@@ -291,7 +277,7 @@ class AiWebSearchTool extends AiTool {
       );
       return errorResult(
         BashToolExecutionStatus.timedOut,
-        'WebSearch timed out while contacting search engines.',
+        'WebSearch 连接搜索引擎超时。',
       );
     } catch (error) {
       recordTelemetry(
@@ -315,9 +301,8 @@ class AiWebSearchTool extends AiTool {
         (r) => !r.isSuccess,
       );
       final detail = allFailed
-          ? 'All enabled engines returned no results or errored. '
-                'See `engines` metadata for per-engine diagnostics.'
-          : 'No search results matched the current filters.';
+          ? '所有已启用的搜索引擎均未返回结果或发生错误，请查看 `engines` 元数据中的引擎诊断。'
+          : '没有符合当前筛选条件的搜索结果。';
       progressReporter.emit('completed', detail);
       recordTelemetry(
         cacheStatus: settings.cacheEnabled ? 'miss-empty' : 'disabled',
@@ -341,10 +326,7 @@ class AiWebSearchTool extends AiTool {
       );
     }
 
-    progressReporter.emit(
-      'summarizing',
-      'Asking summary model to compose the final answer.',
-    );
+    progressReporter.emit('summarizing', '正在请求总结模型生成最终回答。');
 
     final prompt = await _composeSummaryPrompt(settings, query, merged);
 
@@ -388,7 +370,7 @@ class AiWebSearchTool extends AiTool {
       );
       return errorResult(
         BashToolExecutionStatus.timedOut,
-        'WebSearch timed out while summarizing the results.',
+        'WebSearch 总结搜索结果超时。',
       );
     } on AiChatException catch (error) {
       final msg = error.message.trim();
@@ -401,13 +383,10 @@ class AiWebSearchTool extends AiTool {
         errorMessage: msg,
       );
       return AiToolUtils.looksLikeTimeoutMessage(msg)
-          ? errorResult(
-              BashToolExecutionStatus.timedOut,
-              'WebSearch timed out while summarizing the results.',
-            )
+          ? errorResult(BashToolExecutionStatus.timedOut, 'WebSearch 总结搜索结果超时。')
           : errorResult(
               BashToolExecutionStatus.failed,
-              'WebSearch failed while summarizing the results: $msg',
+              'WebSearch 总结搜索结果失败：$msg',
             );
     } catch (error) {
       final msg = '$error';
@@ -420,10 +399,7 @@ class AiWebSearchTool extends AiTool {
         errorMessage: msg,
       );
       return AiToolUtils.looksLikeTimeoutMessage(msg)
-          ? errorResult(
-              BashToolExecutionStatus.timedOut,
-              'WebSearch timed out while summarizing the results.',
-            )
+          ? errorResult(BashToolExecutionStatus.timedOut, 'WebSearch 总结搜索结果超时。')
           : errorResult(
               BashToolExecutionStatus.failed,
               AiTransportDiagnosticMessages.friendlyTransportError(
@@ -436,7 +412,7 @@ class AiWebSearchTool extends AiTool {
     final summary = completion.reply.trim();
     final body = summary.isEmpty ? prompt.rawHits : summary;
 
-    progressReporter.emit('completed', 'Search summary is ready.');
+    progressReporter.emit('completed', '搜索摘要已生成。');
 
     final engineSummaries = orchestrationResult.engineRuns
         .map(

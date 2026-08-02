@@ -7,11 +7,10 @@ import 'text_clip.dart';
 const int kOpenHandMaxAncestorDirectoryDepth = 256;
 const int kPortableFileNameMaxCodeUnits = 255;
 const int kPortableFileNameMaxUtf8Bytes = 255;
-const String _kEmptyPathError = 'path must not be empty.';
-const String _kRelativePathError = 'path must be relative.';
-const String _kParentTraversalError =
-    'path must not traverse parent directories.';
-const String _kNullBytePathError = 'path must not contain null bytes.';
+const String _kEmptyPathError = '路径不能为空。';
+const String _kRelativePathError = '路径必须为相对路径。';
+const String _kParentTraversalError = '路径不能向上遍历父目录。';
+const String _kNullBytePathError = '路径不能包含空字节。';
 final RegExp _portableFileNameUnsafeCharsPattern = RegExp(r'[^A-Za-z0-9._-]+');
 final RegExp _displayFileNameUnsafeCharsPattern = RegExp(
   r'[\\/:*?"<>|\x00-\x1f\x7f]+',
@@ -25,11 +24,7 @@ final RegExp _replacementRunPattern = RegExp(r'_+');
 final RegExp _boundaryReplacementPattern = RegExp(r'^_+|_+$');
 final RegExp _trailingFileNameCharsPattern = RegExp(r'[ .]+$');
 
-/// Returns true when [candidate] resolves to [parent] or a descendant of it.
-///
-/// Both paths are normalized before comparison. The helper intentionally does
-/// not resolve symlinks; callers that need physical-path containment should
-/// canonicalize before calling.
+/// 判断 [candidate] 归一化后是否等于 [parent] 或位于其下；不解析符号链接。
 bool isPathWithinOrEqual(String parent, String candidate) {
   final normalizedParent = p.normalize(parent);
   final normalizedCandidate = p.normalize(candidate);
@@ -37,7 +32,7 @@ bool isPathWithinOrEqual(String parent, String candidate) {
       p.isWithin(normalizedParent, normalizedCandidate);
 }
 
-/// Normalizes a user-supplied relative path and validates it stays relative.
+/// 归一化并校验用户提供的相对路径。
 String? safeRelativePathError(String relativePath) {
   final raw = relativePath.trim();
   if (raw.isEmpty) {
@@ -77,8 +72,7 @@ bool _containsParentDirectorySegment(String path) {
       p.url.split(path).contains('..');
 }
 
-/// Returns a display path relative to [from] only when the target stays inside
-/// that directory. Falls back to the normalized absolute path otherwise.
+/// 目标位于 [from] 内时返回相对展示路径，否则返回归一化路径。
 String safeRelativePathForDisplay(String target, {required String from}) {
   final normalizedFrom = p.normalize(from);
   final normalizedTarget = p.normalize(target);
@@ -88,8 +82,7 @@ String safeRelativePathForDisplay(String target, {required String from}) {
   return p.relative(normalizedTarget, from: normalizedFrom);
 }
 
-/// Returns [startDirectory] and its parents, guarded by a max-depth and a
-/// visited set so malformed path inputs cannot create an unbounded traversal.
+/// 有界返回 [startDirectory] 及其父目录，并以已访问集合阻止异常循环。
 List<String> ancestorDirectoriesFrom(
   String startDirectory, {
   bool rootFirst = false,

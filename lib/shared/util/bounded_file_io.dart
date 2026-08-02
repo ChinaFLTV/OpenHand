@@ -536,7 +536,7 @@ Future<Uint8List> readBoundedFileBytes(
       deadline.limit(idleTimeout),
     );
     if (!isRegularFileStat(preflightStat)) {
-      throw FileSystemException('Path is not a regular file.', file.path);
+      throw FileSystemException('路径不是普通文件。', file.path);
     }
     final openFuture = file.open();
     if (handleOwner != null) {
@@ -562,7 +562,7 @@ Future<Uint8List> readBoundedFileBytes(
 
     final initialStat = await file.stat().timeout(deadline.limit(idleTimeout));
     if (!isRegularFileStat(initialStat)) {
-      throw FileSystemException('Path is not a regular file.', file.path);
+      throw FileSystemException('路径不是普通文件。', file.path);
     }
     final initialLength = await activeLease.run(
       (input) => input.length(),

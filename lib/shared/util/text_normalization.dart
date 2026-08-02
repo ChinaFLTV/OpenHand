@@ -4,17 +4,14 @@ final RegExp kInlineWhitespacePattern = RegExp(r'\s+');
 final RegExp _asciiLookupTokenSeparatorPattern = RegExp(r'[^a-z0-9]+');
 final RegExp _snakeStorageKeySeparatorPattern = RegExp(r'[\s-]+');
 
-/// Matches any HTML/XML tag. Shared so tag-stripping stays consistent across
-/// error-page cleanup, TTS text preparation and document parsing.
+/// 统一匹配 HTML/XML 标签，供错误页、TTS 和文档解析复用。
 final RegExp kHtmlTagPattern = RegExp(r'<[^>]*>');
 
 String collapseInlineWhitespace(String value) {
   return value.replaceAll(kInlineWhitespacePattern, ' ').trim();
 }
 
-/// Removes HTML/XML tags, substituting [replacement] for each. Defaults to a
-/// single space so adjacent words stay separated; pass `''` to delete tags
-/// without introducing whitespace.
+/// 移除 HTML/XML 标签；默认以空格替换，传入空串可直接删除。
 String stripHtmlTags(String value, {String replacement = ' '}) {
   return value.replaceAll(kHtmlTagPattern, replacement);
 }
@@ -53,8 +50,7 @@ List<String> dedupeNonEmptyStrings(Iterable<String> values) {
   return result;
 }
 
-/// Normalizes names used for tolerant lookups by keeping only ASCII
-/// alphanumeric characters and lower-casing them.
+/// 仅保留 ASCII 字母数字并转为小写，用于宽松查找。
 String normalizeAsciiLookupKey(String value) {
   final buffer = StringBuffer();
   for (final code in value.trim().codeUnits) {

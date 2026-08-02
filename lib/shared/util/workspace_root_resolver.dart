@@ -32,8 +32,7 @@ const List<String> standardWorkspaceRootMarkers = <String>[
 final WorkspaceRootResolver standardWorkspaceRootResolver =
     WorkspaceRootResolver(markers: standardWorkspaceRootMarkers);
 
-/// Resolves project roots without blocking the caller or retaining unbounded
-/// path state. Concurrent requests for the same directory share one probe.
+/// 异步解析项目根目录；同目录并发请求共享探测任务，缓存和队列均有界。
 final class WorkspaceRootResolver {
   WorkspaceRootResolver({
     required Iterable<String> markers,
@@ -48,7 +47,7 @@ final class WorkspaceRootResolver {
          _normalizeMarkers(markers, maxMarkers: maxMarkers),
        ) {
     if (this.markers.isEmpty) {
-      throw ArgumentError.value(markers, 'markers', 'Must not be empty.');
+      throw ArgumentError.value(markers, 'markers', '不能为空。');
     }
     if (maxMarkers < 1 ||
         maxMarkers > _maxAllowedMarkers ||
@@ -58,7 +57,7 @@ final class WorkspaceRootResolver {
         maxPendingProbes > _maxAllowedPendingProbes ||
         maxAncestors < 1 ||
         maxAncestors > kOpenHandMaxAncestorDirectoryDepth) {
-      throw ArgumentError('Workspace root limits are outside safe bounds.');
+      throw ArgumentError('工作区根目录限制超出安全范围。');
     }
     if (idleTimeout <= Duration.zero ||
         totalTimeout <= Duration.zero ||
@@ -66,7 +65,7 @@ final class WorkspaceRootResolver {
         idleTimeout > _maxAllowedIdleTimeout ||
         totalTimeout > _maxAllowedTotalTimeout ||
         cacheTtl > _maxAllowedCacheTtl) {
-      throw ArgumentError('Workspace root timeouts are outside safe bounds.');
+      throw ArgumentError('工作区根目录超时设置超出安全范围。');
     }
   }
 
@@ -90,8 +89,7 @@ final class WorkspaceRootResolver {
   final Map<String, Future<String>> _pending = <String, Future<String>>{};
   final Stopwatch _clock = Stopwatch()..start();
 
-  /// Returns a cached root for build-time formatting, or a lexical fallback
-  /// while the asynchronous probe is still pending.
+  /// 返回已缓存的根目录；异步探测未完成时返回词法回退路径。
   String cachedOrFallback(String filePath) {
     final startDirectory = _startDirectory(filePath);
     if (startDirectory.isEmpty) return '';

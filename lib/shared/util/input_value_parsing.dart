@@ -113,21 +113,17 @@ const Set<String> _falsyBoolTexts = <String>{
   }
 }
 
-/// Decodes [value] as JSON, returning `null` on blank input or any decode
-/// failure. For callers that just need "the parsed value or nothing".
+/// 尝试解析 JSON；空输入或解析失败时返回 `null`。
 Object? tryDecodeJson(String value) {
   if (value.isEmpty) return null;
   final decoded = _tryDecodeJsonText(value);
   return decoded.ok ? decoded.value : null;
 }
 
-/// Shared two-space-indent JSON encoder. Reused so the indentation width and
-/// serialization behavior stay identical across every pretty-printed payload.
+/// 全局复用的双空格缩进 JSON 编码器。
 const JsonEncoder kPrettyJsonEncoder = JsonEncoder.withIndent('  ');
 
-/// Serializes [value] as indented JSON. When [emptyMapAsBlank] is set, an empty
-/// map yields an empty string instead of `{}` — matching editor fields that
-/// treat "no config" as blank rather than an empty object literal.
+/// 输出缩进 JSON；[emptyMapAsBlank] 为真时将空映射输出为空串。
 String prettyPrintJson(Object? value, {bool emptyMapAsBlank = false}) {
   if (emptyMapAsBlank && value is Map && value.isEmpty) return '';
   return kPrettyJsonEncoder.convert(value);

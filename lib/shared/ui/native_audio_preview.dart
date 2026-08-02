@@ -338,7 +338,7 @@ class _MediaKitPlaybackEngine implements _NativeAudioPlaybackEngine {
     if (networkUrl != null && networkUrl.trim().isNotEmpty) {
       return mk.Media(networkUrl.trim());
     }
-    throw const FileSystemException('Audio source is unavailable.');
+    throw const FileSystemException('音频源不可用。');
   }
 
   @override
@@ -809,7 +809,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       final scheme = uri?.scheme.toLowerCase();
       if (uri == null ||
           (scheme != 'http' && scheme != 'https' && scheme != 'file')) {
-        throw FormatException('Unsupported audio URL: $url');
+        throw FormatException('不支持的音频地址：$url');
       }
       if (scheme == 'file') {
         return _resolveLocalAudioSource(uri.toFilePath(), mimeType: mimeType);
@@ -845,7 +845,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       }
       return _NativeAudioResolvedSource(bytes: bytes, mimeType: mimeType);
     }
-    throw const FileSystemException('Audio source is unavailable.');
+    throw const FileSystemException('音频源不可用。');
   }
 
   Future<_NativeAudioResolvedSource> _resolveLocalAudioSource(
@@ -857,7 +857,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       timeout: kNativeAudioControlTimeout,
       followLinks: true,
     )) {
-      throw FileSystemException('Audio source file is missing.', filePath);
+      throw FileSystemException('音频源文件不存在。', filePath);
     }
     return _NativeAudioResolvedSource(filePath: filePath, mimeType: mimeType);
   }

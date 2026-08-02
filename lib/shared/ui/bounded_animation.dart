@@ -15,8 +15,7 @@ class OpenHandBoundedCurve extends Curve {
   }
 }
 
-/// Bounds animation progress before it reaches Flutter primitives that require
-/// a strict 0..1 value, such as opacity, sizeFactor, or another Curve.
+/// 将动画输出限制到指定范围，避免透明度等 Flutter 属性接收越界值。
 class OpenHandBoundedDoubleAnimation extends Animation<double>
     with AnimationWithParentMixin<double> {
   const OpenHandBoundedDoubleAnimation(

@@ -168,7 +168,7 @@ String clipMiddleText(
     }
     omitted = actualOmitted;
   }
-  throw StateError('Text clipping did not converge.');
+  throw StateError('文本裁剪未能收敛。');
 }
 
 int _safePrefixLength(String value, int requestedLength) {

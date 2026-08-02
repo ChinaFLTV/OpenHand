@@ -467,7 +467,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         );
         return;
       }
-      throw const FileSystemException('Media source is unavailable.');
+      throw const FileSystemException('媒体源不可用。');
     } catch (error) {
       final url = widget.networkUrl ?? widget.sourceUrl;
       if (url != null) {
@@ -530,7 +530,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       await Pasteboard.writeImage(downloaded).timeout(_kClipboardTimeout);
       return true;
     }
-    throw const FileSystemException('Image source is unavailable.');
+    throw const FileSystemException('图片源不可用。');
   }
 
   Future<bool> _copyFilePathToClipboard(String filePath) async {

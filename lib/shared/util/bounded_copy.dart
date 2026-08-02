@@ -210,7 +210,7 @@ Future<void> copyFileBounded(
     }
     final targetType = await _entityType(targetPath, deadline);
     if (targetType != FileSystemEntityType.notFound) {
-      throw FileSystemException('Copy target already exists.', targetPath);
+      throw FileSystemException('复制目标已存在。', targetPath);
     }
     await _requireDirectoryPath(p.dirname(targetPath), deadline);
 
@@ -237,7 +237,7 @@ Future<void> copyFileBounded(
 
     if (await _entityType(targetPath, deadline) !=
         FileSystemEntityType.notFound) {
-      throw FileSystemException('Copy target already exists.', targetPath);
+      throw FileSystemException('复制目标已存在。', targetPath);
     }
     final staged = stagingDirectory;
     final renameFuture = stagedFile.rename(targetPath);
@@ -413,7 +413,7 @@ Future<FileStat> _regularFileStat(File file, _CopyDeadline deadline) async {
   }
   final stat = await file.stat().timeout(deadline.nextOperationTimeout());
   if (!isRegularFileStat(stat)) {
-    throw FileSystemException('Copy source is not a regular file.', file.path);
+    throw FileSystemException('复制源不是普通文件。', file.path);
   }
   return stat;
 }
@@ -427,7 +427,7 @@ Future<FileSystemEntityType> _validateTarget(
   if (targetType == FileSystemEntityType.notFound) return targetType;
   if (targetType != FileSystemEntityType.directory ||
       !allowExistingEmptyTarget) {
-    throw FileSystemException('Copy target already exists.', targetPath);
+    throw FileSystemException('复制目标已存在。', targetPath);
   }
   await _requireEmptyDirectory(Directory(targetPath), deadline);
   return targetType;
@@ -481,7 +481,7 @@ Future<void> _requireEmptyDirectory(
 
 Future<void> _requireDirectoryPath(String path, _CopyDeadline deadline) async {
   if (await _entityType(path, deadline) != FileSystemEntityType.directory) {
-    throw FileSystemException('Copy target parent is not a directory.', path);
+    throw FileSystemException('复制目标的父路径不是目录。', path);
   }
 }
 

@@ -135,16 +135,16 @@ LegacySettingsDocument parseLegacySettingsDocument(String rawContent) {
       continue;
     }
     if (line.startsWith('[') || line.endsWith(']')) {
-      throw const FormatException('Unsupported legacy settings section.');
+      throw const FormatException('不支持的旧版设置区段。');
     }
 
     final separatorIndex = line.indexOf('=');
     if (separatorIndex <= 0) {
-      throw FormatException('Invalid legacy setting entry: $line');
+      throw FormatException('旧版设置项格式无效：$line');
     }
     final key = line.substring(0, separatorIndex).trim();
     if (key.isEmpty) {
-      throw FormatException('Invalid legacy setting entry: $line');
+      throw FormatException('旧版设置项格式无效：$line');
     }
     final value = _parseLegacySettingValue(
       line.substring(separatorIndex + 1).trim(),
@@ -209,7 +209,7 @@ Object? _parseLegacySettingValue(String rawValue) {
   if (intValue != null) return intValue;
   if (rawValue == 'true') return true;
   if (rawValue == 'false') return false;
-  throw FormatException('Unsupported legacy setting value: $rawValue');
+  throw FormatException('不支持的旧版设置值：$rawValue');
 }
 
 String _stripInlineComment(String rawLine) {
@@ -237,7 +237,7 @@ String _stripInlineComment(String rawLine) {
     buffer.write(char);
   }
   if (inString || escaping) {
-    throw const FormatException('Unterminated legacy settings string.');
+    throw const FormatException('旧版设置字符串未正确结束。');
   }
   return buffer.toString();
 }

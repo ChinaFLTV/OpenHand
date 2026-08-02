@@ -4,24 +4,13 @@ import '../util/input_value_parsing.dart';
 import '../util/text_clip.dart';
 import '../util/text_normalization.dart';
 
-/// Default cap for extracted error text so a runaway HTML page or verbose JSON
-/// payload can't flood logs or dialogs.
+/// API 错误文本默认上限，防止异常响应淹没日志或弹窗。
 const int kDefaultApiErrorMessageMaxLength = 4000;
 
-const String _emptyErrorResponseMessage = 'Empty error response.';
+const String _emptyErrorResponseMessage = '错误响应为空。';
 
-/// Extracts a human-readable message from an HTTP error [body].
-///
-/// Resolution order mirrors the shapes returned by OpenAI-compatible, Ollama
-/// and image-generation endpoints:
-///   1. JSON `error` string, or `error.message` / `error.error` / `error.code`;
-///   2. top-level `message` / `error_description`;
-///   3. tags stripped from an HTML error page (nginx 4xx/5xx);
-///   4. the raw trimmed body.
-///
-/// The result is always whitespace-collapsed and clipped to [maxLength].
-/// [emptyFallback] is returned when [body] is blank; when null, blank input
-/// yields [_emptyErrorResponseMessage].
+/// 从 HTTP 错误正文提取可读信息，依次解析常见 JSON 字段、HTML 和纯文本。
+/// 结果会折叠空白并限制到 [maxLength]；空正文使用 [emptyFallback]。
 String extractApiErrorMessage(
   String body, {
   int maxLength = kDefaultApiErrorMessageMaxLength,
@@ -53,7 +42,7 @@ String extractApiErrorMessage(
       if (message != null) return bounded(message);
     }
   } catch (_) {
-    // Plain text or HTML error response — fall through to tag stripping.
+    // 非 JSON 响应继续按 HTML 或纯文本处理。
   }
 
   if (trimmed.contains('<html') || trimmed.contains('<HTML')) {

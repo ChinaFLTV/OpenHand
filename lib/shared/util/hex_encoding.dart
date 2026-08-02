@@ -1,11 +1,9 @@
-/// Lowercase two-digit hex for a single byte. Masks to the low 8 bits so
-/// callers can pass raw ints without pre-masking.
+/// 将整数低 8 位编码为两位小写十六进制。
 String byteToHex(int value) {
   return (value & 0xff).toRadixString(16).padLeft(2, '0');
 }
 
-/// Encodes [bytes] as lowercase hex, joining each two-digit group with
-/// [separator] (empty by default — e.g. `' '` for a spaced hex dump).
+/// 将字节序列编码为小写十六进制，并以 [separator] 连接。
 String bytesToHex(Iterable<int> bytes, {String separator = ''}) {
   return bytes.map(byteToHex).join(separator);
 }

@@ -2,11 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'motion_preference.dart';
 
-/// Reusable image interaction shell for preview dialogs.
-///
-/// `InteractiveViewer` supplies native pinch zoom and one-finger pan on touch
-/// devices, while `trackpadScrollCausesScale` keeps desktop trackpad pinch
-/// gestures responsive.
+/// 预览弹窗复用的图片交互层，支持触控缩放、平移和桌面触控板手势。
 class OpenHandInteractiveImagePreview extends StatefulWidget {
   const OpenHandInteractiveImagePreview({
     super.key,
