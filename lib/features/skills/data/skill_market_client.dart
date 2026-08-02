@@ -10,6 +10,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/abortable_http_request.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/lifecycle_cache.dart';
@@ -38,6 +39,8 @@ class SkillMarketClient {
   static const int _maxMetadataCacheEntries = 128;
   static const int _maxFileContentCacheEntries = 128;
   static const int _maxBundleCacheEntries = 64;
+  static const int _maxConcurrentRequests = 8;
+  static const int _maxQueuedRequests = 64;
   static const Duration _requestTimeout = Duration(seconds: 14);
   static const Duration _downloadIdleTimeout = Duration(seconds: 18);
   static const Duration _downloadTotalTimeout = Duration(minutes: 5);
@@ -47,6 +50,10 @@ class SkillMarketClient {
 
   final http.Client _client;
   final bool _ownsClient;
+  final OpenHandAsyncSemaphore _requestSlots = OpenHandAsyncSemaphore(
+    _maxConcurrentRequests,
+    maxWaiters: _maxQueuedRequests,
+  );
   final Set<Completer<void>> _activeRequestAborts = <Completer<void>>{};
   bool _closed = false;
   final LifecycleLruCache<Future<SkillMarketSearchResult>> _searchCache =
@@ -77,6 +84,7 @@ class SkillMarketClient {
   void close() {
     if (_closed) return;
     _closed = true;
+    _requestSlots.cancelWaiters();
     _clearCaches();
     for (final abort in _activeRequestAborts.toList(growable: false)) {
       if (!abort.isCompleted) abort.complete();
@@ -115,7 +123,7 @@ class SkillMarketClient {
     final normalizedSlug = _normalizeSlug(slug);
     if (normalizedSlug == null) {
       return Future<SkillMarketBundle>.error(
-        const SkillMarketException('Skill slug is empty.'),
+        const SkillMarketException('技能标识不能为空。'),
       );
     }
     final normalizedVersion = _normalizeVersion(version);
@@ -133,7 +141,7 @@ class SkillMarketClient {
   Future<Uint8List> downloadSkillArchive(String slug) async {
     final normalizedSlug = _normalizeSlug(slug);
     if (normalizedSlug == null) {
-      throw const SkillMarketException('Skill slug is empty.');
+      throw const SkillMarketException('技能标识不能为空。');
     }
 
     return _runAbortableRequest((cancelSignal) async {
@@ -158,7 +166,7 @@ class SkillMarketClient {
           response.stream,
           reason: '下载响应异常后排空响应流',
         );
-        _throwHttpFailure(response.statusCode, 'while downloading skill');
+        _throwHttpFailure(response.statusCode, '下载技能');
       }
       final contentLength = response.contentLength;
       if (contentLength != null && contentLength > _maxDownloadBytes) {
@@ -166,7 +174,7 @@ class SkillMarketClient {
           response.stream,
           reason: '下载内容超限后排空响应流',
         );
-        throw const SkillMarketException('Skill archive is too large.');
+        throw const SkillMarketException('技能归档超过大小上限。');
       }
 
       late final Uint8List bytes;
@@ -178,10 +186,10 @@ class SkillMarketClient {
           totalTimeout: _downloadTotalTimeout,
         );
       } on ByteStreamSizeLimitException {
-        throw const SkillMarketException('Skill archive is too large.');
+        throw const SkillMarketException('技能归档超过大小上限。');
       }
       if (bytes.isEmpty) {
-        throw const SkillMarketException('Downloaded skill archive is empty.');
+        throw const SkillMarketException('下载的技能归档为空。');
       }
       return bytes;
     });
@@ -258,7 +266,7 @@ class SkillMarketClient {
   Future<SkillMarketDetail> fetchSkillDetail(String slug) async {
     final normalizedSlug = _normalizeSlug(slug);
     if (normalizedSlug == null) {
-      throw const SkillMarketException('Skill slug is empty.');
+      throw const SkillMarketException('技能标识不能为空。');
     }
     return _cached(_detailCache, normalizedSlug, () async {
       final json = await _getJson(
@@ -274,11 +282,11 @@ class SkillMarketClient {
   ) async {
     final normalizedSlug = _normalizeSlug(slug);
     if (normalizedSlug == null) {
-      throw const SkillMarketException('Skill slug is empty.');
+      throw const SkillMarketException('技能标识不能为空。');
     }
     final normalizedVersion = _normalizeVersion(version);
     if (normalizedVersion.isEmpty) {
-      throw const SkillMarketException('Skill version is empty.');
+      throw const SkillMarketException('技能版本不能为空。');
     }
     return _cached(_filesCache, '$normalizedSlug|$normalizedVersion', () async {
       final json = await _getJson(
@@ -299,15 +307,15 @@ class SkillMarketClient {
   }) async {
     final normalizedSlug = _normalizeSlug(slug);
     if (normalizedSlug == null) {
-      throw const SkillMarketException('Skill slug is empty.');
+      throw const SkillMarketException('技能标识不能为空。');
     }
     final normalizedPath = nullIfBlank(path);
     if (normalizedPath == null) {
-      throw const SkillMarketException('Skill file path is empty.');
+      throw const SkillMarketException('技能文件路径不能为空。');
     }
     final normalizedVersion = _normalizeVersion(version);
     if (normalizedVersion.isEmpty) {
-      throw const SkillMarketException('Skill version is empty.');
+      throw const SkillMarketException('技能版本不能为空。');
     }
     return _cached(
       _fileContentCache,
@@ -336,7 +344,7 @@ class SkillMarketClient {
             reason: '技能文件响应异常后排空响应流',
           );
         }
-        _throwHttpFailure(response.statusCode, 'while fetching skill file');
+        _throwHttpFailure(response.statusCode, '获取技能文件');
         try {
           return await readBoundedByteStreamText(
             response.stream,
@@ -346,7 +354,7 @@ class SkillMarketClient {
             allowMalformed: true,
           );
         } on ByteStreamSizeLimitException {
-          throw const SkillMarketException('Skill file response is too large.');
+          throw const SkillMarketException('技能文件响应超过大小上限。');
         }
       }),
     );
@@ -355,7 +363,7 @@ class SkillMarketClient {
   Future<SkillMarketVersionsResult> fetchSkillVersions(String slug) async {
     final normalizedSlug = _normalizeSlug(slug);
     if (normalizedSlug == null) {
-      throw const SkillMarketException('Skill slug is empty.');
+      throw const SkillMarketException('技能标识不能为空。');
     }
     return _cached(_versionsCache, normalizedSlug, () async {
       final json = await _getJson(
@@ -431,7 +439,7 @@ class SkillMarketClient {
           response.stream,
           reason: 'JSON 响应异常后排空响应流',
         );
-        _throwHttpFailure(response.statusCode, 'from $uri');
+        _throwHttpFailure(response.statusCode, '请求 $uri');
       }
       late final Uint8List body;
       try {
@@ -442,7 +450,7 @@ class SkillMarketClient {
           totalTimeout: _requestTimeout,
         );
       } on ByteStreamSizeLimitException {
-        throw const SkillMarketException('Skill market response is too large.');
+        throw const SkillMarketException('技能市场响应超过大小上限。');
       }
       final decoded = jsonDecode(utf8.decode(body));
       if (decoded is Map<String, Object?>) {
@@ -451,9 +459,7 @@ class SkillMarketClient {
       if (decoded is Map) {
         return decoded.map((key, value) => MapEntry('$key', value));
       }
-      throw const FormatException(
-        'Skill market response is not a JSON object.',
-      );
+      throw const FormatException('技能市场响应不是 JSON 对象。');
     });
   }
 
@@ -464,9 +470,7 @@ class SkillMarketClient {
       return;
     }
     final message = json['message'];
-    throw SkillMarketException(
-      message == null ? 'Skill market request failed.' : '$message',
-    );
+    throw SkillMarketException(message == null ? '技能市场请求失败。' : '$message');
   }
 
   Future<void> _drainResponseStreamBestEffort(
@@ -484,9 +488,9 @@ class SkillMarketClient {
     }
   }
 
-  void _throwHttpFailure(int statusCode, String context) {
+  void _throwHttpFailure(int statusCode, String action) {
     if (!isHttpFailureStatus(statusCode)) return;
-    throw SkillMarketException('HTTP $statusCode $context.');
+    throw SkillMarketException('$action失败，HTTP 状态码 $statusCode。');
   }
 
   void _clearCaches() {
@@ -526,6 +530,12 @@ class SkillMarketClient {
     Future<T> Function(Future<void> cancelSignal) operation,
   ) async {
     if (_closed) throw StateError('技能市场客户端已关闭。');
+    final acquired = await _requestSlots.acquirePermit();
+    if (!acquired) throw StateError('技能市场客户端已关闭。');
+    if (_closed) {
+      _requestSlots.release();
+      throw StateError('技能市场客户端已关闭。');
+    }
     final abort = Completer<void>();
     _activeRequestAborts.add(abort);
     try {
@@ -533,6 +543,7 @@ class SkillMarketClient {
     } finally {
       if (!abort.isCompleted) abort.complete();
       _activeRequestAborts.remove(abort);
+      _requestSlots.release();
     }
   }
 }
