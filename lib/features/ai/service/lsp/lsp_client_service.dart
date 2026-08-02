@@ -1057,20 +1057,16 @@ class AiLspClientService {
     if (_startingSessions.any(
       (session) => session.backend.cacheKey == cacheKey,
     )) {
-      throw StateError(
-        'The previous LSP session for this workspace is still stopping.',
-      );
+      throw StateError('该工作区的上一个 LSP 会话仍在关闭。');
     }
     if (_startingSessions.length >= _maxConcurrentLspSessionStarts) {
-      throw StateError(
-        'LSP startup limit reached ($_maxConcurrentLspSessionStarts).',
-      );
+      throw StateError('LSP 会话启动数已达到上限：$_maxConcurrentLspSessionStarts。');
     }
     final reservedSessions = HashSet<_AiLspSession>.identity()
       ..addAll(_trackedSessions)
       ..addAll(_startingSessions);
     if (reservedSessions.length >= _maxLspSessions) {
-      throw StateError('LSP session limit reached ($_maxLspSessions).');
+      throw StateError('LSP 会话数已达到上限：$_maxLspSessions。');
     }
 
     final generation = _sessionGeneration;
@@ -1102,10 +1098,7 @@ class AiLspClientService {
       _sessionStartupTimeout,
       onTimeout: () {
         unawaited(session.shutdown());
-        throw TimeoutException(
-          'LSP session startup timed out.',
-          _sessionStartupTimeout,
-        );
+        throw TimeoutException('LSP 会话启动超时。', _sessionStartupTimeout);
       },
     );
     final start = _AiLspSessionStart(session: session, future: future);
@@ -1121,10 +1114,10 @@ class AiLspClientService {
     try {
       await session.initialize();
       if (generation != _sessionGeneration) {
-        throw StateError('LSP session was disposed while starting');
+        throw StateError('LSP 会话在启动期间已被释放。');
       }
       if (!session.isAlive) {
-        throw StateError('LSP process exited while the session was starting');
+        throw StateError('LSP 进程在会话启动期间已退出。');
       }
 
       // 仅当前代次可登记已初始化会话，释放后迟到的启动结果不能覆盖同键新会话。
@@ -1345,10 +1338,10 @@ class AiLspClientService {
   static String _resolutionErrorMessage(AiLspBackendResolution resolution) {
     return switch (resolution.availability) {
       AiLspBackendAvailability.unsupportedLanguage =>
-        'No LSP backend mapping for language "${resolution.language}".',
+        '语言“${resolution.language}”没有对应的 LSP 后端。',
       AiLspBackendAvailability.executableNotFound =>
-        'LSP backend "${resolution.displayName ?? resolution.backendId}" is not installed on PATH.',
-      AiLspBackendAvailability.available => 'LSP backend is available.',
+        '未在 PATH 中找到 LSP 后端“${resolution.displayName ?? resolution.backendId}”。',
+      AiLspBackendAvailability.available => 'LSP 后端可用。',
     };
   }
 
@@ -1984,7 +1977,7 @@ class _AiLspSession {
 
   Future<void> _initializeOnce() async {
     if (_shutdownRequested) {
-      throw StateError('LSP session was disposed before starting');
+      throw StateError('LSP 会话在启动前已被释放。');
     }
     final sdkPath = backend.configuredSdkPath;
     Map<String, String>? environment;
@@ -2005,14 +1998,14 @@ class _AiLspSession {
     _process = process;
     if (_shutdownRequested) {
       await shutdown();
-      throw StateError('LSP session was disposed while starting');
+      throw StateError('LSP 会话在启动期间已被释放。');
     }
     unawaited(
       process.stdin.done.then<void>(
         (_) {
           _handleTransportFailure(
             process,
-            StateError('LSP stdin closed unexpectedly'),
+            StateError('LSP 标准输入流意外关闭。'),
             StackTrace.current,
           );
         },
@@ -2032,7 +2025,7 @@ class _AiLspSession {
       onDone: () {
         _handleTransportFailure(
           process,
-          StateError('LSP stdout closed unexpectedly'),
+          StateError('LSP 标准输出流意外关闭。'),
           StackTrace.current,
         );
       },
@@ -2129,7 +2122,7 @@ class _AiLspSession {
       },
     });
     if (initResult == null) {
-      throw StateError('LSP initialize returned null');
+      throw StateError('LSP 初始化返回了空结果。');
     }
 
     _sendNotification('initialized', <String, Object?>{});
@@ -2139,7 +2132,7 @@ class _AiLspSession {
       () => !_shutdownRequested,
     );
     if (!stillActive) {
-      throw StateError('LSP session was disposed while starting');
+      throw StateError('LSP 会话在启动期间已被释放。');
     }
   }
 
@@ -2236,7 +2229,7 @@ class _AiLspSession {
         orElse: () => '',
       );
       if (candidate.isEmpty) {
-        throw StateError('LSP open-document capacity is exhausted.');
+        throw StateError('LSP 已打开文档容量耗尽。');
       }
       _removeOpenDocument(candidate, notifyServer: true);
     }
@@ -2507,7 +2500,7 @@ class _AiLspSession {
           'item': outgoingItems.first,
         });
       default:
-        throw UnsupportedError('Unknown LSP operation: $operation');
+        throw UnsupportedError('未知 LSP 操作：$operation。');
     }
   }
 
@@ -2552,8 +2545,8 @@ class _AiLspSession {
     _ensureActive();
     if (_pendingRequests.length >= _maxPendingRequests) {
       throw StateError(
-        'LSP "${backend.language}" has too many pending requests '
-        '(${_pendingRequests.length}); the server may be unresponsive.',
+        'LSP“${backend.language}”待处理请求过多'
+        '（${_pendingRequests.length} 个），服务端可能无响应。',
       );
     }
     final id = _nextId++;
@@ -2575,8 +2568,7 @@ class _AiLspSession {
       onTimeout: () {
         _pendingRequests.remove(id);
         throw TimeoutException(
-          'LSP request "$method" timed out after '
-          '${_requestTimeout.inMilliseconds}ms',
+          'LSP 请求“$method”在 ${_requestTimeout.inMilliseconds} 毫秒后超时。',
         );
       },
     );
@@ -2594,7 +2586,7 @@ class _AiLspSession {
   void _writeMessage(Map<String, Object?> message) {
     final process = _process;
     if (process == null) {
-      throw StateError('LSP session has no running process');
+      throw StateError('LSP 会话没有正在运行的进程。');
     }
     final body = utf8.encode(jsonEncode(message));
     process.stdin.add(utf8.encode('Content-Length: ${body.length}\r\n\r\n'));
@@ -2615,18 +2607,14 @@ class _AiLspSession {
       if (headerEnd < 0) {
         if (_responseBuffer.length > _maxLspHeaderBytes) {
           _failProtocol(
-            const FormatException(
-              'LSP header exceeded $_maxLspHeaderBytes bytes',
-            ),
+            const FormatException('LSP 消息头超过 $_maxLspHeaderBytes 字节。'),
           );
         }
         return;
       }
       if (headerEnd > _maxLspHeaderBytes) {
         _failProtocol(
-          const FormatException(
-            'LSP header exceeded $_maxLspHeaderBytes bytes',
-          ),
+          const FormatException('LSP 消息头超过 $_maxLspHeaderBytes 字节。'),
         );
         return;
       }
@@ -2635,7 +2623,7 @@ class _AiLspSession {
       if (contentLength == null ||
           contentLength <= 0 ||
           contentLength > _maxLspFrameBytes) {
-        _failProtocol(const FormatException('Invalid Content-Length header'));
+        _failProtocol(const FormatException('Content-Length 消息头无效。'));
         return;
       }
       final bodyStart = headerEnd + 4;
@@ -2647,9 +2635,7 @@ class _AiLspSession {
       try {
         final decoded = jsonDecode(utf8.decode(body));
         if (decoded is! Map) {
-          _failProtocol(
-            const FormatException('LSP JSON-RPC payload must be an object'),
-          );
+          _failProtocol(const FormatException('LSP JSON-RPC 载荷必须为对象。'));
           return;
         }
         final message = stringKeyedMapFromValue(decoded);
@@ -2736,7 +2722,7 @@ class _AiLspSession {
     if (message.containsKey('error')) {
       final error = message['error'];
       completer.completeError(
-        Exception('LSP error: ${error is Map ? error['message'] : error}'),
+        Exception('LSP 错误：${error is Map ? error['message'] : error}'),
       );
       return;
     }
@@ -2751,7 +2737,7 @@ class _AiLspSession {
       _sendServerRequestError(
         message['id'],
         code: -32000,
-        message: 'LSP client request queue is full',
+        message: 'LSP 客户端请求队列已满。',
       );
       return;
     }
@@ -2790,7 +2776,7 @@ class _AiLspSession {
         _sendServerRequestError(
           message['id'],
           code: -32603,
-          message: 'LSP client request failed',
+          message: 'LSP 客户端请求失败。',
         );
       }
     }
@@ -2863,7 +2849,7 @@ class _AiLspSession {
                 'id': id,
                 'result': <String, Object?>{
                   'applied': false,
-                  'failureReason': 'Workspace edit handler timed out',
+                  'failureReason': '工作区编辑处理超时。',
                 },
               });
             }
@@ -2886,7 +2872,7 @@ class _AiLspSession {
         _sendServerRequestError(
           id,
           code: -32601,
-          message: 'Unsupported client request: $method',
+          message: '不支持的客户端请求：$method。',
         );
         return;
     }
@@ -2955,7 +2941,7 @@ class _AiLspSession {
     _process = null;
     if (wasUnexpected) {
       _failPendingRequests(
-        StateError('LSP process exited unexpectedly with code $exitCode'),
+        StateError('LSP 进程意外退出，退出码：$exitCode。'),
         StackTrace.current,
       );
       await terminateTrackedProcessTree(
@@ -2963,7 +2949,7 @@ class _AiLspSession {
         gracefulTimeout: Duration.zero,
       );
     }
-    await _cancelTransportSubscriptions('process exit');
+    await _cancelTransportSubscriptions('进程退出');
     _clearSessionState();
     _notifyTerminated();
   }
@@ -3015,21 +3001,21 @@ class _AiLspSession {
       _process = null;
     }
     await terminateTrackedProcessTree(process);
-    await _cancelTransportSubscriptions('shutdown');
+    await _cancelTransportSubscriptions('关闭');
     _clearSessionState();
     _notifyTerminated();
   }
 
   void _ensureActive() {
     if (_shutdownRequested || _process == null) {
-      throw StateError('LSP session is shut down');
+      throw StateError('LSP 会话已关闭。');
     }
   }
 
   void _clearSessionState() {
     for (final completer in _pendingRequests.values) {
       if (!completer.isCompleted) {
-        completer.completeError(StateError('LSP session shut down'));
+        completer.completeError(StateError('LSP 会话已关闭。'));
       }
     }
     for (final waitGroup in _pendingDiagnostics.values) {
@@ -3079,8 +3065,8 @@ class _AiLspSession {
     }
 
     await Future.wait<void>(<Future<void>>[
-      cancel(stdoutSubscription, 'stdout'),
-      cancel(stderrSubscription, 'stderr'),
+      cancel(stdoutSubscription, '标准输出'),
+      cancel(stderrSubscription, '标准错误'),
     ]);
   }
 
