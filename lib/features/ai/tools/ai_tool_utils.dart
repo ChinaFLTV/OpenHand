@@ -15,6 +15,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/path_safety.dart';
+import '../../../shared/util/platform_environment.dart';
 import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/text_clip.dart';
@@ -1448,8 +1449,8 @@ class AiToolUtils {
     } else if (Platform.isWindows) {
       // Windows: 检查环境变量
       final processorArch =
-          Platform.environment['PROCESSOR_ARCHITECTURE'] ?? '';
-      if (processorArch.contains('ARM64')) {
+          platformEnvironmentValue('PROCESSOR_ARCHITECTURE') ?? '';
+      if (processorArch.toUpperCase().contains('ARM64')) {
         arch = 'arm64';
       } else {
         arch = 'x64';
@@ -1469,7 +1470,7 @@ class AiToolUtils {
   /// 检测是否为 Apple Silicon Mac。
   static Future<bool> _isAppleSilicon() async {
     // 环境变量:运行在 Rosetta 下的 x86_64 二进制,宿主为 Apple Silicon
-    final sysctl = Platform.environment['SYSCTL_PROC_TRANSLATED'];
+    final sysctl = platformEnvironmentValue('SYSCTL_PROC_TRANSLATED');
     if (sysctl == '1') return true;
 
     // 首选:读取内核架构

@@ -12,6 +12,7 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/platform_environment.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../../../shared/util/workspace_root_resolver.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
@@ -1983,9 +1984,12 @@ class _AiLspSession {
     Map<String, String>? environment;
     if (sdkPath != null && sdkPath.isNotEmpty) {
       final sdkBin = p.join(sdkPath, 'bin');
-      final currentPath = Platform.environment['PATH'] ?? '';
+      final currentPath = platformEnvironmentValue('PATH') ?? '';
+      final pathSeparator = Platform.isWindows ? ';' : ':';
       environment = <String, String>{
-        'PATH': currentPath.isEmpty ? sdkBin : '$sdkBin:$currentPath',
+        'PATH': currentPath.isEmpty
+            ? sdkBin
+            : '$sdkBin$pathSeparator$currentPath',
       };
       if (backend.language == 'go') {
         environment['GOROOT'] = sdkPath;

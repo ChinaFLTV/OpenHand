@@ -7,6 +7,7 @@ import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/node_package_manifest.dart';
+import '../../../shared/util/platform_environment.dart';
 import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/version_compare.dart';
 
@@ -52,7 +53,7 @@ Future<McpNodePackageResolution?> resolveInstalledMcpNodePackage(
   try {
     if (home != null && home.isNotEmpty) {
       final explicitNvmRoot = nvmDirectory?.trim();
-      final environmentNvmRoot = Platform.environment['NVM_DIR']?.trim();
+      final environmentNvmRoot = platformEnvironmentValue('NVM_DIR')?.trim();
       final configuredNvmRoot =
           explicitNvmRoot != null && explicitNvmRoot.isNotEmpty
           ? explicitNvmRoot

@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/platform_environment.dart';
 
 abstract final class OpenHandPaths {
   static const String defaultSkillsDirectoryLabel = '~/.openhand/skills';
@@ -13,18 +14,18 @@ abstract final class OpenHandPaths {
   }
 
   static String? environmentHomeDirectoryPath() {
-    final home = nullIfBlank(Platform.environment['HOME']);
+    final home = nullIfBlank(platformEnvironmentValue('HOME'));
     if (home != null && p.isAbsolute(home)) {
       return _normalizeHomePath(home);
     }
 
-    final userProfile = nullIfBlank(Platform.environment['USERPROFILE']);
+    final userProfile = nullIfBlank(platformEnvironmentValue('USERPROFILE'));
     if (userProfile != null && p.isAbsolute(userProfile)) {
       return _normalizeHomePath(userProfile);
     }
 
-    final homeDrive = nullIfBlank(Platform.environment['HOMEDRIVE']);
-    final homePath = nullIfBlank(Platform.environment['HOMEPATH']);
+    final homeDrive = nullIfBlank(platformEnvironmentValue('HOMEDRIVE'));
+    final homePath = nullIfBlank(platformEnvironmentValue('HOMEPATH'));
     final windowsHome = homeDrive != null && homePath != null
         ? '$homeDrive$homePath'
         : null;

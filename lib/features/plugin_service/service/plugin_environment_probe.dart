@@ -6,6 +6,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/node_package_manifest.dart';
+import '../../../shared/util/platform_environment.dart';
 import '../../../shared/util/platform_shell.dart';
 
 const Duration _pluginEnvironmentProbeTimeout = Duration(milliseconds: 500);
@@ -33,7 +34,7 @@ String _pluginToolchainDirectoryPath({
   required String environmentName,
   required String defaultDirectoryName,
 }) {
-  final configured = Platform.environment[environmentName]?.trim() ?? '';
+  final configured = platformEnvironmentValue(environmentName)?.trim() ?? '';
   if (p.isAbsolute(configured)) return p.normalize(configured);
   return p.join(OpenHandPaths.homeDirectoryPath(), defaultDirectoryName);
 }
@@ -157,7 +158,10 @@ String? pluginPlaywrightDataDirectory({
   String? homeDirectory,
 }) {
   final env = environment ?? Platform.environment;
-  final configured = env['PLAYWRIGHT_BROWSERS_PATH']?.trim();
+  final configured = platformEnvironmentValue(
+    'PLAYWRIGHT_BROWSERS_PATH',
+    environment: env,
+  )?.trim();
   if (configured == '0') {
     return p.join(
       packageDirectory,
@@ -170,10 +174,17 @@ String? pluginPlaywrightDataDirectory({
     return p.isAbsolute(configured) ? p.normalize(configured) : null;
   }
 
-  final home = (homeDirectory ?? env['HOME'] ?? env['USERPROFILE'] ?? '')
-      .trim();
+  final home =
+      (homeDirectory ??
+              platformEnvironmentValue('HOME', environment: env) ??
+              platformEnvironmentValue('USERPROFILE', environment: env) ??
+              '')
+          .trim();
   if (Platform.isWindows) {
-    final localAppData = env['LOCALAPPDATA']?.trim();
+    final localAppData = platformEnvironmentValue(
+      'LOCALAPPDATA',
+      environment: env,
+    )?.trim();
     if (localAppData != null && p.isAbsolute(localAppData)) {
       return p.join(localAppData, 'ms-playwright');
     }

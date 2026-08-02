@@ -1,6 +1,5 @@
-import 'dart:io';
-
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/platform_environment.dart';
 
 /// Web 逆向会话支持的 Chromium 同核浏览器候选清单。
 ///
@@ -76,10 +75,11 @@ enum WebReverseBrowserKind {
 
   /// Windows 下默认安装路径候选（绝对路径，支持 64-bit / 32-bit）。
   List<String> get windowsExecutableCandidates {
-    final pf = Platform.environment['ProgramFiles'] ?? r'C:\Program Files';
+    final pf = platformEnvironmentValue('ProgramFiles') ?? r'C:\Program Files';
     final pfx86 =
-        Platform.environment['ProgramFiles(x86)'] ?? r'C:\Program Files (x86)';
-    final localApp = Platform.environment['LOCALAPPDATA'] ?? '';
+        platformEnvironmentValue('ProgramFiles(x86)') ??
+        r'C:\Program Files (x86)';
+    final localApp = platformEnvironmentValue('LOCALAPPDATA') ?? '';
     return switch (this) {
       WebReverseBrowserKind.chrome => [
         '$pf\\Google\\Chrome\\Application\\chrome.exe',
