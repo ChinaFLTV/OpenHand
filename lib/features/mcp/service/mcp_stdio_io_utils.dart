@@ -3,8 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/serial_task_queue.dart';
 
 const int kMcpStdioMaxPendingRequests = 256;
+const int kMcpStdioMaxPendingWrites = 256;
 final RegExp _mcpShellWhitespacePattern = RegExp(r'\s');
 
 List<String> tokenizeMcpShellCommand(String input) {
@@ -70,13 +72,14 @@ int firstMcpNpxPackageArgIndex(List<String> args) {
   return -1;
 }
 
-/// Serializes writes to an MCP stdio stdin pipe.
+/// 串行写入 MCP stdio 标准输入管道。
 ///
-/// `IOSink.flush` can temporarily bind the sink to an internal stream. Closing
-/// stdin while that flush is still in flight raises "StreamSink is bound to a
-/// stream", so close paths should drain this queue with a bounded timeout first.
+/// `IOSink.flush` 会暂时把输出绑定到内部流；关闭前应在限定时间内排空队列，
+/// 避免刷新期间关闭导致输出流状态冲突。
 class McpStdioWriteQueue {
-  Future<void> _tail = Future<void>.value();
+  final SerialTaskQueue _queue = SerialTaskQueue(
+    maxPendingTasks: kMcpStdioMaxPendingWrites,
+  );
   Object? _closedError;
 
   bool get isClosed => _closedError != null;
@@ -90,21 +93,16 @@ class McpStdioWriteQueue {
     if (closedError != null) {
       return Future<void>.error(closedError);
     }
-    final queued = _tail.then((_) => operation());
-    _tail = queued.then<void>(
-      (_) {},
-      onError: (Object error, StackTrace stackTrace) {},
-    );
-    return queued;
+    return _queue.enqueue(operation);
   }
 
   Future<void> drain(Duration timeout) async {
     try {
-      await _tail.timeout(timeout);
+      await _queue.idle.timeout(timeout);
     } on TimeoutException {
-      // Close will continue and terminate the process if the pipe stays busy.
+      // 管道持续繁忙时由关闭流程继续终止子进程。
     } catch (_) {
-      // The queue tail already swallows write failures; keep drain best-effort.
+      // 写入失败已传递给任务调用方，排空仅尽力执行。
     }
   }
 }
@@ -117,7 +115,7 @@ Future<void> _ignoreMcpPendingFuture<T>(Future<T> future) async {
   try {
     await future;
   } catch (_) {
-    // The request owner still awaits the same future and receives the error.
+    // 请求所有者仍会等待同一 Future 并收到错误。
   }
 }
 
@@ -139,7 +137,7 @@ Future<void> closeMcpStdioSinkQuietly({
   try {
     await stdin.close().timeout(timeout);
   } on TimeoutException {
-    // The caller will kill the process if graceful shutdown does not complete.
+    // 优雅关闭失败时由调用方继续终止子进程。
   } on StateError catch (error, stack) {
     if (!isExpectedMcpStdioSinkStateError(error)) {
       silentLog(logTag, logWhere, error, stack);

@@ -2512,10 +2512,13 @@ class _AiLspSession {
     if (_diagnosticsByUri.containsKey(uri)) {
       return diagnosticsForFile(filePath);
     }
-    final waitGroup = _pendingDiagnostics.putIfAbsent(
-      uri,
-      _AiLspDiagnosticsWaitGroup.new,
-    );
+    final existingWaitGroup = _pendingDiagnostics[uri];
+    if (existingWaitGroup == null &&
+        _pendingDiagnostics.length >= _maxOpenDocuments) {
+      return diagnosticsForFile(filePath);
+    }
+    final waitGroup = existingWaitGroup ?? _AiLspDiagnosticsWaitGroup();
+    _pendingDiagnostics[uri] = waitGroup;
     waitGroup.waiterCount += 1;
     try {
       return await waitGroup.completer.future.timeout(

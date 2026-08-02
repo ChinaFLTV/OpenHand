@@ -40,6 +40,8 @@ class _PerfTraceDialog extends StatefulWidget {
 }
 
 class _PerfTraceDialogState extends State<_PerfTraceDialog> {
+  static const Duration _fileMetadataTimeout = Duration(seconds: 2);
+
   bool _busy = false;
   double _seconds = 5;
   String _status = '';
@@ -143,7 +145,7 @@ class _PerfTraceDialogState extends State<_PerfTraceDialog> {
       final ts = DateTime.now().millisecondsSinceEpoch;
       file = File('${dir.path}/openhand_trace_$ts.json');
       await writeFileAtomically(file, json);
-      savedBytes = await file.length();
+      savedBytes = await file.length().timeout(_fileMetadataTimeout);
     } catch (e, s) {
       silentLog('web_reverse_perf_trace_dialog', '保存性能轨迹', e, s);
       if (!mounted) return;

@@ -1265,8 +1265,8 @@ class _ManagedResponseRouter {
     }
     if (_pending.length >= kMcpStdioMaxPendingRequests) {
       throw StateError(
-        'MCP stdio has too many pending requests '
-        '(${_pending.length}/$kMcpStdioMaxPendingRequests).',
+        'MCP stdio 待处理请求过多'
+        '（${_pending.length}/$kMcpStdioMaxPendingRequests）。',
       );
     }
     _pending[id] = completer;
@@ -1290,7 +1290,7 @@ class _ManagedResponseRouter {
     if (!completer.isCompleted) {
       completer.completeError(
         const McpToolDiscoveryException(
-          'MCP stdio request was cancelled.',
+          'MCP stdio 请求已取消。',
           isExpectedLifecycleCancellation: true,
         ),
       );
@@ -1336,10 +1336,7 @@ class _ManagedResponseRouter {
     if (_pending.isEmpty) return false;
     if (data.length > _maxBufferedChars - _lineBuffer.length) {
       rejectNewWrites(
-        StateError(
-          'MCP stdio response exceeded the $_maxBufferedChars character '
-          'buffer limit without a complete line.',
-        ),
+        StateError('MCP stdio 响应超过 $_maxBufferedChars 字符缓冲上限，且未形成完整行。'),
       );
       return false;
     }
