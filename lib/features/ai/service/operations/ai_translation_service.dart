@@ -103,6 +103,7 @@ class AiTranslationService {
       normalizedSettings.maxTextCharacters,
     );
     final timeout = Duration(seconds: normalizedSettings.timeoutSeconds);
+    final deadline = MonotonicDeadline(timeout, timeoutMessage: '翻译超过总时限。');
     AiTranslationException? firstFailure;
     var triedAny = false;
 
@@ -113,16 +114,25 @@ class AiTranslationService {
           .normalized();
       if (!providerSettings.enabled) continue;
       triedAny = true;
+      final remaining = deadline.remainingOrNull();
+      if (remaining == null) {
+        firstFailure ??= const AiTranslationException('翻译超过总时限。');
+        break;
+      }
       try {
-        final result = await _translateWithCache(
-          provider: provider,
-          text: boundedText,
-          settings: normalizedSettings,
-          providerSettings: providerSettings,
-          availableModels: availableModels,
-          fallbackModel: fallbackModel,
-          timeout: timeout,
-        );
+        final result =
+            await _translateWithCache(
+              provider: provider,
+              text: boundedText,
+              settings: normalizedSettings,
+              providerSettings: providerSettings,
+              availableModels: availableModels,
+              fallbackModel: fallbackModel,
+              timeout: remaining,
+            ).timeout(
+              remaining,
+              onTimeout: () => throw deadline.timeoutException(),
+            );
         _throwIfDisposed();
         return result;
       } on AiTranslationException catch (error) {
@@ -131,9 +141,10 @@ class AiTranslationService {
       } on TimeoutException {
         _throwIfDisposed();
         firstFailure ??= AiTranslationException(
-          '${provider.storageKey} translation timed out.',
+          '${provider.storageKey} 翻译超时。',
           provider: provider,
         );
+        if (deadline.isExpired) break;
       } catch (error) {
         _throwIfDisposed();
         firstFailure ??= AiTranslationException(
@@ -242,7 +253,7 @@ class AiTranslationService {
     final cleanText = nullIfBlank(translated);
     if (cleanText == null) {
       throw AiTranslationException(
-        '${provider.storageKey} returned an empty translation.',
+        '${provider.storageKey} 未返回翻译文本。',
         provider: provider,
       );
     }
@@ -369,7 +380,7 @@ class AiTranslationService {
     final errorCode = '${json['errorCode'] ?? ''}';
     if (errorCode.isNotEmpty && errorCode != '0') {
       throw AiTranslationException(
-        'Youdao translation failed: $errorCode',
+        '有道翻译失败：$errorCode',
         provider: AiTranslationProvider.youdao,
       );
     }
@@ -475,7 +486,7 @@ class AiTranslationService {
       return _readTranslatedText(decoded);
     }
     throw const AiTranslationException(
-      'Bing translation response is invalid.',
+      'Bing 翻译响应格式无效。',
       provider: AiTranslationProvider.bing,
     );
   }
@@ -553,7 +564,7 @@ class AiTranslationService {
     final json = _decodeObject(response, AiTranslationProvider.baidu);
     if (json['error_code'] != null) {
       throw AiTranslationException(
-        'Baidu translation failed: ${json['error_code']} ${json['error_msg'] ?? ''}',
+        '百度翻译失败：${json['error_code']} ${json['error_msg'] ?? ''}',
         provider: AiTranslationProvider.baidu,
       );
     }
@@ -576,7 +587,7 @@ class AiTranslationService {
     final accessKey = nullIfBlank(providerSettings.apiSecret);
     if (apiKey == null && (appId == null || accessKey == null)) {
       throw const AiTranslationException(
-        'Doubao translation needs API Key or App ID + Access Key.',
+        '豆包翻译需要 API Key，或 App ID 与 Access Key。',
         provider: AiTranslationProvider.doubao,
       );
     }
@@ -619,7 +630,7 @@ class AiTranslationService {
     final code = optionalIntFromValue(json['code']);
     if (code != null && code != _doubaoSuccessCode) {
       throw AiTranslationException(
-        'Doubao translation failed: $code ${json['message'] ?? ''}',
+        '豆包翻译失败：$code ${json['message'] ?? ''}',
         provider: AiTranslationProvider.doubao,
       );
     }
@@ -705,7 +716,7 @@ class AiTranslationService {
     }
     if (missing.isNotEmpty) {
       throw AiTranslationException(
-        '${provider.storageKey} translation is missing ${missing.join(', ')}.',
+        '${provider.storageKey} 翻译缺少配置：${missing.join('、')}。',
         provider: provider,
       );
     }
@@ -714,7 +725,7 @@ class AiTranslationService {
   Object? _decodeJson(http.Response response, AiTranslationProvider provider) {
     if (isHttpFailureStatus(response.statusCode)) {
       throw AiTranslationException(
-        '${provider.storageKey} translation HTTP ${response.statusCode}: ${_preview(response.body)}',
+        '${provider.storageKey} 翻译请求失败（HTTP ${response.statusCode}）：${_preview(response.body)}',
         provider: provider,
       );
     }
@@ -722,7 +733,7 @@ class AiTranslationService {
       return jsonDecode(response.body);
     } on FormatException catch (error) {
       throw AiTranslationException(
-        '${provider.storageKey} translation returned invalid JSON: ${error.message}',
+        '${provider.storageKey} 翻译返回无效 JSON：${error.message}',
         provider: provider,
       );
     }
@@ -736,7 +747,7 @@ class AiTranslationService {
     if (decoded is Map<String, Object?>) return decoded;
     if (decoded is Map) return stringKeyedMapFromValue(decoded);
     throw AiTranslationException(
-      '${provider.storageKey} translation response is invalid.',
+      '${provider.storageKey} 翻译响应格式无效。',
       provider: provider,
     );
   }
@@ -800,7 +811,7 @@ class AiTranslationService {
       '',
     );
     final normalized = collapseInlineWhitespace(text);
-    if (normalized.isEmpty) return 'translation failed';
+    if (normalized.isEmpty) return '翻译失败。';
     return clipText(normalized, _networkPreviewLength);
   }
 
@@ -878,12 +889,12 @@ class AiTranslationService {
       if (decoded is Map) return stringKeyedMapFromValue(decoded);
     } on FormatException catch (error) {
       throw AiTranslationException(
-        'Doubao corpus JSON is invalid: ${error.message}',
+        '豆包语料库 JSON 无效：${error.message}',
         provider: AiTranslationProvider.doubao,
       );
     }
     throw const AiTranslationException(
-      'Doubao corpus JSON must be an object.',
+      '豆包语料库 JSON 必须是对象。',
       provider: AiTranslationProvider.doubao,
     );
   }

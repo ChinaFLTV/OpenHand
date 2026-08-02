@@ -77,7 +77,7 @@ class AiTranslationProviderSettings extends AiProviderCoreSettings {
           provider: AiTranslationProvider.bing,
           endpoint: 'https://api.cognitive.microsofttranslator.com/translate',
         ),
-      // Apple 走系统翻译框架，没有可配置端点。
+      // Apple 通过本机或私有桥接服务接入，端点由用户配置。
       AiTranslationProvider.apple =>
         const AiTranslationProviderSettings._defaults(
           provider: AiTranslationProvider.apple,

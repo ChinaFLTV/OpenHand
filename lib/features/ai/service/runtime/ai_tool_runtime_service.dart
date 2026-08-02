@@ -55,6 +55,9 @@ const int _maxSkillLinkedResources = 32;
 const int _maxSkillLinkedDirectoryEntries = 256;
 const Duration _skillLinkedResourcePathCheckTimeout = Duration(seconds: 2);
 const int _maxSessionFileTrackers = 128;
+const int _maxConcurrentToolExecutions = kOpenHandMaxAsyncConcurrency;
+const int _maxQueuedToolExecutions = 256;
+const Duration _toolExecutionQueueTimeout = Duration(seconds: 30);
 const int _minToolOutputTruncationPayloadChars = 40;
 const String _toolResultsSubdirectoryName = 'tool-results';
 const String _toolOutputTruncationStrategyHeadTail = 'head_tail';
@@ -557,6 +560,10 @@ class AiToolRuntimeService {
   final MachineTerminalService? _machineTerminalService;
   AiSubToolExecutionObserver? _subToolExecutionObserver;
   final String Function(String sessionId)? _toolOutputDirectoryProvider;
+  final OpenHandAsyncSemaphore _executionSlots = OpenHandAsyncSemaphore(
+    _maxConcurrentToolExecutions,
+    maxWaiters: _maxQueuedToolExecutions,
+  );
   final Set<Completer<void>> _activeExecutionAborts = <Completer<void>>{};
   Future<void>? _shutdownFuture;
   bool _isShuttingDown = false;
@@ -924,14 +931,11 @@ class AiToolRuntimeService {
       if (!server.isVisibleToTemplate(effectiveTemplateId)) continue;
       final catalog = mcpToolCatalogsByServerName[server.name];
       if (catalog == null || catalog.status == McpToolCatalogStatus.idle) {
-        builder.addServerNotice(
-          server.name,
-          'Tool catalog has not been scanned yet.',
-        );
+        builder.addServerNotice(server.name, '工具目录尚未扫描。');
         continue;
       }
       if (catalog.status == McpToolCatalogStatus.loading) {
-        builder.addServerNotice(server.name, 'Tool catalog is refreshing.');
+        builder.addServerNotice(server.name, '工具目录正在刷新。');
         continue;
       }
       if (catalog.status != McpToolCatalogStatus.ready) {
@@ -964,7 +968,20 @@ class AiToolRuntimeService {
     void Function(BashToolExecutionUpdate update)? onBashUpdate,
     Map<String, Object?> metadata = const <String, Object?>{},
   }) async {
-    final executionAbort = _beginExecution();
+    final executionAbort = await _beginExecution(cancelSignal);
+    if (executionAbort == null) {
+      const message = '工具执行已取消。';
+      return AiToolExecutionResult(
+        status: BashToolExecutionStatus.cancelled,
+        command: toolCall.name,
+        workingDirectory: AiToolUtils.defaultWorkingDirectory(),
+        stdout: '',
+        stderr: message,
+        durationMs: 0,
+        resultText: 'status: cancelled\nerror: $message',
+        metadata: const <String, Object?>{'execution_cancelled': true},
+      );
+    }
     final effectiveCancelSignal = combineCancelSignals(<Future<void>?>[
       cancelSignal,
       executionAbort.future,
@@ -1015,7 +1032,7 @@ class AiToolRuntimeService {
       final availableNames = trimmedNonEmptyStrings(
         catalog.definitions.map((tool) => tool.name),
       );
-      final guidance = StringBuffer('Unsupported tool name: ${toolCall.name}.');
+      final guidance = StringBuffer('不支持的工具名称：${toolCall.name}。');
       if (availableNames.isEmpty) {
         guidance.write(AiPlanModeGuidance.unsupportedEmptyCatalog);
       } else {
@@ -1023,12 +1040,10 @@ class AiToolRuntimeService {
         const maxSuggestions = 24;
         final preview = availableNames.length <= maxSuggestions
             ? availableNames.join(', ')
-            : '${availableNames.take(maxSuggestions).join(', ')} … '
-                  '(${availableNames.length - maxSuggestions} more)';
+            : '${availableNames.take(maxSuggestions).join(', ')}……'
+                  '（另有 ${availableNames.length - maxSuggestions} 个）';
         guidance.write(
-          ' Use only exact names from this turn\'s catalog: $preview. '
-          'Re-issue the call with the correct tool name (and matching argument '
-          'schema) — do NOT fall back to dumping code into chat.',
+          ' 只能使用本轮目录中的准确名称：$preview。请使用正确的工具名称和匹配的参数结构重新调用，禁止改为在聊天中倾倒代码。',
         );
       }
       final guidanceText = guidance.toString();
@@ -1203,7 +1218,7 @@ class AiToolRuntimeService {
         _toolExecutionErrorResult(
           tool: resolvedTool,
           fallbackWorkingDirectory: hookWorkingDirectory,
-          error: error ?? 'Tool execution was cancelled.',
+          error: error ?? '工具执行已取消。',
           durationMs: rawExecutionStartedAt.elapsedMilliseconds,
         ),
       );
@@ -1297,12 +1312,10 @@ class AiToolRuntimeService {
         command: resolvedTool.name,
         workingDirectory: hookWorkingDirectory,
         stdout: '',
-        stderr:
-            'Tool "${resolvedTool.name}" exceeded the configured '
-            '${localTimeout.inSeconds}s timeout.',
+        stderr: '工具“${resolvedTool.name}”超过配置的 ${localTimeout.inSeconds} 秒时限。',
         durationMs: rawExecutionStartedAt.elapsedMilliseconds,
         resultText:
-            'status: timed_out\nerror: tool exceeded ${localTimeout.inSeconds}s timeout',
+            'status: timed_out\nerror: 工具超过 ${localTimeout.inSeconds} 秒时限',
       );
 
       Future<void> cancelTimedOutExecution() async {
@@ -2683,7 +2696,7 @@ class AiToolRuntimeService {
     AiToolExecutionResult result,
   ) {
     if (result.status == BashToolExecutionStatus.cancelled) return result;
-    const message = 'Tool execution was cancelled.';
+    const message = '工具执行已取消。';
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.cancelled,
       command: result.command,
@@ -2742,6 +2755,7 @@ class AiToolRuntimeService {
     final active = _shutdownFuture;
     if (active != null) return active;
     _isShuttingDown = true;
+    _executionSlots.cancelWaiters();
     for (final abort in _activeExecutionAborts.toList(growable: false)) {
       if (!abort.isCompleted) abort.complete();
     }
@@ -2751,8 +2765,36 @@ class AiToolRuntimeService {
     return _shutdownFuture = _finishShutdown();
   }
 
-  Completer<void> _beginExecution() {
+  Future<Completer<void>?> _beginExecution(Future<void>? cancelSignal) async {
     if (_isShuttingDown) throw StateError('AI 工具运行时已关闭。');
+    final queueTimeoutSignal = Completer<void>();
+    final queueTimer = Timer(
+      _toolExecutionQueueTimeout,
+      queueTimeoutSignal.complete,
+    );
+    late final bool acquired;
+    try {
+      acquired = await _executionSlots.acquireUnlessCancelled(
+        combineCancelSignals(<Future<void>?>[
+          cancelSignal,
+          queueTimeoutSignal.future,
+        ])!,
+      );
+    } on StateError {
+      if (_isShuttingDown) throw StateError('AI 工具运行时已关闭。');
+      throw StateError('AI 工具执行排队已满。');
+    } finally {
+      queueTimer.cancel();
+    }
+    if (!acquired) {
+      if (_isShuttingDown) throw StateError('AI 工具运行时已关闭。');
+      if (await isCancelSignalCompleted(cancelSignal)) return null;
+      throw TimeoutException('AI 工具执行排队超时。', _toolExecutionQueueTimeout);
+    }
+    if (_isShuttingDown) {
+      _executionSlots.release();
+      throw StateError('AI 工具运行时已关闭。');
+    }
     final abort = Completer<void>();
     _activeExecutionAborts.add(abort);
     return abort;
@@ -2761,6 +2803,7 @@ class AiToolRuntimeService {
   void _finishExecution(Completer<void> abort) {
     if (!abort.isCompleted) abort.complete();
     _activeExecutionAborts.remove(abort);
+    _executionSlots.release();
   }
 
   Future<void> _finishShutdown() async {
