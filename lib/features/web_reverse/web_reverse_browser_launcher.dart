@@ -19,19 +19,31 @@ enum WebReverseLaunchFailure { noFreePort, spawnFailed, cdpHandshakeFailed }
 
 /// 启动结果。
 class WebReverseLaunchResult {
-  const WebReverseLaunchResult({
+  WebReverseLaunchResult({
     required this.process,
     required this.cdpPort,
     required this.userDataDir,
     required this.browserVersion,
     required this.webSocketDebuggerUrl,
-  });
+    required StreamSubscription<String>? stderrSubscription,
+    required StreamSubscription<List<int>>? stdoutSubscription,
+  }) : _stderrSubscription = stderrSubscription,
+       _stdoutSubscription = stdoutSubscription;
 
   final Process process;
   final int cdpPort;
   final String userDataDir;
   final String browserVersion;
   final String webSocketDebuggerUrl;
+  final StreamSubscription<String>? _stderrSubscription;
+  final StreamSubscription<List<int>>? _stdoutSubscription;
+  Future<void>? _outputCleanupFuture;
+
+  Future<void> closeOutputStreams() =>
+      _outputCleanupFuture ??= _cancelBrowserOutputSubscriptions(
+        _stderrSubscription,
+        _stdoutSubscription,
+      );
 }
 
 /// 启动外部 Chrome（或同核浏览器）并完成 CDP 握手。
@@ -313,7 +325,7 @@ class WebReverseBrowserLauncher {
       } catch (error, stack) {
         silentLog('web_reverse_browser_launcher', '等待启动失败的浏览器退出', error, stack);
       }
-      await _cancelProcessOutputSubscriptions(errSub, outSub);
+      await _cancelBrowserOutputSubscriptions(errSub, outSub);
       final err = stderrBuffer.snapshot().join().trim();
       final errSummary = err.length > 1024
           ? '${err.substring(safeUtf16SuffixStart(err, err.length - 1024))}（已截断）'
@@ -331,14 +343,15 @@ class WebReverseBrowserLauncher {
         '③ 安全软件拦截 127.0.0.1 监听。$exitedHint$hint',
       );
     }
-    // 握手成功后把 stderr/stdout 订阅释放，避免长跑时占用句柄。
-    await _cancelProcessOutputSubscriptions(errSub, outSub);
+    // 浏览器运行期间持续排空输出，避免子进程写满管道后阻塞。
     return WebReverseLaunchResult(
       process: process,
       cdpPort: port,
       userDataDir: normalizedUserDataDir,
       browserVersion: version,
       webSocketDebuggerUrl: wsUrl,
+      stderrSubscription: errSub,
+      stdoutSubscription: outSub,
     );
   }
 
@@ -381,34 +394,34 @@ class WebReverseBrowserLauncher {
       deadline.stop();
     }
   }
+}
 
-  Future<void> _cancelProcessOutputSubscriptions(
-    StreamSubscription<String>? stderrSubscription,
-    StreamSubscription<List<int>>? stdoutSubscription,
-  ) async {
-    await Future.wait<bool>(<Future<bool>>[
-      cancelStreamSubscriptionBounded<String>(
-        stderrSubscription,
-        timeout: _streamCleanupTimeout,
-        onError: (error, stack) => silentLog(
-          'web_reverse_browser_launcher',
-          '取消浏览器标准错误流订阅',
-          error,
-          stack,
-        ),
+Future<void> _cancelBrowserOutputSubscriptions(
+  StreamSubscription<String>? stderrSubscription,
+  StreamSubscription<List<int>>? stdoutSubscription,
+) async {
+  await Future.wait<bool>(<Future<bool>>[
+    cancelStreamSubscriptionBounded<String>(
+      stderrSubscription,
+      timeout: WebReverseBrowserLauncher._streamCleanupTimeout,
+      onError: (error, stack) => silentLog(
+        'web_reverse_browser_launcher',
+        '取消浏览器标准错误流订阅',
+        error,
+        stack,
       ),
-      cancelStreamSubscriptionBounded<List<int>>(
-        stdoutSubscription,
-        timeout: _streamCleanupTimeout,
-        onError: (error, stack) => silentLog(
-          'web_reverse_browser_launcher',
-          '取消浏览器标准输出流订阅',
-          error,
-          stack,
-        ),
+    ),
+    cancelStreamSubscriptionBounded<List<int>>(
+      stdoutSubscription,
+      timeout: WebReverseBrowserLauncher._streamCleanupTimeout,
+      onError: (error, stack) => silentLog(
+        'web_reverse_browser_launcher',
+        '取消浏览器标准输出流订阅',
+        error,
+        stack,
       ),
-    ]);
-  }
+    ),
+  ]);
 }
 
 class WebReverseLaunchException implements Exception {

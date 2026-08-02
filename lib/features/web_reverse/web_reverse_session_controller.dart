@@ -478,7 +478,7 @@ class WebReverseSessionController extends ChangeNotifier {
       );
       if (_stopped || _disposed) {
         _started = false;
-        await _terminateBrowserProcess(launchResult.process, '回收迟到启动的浏览器');
+        await _terminateBrowserLaunch(launchResult, '回收迟到启动的浏览器');
         await _safeStop();
         return;
       }
@@ -4615,10 +4615,10 @@ class WebReverseSessionController extends ChangeNotifier {
       silentLog('web_reverse_session_controller', '关闭浏览器调试协议连接', error, stack);
     }
     _browserCdp = null;
-    final p = _launchResult?.process;
+    final launchResult = _launchResult;
     _launchResult = null;
-    if (p != null) {
-      await _terminateBrowserProcess(p, '停止浏览器');
+    if (launchResult != null) {
+      await _terminateBrowserLaunch(launchResult, '停止浏览器');
     }
     _errorMessage = null;
     _safeNotify();
@@ -4737,10 +4737,10 @@ class WebReverseSessionController extends ChangeNotifier {
       );
     }
     _browserCdp = null;
-    final p = _launchResult?.process;
+    final launchResult = _launchResult;
     _launchResult = null;
-    if (p != null) {
-      await _terminateBrowserProcess(p, '关闭浏览器');
+    if (launchResult != null) {
+      await _terminateBrowserLaunch(launchResult, '关闭浏览器');
     }
     // 收尾产物：先导 HAR（用 in-memory drafts），再关 artifacts。
     try {
@@ -4751,10 +4751,13 @@ class WebReverseSessionController extends ChangeNotifier {
     await _artifacts.close();
   }
 
-  Future<void> _terminateBrowserProcess(Process process, String where) async {
+  Future<void> _terminateBrowserLaunch(
+    WebReverseLaunchResult launchResult,
+    String where,
+  ) async {
     await runAsyncCleanupBounded(
       () => terminateTrackedProcessTree(
-        process,
+        launchResult.process,
         gracefulTimeout: _browserStopGrace,
       ),
       timeout: _browserCleanupTimeout,
@@ -4765,6 +4768,7 @@ class WebReverseSessionController extends ChangeNotifier {
         stack,
       ),
     );
+    await launchResult.closeOutputStreams();
   }
 
   Future<void> _closeAuxiliaryServices() async {
