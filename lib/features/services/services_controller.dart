@@ -14,6 +14,8 @@ import 'service/ai_jungler_client.dart';
 import 'service/ai_jungler_runtime.dart';
 
 const int _kAiExposureMaxLogs = 5000;
+const int _kAiExposureMaxCachedHistoryJobs = 20;
+const int _kAiExposureMaxCachedLogsPerJob = 2000;
 const int _kMaxProxyInspectionConcurrency = 32;
 const Duration _kProxyStatisticsSyncInterval = Duration(seconds: 5);
 
@@ -125,6 +127,35 @@ class ServicesController extends ChangeNotifier {
   bool get proxyInspectionBusy => _proxyInspectionBusy;
   bool get ownsProcess => _runtime.ownsProcess;
   AiJunglerClient? get _client => _runtime.client;
+
+  void _setHistory(List<AiExposureHistoryEntry> history) {
+    _history = history;
+    final activeIds = history.map((entry) => entry.id).toSet();
+    _historyLogs.removeWhere((id, _) => !activeIds.contains(id));
+  }
+
+  List<AiExposureLogEntry>? _cachedHistoryLogs(String jobId) {
+    final cached = _historyLogs.remove(jobId);
+    if (cached == null) return null;
+    _historyLogs[jobId] = cached;
+    return cached;
+  }
+
+  List<AiExposureLogEntry> _cacheHistoryLogs(
+    String jobId,
+    Iterable<AiExposureLogEntry> logs,
+  ) {
+    final loaded = logs.toList(growable: false);
+    final bounded = loaded.length <= _kAiExposureMaxCachedLogsPerJob
+        ? loaded
+        : loaded.sublist(0, _kAiExposureMaxCachedLogsPerJob);
+    _historyLogs.remove(jobId);
+    _historyLogs[jobId] = List<AiExposureLogEntry>.unmodifiable(bounded);
+    while (_historyLogs.length > _kAiExposureMaxCachedHistoryJobs) {
+      _historyLogs.remove(_historyLogs.keys.first);
+    }
+    return _historyLogs[jobId]!;
+  }
 
   void attachSelectedAiModelProvider(AiModelConfig? Function() provider) {
     _selectedAiModelProvider = provider;
@@ -282,7 +313,7 @@ class ServicesController extends ChangeNotifier {
         client.proxyStatus(),
       ]);
       _health = values[0] as AiExposureHealth;
-      _history = values[1] as List<AiExposureHistoryEntry>;
+      _setHistory(values[1] as List<AiExposureHistoryEntry>);
       _results = values[2] as List<AiExposureResult>;
       _rules = values[3] as List<AiExposureScanRule>;
       _sourceStatus = values[4] as Map<String, bool>;
@@ -727,14 +758,15 @@ class ServicesController extends ChangeNotifier {
     if (_logRefreshBusy || _client == null) return;
     _logRefreshBusy = true;
     try {
-      final recent = _history.take(20).toList(growable: false);
+      final recent = _history
+          .take(_kAiExposureMaxCachedHistoryJobs)
+          .toList(growable: false);
       final batches = await Future.wait(
         recent.map((entry) async {
-          final cached = _historyLogs[entry.id];
+          final cached = _cachedHistoryLogs(entry.id);
           if (cached != null) return cached;
           final loaded = await _requireClient().logs(entry.id, limit: 500);
-          _historyLogs[entry.id] = loaded;
-          return loaded;
+          return _cacheHistoryLogs(entry.id, loaded);
         }),
       );
       final merged = <AiExposureLogEntry>[
@@ -895,14 +927,14 @@ class ServicesController extends ChangeNotifier {
   }
 
   Future<List<AiExposureLogEntry>> loadHistoryLogs(String jobId) async {
-    final cached = _historyLogs[jobId];
+    final cached = _cachedHistoryLogs(jobId);
     if (cached != null) return cached;
     try {
       final logs = await _requireClient().logs(jobId);
-      _historyLogs[jobId] = logs;
+      final cachedLogs = _cacheHistoryLogs(jobId, logs);
       _errorMessage = null;
       _notify();
-      return logs;
+      return cachedLogs;
     } catch (error, stack) {
       _errorMessage = '$error';
       silentLog('services_controller', '读取扫描历史日志', error, stack);
@@ -993,7 +1025,7 @@ class ServicesController extends ChangeNotifier {
       client.history(),
       client.results(),
     ]);
-    _history = values[0] as List<AiExposureHistoryEntry>;
+    _setHistory(values[0] as List<AiExposureHistoryEntry>);
     _results = values[1] as List<AiExposureResult>;
   }
 

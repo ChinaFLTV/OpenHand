@@ -44,6 +44,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   static const Uuid _uuid = Uuid();
   static const int _maxConcurrentExecutions = 8;
+  static const int _maxCachedHistoryJobs = 20;
+  static const int _maxCachedHistoryRecordsPerJob = 50;
 
   /// 执行延迟初始化：加载数据、同步系统任务、绑定生命周期与信号监听并启动调度器。
   /// 重复调用不会重复初始化。
@@ -417,6 +419,16 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     return _historyCache[cronId] ?? const <CronExecutionRecord>[];
   }
 
+  void _cacheHistory(String cronId, Iterable<CronExecutionRecord> records) {
+    _historyCache.remove(cronId);
+    _historyCache[cronId] = records
+        .take(_maxCachedHistoryRecordsPerJob)
+        .toList();
+    while (_historyCache.length > _maxCachedHistoryJobs) {
+      _historyCache.remove(_historyCache.keys.first);
+    }
+  }
+
   @override
   void notifyListeners() {
     if (_isDisposed) return;
@@ -703,9 +715,15 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> loadHistory(String cronId) async {
+    final normalizedId = cronId.trim();
+    if (normalizedId.isEmpty || normalizedId != cronId) return;
     await _enqueueHistoryOperation<void>('加载执行历史', null, () async {
-      final records = await _store.loadHistory(cronId);
-      _historyCache[cronId] = records;
+      if (!_entries.any((entry) => entry.id == normalizedId)) {
+        _historyCache.remove(normalizedId);
+        return;
+      }
+      final records = await _store.loadHistory(normalizedId);
+      _cacheHistory(normalizedId, records);
       notifyListeners();
     });
   }
@@ -1204,8 +1222,10 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       )) {
         return false;
       }
-      final cached = _historyCache[entry.id] ?? <CronExecutionRecord>[];
-      _historyCache[entry.id] = [record, ...cached].take(50).toList();
+      final cached = _historyCache[entry.id];
+      if (cached != null) {
+        _cacheHistory(entry.id, <CronExecutionRecord>[record, ...cached]);
+      }
       _entries[index] = updated;
       _refreshEntriesView();
       notifyListeners();
@@ -1268,6 +1288,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
               : entry.copyWith(status: status);
         })
         .toList(growable: false);
+    final activeIds = _entries.map((entry) => entry.id).toSet();
+    _historyCache.removeWhere((id, _) => !activeIds.contains(id));
     _refreshEntriesView();
   }
 

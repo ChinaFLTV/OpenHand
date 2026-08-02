@@ -1911,6 +1911,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
   final Map<String, Future<AiLspBackendResolution>> _lspBackendRequests =
       <String, Future<AiLspBackendResolution>>{};
   final Map<String, Timer> _lspDiagnosticsTimers = <String, Timer>{};
+  final Map<String, Object> _lspDiagnosticsRequestTokens = <String, Object>{};
   int _nextFileLoadGeneration = 0;
 
   /// Mutable font size for pinch / Cmd+scroll zoom.
@@ -2091,6 +2092,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     _forcedFullEditorFiles.remove(filePath);
     _foldedRegions.remove(filePath);
     _lspDiagnosticsTimers.remove(filePath)?.cancel();
+    _lspDiagnosticsRequestTokens.remove(filePath);
     _lspBackendRequests.remove(filePath);
     _lspBackendByFile.remove(filePath);
     _lspBackendLoadingFiles.remove(filePath);
@@ -2192,6 +2194,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       timer.cancel();
     }
     _lspDiagnosticsTimers.clear();
+    _lspDiagnosticsRequestTokens.clear();
     _lspBackendRequests.clear();
     _lspBackendLoadingFiles.clear();
     _diagnosticsPendingRefresh.clear();
@@ -2340,7 +2343,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     setState(() {
       _diagnosticsByFile[filePath] = _mapLspDiagnostics(diagnostics);
       _diagnosticsStaleFiles.remove(filePath);
-      _diagnosticsLoadingFiles.remove(filePath);
+      if (!_lspDiagnosticsRequestTokens.containsKey(filePath)) {
+        _diagnosticsLoadingFiles.remove(filePath);
+      }
     });
     // 同步到文本控制器以刷新行内标记。
     final controller = _textControllers[filePath];
@@ -4391,11 +4396,6 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _diagnosticsLoadingFiles.contains(filePath)) {
       return;
     }
-    final resolution = await _ensureLspBackend(filePath);
-    if (!mounted || !widget.openFiles.contains(filePath)) return;
-    if (!resolution.isAvailable) {
-      return;
-    }
     await _refreshDiagnostics(filePath);
   }
 
@@ -4405,7 +4405,15 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _diagnosticsPendingRefresh.add(filePath);
       return;
     }
-    final resolution = await _ensureLspBackend(filePath);
+    late final AiLspBackendResolution resolution;
+    try {
+      resolution = await _ensureLspBackend(filePath);
+    } catch (error, stack) {
+      if (mounted && widget.openFiles.contains(filePath)) {
+        silentLog('file_explorer', '解析 LSP 诊断后端', error, stack);
+      }
+      return;
+    }
     if (!mounted || !widget.openFiles.contains(filePath)) return;
     if (!resolution.isAvailable) {
       setState(() {
@@ -4414,9 +4422,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       });
       return;
     }
-    if (mounted) {
-      setState(() => _diagnosticsLoadingFiles.add(filePath));
-    }
+    final requestToken = Object();
+    _lspDiagnosticsRequestTokens[filePath] = requestToken;
+    setState(() => _diagnosticsLoadingFiles.add(filePath));
     try {
       final controller = _textControllers[filePath];
       final diagnostics = await AiLspClientService.instance.diagnosticsForFile(
@@ -4424,7 +4432,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         language: resolution.language,
         documentText: controller?.text,
       );
-      if (!mounted || !widget.openFiles.contains(filePath)) {
+      if (!mounted ||
+          !widget.openFiles.contains(filePath) ||
+          !identical(_lspDiagnosticsRequestTokens[filePath], requestToken)) {
         return;
       }
       setState(() {
@@ -4433,19 +4443,26 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         _diagnosticsStaleFiles.remove(filePath);
       });
     } catch (error, stack) {
-      silentLog('file_explorer', '刷新 LSP 诊断', error, stack);
-      if (!mounted || !widget.openFiles.contains(filePath)) {
+      if (!mounted ||
+          !widget.openFiles.contains(filePath) ||
+          !identical(_lspDiagnosticsRequestTokens[filePath], requestToken)) {
         return;
       }
+      silentLog('file_explorer', '刷新 LSP 诊断', error, stack);
       setState(() {
         _diagnosticsLoadingFiles.remove(filePath);
         _diagnosticsByFile.remove(filePath);
       });
     }
 
+    if (!mounted ||
+        !widget.openFiles.contains(filePath) ||
+        !identical(_lspDiagnosticsRequestTokens[filePath], requestToken)) {
+      return;
+    }
+    _lspDiagnosticsRequestTokens.remove(filePath);
     // 请求期间有新改动时立即补拉一次。
-    if (widget.openFiles.contains(filePath) &&
-        _diagnosticsPendingRefresh.remove(filePath)) {
+    if (_diagnosticsPendingRefresh.remove(filePath)) {
       unawaited(_refreshDiagnostics(filePath));
     }
   }
@@ -4885,6 +4902,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
     for (final timer in _lspDiagnosticsTimers.values) {
       timer.cancel();
     }
+    _lspDiagnosticsRequestTokens.clear();
     for (final filePath in _textControllers.keys) {
       unawaited(
         AiLspClientService.instance.closeDocument(
