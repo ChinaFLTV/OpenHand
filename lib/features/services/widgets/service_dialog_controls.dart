@@ -119,8 +119,10 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
             }),
           ),
         ),
-        iconButtonTheme: const IconButtonThemeData(
-          style: ButtonStyle(shape: WidgetStatePropertyAll(shape)),
+        iconButtonTheme: IconButtonThemeData(
+          style: (theme.iconButtonTheme.style ?? const ButtonStyle()).copyWith(
+            shape: const WidgetStatePropertyAll(shape),
+          ),
         ),
       ),
       child: child,

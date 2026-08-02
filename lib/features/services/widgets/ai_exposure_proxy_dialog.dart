@@ -853,10 +853,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                           Set<String>.from(_selectedUrls),
                         ),
                       ),
-                style: IconButton.styleFrom(
-                  backgroundColor: colors.errorContainer,
-                  foregroundColor: colors.onErrorContainer,
-                ),
+                style: IconButton.styleFrom(foregroundColor: colors.error),
                 icon: const Icon(Icons.delete_sweep_outlined),
               )
             : null,
@@ -871,10 +868,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                   clearAll: true,
                 ),
               ),
-        style: IconButton.styleFrom(
-          backgroundColor: colors.errorContainer,
-          foregroundColor: colors.onErrorContainer,
-        ),
+        style: IconButton.styleFrom(foregroundColor: colors.error),
         icon: const Icon(Icons.delete_forever_outlined),
       ),
       PopupMenuButton<_ProxySort>(
