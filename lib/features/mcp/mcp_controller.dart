@@ -388,7 +388,7 @@ class McpController extends ChangeNotifier {
     void Function(McpKeywordIndexProgress)? onProgress,
   }) async {
     if (!_hasTrustedSnapshot) {
-      throw StateError('MCP configuration is not available.');
+      throw StateError('MCP 配置不可用。');
     }
     final revision = _keywordIndexRevision;
     final snapshot = List<McpServer>.unmodifiable(runtimeServers);
@@ -1978,22 +1978,22 @@ class McpController extends ChangeNotifier {
     Future<void>? cancelSignal,
   }) async {
     if (_isDisposed) {
-      throw StateError('MCP controller has been disposed.');
+      throw StateError('MCP 控制器已释放。');
     }
     final normalizedServerName = serverName.trim();
     final normalizedToolName = toolName.trim();
     if (normalizedServerName.isEmpty) {
-      throw StateError('Missing MCP server name.');
+      throw StateError('缺少 MCP 服务名称。');
     }
     if (normalizedToolName.isEmpty) {
-      throw StateError('Missing MCP tool name.');
+      throw StateError('缺少 MCP 工具名称。');
     }
     final server = _serverByName(normalizedServerName);
     if (server == null) {
-      throw StateError('Missing MCP server: $normalizedServerName');
+      throw StateError('MCP 服务不存在：$normalizedServerName');
     }
     if (!server.enabled) {
-      throw StateError('MCP server is disabled: $normalizedServerName');
+      throw StateError('MCP 服务已禁用：$normalizedServerName');
     }
     return _toolDiscoveryService.callTool(
       server: server,
@@ -2152,7 +2152,7 @@ class McpController extends ChangeNotifier {
     }
     return _operationQueue.enqueue(() {
       if (_isDisposed) {
-        throw StateError('McpController is disposed');
+        throw StateError('MCP 控制器已释放。');
       }
       return operation();
     });

@@ -134,10 +134,10 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     if (!mounted) return;
     try {
       if (text.length > _kAccountSnapshotImportMaxChars) {
-        throw const FormatException('snapshot JSON exceeds import limit');
+        throw const FormatException('快照 JSON 超过导入上限。');
       }
       final entries = decodeStringKeyedJsonMapList(text);
-      if (entries == null) throw const FormatException('expect JSON array');
+      if (entries == null) throw const FormatException('快照 JSON 必须为数组。');
       final start =
           entries.length > WebReverseSessionController.maxAccountSnapshots
           ? entries.length - WebReverseSessionController.maxAccountSnapshots

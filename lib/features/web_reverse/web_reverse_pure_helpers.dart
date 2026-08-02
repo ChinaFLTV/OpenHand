@@ -150,15 +150,13 @@ String _validatedWebReverseId(Object? value, int maxChars, {bool trim = true}) {
 
 void _validatePositiveWebReverseLimits(Iterable<int> limits) {
   if (limits.any((limit) => limit <= 0)) {
-    throw ArgumentError('Web reverse collection limits must be positive.');
+    throw ArgumentError('Web 逆向采集上限必须为正数。');
   }
 }
 
-/// Normalizes untrusted `Target.getTargets` payloads into the compact shape
-/// consumed by the browser tab strip. Duplicate IDs are ignored and retained
-/// strings and entries are bounded. If [preferredId] appears after the normal
-/// capacity is reached, it replaces the first non-preferred entry so the
-/// currently attached target remains visible.
+/// 将不可信的 `Target.getTargets` 载荷归一化为浏览器标签栏需要的紧凑结构。
+/// 忽略重复 ID，并限制保留的字符串与条目数量。若 [preferredId] 在达到常规容量后
+/// 才出现，则替换首个非首选条目，确保当前附加目标仍然可见。
 List<WebReversePageTargetData> normalizeWebReversePageTargets(
   Object? rawInfos, {
   String? preferredId,
@@ -205,8 +203,8 @@ List<WebReversePageTargetData> normalizeWebReversePageTargets(
   return List<WebReversePageTargetData>.unmodifiable(result);
 }
 
-/// Keeps only Service Worker fields used by the UI, joins registration scopes,
-/// deduplicates version updates and bounds all retained strings and entries.
+/// 仅保留界面使用的 Service Worker 字段，关联注册范围、合并重复版本更新，
+/// 并限制所有字符串与条目数量。
 List<Map<String, Object?>> compactWebReverseServiceWorkers(
   Object? rawVersions, {
   Object? rawRegistrations,
@@ -294,8 +292,7 @@ List<Map<String, Object?>> compactWebReverseServiceWorkers(
   return List<Map<String, Object?>>.unmodifiable(result);
 }
 
-/// Extracts and deduplicates Cache Storage names without retaining arbitrary
-/// fields from the CDP response.
+/// 提取并去重 Cache Storage 名称，不保留 CDP 响应中的无关字段。
 List<String> normalizeWebReverseCacheStorageNames(
   Object? rawCaches, {
   int maxEntries = kWebReverseMaxCacheStorageNames,
@@ -317,8 +314,7 @@ List<String> normalizeWebReverseCacheStorageNames(
   return List<String>.unmodifiable(names);
 }
 
-/// Reads the persisted browser tab metadata in order while bounding IDs, URLs
-/// and the number of tabs restored after a browser restart.
+/// 按顺序读取持久化的浏览器标签元数据，并限制 ID、URL 及重启后恢复的标签数量。
 List<String> normalizeWebReverseTabRestoreUrls(
   Object? rawOrder,
   Object? rawUrls, {
@@ -343,9 +339,8 @@ List<String> normalizeWebReverseTabRestoreUrls(
   return List<String>.unmodifiable(urls);
 }
 
-/// Retains only the cookie fields used by the application surfaces and
-/// account snapshots. Identity fields are rejected rather than clipped so a
-/// subsequent edit/delete command cannot target a different cookie.
+/// 仅保留应用界面和账号快照使用的 Cookie 字段。身份字段超限时直接拒绝，
+/// 不做截断，避免后续编辑或删除命令误操作其他 Cookie。
 List<Map<String, Object?>> compactWebReverseCookies(
   Object? rawCookies, {
   int maxEntries = kWebReverseMaxCookies,
@@ -568,9 +563,8 @@ Map<String, Object?>? _compactIndexedDbRemoteObject(
   return Map<String, Object?>.unmodifiable(compact);
 }
 
-/// Compacts IndexedDB data entries to the three RemoteObjects consumed by the
-/// UI. Protocol previews/object IDs and arbitrary nested extension fields are
-/// discarded so pagination cannot retain complete remote object graphs.
+/// 将 IndexedDB 数据条目压缩为界面使用的三个 RemoteObject。丢弃协议预览、
+/// 对象 ID 和任意嵌套扩展字段，避免分页保留完整远程对象图。
 List<Map<String, Object?>> compactWebReverseIndexedDbEntries(
   Object? rawEntries, {
   int maxEntries = kWebReverseMaxIndexedDbPageSize,
@@ -610,10 +604,8 @@ List<Map<String, Object?>> compactWebReverseIndexedDbEntries(
   return List<Map<String, Object?>>.unmodifiable(result);
 }
 
-/// Compacts a DOM node tree returned by CDP.  DOM responses can contain a
-/// complete page, arbitrary attribute values and deeply nested child lists;
-/// only fields rendered by the Elements panel are retained and all three
-/// dimensions (depth, node count and child count) are bounded.
+/// 压缩 CDP 返回的 DOM 节点树。DOM 响应可能包含完整页面、任意属性值和深层
+/// 子节点列表；仅保留 Elements 面板渲染的字段，并限制深度、节点数和子节点数。
 Map<String, dynamic>? compactWebReverseDomNode(
   Object? raw, {
   int maxDepth = kWebReverseMaxDomDepth,
@@ -712,7 +704,7 @@ Map<String, dynamic>? compactWebReverseDomNode(
   return visit(raw, 0);
 }
 
-/// Normalizes `Performance.getMetrics` into finite, uniquely named samples.
+/// 将 `Performance.getMetrics` 归一化为有限且名称唯一的采样项。
 List<(String, double)> normalizeWebReversePerformanceMetrics(
   Object? rawMetrics, {
   int maxEntries = kWebReverseMaxPerformanceMetrics,
@@ -745,8 +737,7 @@ List<(String, double)> normalizeWebReversePerformanceMetrics(
   return List<(String, double)>.unmodifiable(result);
 }
 
-/// Compacts the `{name,value}` records returned by
-/// `CSS.getComputedStyleForNode`.
+/// 压缩 `CSS.getComputedStyleForNode` 返回的 `{name,value}` 记录。
 List<Map<String, String>> compactWebReverseComputedStyles(
   Object? rawStyles, {
   int maxEntries = kWebReverseMaxComputedStyles,
@@ -804,7 +795,7 @@ Map<String, Object?>? _compactWebReverseRemoteObject(
   return Map<String, Object?>.unmodifiable(compact);
 }
 
-/// Compacts `Runtime.getProperties` records used by the Scope/Watch panel.
+/// 压缩 Scope/Watch 面板使用的 `Runtime.getProperties` 记录。
 List<Map<String, Object?>> compactWebReverseRuntimeProperties(
   Object? rawProperties, {
   int maxEntries = kWebReverseMaxRuntimeProperties,
@@ -840,7 +831,7 @@ List<Map<String, Object?>> compactWebReverseRuntimeProperties(
   return List<Map<String, Object?>>.unmodifiable(result);
 }
 
-/// Compacts `DOMDebugger.getEventListeners` records and handler descriptions.
+/// 压缩 `DOMDebugger.getEventListeners` 记录和处理器描述。
 List<Map<String, Object?>> compactWebReverseDomEventListeners(
   Object? rawListeners, {
   int maxEntries = kWebReverseMaxDomEventListeners,
@@ -884,7 +875,7 @@ List<Map<String, Object?>> compactWebReverseDomEventListeners(
   return List<Map<String, Object?>>.unmodifiable(result);
 }
 
-/// Compacts browser-side `PerformanceObserver` long-task records.
+/// 压缩浏览器端 `PerformanceObserver` 的长任务记录。
 List<Map<String, Object?>> compactWebReverseLongTasks(
   Object? rawTasks, {
   int maxEntries = kWebReverseMaxLongTasks,
@@ -973,7 +964,7 @@ Object? _compactWebReverseJsonValue(
   return _boundedWebReverseText(value, 256);
 }
 
-/// Compacts and bounds the drain from `window.__oh_rtc_log`.
+/// 压缩并限制从 `window.__oh_rtc_log` 提取的记录。
 List<Map<String, Object?>> compactWebReverseWebRtcLog(
   Object? rawEvents, {
   int maxEntries = kWebReverseMaxWebRtcEvents,
@@ -1035,15 +1026,14 @@ List<Map<String, Object?>> compactWebReverseWebRtcLog(
       retainedChars += cost;
       result.add(Map<String, Object?>.unmodifiable(event));
     } catch (_) {
-      // Ignore one malformed event and continue draining later entries.
+      // 忽略单条异常事件并继续提取后续条目。
     }
   }
   return List<Map<String, Object?>>.unmodifiable(result);
 }
 
-/// Bounds one tracing event before it enters the session's aggregate buffer.
-/// Trace `args` can contain arbitrary nested objects, so the generic JSON-like
-/// sanitizer is applied before the caller estimates the event cost.
+/// 跟踪事件进入会话聚合缓冲区前先限制大小。Trace `args` 可能包含任意嵌套对象，
+/// 因此调用方估算事件成本前先执行通用类 JSON 清理。
 Map<String, Object?>? compactWebReverseTraceEvent(
   Object? raw, {
   int maxChars = kWebReverseMaxTraceEventChars,
@@ -1088,11 +1078,10 @@ class _SamplingStackPath {
   }
 }
 
-/// Iteratively summarizes a V8 SamplingHeapProfile head node.
+/// 迭代汇总 V8 SamplingHeapProfile 根节点。
 ///
-/// Traversal, retained stack depth, aggregate buckets and frame text are all
-/// bounded so a malformed or unusually deep profile cannot overflow the Dart
-/// stack or retain an unbounded call tree.
+/// 遍历量、保留栈深、聚合桶和帧文本均有上限，避免异常或过深的采样数据导致
+/// Dart 栈溢出或保留无界调用树。
 ({int totalSize, List<({String label, int size, List<String> stack})> top})?
 summarizeSamplingHeapProfile(
   Object? rawHead, {
@@ -1109,7 +1098,7 @@ summarizeSamplingHeapProfile(
       maxTopEntries <= 0 ||
       maxFunctionNameChars <= 0 ||
       maxUrlChars <= 0) {
-    throw ArgumentError('Sampling profile limits must be positive.');
+    throw ArgumentError('采样分析上限必须为正数。');
   }
   final head = stringKeyedMapFromValue(rawHead);
   if (head.isEmpty) return null;

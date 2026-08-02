@@ -113,10 +113,10 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
     try {
       final text = await getOpenHandClipboardText() ?? '';
       if (text.length > WebReverseSessionController.maxRuleImportChars) {
-        throw const FormatException('rules JSON exceeds import limit');
+        throw const FormatException('规则 JSON 超过导入上限。');
       }
       final entries = decodeStringKeyedJsonMapList(text);
-      if (entries == null) throw const FormatException('expected array');
+      if (entries == null) throw const FormatException('规则 JSON 必须为数组。');
       if (!mounted) return;
       setState(() {
         _draft = entries

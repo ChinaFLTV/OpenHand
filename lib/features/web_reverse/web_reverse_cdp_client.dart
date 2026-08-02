@@ -62,11 +62,7 @@ class WebReverseCdpClient {
        _connector = connector ?? WebReverseCdpTransport.connect {
     if ((_endpointUri.scheme != 'ws' && _endpointUri.scheme != 'wss') ||
         _endpointUri.host.isEmpty) {
-      throw ArgumentError.value(
-        endpoint,
-        'endpoint',
-        'Must be an absolute ws or wss endpoint.',
-      );
+      throw ArgumentError.value(endpoint, 'endpoint', '必须是绝对 ws 或 wss 端点。');
     }
     requireNonNegativeInt(reconnectMaxAttempts, 'reconnectMaxAttempts');
     requirePositiveDuration(handshakeTimeout, 'handshakeTimeout');
@@ -82,14 +78,14 @@ class WebReverseCdpClient {
         reconnectInitialDelay.isNegative
             ? 'reconnectInitialDelay'
             : 'reconnectMaxDelay',
-        'Must not be negative.',
+        '不得为负数。',
       );
     }
     if (reconnectMaxDelay < reconnectInitialDelay) {
       throw ArgumentError.value(
         reconnectMaxDelay,
         'reconnectMaxDelay',
-        'Must not be shorter than reconnectInitialDelay.',
+        '不得短于 reconnectInitialDelay。',
       );
     }
   }
@@ -141,7 +137,7 @@ class WebReverseCdpClient {
   /// 建立连接；并发调用共享同一次握手。
   Future<void> connect() {
     if (_closed) {
-      return Future<void>.error(StateError('CDP client is closed'));
+      return Future<void>.error(StateError('CDP 客户端已关闭。'));
     }
     if (_connected && _transport != null) return Future<void>.value();
     final pending = _connectFuture;
@@ -196,10 +192,10 @@ class WebReverseCdpClient {
         cancellation.future.then((_) => _CdpHandshakeOutcome.cancelled),
       ]).timeout(_handshakeTimeout);
       if (outcome == _CdpHandshakeOutcome.cancelled) {
-        throw StateError('CDP connection attempt was cancelled');
+        throw StateError('CDP 连接已取消。');
       }
       if (!_ownsConnectingTransport(transport, generation)) {
-        throw StateError('CDP connection attempt was superseded');
+        throw StateError('CDP 连接已被新请求替代。');
       }
 
       _connectingTransport = null;
@@ -215,7 +211,7 @@ class WebReverseCdpClient {
         cancelOnError: false,
       );
       if (!_ownsActiveTransport(transport, generation)) {
-        throw StateError('CDP connection closed while being installed');
+        throw StateError('CDP 连接在安装期间已关闭。');
       }
       _subscription = subscription;
       _observeSink(transport, generation);
@@ -260,14 +256,14 @@ class WebReverseCdpClient {
         'maxResponseCharacters',
       );
     }
-    if (_closed) throw StateError('CDP client is closed');
-    if (_isReconnecting) throw StateError('CDP client is reconnecting');
+    if (_closed) throw StateError('CDP 客户端已关闭。');
+    if (_isReconnecting) throw StateError('CDP 客户端正在重连。');
     final transport = _transport;
     if (transport == null || !_connected) {
-      throw StateError('CDP client is not connected');
+      throw StateError('CDP 客户端尚未连接。');
     }
     if (_pending.length >= _maxPendingCommands) {
-      throw StateError('Too many pending CDP commands');
+      throw StateError('CDP 待处理命令过多。');
     }
 
     final id = _nextId++;
@@ -329,7 +325,7 @@ class WebReverseCdpClient {
           pending.completer.completeError(
             CdpException(
               code: intFromValue(err['code'], fallback: -1),
-              message: '${err['message'] ?? 'unknown error'}',
+              message: '${err['message'] ?? '未知错误'}',
             ),
           );
         } else {
@@ -392,7 +388,7 @@ class WebReverseCdpClient {
   void _handleTransportDone(WebReverseCdpTransport transport, int generation) {
     if (!_ownsActiveTransport(transport, generation)) return;
     _connected = false;
-    _failAllPending(StateError('CDP WebSocket closed'));
+    _failAllPending(StateError('CDP WebSocket 已关闭。'));
     _scheduleReconnect(generation);
   }
 
@@ -431,7 +427,7 @@ class WebReverseCdpClient {
           if (!_ownsReconnect(generation) ||
               transport == null ||
               !_ownsActiveTransport(transport, generation)) {
-            throw StateError('CDP reconnect was superseded');
+            throw StateError('CDP 重连已被新请求替代。');
           }
           _reconnectGeneration = null;
           _emitEvent(
@@ -448,15 +444,10 @@ class WebReverseCdpClient {
         }
       }
 
-      if (!_ownsReconnect(generation)) return;
-      _reconnectGeneration = null;
-      _closed = true;
-      _connected = false;
-      _lifecycleGeneration += 1;
-      _failAllPending(StateError('CDP reconnect failed'));
-      _emitEvent(
-        const CdpEvent(method: '__cdp_dead__', params: <String, Object?>{}),
-      );
+      _failReconnect(generation, StateError('CDP 重连失败。'));
+    } catch (error, stack) {
+      silentLog('web_reverse_cdp_client', '执行 CDP 重连循环', error, stack);
+      _failReconnect(generation, StateError('CDP 重连清理失败：$error'), stack);
     } finally {
       if (_reconnectGeneration == generation) {
         _reconnectGeneration = null;
@@ -496,10 +487,22 @@ class WebReverseCdpClient {
         _reconnectGeneration == generation;
   }
 
+  void _failReconnect(int generation, Object error, [StackTrace? stack]) {
+    if (!_ownsReconnect(generation)) return;
+    _reconnectGeneration = null;
+    _closed = true;
+    _connected = false;
+    _lifecycleGeneration += 1;
+    _failAllPending(error, stack);
+    _emitEvent(
+      const CdpEvent(method: '__cdp_dead__', params: <String, Object?>{}),
+    );
+  }
+
   void _throwIfSuperseded(int generation) {
-    if (_closed) throw StateError('CDP client is closed');
+    if (_closed) throw StateError('CDP 客户端已关闭。');
     if (generation != _lifecycleGeneration) {
-      throw StateError('CDP connection attempt was superseded');
+      throw StateError('CDP 连接已被新请求替代。');
     }
   }
 
@@ -550,7 +553,7 @@ class WebReverseCdpClient {
       if (connecting != null && !identical(connecting, active))
         _closeTransportQuietly(connecting, '关闭连接中的传输'),
     ]);
-    _failAllPending(StateError('CDP client manually closed'));
+    _failAllPending(StateError('CDP 客户端已手动关闭。'));
     if (!_eventCtrl.isClosed) {
       try {
         await _eventCtrl.close().timeout(_connectionCleanupTimeout);

@@ -436,9 +436,7 @@ class WebReverseSessionController extends ChangeNotifier {
 
   Future<void> start() {
     if (_disposed) {
-      return Future<void>.error(
-        StateError('Web reverse session has been disposed'),
-      );
+      return Future<void>.error(StateError('Web 逆向会话已释放。'));
     }
     final active = _startTask;
     if (active != null) return active;
@@ -459,7 +457,7 @@ class WebReverseSessionController extends ChangeNotifier {
     try {
       final startUrl = _validatedPageUrlInput(config.targetUrl);
       if (startUrl == null) {
-        throw const FormatException('Invalid or oversized target URL.');
+        throw const FormatException('目标 URL 无效或超过长度上限。');
       }
       await _artifacts.init();
       if (_stopped || _disposed) {
@@ -823,7 +821,7 @@ class WebReverseSessionController extends ChangeNotifier {
   Future<void> _attachToTargetLocked(String targetId) async {
     final normalizedTargetId = _validatedPageTargetId(targetId);
     if (normalizedTargetId == null) {
-      throw const FormatException('Invalid page target ID.');
+      throw const FormatException('页面目标 ID 无效。');
     }
     final cdp = _browserCdp!;
     // 切换前主动 detach 旧 session（如果有），避免事件流叠加。
@@ -4600,9 +4598,7 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 复用 [start] 的全部启动逻辑，只是重置 stopped 标记。
   Future<void> restartBrowser() {
     if (_disposed) {
-      return Future<void>.error(
-        StateError('Web reverse session has been disposed'),
-      );
+      return Future<void>.error(StateError('Web 逆向会话已释放。'));
     }
     final currentTask = _restartBrowserTask;
     if (currentTask != null) return currentTask;
@@ -4944,8 +4940,8 @@ class WebReverseSessionController extends ChangeNotifier {
   const log = (kind, payload) => {
     try {
       const buf = window.__oh_rtc_log = window.__oh_rtc_log || [];
-      // Keep the event discriminator authoritative.  Track events use
-      // `trackKind` for the media kind so a payload cannot overwrite `kind`.
+      // 事件判别字段始终由本地控制；轨道事件使用 `trackKind` 保存媒体类型，
+      // 避免载荷覆盖 `kind`。
       const clean = sanitize(payload);
       buf.push({ ...(clean || {}), kind, ts: Date.now() });
       if (buf.length > 800) buf.splice(0, buf.length - 800);
@@ -9119,12 +9115,12 @@ class WebReverseSessionController extends ChangeNotifier {
   const readText = async (response) => {
     const declared = Number(response.headers.get('content-length'));
     if (Number.isFinite(declared) && declared > maxBytes) {
-      throw new Error('response exceeds source map size limit');
+      throw new Error('响应超过 Source Map 大小上限');
     }
     const reader = response.body && response.body.getReader
       ? response.body.getReader()
       : null;
-    if (!reader) throw new Error('streaming response body unavailable');
+    if (!reader) throw new Error('无法流式读取响应体');
     const chunks = [];
     let total = 0;
     try {
@@ -9134,7 +9130,7 @@ class WebReverseSessionController extends ChangeNotifier {
         const value = part.value || new Uint8Array();
         if (total + value.byteLength > maxBytes) {
           try { await reader.cancel(); } catch (_) {}
-          throw new Error('response exceeds source map size limit');
+          throw new Error('响应超过 Source Map 大小上限');
         }
         chunks.push(value);
         total += value.byteLength;
@@ -9152,21 +9148,21 @@ class WebReverseSessionController extends ChangeNotifier {
   };
   try {
     const r = await fetch(${jsonEncode(url)}, { signal: controller.signal });
-    if (!r.ok) throw new Error('script fetch failed: HTTP ' + r.status);
+    if (!r.ok) throw new Error('脚本请求失败：HTTP ' + r.status);
     const text = await readText(r);
     const m = /[#@]\\s*sourceMappingURL=(\\S+)/.exec(text);
-    if (!m) return JSON.stringify({ error: 'no sourceMappingURL' });
+    if (!m) return JSON.stringify({ error: '未找到 sourceMappingURL' });
     let mapUrl = m[1];
     let mapText;
     if (mapUrl.startsWith('data:')) {
       const comma = mapUrl.indexOf(',');
-      if (comma < 0) throw new Error('invalid inline source map URL');
+      if (comma < 0) throw new Error('内联 Source Map URL 无效');
       const metadata = mapUrl.slice(0, comma).toLowerCase();
       const payload = mapUrl.slice(comma + 1);
       if (metadata.includes(';base64')) {
         const binary = atob(payload);
         if (binary.length > maxBytes) {
-          throw new Error('inline source map exceeds size limit');
+          throw new Error('内联 Source Map 超过大小上限');
         }
         const bytes = new Uint8Array(binary.length);
         for (let i = 0; i < binary.length; i += 1) {
@@ -9180,18 +9176,18 @@ class WebReverseSessionController extends ChangeNotifier {
     } else {
       mapUrl = new URL(mapUrl, ${jsonEncode(url)}).toString();
       if (mapUrl.length > maxUrlChars) {
-        throw new Error('source map URL exceeds size limit');
+        throw new Error('Source Map URL 超过长度上限');
       }
       const mr = await fetch(mapUrl, { signal: controller.signal });
-      if (!mr.ok) throw new Error('source map fetch failed: HTTP ' + mr.status);
+      if (!mr.ok) throw new Error('Source Map 请求失败：HTTP ' + mr.status);
       mapText = await readText(mr);
     }
     if (mapText.length > maxBytes) {
-      throw new Error('source map exceeds size limit');
+      throw new Error('Source Map 超过大小上限');
     }
     const map = JSON.parse(mapText);
     if (!map || typeof map !== 'object' || Array.isArray(map)) {
-      throw new Error('source map root must be an object');
+      throw new Error('Source Map 根节点必须为对象');
     }
     return JSON.stringify({ map, mapUrl });
   } catch (err) {
@@ -10246,7 +10242,7 @@ class WebReverseSourceMapInfo {
   /// 原始 mappings 字符串（按 `;` 分行，按 `,` 分段，每段 VLQ 编码）。
   final String mappings;
 
-  /// Approximate retained UTF-16 character count used by the session LRU.
+  /// 会话 LRU 估算保留的 UTF-16 字符数。
   int get estimatedRetainedChars =>
       scriptUrl.length +
       mapUrl.length +

@@ -91,7 +91,7 @@ Future<ProgressiveProfileOutcome> runProgressiveProfileResolve(
     return ProgressiveProfileOutcome.failed;
   }
 
-  // Some protected lock files may survive delete attempts.
+  // 部分受保护的锁文件可能无法删除。
   final stillLocked = await hasWebReverseProfileLocks(normalizedUserDataDir);
 
   if (!stillLocked) {

@@ -1261,7 +1261,7 @@ class _ManagedResponseRouter {
       throw closedError;
     }
     if (_pending.containsKey(id)) {
-      throw StateError('Duplicate MCP stdio request id: $id.');
+      throw StateError('MCP stdio 请求编号重复：$id。');
     }
     if (_pending.length >= kMcpStdioMaxPendingRequests) {
       throw StateError(

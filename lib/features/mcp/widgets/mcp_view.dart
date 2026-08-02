@@ -801,7 +801,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             (segment) => segment.isEmpty || segment == '.' || segment == '..',
           ) ||
           packageName.contains('\\')) {
-        throw const FormatException('Invalid npm package name.');
+        throw const FormatException('npm 软件包名称无效。');
       }
       // 1. 卸载全局包
       final result = await runTrackedProcessOrFailed(

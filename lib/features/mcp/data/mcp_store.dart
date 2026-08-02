@@ -100,12 +100,12 @@ class McpStore {
 
   Future<void> save(List<McpServer> servers) async {
     if (!_hasLoadedSnapshot || !_canPersist) {
-      throw StateError('MCP configuration has no trusted snapshot.');
+      throw StateError('MCP 配置缺少可信快照。');
     }
     await _verifySourceUnchanged();
     final content = _encode(servers);
     if (utf8.encode(content).length > _maxServersFileBytes) {
-      throw const FileSystemException('MCP configuration exceeds size limit.');
+      throw const FileSystemException('MCP 配置超过大小上限。');
     }
     final targetFile = File(_serversFilePath);
     await writeFileAtomically(targetFile, content);
@@ -113,15 +113,15 @@ class McpStore {
   }
 
   _ParsedRoot _parseRoot(Object? decoded) {
-    final root = _jsonObject(decoded, 'MCP root');
+    final root = _jsonObject(decoded, 'MCP 根对象');
     final rawServers = root[_serversRootKey];
     if (rawServers is! Map) {
-      throw const FormatException('mcpServers must be an object.');
+      throw const FormatException('mcpServers 必须为对象。');
     }
     final servers = <McpServer>[];
     for (final entry in rawServers.entries) {
       if (entry.key is! String) {
-        throw const FormatException('MCP server name must be text.');
+        throw const FormatException('MCP 服务名称必须为文本。');
       }
       servers.add(_parseServer(entry.key as String, entry.value));
     }
@@ -137,17 +137,17 @@ class McpStore {
   McpServer _parseServer(String rawName, Object? rawValue) {
     final name = rawName.trim();
     if (name.isEmpty || name != rawName) {
-      throw const FormatException('MCP server name is invalid.');
+      throw const FormatException('MCP 服务名称无效。');
     }
-    final source = _jsonObject(rawValue, 'MCP server $name');
+    final source = _jsonObject(rawValue, 'MCP 服务 $name');
     final url = _optionalText(source, 'url');
     final command = _optionalText(source, 'command');
     final type = _resolveType(source, url: url, command: command);
     if (type == McpServerType.stdio && command.trim().isEmpty) {
-      throw FormatException('MCP stdio server $name requires command.');
+      throw FormatException('MCP stdio 服务 $name 缺少 command。');
     }
     if (type != McpServerType.stdio && !isValidHttpUrl(url)) {
-      throw FormatException('MCP HTTP server $name has invalid URL.');
+      throw FormatException('MCP HTTP 服务 $name 的 URL 无效。');
     }
     return McpServer(
       name: name,
@@ -176,10 +176,10 @@ class McpStore {
       if (!source.containsKey(key)) return null;
       final raw = source[key];
       if (raw is! String) {
-        throw FormatException('MCP $key must be text.');
+        throw FormatException('MCP $key 必须为文本。');
       }
       final parsed = McpServerType.fromStorage(raw);
-      if (parsed == null) throw FormatException('Unknown MCP $key: $raw');
+      if (parsed == null) throw FormatException('不支持的 MCP $key：$raw');
       return parsed;
     }
 
@@ -188,14 +188,14 @@ class McpStore {
     if (declaredType != null &&
         declaredTransport != null &&
         declaredType != declaredTransport) {
-      throw const FormatException('MCP type and transport conflict.');
+      throw const FormatException('MCP type 与 transport 冲突。');
     }
     final explicit = declaredType ?? declaredTransport;
     if (explicit != null) return explicit;
     final hasCommand = command.trim().isNotEmpty;
     final hasUrl = isValidHttpUrl(url);
     if (hasCommand == hasUrl) {
-      throw const FormatException('Cannot infer MCP transport.');
+      throw const FormatException('无法推断 MCP 传输类型。');
     }
     return hasCommand ? McpServerType.stdio : McpServerType.streamableHttp;
   }
@@ -206,7 +206,7 @@ class McpStore {
     for (final server in servers) {
       _validateServer(server);
       if (!names.add(server.name)) {
-        throw FormatException('Duplicate MCP server: ${server.name}');
+        throw FormatException('MCP 服务重复：${server.name}');
       }
       entries[server.name] = <String, Object?>{
         ...server.extraFields,
@@ -235,16 +235,14 @@ class McpStore {
 
   void _validateServer(McpServer server) {
     if (server.name.isEmpty || server.name.trim() != server.name) {
-      throw const FormatException('MCP server name is invalid.');
+      throw const FormatException('MCP 服务名称无效。');
     }
     if (server.type == McpServerType.stdio) {
       if (server.command.trim().isEmpty) {
-        throw FormatException(
-          'MCP stdio server ${server.name} requires command.',
-        );
+        throw FormatException('MCP stdio 服务 ${server.name} 缺少 command。');
       }
     } else if (!isValidHttpUrl(server.url)) {
-      throw FormatException('MCP HTTP server ${server.name} has invalid URL.');
+      throw FormatException('MCP HTTP 服务 ${server.name} 的 URL 无效。');
     }
     _validateHeaders(server.headers);
     _validateEnvironment(server.environment);
@@ -287,7 +285,7 @@ class McpStore {
 
   Map<String, String> _headers(Object? raw) {
     if (raw == null) return const <String, String>{};
-    final values = _stringMap(raw, 'MCP headers');
+    final values = _stringMap(raw, 'MCP headers 字段');
     _validateHeaders(values);
     return Map<String, String>.unmodifiable(values);
   }
@@ -297,14 +295,14 @@ class McpStore {
       if (entry.key != entry.key.trim() ||
           entry.value != entry.value.trim() ||
           !isValidMcpHttpHeader(entry.key, entry.value)) {
-        throw FormatException('Invalid MCP header: ${entry.key}');
+        throw FormatException('无效的 MCP 请求头：${entry.key}');
       }
     }
   }
 
   Map<String, String> _environment(Object? raw) {
     if (raw == null) return const <String, String>{};
-    final values = _stringMap(raw, 'MCP env');
+    final values = _stringMap(raw, 'MCP env 字段');
     _validateEnvironment(values);
     return Map<String, String>.unmodifiable(values);
   }
@@ -315,17 +313,17 @@ class McpStore {
           entry.key.contains('=') ||
           entry.key.contains('\u0000') ||
           entry.value.contains('\u0000')) {
-        throw FormatException('Invalid MCP environment key: ${entry.key}');
+        throw FormatException('无效的 MCP 环境变量键：${entry.key}');
       }
     }
   }
 
   Map<String, String> _stringMap(Object? raw, String field) {
-    if (raw is! Map) throw FormatException('$field must be an object.');
+    if (raw is! Map) throw FormatException('$field 必须为对象。');
     final values = <String, String>{};
     for (final entry in raw.entries) {
       if (entry.key is! String || entry.value is! String) {
-        throw FormatException('$field values must be text.');
+        throw FormatException('$field 的值必须为文本。');
       }
       values[entry.key as String] = entry.value as String;
     }
@@ -336,7 +334,7 @@ class McpStore {
     if (!source.containsKey(key)) return const <String>[];
     final raw = source[key];
     if (raw is! List || raw.any((item) => item is! String)) {
-      throw FormatException('MCP $key must be a text array.');
+      throw FormatException('MCP $key 必须为文本数组。');
     }
     return List<String>.unmodifiable(raw.cast<String>());
   }
@@ -349,22 +347,22 @@ class McpStore {
     if (!source.containsKey(key)) return fallback;
     final value = source[key];
     if (value is bool) return value;
-    throw FormatException('MCP $key must be boolean.');
+    throw FormatException('MCP $key 必须为布尔值。');
   }
 
   String _optionalText(Map<String, Object?> source, String key) {
     if (!source.containsKey(key)) return '';
     final value = source[key];
     if (value is String) return value;
-    throw FormatException('MCP $key must be text.');
+    throw FormatException('MCP $key 必须为文本。');
   }
 
   Map<String, Object?> _jsonObject(Object? raw, String field) {
-    if (raw is! Map) throw FormatException('$field must be an object.');
+    if (raw is! Map) throw FormatException('$field 必须为对象。');
     final result = <String, Object?>{};
     for (final entry in raw.entries) {
       if (entry.key is! String) {
-        throw FormatException('$field keys must be text.');
+        throw FormatException('$field 的键必须为文本。');
       }
       result[entry.key as String] = entry.value;
     }
@@ -376,17 +374,17 @@ class McpStore {
     final exists = await regularFileExistsBounded(file);
     if (_expectedContent == null) {
       if (exists) {
-        throw StateError('MCP configuration changed after loading.');
+        throw StateError('MCP 配置在加载后已被修改。');
       }
       return;
     }
-    if (!exists) throw StateError('MCP configuration was removed externally.');
+    if (!exists) throw StateError('MCP 配置已被外部删除。');
     final current = await readBoundedFileString(
       file,
       maxBytes: _maxServersFileBytes,
     );
     if (current != _expectedContent) {
-      throw StateError('MCP configuration changed after loading.');
+      throw StateError('MCP 配置在加载后已被修改。');
     }
   }
 

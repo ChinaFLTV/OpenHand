@@ -71,7 +71,7 @@ class WebReverseLspClient {
     _buf.clear();
     _bufferDrainScheduled = false;
     _documentVersions.clear();
-    _failPendingRequests('restarted');
+    _failPendingRequests('进程已重启');
     await _cleanupCurrentProcess();
     if (generation != _lifecycleGeneration) {
       _completeInitialization(initDone, false);
@@ -103,7 +103,7 @@ class WebReverseLspClient {
     } on TimeoutException {
       if (generation == _lifecycleGeneration) {
         status = WebReverseLspStatus.failed;
-        lastError = 'process startup timeout';
+        lastError = '进程启动超时';
       }
       _completeInitialization(initDone, false);
       return false;
@@ -142,14 +142,14 @@ class WebReverseLspClient {
               generation != _lifecycleGeneration) {
             return;
           }
-          _failProtocol('LSP stdin closed unexpectedly');
+          _failProtocol('LSP 标准输入意外关闭');
         },
         onError: (Object error, StackTrace stack) {
           if (!identical(_proc, process) ||
               generation != _lifecycleGeneration) {
             return;
           }
-          _failProtocol('LSP stdin failed: $error', stack: stack);
+          _failProtocol('LSP 标准输入异常：$error', stack: stack);
         },
       ),
     );
@@ -164,13 +164,13 @@ class WebReverseLspClient {
         if (!identical(_proc, process) || generation != _lifecycleGeneration) {
           return;
         }
-        _failProtocol('LSP stdout failed: $error', stack: stack);
+        _failProtocol('LSP 标准输出异常：$error', stack: stack);
       },
       onDone: () {
         if (!identical(_proc, process) || generation != _lifecycleGeneration) {
           return;
         }
-        _failProtocol('LSP stdout closed unexpectedly');
+        _failProtocol('LSP 标准输出意外关闭');
       },
     );
     _stderrSub = process.stderr.listen(
@@ -216,7 +216,7 @@ class WebReverseLspClient {
     }
     if (initRes == null) {
       status = WebReverseLspStatus.failed;
-      lastError ??= 'initialize timeout';
+      lastError ??= '初始化超时';
       await _cleanupCurrentProcess();
       _completeInitialization(initDone, false);
       return false;
@@ -248,14 +248,12 @@ class WebReverseLspClient {
     if (status == WebReverseLspStatus.ready ||
         status == WebReverseLspStatus.starting) {
       status = WebReverseLspStatus.failed;
-      lastError = code == null
-          ? 'process exit could not be observed'
-          : 'exit $code';
+      lastError = code == null ? '无法获取进程退出状态' : '进程退出码：$code';
     }
-    _failPendingRequests('exited');
+    _failPendingRequests('进程已退出');
     final initDone = _initDone;
     if (initDone != null) _completeInitialization(initDone, false);
-    unawaited(
+    _observeCleanup(
       _enqueueCleanup(
         () => _releaseDetachedProcess(process, stdoutSub, stderrSub),
       ),
@@ -277,7 +275,7 @@ class WebReverseLspClient {
     _bufferDrainScheduled = false;
     _buf.clear();
     _documentVersions.clear();
-    _failPendingRequests('stopped');
+    _failPendingRequests('进程已停止');
     await _cleanupCurrentProcess();
   }
 
@@ -304,7 +302,13 @@ class WebReverseLspClient {
     late final Future<void> tracked;
     tracked =
         (() async {
-          if (previous != null) await previous;
+          if (previous != null) {
+            try {
+              await previous;
+            } catch (error, stack) {
+              silentLog('web_reverse_lsp_client', '等待上一次资源清理', error, stack);
+            }
+          }
           await operation();
         })().whenComplete(() {
           if (identical(_cleanupFuture, tracked)) _cleanupFuture = null;
@@ -560,8 +564,8 @@ class WebReverseLspClient {
     final effectiveTimeout = timeout ?? _kDefaultLspRequestTimeout;
     if (_pending.length >= _kMaxPendingLspRequests) {
       lastError =
-          'LSP has too many pending requests '
-          '(${_pending.length}/$_kMaxPendingLspRequests).';
+          'LSP 待处理请求过多'
+          '（${_pending.length}/$_kMaxPendingLspRequests）。';
       return null;
     }
     final id = _nextId++;
@@ -605,7 +609,7 @@ class WebReverseLspClient {
       p.stdin.add(body);
       return true;
     } catch (error, stack) {
-      _failProtocol('LSP stdin write failed: $error', stack: stack);
+      _failProtocol('LSP 标准输入写入失败：$error', stack: stack);
       return false;
     }
   }
@@ -622,7 +626,7 @@ class WebReverseLspClient {
       final end = _findHeaderEnd(_buf);
       if (end < 0) {
         if (_buf.length > _kMaxLspHeaderBytes) {
-          _failProtocol('LSP header exceeded $_kMaxLspHeaderBytes bytes');
+          _failProtocol('LSP 消息头超过 $_kMaxLspHeaderBytes 字节上限');
         }
         return;
       }
@@ -630,7 +634,7 @@ class WebReverseLspClient {
       final m = _lspContentLengthPattern.firstMatch(header);
       if (m == null) {
         // 不识别头，丢掉之前数据避免死循环。
-        _failProtocol('missing Content-Length header');
+        _failProtocol('LSP 消息缺少 Content-Length 头');
         return;
       }
       final lengthText = m.group(1)!;
@@ -638,7 +642,7 @@ class WebReverseLspClient {
           ? int.tryParse(lengthText)
           : null;
       if (clen == null || clen <= 0 || clen > _kMaxLspFrameBytes) {
-        _failProtocol('invalid Content-Length: $lengthText');
+        _failProtocol('无效的 Content-Length：$lengthText');
         return;
       }
       final bodyStart = end + 4;
@@ -657,7 +661,7 @@ class WebReverseLspClient {
         }
         // notification（无 id）暂不处理。
       } catch (error, stack) {
-        _failProtocol('invalid JSON-RPC payload: $error', stack: stack);
+        _failProtocol('无效的 JSON-RPC 载荷：$error', stack: stack);
         return;
       }
       processedMessages += 1;
@@ -704,13 +708,13 @@ class WebReverseLspClient {
     final initDone = _initDone;
     if (initDone != null) _completeInitialization(initDone, false);
     if (process != null) {
-      unawaited(
+      _observeCleanup(
         _enqueueCleanup(
           () => _releaseDetachedProcess(process, stdoutSub, stderrSub),
         ),
       );
     } else {
-      unawaited(
+      _observeCleanup(
         _enqueueCleanup(() => _cancelSubscriptions(stdoutSub, stderrSub)),
       );
     }
@@ -719,6 +723,16 @@ class WebReverseLspClient {
       '处理协议消息',
       message,
       stack ?? StackTrace.current,
+    );
+  }
+
+  void _observeCleanup(Future<void> cleanup) {
+    unawaited(
+      cleanup.then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) =>
+            silentLog('web_reverse_lsp_client', '后台清理进程资源', error, stack),
+      ),
     );
   }
 

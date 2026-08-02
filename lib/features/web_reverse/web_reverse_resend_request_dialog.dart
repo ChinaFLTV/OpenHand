@@ -235,7 +235,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     try {
       uri = Uri.parse(urlText);
       if (!uri.hasScheme || !(uri.scheme == 'http' || uri.scheme == 'https')) {
-        throw const FormatException('only http/https');
+        throw const FormatException('仅支持 HTTP/HTTPS 地址。');
       }
     } catch (_) {
       showOpenHandErrorSnack(
@@ -299,18 +299,16 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       );
       final raw = cdpStringResultValue(result);
       if (raw == null) {
-        throw StateError(
-          '${result?['error'] ?? 'Runtime.evaluate returned no value'}',
-        );
+        throw StateError('${result?['error'] ?? 'Runtime.evaluate 未返回值'}');
       }
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
-        throw const FormatException('Invalid browser replay response.');
+        throw const FormatException('浏览器重放响应无效。');
       }
       final map = stringKeyedMapFromValue(decoded);
       if (map['ok'] != true) {
         final name = '${map['name'] ?? ''}'.trim();
-        final error = '${map['error'] ?? 'Browser fetch failed'}'.trim();
+        final error = '${map['error'] ?? '浏览器请求失败'}'.trim();
         throw StateError(name.isEmpty ? error : '$name: $error');
       }
       if (!mounted || generation != _sendGeneration) return;
