@@ -1657,6 +1657,7 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
   });
 
   static const int _toolSequenceRepairSummaryMaxChars = 4000;
+  static const int _messageMappingConcurrency = 4;
   static const String _systemReminderHeader = '# System Reminder';
   static const String _systemReminderTag = '[system_reminder]';
   static const String _toolExchangeRepairedTag = '[tool_exchange_repaired]';
@@ -1703,9 +1704,12 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
         ),
       ...systemPartition.conversationTurns,
     ];
-    final requestMessages = await Future.wait<Map<String, Object?>>(
-      normalizedTurns.map((item) => _mapOpenAiMessage(item)),
-    );
+    final requestMessages =
+        await runOrderedWithConcurrencyLimit<Map<String, Object?>>(
+          itemCount: normalizedTurns.length,
+          maxConcurrency: _messageMappingConcurrency,
+          task: (index) => _mapOpenAiMessage(normalizedTurns[index]),
+        );
     // Many OpenAI-compatible providers reject multiple or mid-conversation
     // system messages. Leading stable system turns are merged once; post-user
     // runtime state is normalized into user-side context by
