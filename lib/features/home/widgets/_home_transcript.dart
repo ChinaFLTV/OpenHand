@@ -315,7 +315,13 @@ class _MessageTranslationEntry {
   final String settingsFingerprint;
   final String translatedText;
   final AiTranslationProvider provider;
+
+  int get retainedCharacters =>
+      sourceText.length + settingsFingerprint.length + translatedText.length;
 }
+
+const int _messageTranslationCacheMaxEntries = 128;
+const int _messageTranslationCacheMaxCharacters = 4 * 1024 * 1024;
 
 enum _TranscriptInitialRevealPhase {
   preparing,
@@ -414,10 +420,15 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   int _consumedMessageActionPanelMotionKey = 0;
   // 保存每条消息的【显示原始】状态，避免会话窗口刷新后状态丢失。
   final Map<String, bool> _rawContentVisibleByMessageId = <String, bool>{};
-  final Map<String, _MessageTranslationEntry> _translationCacheByMessageId =
-      <String, _MessageTranslationEntry>{};
+  final LifecycleLruCache<_MessageTranslationEntry>
+  _translationCacheByMessageId = LifecycleLruCache<_MessageTranslationEntry>(
+    maxEntries: _messageTranslationCacheMaxEntries,
+    maxCost: _messageTranslationCacheMaxCharacters,
+    costOf: (entry) => entry.retainedCharacters,
+  );
   final Set<String> _translationVisibleMessageIds = <String>{};
   final Set<String> _translationLoadingMessageIds = <String>{};
+  int _translationGeneration = 0;
   _TranscriptViewportAnchor? _pendingPrependAnchor;
   int _pendingPrependAnchorFrames = 0;
   bool _prependAnchorCorrectionQueued = false;
@@ -691,6 +702,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _translationCacheByMessageId.clear();
     _translationVisibleMessageIds.clear();
     _translationLoadingMessageIds.clear();
+    _translationGeneration += 1;
     _pendingPrependAnchor = null;
     _pendingPrependAnchorFrames = 0;
     _prependAnchorCorrectionQueued = false;
@@ -1636,6 +1648,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final sourceText = _translatableMessageText(message, settings);
     if (sourceText == null) return;
     final settingsController = context.read<SettingsController>();
+    final translationGeneration = _translationGeneration;
     final fallbackModel = _translationFallbackModel(settingsController);
     final requestFingerprint = _translationRequestFingerprint(
       settings,
@@ -1647,7 +1660,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       });
       return;
     }
-    final cached = _translationCacheByMessageId[message.id];
+    final cached = _translationCacheByMessageId.get(message.id);
     if (cached != null &&
         cached.sourceText == sourceText &&
         cached.settingsFingerprint == requestFingerprint) {
@@ -1667,18 +1680,24 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         availableModels: settingsController.aiModels,
         fallbackModel: fallbackModel,
       );
-      if (!mounted) return;
+      if (!mounted || translationGeneration != _translationGeneration) return;
       setState(() {
-        _translationCacheByMessageId[message.id] = _MessageTranslationEntry(
-          sourceText: sourceText,
-          settingsFingerprint: requestFingerprint,
-          translatedText: result.text,
-          provider: result.provider,
+        _translationCacheByMessageId.put(
+          message.id,
+          _MessageTranslationEntry(
+            sourceText: sourceText,
+            settingsFingerprint: requestFingerprint,
+            translatedText: result.text,
+            provider: result.provider,
+          ),
+        );
+        _translationVisibleMessageIds.removeWhere(
+          (id) => !_translationCacheByMessageId.containsKey(id),
         );
         _translationVisibleMessageIds.add(message.id);
       });
     } catch (error) {
-      if (!mounted) return;
+      if (!mounted || translationGeneration != _translationGeneration) return;
       flashOpenHandSnack(
         context,
         openHandLocalizedText(
@@ -1690,7 +1709,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         duration: kOpenHandSnackBarNormalDuration,
       );
     } finally {
-      if (mounted) {
+      if (mounted && translationGeneration == _translationGeneration) {
         setState(() {
           _translationLoadingMessageIds.remove(message.id);
         });
@@ -2705,7 +2724,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         speechEnabled &&
         ttsSnapshot.playing &&
         ttsSnapshot.messageId == message.id;
-    final translationEntry = _translationCacheByMessageId[message.id];
+    final translationEntry = _translationCacheByMessageId.get(message.id);
     // 指纹计算含 JSON 编码 + SHA256 且 _translationFallbackModel 需遍历模型列表，
     // 但仅在该消息确实存在译文缓存并处于可见集合时才需要比对。放到 && 链末尾
     // 借短路求值惰性化，长会话每帧省掉每条消息一次哈希，绝大多数消息直接跳过。

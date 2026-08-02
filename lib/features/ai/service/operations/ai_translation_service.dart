@@ -65,9 +65,15 @@ class AiTranslationService {
   static const int _maxTranslationResponseBytes = kBytesPerMiB;
   static const String _doubaoDefaultResourceId = 'volc.speech.mt';
   static const int _translationCacheMaxEntries = 512;
+  static const int _translationCacheMaxCharacters = 8 * kBytesPerMiB;
   static final LifecycleLruCache<AiTranslationResult> _translationCache =
       LifecycleLruCache<AiTranslationResult>(
         maxEntries: _translationCacheMaxEntries,
+        maxCost: _translationCacheMaxCharacters,
+        costOf: (result) =>
+            result.text.length +
+            (result.modelConfigId?.length ?? 0) +
+            (result.modelId?.length ?? 0),
       );
   final OpenHandKeyedSingleFlight<String, AiTranslationResult>
   _translationFlights =
