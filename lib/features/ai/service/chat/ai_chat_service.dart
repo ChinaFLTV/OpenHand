@@ -1932,6 +1932,13 @@ class AiChatService implements AiChatClient {
           },
           cancelOnError: true,
         );
+    eventController.onPause = () => responseSubscription?.pause();
+    eventController.onResume = () => responseSubscription?.resume();
+    eventController.onCancel = () async {
+      if (resultCompleter.isCompleted) return;
+      completeStreamResult('event_stream_cancelled', wasCancelled: true);
+      await cancelResponseStream();
+    };
 
     return AiChatStreamingResponse(
       events: eventController.stream,
@@ -2471,6 +2478,13 @@ class AiChatService implements AiChatClient {
           },
           cancelOnError: true,
         );
+    eventController.onPause = () => responseSubscription?.pause();
+    eventController.onResume = () => responseSubscription?.resume();
+    eventController.onCancel = () async {
+      if (resultCompleter.isCompleted) return;
+      await completeStreamResult(wasCancelled: true);
+      await cancelResponseStream();
+    };
 
     return AiChatStreamingResponse(
       events: eventController.stream,
@@ -2526,6 +2540,10 @@ class AiChatService implements AiChatClient {
         );
       }
     }
+
+    controller.onCancel = () {
+      if (!completer.isCompleted) completeCancelled();
+    };
 
     unawaited(() async {
       try {

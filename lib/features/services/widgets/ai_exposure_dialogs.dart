@@ -28,6 +28,7 @@ const double _kSectionGap = 18;
 const double _kItemGap = 12;
 const double _kMetricBreakpoint = 720;
 const Duration _kStatusRefreshInterval = Duration(seconds: 8);
+const Duration _kStatusMetadataTimeout = Duration(seconds: 2);
 const List<AiExposureSource> _kCredentialSources = <AiExposureSource>[
   AiExposureSource.github,
   AiExposureSource.gitee,
@@ -173,13 +174,15 @@ class _StatusDialogState extends State<_StatusDialog> {
     DateTime? modifiedAt;
     if (path.isNotEmpty) {
       try {
-        final stat = await File(path).stat();
+        final stat = await File(path).stat().timeout(_kStatusMetadataTimeout);
         accessible = stat.type == FileSystemEntityType.file;
         if (accessible) {
           bytes = stat.size;
           modifiedAt = stat.modified;
         }
       } on FileSystemException {
+        accessible = false;
+      } on TimeoutException {
         accessible = false;
       } on UnsupportedError {
         accessible = false;

@@ -14,11 +14,14 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import 'ai_jungler_client.dart';
 
 const Duration _kAiJunglerLaunchTimeout = Duration(seconds: 10);
 const Duration _kAiJunglerReadyTimeout = Duration(seconds: 12);
 const Duration _kAiJunglerStopTimeout = Duration(seconds: 2);
+const Duration _kAiJunglerFileIoTimeout = Duration(seconds: 3);
+const Duration _kAiJunglerFileReadTimeout = Duration(seconds: 15);
 const String _kAiJunglerExecutableName = 'ai_jungler';
 
 class AiJunglerRuntime {
@@ -58,7 +61,9 @@ class AiJunglerRuntime {
     final dataDirectory = Directory(
       OpenHandPaths.defaultAiExposureServiceDirectoryPath(),
     );
-    await dataDirectory.create(recursive: true);
+    await dataDirectory
+        .create(recursive: true)
+        .timeout(_kAiJunglerFileIoTimeout);
     final token = _newSessionToken();
     final ready = Completer<({Uri address, String version})>();
     Process? startedProcess;
@@ -262,7 +267,9 @@ class AiJunglerRuntime {
     final override = Platform.environment['OPENHAND_AI_JUNGLER_BINARY']?.trim();
     if (override != null && override.isNotEmpty) {
       final file = File(override);
-      if (await file.exists()) return file.path;
+      if (await file.exists().timeout(_kAiJunglerFileIoTimeout)) {
+        return file.path;
+      }
       throw FileSystemException('指定的扫描引擎不存在。', override);
     }
     final suffix = Platform.isWindows ? '.exe' : '';
@@ -286,7 +293,9 @@ class AiJunglerRuntime {
         ),
       ];
       for (final path in candidates) {
-        if (await File(path).exists()) return path;
+        if (await File(path).exists().timeout(_kAiJunglerFileIoTimeout)) {
+          return path;
+        }
       }
     }
     return _extractBundledExecutable(suffix);
@@ -329,11 +338,23 @@ class AiJunglerRuntime {
         platformId,
       ),
     );
-    await binaryDirectory.create(recursive: true);
+    await binaryDirectory
+        .create(recursive: true)
+        .timeout(_kAiJunglerFileIoTimeout);
     final file = File(p.join(binaryDirectory.path, executable));
     var currentHash = '';
-    if (await file.exists() && await file.length() == binaryBytes.length) {
-      currentHash = (await sha256.bind(file.openRead()).first).toString();
+    if (await file.exists().timeout(_kAiJunglerFileIoTimeout)) {
+      try {
+        final currentBytes = await readBoundedFileBytes(
+          file,
+          maxBytes: binaryBytes.length,
+          idleTimeout: _kAiJunglerFileIoTimeout,
+          totalTimeout: _kAiJunglerFileReadTimeout,
+        );
+        currentHash = sha256.convert(currentBytes).toString();
+      } on BoundedFileReadException {
+        // 文件过大或校验期间变化时，重新发布内置二进制。
+      }
     }
     if (currentHash != expectedHash) {
       await writeBytesFileAtomically(file, binaryBytes);

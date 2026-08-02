@@ -22,6 +22,7 @@ import '../services_controller.dart';
 import 'service_dialog_controls.dart';
 
 const Duration _kOperationsRefreshInterval = Duration(seconds: 8);
+const Duration _kOperationsMetadataTimeout = Duration(seconds: 2);
 
 Future<void> showAiExposureOperationsDialog(BuildContext context) =>
     showAnimatedDialog<void>(
@@ -88,13 +89,17 @@ class _OperationsDialogState extends State<_OperationsDialog> {
     DateTime? modifiedAt;
     if (path.isNotEmpty) {
       try {
-        final stat = await File(path).stat();
+        final stat = await File(
+          path,
+        ).stat().timeout(_kOperationsMetadataTimeout);
         accessible = stat.type == FileSystemEntityType.file;
         if (accessible) {
           bytes = stat.size;
           modifiedAt = stat.modified;
         }
       } on FileSystemException {
+        accessible = false;
+      } on TimeoutException {
         accessible = false;
       } on UnsupportedError {
         accessible = false;
