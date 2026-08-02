@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
-import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
@@ -27,9 +26,9 @@ import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_tool.dart';
-import 'mcp_node_package_resolver.dart';
 import 'mcp_stdio_cache.dart';
 import 'mcp_stdio_io_utils.dart';
+import 'mcp_stdio_launch_resolver.dart';
 import 'mcp_stdio_process_manager.dart';
 import 'mcp_tool_discovery_exception.dart';
 
@@ -59,7 +58,6 @@ const String _httpClientAlreadyClosedMessage =
 const String _httpConnectionClosedBeforeHeadersMessage =
     'Connection closed before full header was received';
 const Duration _mcpStdioFileOperationTimeout = mcpStdioFileOperationTimeout;
-const int _mcpStdioPathProbeLimit = 256;
 const Map<String, String> _mcpFreshRequestHeaders = <String, String>{
   'cache-control': 'no-cache, no-store, max-age=0',
   'pragma': 'no-cache',
@@ -889,7 +887,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }
 
   Future<_StdioSession> _initializeStdioSession(McpServer server) async {
-    final resolved = await _resolveStdioLaunch(server);
+    final resolved = await resolveMcpStdioLaunch(server);
     final session = _StdioSession(
       process: await startTrackedProcessBounded(
         resolved.executable,
@@ -902,9 +900,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           ...resolved.environment,
           ...server.environment,
         },
-        // Windows 的 .cmd/.bat/.ps1 启动器只能经 Shell 解析；macOS/Linux
-        // 已解析为绝对路径，直接执行可保持参数引用语义准确。
-        runInShell: Platform.isWindows,
+        // Windows 命令启动器由系统 Shell 解析；macOS/Linux 直接执行解析结果，
+        // 保持参数引用语义准确。
+        runInShell: resolved.runInShell,
       ),
       requestTimeout: _requestTimeout,
       onStderrLine: (line) {
@@ -2152,258 +2150,6 @@ class _LegacySseSession {
   }
 }
 
-/// 解析 MCP stdio 配置中的 `command`，把它升级成 *绝对路径 + 增强 PATH 的环境*。
-///
-/// 背景：从 Finder / Xcode / VS Code 启动的 macOS Flutter 应用，子进程继承到的
-/// `PATH` 通常只剩 `/usr/bin:/bin:/usr/sbin:/sbin`，缺少 Homebrew (`/opt/homebrew/bin`、
-/// `/usr/local/bin`)、`npm -g`、`pipx`、`uv`、`bun`、`deno`、`cargo`、`volta`、
-/// `fnm`、`nvm` 等开发工具的 bin 目录。即便 PATH 里直接看到 nvm 的 `node/<v>/bin`，
-/// 这些路径在 GUI 上下文里仍不可信 —— nvm/fnm/volta 等工具的真实 shim 是在 `.zshrc`
-/// 里通过函数 / `$NVM_DIR` 注入的，不走静态目录。结果就是用户写
-/// `npx chrome-devtools-mcp@latest` 这类配置时被 `errno=2 (No such file or directory)` 拒绝。
-///
-/// 解决方案分两层：
-///   1. **登录 shell PATH 探测**（macOS / Linux）：首启时用 `/bin/zsh -ilc 'echo PATH=...'`
-///      取得用户登录 shell 的 PATH（已 source 过 `.zshrc` / `.zprofile` / nvm.sh），
-///      合并到环境里。
-///   2. **bare 命令包裹登录 shell 执行**（macOS / Linux）：command 不含路径分隔符时，
-///      改用 `/bin/zsh -lc 'exec <cmd> "$@"' _ <args...>`，由登录 shell 完成 PATH 查找。
-///      这样 nvm 用 `node` 的 shell 函数也能正常工作。
-class _ResolvedStdioLaunch {
-  const _ResolvedStdioLaunch({
-    required this.executable,
-    required this.args,
-    required this.environment,
-    required this.augmentedPath,
-  });
-
-  final String executable;
-  final List<String> args;
-  final Map<String, String> environment;
-  final String augmentedPath;
-}
-
-/// 登录 shell PATH 探测结果缓存。第一次调用阻塞（最多 [_loginShellProbeTimeout]），
-/// 之后命中缓存。失败缓存为空字符串，避免反复花时间。
-String? _cachedLoginShellPath;
-Completer<String>? _loginShellPathProbe;
-const Duration _loginShellProbeTimeout = Duration(seconds: 3);
-const int _loginShellProbeMaxStdoutBytes = 64 * kBytesPerKiB;
-const int _loginShellProbeMaxStderrBytes = 16 * kBytesPerKiB;
-
-Future<String> _probeLoginShellPath() {
-  if (_cachedLoginShellPath != null) {
-    return Future.value(_cachedLoginShellPath!);
-  }
-  if (_loginShellPathProbe != null) return _loginShellPathProbe!.future;
-  final completer = Completer<String>();
-  _loginShellPathProbe = completer;
-
-  () async {
-    String result = '';
-    try {
-      // `-i` 让 zsh 当成交互式 (会读 .zshrc)，`-l` 当成登录 shell (读 .zprofile)。
-      // 加 `-i` 并不会真的等待终端输入，因为我们重定向到 stdout / stdin 的管道。
-      for (final candidate in await existingMcpLoginShells()) {
-        try {
-          final probe = await runProcessWithTimeout(
-            candidate,
-            const <String>['-ilc', 'printf %s "\$PATH"'],
-            timeout: _loginShellProbeTimeout,
-            tag: 'mcp.stdio.login_shell_path',
-            maxStdoutBytes: _loginShellProbeMaxStdoutBytes,
-            maxStderrBytes: _loginShellProbeMaxStderrBytes,
-          );
-          final path = probe == null ? null : nullIfBlank('${probe.stdout}');
-          if (path != null) {
-            result = path;
-            break;
-          }
-        } catch (error, stack) {
-          silentLog('mcp_stdio', '探测登录 Shell 路径/$candidate', error, stack);
-        }
-      }
-    } catch (error, stack) {
-      silentLog('mcp_stdio', '探测登录 Shell 路径', error, stack);
-    }
-    _cachedLoginShellPath = result;
-    completer.complete(result);
-  }();
-  return completer.future;
-}
-
-Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
-  final separator = Platform.isWindows ? ';' : ':';
-  final originalPath = Platform.environment['PATH'] ?? '';
-  final originalSegments = splitTrimmedNonEmpty(
-    originalPath,
-    separator: separator,
-  );
-
-  final extraSegments = <String>[];
-  final home = OpenHandPaths.environmentHomeDirectoryPath();
-  if (Platform.isMacOS) {
-    extraSegments.addAll(const [
-      '/opt/homebrew/bin',
-      '/opt/homebrew/sbin',
-      '/usr/local/bin',
-      '/usr/local/sbin',
-    ]);
-  } else if (Platform.isLinux) {
-    extraSegments.addAll(const [
-      '/usr/local/bin',
-      '/usr/local/sbin',
-      '/snap/bin',
-    ]);
-  }
-  if (home != null && home.isNotEmpty) {
-    if (Platform.isWindows) {
-      extraSegments.addAll([
-        '$home\\AppData\\Roaming\\npm',
-        '$home\\AppData\\Local\\Programs\\Python\\Python312\\Scripts',
-        '$home\\.cargo\\bin',
-        '$home\\.bun\\bin',
-        '$home\\.deno\\bin',
-        '$home\\.local\\bin',
-      ]);
-    } else {
-      extraSegments.addAll([
-        '$home/.npm-global/bin',
-        '$home/.local/bin',
-        '$home/.cargo/bin',
-        '$home/.bun/bin',
-        '$home/.deno/bin',
-        '$home/.volta/bin',
-      ]);
-    }
-  }
-
-  // 登录 shell 探测得到的 PATH 在 macOS / Linux 上通常包含 nvm / fnm / volta 实
-  // 际激活的 node bin，质量比启发式列表更可靠 —— 优先放最前面。
-  if (!Platform.isWindows) {
-    final shellPath = await _probeLoginShellPath();
-    if (shellPath.isNotEmpty) {
-      final shellSegments = splitTrimmedNonEmpty(
-        shellPath,
-        separator: separator,
-      );
-      extraSegments.insertAll(0, shellSegments);
-    }
-  }
-
-  final mergedSegments = <String>[];
-  final seen = <String>{};
-  // 登录 shell PATH > 进程 PATH > 启发式扩展 PATH。
-  for (final segment in [...extraSegments, ...originalSegments]) {
-    if (seen.add(segment)) {
-      mergedSegments.add(segment);
-    }
-  }
-  final mergedPath = mergedSegments.join(separator);
-
-  final rawCommandField = server.command.trim();
-  // 兼容：用户经常把整条命令行（"npx chrome-devtools-mcp@latest"）粘进
-  // "启动命令" 字段，而不是只填可执行文件名。这里按当前平台拆词：第一段
-  // 当作真正的可执行名，剩下的 token 作为 args 前缀拼到用户手填的 args 前。
-  // 同时支持单 / 双引号包裹的 token，比如 `"node /path with space/x.js"`。
-  final tokens = tokenizeMcpShellCommand(rawCommandField);
-  final rawCommand = tokens.isNotEmpty ? tokens.first : rawCommandField;
-  final inlineArgs = tokens.length > 1 ? tokens.sublist(1) : const <String>[];
-
-  String executable = rawCommand;
-  List<String> args = [...inlineArgs, ...server.args];
-
-  // 快速路径：对 npx 命令，尝试直接定位已全局安装的包入口脚本用 node 执行。
-  // 这避免了 npx 的启动开销和隔离缓存中的下载/兼容性问题。
-  final isNpxCommand = isMcpNpxCommand(rawCommand);
-  final packageArgIndex = isNpxCommand ? firstMcpNpxPackageArgIndex(args) : -1;
-  if (isNpxCommand && packageArgIndex >= 0 && !Platform.isWindows) {
-    final packageName = args[packageArgIndex];
-    final resolved = await resolveInstalledMcpNodePackage(
-      packageName,
-      homeDirectory: home,
-    );
-    if (resolved != null) {
-      final extraArgs = packageArgIndex + 1 < args.length
-          ? args.sublist(packageArgIndex + 1)
-          : const <String>[];
-      return _ResolvedStdioLaunch(
-        executable: resolved.nodeBin,
-        args: [resolved.entryScript, ...extraArgs],
-        environment: <String, String>{'PATH': mergedPath},
-        augmentedPath: mergedPath,
-      );
-    }
-  }
-
-  final containsSeparator =
-      rawCommand.contains('/') ||
-      (Platform.isWindows && rawCommand.contains('\\'));
-
-  if (rawCommand.isNotEmpty && !containsSeparator) {
-    // 1) 先在合并 PATH 里直接 stat 文件，命中就用绝对路径直接 exec —— 最快、最干净。
-    final candidates = <String>[rawCommand];
-    if (Platform.isWindows) {
-      final lower = rawCommand.toLowerCase();
-      const exts = ['.cmd', '.bat', '.exe', '.ps1'];
-      for (final ext in exts) {
-        if (!lower.endsWith(ext)) {
-          candidates.add('$rawCommand$ext');
-        }
-      }
-    }
-    String? hit;
-    for (final dir in mergedSegments.take(_mcpStdioPathProbeLimit)) {
-      for (final candidate in candidates) {
-        final full = dir.endsWith(Platform.pathSeparator)
-            ? '$dir$candidate'
-            : '$dir${Platform.pathSeparator}$candidate';
-        try {
-          // 同时接受普通文件和指向文件的 symlink (nvm 的 npx 是 symlink → JS)。
-          final type = await FileSystemEntity.type(
-            full,
-          ).timeout(_mcpStdioFileOperationTimeout);
-          if (type == FileSystemEntityType.file) {
-            hit = full;
-            break;
-          }
-        } catch (_) {
-          // 权限 / 其他系统错误：跳过该候选。
-        }
-      }
-      if (hit != null) break;
-    }
-    if (hit != null) {
-      executable = hit;
-    } else if (!Platform.isWindows) {
-      // 2) 没在静态目录命中：通过登录 shell 间接执行。这样 nvm 的 `npx` 函数
-      //    （而非真实文件）也能被找到。`exec` 让 shell 替换为目标进程，避免
-      //    多套一层 wait。args 用 `"$@"` 透传，避免引号 / 空格灾难。
-      final shellArgs = <String>[
-        '-lc',
-        'exec ${quoteMcpShellToken(rawCommand)} "\$@"',
-        '_', // $0 占位，保证 args 从 $1 开始。
-        ...args,
-      ];
-      executable = await resolveMcpLoginShell();
-      args = shellArgs;
-    }
-  }
-
-  return _ResolvedStdioLaunch(
-    executable: executable,
-    args: args,
-    environment: <String, String>{
-      'PATH': mergedPath,
-      // 把 npm / pnpm / yarn / bun / uv / pip 的缓存目录隔离到 ~/.openhand/mcp/package-cache，
-      // 避开用户 ~/.npm 因历史 sudo install 留下的 root 属主文件 (典型症状：
-      // EACCES rename / EEXIST / ENOTEMPTY)。所有目录懒创建，存在则复用。
-      ...await mcpStdioIsolatedCacheEnv(),
-    },
-    augmentedPath: mergedPath,
-  );
-}
-
 /// 删除整个隔离缓存目录；目录不存在视为成功。
 /// 失败抛 [FileSystemException]，调用方负责 toast。
 Future<void> resetMcpStdioIsolatedCache() async {
@@ -3373,8 +3119,8 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
     return AiTransportDiagnosticMessages.httpClient(error, contextLabel: label);
   }
   if (error is ProcessException) {
-    final processPath = Platform.environment['PATH'] ?? '';
-    final shellPath = _cachedLoginShellPath ?? '';
+    final processPath = mcpProcessEnvironmentPath;
+    final shellPath = mcpCachedLoginEnvironmentPath;
     final emptyPathText = openHandAmbientText(
       zh: '(空)',
       zhHant: '(空)',

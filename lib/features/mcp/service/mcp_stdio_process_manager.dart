@@ -4,7 +4,6 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 
-import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
@@ -16,9 +15,9 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../model/mcp_server.dart';
-import 'mcp_node_package_resolver.dart';
 import 'mcp_stdio_cache.dart';
 import 'mcp_stdio_io_utils.dart';
+import 'mcp_stdio_launch_resolver.dart';
 import 'mcp_tool_discovery_exception.dart';
 
 const int _jsonRpcMalformedLinePreviewChars = 200;
@@ -192,12 +191,10 @@ class McpStdioProcessManager extends ChangeNotifier {
     try {
       // 解析实际的可执行文件和参数。对于 npx 命令，尝试直接定位已安装包的
       // 入口脚本并用 node 执行，避免 npx 的启动开销和标准输入转发问题。
-      final launch = await _resolveDirectLaunch(server);
+      final launch = await resolveMcpStdioLaunch(server);
       if (!_isCurrentStart(name, generation)) {
         return;
       }
-      final runtimeEnvironment = await mcpStdioIsolatedCacheEnv();
-      if (!_isCurrentStart(name, generation)) return;
       // npx -y / uvx 等首次拉包 + 后续 MCP 服务运行期出站都依赖同一套
       // 代理环境。把 SystemProxyResolver 解析出的 HTTP(S)/SOCKS 端点注
       // 入子进程，否则在企业代理 / 内网透明代理环境下会 TCP 握手超时。
@@ -209,7 +206,7 @@ class McpStdioProcessManager extends ChangeNotifier {
         startInNewProcessGroup: true,
         environment: <String, String>{
           ...SystemProxyResolver.instance.resolveSubprocessEnvironment(),
-          ...runtimeEnvironment,
+          ...launch.environment,
           ...server.environment,
         },
         runInShell: launch.runInShell,
@@ -1437,116 +1434,4 @@ String _serverFingerprint(McpServer server) {
       for (final key in environmentKeys) key: server.environment[key]!,
     },
   });
-}
-
-class _DirectLaunch {
-  const _DirectLaunch({
-    required this.executable,
-    required this.args,
-    this.runInShell = false,
-  });
-
-  final String executable;
-  final List<String> args;
-  final bool runInShell;
-}
-
-/// 解析 STDIO MCP 服务的直接启动参数。
-/// 对于 npx 命令，尝试定位已全局安装的包入口脚本，直接用 node 执行。
-/// 这避免了 npx 的启动开销、下载延迟以及登录 Shell 的标准输入转发问题。
-/// 兼容用户把整条命令粘进 command 字段的情况（如 "npx chrome-devtools-mcp@latest"）。
-Future<_DirectLaunch> _resolveDirectLaunch(McpServer server) async {
-  final command = server.command.trim();
-  // 拆词：兼容 command="npx pkg@latest" 的写法。
-  final tokens = tokenizeMcpShellCommand(command);
-  if (tokens.isEmpty) {
-    throw const FormatException('MCP stdio 启动命令不能为空。');
-  }
-  final executable = tokens.first;
-  final inlineArgs = tokens.length > 1 ? tokens.sublist(1) : const <String>[];
-  final allArgs = [...inlineArgs, ...server.args];
-
-  final isNpx = isMcpNpxCommand(executable);
-
-  final packageArgIndex = isNpx ? firstMcpNpxPackageArgIndex(allArgs) : -1;
-  if (isNpx && packageArgIndex >= 0) {
-    final packageName = allArgs[packageArgIndex].trim();
-    final extraArgs = packageArgIndex + 1 < allArgs.length
-        ? allArgs.sublist(packageArgIndex + 1)
-        : const <String>[];
-
-    // 优先在受支持的本地 Node 版本管理器中定位已安装包。
-    final resolved = Platform.isWindows
-        ? null
-        : await _resolveNpxPackagePath(packageName);
-    if (resolved != null) {
-      return _DirectLaunch(
-        executable: resolved.nodeBin,
-        args: [resolved.entryScript, ...extraArgs],
-      );
-    }
-  }
-
-  if (Platform.isWindows) {
-    return _DirectLaunch(
-      executable: executable,
-      args: allArgs,
-      runInShell: true,
-    );
-  }
-
-  // 回退：通过登录 Shell 执行原始命令。
-  final shell = await resolveMcpLoginShell();
-  // 使用 exec 替换 Shell 进程，确保标准输入直接连接到目标进程。
-  return _DirectLaunch(
-    executable: shell,
-    args: <String>[
-      '-lc',
-      'exec ${quoteMcpShellToken(executable)} "\$@"',
-      '_',
-      ...allArgs,
-    ],
-  );
-}
-
-/// 通过多种策略定位 npx 包的实际安装路径和入口脚本。
-Future<McpNodePackageResolution?> _resolveNpxPackagePath(
-  String packageName,
-) async {
-  final cleanName = normalizeMcpNodePackageName(packageName);
-  if (cleanName == null) return null;
-  final home = OpenHandPaths.environmentHomeDirectoryPath();
-  final installed = await resolveInstalledMcpNodePackage(
-    cleanName,
-    homeDirectory: home,
-  );
-  if (installed != null) return installed;
-
-  // 通过登录 Shell 查询包管理器的动态全局目录。
-  try {
-    final shell = await resolveMcpLoginShell();
-    final result = await runTrackedProcessOrFailed(
-      shell,
-      ['-l', '-c', 'which node && npm root -g'],
-      timeout: const Duration(seconds: 8),
-      tag: 'mcp_stdio.login_shell_probe',
-    );
-    if (result.exitCode == 0) {
-      final lines = result.stdout.toString().trim().split('\n');
-      if (lines.length >= 2) {
-        final nodeBin = lines[0].trim();
-        final globalRoot = lines[1].trim();
-        if (nodeBin.isNotEmpty && globalRoot.isNotEmpty) {
-          return resolveMcpNodePackageCandidate(
-            nodeBin: nodeBin,
-            packageDirectory: '$globalRoot/$cleanName',
-          );
-        }
-      }
-    }
-  } catch (error, stack) {
-    silentLog('mcp_stdio_process_manager', '登录 Shell 包探测', error, stack);
-  }
-
-  return null;
 }
