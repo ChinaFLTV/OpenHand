@@ -550,9 +550,7 @@ class _PluginCard extends StatelessWidget {
             icon: const Icon(Icons.download_rounded, size: 18),
           ),
         // 更新
-        if (plugin.isInstalled &&
-            (plugin.hasUpdate || managedRuntime) &&
-            plugin.supportsInstall)
+        if (plugin.isInstalled && plugin.hasUpdate && plugin.supportsInstall)
           IconButton.filledTonal(
             tooltip: l10n.pluginServiceActionUpdate,
             onPressed: isBusy ? null : () => _doUpdate(context),
@@ -1205,6 +1203,15 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
     'npm_global_root',
     'docker_root_dir',
   };
+  static const _internalMetadataKeys = <String>{
+    'image_version',
+    'image_manifest_digest',
+    'local_image_digest',
+    'remote_image_digest',
+    'remote_platform_image_digest',
+    'image_update_available',
+    'update_check_error',
+  };
 
   @override
   void initState() {
@@ -1297,7 +1304,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
       }
       for (final entry in metadata.entries) {
         final key = entry.key.trim();
-        if (key.isEmpty) continue;
+        if (key.isEmpty || _internalMetadataKeys.contains(key)) continue;
         final value = entry.value;
         if (value == null) continue;
         final text = value is Iterable

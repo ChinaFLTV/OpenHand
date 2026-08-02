@@ -17,6 +17,34 @@ import 'managed_service_defaults.dart';
 import 'plugin_environment_probe.dart';
 import 'plugin_toolchain_shell.dart';
 
+const String _dockerImageVersionLabel = 'org.opencontainers.image.version';
+
+String? _dockerImageVersionFromConfig(
+  Map<String, Object?> config, {
+  String? environmentKey,
+}) {
+  final labels = stringKeyedMapFromValue(config['Labels']);
+  final labeledVersion = nullIfBlank(
+    '${labels[_dockerImageVersionLabel] ?? ''}',
+  );
+  if (labeledVersion != null) return labeledVersion;
+  if (environmentKey == null) return null;
+  final environment = config['Env'];
+  if (environment is! Iterable) return null;
+  final prefix = '$environmentKey=';
+  for (final entry in environment) {
+    final value = '$entry';
+    if (value.startsWith(prefix)) {
+      return nullIfBlank(value.substring(prefix.length));
+    }
+  }
+  return null;
+}
+
+Map<String, Object?> _dockerManifestDescriptor(Map<String, Object?> inspect) {
+  return stringKeyedMapFromValue(inspect['ImageManifestDescriptor']);
+}
+
 Map<String, Object?>? _qdrantInspectMetadataFromDecoded(Object? decoded) {
   if (decoded is! List || decoded.isEmpty || decoded.first is! Map) {
     return null;
@@ -28,12 +56,15 @@ Map<String, Object?>? _qdrantInspectMetadataFromDecoded(Object? decoded) {
   final networkSettings = stringKeyedMapFromValue(inspect['NetworkSettings']);
   final hostConfig = stringKeyedMapFromValue(inspect['HostConfig']);
   final labels = stringKeyedMapFromValue(config['Labels']);
+  final descriptor = _dockerManifestDescriptor(inspect);
+  final platform = stringKeyedMapFromValue(descriptor['platform']);
   final openHandManaged =
       boolFromValue(labels['openhand.managed']) ||
       boolFromValue(labels['com.openhand.managed']);
   final image = '${config['Image'] ?? ''}'.trim();
 
   return <String, Object?>{
+    'runtime_managed': true,
     'docker_daemon_running': true,
     'openhand_managed': openHandManaged,
     'container_id': '${inspect['Id'] ?? ''}'.trim(),
@@ -46,6 +77,10 @@ Map<String, Object?>? _qdrantInspectMetadataFromDecoded(Object? decoded) {
     'exit_code': optionalNonNegativeIntFromValue(state['ExitCode']),
     'image': image,
     'image_id': '${inspect['Image'] ?? ''}'.trim(),
+    'image_version': _dockerImageVersionFromConfig(config),
+    'image_manifest_digest': '${descriptor['digest'] ?? ''}'.trim(),
+    'image_os': '${platform['os'] ?? inspect['Platform'] ?? ''}'.trim(),
+    'image_architecture': '${platform['architecture'] ?? ''}'.trim(),
     'ports': PluginScannerService._formatDockerPorts(networkSettings['Ports']),
     'restart_policy': PluginScannerService._formatRestartPolicy(
       hostConfig['RestartPolicy'],
@@ -63,6 +98,7 @@ Map<String, Object?>? _managedDatabaseMetadataFromDecoded(
   required String containerName,
   required String endpoint,
   required String dataDestination,
+  required String versionEnvironmentKey,
 }) {
   if (decoded is! List || decoded.isEmpty || decoded.first is! Map) {
     return null;
@@ -73,6 +109,8 @@ Map<String, Object?>? _managedDatabaseMetadataFromDecoded(
   final networkSettings = stringKeyedMapFromValue(inspect['NetworkSettings']);
   final hostConfig = stringKeyedMapFromValue(inspect['HostConfig']);
   final labels = stringKeyedMapFromValue(config['Labels']);
+  final descriptor = _dockerManifestDescriptor(inspect);
+  final platform = stringKeyedMapFromValue(descriptor['platform']);
   final running = boolFromValue(state['Running']);
   return <String, Object?>{
     'runtime_managed': true,
@@ -91,6 +129,13 @@ Map<String, Object?>? _managedDatabaseMetadataFromDecoded(
     'exit_code': optionalNonNegativeIntFromValue(state['ExitCode']),
     'image': '${config['Image'] ?? ''}'.trim(),
     'image_id': '${inspect['Image'] ?? ''}'.trim(),
+    'image_version': _dockerImageVersionFromConfig(
+      config,
+      environmentKey: versionEnvironmentKey,
+    ),
+    'image_manifest_digest': '${descriptor['digest'] ?? ''}'.trim(),
+    'image_os': '${platform['os'] ?? inspect['Platform'] ?? ''}'.trim(),
+    'image_architecture': '${platform['architecture'] ?? ''}'.trim(),
     'ports': PluginScannerService._formatDockerPorts(networkSettings['Ports']),
     'restart_policy': PluginScannerService._formatRestartPolicy(
       hostConfig['RestartPolicy'],
@@ -111,9 +156,10 @@ class PluginScannerService {
   static const String hermesAgentPackageName = 'hermes-agent';
   static const String hermesAgentCommand = 'hermes-agent';
   static const String hermesAgentAltCommand = 'hermes';
-  static const String qdrantContainerName = 'openhand-qdrant';
-  static const int qdrantRestPort = 6333;
-  static const int qdrantGrpcPort = 6334;
+  static const String qdrantContainerName =
+      ManagedServiceDefaults.qdrantContainerName;
+  static const int qdrantRestPort = ManagedServiceDefaults.qdrantRestPort;
+  static const int qdrantGrpcPort = ManagedServiceDefaults.qdrantGrpcPort;
   static const int _maxConcurrentScans = 4;
   static const int _nvmAliasMaxBytes = 4 * 1024;
   static final RegExp _nvmMajorAliasPattern = RegExp(r'^v?\d+$');
@@ -485,6 +531,167 @@ class PluginScannerService {
 
   static String _shellQuote(String value) {
     return pluginToolchainShellQuote(value);
+  }
+
+  Future<_ContainerImageUpdateState> _scanContainerImageUpdate({
+    required Map<String, Object?> metadata,
+    String? versionEnvironmentKey,
+  }) async {
+    final image = nullIfBlank('${metadata['image'] ?? ''}');
+    final containerImageId = nullIfBlank('${metadata['image_id'] ?? ''}');
+    final containerManifestDigest = nullIfBlank(
+      '${metadata['image_manifest_digest'] ?? ''}',
+    );
+    final currentVersion = nullIfBlank('${metadata['image_version'] ?? ''}');
+    if (image == null) {
+      return _ContainerImageUpdateState(
+        installedVersion: currentVersion,
+        metadata: const <String, Object?>{
+          'update_check_error': '容器镜像名称为空，无法检查更新。',
+        },
+      );
+    }
+
+    Map<String, Object?> localImage = const <String, Object?>{};
+    final localResult = await _shellRun(
+      'docker image inspect ${_shellQuote(image)}',
+    );
+    if (localResult.exitCode == 0) {
+      final decoded = _decodeOptionalJson(localResult.stdout.toString());
+      if (decoded is List && decoded.isNotEmpty && decoded.first is Map) {
+        localImage = stringKeyedMapFromValue(decoded.first);
+      }
+    }
+    final localImageId = nullIfBlank('${localImage['Id'] ?? ''}');
+    final localDescriptor = stringKeyedMapFromValue(localImage['Descriptor']);
+    var localDigest = nullIfBlank('${localDescriptor['digest'] ?? ''}');
+    final repoDigests = localImage['RepoDigests'];
+    if (localDigest == null && repoDigests is Iterable) {
+      for (final entry in repoDigests) {
+        final value = '$entry';
+        final separator = value.lastIndexOf('@');
+        if (separator < 0) continue;
+        localDigest = nullIfBlank(value.substring(separator + 1));
+        if (localDigest != null) break;
+      }
+    }
+    final localConfig = stringKeyedMapFromValue(localImage['Config']);
+    final localVersion = _dockerImageVersionFromConfig(
+      localConfig,
+      environmentKey: versionEnvironmentKey,
+    );
+    final imageOs = nullIfBlank(
+      '${localImage['Os'] ?? metadata['image_os'] ?? ''}',
+    );
+    final imageArchitecture = nullIfBlank(
+      '${localImage['Architecture'] ?? metadata['image_architecture'] ?? ''}',
+    );
+    final platform = imageOs != null && imageArchitecture != null
+        ? '$imageOs/$imageArchitecture'
+        : null;
+
+    String? remoteDigest;
+    String? remotePlatformDigest;
+    String? remoteVersion;
+    if (platform != null &&
+        RegExp(r'^[a-zA-Z0-9_.-]+/[a-zA-Z0-9_.-]+$').hasMatch(platform)) {
+      final format =
+          '{"digest":{{json .Manifest.Digest}},'
+          '"config":{{json (index .Image "$platform").Config}}}';
+      final remoteResult = await _shellRun(
+        'docker buildx imagetools inspect ${_shellQuote(image)} '
+        '--format ${_shellQuote(format)}',
+      );
+      if (remoteResult.exitCode == 0) {
+        final decoded = _decodeOptionalJson(remoteResult.stdout.toString());
+        if (decoded is Map) {
+          final remote = stringKeyedMapFromValue(decoded);
+          remoteDigest = nullIfBlank('${remote['digest'] ?? ''}');
+          remoteVersion = _dockerImageVersionFromConfig(
+            stringKeyedMapFromValue(remote['config']),
+            environmentKey: versionEnvironmentKey,
+          );
+        }
+      }
+    }
+
+    if ((remoteDigest == null || localDigest == null) && platform != null) {
+      final manifestResult = await _shellRun(
+        'docker manifest inspect ${_shellQuote(image)}',
+      );
+      final decoded = manifestResult.exitCode == 0
+          ? _decodeOptionalJson(manifestResult.stdout.toString())
+          : null;
+      final manifest = decoded is Map
+          ? stringKeyedMapFromValue(decoded)
+          : const <String, Object?>{};
+      final manifests = manifest['manifests'];
+      if (manifests is Iterable) {
+        for (final entry in manifests) {
+          if (entry is! Map) continue;
+          final descriptor = stringKeyedMapFromValue(entry);
+          final remotePlatform = stringKeyedMapFromValue(
+            descriptor['platform'],
+          );
+          if ('${remotePlatform['os'] ?? ''}' == imageOs &&
+              '${remotePlatform['architecture'] ?? ''}' == imageArchitecture) {
+            remotePlatformDigest = nullIfBlank('${descriptor['digest'] ?? ''}');
+            final annotations = stringKeyedMapFromValue(
+              descriptor['annotations'],
+            );
+            remoteVersion ??= nullIfBlank(
+              '${annotations[_dockerImageVersionLabel] ?? ''}',
+            );
+            break;
+          }
+        }
+      }
+    }
+
+    final containerBehindLocal =
+        containerImageId != null &&
+        localImageId != null &&
+        containerImageId != localImageId;
+    final remoteComparisonKnown =
+        remoteDigest != null && localDigest != null ||
+        remotePlatformDigest != null && containerManifestDigest != null;
+    final remoteChanged =
+        remoteDigest != null &&
+            localDigest != null &&
+            remoteDigest != localDigest ||
+        remotePlatformDigest != null &&
+            containerManifestDigest != null &&
+            remotePlatformDigest != containerManifestDigest;
+    final updateAvailable = containerBehindLocal || remoteChanged
+        ? true
+        : remoteComparisonKnown
+        ? false
+        : null;
+    final targetDigest = remoteDigest ?? remotePlatformDigest ?? localDigest;
+    final digestLabel = targetDigest == null
+        ? null
+        : targetDigest.length > 19
+        ? targetDigest.substring(0, 19)
+        : targetDigest;
+
+    return _ContainerImageUpdateState(
+      installedVersion: currentVersion ?? localVersion,
+      latestVersion:
+          remoteVersion ??
+          (updateAvailable == true
+              ? localVersion ?? digestLabel ?? image
+              : null),
+      updateAvailable: updateAvailable,
+      metadata: <String, Object?>{
+        if (localDigest != null) 'local_image_digest': localDigest,
+        if (remoteDigest != null) 'remote_image_digest': remoteDigest,
+        if (remotePlatformDigest != null)
+          'remote_platform_image_digest': remotePlatformDigest,
+        if (updateAvailable != null) 'image_update_available': updateAvailable,
+        if (updateAvailable == null)
+          'update_check_error': '无法获取 $image 的远端镜像摘要。',
+      },
+    );
   }
 
   static String? _extractJavaVersion(String output) {
@@ -1192,7 +1399,7 @@ class PluginScannerService {
       final imageVersion = image.contains(':') ? image.split(':').last : null;
       final installedVersion = qdrantVersion?.isNotEmpty == true
           ? qdrantVersion
-          : imageVersion;
+          : nullIfBlank('${metadata['image_version'] ?? ''}') ?? imageVersion;
       if (!openHandManaged) {
         return PluginInfo(
           id: PluginCatalogIds.qdrant,
@@ -1205,24 +1412,17 @@ class PluginScannerService {
           errorMessage: '检测到同名 Qdrant 容器，但缺少 OpenHand 管理标记。',
         );
       }
-      if (!running) {
-        return PluginInfo(
-          id: PluginCatalogIds.qdrant,
-          name: 'Qdrant',
-          description: '本地向量数据库，用于知识库 embedding 向量索引与检索',
-          status: PluginStatus.error,
-          installedVersion: installedVersion,
-          dependencies: const <String>[PluginCatalogIds.docker],
-          metadata: metadata,
-          errorMessage: 'OpenHand Qdrant 容器已存在但未运行。',
-        );
-      }
+      final imageUpdate = await _scanContainerImageUpdate(metadata: metadata);
+      metadata.addAll(imageUpdate.metadata);
       return PluginInfo(
         id: PluginCatalogIds.qdrant,
         name: 'Qdrant',
         description: '本地向量数据库，用于知识库 embedding 向量索引与检索',
         status: PluginStatus.installed,
-        installedVersion: installedVersion,
+        enabled: running,
+        installedVersion: installedVersion ?? imageUpdate.installedVersion,
+        latestVersion: imageUpdate.latestVersion,
+        updateAvailable: imageUpdate.updateAvailable,
         installPath: '${metadata['data_directory'] ?? ''}'.trim().isEmpty
             ? null
             : '${metadata['data_directory']}',
@@ -1245,6 +1445,7 @@ class PluginScannerService {
       dataDestination: ManagedServiceDefaults.postgresqlDataDestination,
       cliCommand: 'psql',
       versionCommand: 'psql --version',
+      versionEnvironmentKey: 'PG_VERSION',
       readinessCommand:
           'pg_isready -h 127.0.0.1 -p ${ManagedServiceDefaults.postgresqlPort} 2>/dev/null',
       fallback: _postgresqlNotInstalled,
@@ -1261,6 +1462,7 @@ class PluginScannerService {
       dataDestination: ManagedServiceDefaults.redisDataDestination,
       cliCommand: 'redis-cli',
       versionCommand: 'redis-cli --version',
+      versionEnvironmentKey: 'REDIS_VERSION',
       readinessCommand:
           'redis-cli -h 127.0.0.1 -p ${ManagedServiceDefaults.redisPort} ping 2>/dev/null',
       expectedReadinessOutput: 'PONG',
@@ -1277,6 +1479,7 @@ class PluginScannerService {
     required String dataDestination,
     required String cliCommand,
     required String versionCommand,
+    required String versionEnvironmentKey,
     required String readinessCommand,
     required PluginInfo fallback,
     String? expectedReadinessOutput,
@@ -1298,6 +1501,7 @@ class PluginScannerService {
               containerName: containerName,
               endpoint: endpoint,
               dataDestination: dataDestination,
+              versionEnvironmentKey: versionEnvironmentKey,
             );
             if (metadata == null) {
               return fallback.copyWith(
@@ -1306,7 +1510,7 @@ class PluginScannerService {
               );
             }
             final image = '${metadata['image'] ?? ''}'.trim();
-            final installedVersion = image.contains(':')
+            var installedVersion = image.contains(':')
                 ? image.split(':').last
                 : null;
             if (metadata['openhand_managed'] != true) {
@@ -1326,6 +1530,12 @@ class PluginScannerService {
                 errorMessage: '检测到同名 $name 容器，但缺少 OpenHand 管理标记。',
               );
             }
+            final imageUpdate = await _scanContainerImageUpdate(
+              metadata: metadata,
+              versionEnvironmentKey: versionEnvironmentKey,
+            );
+            metadata.addAll(imageUpdate.metadata);
+            installedVersion = imageUpdate.installedVersion ?? installedVersion;
             final running = metadata['running'] == true;
             final dataDirectory = '${metadata['data_directory'] ?? ''}'.trim();
             return PluginInfo(
@@ -1335,6 +1545,8 @@ class PluginScannerService {
               status: PluginStatus.installed,
               enabled: running,
               installedVersion: installedVersion,
+              latestVersion: imageUpdate.latestVersion,
+              updateAvailable: imageUpdate.updateAvailable,
               installPath: dataDirectory.isEmpty ? null : dataDirectory,
               dependencies: const <String>[PluginCatalogIds.docker],
               metadata: metadata,
@@ -1719,9 +1931,11 @@ class PluginScannerService {
       ],
     );
     final updatedDocker = docker.copyWith(
-      dependents: qdrant.isInstalled
-          ? const <String>[PluginCatalogIds.qdrant]
-          : const <String>[],
+      dependents: <String>[
+        if (qdrant.isInstalled) PluginCatalogIds.qdrant,
+        if (postgresql.isInstalled) PluginCatalogIds.postgresql,
+        if (redis.isInstalled) PluginCatalogIds.redis,
+      ],
     );
     final updatedJava = java.copyWith(
       dependents: <String>[
@@ -1754,6 +1968,20 @@ class PluginScannerService {
 }
 
 enum _PythonRuntimeSource { pyenv, homebrew, system, unknown }
+
+class _ContainerImageUpdateState {
+  const _ContainerImageUpdateState({
+    required this.installedVersion,
+    required this.metadata,
+    this.latestVersion,
+    this.updateAvailable,
+  });
+
+  final String? installedVersion;
+  final String? latestVersion;
+  final bool? updateAvailable;
+  final Map<String, Object?> metadata;
+}
 
 class _PythonRuntimeScan {
   const _PythonRuntimeScan({

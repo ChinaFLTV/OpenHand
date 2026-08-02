@@ -82,23 +82,25 @@ class KnowledgeDependencyService {
         messageJa: message.ja,
       );
     }
-    if (qdrant?.isInstalled != true) {
+    final qdrantInstalled = qdrant?.isInstalled == true;
+    if (!qdrantInstalled || qdrant?.enabled != true) {
       final hasError = qdrant?.status == PluginStatus.error;
       final rawError = qdrant?.errorMessage?.trim();
+      final unavailable = qdrantInstalled || hasError;
       final message = _DependencyMessage(
         rawError: hasError ? rawError : null,
-        zh: hasError ? 'Qdrant 容器未运行。' : 'Qdrant 未安装。请在插件板块安装 Qdrant。',
-        zhHant: hasError ? 'Qdrant 容器未執行。' : 'Qdrant 未安裝。請在外掛板塊安裝 Qdrant。',
-        en: hasError
+        zh: unavailable ? 'Qdrant 容器未运行。' : 'Qdrant 未安装。请在插件板块安装 Qdrant。',
+        zhHant: unavailable ? 'Qdrant 容器未執行。' : 'Qdrant 未安裝。請在外掛板塊安裝 Qdrant。',
+        en: unavailable
             ? 'Qdrant container is not running.'
             : 'Qdrant is not installed. Install Qdrant in Plugins.',
-        fr: hasError
+        fr: unavailable
             ? 'Le conteneur Qdrant n’est pas en cours d’exécution.'
             : 'Qdrant n’est pas installé. Installez Qdrant dans Plugins.',
-        de: hasError
+        de: unavailable
             ? 'Der Qdrant-Container läuft nicht.'
             : 'Qdrant ist nicht installiert. Installieren Sie Qdrant unter Plugins.',
-        ja: hasError
+        ja: unavailable
             ? 'Qdrant コンテナが実行されていません。'
             : 'Qdrant がインストールされていません。プラグインで Qdrant をインストールしてください。',
       );

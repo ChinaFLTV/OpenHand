@@ -690,10 +690,11 @@ class PluginLifecycleService {
   /// Docker Desktop：安装包体量最大，单独给最长预算。
   static const Duration _dockerDesktopTimeout = Duration(minutes: 15);
 
-  static const String _qdrantContainerName = 'openhand-qdrant';
-  static const String _qdrantImage = 'qdrant/qdrant:latest';
-  static const int _qdrantRestPort = 6333;
-  static const int _qdrantGrpcPort = 6334;
+  static const String _qdrantContainerName =
+      ManagedServiceDefaults.qdrantContainerName;
+  static const String _qdrantImage = ManagedServiceDefaults.qdrantImage;
+  static const int _qdrantRestPort = ManagedServiceDefaults.qdrantRestPort;
+  static const int _qdrantGrpcPort = ManagedServiceDefaults.qdrantGrpcPort;
 
   static Map<String, String> _npmGlobalPackageEnv({String? tlsBundle}) {
     final proxy = pluginProxyEnvironment();
@@ -3180,12 +3181,12 @@ ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: 
     final script =
         '''
 set -euo pipefail
+docker pull ${_pluginShellQuote(_qdrantImage)}
 ${_qdrantManagedContainerGuard()}
   docker stop ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
   docker rm ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
 fi
 mkdir -p ${_pluginShellQuote(dataDir)}
-docker pull ${_pluginShellQuote(_qdrantImage)}
 ${_qdrantDockerRunCommand(dataDir, indent: 0)}
 ${_qdrantHealthWaitScript()}
 ''';
@@ -3267,6 +3268,7 @@ ${_qdrantHealthWaitScript()}
     final script =
         '''
 set -euo pipefail
+docker pull ${_pluginShellQuote(image)}
 ${_managedDatabaseGuard(containerName)}
 if ! docker inspect $name >/dev/null 2>&1; then
   echo "未找到 OpenHand 托管的 $label 容器" >&2
@@ -3275,7 +3277,6 @@ fi
 docker stop $name >/dev/null || true
 docker rm $name >/dev/null || true
 mkdir -p ${_pluginShellQuote(dataDir)}
-docker pull ${_pluginShellQuote(image)}
 ${_managedDatabaseRunCommand(containerName: containerName, image: image, port: port, dataDir: dataDir, dataDestination: dataDestination, dockerArguments: dockerArguments, containerArguments: containerArguments)}
 ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: healthCommand, label: label)}
 ''';
@@ -3609,52 +3610,88 @@ echo "已保留 Qdrant 数据目录：${_pluginShellQuote(dataDir)}"
     );
   }
 
+  Future<PluginOperationResult> startQdrant({
+    void Function(String line)? onProgress,
+  }) => _setManagedContainerRunning(
+    label: 'Qdrant',
+    containerName: _qdrantContainerName,
+    healthWaitScript: _qdrantHealthWaitScript(),
+    running: true,
+    onProgress: onProgress,
+  );
+
+  Future<PluginOperationResult> stopQdrant({
+    void Function(String line)? onProgress,
+  }) => _setManagedContainerRunning(
+    label: 'Qdrant',
+    containerName: _qdrantContainerName,
+    healthWaitScript: _qdrantHealthWaitScript(),
+    running: false,
+    onProgress: onProgress,
+  );
+
   Future<PluginOperationResult> startPostgresql({
     void Function(String line)? onProgress,
-  }) => _setManagedDatabaseRunning(
+  }) => _setManagedContainerRunning(
     label: 'PostgreSQL',
     containerName: ManagedServiceDefaults.postgresqlContainerName,
-    healthCommand:
-        'pg_isready -U ${ManagedServiceDefaults.postgresqlUser} -d ${ManagedServiceDefaults.postgresqlDatabase}',
+    healthWaitScript: _managedDatabaseHealthWaitScript(
+      containerName: ManagedServiceDefaults.postgresqlContainerName,
+      healthCommand:
+          'pg_isready -U ${ManagedServiceDefaults.postgresqlUser} -d ${ManagedServiceDefaults.postgresqlDatabase}',
+      label: 'PostgreSQL',
+    ),
     running: true,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> stopPostgresql({
     void Function(String line)? onProgress,
-  }) => _setManagedDatabaseRunning(
+  }) => _setManagedContainerRunning(
     label: 'PostgreSQL',
     containerName: ManagedServiceDefaults.postgresqlContainerName,
-    healthCommand:
-        'pg_isready -U ${ManagedServiceDefaults.postgresqlUser} -d ${ManagedServiceDefaults.postgresqlDatabase}',
+    healthWaitScript: _managedDatabaseHealthWaitScript(
+      containerName: ManagedServiceDefaults.postgresqlContainerName,
+      healthCommand:
+          'pg_isready -U ${ManagedServiceDefaults.postgresqlUser} -d ${ManagedServiceDefaults.postgresqlDatabase}',
+      label: 'PostgreSQL',
+    ),
     running: false,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> startRedis({
     void Function(String line)? onProgress,
-  }) => _setManagedDatabaseRunning(
+  }) => _setManagedContainerRunning(
     label: 'Redis',
     containerName: ManagedServiceDefaults.redisContainerName,
-    healthCommand: 'redis-cli ping',
+    healthWaitScript: _managedDatabaseHealthWaitScript(
+      containerName: ManagedServiceDefaults.redisContainerName,
+      healthCommand: 'redis-cli ping',
+      label: 'Redis',
+    ),
     running: true,
     onProgress: onProgress,
   );
 
   Future<PluginOperationResult> stopRedis({
     void Function(String line)? onProgress,
-  }) => _setManagedDatabaseRunning(
+  }) => _setManagedContainerRunning(
     label: 'Redis',
     containerName: ManagedServiceDefaults.redisContainerName,
-    healthCommand: 'redis-cli ping',
+    healthWaitScript: _managedDatabaseHealthWaitScript(
+      containerName: ManagedServiceDefaults.redisContainerName,
+      healthCommand: 'redis-cli ping',
+      label: 'Redis',
+    ),
     running: false,
     onProgress: onProgress,
   );
 
-  Future<PluginOperationResult> _setManagedDatabaseRunning({
+  Future<PluginOperationResult> _setManagedContainerRunning({
     required String label,
     required String containerName,
-    required String healthCommand,
+    required String healthWaitScript,
     required bool running,
     void Function(String line)? onProgress,
   }) async {
@@ -3675,7 +3712,7 @@ if ! docker inspect $name >/dev/null 2>&1; then
   exit 2
 fi
 docker ${running ? 'start' : 'stop'} $name >/dev/null
-${running ? _managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: healthCommand, label: label) : 'echo "$label 已停止"'}
+${running ? healthWaitScript : 'echo "$label 已停止"'}
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),

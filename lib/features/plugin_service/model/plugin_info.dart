@@ -79,6 +79,7 @@ class PluginInfo {
     this.enabled = true,
     this.installedVersion,
     this.latestVersion,
+    this.updateAvailable,
     this.installPath,
     this.dependencies = const [],
     this.dependents = const [],
@@ -109,6 +110,9 @@ class PluginInfo {
   /// 可用最新版本
   final String? latestVersion;
 
+  /// 显式更新判定。容器镜像等可变标签无法仅凭版本文本比较。
+  final bool? updateAvailable;
+
   /// 安装路径
   final String? installPath;
 
@@ -137,9 +141,10 @@ class PluginInfo {
       status == PluginStatus.uninstalling;
   bool get hasUpdate =>
       isInstalled &&
-      latestVersion != null &&
-      installedVersion != null &&
-      compareSemanticVersions(latestVersion!, installedVersion!) > 0;
+      (updateAvailable ??
+          (latestVersion != null &&
+              installedVersion != null &&
+              compareSemanticVersions(latestVersion!, installedVersion!) > 0));
 
   PluginInfo copyWith({
     String? id,
@@ -149,6 +154,7 @@ class PluginInfo {
     bool? enabled,
     String? installedVersion,
     String? latestVersion,
+    bool? updateAvailable,
     String? installPath,
     List<String>? dependencies,
     List<String>? dependents,
@@ -166,6 +172,7 @@ class PluginInfo {
       enabled: enabled ?? this.enabled,
       installedVersion: installedVersion ?? this.installedVersion,
       latestVersion: latestVersion ?? this.latestVersion,
+      updateAvailable: updateAvailable ?? this.updateAvailable,
       installPath: installPath ?? this.installPath,
       dependencies: dependencies ?? this.dependencies,
       dependents: dependents ?? this.dependents,

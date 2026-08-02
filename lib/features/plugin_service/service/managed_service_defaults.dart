@@ -5,6 +5,11 @@
 class ManagedServiceDefaults {
   const ManagedServiceDefaults._();
 
+  static const String qdrantContainerName = 'openhand-qdrant';
+  static const String qdrantImage = 'qdrant/qdrant:latest';
+  static const int qdrantRestPort = 6333;
+  static const int qdrantGrpcPort = 6334;
+
   static const String postgresqlContainerName = 'openhand-postgresql';
   static const String postgresqlImage = 'postgres:16-alpine';
   static const int postgresqlPort = 5432;

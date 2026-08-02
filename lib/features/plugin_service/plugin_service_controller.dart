@@ -3,6 +3,7 @@ import 'package:flutter/foundation.dart';
 import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_log_buffer.dart';
+import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/version_compare.dart';
 import 'model/plugin_info.dart';
@@ -189,12 +190,21 @@ class PluginServiceController extends ManagedChangeNotifier {
               ],
             )
           : refreshed;
+      final restored = _restoreRuntimeState(merged, plugin);
       _plugins = [
         for (final p in _plugins)
-          if (p.id == pluginId) merged.copyWith(enabled: p.enabled) else p,
+          if (p.id == pluginId) restored else p,
       ];
+      final updateCheckError = nullIfBlank(
+        '${restored.metadata['update_check_error'] ?? ''}',
+      );
+      if (updateCheckError != null) {
+        _errorMessage = updateCheckError;
+        notifyListeners();
+        return null;
+      }
       notifyListeners();
-      return merged;
+      return restored;
     } catch (e) {
       _errorMessage = '$e';
       notifyListeners();
@@ -293,6 +303,20 @@ class PluginServiceController extends ManagedChangeNotifier {
   Future<bool> updatePlugin(String pluginId) async {
     final plugin = pluginById(pluginId);
     if (plugin == null || !plugin.isInstalled) return false;
+    if (plugin.metadata['runtime_managed'] == true && !plugin.hasUpdate) {
+      _errorMessage =
+          nullIfBlank('${plugin.metadata['update_check_error'] ?? ''}') ??
+          _pluginServiceText(
+            zh: '${plugin.name} 已是最新版本',
+            zhHant: '${plugin.name} 已是最新版本',
+            en: '${plugin.name} is already up to date.',
+            fr: '${plugin.name} est déjà à jour.',
+            de: '${plugin.name} ist bereits auf dem neuesten Stand.',
+            ja: '${plugin.name} は最新バージョンです。',
+          );
+      notifyListeners();
+      return false;
+    }
     return _runPluginLifecycleOperation(
       pluginId: pluginId,
       transientStatus: PluginStatus.updating,
@@ -446,6 +470,10 @@ class PluginServiceController extends ManagedChangeNotifier {
       pluginId: pluginId,
       transientStatus: PluginStatus.updating,
       operation: () => switch (pluginId) {
+        PluginCatalogIds.qdrant =>
+          enabled
+              ? _lifecycle.startQdrant(onProgress: _addLog)
+              : _lifecycle.stopQdrant(onProgress: _addLog),
         PluginCatalogIds.postgresql =>
           enabled
               ? _lifecycle.startPostgresql(onProgress: _addLog)

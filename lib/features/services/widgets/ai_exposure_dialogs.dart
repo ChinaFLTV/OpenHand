@@ -2342,7 +2342,9 @@ class _ManagedDependencyTile extends StatelessWidget {
                             ? Icons.stop_circle_outlined
                             : Icons.play_circle_outline_rounded,
                       ),
-                    if (installed && plugin!.supportsInstall)
+                    if (installed &&
+                        plugin!.supportsInstall &&
+                        plugin!.hasUpdate)
                       actionButton(
                         _ManagedDependencyAction.update,
                         Icons.system_update_alt_rounded,
