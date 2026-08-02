@@ -3,19 +3,19 @@ import 'dart:async';
 import '../../../../shared/util/async_concurrency.dart';
 import 'web_engine_telemetry_store_base.dart';
 
-typedef WebEngineSemaphore = OpenHandAsyncSemaphore;
-
-/// 以 [parallelWorkers]（钳制到 1..engines.length）为并发上限并行执行
-/// [run]；结果顺序与 [engines] 一致。空列表直接返回，避免 clamp 抛错。
+/// 以 [parallelWorkers] 为期望并发度，由共享上限与 [engines] 长度共同约束；
+/// 结果顺序与 [engines] 一致，空列表直接返回。
 Future<List<R>> runWebEnginesWithLimit<E, R>(
   List<E> engines, {
   required int parallelWorkers,
   required Future<R> Function(E engine) run,
 }) {
   if (engines.isEmpty) return Future.value(<R>[]);
-  final concurrency = parallelWorkers.clamp(1, engines.length);
-  final semaphore = WebEngineSemaphore(concurrency);
-  return Future.wait(engines.map((e) => semaphore.withPermit(() => run(e))));
+  return runOrderedWithConcurrencyLimit<R>(
+    itemCount: engines.length,
+    maxConcurrency: parallelWorkers,
+    task: (index) => run(engines[index]),
+  );
 }
 
 const String webEngineSkippedDiagnosticPrefix = 'skipped: ';
