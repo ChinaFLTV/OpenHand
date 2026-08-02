@@ -1619,18 +1619,20 @@ class _ProxyPoolChartPanel extends StatelessWidget {
     required this.icon,
     required this.title,
     required this.child,
+    this.height = 118,
   });
 
   final IconData icon;
   final String title;
   final Widget child;
+  final double height;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return Container(
-      height: 118,
+      height: height,
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
@@ -1655,6 +1657,341 @@ class _ProxyPoolChartPanel extends StatelessWidget {
           const SizedBox(height: 6),
           Expanded(child: child),
         ],
+      ),
+    );
+  }
+}
+
+class _ProxyDetailTrendPoint {
+  const _ProxyDetailTrendPoint({
+    required this.at,
+    required this.value,
+    required this.status,
+    required this.detail,
+    required this.color,
+    required this.icon,
+  });
+
+  final DateTime at;
+  final int value;
+  final String status;
+  final String detail;
+  final Color color;
+  final IconData icon;
+}
+
+class _ProxyDetailTrendChart extends StatefulWidget {
+  const _ProxyDetailTrendChart({
+    required this.points,
+    required this.lineColor,
+    required this.emptyLabel,
+    required this.seriesLabel,
+  });
+
+  final List<_ProxyDetailTrendPoint> points;
+  final Color lineColor;
+  final String emptyLabel;
+  final String seriesLabel;
+
+  @override
+  State<_ProxyDetailTrendChart> createState() => _ProxyDetailTrendChartState();
+}
+
+class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
+  static const double _chartInset = 8;
+  static const double _bottomLabelHeight = 24;
+  static const double _tooltipWidth = 224;
+  int? _hoveredIndex;
+  int _lastHoveredIndex = 0;
+
+  void _updateHoveredPoint(PointerHoverEvent event, double width) {
+    if (widget.points.isEmpty || width <= _chartInset * 2) return;
+    final ratio =
+        ((event.localPosition.dx - _chartInset) / (width - _chartInset * 2))
+            .clamp(0.0, 1.0);
+    final index = (ratio * (widget.points.length - 1)).round();
+    if (index == _hoveredIndex) return;
+    setState(() {
+      _hoveredIndex = index;
+      _lastHoveredIndex = index;
+    });
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final points = widget.points;
+    final values = points
+        .map((point) => point.value.toDouble())
+        .toList(growable: false);
+    final hoveredIndex = _hoveredIndex == null || points.isEmpty
+        ? null
+        : _hoveredIndex!.clamp(0, points.length - 1);
+    final displayedIndex = points.isEmpty
+        ? null
+        : (hoveredIndex ?? _lastHoveredIndex.clamp(0, points.length - 1));
+    final hoveredPoint = hoveredIndex == null ? null : points[hoveredIndex];
+    final revision = points.isEmpty
+        ? 0
+        : Object.hash(
+            points.length,
+            points.last.at.microsecondsSinceEpoch,
+            points.last.value,
+          );
+    final maxValue = values.fold<double>(0, (max, value) {
+      return value > max ? value : max;
+    });
+    final normalizedMax = maxValue <= 1 ? 1.0 : maxValue * 1.14;
+
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final pointX = displayedIndex == null || points.length <= 1
+            ? _chartInset
+            : _chartInset +
+                  (constraints.maxWidth - _chartInset * 2) *
+                      displayedIndex /
+                      (points.length - 1);
+        final chartHeight = (constraints.maxHeight - _bottomLabelHeight).clamp(
+          0.0,
+          double.infinity,
+        );
+        final pointValue = displayedIndex == null
+            ? 0.0
+            : values[displayedIndex];
+        final pointY =
+            _chartInset +
+            chartHeight * (1 - (pointValue / normalizedMax).clamp(0.0, 1.0));
+        final tooltipWidth = constraints.maxWidth < _tooltipWidth
+            ? constraints.maxWidth
+            : _tooltipWidth;
+        final tooltipLeft = (pointX - tooltipWidth / 2).clamp(
+          0.0,
+          (constraints.maxWidth - tooltipWidth).clamp(0.0, double.infinity),
+        );
+        final motionDuration = openHandMotionDuration(
+          context,
+          const Duration(milliseconds: 190),
+        );
+
+        return MouseRegion(
+          cursor: points.isEmpty
+              ? MouseCursor.defer
+              : SystemMouseCursors.precise,
+          onHover: (event) => _updateHoveredPoint(event, constraints.maxWidth),
+          onExit: (_) {
+            if (_hoveredIndex != null) {
+              setState(() => _hoveredIndex = null);
+            }
+          },
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: TweenAnimationBuilder<double>(
+                  key: ValueKey<int>(revision),
+                  tween: Tween<double>(begin: 0, end: 1),
+                  duration: openHandMotionDuration(
+                    context,
+                    const Duration(milliseconds: 460),
+                  ),
+                  curve: Curves.easeOutCubic,
+                  builder: (context, progress, _) => CustomPaint(
+                    painter: OpenHandSmoothLineChartPainter(
+                      series: <OpenHandChartSeries>[
+                        OpenHandChartSeries(
+                          label: widget.seriesLabel,
+                          values: values
+                              .map((value) => value * progress)
+                              .toList(growable: false),
+                          color: widget.lineColor,
+                        ),
+                      ],
+                      gridColor: colors.outlineVariant.withValues(alpha: 0.55),
+                      labelColor: colors.onSurfaceVariant,
+                      emptyLabel: widget.emptyLabel,
+                      valueSuffix: ' ms',
+                      textDirection: Directionality.of(context),
+                    ),
+                    size: Size.infinite,
+                  ),
+                ),
+              ),
+              AnimatedPositioned(
+                duration: motionDuration,
+                curve: Curves.easeOutCubic,
+                left: pointX - 0.5,
+                top: _chartInset,
+                bottom: _bottomLabelHeight - _chartInset,
+                child: IgnorePointer(
+                  child: AnimatedOpacity(
+                    duration: motionDuration,
+                    opacity: hoveredPoint == null ? 0 : 1,
+                    child: Container(
+                      width: 1,
+                      color: widget.lineColor.withValues(alpha: 0.42),
+                    ),
+                  ),
+                ),
+              ),
+              AnimatedPositioned(
+                duration: motionDuration,
+                curve: Curves.easeOutCubic,
+                left: pointX - 4,
+                top: pointY - 4,
+                child: IgnorePointer(
+                  child: AnimatedScale(
+                    duration: motionDuration,
+                    curve: Curves.easeOutBack,
+                    scale: hoveredPoint == null ? 0 : 1,
+                    child: Container(
+                      width: 8,
+                      height: 8,
+                      decoration: BoxDecoration(
+                        color: hoveredPoint?.color ?? widget.lineColor,
+                        shape: BoxShape.circle,
+                        border: Border.all(color: colors.surface, width: 2),
+                        boxShadow: <BoxShadow>[
+                          BoxShadow(
+                            color: widget.lineColor.withValues(alpha: 0.28),
+                            blurRadius: 7,
+                          ),
+                        ],
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              AnimatedPositioned(
+                duration: motionDuration,
+                curve: Curves.easeOutCubic,
+                left: tooltipLeft,
+                top: 2,
+                width: tooltipWidth,
+                child: IgnorePointer(
+                  child: AnimatedSwitcher(
+                    duration: openHandMotionDuration(
+                      context,
+                      const Duration(milliseconds: 230),
+                    ),
+                    switchInCurve: Curves.easeOutBack,
+                    switchOutCurve: Curves.easeInCubic,
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: ScaleTransition(
+                        alignment: Alignment.bottomCenter,
+                        scale: Tween<double>(
+                          begin: .92,
+                          end: 1,
+                        ).animate(animation),
+                        child: child,
+                      ),
+                    ),
+                    child: hoveredPoint == null
+                        ? const SizedBox.shrink(
+                            key: ValueKey<String>('detail-tooltip-empty'),
+                          )
+                        : _ProxyDetailTrendTooltip(
+                            key: ValueKey<int>(hoveredIndex!),
+                            point: hoveredPoint,
+                            index: hoveredIndex + 1,
+                            total: points.length,
+                          ),
+                  ),
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ProxyDetailTrendTooltip extends StatelessWidget {
+  const _ProxyDetailTrendTooltip({
+    super.key,
+    required this.point,
+    required this.index,
+    required this.total,
+  });
+
+  final _ProxyDetailTrendPoint point;
+  final int index;
+  final int total;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Material(
+      color: Colors.transparent,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: point.color.withValues(alpha: .38)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: .18),
+              blurRadius: 14,
+              offset: const Offset(0, 5),
+            ),
+          ],
+        ),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 22,
+                  height: 22,
+                  decoration: BoxDecoration(
+                    color: point.color.withValues(alpha: .13),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(point.icon, size: 14, color: point.color),
+                ),
+                const SizedBox(width: 7),
+                Expanded(
+                  child: Text(
+                    '${point.value} ms',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelLarge?.copyWith(
+                      fontWeight: FontWeight.w900,
+                      color: point.color,
+                    ),
+                  ),
+                ),
+                Text(
+                  '$index/$total',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 3),
+            Text(
+              _dateTimeLabel(point.at),
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            Text(
+              '${point.status} · ${point.detail}',
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(color: point.color),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2241,49 +2578,68 @@ class _ProxyEndpointDetailsDialogState
   ) {
     final colors = Theme.of(context).colorScheme;
     final text = openHandTextResolver(context);
+    final requestPoints = statistics.recentRequests
+        .map((item) {
+          final color = item.succeeded
+              ? OpenHandStatusColors.success
+              : item.timedOut
+              ? OpenHandStatusColors.warning
+              : OpenHandStatusColors.error;
+          return _ProxyDetailTrendPoint(
+            at: item.at,
+            value: item.responseTimeMs,
+            status: item.succeeded
+                ? text(zh: '请求成功', en: 'Succeeded')
+                : item.timedOut
+                ? text(zh: '请求超时', en: 'Timed out')
+                : text(zh: '请求失败', en: 'Failed'),
+            detail: item.statusCode == null
+                ? text(zh: '无 HTTP 状态', en: 'No HTTP status')
+                : 'HTTP ${item.statusCode}',
+            color: color,
+            icon: item.succeeded
+                ? Icons.check_circle_outline_rounded
+                : item.timedOut
+                ? Icons.timer_off_outlined
+                : Icons.error_outline_rounded,
+          );
+        })
+        .toList(growable: false);
+    final probePoints = _endpoint.samples
+        .where((item) => item.reachable)
+        .map(
+          (item) => _ProxyDetailTrendPoint(
+            at: item.checkedAt,
+            value: item.latencyMs!,
+            status: text(zh: '连接成功', en: 'Connection succeeded'),
+            detail: item.statusCode == null
+                ? text(zh: '代理连接可用', en: 'Proxy connection ready')
+                : 'HTTP ${item.statusCode}',
+            color: OpenHandStatusColors.success,
+            icon: Icons.network_check_rounded,
+          ),
+        )
+        .toList(growable: false);
     final requestChart = _ProxyPoolChartPanel(
       icon: Icons.show_chart_rounded,
       title: text(zh: '真实请求耗时', en: 'Request latency'),
-      child: CustomPaint(
-        painter: OpenHandSmoothLineChartPainter(
-          series: <OpenHandChartSeries>[
-            OpenHandChartSeries(
-              label: 'requests',
-              values: statistics.recentRequests
-                  .map((item) => item.responseTimeMs.toDouble())
-                  .toList(growable: false),
-              color: colors.primary,
-            ),
-          ],
-          gridColor: colors.outlineVariant.withValues(alpha: 0.55),
-          labelColor: colors.onSurfaceVariant,
-          emptyLabel: text(zh: '暂无真实请求', en: 'No request samples'),
-          valueSuffix: ' ms',
-          textDirection: Directionality.of(context),
-        ),
+      height: 156,
+      child: _ProxyDetailTrendChart(
+        points: requestPoints,
+        lineColor: colors.primary,
+        emptyLabel: text(zh: '暂无真实请求', en: 'No request samples'),
+        seriesLabel: 'requests',
       ),
     );
     final probeChart = _ProxyPoolChartPanel(
       icon: Icons.network_ping_rounded,
       title: text(zh: '巡检连接延迟', en: 'Probe latency'),
-      child: CustomPaint(
-        painter: OpenHandSmoothLineChartPainter(
-          series: <OpenHandChartSeries>[
-            OpenHandChartSeries(
-              label: 'probe',
-              values: _endpoint.samples
-                  .where((item) => item.reachable)
-                  .map((item) => item.latencyMs!.toDouble())
-                  .toList(growable: false),
-              color: OpenHandStatusColors.info,
-            ),
-          ],
-          gridColor: colors.outlineVariant.withValues(alpha: 0.55),
-          labelColor: colors.onSurfaceVariant,
-          emptyLabel: text(zh: '暂无巡检样本', en: 'No probe samples'),
-          valueSuffix: ' ms',
-          textDirection: Directionality.of(context),
-        ),
+      height: 156,
+      child: _ProxyDetailTrendChart(
+        points: probePoints,
+        lineColor: OpenHandStatusColors.info,
+        emptyLabel: text(zh: '暂无巡检样本', en: 'No probe samples'),
+        seriesLabel: 'probe',
       ),
     );
     return LayoutBuilder(
