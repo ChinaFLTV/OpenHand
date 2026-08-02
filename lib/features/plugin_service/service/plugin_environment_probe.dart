@@ -34,7 +34,7 @@ String _pluginToolchainDirectoryPath({
   required String environmentName,
   required String defaultDirectoryName,
 }) {
-  final configured = platformEnvironmentValue(environmentName)?.trim() ?? '';
+  final configured = Platform.environment[environmentName]?.trim() ?? '';
   if (p.isAbsolute(configured)) return p.normalize(configured);
   return p.join(OpenHandPaths.homeDirectoryPath(), defaultDirectoryName);
 }
@@ -159,8 +159,8 @@ String? pluginPlaywrightDataDirectory({
 }) {
   final env = environment ?? Platform.environment;
   final configured = platformEnvironmentValue(
+    env,
     'PLAYWRIGHT_BROWSERS_PATH',
-    environment: env,
   )?.trim();
   if (configured == '0') {
     return p.join(
@@ -176,15 +176,12 @@ String? pluginPlaywrightDataDirectory({
 
   final home =
       (homeDirectory ??
-              platformEnvironmentValue('HOME', environment: env) ??
-              platformEnvironmentValue('USERPROFILE', environment: env) ??
+              platformEnvironmentValue(env, 'HOME') ??
+              platformEnvironmentValue(env, 'USERPROFILE') ??
               '')
           .trim();
   if (Platform.isWindows) {
-    final localAppData = platformEnvironmentValue(
-      'LOCALAPPDATA',
-      environment: env,
-    )?.trim();
+    final localAppData = platformEnvironmentValue(env, 'LOCALAPPDATA')?.trim();
     if (localAppData != null && p.isAbsolute(localAppData)) {
       return p.join(localAppData, 'ms-playwright');
     }

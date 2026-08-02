@@ -9,7 +9,6 @@ import 'package:http/io_client.dart';
 
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/input_value_parsing.dart';
-import '../../shared/util/platform_environment.dart';
 import '../model/app_proxy_settings.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
@@ -96,9 +95,7 @@ class SystemProxyResolver {
     final env = Platform.environment;
     String? pick(List<String> keys) {
       for (final key in keys) {
-        final endpoint = _normalizedProxyEndpoint(
-          platformEnvironmentValue(key, environment: env),
-        );
+        final endpoint = _normalizedProxyEndpoint(env[key]);
         if (endpoint != null) return endpoint;
       }
       return null;
@@ -123,10 +120,7 @@ class SystemProxyResolver {
       'all_proxy',
     ]);
 
-    final noProxy =
-        platformEnvironmentValue('NO_PROXY', environment: env) ??
-        platformEnvironmentValue('no_proxy', environment: env) ??
-        '';
+    final noProxy = env['NO_PROXY'] ?? env['no_proxy'] ?? '';
     _noProxyHosts
       ..clear()
       ..addAll(splitTrimmedNonEmpty(noProxy).map((s) => s.toLowerCase()));

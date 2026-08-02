@@ -1,7 +1,6 @@
 import 'dart:io';
 
 import '../../../shared/util/input_value_parsing.dart';
-import '../../../shared/util/platform_environment.dart';
 import '../model/mcp_stdio_mirror_mode.dart';
 
 /// 设置页「stdio 镜像源模式」实时同步过来的运行时变量。
@@ -35,7 +34,7 @@ enum McpMirrorEffectiveSource {
 /// 计算镜像源决策最终命中的来源，供 UI 与运行时注入逻辑共用。
 McpMirrorEffectiveSource resolveMcpMirrorEffectiveSource() {
   final override = optionalBoolFromValue(
-    platformEnvironmentValue('OPENHAND_MCP_MIRROR'),
+    Platform.environment['OPENHAND_MCP_MIRROR'],
   );
   if (override == true) {
     return McpMirrorEffectiveSource.envOn;

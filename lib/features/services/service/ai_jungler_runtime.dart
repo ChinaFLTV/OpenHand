@@ -15,7 +15,6 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
-import '../../../shared/util/platform_environment.dart';
 import 'ai_jungler_client.dart';
 
 const Duration _kAiJunglerLaunchTimeout = Duration(seconds: 10);
@@ -265,9 +264,7 @@ class AiJunglerRuntime {
   }
 
   Future<String> _resolveExecutable() async {
-    final override = platformEnvironmentValue(
-      'OPENHAND_AI_JUNGLER_BINARY',
-    )?.trim();
+    final override = Platform.environment['OPENHAND_AI_JUNGLER_BINARY']?.trim();
     if (override != null && override.isNotEmpty) {
       final file = File(override);
       if (await file.exists().timeout(_kAiJunglerFileIoTimeout)) {

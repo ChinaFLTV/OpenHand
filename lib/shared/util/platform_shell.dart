@@ -2,8 +2,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import 'platform_environment.dart';
-
 const String defaultPosixShellExecutable = '/bin/sh';
 const String defaultMacOsShellExecutable = '/bin/zsh';
 const String defaultBashExecutable = '/bin/bash';
@@ -15,8 +13,8 @@ String preferredPosixShellExecutable({
   bool? isWindows,
   bool requireBashCompatible = false,
 }) {
-  final configured =
-      (environmentShell ?? platformEnvironmentValue('SHELL') ?? '').trim();
+  final configured = (environmentShell ?? Platform.environment['SHELL'] ?? '')
+      .trim();
   final shellName = p.basenameWithoutExtension(configured).toLowerCase();
   final supported = requireBashCompatible
       ? const <String>{'bash', 'zsh'}

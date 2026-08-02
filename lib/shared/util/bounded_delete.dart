@@ -6,7 +6,6 @@ import 'package:path/path.dart' as p;
 import 'argument_guards.dart';
 import 'async_concurrency.dart';
 import 'path_safety.dart';
-import 'platform_environment.dart';
 
 const BoundedDeletePolicy defaultBoundedDeletePolicy = BoundedDeletePolicy(
   maxEntries: 100000,
@@ -267,7 +266,7 @@ Set<String> _protectedDeletePaths() {
     p.normalize(p.absolute(Directory.systemTemp.path)),
   };
   for (final variable in const <String>['HOME', 'USERPROFILE']) {
-    final value = platformEnvironmentValue(variable)?.trim() ?? '';
+    final value = Platform.environment[variable]?.trim() ?? '';
     if (value.isNotEmpty && p.isAbsolute(value)) {
       paths.add(p.normalize(value));
     }
