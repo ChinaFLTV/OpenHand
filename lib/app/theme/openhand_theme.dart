@@ -2,6 +2,7 @@ import 'dart:collection';
 
 import 'package:flutter/material.dart';
 
+import '../../shared/ui/interaction_timings.dart';
 import 'openhand_palette.dart';
 import 'openhand_theme_preset.dart';
 
@@ -180,6 +181,7 @@ abstract final class OpenHandTheme {
           ),
         ),
       ),
+      tooltipTheme: const TooltipThemeData(waitDuration: kOpenHandTooltipWait),
       inputDecorationTheme: InputDecorationTheme(
         filled: true,
         fillColor: colorScheme.surfaceContainerHighest.withValues(
