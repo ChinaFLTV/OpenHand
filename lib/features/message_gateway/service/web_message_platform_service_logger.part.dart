@@ -45,7 +45,7 @@ typedef _LogFileSnapshot = ({File file, FileStat stat});
 /// - `readBundle` 把所有日志文件按修改时间倒序读出，供离线导出/Web 端 ops 拉取。
 /// - 文件写入有条数与字节双上限；慢盘时拒绝新增写入并在下一条落盘日志中
 ///   汇总丢弃数量，避免异步任务链无限增长。
-/// - 单次文件操作超时后停止继续落盘，避免迟到写入与后续追加并发破坏顺序。
+/// - 单次文件变更超时后停止全部磁盘入口，避免迟到操作与后续读写交错。
 /// - 所有 IO 异常通过 `silentLog` 记录，日志系统自身故障不拖垮 Web 服务。
 class _WebGatewayRotatingLogger {
   _WebGatewayRotatingLogger({String? logsDirectoryPath})
@@ -61,7 +61,7 @@ class _WebGatewayRotatingLogger {
   int _pendingWriteBytes = 0;
   int _droppedWriteCount = 0;
   int _unreportedDroppedWrites = 0;
-  bool _writeTimedOut = false;
+  bool _ioTimedOut = false;
   bool _closing = false;
   Future<void>? _closeFuture;
   WebGatewayLogConfig _lastConfig = const WebGatewayLogConfig();
@@ -79,6 +79,7 @@ class _WebGatewayRotatingLogger {
   static const int _maxPendingWriteBytes = 4 * 1024 * 1024;
   static const Duration _closeTimeout = Duration(seconds: 5);
   static const String _droppedBeforeKey = 'file_logger_dropped_before';
+  static const String _diskOperationStoppedMessage = '文件日志器发生 I/O 超时，磁盘操作已停止。';
 
   String get filePath => p.join(directoryPath, 'web-platform.log');
 
@@ -89,7 +90,7 @@ class _WebGatewayRotatingLogger {
 
   Future<void> write(WebGatewayLogEntry entry, WebGatewayLogConfig config) {
     _lastConfig = config;
-    if (_closing || _writeTimedOut) {
+    if (_closing || _ioTimedOut) {
       _recordDroppedWrite();
       return Future<void>.value();
     }
@@ -143,7 +144,7 @@ class _WebGatewayRotatingLogger {
   }
 
   Future<bool> _writeBytes(Uint8List bytes, WebGatewayLogConfig config) async {
-    if (_writeTimedOut) return false;
+    if (_ioTimedOut) return false;
     try {
       final dir = Directory(directoryPath);
       await dir.create(recursive: true).timeout(_writeIoTimeout);
@@ -164,8 +165,7 @@ class _WebGatewayRotatingLogger {
       _currentSizeBytes += bytes.length;
       return true;
     } on TimeoutException catch (error, stack) {
-      _writeTimedOut = true;
-      silentLog('web_gateway_logger', '写入日志文件超时，已停止后续落盘', error, stack);
+      _markIoTimedOut('写入日志文件超时，已停止后续磁盘操作', error, stack);
       return false;
     } catch (error, stack) {
       silentLog('web_gateway_logger', '写入日志文件', error, stack);
@@ -211,7 +211,7 @@ class _WebGatewayRotatingLogger {
   }
 
   Future<void> _flushDroppedWrites() async {
-    if (_writeTimedOut) return;
+    if (_ioTimedOut) return;
     final dropped = _unreportedDroppedWrites;
     if (dropped <= 0) return;
     _unreportedDroppedWrites = 0;
@@ -229,7 +229,7 @@ class _WebGatewayRotatingLogger {
   }
 
   Future<_CleanupStats> clear() {
-    return _operations.enqueue(_clear);
+    return _enqueueDiskOperation(_clear);
   }
 
   Future<_CleanupStats> _clear() async {
@@ -251,6 +251,9 @@ class _WebGatewayRotatingLogger {
           _currentSizeBytes = 0;
         }
         stats += _CleanupStats(deletedFiles: 1, bytesFreed: stat.size);
+      } on TimeoutException catch (error, stack) {
+        _markIoTimedOut('清空日志文件超时，已停止后续磁盘操作', error, stack);
+        break;
       } catch (error, stack) {
         silentLog('web_gateway_logger', '清空时删除文件：${file.path}', error, stack);
       }
@@ -259,7 +262,7 @@ class _WebGatewayRotatingLogger {
   }
 
   Future<_CleanupStats> prune(WebGatewayLogConfig config) {
-    return _operations.enqueue(() => _prune(config));
+    return _enqueueDiskOperation(() => _prune(config));
   }
 
   Future<_CleanupStats> _prune(WebGatewayLogConfig config) async {
@@ -277,6 +280,9 @@ class _WebGatewayRotatingLogger {
         await file.delete().timeout(_writeIoTimeout);
         stats += _CleanupStats(deletedFiles: 1, bytesFreed: item.stat.size);
         return true;
+      } on TimeoutException catch (error, stack) {
+        _markIoTimedOut('裁剪日志文件超时，已停止后续磁盘操作', error, stack);
+        rethrow;
       } catch (error, stack) {
         silentLog('web_gateway_logger', '裁剪时删除文件：${file.path}', error, stack);
         return false;
@@ -304,7 +310,7 @@ class _WebGatewayRotatingLogger {
   }
 
   Future<List<Map<String, Object?>>> readBundle() {
-    return _operations.enqueue(_readBundle);
+    return _enqueueDiskOperation(_readBundle);
   }
 
   Future<List<Map<String, Object?>>> _readBundle() async {
@@ -345,7 +351,27 @@ class _WebGatewayRotatingLogger {
   }
 
   Future<String> readCurrentLogText() {
-    return _operations.enqueue(_readCurrentLogText);
+    return _enqueueDiskOperation(_readCurrentLogText);
+  }
+
+  Future<T> _enqueueDiskOperation<T>(Future<T> Function() operation) {
+    if (_closing) {
+      return Future<T>.error(StateError('文件日志器已关闭。'));
+    }
+    if (_ioTimedOut) {
+      return Future<T>.error(StateError(_diskOperationStoppedMessage));
+    }
+    return _operations.enqueue(() {
+      if (_ioTimedOut) {
+        throw StateError(_diskOperationStoppedMessage);
+      }
+      return operation();
+    });
+  }
+
+  void _markIoTimedOut(String action, Object error, StackTrace stack) {
+    _ioTimedOut = true;
+    silentLog('web_gateway_logger', action, error, stack);
   }
 
   Future<String> _readCurrentLogText() async {

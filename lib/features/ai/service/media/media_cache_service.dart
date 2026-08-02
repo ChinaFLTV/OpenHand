@@ -350,10 +350,7 @@ class MediaCacheService {
   ) async {
     late final bool acquired;
     try {
-      acquired = await _acquireWithin(
-        _downloadSemaphore,
-        _downloadQueueTimeout,
-      );
+      acquired = await _downloadSemaphore.acquireWithin(_downloadQueueTimeout);
     } on StateError {
       return null;
     }
@@ -368,7 +365,7 @@ class MediaCacheService {
   Future<T> _withCommitPermit<T>(Future<T> Function() operation) async {
     late final bool acquired;
     try {
-      acquired = await _acquireWithin(_commitSemaphore, _commitQueueTimeout);
+      acquired = await _commitSemaphore.acquireWithin(_commitQueueTimeout);
     } on StateError {
       if (_disposed || _clearing) throw const _MediaCacheCancelled();
       throw StateError('媒体缓存提交队列已满。');
@@ -381,19 +378,6 @@ class MediaCacheService {
       return await operation();
     } finally {
       _commitSemaphore.release();
-    }
-  }
-
-  static Future<bool> _acquireWithin(
-    OpenHandAsyncSemaphore semaphore,
-    Duration timeout,
-  ) async {
-    final timeoutSignal = Completer<void>();
-    final timer = Timer(timeout, timeoutSignal.complete);
-    try {
-      return await semaphore.acquireUnlessCancelled(timeoutSignal.future);
-    } finally {
-      timer.cancel();
     }
   }
 
@@ -833,7 +817,7 @@ class MediaCacheService {
     _pendingInvalidations.clear();
     try {
       await _cancelActiveOperations();
-      final acquired = await _acquireWithin(_commitSemaphore, _cleanupTimeout);
+      final acquired = await _commitSemaphore.acquireWithin(_cleanupTimeout);
       if (acquired) _commitSemaphore.release();
     } finally {
       _clearing = false;
@@ -852,8 +836,7 @@ class MediaCacheService {
     _cacheDir = null;
     try {
       await _cancelActiveOperations();
-      final acquired = await _acquireWithin(
-        _commitSemaphore,
+      final acquired = await _commitSemaphore.acquireWithin(
         _fileOperationTimeout,
       );
       if (!acquired) {

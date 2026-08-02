@@ -268,6 +268,18 @@ class OpenHandAsyncSemaphore {
     return _acquire(cancelSignal: cancelSignal);
   }
 
+  /// 在限定时间内等待许可；超时后从等待队列移除并返回 `false`。
+  Future<bool> acquireWithin(Duration timeout) async {
+    requirePositiveDuration(timeout, 'timeout');
+    final timeoutSignal = Completer<void>();
+    final timer = Timer(timeout, timeoutSignal.complete);
+    try {
+      return await acquireUnlessCancelled(timeoutSignal.future);
+    } finally {
+      timer.cancel();
+    }
+  }
+
   Future<bool> _acquire({Future<void>? cancelSignal}) async {
     if (cancelSignal != null && await isCancelSignalCompleted(cancelSignal)) {
       return false;
