@@ -235,7 +235,7 @@ class SkillsRepository {
     required Uint8List archiveBytes,
   }) async {
     if (archiveBytes.isEmpty) {
-      throw const FileSystemException('Skill archive is empty.');
+      throw const FileSystemException('技能归档为空。');
     }
 
     final storageDirectory = await ensureStorageDirectory(storagePath);
@@ -249,7 +249,7 @@ class SkillsRepository {
       await _extractSkillArchive(archive, targetDirectory);
       final manifestFile = await _findFirstSkillManifest(targetDirectory);
       if (manifestFile == null) {
-        throw const FileSystemException('Skill archive has no SKILL.md.');
+        throw const FileSystemException('技能归档中缺少 SKILL.md。');
       }
       return _parseSkill(manifestFile, storagePath);
     } catch (error, stack) {
@@ -276,7 +276,7 @@ class SkillsRepository {
     String content,
   ) async {
     if (nullIfBlank(content) == null) {
-      throw const FileSystemException('Skill manifest is empty.');
+      throw const FileSystemException('技能清单为空。');
     }
 
     final manifestFile = File(skill.manifestPath);
@@ -696,14 +696,14 @@ class SkillsRepository {
   }) {
     final normalizedName = _sanitizeDisplayValue(name);
     if (normalizedName == null) {
-      throw const FileSystemException('Skill name is empty.');
+      throw const FileSystemException('技能名称为空。');
     }
     final normalizedShortDescription = _sanitizeDisplayValue(shortDescription);
     if (normalizedShortDescription == null) {
-      throw const FileSystemException('Skill description is empty.');
+      throw const FileSystemException('技能描述为空。');
     }
     if (nullIfBlank(manifestContent) == null) {
-      throw const FileSystemException('Skill manifest is empty.');
+      throw const FileSystemException('技能清单为空。');
     }
     final normalizedEmojiIcon = _sanitizeEmojiIcon(emojiIcon);
     final normalizedImageIconBytes =
@@ -713,7 +713,7 @@ class SkillsRepository {
     if (!allowMissingIcon &&
         normalizedEmojiIcon == null &&
         normalizedImageIconBytes == null) {
-      throw const FileSystemException('Skill icon is empty.');
+      throw const FileSystemException('技能图标为空。');
     }
     return (
       name: normalizedName,
@@ -976,7 +976,7 @@ class SkillsRepository {
     Directory targetDirectory,
   ) async {
     if (archive.files.length > _maxArchiveEntries) {
-      throw const FileSystemException('Skill archive has too many entries.');
+      throw const FileSystemException('技能归档条目过多。');
     }
 
     final entries = <_ArchiveEntryPlan>[];
@@ -989,14 +989,14 @@ class SkillsRepository {
       if (file.isFile) {
         extractedBytes += file.size;
         if (extractedBytes > _maxExtractedArchiveBytes) {
-          throw const FileSystemException('Skill archive is too large.');
+          throw const FileSystemException('技能归档解压后过大。');
         }
       }
       entries.add(_ArchiveEntryPlan(file: file, pathParts: pathParts));
     }
 
     if (entries.isEmpty) {
-      throw const FileSystemException('Skill archive has no files.');
+      throw const FileSystemException('技能归档中没有文件。');
     }
 
     final commonRoot = _singleArchiveRootDirectory(entries);
@@ -1012,7 +1012,7 @@ class SkillsRepository {
         p.joinAll(<String>[targetDirectory.path, ...relativeParts]),
       );
       if (!isPathWithinOrEqual(targetDirectory.path, destinationPath)) {
-        throw const FileSystemException('Skill archive path is unsafe.');
+        throw const FileSystemException('技能归档路径不安全。');
       }
 
       if (entry.file.isDirectory) {
@@ -1034,7 +1034,7 @@ class SkillsRepository {
 
   List<String> _sanitizeArchiveEntryPath(String rawPath) {
     if (rawPath.contains('\u0000')) {
-      throw const FileSystemException('Skill archive path is unsafe.');
+      throw const FileSystemException('技能归档路径不安全。');
     }
     final normalizedPath = p.posix.normalize(rawPath.replaceAll(r'\', '/'));
     if (normalizedPath == '.' || nullIfBlank(normalizedPath) == null) {
@@ -1044,7 +1044,7 @@ class SkillsRepository {
         normalizedPath.startsWith('../') ||
         normalizedPath == '..' ||
         _windowsDrivePrefixPattern.hasMatch(normalizedPath)) {
-      throw const FileSystemException('Skill archive path is unsafe.');
+      throw const FileSystemException('技能归档路径不安全。');
     }
 
     final parts = p.posix
@@ -1052,7 +1052,7 @@ class SkillsRepository {
         .where((part) => part.isNotEmpty && part != '.')
         .toList(growable: false);
     if (parts.any((part) => part == '..')) {
-      throw const FileSystemException('Skill archive path is unsafe.');
+      throw const FileSystemException('技能归档路径不安全。');
     }
     return parts;
   }
@@ -1104,10 +1104,7 @@ class SkillsRepository {
 
     void checkTotalTimeout() {
       if (stopwatch.elapsed >= _skillScanTotalTimeout) {
-        throw TimeoutException(
-          'Skill directory scan exceeded its total time limit.',
-          _skillScanTotalTimeout,
-        );
+        throw TimeoutException('技能目录扫描超过总时限。', _skillScanTotalTimeout);
       }
     }
 
@@ -1125,7 +1122,7 @@ class SkillsRepository {
           visitedEntries += 1;
           if (visitedEntries > maxEntries) {
             throw FileSystemException(
-              'Skill directory exceeds the $maxEntries entry scan limit.',
+              '技能目录超过 $maxEntries 个条目的扫描上限。',
               root.path,
             );
           }
@@ -1146,7 +1143,7 @@ class SkillsRepository {
         }
         if (childDirectories.isNotEmpty && node.depth >= _maxSkillScanDepth) {
           throw FileSystemException(
-            'Skill directory exceeds the $_maxSkillScanDepth level depth limit.',
+            '技能目录超过 $_maxSkillScanDepth 层深度上限。',
             node.directory.path,
           );
         }
