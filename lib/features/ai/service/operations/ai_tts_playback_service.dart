@@ -182,6 +182,10 @@ class AiTtsPlaybackService {
     if (content.isEmpty) return;
     final generation = reservation.generation;
     final synthesisTimeout = Duration(seconds: normalized.timeoutSeconds);
+    final synthesisDeadline = MonotonicDeadline(
+      synthesisTimeout,
+      timeoutMessage: 'TTS 合成超过总时限。',
+    );
     Object? lastError;
     StackTrace? lastStack;
     var attemptedProvider = false;
@@ -190,8 +194,13 @@ class AiTtsPlaybackService {
       final providerSettings = normalized.provider(provider);
       if (!providerSettings.enabled) continue;
       attemptedProvider = true;
+      final remaining = synthesisDeadline.remainingOrNull();
+      if (remaining == null) {
+        lastError ??= synthesisDeadline.timeoutException();
+        break;
+      }
       final operation = _AiTtsOperation(
-        timeout: synthesisTimeout,
+        timeout: remaining,
         transport: _transportFactory(),
       );
       _activeOperation = operation;
@@ -904,7 +913,7 @@ class AiTtsPlaybackService {
     );
     if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException(
-        'Mimo TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+        'Mimo TTS 请求失败（HTTP ${response.statusCode}）：${_shortBody(response)}',
         uri: uri,
       );
     }
@@ -1251,7 +1260,7 @@ class AiTtsPlaybackService {
       maxResponseBytes: _maxAudioResponseBytes,
     );
     if (isHttpFailureStatus(response.statusCode)) {
-      throw HttpException('Baidu TTS HTTP ${response.statusCode}', uri: uri);
+      throw HttpException('百度 TTS 请求失败（HTTP ${response.statusCode}）', uri: uri);
     }
     final contentType = response.headers['content-type'] ?? '';
     if (!contentType.startsWith('audio/')) {
@@ -1308,7 +1317,7 @@ class AiTtsPlaybackService {
     );
     if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException(
-        'Google TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+        'Google TTS 请求失败（HTTP ${response.statusCode}）：${_shortBody(response)}',
         uri: uri,
       );
     }
@@ -1364,7 +1373,7 @@ class AiTtsPlaybackService {
     );
     if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException(
-        'Bing TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+        'Bing TTS 请求失败（HTTP ${response.statusCode}）：${_shortBody(response)}',
         uri: uri,
       );
     }
@@ -1418,7 +1427,7 @@ class AiTtsPlaybackService {
     );
     if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException(
-        'Youdao TTS HTTP ${response.statusCode}: ${_shortBody(response)}',
+        '有道 TTS 请求失败（HTTP ${response.statusCode}）：${_shortBody(response)}',
         uri: uri,
       );
     }
@@ -1695,7 +1704,7 @@ class AiTtsPlaybackService {
     );
     if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException(
-        'AI TTS audio download HTTP ${response.statusCode}',
+        'AI TTS 音频下载失败（HTTP ${response.statusCode}）',
         uri: uri,
       );
     }
@@ -1754,8 +1763,8 @@ class AiTtsPlaybackService {
           executable,
           const <String>[],
           stderrText.isEmpty
-              ? 'TTS process exited with code $exitCode'
-              : 'TTS process exited with code $exitCode: $stderrText',
+              ? 'TTS 进程退出码：$exitCode'
+              : 'TTS 进程退出码：$exitCode；$stderrText',
           exitCode,
         );
       }
@@ -1827,7 +1836,7 @@ class AiTtsPlaybackService {
     );
     if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException(
-        'Baidu token HTTP ${response.statusCode}: ${_shortBody(response)}',
+        '百度 TTS 令牌请求失败（HTTP ${response.statusCode}）：${_shortBody(response)}',
         uri: uri,
       );
     }
