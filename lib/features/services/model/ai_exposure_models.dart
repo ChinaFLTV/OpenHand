@@ -545,12 +545,32 @@ class AiExposureProxyEndpoint {
         value.contains(RegExp(r'[\r\n]'))) {
       throw const FormatException('代理地址为空或过长。');
     }
-    final normalized = value.contains('://') ? value : 'http://$value';
+    final compactMatch = value.contains('://')
+        ? null
+        : RegExp(
+            r'^(\[[^\]\s]+\]|[^:\s]+):(\d+):([^:\s]+):(.*)$',
+          ).firstMatch(value);
+    final normalized = compactMatch == null
+        ? value.contains('://')
+              ? value
+              : 'http://$value'
+        : () {
+            final port = int.tryParse(compactMatch.group(2)!);
+            if (port == null || port < 1 || port > 65535) {
+              throw const FormatException('代理端口无效。');
+            }
+            final username = compactMatch.group(3)!;
+            final password = compactMatch.group(4)!;
+            return 'http://${Uri.encodeComponent(username)}:'
+                '${Uri.encodeComponent(password)}@${compactMatch.group(1)!}:$port';
+          }();
     final uri = Uri.tryParse(normalized);
     if (uri == null ||
         !const <String>{'http', 'https'}.contains(uri.scheme.toLowerCase()) ||
         uri.host.isEmpty ||
         !uri.hasPort ||
+        uri.port < 1 ||
+        uri.port > 65535 ||
         (uri.path.isNotEmpty && uri.path != '/') ||
         uri.hasQuery ||
         uri.hasFragment) {

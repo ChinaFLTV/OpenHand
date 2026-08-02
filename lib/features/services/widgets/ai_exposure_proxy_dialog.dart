@@ -2981,12 +2981,15 @@ class _ProxyEndpointEditor extends StatefulWidget {
 
 class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
   final _formKey = GlobalKey<FormState>();
+  final _rawProxy = TextEditingController();
   late final TextEditingController _name;
   late final TextEditingController _host;
   late final TextEditingController _port;
   late final TextEditingController _username;
   late final TextEditingController _password;
   String _scheme = 'http';
+  String? _parsedProxyAddress;
+  String? _proxyAddressError;
   bool _obscurePassword = true;
 
   @override
@@ -3014,6 +3017,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
 
   @override
   void dispose() {
+    _rawProxy.dispose();
     _name.dispose();
     _host.dispose();
     _port.dispose();
@@ -3056,6 +3060,100 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                 ],
               ),
               const SizedBox(height: 16),
+              if (!editing) ...[
+                TextFormField(
+                  controller: _rawProxy,
+                  keyboardType: TextInputType.url,
+                  textInputAction: TextInputAction.done,
+                  autocorrect: false,
+                  enableSuggestions: false,
+                  decoration: InputDecoration(
+                    labelText: text(zh: '代理地址快速解析', en: 'Parse proxy address'),
+                    hintText: 'host:port:username:password',
+                    errorText: _proxyAddressError,
+                    border: const OutlineInputBorder(),
+                    suffixIcon: IconButton(
+                      tooltip: text(zh: '解析并填充表单', en: 'Parse and fill form'),
+                      onPressed: () => _applyProxyAddress(reportInvalid: true),
+                      icon: AnimatedSwitcher(
+                        duration: openHandMotionDuration(
+                          context,
+                          const Duration(milliseconds: 220),
+                        ),
+                        child: Icon(
+                          _parsedProxyAddress == _rawProxy.text.trim()
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.auto_fix_high_rounded,
+                          key: ValueKey<bool>(
+                            _parsedProxyAddress == _rawProxy.text.trim(),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                  validator: (value) {
+                    final raw = value?.trim() ?? '';
+                    if (raw.isEmpty || raw == _parsedProxyAddress) return null;
+                    return text(
+                      zh: '请先解析有效的代理地址',
+                      en: 'Parse a valid proxy address first',
+                    );
+                  },
+                  onChanged: (value) {
+                    final raw = value.trim();
+                    if (_parsedProxyAddress != null ||
+                        _proxyAddressError != null) {
+                      setState(() {
+                        _parsedProxyAddress = null;
+                        _proxyAddressError = null;
+                      });
+                    }
+                    final uri = raw.contains('://') ? Uri.tryParse(raw) : null;
+                    if (uri?.hasPort == true ||
+                        RegExp(
+                          r'^(\[[^\]\s]+\]|[^:\s]+):\d+:[^:\s]+:.*$',
+                        ).hasMatch(raw)) {
+                      _applyProxyAddress();
+                    }
+                  },
+                  onFieldSubmitted: (_) =>
+                      _applyProxyAddress(reportInvalid: true),
+                ),
+                OpenHandVerticalRevealSwitcher(
+                  presentKey: const ValueKey<String>('proxy-address-parsed'),
+                  child: _parsedProxyAddress == _rawProxy.text.trim()
+                      ? Padding(
+                          padding: const EdgeInsets.only(top: 7),
+                          child: Row(
+                            children: [
+                              const Icon(
+                                Icons.task_alt_rounded,
+                                size: 16,
+                                color: OpenHandStatusColors.success,
+                              ),
+                              const SizedBox(width: 6),
+                              Expanded(
+                                child: Text(
+                                  text(
+                                    zh: '已解析并填充结构化代理配置',
+                                    en: 'Proxy settings parsed and filled',
+                                  ),
+                                  maxLines: 2,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.bodySmall
+                                      ?.copyWith(
+                                        color: OpenHandStatusColors.success,
+                                        fontWeight: FontWeight.w700,
+                                      ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        )
+                      : null,
+                ),
+                const SizedBox(height: 10),
+              ],
               TextFormField(
                 controller: _name,
                 decoration: InputDecoration(
@@ -3186,6 +3284,42 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
         ),
       ),
     );
+  }
+
+  void _applyProxyAddress({bool reportInvalid = false}) {
+    final raw = _rawProxy.text.trim();
+    try {
+      final endpoint = AiExposureProxyEndpoint.parse(raw);
+      final uri = Uri.parse(endpoint.url);
+      final separator = uri.userInfo.indexOf(':');
+      final username = uri.userInfo.isEmpty
+          ? ''
+          : Uri.decodeComponent(
+              separator < 0
+                  ? uri.userInfo
+                  : uri.userInfo.substring(0, separator),
+            );
+      final password = separator < 0
+          ? ''
+          : Uri.decodeComponent(uri.userInfo.substring(separator + 1));
+      setState(() {
+        _scheme = uri.scheme;
+        _host.text = uri.host;
+        _port.text = uri.port.toString();
+        _username.text = username;
+        _password.text = password;
+        if (_name.text.trim().isEmpty) _name.text = endpoint.name;
+        _parsedProxyAddress = raw;
+        _proxyAddressError = null;
+      });
+    } on FormatException catch (error) {
+      if (reportInvalid) {
+        setState(() {
+          _parsedProxyAddress = null;
+          _proxyAddressError = error.message;
+        });
+      }
+    }
   }
 
   void _submit() {
