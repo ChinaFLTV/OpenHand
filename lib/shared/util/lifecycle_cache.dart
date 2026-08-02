@@ -66,6 +66,22 @@ class LifecycleLruCache<V> {
     return true;
   }
 
+  /// 异步值完成后回填真实成本；条目已被替换时不影响新值。
+  bool updateCostIfIdentical(String key, V expectedValue, int cost) {
+    final entry = _entries[key];
+    if (entry == null || !identical(entry.value, expectedValue)) return false;
+    final normalizedCost = cost.clamp(0, _maxLifecycleCacheEntryCost);
+    final costLimit = maxCost;
+    if (costLimit != null && normalizedCost > costLimit) {
+      remove(key);
+      return false;
+    }
+    _totalCost += normalizedCost - entry.cost;
+    entry.cost = normalizedCost;
+    _evictOverflow();
+    return identical(_entries[key]?.value, expectedValue);
+  }
+
   void removeWhere(bool Function(String key, V value) test) {
     final keys = <String>[];
     for (final entry in _entries.entries) {
@@ -107,8 +123,8 @@ class LifecycleLruCache<V> {
 }
 
 class _LifecycleCacheEntry<V> {
-  const _LifecycleCacheEntry(this.value, this.cost);
+  _LifecycleCacheEntry(this.value, this.cost);
 
   final V value;
-  final int cost;
+  int cost;
 }

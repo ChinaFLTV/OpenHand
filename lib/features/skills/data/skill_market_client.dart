@@ -39,6 +39,8 @@ class SkillMarketClient {
   static const int _maxMetadataCacheEntries = 128;
   static const int _maxFileContentCacheEntries = 128;
   static const int _maxBundleCacheEntries = 64;
+  static const int _maxFileContentCacheCharacters = 32 * kBytesPerMiB;
+  static const int _maxBundleCacheCharacters = 32 * kBytesPerMiB;
   static const int _maxConcurrentRequests = 8;
   static const int _maxQueuedRequests = 64;
   static const Duration _requestQueueTimeout = Duration(seconds: 30);
@@ -76,10 +78,12 @@ class SkillMarketClient {
   final LifecycleLruCache<Future<String>> _fileContentCache =
       LifecycleLruCache<Future<String>>(
         maxEntries: _maxFileContentCacheEntries,
+        maxCost: _maxFileContentCacheCharacters,
       );
   final LifecycleLruCache<Future<SkillMarketBundle>> _bundleCache =
       LifecycleLruCache<Future<SkillMarketBundle>>(
         maxEntries: _maxBundleCacheEntries,
+        maxCost: _maxBundleCacheCharacters,
       );
 
   void close() {
@@ -136,6 +140,7 @@ class SkillMarketClient {
         normalizedSlug,
         requestedVersion: normalizedVersion,
       ),
+      resultCost: (bundle) => bundle.skillMarkdown?.length ?? 0,
     );
   }
 
@@ -358,6 +363,7 @@ class SkillMarketClient {
           throw const SkillMarketException('技能文件响应超过大小上限。');
         }
       }),
+      resultCost: (content) => content.length,
     );
   }
 
@@ -506,8 +512,9 @@ class SkillMarketClient {
   Future<T> _cached<T>(
     LifecycleLruCache<Future<T>> cache,
     String key,
-    Future<T> Function() loader,
-  ) {
+    Future<T> Function() loader, {
+    int Function(T value)? resultCost,
+  }) {
     if (_closed) {
       return Future<T>.error(StateError('技能市场客户端已关闭。'));
     }
@@ -516,13 +523,18 @@ class SkillMarketClient {
       return cached;
     }
     late final Future<T> future;
-    future = Future<T>.sync(loader).catchError((
-      Object error,
-      StackTrace stackTrace,
-    ) {
-      cache.removeIfIdentical(key, future);
-      Error.throwWithStackTrace(error, stackTrace);
-    });
+    future = Future<T>.sync(loader)
+        .then((value) {
+          final cost = resultCost?.call(value);
+          if (cost != null) {
+            cache.updateCostIfIdentical(key, future, key.length + cost);
+          }
+          return value;
+        })
+        .catchError((Object error, StackTrace stackTrace) {
+          cache.removeIfIdentical(key, future);
+          Error.throwWithStackTrace(error, stackTrace);
+        });
     cache.put(key, future);
     return future;
   }
