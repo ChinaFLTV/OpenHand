@@ -378,7 +378,7 @@ abstract final class AiLspManagedInstallService {
       return true;
     }
     final home = OpenHandPaths.homeDirectoryPath();
-    final openhandRoot = p.join(home, '.openhand');
+    final openhandRoot = OpenHandPaths.defaultRootDirectoryPath();
     final sharedLspRoot = OpenHandPaths.defaultLspDirectoryPath();
     final currentDirectory = p.normalize(p.absolute(Directory.current.path));
     final systemTemp = p.normalize(p.absolute(Directory.systemTemp.path));

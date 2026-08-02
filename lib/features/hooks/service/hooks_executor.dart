@@ -139,7 +139,7 @@ class HooksExecutor {
   static Future<void> pruneStaleTempFiles() async {
     try {
       final tmpDir = Directory(
-        p.join(OpenHandPaths.homeDirectoryPath(), '.openhand', 'hooks', 'tmp'),
+        OpenHandPaths.defaultHooksTemporaryDirectoryPath(),
       );
       if (!await tmpDir.exists().timeout(_hookTempFileOperationTimeout)) return;
       final cutoff = DateTime.now().subtract(_tmpFileMaxAge);
@@ -320,7 +320,7 @@ class HooksExecutor {
     File? contextFile;
     try {
       final tmpDir = Directory(
-        p.join(OpenHandPaths.homeDirectoryPath(), '.openhand', 'hooks', 'tmp'),
+        OpenHandPaths.defaultHooksTemporaryDirectoryPath(),
       );
       await tmpDir
           .create(recursive: true)
@@ -535,7 +535,7 @@ class HooksExecutor {
   }) async {
     try {
       final tmpDir = Directory(
-        p.join(OpenHandPaths.homeDirectoryPath(), '.openhand', 'hooks', 'tmp'),
+        OpenHandPaths.defaultHooksTemporaryDirectoryPath(),
       );
       await tmpDir
           .create(recursive: true)

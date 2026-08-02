@@ -2,6 +2,8 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../../app/support/openhand_paths.dart';
+import '../../../../shared/util/path_safety.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/fs/ai_file_mutation_ledger.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
@@ -9,7 +11,7 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
-/// DeleteFile 工具 — 对标 Cursor 的 delete_file。
+/// DeleteFile 工具，对标 Cursor 的 delete_file。
 ///
 /// 删除指定路径的文件。操作在以下情况下会优雅失败：
 /// - 文件不存在
@@ -36,19 +38,18 @@ class AiDeleteFileTool extends AiTool {
       'target_file',
     ]);
     if (rawPath.isEmpty) {
-      return AiToolUtils.invalidResult('DeleteFile', 'file_path is required.');
+      return AiToolUtils.invalidResult('DeleteFile', '必须提供 file_path。');
     }
 
     final filePath =
         AiToolUtils.requireAbsoluteFilePath(rawPath) ??
         AiToolUtils.resolvePath(rawPath);
 
-    // Safety: prevent deleting directories, root paths, and common critical files
+    // 禁止删除根路径、系统目录及其内部文件。
     if (_isUnsafePath(filePath)) {
       return AiToolUtils.invalidResult(
         'DeleteFile',
-        'Refused to delete unsafe path: $filePath. '
-            'Directory deletion and critical system paths are not allowed.',
+        '拒绝删除不安全路径：$filePath。禁止删除目录和关键系统路径。',
       );
     }
 
@@ -56,19 +57,18 @@ class AiDeleteFileTool extends AiTool {
     if (!await AiToolUtils.fileExistsBounded(file)) {
       return AiToolUtils.simpleSuccessResult(
         command: 'DeleteFile $filePath',
-        output: 'File does not exist (no action needed): $filePath',
+        output: '文件不存在，无需处理：$filePath',
         durationMs: startedAt.elapsedMilliseconds,
         workingDirectory: p.dirname(filePath),
       );
     }
 
-    // Check that it's actually a file, not a directory
+    // 仅允许删除文件。
     final stat = await AiToolUtils.fileStatBounded(file);
     if (stat.type == FileSystemEntityType.directory) {
       return AiToolUtils.invalidResult(
         'DeleteFile',
-        'Path is a directory, not a file: $filePath. '
-            'Use Bash with explicit user confirmation for directory removal.',
+        '目标是目录而不是文件：$filePath。删除目录必须通过 Bash 并取得用户明确确认。',
       );
     }
 
@@ -86,7 +86,7 @@ class AiDeleteFileTool extends AiTool {
     // 写操作权限确认检查（删除为不可逆破坏性操作）
     final confirmationResult = await AiToolUtils.requestWriteConfirmation(
       toolName: 'DeleteFile',
-      operationDescription: 'Delete file (irreversible)',
+      operationDescription: '删除文件（不可恢复）',
       targetPath: filePath,
       requireWriteConfirmation: context.requireWriteCommandConfirmation,
       confirmWriteCommand: context.confirmWriteCommand,
@@ -129,7 +129,7 @@ class AiDeleteFileTool extends AiTool {
       );
       return AiToolUtils.simpleSuccessResult(
         command: 'DeleteFile $filePath',
-        output: 'Deleted: $filePath',
+        output: '已删除：$filePath',
         durationMs: startedAt.elapsedMilliseconds,
         workingDirectory: p.dirname(filePath),
         isWriteCommand: true,
@@ -148,49 +148,46 @@ class AiDeleteFileTool extends AiTool {
         command: 'DeleteFile $filePath',
         workingDirectory: p.dirname(filePath),
         stdout: '',
-        stderr: 'Failed to delete $filePath: $error',
+        stderr: '删除文件失败：$filePath：$error',
         durationMs: startedAt.elapsedMilliseconds,
-        resultText: 'status: failed\nerror: Failed to delete $filePath: $error',
+        resultText: 'status: failed\nerror: 删除文件失败：$filePath：$error',
       );
     }
   }
 
   bool _isUnsafePath(String filePath) {
     final normalized = p.normalize(filePath);
-    // Block root paths
-    if (normalized == '/' || normalized == p.separator) return true;
-    // Block home directory itself
-    final home = Platform.environment['HOME'] ?? '';
-    if (home.isNotEmpty && normalized == home) return true;
-    // Block critical system directories and OS-managed locations
-    final criticalPrefixes = <String>[
-      // Unix/macOS common
-      '/System',
-      '/usr',
-      '/bin',
-      '/sbin',
-      '/etc',
-      '/var',
-      '/Library',
-      '/Volumes',
-      // Linux-specific
-      '/proc',
-      '/sys',
-      '/dev',
-      '/boot',
-      '/run',
-      '/snap',
-      // Windows (only relevant on Windows)
-      if (Platform.isWindows) ...[
-        r'C:\Windows',
-        r'C:\Program Files',
-        r'C:\Program Files (x86)',
-      ],
-    ];
-    final normalizedLower = normalized.toLowerCase();
-    for (final prefix in criticalPrefixes) {
-      if (normalizedLower.startsWith(prefix.toLowerCase())) return true;
+    if (!p.isAbsolute(normalized)) return true;
+    final filesystemRoot = p.rootPrefix(normalized);
+    if (filesystemRoot.isEmpty || p.equals(normalized, filesystemRoot)) {
+      return true;
     }
-    return false;
+    if (p.equals(normalized, OpenHandPaths.homeDirectoryPath())) return true;
+
+    final criticalRoots = Platform.isWindows
+        ? <String>[
+            p.join(filesystemRoot, 'Windows'),
+            p.join(filesystemRoot, 'Program Files'),
+            p.join(filesystemRoot, 'Program Files (x86)'),
+            p.join(filesystemRoot, 'ProgramData'),
+          ]
+        : const <String>[
+            '/System',
+            '/usr',
+            '/bin',
+            '/sbin',
+            '/etc',
+            '/var',
+            '/Library',
+            '/private/etc',
+            '/private/var',
+            '/proc',
+            '/sys',
+            '/dev',
+            '/boot',
+            '/run',
+            '/snap',
+          ];
+    return criticalRoots.any((root) => isPathWithinOrEqual(root, normalized));
   }
 }

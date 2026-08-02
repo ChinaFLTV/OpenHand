@@ -5,6 +5,7 @@ import 'dart:ui' show Locale;
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
@@ -565,9 +566,7 @@ Future<bool?> probeCliAuth(CliScanEntry entry) async {
 Future<bool?> _probeCliAuthFromLocalState(HarnessCli cli) async {
   final relativePath = nullIfBlank(cli.localAuthStateFilePath);
   if (relativePath == null) return null;
-  final homeDirectory = nullIfBlank(
-    Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'],
-  );
+  final homeDirectory = OpenHandPaths.environmentHomeDirectoryPath();
   if (homeDirectory == null) {
     return null;
   }
@@ -640,9 +639,7 @@ Future<({bool success, String message})> _performLocalStateLogout(
     return (success: false, message: '未配置本地认证状态文件。');
   }
 
-  final homeDirectory = nullIfBlank(
-    Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'],
-  );
+  final homeDirectory = OpenHandPaths.environmentHomeDirectoryPath();
   if (homeDirectory == null) {
     return (success: false, message: '无法确定用户目录。');
   }

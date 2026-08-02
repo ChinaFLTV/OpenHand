@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
@@ -1684,7 +1685,7 @@ class AiToolUtils {
           '/bin/zsh',
           <String>['-l', '-c', 'which rg'],
           environment: <String, String>{
-            'HOME': Platform.environment['HOME'] ?? '',
+            'HOME': OpenHandPaths.homeDirectoryPath(),
           },
           timeout: _metadataProcessTimeout,
           tag: 'ai_tool_utils.resolve_rg_login_shell',

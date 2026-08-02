@@ -8,6 +8,11 @@ abstract final class OpenHandPaths {
   static const String defaultSkillsDirectoryLabel = '~/.openhand/skills';
 
   static String homeDirectoryPath() {
+    return environmentHomeDirectoryPath() ??
+        _normalizeHomePath(p.absolute(Directory.current.path));
+  }
+
+  static String? environmentHomeDirectoryPath() {
     final home = nullIfBlank(Platform.environment['HOME']);
     if (home != null && p.isAbsolute(home)) {
       return _normalizeHomePath(home);
@@ -26,16 +31,15 @@ abstract final class OpenHandPaths {
     if (windowsHome != null && p.isAbsolute(windowsHome)) {
       return _normalizeHomePath(windowsHome);
     }
-
-    return _normalizeHomePath(p.absolute(Directory.current.path));
+    return null;
   }
 
   static String defaultSkillsDirectoryPath() {
-    return p.join(homeDirectoryPath(), '.openhand', 'skills');
+    return p.join(defaultRootDirectoryPath(), 'skills');
   }
 
   static String defaultLspDirectoryPath() {
-    return p.join(homeDirectoryPath(), '.openhand', 'lsp');
+    return p.join(defaultRootDirectoryPath(), 'lsp');
   }
 
   static String defaultLspDirectoryPathForLanguage(String language) {
@@ -47,7 +51,7 @@ abstract final class OpenHandPaths {
   }
 
   static String defaultMcpDirectoryPath() {
-    return p.join(homeDirectoryPath(), '.openhand', 'mcp');
+    return p.join(defaultRootDirectoryPath(), 'mcp');
   }
 
   static String defaultMcpServersFilePath() {
@@ -55,11 +59,11 @@ abstract final class OpenHandPaths {
   }
 
   static String defaultSessionsDirectoryPath() {
-    return p.join(homeDirectoryPath(), '.openhand', 'sessions');
+    return p.join(defaultRootDirectoryPath(), 'sessions');
   }
 
   static String defaultDatabasePath() {
-    return p.join(homeDirectoryPath(), '.openhand', 'openhand.db');
+    return p.join(defaultRootDirectoryPath(), 'openhand.db');
   }
 
   static String defaultToolUsagePromotionFilePath() {
@@ -87,6 +91,10 @@ abstract final class OpenHandPaths {
 
   static String defaultMessageGatewayDirectoryPath() {
     return p.join(defaultRootDirectoryPath(), 'message_gateway');
+  }
+
+  static String defaultHooksTemporaryDirectoryPath() {
+    return p.join(defaultRootDirectoryPath(), 'hooks', 'tmp');
   }
 
   static String defaultAiExposureServiceDirectoryPath() {

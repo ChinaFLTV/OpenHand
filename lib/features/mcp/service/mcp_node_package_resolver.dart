@@ -28,10 +28,9 @@ final class McpNodePackageResolution {
   final String entryScript;
 }
 
-/// Resolves an already-installed npm package without invoking a package
-/// manager. Runtime directory scans, metadata probes, and manifest reads share
-/// one total budget so a large or stalled version-manager tree cannot block MCP
-/// startup indefinitely.
+/// 不调用包管理器，直接解析已安装的 npm 包。
+///
+/// 运行时目录扫描、元数据探测和清单读取共用一个总时限，避免异常目录树阻塞 MCP 启动。
 Future<McpNodePackageResolution?> resolveInstalledMcpNodePackage(
   String packageName, {
   String? homeDirectory,
@@ -43,19 +42,24 @@ Future<McpNodePackageResolution?> resolveInstalledMcpNodePackage(
   requirePositiveInt(maxRuntimeCandidates, 'maxRuntimeCandidates');
   final cleanName = normalizeMcpNodePackageName(packageName);
   if (cleanName == null) return null;
-  final home = homeDirectory?.trim();
+  final configuredHome = homeDirectory?.trim();
+  final home = configuredHome != null && p.isAbsolute(configuredHome)
+      ? p.normalize(configuredHome)
+      : null;
   final budget = _McpNodeResolverBudget(totalTimeout);
 
   try {
     if (home != null && home.isNotEmpty) {
       final explicitNvmRoot = nvmDirectory?.trim();
       final environmentNvmRoot = Platform.environment['NVM_DIR']?.trim();
-      final nvmRoot = explicitNvmRoot != null && explicitNvmRoot.isNotEmpty
+      final configuredNvmRoot =
+          explicitNvmRoot != null && explicitNvmRoot.isNotEmpty
           ? explicitNvmRoot
           : environmentNvmRoot;
-      final nvmDir = nvmRoot == null || nvmRoot.isEmpty
-          ? p.join(home, '.nvm')
-          : nvmRoot;
+      final nvmDir =
+          configuredNvmRoot != null && p.isAbsolute(configuredNvmRoot)
+          ? p.normalize(configuredNvmRoot)
+          : p.join(home, '.nvm');
       final nvmVersions = await _runtimeDirectories(
         Directory(p.join(nvmDir, 'versions', 'node')),
         budget,
@@ -149,7 +153,7 @@ Future<McpNodePackageResolution?> resolveInstalledMcpNodePackage(
   }
 }
 
-/// Returns existing absolute login-shell candidates in stable priority order.
+/// 按稳定优先级返回现有的绝对登录 Shell 路径。
 Future<List<String>> existingMcpLoginShells() async {
   final preferred = Platform.environment['SHELL']?.trim();
   final candidates = <String>{

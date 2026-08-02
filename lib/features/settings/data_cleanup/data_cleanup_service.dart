@@ -880,9 +880,8 @@ bool _isSafeDeleteTarget(String path) {
     return false;
   }
   // HOME / OpenHand root 一律拒绝（避免把整个 ~/.openhand 干掉导致 db 句柄崩溃）。
-  final home =
-      Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
-  if (home != null && home.isNotEmpty) {
+  final home = OpenHandPaths.environmentHomeDirectoryPath();
+  if (home != null) {
     final normalizedHome = p.normalize(home);
     if (normalized == normalizedHome) {
       return false;

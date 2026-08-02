@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart' show ChangeNotifier;
 import 'package:http/http.dart' as http;
 import 'package:path/path.dart' as p;
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
@@ -2238,8 +2239,7 @@ Future<_ResolvedStdioLaunch> _resolveStdioLaunch(McpServer server) async {
   );
 
   final extraSegments = <String>[];
-  final home =
-      Platform.environment['HOME'] ?? Platform.environment['USERPROFILE'];
+  final home = OpenHandPaths.environmentHomeDirectoryPath();
   if (Platform.isMacOS) {
     extraSegments.addAll(const [
       '/opt/homebrew/bin',

@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:flutter/foundation.dart' show ChangeNotifier;
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
@@ -1494,7 +1495,7 @@ Future<McpNodePackageResolution?> _resolveNpxPackagePath(
 ) async {
   final cleanName = normalizeMcpNodePackageName(packageName);
   if (cleanName == null) return null;
-  final home = Platform.environment['HOME'] ?? '';
+  final home = OpenHandPaths.environmentHomeDirectoryPath();
   final installed = await resolveInstalledMcpNodePackage(
     cleanName,
     homeDirectory: home,

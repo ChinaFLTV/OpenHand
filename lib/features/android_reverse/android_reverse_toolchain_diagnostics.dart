@@ -1,5 +1,6 @@
 import 'dart:io';
 
+import '../../app/support/openhand_paths.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -105,7 +106,7 @@ class AndroidReverseToolchainProbeResult {
   String get displayValue {
     final text = nullIfBlank(stdout);
     if (text != null) return text;
-    return nullIfBlank(stderr) ?? 'NOT_FOUND';
+    return nullIfBlank(stderr) ?? '未找到';
   }
 }
 
@@ -305,7 +306,7 @@ probeAndroidReverseToolchain() async {
             probe: probe,
             exitCode: -1,
             stdout: '',
-            stderr: 'Toolchain diagnostics require /bin/sh on this platform.',
+            stderr: '当前平台缺少工具链诊断所需的 /bin/sh。',
             durationMs: 0,
           ),
         )
@@ -330,7 +331,7 @@ Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
       command: '',
       exitCode: -1,
       stdout: '',
-      stderr: 'No ${action.name} command is available for ${probe.label}.',
+      stderr: '${probe.label} 未配置${_toolchainActionLabel(action)}命令。',
       durationMs: 0,
       timedOut: false,
     );
@@ -342,7 +343,7 @@ Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
       command: command,
       exitCode: -1,
       stdout: '',
-      stderr: 'Toolchain commands require /bin/sh on this platform.',
+      stderr: '当前平台缺少工具链命令所需的 /bin/sh。',
       durationMs: 0,
       timedOut: false,
     );
@@ -352,6 +353,7 @@ Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
     final result = await runTrackedProcessOrFailed(
       '/bin/sh',
       <String>['-lc', command],
+      environment: <String, String>{'HOME': OpenHandPaths.homeDirectoryPath()},
       timeout: _kToolchainCommandTimeout,
       tag: 'android_reverse_toolchain_command',
     );
@@ -370,7 +372,7 @@ Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
       exitCode: result.exitCode,
       stdout: stdout,
       stderr: timedOut
-          ? 'Toolchain command timed out after ${_kToolchainCommandTimeout.inMinutes} minutes.'
+          ? '工具链命令执行超过 ${_kToolchainCommandTimeout.inMinutes} 分钟，已终止。'
           : stderr,
       durationMs: sw.elapsedMilliseconds,
       timedOut: timedOut,
@@ -383,7 +385,7 @@ Future<AndroidReverseToolchainCommandResult> runAndroidReverseToolchainCommand(
       command: command,
       exitCode: -1,
       stdout: '',
-      stderr: '$e',
+      stderr: '工具链命令执行失败：$e',
       durationMs: sw.elapsedMilliseconds,
       timedOut: false,
     );
@@ -398,6 +400,7 @@ Future<AndroidReverseToolchainProbeResult> _runToolchainProbe(
     final result = await runTrackedProcessOrFailed(
       '/bin/sh',
       <String>['-lc', probe.script],
+      environment: <String, String>{'HOME': OpenHandPaths.homeDirectoryPath()},
       timeout: _kToolchainProbeTimeout,
       tag: 'android_reverse_toolchain',
     );
@@ -415,10 +418,18 @@ Future<AndroidReverseToolchainProbeResult> _runToolchainProbe(
       probe: probe,
       exitCode: -1,
       stdout: '',
-      stderr: '$e',
+      stderr: '工具链探测失败：$e',
       durationMs: sw.elapsedMilliseconds,
     );
   }
 }
 
 bool get androidReverseToolchainDiagnosticsSupported => !Platform.isWindows;
+
+String _toolchainActionLabel(AndroidReverseToolchainCommandAction action) {
+  return switch (action) {
+    AndroidReverseToolchainCommandAction.install => '安装',
+    AndroidReverseToolchainCommandAction.update => '更新',
+    AndroidReverseToolchainCommandAction.uninstall => '卸载',
+  };
+}
