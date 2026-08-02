@@ -58,6 +58,8 @@ class MediaCacheService {
   static const Duration _responseHeaderTimeout = Duration(seconds: 30);
   static const Duration _responseChunkTimeout = Duration(seconds: 30);
   static const Duration _fileOperationTimeout = Duration(seconds: 30);
+  static const Duration _downloadQueueTimeout = Duration(seconds: 30);
+  static const Duration _commitQueueTimeout = Duration(seconds: 30);
   static const Duration _cleanupTimeout = Duration(seconds: 5);
   static const Duration _cacheScanTimeout = Duration(seconds: 15);
   static const int _maxCacheScanEntries = 100000;
@@ -78,6 +80,7 @@ class MediaCacheService {
   static const int _maxCachedMediaFiles = 2048;
   static const int _maxConcurrentDownloads = 4;
   static const int _maxPendingDownloads = 64;
+  static const int _maxPendingCommits = 64;
   static const int _maxPendingInvalidations = 4096;
   static const int _validatedPathCacheMaxEntries = 2048;
   static const Duration _validatedPathTtl = Duration(seconds: 5);
@@ -114,8 +117,12 @@ class MediaCacheService {
   final LifecycleLruCache<DateTime> _validatedCachePaths;
   final OpenHandAsyncSemaphore _downloadSemaphore = OpenHandAsyncSemaphore(
     _maxConcurrentDownloads,
+    maxWaiters: _maxPendingDownloads,
   );
-  final OpenHandAsyncSemaphore _commitSemaphore = OpenHandAsyncSemaphore(1);
+  final OpenHandAsyncSemaphore _commitSemaphore = OpenHandAsyncSemaphore(
+    1,
+    maxWaiters: _maxPendingCommits,
+  );
   final Set<HttpClient> _activeClients = <HttpClient>{};
   final Set<Future<void>> _activeImports = <Future<void>>{};
   final Set<String> _pendingInvalidations = <String>{};
@@ -140,7 +147,7 @@ class MediaCacheService {
   Future<void> prewarm() {
     final active = _prewarmFuture;
     if (active != null) return active;
-    final prewarm = _commitSemaphore.withPermit<void>(() async {
+    final prewarm = _withCommitPermit<void>(() async {
       if (_disposed || _clearing) return;
       final directory = Directory(_cacheDirectoryPathProvider());
       if (await directory.exists().timeout(_fileOperationTimeout)) {
@@ -211,6 +218,7 @@ class MediaCacheService {
 
   void _queueInvalidation(String path) {
     _validatedCachePaths.remove(path);
+    if (_disposed || _clearing) return;
     if (_pendingInvalidations.length >= _maxPendingInvalidations &&
         !_pendingInvalidations.contains(path)) {
       _pendingInvalidations.remove(_pendingInvalidations.first);
@@ -230,21 +238,28 @@ class MediaCacheService {
   }
 
   Future<void> _drainInvalidations() async {
+    var completedNormally = false;
     try {
       while (_pendingInvalidations.isNotEmpty && !_disposed && !_clearing) {
         final path = _pendingInvalidations.first;
-        await _commitSemaphore.withPermit<void>(() async {
+        await _withCommitPermit<void>(() async {
           if (_disposed || _clearing || !_pendingInvalidations.remove(path)) {
             return;
           }
           await _deleteInvalidCachePair(path);
         });
       }
+      completedNormally = true;
+    } on _MediaCacheCancelled {
+      return;
     } catch (error, stack) {
       silentLog('media_cache', '使媒体缓存失效', error, stack);
     } finally {
       _invalidationWorker = null;
-      if (_pendingInvalidations.isNotEmpty && !_disposed && !_clearing) {
+      if (completedNormally &&
+          _pendingInvalidations.isNotEmpty &&
+          !_disposed &&
+          !_clearing) {
         _startInvalidationWorker();
       }
     }
@@ -284,7 +299,7 @@ class MediaCacheService {
           _maxConcurrentDownloads + _maxPendingDownloads) {
         return null;
       }
-      final future = _downloadSemaphore.withPermit<String?>(() {
+      final future = _runDownloadOperation(() {
         if (_disposed || _clearing || generation != _generation) {
           return Future<String?>.value();
         }
@@ -315,6 +330,8 @@ class MediaCacheService {
       );
       if (_disposed || _clearing || generation != _generation) return null;
       return result;
+    } on _MediaCacheCancelled {
+      return null;
     } catch (error, stack) {
       silentLog('media_cache', '确保媒体缓存可用', error, stack);
       return null;
@@ -326,6 +343,58 @@ class MediaCacheService {
     final uri = _httpUriOrNull(url);
     if (uri == null) return;
     unawaited(ensureCached(uri.toString(), kind: kind));
+  }
+
+  Future<String?> _runDownloadOperation(
+    Future<String?> Function() operation,
+  ) async {
+    late final bool acquired;
+    try {
+      acquired = await _acquireWithin(
+        _downloadSemaphore,
+        _downloadQueueTimeout,
+      );
+    } on StateError {
+      return null;
+    }
+    if (!acquired || _disposed || _clearing) return null;
+    try {
+      return await operation();
+    } finally {
+      _downloadSemaphore.release();
+    }
+  }
+
+  Future<T> _withCommitPermit<T>(Future<T> Function() operation) async {
+    late final bool acquired;
+    try {
+      acquired = await _acquireWithin(_commitSemaphore, _commitQueueTimeout);
+    } on StateError {
+      if (_disposed || _clearing) throw const _MediaCacheCancelled();
+      throw StateError('媒体缓存提交队列已满。');
+    }
+    if (!acquired) {
+      if (_disposed || _clearing) throw const _MediaCacheCancelled();
+      throw TimeoutException('媒体缓存提交排队超时。', _commitQueueTimeout);
+    }
+    try {
+      return await operation();
+    } finally {
+      _commitSemaphore.release();
+    }
+  }
+
+  static Future<bool> _acquireWithin(
+    OpenHandAsyncSemaphore semaphore,
+    Duration timeout,
+  ) async {
+    final timeoutSignal = Completer<void>();
+    final timer = Timer(timeout, timeoutSignal.complete);
+    try {
+      return await semaphore.acquireUnlessCancelled(timeoutSignal.future);
+    } finally {
+      timer.cancel();
+    }
   }
 
   /// 将已下载文件导入确定性缓存，避免“另存为”后再次下载相同媒体用于预热。
@@ -345,7 +414,7 @@ class MediaCacheService {
     final generation = _generation;
     _activeImports.add(operation);
     try {
-      return await _downloadSemaphore.withPermit<String?>(() {
+      return await _runDownloadOperation(() {
         if (_disposed || _clearing || generation != _generation) {
           return Future<String?>.value();
         }
@@ -357,6 +426,8 @@ class MediaCacheService {
           generation: generation,
         );
       });
+    } on _MediaCacheCancelled {
+      return null;
     } catch (error, stack) {
       silentLog('media_cache', '导入本地媒体文件', error, stack);
       return null;
@@ -396,15 +467,15 @@ class MediaCacheService {
     final destPath = _cacheFilePathForUrl(normalizedUrl, dir.path, cacheKind);
     final tempFile = _uniqueTempFile(destPath, generation);
     try {
-      await tempFile.parent
-          .create(recursive: true)
-          .timeout(_fileOperationTimeout);
-      final copying = sourceFile.copy(tempFile.path);
-      try {
-        await copying.timeout(_fileOperationTimeout);
-      } on TimeoutException {
-        unawaited(_cleanupLateCacheCopy(copying, tempFile));
-        rethrow;
+      final written = await _writeMediaStream(
+        sourceFile.openRead(0, bytes).timeout(_fileOperationTimeout),
+        tempFile: tempFile,
+        maxBytes: maxBytes,
+        totalTimeout: _deadlineForKind(cacheKind),
+        generation: generation,
+      );
+      if (written != bytes) {
+        throw FileSystemException('导入源文件在复制期间发生变化。', normalizedSourcePath);
       }
       return await _commitTempFile(
         tempFile: tempFile,
@@ -414,6 +485,9 @@ class MediaCacheService {
         mimeType: mimeType,
         generation: generation,
       );
+    } on _MediaCacheCancelled {
+      await _deleteEntity(tempFile, '删除已取消导入的媒体临时文件');
+      return null;
     } catch (error, stack) {
       silentLog('media_cache', '导入本地媒体文件', error, stack);
       await _deleteEntity(tempFile, '删除导入失败的媒体临时文件');
@@ -452,52 +526,13 @@ class MediaCacheService {
         return null;
       }
 
-      await tempFile.parent
-          .create(recursive: true)
-          .timeout(_fileOperationTimeout);
-      var written = 0;
-      final downloadWatch = Stopwatch()..start();
-      BoundedRandomAccessFileLease? output;
-      var deleteOnRelease = false;
-      try {
-        final openedOutput = await openBoundedRandomAccessFileLease(
-          tempFile,
-          mode: FileMode.write,
-          timeout: _fileOperationTimeout,
-          deleteIfOpenCompletesLate: true,
-          release: (file) async {
-            await file.close();
-            if (deleteOnRelease) {
-              await _deleteEntity(tempFile!, '删除未完成的媒体缓存临时文件');
-            }
-          },
-        );
-        output = openedOutput;
-        await for (final chunk in response.timeout(_responseChunkTimeout)) {
-          if (_disposed || _clearing || generation != _generation) {
-            throw const _MediaCacheCancelled();
-          }
-          if (downloadWatch.elapsed > _deadlineForKind(cacheKind)) {
-            throw TimeoutException('媒体缓存下载超过总时限。');
-          }
-          written += chunk.length;
-          if (written > maxBytes) {
-            throw FileSystemException('媒体缓存下载超过大小限制。', normalizedUrl);
-          }
-          await openedOutput.run<void>((file) async {
-            await file.writeFrom(chunk);
-          }, timeout: _fileOperationTimeout);
-        }
-        await openedOutput.run<void>((file) async {
-          await file.flush();
-        }, timeout: _fileOperationTimeout);
-        await openedOutput.close(timeout: _cleanupTimeout);
-        output = null;
-      } finally {
-        downloadWatch.stop();
-        deleteOnRelease = output != null;
-        await output?.cleanup();
-      }
+      final written = await _writeMediaStream(
+        response.timeout(_responseChunkTimeout),
+        tempFile: tempFile,
+        maxBytes: maxBytes,
+        totalTimeout: _deadlineForKind(cacheKind),
+        generation: generation,
+      );
       if (written <= 0) {
         await _deleteEntity(tempFile, '删除空媒体缓存临时文件');
         return null;
@@ -543,6 +578,64 @@ class MediaCacheService {
     return File('$destPath.part.$generation.$serial');
   }
 
+  Future<int> _writeMediaStream(
+    Stream<List<int>> stream, {
+    required File tempFile,
+    required int maxBytes,
+    required Duration totalTimeout,
+    required int generation,
+  }) async {
+    final deadline = MonotonicDeadline(
+      totalTimeout,
+      timeoutMessage: '媒体缓存写入超过总时限。',
+    );
+    BoundedRandomAccessFileLease? output;
+    var deleteOnRelease = false;
+    var written = 0;
+    try {
+      await tempFile.parent
+          .create(recursive: true)
+          .timeout(deadline.limit(_fileOperationTimeout));
+      final openedOutput = await openBoundedRandomAccessFileLease(
+        tempFile,
+        mode: FileMode.write,
+        timeout: deadline.limit(_fileOperationTimeout),
+        deleteIfOpenCompletesLate: true,
+        release: (file) async {
+          await file.close();
+          if (deleteOnRelease) {
+            await _deleteEntity(tempFile, '删除未完成的媒体缓存临时文件');
+          }
+        },
+      );
+      output = openedOutput;
+      await for (final chunk in stream) {
+        if (_disposed || _clearing || generation != _generation) {
+          throw const _MediaCacheCancelled();
+        }
+        written += chunk.length;
+        if (written > maxBytes) {
+          throw FileSystemException('媒体缓存写入超过大小限制。', tempFile.path);
+        }
+        await openedOutput.run<void>(
+          (file) => file.writeFrom(chunk),
+          timeout: deadline.limit(_fileOperationTimeout),
+        );
+      }
+      await openedOutput.run<void>(
+        (file) => file.flush(),
+        timeout: deadline.limit(_fileOperationTimeout),
+      );
+      await openedOutput.close(timeout: deadline.limit(_cleanupTimeout));
+      output = null;
+      return written;
+    } finally {
+      deadline.stop();
+      deleteOnRelease = output != null;
+      await output?.cleanup();
+    }
+  }
+
   Future<String?> _commitTempFile({
     required File tempFile,
     required String destPath,
@@ -551,7 +644,7 @@ class MediaCacheService {
     required String? mimeType,
     required int generation,
   }) {
-    return _commitSemaphore.withPermit<String?>(() async {
+    return _withCommitPermit<String?>(() async {
       if (_disposed || _clearing || generation != _generation) {
         await _deleteEntity(tempFile, '删除失效的媒体缓存临时文件');
         return null;
@@ -593,30 +686,20 @@ class MediaCacheService {
     });
   }
 
-  static Future<void> _cleanupLateCacheCopy(
-    Future<File> copying,
-    File tempFile,
-  ) async {
-    try {
-      await copying;
-    } catch (error, stack) {
-      silentLog('media_cache', '等待延迟复制媒体缓存', error, stack);
-    }
-    await _deleteEntity(tempFile, '删除延迟复制的媒体缓存临时文件');
-  }
-
   static Future<void> _cleanupLateCachePublish(
     Future<File> publishing,
     File tempFile,
     String destPath,
   ) async {
+    var published = false;
     try {
       await publishing;
+      published = true;
     } catch (error, stack) {
       silentLog('media_cache', '等待延迟发布媒体缓存', error, stack);
     }
     await _deleteEntity(tempFile, '删除延迟发布的媒体缓存临时文件');
-    await _deleteInvalidCachePair(destPath);
+    if (published) await _deleteInvalidCachePair(destPath);
   }
 
   Future<void> _pruneCacheDirectory(Directory directory) async {
@@ -750,7 +833,8 @@ class MediaCacheService {
     _pendingInvalidations.clear();
     try {
       await _cancelActiveOperations();
-      await _commitSemaphore.withPermit<void>(() async {});
+      final acquired = await _acquireWithin(_commitSemaphore, _cleanupTimeout);
+      if (acquired) _commitSemaphore.release();
     } finally {
       _clearing = false;
     }
@@ -768,7 +852,14 @@ class MediaCacheService {
     _cacheDir = null;
     try {
       await _cancelActiveOperations();
-      await _commitSemaphore.withPermit<void>(() async {
+      final acquired = await _acquireWithin(
+        _commitSemaphore,
+        _fileOperationTimeout,
+      );
+      if (!acquired) {
+        throw TimeoutException('等待媒体缓存写入结束超时。', _fileOperationTimeout);
+      }
+      try {
         await Future.wait(<Future<void>>[
           _clearDirectoryContents(Directory(cacheDirectoryPath)),
           _clearDirectoryContents(Directory(legacyInlineMediaDirectoryPath)),
@@ -776,13 +867,17 @@ class MediaCacheService {
         _cacheDir = null;
         _validatedCachePaths.clear();
         _pendingInvalidations.clear();
-      });
+      } finally {
+        _commitSemaphore.release();
+      }
     } finally {
       _clearing = false;
     }
   }
 
   Future<void> _cancelActiveOperations() async {
+    _downloadSemaphore.cancelWaiters();
+    _commitSemaphore.cancelWaiters();
     for (final client in _activeClients.toList(growable: false)) {
       try {
         client.close(force: true);
@@ -801,6 +896,7 @@ class MediaCacheService {
         pending,
       ).timeout(_cleanupTimeout, onTimeout: () => <void>[]);
     }
+    _inflight.clear();
   }
 
   static Future<MediaCacheStats> _measureDirectory(Directory dir) async {
@@ -875,7 +971,7 @@ class MediaCacheService {
     required int generation,
   }) {
     final path = _cacheFilePathForUrl(url, _cacheDirectoryPathProvider(), kind);
-    return _commitSemaphore.withPermit<String?>(() async {
+    return _withCommitPermit<String?>(() async {
       if (_disposed || _clearing || generation != _generation) return null;
       if (_pendingInvalidations.remove(path)) {
         await _deleteInvalidCachePair(path);
