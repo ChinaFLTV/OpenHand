@@ -265,9 +265,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                               _selectedUrls.remove(endpoint.url);
                             }
                           }),
-                          onEnabledChanged: (enabled) => _updateEndpoint(
-                            endpoint.url,
-                            endpoint.copyWith(enabled: enabled),
+                          onEnabledChanged: (enabled) => unawaited(
+                            _setEndpointEnabled(endpoint.url, enabled),
                           ),
                           onTest: () => _testEndpoint(endpoint.url),
                           onDetails: () => _showEndpointDetails(
@@ -367,12 +366,50 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     _sortedEndpointCacheSort = null;
   }
 
-  void _updateEndpoint(String url, AiExposureProxyEndpoint updated) {
+  void _replaceEndpointLocally(String url, AiExposureProxyEndpoint updated) {
     final index = _endpoints.indexWhere((item) => item.url == url);
     if (index < 0) return;
     setState(() {
       _endpoints[index] = updated;
       _invalidateEndpointSortCache();
+    });
+  }
+
+  void _replaceEndpointsLocally(List<AiExposureProxyEndpoint> endpoints) {
+    _endpoints = List<AiExposureProxyEndpoint>.of(endpoints);
+    final urls = _endpoints.map((endpoint) => endpoint.url).toSet();
+    _selectedUrls.retainAll(urls);
+    _invalidateEndpointSortCache();
+    if (!_endpoints.any((endpoint) => endpoint.enabled)) {
+      _enabled = false;
+      _inspectionEnabled = false;
+    }
+    if (_selectedUrls.isEmpty) _selectionMode = false;
+  }
+
+  Future<bool> _persistEndpoints(
+    List<AiExposureProxyEndpoint> endpoints,
+  ) async {
+    final controller = context.read<ServicesController>();
+    final updated = await controller.updateProxyEndpoints(endpoints);
+    if (mounted && !updated) {
+      showOpenHandErrorSnack(context, controller.errorMessage ?? '保存代理节点失败。');
+    }
+    return updated;
+  }
+
+  Future<void> _setEndpointEnabled(String url, bool enabled) async {
+    if (_busy) return;
+    final index = _endpoints.indexWhere((endpoint) => endpoint.url == url);
+    if (index < 0) return;
+    final endpoints = List<AiExposureProxyEndpoint>.of(_endpoints);
+    endpoints[index] = endpoints[index].copyWith(enabled: enabled);
+    setState(() => _busy = true);
+    final updated = await _persistEndpoints(endpoints);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (updated) _replaceEndpointsLocally(endpoints);
     });
   }
 
@@ -403,17 +440,17 @@ class _ProxyDialogState extends State<_ProxyDialog> {
           : text(zh: '删除所选 $count 个节点？', en: 'Delete $count selected nodes?'),
       message: clearsPool
           ? text(
-              zh: '将移除全部 $count 个代理节点，并关闭代理池与定时巡检。应用代理设置后生效。',
-              en: 'This removes all $count proxy nodes and disables the pool and scheduled inspection. Changes take effect after applying settings.',
+              zh: '将立即移除并保存全部 $count 个代理节点；若代理池或定时巡检已启用，将同步停用。',
+              en: 'This immediately removes and saves all $count proxy nodes. The pool and scheduled inspection will be disabled if active.',
             )
           : count == 1
           ? text(
-              zh: '将移除“${endpoints.first.displayName}”。应用代理设置后生效。',
-              en: 'Remove “${endpoints.first.displayName}”. Changes take effect after applying settings.',
+              zh: '将立即移除并保存“${endpoints.first.displayName}”。',
+              en: 'Immediately remove and save “${endpoints.first.displayName}”.',
             )
           : text(
-              zh: '将移除所选 $count 个代理节点。应用代理设置后生效。',
-              en: 'Remove the $count selected proxy nodes. Changes take effect after applying settings.',
+              zh: '将立即移除并保存所选 $count 个代理节点。',
+              en: 'Immediately remove and save the $count selected proxy nodes.',
             ),
       cancelLabel: text(zh: '取消', en: 'Cancel'),
       confirmLabel: clearsPool
@@ -429,27 +466,32 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     if (!confirmed || !mounted) return;
 
     final removedUrls = endpoints.map((endpoint) => endpoint.url).toSet();
-    setState(() => _removingUrls.addAll(removedUrls));
+    final remaining = _endpoints
+        .where((endpoint) => !removedUrls.contains(endpoint.url))
+        .toList(growable: false);
+    setState(() {
+      _busy = true;
+      _removingUrls.addAll(removedUrls);
+    });
     await awaitOpenHandListRemoval(context);
     if (!mounted) return;
+    final updated = await _persistEndpoints(remaining);
+    if (!mounted) return;
     setState(() {
-      _endpoints.removeWhere((endpoint) => removedUrls.contains(endpoint.url));
-      _selectedUrls.removeAll(removedUrls);
-      _testingUrls.removeAll(removedUrls);
-      _pendingSamples.removeWhere((url, _) => removedUrls.contains(url));
+      _busy = false;
       _removingUrls.removeAll(removedUrls);
-      _invalidateEndpointSortCache();
-      if (_endpoints.isEmpty) {
-        _enabled = false;
-        _inspectionEnabled = false;
+      if (updated) {
+        _replaceEndpointsLocally(remaining);
+        _testingUrls.removeAll(removedUrls);
+        _pendingSamples.removeWhere((url, _) => removedUrls.contains(url));
       }
-      if (_selectedUrls.isEmpty) _selectionMode = false;
     });
+    if (!updated) return;
     showOpenHandSuccessSnack(
       context,
       text(
-        zh: '已删除 $count 个代理节点，应用设置后生效。',
-        en: '$count proxy nodes removed. Apply settings to save the change.',
+        zh: '已删除并保存 $count 个代理节点。',
+        en: '$count proxy nodes removed and saved.',
       ),
     );
   }
@@ -942,12 +984,22 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       if (_endpoints.length >= _kMaxProxyEndpoints) {
         throw const FormatException('代理池已达到 10000 条上限。');
       }
+      final endpoints = <AiExposureProxyEndpoint>[..._endpoints, endpoint];
+      setState(() => _busy = true);
+      final updated = await _persistEndpoints(endpoints);
+      if (!mounted) return;
       setState(() {
-        _endpoints.add(endpoint);
-        _invalidateEndpointSortCache();
+        _busy = false;
+        if (updated) _replaceEndpointsLocally(endpoints);
       });
+      if (updated) {
+        showOpenHandSuccessSnack(context, '代理节点已添加并保存。');
+      }
     } catch (error) {
-      showOpenHandErrorSnack(context, '$error');
+      if (mounted) {
+        setState(() => _busy = false);
+        showOpenHandErrorSnack(context, '$error');
+      }
     }
   }
 
@@ -961,15 +1013,23 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       return;
     }
     final sameEndpoint = endpoint.url == updated.url;
-    _updateEndpoint(
-      endpoint.url,
-      updated.copyWith(
-        enabled: endpoint.enabled,
-        samples: sameEndpoint ? endpoint.samples : updated.samples,
-        statistics: sameEndpoint ? endpoint.statistics : updated.statistics,
-        identity: sameEndpoint ? endpoint.identity : updated.identity,
-      ),
+    final index = _endpoints.indexWhere((item) => item.url == endpoint.url);
+    if (index < 0) return;
+    final endpoints = List<AiExposureProxyEndpoint>.of(_endpoints);
+    endpoints[index] = updated.copyWith(
+      enabled: endpoint.enabled,
+      samples: sameEndpoint ? endpoint.samples : updated.samples,
+      statistics: sameEndpoint ? endpoint.statistics : updated.statistics,
+      identity: sameEndpoint ? endpoint.identity : updated.identity,
     );
+    setState(() => _busy = true);
+    final saved = await _persistEndpoints(endpoints);
+    if (!mounted) return;
+    setState(() {
+      _busy = false;
+      if (saved) _replaceEndpointsLocally(endpoints);
+    });
+    if (saved) showOpenHandSuccessSnack(context, '代理节点已更新并保存。');
   }
 
   Future<void> _showEndpointDetails(
@@ -984,7 +1044,10 @@ class _ProxyDialogState extends State<_ProxyDialog> {
           .where((item) => item.url == endpoint.url)
           .firstOrNull;
       if (current != null && mounted) {
-        _updateEndpoint(endpoint.url, current.copyWith(identity: identity));
+        _replaceEndpointLocally(
+          endpoint.url,
+          current.copyWith(identity: identity),
+        );
       }
       await context.read<ServicesController>().updateProxyIdentity(
         endpoint.url,
@@ -1093,6 +1156,9 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         }
       }
     });
+    unawaited(
+      context.read<ServicesController>().saveProxyProbeSamples(samples),
+    );
   }
 
   Future<void> _import() async {
@@ -1128,15 +1194,17 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         }
       }
       if (!mounted) return;
+      final endpoints = merged.values.toList(growable: false);
+      final updated = await _persistEndpoints(endpoints);
+      if (!mounted || !updated) return;
       setState(() {
-        _endpoints = merged.values.toList(growable: true);
-        _invalidateEndpointSortCache();
+        _replaceEndpointsLocally(endpoints);
       });
       showOpenHandSuccessSnack(
         context,
         imported.invalid == 0
-            ? '已新增 $accepted 个代理。'
-            : '已新增 $accepted 个代理，忽略 ${imported.invalid} 条无效记录。',
+            ? '已新增并保存 $accepted 个代理。'
+            : '已新增并保存 $accepted 个代理，忽略 ${imported.invalid} 条无效记录。',
       );
     } catch (error) {
       if (mounted) showOpenHandErrorSnack(context, '$error');
@@ -1192,26 +1260,26 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 
   Future<void> _save() async {
-    final activeCount = _endpoints.where((endpoint) => endpoint.enabled).length;
+    final controller = context.read<ServicesController>();
+    final endpoints = controller.proxyConfiguration.endpoints;
+    final activeCount = endpoints.where((endpoint) => endpoint.enabled).length;
     if ((_enabled || _inspectionEnabled) && activeCount == 0) {
       showOpenHandErrorSnack(context, '请至少启用一个代理节点。');
       return;
     }
     setState(() => _busy = true);
-    final updated = await context
-        .read<ServicesController>()
-        .updateProxyConfiguration(
-          AiExposureProxyConfiguration(
-            enabled: _enabled,
-            strategy: _strategy,
-            rotationEvery: _rotationEvery.round(),
-            bypassLocal: _bypassLocal,
-            endpoints: List<AiExposureProxyEndpoint>.unmodifiable(_endpoints),
-            inspectionEnabled: _inspectionEnabled,
-            inspectionIntervalMinutes: _normalizedInspectionInterval,
-            inspectionConcurrency: _normalizedInspectionConcurrency,
-          ),
-        );
+    final updated = await controller.updateProxyConfiguration(
+      AiExposureProxyConfiguration(
+        enabled: _enabled,
+        strategy: _strategy,
+        rotationEvery: _rotationEvery.round(),
+        bypassLocal: _bypassLocal,
+        endpoints: endpoints,
+        inspectionEnabled: _inspectionEnabled,
+        inspectionIntervalMinutes: _normalizedInspectionInterval,
+        inspectionConcurrency: _normalizedInspectionConcurrency,
+      ),
+    );
     if (!mounted) return;
     setState(() => _busy = false);
     if (updated) Navigator.of(context).maybePop();

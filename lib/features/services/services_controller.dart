@@ -426,13 +426,37 @@ class ServicesController extends ChangeNotifier {
 
   Future<bool> updateProxyConfiguration(
     AiExposureProxyConfiguration configuration,
-  ) async {
+  ) => _applyProxyConfiguration(
+    configuration,
+    logMessage: configuration.enabled
+        ? '代理池已启用，共 ${configuration.activeEndpoints.length} 个可用节点。'
+        : '代理池已停用，网络请求将直接连接。',
+  );
+
+  Future<bool> updateProxyEndpoints(List<AiExposureProxyEndpoint> endpoints) {
+    final activeCount = endpoints.where((endpoint) => endpoint.enabled).length;
+    final current = _proxyConfiguration;
+    return _applyProxyConfiguration(
+      current.copyWith(
+        enabled: current.enabled && activeCount > 0,
+        inspectionEnabled: current.inspectionEnabled && activeCount > 0,
+        endpoints: endpoints,
+      ),
+      logMessage: '代理节点配置已更新，共 ${endpoints.length} 个节点，$activeCount 个启用。',
+    );
+  }
+
+  Future<bool> _applyProxyConfiguration(
+    AiExposureProxyConfiguration configuration, {
+    required String logMessage,
+  }) async {
     try {
       if (configuration.endpoints.length > 10000) {
         throw const FormatException('代理池最多支持 10000 个代理。');
       }
-      if (configuration.enabled && configuration.activeEndpoints.isEmpty) {
-        throw const FormatException('启用代理前至少启用一个代理节点。');
+      if ((configuration.enabled || configuration.inspectionEnabled) &&
+          configuration.activeEndpoints.isEmpty) {
+        throw const FormatException('启用代理或巡检前至少启用一个代理节点。');
       }
       final client = _client;
       if (client != null) {
@@ -450,9 +474,7 @@ class ServicesController extends ChangeNotifier {
       _appendLog(
         AiExposureLogEntry(
           level: 'info',
-          message: configuration.enabled
-              ? '代理池已启用，共 ${configuration.activeEndpoints.length} 个可用节点。'
-              : '代理池已停用，网络请求将直接连接。',
+          message: logMessage,
           at: DateTime.now(),
         ),
       );
@@ -464,6 +486,30 @@ class ServicesController extends ChangeNotifier {
       _notify();
       return false;
     }
+  }
+
+  Future<void> saveProxyProbeSamples(
+    Map<String, AiExposureProxyProbeSample> samples,
+  ) async {
+    if (samples.isEmpty || _disposed) return;
+    final endpoints = List<AiExposureProxyEndpoint>.of(
+      _proxyConfiguration.endpoints,
+    );
+    final indexes = <String, int>{
+      for (var index = 0; index < endpoints.length; index++)
+        endpoints[index].url: index,
+    };
+    var changed = false;
+    for (final entry in samples.entries) {
+      final index = indexes[entry.key];
+      if (index == null) continue;
+      endpoints[index] = endpoints[index].withSample(entry.value);
+      changed = true;
+    }
+    if (!changed) return;
+    _proxyConfiguration = _proxyConfiguration.copyWith(endpoints: endpoints);
+    await _persistPreferences();
+    _notify();
   }
 
   Future<void> inspectAllProxies() async {
