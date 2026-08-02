@@ -3029,6 +3029,10 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
+    final inputIconStyle = IconButton.styleFrom(
+      backgroundColor: Colors.transparent,
+      foregroundColor: Theme.of(context).colorScheme.onSurfaceVariant,
+    );
     final editing = widget.initial != null;
     return Padding(
       padding: const EdgeInsets.all(22),
@@ -3075,6 +3079,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                     suffixIcon: IconButton(
                       tooltip: text(zh: '解析并填充表单', en: 'Parse and fill form'),
                       onPressed: () => _applyProxyAddress(reportInvalid: true),
+                      style: inputIconStyle,
                       icon: AnimatedSwitcher(
                         duration: openHandMotionDuration(
                           context,
@@ -3252,6 +3257,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                         : text(zh: '隐藏密码', en: 'Hide password'),
                     onPressed: () =>
                         setState(() => _obscurePassword = !_obscurePassword),
+                    style: inputIconStyle,
                     icon: Icon(
                       _obscurePassword
                           ? Icons.visibility_outlined
