@@ -255,7 +255,9 @@ class OpenHandAsyncSemaphore {
       Queue<_OpenHandAsyncSemaphoreWaiter>();
 
   Future<void> acquire() async {
-    await _acquire();
+    if (!await _acquire()) {
+      throw StateError('异步信号量等待已取消。');
+    }
   }
 
   /// 等待许可并返回是否成功，供所有者主动取消等待队列。
