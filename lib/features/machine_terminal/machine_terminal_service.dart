@@ -61,6 +61,7 @@ const Duration _terminalFilesystemProbeTimeout = Duration(seconds: 3);
 const Duration _workspaceLoadQueueTimeout = Duration(seconds: 15);
 const int _maxConcurrentWorkspaceLoads = 4;
 const int _maxPendingWorkspaceLoads = 32;
+const int _maxTerminalWorkspaces = 32;
 const int _shutdownConcurrency = 4;
 const Duration _shutdownStepTimeout = Duration(milliseconds: 1500);
 const String _machineTerminalSurface = 'openhand_machine_terminal';
@@ -1144,6 +1145,9 @@ class MachineTerminalService extends ChangeNotifier {
     if (loaded != null) return Future<_MachineTerminalWorkspace>.value(loaded);
     final activeLoad = _workspaceLoads[normalizedSessionId];
     if (activeLoad != null) return activeLoad;
+    if (_workspaces.length + _workspaceLoads.length >= _maxTerminalWorkspaces) {
+      throw StateError('终端工作区已达到上限 $_maxTerminalWorkspaces，请删除不再使用的会话后重试。');
+    }
 
     final generation = _workspaceLoadGenerations[normalizedSessionId] ?? 0;
     late final Future<_MachineTerminalWorkspace> tracked;
@@ -2280,9 +2284,8 @@ class _MachineTerminalWorkspace {
       final evictedIndex = terminals.indexWhere((item) => !item.attached);
       if (evictedIndex < 0) {
         throw StateError(
-          'A workspace can retain at most '
-          '$_maxTerminalSessionsPerWorkspace terminal sessions. Close or '
-          'delete an old terminal before creating another.',
+          '一个工作区最多保留 $_maxTerminalSessionsPerWorkspace 个终端会话，'
+          '请先关闭或删除旧终端。',
         );
       }
       terminals.removeAt(evictedIndex).dispose();

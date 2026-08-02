@@ -565,6 +565,8 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _sessionHydrationQueueTimeout = Duration(seconds: 8);
   static const int _maxConcurrentSessionHydrations = 4;
   static const int _maxPendingSessionHydrations = 64;
+  static const int _maxTrackedSessionHydrationTasks =
+      _maxConcurrentSessionHydrations + _maxPendingSessionHydrations;
 
   static Duration _mediaGenerationTimeoutFor(AiCreationRequest request) {
     switch (request.mode) {
@@ -978,6 +980,7 @@ class AiSessionController extends ChangeNotifier {
         _maxConcurrentSessionHydrations,
         maxWaiters: _maxPendingSessionHydrations,
       );
+  int _trackedSessionHydrationTaskCount = 0;
   final Map<String, Future<void>> _responseRegenerationRecoveryTasks =
       <String, Future<void>>{};
   final Set<String> _hydratingSessionMessageIds = <String>{};
@@ -1891,6 +1894,25 @@ class AiSessionController extends ChangeNotifier {
     );
   }
 
+  Future<T>? _startTrackedSessionHydrationTask<T>(
+    Future<T> Function() operation,
+  ) {
+    if (_trackedSessionHydrationTaskCount >= _maxTrackedSessionHydrationTasks) {
+      return null;
+    }
+    _trackedSessionHydrationTaskCount += 1;
+    final task = Future<T>.sync(operation);
+    unawaited(
+      task.then<void>(
+        (_) => _trackedSessionHydrationTaskCount -= 1,
+        onError: (Object _, StackTrace _) {
+          _trackedSessionHydrationTaskCount -= 1;
+        },
+      ),
+    );
+    return task;
+  }
+
   Future<T> _runSessionHydrationRead<T>(Future<T> Function() read) async {
     final timeoutSignal = Completer<void>();
     final timeoutTimer = startSafeTimer(
@@ -1940,24 +1962,29 @@ class AiSessionController extends ChangeNotifier {
     final generation =
         (_sessionMessageWindowHydrationGenerations[normalizedSessionId] ?? 0) +
         1;
+    final hydrationTask = _startTrackedSessionHydrationTask(
+      () => _hydrateSessionMessageWindow(
+        normalizedSessionId,
+        generation: generation,
+      ),
+    );
+    if (hydrationTask == null) {
+      return Future<AiSession?>.value();
+    }
     _sessionMessageWindowHydrationGenerations[normalizedSessionId] = generation;
     _sessionMessageWindowLoadErrors.remove(normalizedSessionId);
     _hydratingSessionMessageIds.add(normalizedSessionId);
     notifyListeners();
-    final task =
-        _hydrateSessionMessageWindow(
+    final task = hydrationTask.timeout(
+      _initialMessageHydrationTimeout,
+      onTimeout: () {
+        _handleSessionMessageWindowHydrationTimeout(
           normalizedSessionId,
-          generation: generation,
-        ).timeout(
-          _initialMessageHydrationTimeout,
-          onTimeout: () {
-            _handleSessionMessageWindowHydrationTimeout(
-              normalizedSessionId,
-              generation,
-            );
-            return null;
-          },
+          generation,
         );
+        return null;
+      },
+    );
     _sessionMessageWindowHydrationTasks[normalizedSessionId] = task;
     return task;
   }
@@ -2020,11 +2047,17 @@ class AiSessionController extends ChangeNotifier {
     if (existingTask != null) {
       return existingTask;
     }
+    final hydrationTask = _startTrackedSessionHydrationTask(
+      () => _hydrateSessionMessages(normalizedSessionId),
+    );
+    if (hydrationTask == null) {
+      return Future<AiSession?>.value(current);
+    }
     if (_hydratingSessionMessageIds.add(normalizedSessionId)) {
       notifyListeners();
     }
     late final Future<AiSession?> task;
-    task = _hydrateSessionMessages(normalizedSessionId).whenComplete(() {
+    task = hydrationTask.whenComplete(() {
       if (identical(_sessionMessageHydrationTasks[normalizedSessionId], task)) {
         _sessionMessageHydrationTasks.remove(normalizedSessionId);
       }
@@ -2057,8 +2090,14 @@ class AiSessionController extends ChangeNotifier {
     if (existingTask != null) {
       return existingTask;
     }
+    final hydrationTask = _startTrackedSessionHydrationTask(
+      () => _hydrateSessionCacheStatistics(normalizedSessionId),
+    );
+    if (hydrationTask == null) {
+      return Future<AiSession?>.value(current);
+    }
     late final Future<AiSession?> task;
-    task = _hydrateSessionCacheStatistics(normalizedSessionId).whenComplete(() {
+    task = hydrationTask.whenComplete(() {
       if (identical(
         _sessionCacheStatsHydrationTasks[normalizedSessionId],
         task,
@@ -2081,8 +2120,15 @@ class AiSessionController extends ChangeNotifier {
     if (existingTask != null) {
       return existingTask;
     }
+    final current = _sessionById(normalizedSessionId);
+    final hydrationTask = _startTrackedSessionHydrationTask(
+      () => _loadOlderSessionMessages(normalizedSessionId),
+    );
+    if (hydrationTask == null) {
+      return Future<AiSession?>.value(current);
+    }
     late final Future<AiSession?> task;
-    task = _loadOlderSessionMessages(normalizedSessionId).whenComplete(() {
+    task = hydrationTask.whenComplete(() {
       if (identical(
         _sessionOlderMessageHydrationTasks[normalizedSessionId],
         task,
@@ -2119,13 +2165,16 @@ class AiSessionController extends ChangeNotifier {
     if (existing != null) return existing;
     final generation =
         (_sessionMessageContentLoadGenerations[taskKey] ?? 0) + 1;
-    _sessionMessageContentLoadGenerations[taskKey] = generation;
-    final task = _loadFullSessionMessageContent(
-      normalizedSessionId,
-      normalizedMessageId,
-      taskKey: taskKey,
-      generation: generation,
+    final task = _startTrackedSessionHydrationTask(
+      () => _loadFullSessionMessageContent(
+        normalizedSessionId,
+        normalizedMessageId,
+        taskKey: taskKey,
+        generation: generation,
+      ),
     );
+    if (task == null) return Future<AiSessionMessage?>.value();
+    _sessionMessageContentLoadGenerations[taskKey] = generation;
     _sessionMessageContentLoadTasks[taskKey] = task;
     return task;
   }
