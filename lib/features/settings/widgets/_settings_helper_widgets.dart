@@ -5351,15 +5351,6 @@ class _AiModelTileState extends State<_AiModelTile> {
                   ? colorScheme.primary
                   : colorScheme.outlineVariant,
             ),
-            boxShadow: widget.isSelected
-                ? [
-                    BoxShadow(
-                      color: colorScheme.primary.withValues(alpha: 0.12),
-                      blurRadius: 18,
-                      offset: const Offset(0, 8),
-                    ),
-                  ]
-                : const <BoxShadow>[],
           ),
           child: Padding(
             padding: const EdgeInsets.all(18),
