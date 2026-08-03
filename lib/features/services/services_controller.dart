@@ -3,7 +3,9 @@ import 'dart:async';
 import 'package:flutter/foundation.dart';
 
 import '../../app/support/silent_log.dart';
+import '../../app/support/system_proxy.dart';
 import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../plugin_service/index.dart';
@@ -53,6 +55,9 @@ class ServicesController extends ChangeNotifier {
     _proxyConfiguration = preferences.proxyConfiguration;
     _runtimeLogSubscription = _runtime.logs.listen(_appendRuntimeLog);
     _runtimeExitSubscription = _runtime.exits.listen(_handleRuntimeExit);
+    SystemProxyResolver.instance.revision.addListener(
+      _handleSystemProxyRevision,
+    );
     _scheduleProxyInspection(firstDelay: _proxyInspectionFirstRunDelay);
   }
 
@@ -101,12 +106,17 @@ class ServicesController extends ChangeNotifier {
       OpenHandSingleFlight<void>();
   final OpenHandSingleFlight<void> _serviceStatusRefresh =
       OpenHandSingleFlight<void>();
+  final SerialTaskQueue _proxyRuntimeUpdateQueue = SerialTaskQueue(
+    maxPendingTasks: 8,
+  );
   final List<AiExposureLogEntry> _logs = <AiExposureLogEntry>[];
   String? _errorMessage;
   bool _busy = false;
   bool _scanBusy = false;
   bool _logRefreshBusy = false;
   bool _disposed = false;
+  bool _systemProxySyncRunning = false;
+  bool _systemProxySyncPending = false;
 
   AiExposureServiceLifecycle get lifecycle => _lifecycle;
   AiExposureHealth? get health => _health;
@@ -155,6 +165,73 @@ class ServicesController extends ChangeNotifier {
   bool get proxyInspectionBusy => _proxyInspectionRunning;
   bool get ownsProcess => _runtime.ownsProcess;
   AiJunglerClient? get _client => _runtime.client;
+
+  Map<String, Object?> get _systemProxyRuntimeJson =>
+      SystemProxyResolver.instance.resolveRuntimeRoute().toJson();
+
+  bool get usesProxyPool =>
+      _proxyConfiguration.enabled &&
+      _proxyConfiguration.activeEndpoints.isNotEmpty;
+
+  bool get usesSystemProxyFallback => !usesProxyPool && systemProxyAvailable;
+
+  bool get systemProxyAvailable {
+    final status = _proxyStatus;
+    if (_client != null && status != null) return status.systemProxyEnabled;
+    return SystemProxyResolver.instance.resolveRuntimeRoute().hasProxy;
+  }
+
+  AiExposureProxyRoute get proxyRoute => usesProxyPool
+      ? AiExposureProxyRoute.pool
+      : usesSystemProxyFallback
+      ? AiExposureProxyRoute.system
+      : AiExposureProxyRoute.direct;
+
+  void _handleSystemProxyRevision() {
+    if (_disposed) return;
+    _notify();
+    if (_client == null || _lifecycle == AiExposureServiceLifecycle.stopping) {
+      return;
+    }
+    _systemProxySyncPending = true;
+    if (_systemProxySyncRunning) return;
+    _systemProxySyncRunning = true;
+    unawaited(_syncSystemProxyRuntime());
+  }
+
+  Future<void> _syncSystemProxyRuntime() async {
+    try {
+      while (_systemProxySyncPending && !_disposed) {
+        _systemProxySyncPending = false;
+        if (_lifecycle == AiExposureServiceLifecycle.stopping) return;
+        final client = _client;
+        if (client == null) return;
+        try {
+          _proxyStatus = await _updateProxyRuntime(client);
+          _notify();
+        } catch (error, stack) {
+          silentLog('services_controller', '同步系统代理到扫描服务', error, stack);
+        }
+      }
+    } finally {
+      _systemProxySyncRunning = false;
+      if (_systemProxySyncPending && !_disposed) {
+        _handleSystemProxyRevision();
+      }
+    }
+  }
+
+  Future<AiExposureProxyStatus> _updateProxyRuntime(
+    AiJunglerClient client, {
+    AiExposureProxyConfiguration? configuration,
+  }) => _proxyRuntimeUpdateQueue.enqueue(() async {
+    final effectiveConfiguration = configuration ?? _proxyConfiguration;
+    await client.updateProxy(
+      effectiveConfiguration,
+      systemProxy: _systemProxyRuntimeJson,
+    );
+    return client.proxyStatus();
+  });
 
   void _setHistory(List<AiExposureHistoryEntry> history) {
     _history = history;
@@ -235,7 +312,7 @@ class ServicesController extends ChangeNotifier {
     try {
       final client = await _runtime.startBundled();
       _health = await client.health();
-      await client.updateProxy(_proxyConfiguration);
+      _proxyStatus = await _updateProxyRuntime(client);
       await _syncManagedDependencies();
       _lifecycle = AiExposureServiceLifecycle.running;
       _appendLog(
@@ -275,7 +352,7 @@ class ServicesController extends ChangeNotifier {
         accessToken: accessToken,
       );
       _health = await client.health();
-      await client.updateProxy(_proxyConfiguration);
+      _proxyStatus = await _updateProxyRuntime(client);
       await _syncManagedDependencies();
       _lifecycle = AiExposureServiceLifecycle.running;
       await refreshData();
@@ -304,6 +381,7 @@ class ServicesController extends ChangeNotifier {
       _proxyStatisticsTimer = null;
       await _syncProxyStatistics();
       await _cancelEventSubscription();
+      await _proxyRuntimeUpdateQueue.idle;
       await _runtime.stop();
       _lifecycle = AiExposureServiceLifecycle.stopped;
       _health = null;
@@ -497,8 +575,10 @@ class ServicesController extends ChangeNotifier {
   ) => _applyProxyConfiguration(
     configuration,
     logMessage: configuration.enabled
-        ? '代理池已启用，共 ${configuration.activeEndpoints.length} 个可用节点。'
-        : '代理池已停用，网络请求将直接连接。',
+        ? configuration.activeEndpoints.isEmpty
+              ? '代理池已启用但暂无可用节点，网络请求将使用 ${systemProxyAvailable ? '系统代理' : 'DIRECT'}。'
+              : '代理池已启用，共 ${configuration.activeEndpoints.length} 个可用节点。'
+        : '代理池已停用，网络请求将使用 ${systemProxyAvailable ? '系统代理' : 'DIRECT'}。',
   );
 
   Future<bool> updateProxyEndpoints(List<AiExposureProxyEndpoint> endpoints) {
@@ -506,7 +586,7 @@ class ServicesController extends ChangeNotifier {
     final current = _proxyConfiguration;
     return _applyProxyConfiguration(
       current.copyWith(
-        enabled: current.enabled && activeCount > 0,
+        enabled: current.enabled,
         inspectionEnabled: current.inspectionEnabled && activeCount > 0,
         endpoints: endpoints,
       ),
@@ -530,17 +610,20 @@ class ServicesController extends ChangeNotifier {
       if (configuration.endpoints.length > 10000) {
         throw const FormatException('代理池最多支持 10000 个代理。');
       }
-      if ((configuration.enabled || configuration.inspectionEnabled) &&
+      if (configuration.inspectionEnabled &&
           configuration.activeEndpoints.isEmpty) {
-        throw const FormatException('启用代理或巡检前至少启用一个代理节点。');
+        throw const FormatException('启用巡检前至少启用一个代理节点。');
       }
+      // 先更新期望状态，让并发的系统代理热同步读取到同一份配置。
+      _proxyConfiguration = configuration;
       final client = _client;
       if (client != null) {
-        await client.updateProxy(configuration);
         updatedClient = client;
-        _proxyStatus = await client.proxyStatus();
+        _proxyStatus = await _updateProxyRuntime(
+          client,
+          configuration: configuration,
+        );
       }
-      _proxyConfiguration = configuration;
       if (_proxyStatus != null) {
         await _mergeProxyStatistics(_proxyStatus!);
       }
@@ -592,7 +675,10 @@ class ServicesController extends ChangeNotifier {
     _scheduleProxyStatisticsSync();
     if (updatedClient == null) return true;
     try {
-      await updatedClient.updateProxy(configuration);
+      _proxyStatus = await _updateProxyRuntime(
+        updatedClient,
+        configuration: configuration,
+      );
       return true;
     } catch (error, stack) {
       silentLog('services_controller', '恢复扫描网络代理', error, stack);
@@ -1313,6 +1399,10 @@ class ServicesController extends ChangeNotifier {
     if (pluginController != null && pluginListener != null) {
       pluginController.operationSuccessSignal.removeListener(pluginListener);
     }
+    SystemProxyResolver.instance.revision.removeListener(
+      _handleSystemProxyRevision,
+    );
+    await _proxyRuntimeUpdateQueue.idle;
     _pluginOperationListener = null;
     _pluginServiceController = null;
     await _cancelEventSubscription();

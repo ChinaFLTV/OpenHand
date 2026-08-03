@@ -121,7 +121,7 @@ pub enum HttpRequestOutcome {
 }
 
 pub struct HttpRequestObservation {
-    pub ticket: u64,
+    pub ticket: Option<u64>,
     pub client: Client,
 }
 
@@ -277,7 +277,7 @@ impl ObservedRequestBuilder {
     pub async fn send(self) -> reqwest::Result<Response> {
         let request = self.request.build()?;
         let observation = self.client.observer.begin(request.url())?;
-        let ticket = observation.as_ref().map(|value| value.ticket);
+        let ticket = observation.as_ref().and_then(|value| value.ticket);
         let client = observation
             .map(|value| value.client)
             .unwrap_or_else(|| self.client.client.clone());

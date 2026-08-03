@@ -75,7 +75,7 @@ class _AiExposureServiceCard extends StatelessWidget {
             AiExposureValidationMode defaultValidationMode,
             AiExposureForumFetchMode forumFetchMode,
             bool defaultGptAssisted,
-            bool proxyEnabled,
+            AiExposureProxyRoute proxyRoute,
             int activeProxyCount,
             bool postgresqlEnabled,
             bool redisEnabled,
@@ -101,7 +101,7 @@ class _AiExposureServiceCard extends StatelessWidget {
             defaultValidationMode: controller.defaultValidationMode,
             forumFetchMode: controller.forumFetchMode,
             defaultGptAssisted: controller.defaultGptAssisted,
-            proxyEnabled: controller.proxyConfiguration.enabled,
+            proxyRoute: controller.proxyRoute,
             activeProxyCount: controller.proxyConfiguration.endpoints
                 .where((endpoint) => endpoint.enabled)
                 .length,
@@ -131,12 +131,17 @@ class _AiExposureServiceCard extends StatelessWidget {
         zh: '默认并发 ${snapshot.defaultConcurrency}',
         en: 'Concurrency ${snapshot.defaultConcurrency}',
       ),
-      snapshot.proxyEnabled
-          ? text(
-              zh: '代理节点 ${snapshot.activeProxyCount}',
-              en: 'Proxies ${snapshot.activeProxyCount}',
-            )
-          : text(zh: '网络直连', en: 'Direct connection'),
+      switch (snapshot.proxyRoute) {
+        AiExposureProxyRoute.pool => text(
+          zh: '代理节点 ${snapshot.activeProxyCount}',
+          en: 'Proxies ${snapshot.activeProxyCount}',
+        ),
+        AiExposureProxyRoute.system => text(zh: '系统代理', en: 'System proxy'),
+        AiExposureProxyRoute.direct => text(
+          zh: '网络直连',
+          en: 'Direct connection',
+        ),
+      },
       snapshot.forumFetchMode == AiExposureForumFetchMode.jinaFallback
           ? text(zh: '论坛智能降级', en: 'Forum fallback')
           : text(zh: '论坛浏览器直读', en: 'Forum browser'),

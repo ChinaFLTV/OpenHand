@@ -229,13 +229,8 @@ class _OperationsDialogState extends State<_OperationsDialog> {
               ),
               _StatusPill(
                 icon: Icons.lan_outlined,
-                label: controller.proxyStatus?.enabled == true
-                    ? text(
-                        zh: '代理 ${controller.proxyStatus!.endpoints.length}',
-                        en: '${controller.proxyStatus!.endpoints.length} proxies',
-                      )
-                    : text(zh: '直接连接', en: 'Direct'),
-                color: controller.proxyStatus?.enabled == true
+                label: serviceProxyRouteText(controller, text),
+                color: controller.proxyRoute != AiExposureProxyRoute.direct
                     ? cs.tertiary
                     : cs.onSurfaceVariant,
               ),
@@ -372,6 +367,7 @@ class _OverviewPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final history = controller.history;
     final results = controller.results;
     final proxy = controller.proxyStatus;
@@ -477,16 +473,18 @@ class _OverviewPanel extends StatelessWidget {
               Icons.lan_outlined,
               '代理选路',
               '${proxy?.totalSelections ?? 0}',
-              proxy?.enabled == true
-                  ? '成功 ${proxy!.totalSuccesses} · 超时 ${proxy.totalTimeouts}'
-                  : '直接连接',
+              controller.proxyRoute == AiExposureProxyRoute.pool
+                  ? '成功 ${proxy?.totalSuccesses ?? 0} · 超时 ${proxy?.totalTimeouts ?? 0}'
+                  : serviceProxyRouteText(controller, text),
               color: OpenHandStatusColors.info,
             ),
             _Metric(
               Icons.speed_rounded,
               '代理平均响应',
               '${proxy?.averageResponseTimeMs ?? 0} ms',
-              proxy?.enabled == true ? '执行中 ${proxy!.inFlight}' : '代理未启用',
+              controller.proxyRoute == AiExposureProxyRoute.pool
+                  ? '执行中 ${proxy?.inFlight ?? 0}'
+                  : serviceProxyRouteText(controller, text),
               color: Theme.of(context).colorScheme.secondary,
             ),
             _Metric(
@@ -636,6 +634,7 @@ class _Console extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final progress = controller.progress;
     final dependencies = controller.dependencyStatus;
     final proxy = controller.proxyStatus;
@@ -680,9 +679,10 @@ class _Console extends StatelessWidget {
             ),
             _consoleLine(
               'proxy',
-              proxy?.enabled == true
-                  ? '${proxy!.endpoints.length} endpoints · total=${proxy.totalSelections} ok=${proxy.totalSuccesses} failed=${proxy.totalFailures} timeout=${proxy.totalTimeouts} avg=${proxy.averageResponseTimeMs}ms'
-                  : 'direct',
+              controller.proxyRoute == AiExposureProxyRoute.pool &&
+                      proxy != null
+                  ? '${proxy.endpoints.length} endpoints · total=${proxy.totalSelections} ok=${proxy.totalSuccesses} failed=${proxy.totalFailures} timeout=${proxy.totalTimeouts} avg=${proxy.averageResponseTimeMs}ms'
+                  : serviceProxyRouteText(controller, text),
               true,
             ),
             _consoleLine(
@@ -1211,6 +1211,7 @@ class _NetworkPanel extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final text = openHandTextResolver(context);
     final configuration = controller.proxyConfiguration;
     final endpoints = configuration.endpoints;
     final activeEndpoints = configuration.activeEndpoints;
@@ -1303,11 +1304,15 @@ class _NetworkPanel extends StatelessWidget {
             _Metric(
               Icons.route_outlined,
               '选路状态',
-              configuration.enabled ? '代理池' : '直接连接',
-              configuration.enabled
+              serviceProxyRouteText(controller, text, includePoolCount: false),
+              controller.proxyRoute == AiExposureProxyRoute.pool
                   ? _proxyStrategyName(configuration.strategy)
-                  : '本机网络出口',
-              color: configuration.enabled ? colors.primary : colors.outline,
+                  : serviceProxyRouteText(controller, text),
+              color: controller.proxyRoute == AiExposureProxyRoute.direct
+                  ? colors.outline
+                  : controller.proxyRoute == AiExposureProxyRoute.pool
+                  ? colors.primary
+                  : colors.tertiary,
             ),
             _Metric(
               Icons.dns_outlined,
@@ -1522,7 +1527,12 @@ class _NetworkPanel extends StatelessWidget {
           title: '代理端点健康明细',
           icon: Icons.dns_outlined,
           child: endpoints.isEmpty
-              ? const Text('代理池为空，当前所有请求使用直接连接。')
+              ? Text(
+                  text(
+                    zh: '代理池为空，当前请求使用 ${serviceProxyRouteText(controller, text)}。',
+                    en: 'The proxy pool is empty. Requests currently use ${serviceProxyRouteText(controller, text)}.',
+                  ),
+                )
               : Column(
                   children: endpoints.take(20).map((endpoint) {
                     final sample = endpoint.latestSample;
@@ -1942,6 +1952,7 @@ class _SecurityPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final dependencies = controller.dependencyStatus;
     final proxy = controller.proxyStatus;
     final encodings = controller.rules
@@ -2014,9 +2025,7 @@ class _SecurityPanel extends StatelessWidget {
               Icons.lan_outlined,
               '代理请求',
               '${proxy?.totalSelections ?? 0}',
-              proxy?.enabled == true
-                  ? '${proxy!.endpoints.length} 个节点'
-                  : '直接连接',
+              serviceProxyRouteText(controller, text),
               color: Theme.of(context).colorScheme.secondary,
             ),
             _Metric(
@@ -2140,32 +2149,35 @@ class _SecurityPanel extends StatelessWidget {
               _DependencyLine(
                 name: '请求出口',
                 ready: true,
-                detail: proxy?.enabled == true
-                    ? '代理池 ${proxy!.endpoints.length} 个节点，累计 ${proxy.totalSelections} 次，执行中 ${proxy.inFlight}'
-                    : '直接连接',
+                detail: controller.proxyRoute == AiExposureProxyRoute.pool
+                    ? '代理池 ${proxy?.endpoints.length ?? 0} 个节点，累计 ${proxy?.totalSelections ?? 0} 次，执行中 ${proxy?.inFlight ?? 0}'
+                    : serviceProxyRouteText(controller, text),
               ),
               _DependencyLine(
                 name: '代理可靠性',
                 ready:
-                    proxy?.enabled != true ||
-                    (proxy!.totalFailures + proxy.totalTimeouts) == 0,
-                detail: proxy?.enabled == true
-                    ? '成功 ${proxy!.totalSuccesses} · 失败 ${proxy.totalFailures} · 超时 ${proxy.totalTimeouts} · 平均 ${proxy.averageResponseTimeMs}ms'
-                    : '未启用代理统计',
+                    controller.proxyRoute != AiExposureProxyRoute.pool ||
+                    (proxy?.totalFailures ?? 0) + (proxy?.totalTimeouts ?? 0) ==
+                        0,
+                detail: controller.proxyRoute == AiExposureProxyRoute.pool
+                    ? '成功 ${proxy?.totalSuccesses ?? 0} · 失败 ${proxy?.totalFailures ?? 0} · 超时 ${proxy?.totalTimeouts ?? 0} · 平均 ${proxy?.averageResponseTimeMs ?? 0}ms'
+                    : '代理池当前未参与选路',
               ),
               _DependencyLine(
                 name: '本地旁路',
                 ready: proxy?.bypassLocal ?? true,
                 detail: proxy?.bypassLocal == true
-                    ? '回环、私网和链路本地地址不经过代理'
+                    ? '回环、私网和链路本地地址绕过代理池，再按系统代理规则选路'
                     : '所有目标均按代理策略选路',
               ),
               _DependencyLine(
                 name: '轮询规则',
-                ready: proxy?.enabled == true,
-                detail: proxy == null
-                    ? '未连接服务'
-                    : '${proxy.strategy.id} · 每 ${proxy.rotationEvery} 次请求轮换',
+                ready: controller.proxyRoute == AiExposureProxyRoute.pool,
+                detail:
+                    controller.proxyRoute == AiExposureProxyRoute.pool &&
+                        proxy != null
+                    ? '${proxy.strategy.id} · 每 ${proxy.rotationEvery} 次请求轮换'
+                    : '代理池当前未参与选路',
               ),
             ],
           ),

@@ -135,6 +135,11 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final status = controller.proxyStatus;
     final controllerInspectionBusy = controller.proxyInspectionBusy;
     final activeCount = _endpoints.where((endpoint) => endpoint.enabled).length;
+    final route = _enabled && activeCount > 0
+        ? AiExposureProxyRoute.pool
+        : controller.systemProxyAvailable
+        ? AiExposureProxyRoute.system
+        : AiExposureProxyRoute.direct;
     final statusStatistics = <String, AiExposureProxyUsageStatistics>{
       for (final item
           in status?.endpoints ?? const <AiExposureProxyEndpointStatus>[])
@@ -194,15 +199,20 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                                     style: theme.textTheme.titleLarge,
                                   ),
                                   Text(
-                                    _enabled
-                                        ? text(
-                                            zh: '$activeCount 个启用节点 · ${_strategyLabel(_strategy, text)}',
-                                            en: '$activeCount active · ${_strategyLabel(_strategy, text)}',
-                                          )
-                                        : text(
-                                            zh: '当前使用直接连接',
-                                            en: 'Direct connection',
-                                          ),
+                                    switch (route) {
+                                      AiExposureProxyRoute.pool => text(
+                                        zh: '$activeCount 个启用节点 · ${_strategyLabel(_strategy, text)}',
+                                        en: '$activeCount active · ${_strategyLabel(_strategy, text)}',
+                                      ),
+                                      AiExposureProxyRoute.system => text(
+                                        zh: '当前回退系统代理',
+                                        en: 'Falling back to system proxy',
+                                      ),
+                                      AiExposureProxyRoute.direct => text(
+                                        zh: '当前使用 DIRECT 直连',
+                                        en: 'Using DIRECT connection',
+                                      ),
+                                    },
                                     maxLines: 1,
                                     overflow: TextOverflow.ellipsis,
                                     style: theme.textTheme.bodySmall?.copyWith(
@@ -232,6 +242,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                       _buildSettingsPanel(
                         context,
                         controllerInspectionBusy: controllerInspectionBusy,
+                        activeCount: activeCount,
+                        systemProxyAvailable: controller.systemProxyAvailable,
                       ),
                       const SizedBox(height: 14),
                       _buildEndpointToolbar(
@@ -487,7 +499,6 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     _selectedUrls.retainAll(urls);
     _invalidateEndpointSortCache();
     if (!_endpoints.any((endpoint) => endpoint.enabled)) {
-      _enabled = false;
       _inspectionEnabled = false;
     }
     if (_selectedUrls.isEmpty) _selectionMode = false;
@@ -556,16 +567,16 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     };
     final cleanupMessage = switch (cleanup) {
       _ProxyCleanup.unavailable => text(
-        zh: '将立即删除并保存 $count 个最近探测不可用的代理节点${clearsPool ? '，并停用代理池与定时巡检' : ''}。',
-        en: 'Immediately delete and save $count unavailable proxy nodes${clearsPool ? ', then disable the proxy pool and scheduled inspection' : ''}.',
+        zh: '将立即删除并保存 $count 个最近探测不可用的代理节点${clearsPool ? '，并停用定时巡检' : ''}。',
+        en: 'Immediately delete and save $count unavailable proxy nodes${clearsPool ? ', then disable scheduled inspection' : ''}.',
       ),
       _ProxyCleanup.highLatency => text(
-        zh: '将立即删除并保存 $count 个延迟超过 $_kProxyHighLatencyThresholdMs ms 的代理节点${clearsPool ? '，并停用代理池与定时巡检' : ''}。',
-        en: 'Immediately delete and save $count proxy nodes above $_kProxyHighLatencyThresholdMs ms${clearsPool ? ', then disable the proxy pool and scheduled inspection' : ''}.',
+        zh: '将立即删除并保存 $count 个延迟超过 $_kProxyHighLatencyThresholdMs ms 的代理节点${clearsPool ? '，并停用定时巡检' : ''}。',
+        en: 'Immediately delete and save $count proxy nodes above $_kProxyHighLatencyThresholdMs ms${clearsPool ? ', then disable scheduled inspection' : ''}.',
       ),
       _ProxyCleanup.abnormal => text(
-        zh: '将立即删除并保存 $count 个不可用或高延迟代理节点${clearsPool ? '，并停用代理池与定时巡检' : ''}。',
-        en: 'Immediately delete and save $count unavailable or high-latency proxy nodes${clearsPool ? ', then disable the proxy pool and scheduled inspection' : ''}.',
+        zh: '将立即删除并保存 $count 个不可用或高延迟代理节点${clearsPool ? '，并停用定时巡检' : ''}。',
+        en: 'Immediately delete and save $count unavailable or high-latency proxy nodes${clearsPool ? ', then disable scheduled inspection' : ''}.',
       ),
       null => null,
     };
@@ -597,8 +608,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
           cleanupMessage ??
           (clearsPool
               ? text(
-                  zh: '将立即移除并保存全部 $count 个代理节点；若代理池或定时巡检已启用，将同步停用。',
-                  en: 'This immediately removes and saves all $count proxy nodes. The pool and scheduled inspection will be disabled if active.',
+                  zh: '将立即移除并保存全部 $count 个代理节点；若定时巡检已启用，将同步停用。',
+                  en: 'This immediately removes and saves all $count proxy nodes. Scheduled inspection will be disabled if active.',
                 )
               : count == 1
               ? text(
@@ -661,6 +672,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   Widget _buildSettingsPanel(
     BuildContext context, {
     required bool controllerInspectionBusy,
+    required int activeCount,
+    required bool systemProxyAvailable,
   }) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
@@ -800,6 +813,36 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                 ],
               ),
             ),
+          ),
+          AnimatedSwitcher(
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 220),
+            ),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: _enabled && activeCount == 0
+                ? Padding(
+                    key: const ValueKey<String>('empty-proxy-pool-hint'),
+                    padding: const EdgeInsets.only(top: 10),
+                    child: Text(
+                      systemProxyAvailable
+                          ? text(
+                              zh: '代理池暂无启用节点，保存后请求将回退全局系统代理。',
+                              en: 'No proxy pool node is enabled; requests will use the global system proxy.',
+                            )
+                          : text(
+                              zh: '代理池暂无启用节点，保存后请求将使用 DIRECT 直连。',
+                              en: 'No proxy pool node is enabled; requests will use a DIRECT connection.',
+                            ),
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.tertiary,
+                      ),
+                    ),
+                  )
+                : const SizedBox.shrink(
+                    key: ValueKey<String>('proxy-pool-hint-hidden'),
+                  ),
           ),
           Divider(height: 20, color: colors.outlineVariant),
           LayoutBuilder(
@@ -1525,8 +1568,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final controller = context.read<ServicesController>();
     final endpoints = controller.proxyConfiguration.endpoints;
     final activeCount = endpoints.where((endpoint) => endpoint.enabled).length;
-    if ((_enabled || _inspectionEnabled) && activeCount == 0) {
-      showOpenHandErrorSnack(context, '请至少启用一个代理节点。');
+    if (_inspectionEnabled && activeCount == 0) {
+      showOpenHandErrorSnack(context, '启用定时巡检前请至少启用一个代理节点。');
       return;
     }
     setState(() => _busy = true);

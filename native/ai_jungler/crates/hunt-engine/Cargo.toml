@@ -11,6 +11,8 @@ futures.workspace = true
 hunt-core = { path = "../hunt-core" }
 hunt-sources = { path = "../hunt-sources" }
 hunt-store = { path = "../hunt-store" }
+ipnet.workspace = true
+regex.workspace = true
 reqwest.workspace = true
 redis.workspace = true
 rustls.workspace = true

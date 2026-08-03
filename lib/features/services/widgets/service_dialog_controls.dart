@@ -1,8 +1,28 @@
 import 'package:flutter/material.dart';
 
+import '../../../shared/util/localized_text.dart';
+import '../model/ai_exposure_models.dart';
+import '../services_controller.dart';
+
 const double kServiceDialogItemActionGap = 8;
 
 enum ServiceDialogHeaderActionTone { neutral, primary }
+
+String serviceProxyRouteText(
+  ServicesController controller,
+  OpenHandLocalizedTextResolver text, {
+  bool includePoolCount = true,
+}) => switch (controller.proxyRoute) {
+  AiExposureProxyRoute.pool =>
+    includePoolCount
+        ? text(
+            zh: '代理池 ${controller.proxyConfiguration.activeEndpoints.length} 节点',
+            en: 'Proxy pool · ${controller.proxyConfiguration.activeEndpoints.length} nodes',
+          )
+        : text(zh: '代理池', en: 'Proxy pool'),
+  AiExposureProxyRoute.system => text(zh: '系统代理', en: 'System proxy'),
+  AiExposureProxyRoute.direct => 'DIRECT',
+};
 
 class ServiceDialogHeaderIconButton extends StatelessWidget {
   const ServiceDialogHeaderIconButton({

@@ -70,6 +70,8 @@ enum AiExposureProxyStrategy {
       values.firstWhere((item) => item.id == value, orElse: () => roundRobin);
 }
 
+enum AiExposureProxyRoute { pool, system, direct }
+
 class AiExposureHealth {
   const AiExposureHealth({
     required this.version,
@@ -806,7 +808,9 @@ class AiExposureProxyConfiguration {
     'inspectionConcurrency': inspectionConcurrency.clamp(1, 32),
   };
 
-  Map<String, Object?> toRuntimeJson() => <String, Object?>{
+  Map<String, Object?> toRuntimeJson({
+    Map<String, Object?> systemProxy = const <String, Object?>{},
+  }) => <String, Object?>{
     'enabled': enabled,
     'strategy': strategy.id,
     'rotationEvery': rotationEvery.clamp(1, 10000),
@@ -819,6 +823,7 @@ class AiExposureProxyConfiguration {
           },
         )
         .toList(growable: false),
+    'systemProxy': systemProxy,
   };
 
   AiExposureProxyConfiguration copyWith({
@@ -879,6 +884,7 @@ class AiExposureProxyStatus {
     required this.totalTimeouts,
     required this.inFlight,
     required this.averageResponseTimeMs,
+    required this.systemProxyEnabled,
     required this.endpoints,
   });
 
@@ -895,6 +901,7 @@ class AiExposureProxyStatus {
         inFlight: (json['inFlight'] as num?)?.toInt() ?? 0,
         averageResponseTimeMs:
             (json['averageResponseTimeMs'] as num?)?.toInt() ?? 0,
+        systemProxyEnabled: json['systemProxyEnabled'] as bool? ?? false,
         endpoints: (json['endpoints'] as List? ?? const <Object?>[])
             .map(
               (item) => AiExposureProxyEndpointStatus.fromJson(_jsonMap(item)),
@@ -912,6 +919,7 @@ class AiExposureProxyStatus {
   final int totalTimeouts;
   final int inFlight;
   final int averageResponseTimeMs;
+  final bool systemProxyEnabled;
   final List<AiExposureProxyEndpointStatus> endpoints;
 }
 

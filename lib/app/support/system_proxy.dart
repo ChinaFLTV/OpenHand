@@ -74,6 +74,41 @@ class SystemProxyResolver {
     return _normalizedProxyEndpoint(_httpsProxy ?? _httpProxy ?? _socksProxy);
   }
 
+  /// 供受管本地服务复用的 HTTP/HTTPS 路由快照。
+  /// 只保存在内存中；未命中代理时对应端点为空，由服务回退 DIRECT。
+  SystemProxyRouteSnapshot resolveRuntimeRoute() {
+    String? httpProxy;
+    String? httpsProxy;
+    Iterable<String> exceptions = const <String>[];
+    switch (_settings.mode) {
+      case AppProxyMode.disabled:
+        break;
+      case AppProxyMode.manual:
+        final proxy = _manualProxyUrl('http');
+        final socks = _manualProxyUrl('socks5');
+        if (_settings.protocols.contains(AppProxyProtocol.http)) {
+          httpProxy = proxy;
+        } else if (_settings.protocols.contains(AppProxyProtocol.socks)) {
+          httpProxy = socks;
+        }
+        if (_settings.protocols.contains(AppProxyProtocol.https)) {
+          httpsProxy = proxy;
+        } else if (_settings.protocols.contains(AppProxyProtocol.socks)) {
+          httpsProxy = socks;
+        }
+        exceptions = _settings.exceptions;
+      case AppProxyMode.automatic:
+        httpProxy = _automaticProxyUrl(_httpProxy ?? _httpsProxy, _socksProxy);
+        httpsProxy = _automaticProxyUrl(_httpsProxy ?? _httpProxy, _socksProxy);
+        exceptions = _noProxyHosts;
+    }
+    return SystemProxyRouteSnapshot(
+      httpProxy: httpProxy,
+      httpsProxy: httpsProxy,
+      exceptions: List<String>.unmodifiable(exceptions),
+    );
+  }
+
   /// 自动模式探测端点拆分为 (host, port)；解析失败返回 null。
   ({String host, int port})? get detectedAutomaticHostPort {
     final raw = detectedAutomaticEndpoint;
@@ -93,32 +128,43 @@ class SystemProxyResolver {
 
   void _resolveFromEnvironment() {
     final env = Platform.environment;
-    String? pick(List<String> keys) {
+    String? pickRaw(List<String> keys) {
       for (final key in keys) {
-        final endpoint = _normalizedProxyEndpoint(env[key]);
-        if (endpoint != null) return endpoint;
+        final value = nullIfBlank(env[key]);
+        if (value != null) return value;
       }
       return null;
     }
 
-    _httpProxy = pick(<String>[
-      'HTTP_PROXY',
-      'http_proxy',
-      'ALL_PROXY',
-      'all_proxy',
-    ]);
-    _httpsProxy = pick(<String>[
-      'HTTPS_PROXY',
-      'https_proxy',
-      'ALL_PROXY',
-      'all_proxy',
-    ]);
-    _socksProxy = pick(<String>[
-      'SOCKS_PROXY',
-      'socks_proxy',
-      'ALL_PROXY',
-      'all_proxy',
-    ]);
+    _httpProxy = null;
+    _httpsProxy = null;
+    _socksProxy = null;
+    final httpProxyRaw = pickRaw(<String>['HTTP_PROXY', 'http_proxy']);
+    final httpsProxyRaw = pickRaw(<String>['HTTPS_PROXY', 'https_proxy']);
+    final socksProxyRaw = pickRaw(<String>['SOCKS_PROXY', 'socks_proxy']);
+    final allProxyRaw = pickRaw(<String>['ALL_PROXY', 'all_proxy']);
+    final httpProxy = _normalizedProxyEndpoint(httpProxyRaw);
+    final httpsProxy = _normalizedProxyEndpoint(httpsProxyRaw);
+    if (_isSocksProxyValue(httpProxyRaw)) {
+      _socksProxy = httpProxy;
+    } else {
+      _httpProxy = httpProxy;
+    }
+    if (_isSocksProxyValue(httpsProxyRaw)) {
+      _socksProxy ??= httpsProxy;
+    } else {
+      _httpsProxy = httpsProxy;
+    }
+    _socksProxy ??= _normalizedProxyEndpoint(socksProxyRaw);
+    final allProxy = _normalizedProxyEndpoint(allProxyRaw);
+    if (allProxy != null) {
+      if (_isSocksProxyValue(allProxyRaw)) {
+        _socksProxy ??= allProxy;
+      } else {
+        _httpProxy ??= allProxy;
+        _httpsProxy ??= allProxy;
+      }
+    }
 
     final noProxy = env['NO_PROXY'] ?? env['no_proxy'] ?? '';
     _noProxyHosts
@@ -399,12 +445,65 @@ class SystemProxyResolver {
     final hostPort = _manualHostPort;
     return hostPort == null ? null : '${hostPort.host}:${hostPort.port}';
   }
+
+  String? _manualProxyUrl(String scheme) {
+    final hostPort = _manualHostPort;
+    if (hostPort == null) return null;
+    var userInfo = '';
+    final username = nullIfBlank(_settings.username);
+    if (_settings.authEnabled && username != null) {
+      userInfo =
+          '${Uri.encodeComponent(username)}:'
+          '${Uri.encodeComponent(_settings.password)}';
+    }
+    return Uri(
+      scheme: scheme,
+      userInfo: userInfo,
+      host: hostPort.host,
+      port: hostPort.port,
+    ).toString();
+  }
+}
+
+class SystemProxyRouteSnapshot {
+  const SystemProxyRouteSnapshot({
+    required this.httpProxy,
+    required this.httpsProxy,
+    required this.exceptions,
+  });
+
+  final String? httpProxy;
+  final String? httpsProxy;
+  final List<String> exceptions;
+
+  bool get hasProxy => httpProxy != null || httpsProxy != null;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    if (httpProxy != null) 'http': httpProxy,
+    if (httpsProxy != null) 'https': httpsProxy,
+    if (exceptions.isNotEmpty) 'exceptions': exceptions,
+  };
+}
+
+String? _automaticProxyUrl(String? endpoint, String? socksEndpoint) {
+  final proxy = _normalizedProxyEndpoint(endpoint);
+  if (proxy != null) return 'http://$proxy';
+  final socks = _normalizedProxyEndpoint(socksEndpoint);
+  return socks == null ? null : 'socks5://$socks';
 }
 
 String? _normalizedProxyEndpoint(String? raw) {
   final trimmed = nullIfBlank(raw);
   if (trimmed == null) return null;
   return nullIfBlank(_stripScheme(trimmed));
+}
+
+bool _isSocksProxyValue(String? raw) {
+  final value = raw?.trim().toLowerCase();
+  return value != null &&
+      (value.startsWith('socks://') ||
+          value.startsWith('socks4://') ||
+          value.startsWith('socks5://'));
 }
 
 String _stripScheme(String raw) {

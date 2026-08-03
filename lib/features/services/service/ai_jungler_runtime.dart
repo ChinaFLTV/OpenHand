@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../app/support/system_proxy.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -133,6 +134,7 @@ class AiJunglerRuntime {
       final client = AiJunglerClient(
         baseUri: bootstrap.address,
         accessToken: token,
+        httpClient: SystemProxyResolver.instance.createRawHttpClient(),
       );
       await client.health();
       if (_disposed ||
@@ -172,6 +174,7 @@ class AiJunglerRuntime {
     final client = AiJunglerClient(
       baseUri: normalizedAddress,
       accessToken: normalizedToken,
+      httpClient: SystemProxyResolver.instance.createRawHttpClient(),
     );
     try {
       await client.health();

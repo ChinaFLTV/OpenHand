@@ -14,7 +14,9 @@ use hunt_sources::{
     SourceCredentials, SourceRegistry,
 };
 use hunt_store::HuntStore;
+use ipnet::IpNet;
 use redis::aio::{ConnectionManager, ConnectionManagerConfig};
+use regex::{Regex, RegexBuilder};
 use reqwest::{
     Client, Proxy, StatusCode,
     header::{HeaderMap, HeaderName, HeaderValue},
@@ -164,6 +166,16 @@ pub struct ProxyConfigurationInput {
     pub bypass_local: bool,
     #[serde(default)]
     pub endpoints: Vec<ProxyEndpointInput>,
+    #[serde(default)]
+    pub system_proxy: SystemProxyInput,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+pub struct SystemProxyInput {
+    pub http: Option<String>,
+    pub https: Option<String>,
+    #[serde(default)]
+    pub exceptions: Vec<String>,
 }
 
 #[derive(Clone, Debug, Deserialize)]
@@ -272,6 +284,7 @@ pub struct ProxyConfigurationStatus {
     pub total_timeouts: u64,
     pub in_flight: u64,
     pub average_response_time_ms: u64,
+    pub system_proxy_enabled: bool,
     pub endpoints: Vec<ProxyEndpointStatus>,
 }
 
@@ -307,7 +320,22 @@ struct ProxyRuntime {
     endpoints: Vec<reqwest::Url>,
     endpoint_ids: Vec<String>,
     statistics: Vec<Arc<ProxyEndpointTelemetry>>,
+    system_proxy: SystemProxyRuntime,
     cursor: AtomicU64,
+}
+
+#[derive(Default)]
+struct SystemProxyRuntime {
+    http: Option<reqwest::Url>,
+    https: Option<reqwest::Url>,
+    exceptions: Vec<ProxyException>,
+}
+
+enum ProxyException {
+    All,
+    Network(IpNet),
+    Regex(Regex),
+    Domain(String),
 }
 
 struct ProxyEndpointTelemetry {
@@ -444,6 +472,7 @@ impl DynamicProxySelector {
             rotation_every,
             bypass_local,
             endpoints: inputs,
+            system_proxy,
         } = input;
         let existing_statistics = self
             .runtime
@@ -493,11 +522,7 @@ impl DynamicProxySelector {
                 endpoints.push(url);
             }
         }
-        if enabled && endpoints.is_empty() {
-            return Err(EngineError::InvalidProxy(
-                "启用代理前至少配置一个代理地址".to_owned(),
-            ));
-        }
+        let system_proxy = SystemProxyRuntime::parse(system_proxy)?;
         self.observations
             .clients
             .lock()
@@ -510,6 +535,7 @@ impl DynamicProxySelector {
             bypass_local,
             endpoints,
             statistics,
+            system_proxy,
         );
         let mut active = self
             .runtime
@@ -534,31 +560,35 @@ impl HttpRequestObserver for DynamicProxySelector {
             .read()
             .unwrap_or_else(|error| error.into_inner())
             .clone();
-        let Some(endpoint_index) = runtime.endpoint_index(target) else {
+        let Some(route) = runtime.route(target) else {
             return Ok(None);
         };
+        let proxy = route.proxy(&runtime);
         let client = self
             .observations
             .clients
             .lock()
             .unwrap_or_else(|error| error.into_inner())
-            .client_for(&runtime.endpoints[endpoint_index])?;
-        runtime.statistics[endpoint_index].mark_selected();
-        let ticket = self
-            .observations
-            .next_ticket
-            .fetch_add(1, Ordering::Relaxed);
-        self.observations
-            .pending
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .insert(
-                ticket,
-                ProxyObservation {
-                    runtime,
-                    endpoint_index,
-                },
-            );
+            .client_for(proxy)?;
+        let ticket = route.pool_index().map(|endpoint_index| {
+            runtime.statistics[endpoint_index].mark_selected();
+            let ticket = self
+                .observations
+                .next_ticket
+                .fetch_add(1, Ordering::Relaxed);
+            self.observations
+                .pending
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .insert(
+                    ticket,
+                    ProxyObservation {
+                        runtime: runtime.clone(),
+                        endpoint_index,
+                    },
+                );
+            ticket
+        });
         Ok(Some(HttpRequestObservation { ticket, client }))
     }
 
@@ -568,31 +598,34 @@ impl HttpRequestObserver for DynamicProxySelector {
             .read()
             .unwrap_or_else(|error| error.into_inner())
             .clone();
-        let Some(endpoint_index) = runtime.endpoint_index(target) else {
+        let Some(route) = runtime.route(target) else {
             return Ok(ExternalHttpRequestRoute {
                 ticket: None,
                 proxy: None,
             });
         };
-        runtime.statistics[endpoint_index].mark_selected();
-        let ticket = self
-            .observations
-            .next_ticket
-            .fetch_add(1, Ordering::Relaxed);
-        self.observations
-            .pending
-            .lock()
-            .unwrap_or_else(|error| error.into_inner())
-            .insert(
-                ticket,
-                ProxyObservation {
-                    runtime: runtime.clone(),
-                    endpoint_index,
-                },
-            );
+        let ticket = route.pool_index().map(|endpoint_index| {
+            runtime.statistics[endpoint_index].mark_selected();
+            let ticket = self
+                .observations
+                .next_ticket
+                .fetch_add(1, Ordering::Relaxed);
+            self.observations
+                .pending
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .insert(
+                    ticket,
+                    ProxyObservation {
+                        runtime: runtime.clone(),
+                        endpoint_index,
+                    },
+                );
+            ticket
+        });
         Ok(ExternalHttpRequestRoute {
-            ticket: Some(ticket),
-            proxy: Some(runtime.endpoints[endpoint_index].clone()),
+            ticket,
+            proxy: Some(route.proxy(&runtime).clone()),
         })
     }
 
@@ -655,6 +688,7 @@ impl ProxyRuntime {
             endpoints: Vec::new(),
             endpoint_ids: Vec::new(),
             statistics: Vec::new(),
+            system_proxy: SystemProxyRuntime::default(),
             cursor: AtomicU64::new(0),
         }
     }
@@ -666,6 +700,7 @@ impl ProxyRuntime {
         bypass_local: bool,
         endpoints: Vec<reqwest::Url>,
         statistics: Vec<Arc<ProxyEndpointTelemetry>>,
+        system_proxy: SystemProxyRuntime,
     ) -> Self {
         let endpoint_ids = endpoints
             .iter()
@@ -683,35 +718,39 @@ impl ProxyRuntime {
             endpoints,
             endpoint_ids,
             statistics,
+            system_proxy,
             cursor: AtomicU64::new(request_cursor),
         }
     }
 
-    fn endpoint_index(&self, target: &reqwest::Url) -> Option<usize> {
-        if !self.enabled
-            || self.endpoints.is_empty()
-            || self.bypass_local && is_local_target(target)
+    fn route(&self, target: &reqwest::Url) -> Option<ProxyRoute> {
+        if self.enabled
+            && !self.endpoints.is_empty()
+            && !(self.bypass_local && is_local_target(target))
         {
-            return None;
+            let request_index = self.cursor.fetch_add(1, Ordering::Relaxed);
+            return Some(ProxyRoute::Pool(match self.strategy {
+                ProxyRotationStrategy::Fixed => 0,
+                ProxyRotationStrategy::RoundRobin => {
+                    ((request_index / self.rotation_every) as usize) % self.endpoints.len()
+                }
+                ProxyRotationStrategy::Random => {
+                    let mixed = request_index
+                        .wrapping_add(0x9e37_79b9_7f4a_7c15)
+                        .wrapping_mul(0xbf58_476d_1ce4_e5b9);
+                    (mixed as usize) % self.endpoints.len()
+                }
+                ProxyRotationStrategy::StickyHost => {
+                    let mut hasher = DefaultHasher::new();
+                    target.host_str().unwrap_or_default().hash(&mut hasher);
+                    (hasher.finish() as usize) % self.endpoints.len()
+                }
+            }));
         }
-        let request_index = self.cursor.fetch_add(1, Ordering::Relaxed);
-        Some(match self.strategy {
-            ProxyRotationStrategy::Fixed => 0,
-            ProxyRotationStrategy::RoundRobin => {
-                ((request_index / self.rotation_every) as usize) % self.endpoints.len()
-            }
-            ProxyRotationStrategy::Random => {
-                let mixed = request_index
-                    .wrapping_add(0x9e37_79b9_7f4a_7c15)
-                    .wrapping_mul(0xbf58_476d_1ce4_e5b9);
-                (mixed as usize) % self.endpoints.len()
-            }
-            ProxyRotationStrategy::StickyHost => {
-                let mut hasher = DefaultHasher::new();
-                target.host_str().unwrap_or_default().hash(&mut hasher);
-                (hasher.finish() as usize) % self.endpoints.len()
-            }
-        })
+        self.system_proxy
+            .proxy_for(target)
+            .cloned()
+            .map(ProxyRoute::System)
     }
 
     fn status(&self) -> ProxyConfigurationStatus {
@@ -769,9 +808,135 @@ impl ProxyRuntime {
             } else {
                 total_response_time / completed
             },
+            system_proxy_enabled: self.system_proxy.enabled(),
             endpoints: endpoint_statuses,
         }
     }
+}
+
+enum ProxyRoute {
+    Pool(usize),
+    System(reqwest::Url),
+}
+
+impl ProxyRoute {
+    fn proxy<'a>(&'a self, runtime: &'a ProxyRuntime) -> &'a reqwest::Url {
+        match self {
+            Self::Pool(index) => &runtime.endpoints[*index],
+            Self::System(proxy) => proxy,
+        }
+    }
+
+    fn pool_index(&self) -> Option<usize> {
+        match self {
+            Self::Pool(index) => Some(*index),
+            Self::System(_) => None,
+        }
+    }
+}
+
+impl SystemProxyRuntime {
+    fn parse(input: SystemProxyInput) -> Result<Self, EngineError> {
+        Ok(Self {
+            http: parse_system_proxy(input.http)?,
+            https: parse_system_proxy(input.https)?,
+            exceptions: input
+                .exceptions
+                .into_iter()
+                .filter_map(|value| ProxyException::parse(&value))
+                .take(256)
+                .collect(),
+        })
+    }
+
+    fn enabled(&self) -> bool {
+        self.http.is_some() || self.https.is_some()
+    }
+
+    fn proxy_for(&self, target: &reqwest::Url) -> Option<&reqwest::Url> {
+        let host = target.host_str()?.to_ascii_lowercase();
+        if is_system_proxy_local_target(&host)
+            || self.exceptions.iter().any(|pattern| pattern.matches(&host))
+        {
+            return None;
+        }
+        match target.scheme() {
+            "http" => self.http.as_ref(),
+            "https" => self.https.as_ref(),
+            _ => None,
+        }
+    }
+}
+
+impl ProxyException {
+    fn parse(value: &str) -> Option<Self> {
+        let pattern = value.trim().to_ascii_lowercase();
+        if pattern.is_empty() {
+            return None;
+        }
+        if pattern == "*" {
+            return Some(Self::All);
+        }
+        if pattern.starts_with('/') {
+            let last_slash = pattern.rfind('/')?;
+            if last_slash > 0 {
+                let flags = &pattern[last_slash + 1..];
+                return RegexBuilder::new(&pattern[1..last_slash])
+                    .case_insensitive(flags.contains('i'))
+                    .build()
+                    .ok()
+                    .map(Self::Regex);
+            }
+        }
+        if pattern.contains('/') {
+            return pattern.parse::<IpNet>().ok().map(Self::Network);
+        }
+        Some(Self::Domain(
+            pattern
+                .strip_prefix("*.")
+                .unwrap_or(&pattern)
+                .trim_start_matches('.')
+                .to_owned(),
+        ))
+    }
+
+    fn matches(&self, host: &str) -> bool {
+        match self {
+            Self::All => true,
+            Self::Network(network) => host
+                .parse::<IpAddr>()
+                .is_ok_and(|address| network.contains(&address)),
+            Self::Regex(regex) => regex.is_match(host),
+            Self::Domain(domain) => {
+                host == domain
+                    || host
+                        .strip_suffix(domain)
+                        .is_some_and(|prefix| prefix.ends_with('.'))
+            }
+        }
+    }
+}
+
+fn parse_system_proxy(value: Option<String>) -> Result<Option<reqwest::Url>, EngineError> {
+    let Some(value) = value.filter(|value| !value.trim().is_empty()) else {
+        return Ok(None);
+    };
+    let url = reqwest::Url::parse(value.trim())
+        .map_err(|_| EngineError::InvalidProxy("系统代理地址格式无效".to_owned()))?;
+    if !matches!(url.scheme(), "http" | "https" | "socks4" | "socks5")
+        || url.host_str().is_none()
+        || url.port_or_known_default().is_none()
+        || !matches!(url.path(), "" | "/")
+        || url.query().is_some()
+        || url.fragment().is_some()
+    {
+        return Err(EngineError::InvalidProxy("系统代理地址无效".to_owned()));
+    }
+    Ok(Some(url))
+}
+
+fn is_system_proxy_local_target(host: &str) -> bool {
+    matches!(host, "localhost" | "127.0.0.1" | "::1")
 }
 
 impl ProxyEndpointTelemetry {
@@ -2433,6 +2598,7 @@ mod tests {
                     ProxyEndpointInput::Url("user:secret@127.0.0.1:8080".to_owned()),
                     ProxyEndpointInput::Url("http://127.0.0.2:8081".to_owned()),
                 ],
+                system_proxy: SystemProxyInput::default(),
             })
             .unwrap();
         let target = reqwest::Url::parse("https://example.com").unwrap();
@@ -2454,28 +2620,123 @@ mod tests {
                 .is_none()
         );
         selector.complete(
-            Some(first.ticket),
+            first.ticket,
             Duration::from_millis(10),
             HttpRequestOutcome::Success(200),
         );
         selector.complete(
-            Some(second.ticket),
+            second.ticket,
             Duration::from_millis(10),
             HttpRequestOutcome::Success(200),
         );
     }
 
     #[test]
-    fn rejects_enabled_empty_proxy_pool() {
+    fn allows_empty_proxy_pool_and_uses_direct_without_system_proxy() {
         let selector = DynamicProxySelector::new();
-        assert!(
+        selector
+            .update(ProxyConfigurationInput {
+                enabled: true,
+                ..ProxyConfigurationInput::default()
+            })
+            .unwrap();
+        let target = reqwest::Url::parse("https://example.com").unwrap();
+        let route = selector.begin_external(&target).unwrap();
+        assert!(route.proxy.is_none());
+        assert_eq!(selector.status().total_selections, 0);
+    }
+
+    #[test]
+    fn prioritizes_pool_then_falls_back_to_system_proxy() {
+        let selector = DynamicProxySelector::new();
+        selector
+            .update(ProxyConfigurationInput {
+                enabled: true,
+                strategy: ProxyRotationStrategy::Fixed,
+                rotation_every: 1,
+                bypass_local: true,
+                endpoints: vec![ProxyEndpointInput::Url("http://127.0.0.1:8080".to_owned())],
+                system_proxy: SystemProxyInput {
+                    http: Some("http://127.0.0.1:9080".to_owned()),
+                    https: Some("socks5://127.0.0.1:9081".to_owned()),
+                    exceptions: Vec::new(),
+                },
+            })
+            .unwrap();
+
+        let remote = reqwest::Url::parse("https://example.com").unwrap();
+        let pool_route = selector.begin_external(&remote).unwrap();
+        assert_eq!(
+            pool_route.proxy.as_ref().map(reqwest::Url::as_str),
+            Some("http://127.0.0.1:8080/")
+        );
+        assert!(pool_route.ticket.is_some());
+
+        let local = reqwest::Url::parse("http://192.168.1.20/status").unwrap();
+        let system_route = selector.begin_external(&local).unwrap();
+        assert_eq!(
+            system_route.proxy.as_ref().map(reqwest::Url::as_str),
+            Some("http://127.0.0.1:9080/")
+        );
+        assert!(system_route.ticket.is_none());
+        assert_eq!(selector.status().total_selections, 1);
+    }
+
+    #[test]
+    fn uses_system_proxy_when_pool_is_disabled_or_empty() {
+        for (enabled, endpoints) in [
+            (
+                false,
+                vec![ProxyEndpointInput::Url("127.0.0.1:8080".to_owned())],
+            ),
+            (true, Vec::new()),
+        ] {
+            let selector = DynamicProxySelector::new();
             selector
                 .update(ProxyConfigurationInput {
-                    enabled: true,
+                    enabled,
+                    endpoints,
+                    system_proxy: SystemProxyInput {
+                        https: Some("http://127.0.0.1:9080".to_owned()),
+                        ..SystemProxyInput::default()
+                    },
                     ..ProxyConfigurationInput::default()
                 })
-                .is_err()
-        );
+                .unwrap();
+            let target = reqwest::Url::parse("https://example.com").unwrap();
+            let route = selector.begin_external(&target).unwrap();
+            assert_eq!(
+                route.proxy.as_ref().map(reqwest::Url::as_str),
+                Some("http://127.0.0.1:9080/")
+            );
+            assert!(route.ticket.is_none());
+        }
+    }
+
+    #[test]
+    fn system_proxy_honors_supported_exception_rules() {
+        let runtime = SystemProxyRuntime::parse(SystemProxyInput {
+            http: Some("http://127.0.0.1:9080".to_owned()),
+            https: Some("http://127.0.0.1:9080".to_owned()),
+            exceptions: vec![
+                "192.168.0.0/16".to_owned(),
+                "*.example.com".to_owned(),
+                "/^api\\d+\\.service\\.test$/i".to_owned(),
+            ],
+        })
+        .unwrap();
+        for target in [
+            "http://192.168.2.3",
+            "https://example.com",
+            "https://sub.example.com",
+            "https://API12.SERVICE.TEST",
+            "http://localhost",
+        ] {
+            let url = reqwest::Url::parse(target).unwrap();
+            assert!(runtime.proxy_for(&url).is_none(), "未绕过 {target}");
+        }
+        let proxied = reqwest::Url::parse("https://service.test").unwrap();
+        assert!(runtime.proxy_for(&proxied).is_some());
     }
 
     #[test]
@@ -2490,6 +2751,7 @@ mod tests {
                 endpoints: vec![ProxyEndpointInput::Url(
                     "http://user:secret@127.0.0.1:8080".to_owned(),
                 )],
+                system_proxy: SystemProxyInput::default(),
             })
             .unwrap();
         let target = reqwest::Url::parse("https://www.v2ex.com/t/1231619").unwrap();
@@ -2532,12 +2794,13 @@ mod tests {
                         ..ProxyEndpointStatisticsInput::default()
                     },
                 }],
+                system_proxy: SystemProxyInput::default(),
             })
             .unwrap();
         let target = reqwest::Url::parse("https://example.com").unwrap();
         let observation = selector.begin(&target).unwrap().unwrap();
         selector.complete(
-            Some(observation.ticket),
+            observation.ticket,
             Duration::from_millis(20),
             HttpRequestOutcome::Success(200),
         );
@@ -2560,13 +2823,14 @@ mod tests {
             rotation_every: 1,
             bypass_local: true,
             endpoints: vec![ProxyEndpointInput::Url("http://127.0.0.1:8080".to_owned())],
+            system_proxy: SystemProxyInput::default(),
         };
         selector.update(configuration()).unwrap();
         let target = reqwest::Url::parse("https://example.com").unwrap();
         let observation = selector.begin(&target).unwrap().unwrap();
         selector.update(configuration()).unwrap();
         selector.complete(
-            Some(observation.ticket),
+            observation.ticket,
             Duration::from_millis(25),
             HttpRequestOutcome::Success(200),
         );
@@ -2587,6 +2851,7 @@ mod tests {
                 rotation_every: 1,
                 bypass_local: true,
                 endpoints: vec![ProxyEndpointInput::Url("http://127.0.0.1:1".to_owned())],
+                system_proxy: SystemProxyInput::default(),
             })
             .unwrap();
         let raw_client = build_http_client(None).unwrap();

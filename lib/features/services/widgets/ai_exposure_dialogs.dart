@@ -36,6 +36,7 @@ const List<AiExposureSource> _kCredentialSources = <AiExposureSource>[
   AiExposureSource.fofa,
   AiExposureSource.shodan,
 ];
+
 const Set<AiExposureSource> _kForumSources = <AiExposureSource>{
   AiExposureSource.nodeseek,
   AiExposureSource.linuxDo,
@@ -391,12 +392,12 @@ class _StatusDialogState extends State<_StatusDialog> {
                     icon: Icons.lan_outlined,
                     label: text(zh: '代理请求', en: 'Proxy requests'),
                     value: '${proxy?.totalSelections ?? 0}',
-                    detail: proxy?.enabled == true
+                    detail: controller.proxyRoute == AiExposureProxyRoute.pool
                         ? text(
                             zh: '成功 $proxySuccesses · 超时 $proxyTimeouts',
                             en: '$proxySuccesses ok · $proxyTimeouts timeout',
                           )
-                        : text(zh: '直接连接', en: 'Direct connection'),
+                        : serviceProxyRouteText(controller, text),
                     color: const Color(0xff0891b2),
                   ),
                   _MetricData(
@@ -741,9 +742,10 @@ class _StatusDialogState extends State<_StatusDialog> {
                         ),
                         _StatusKeyValue(
                           label: text(zh: '代理选路', en: 'Proxy routing'),
-                          value: proxy?.enabled == true
-                              ? '${proxy!.strategy.name} · ${proxy.endpoints.length}'
-                              : text(zh: '直接连接', en: 'Direct'),
+                          value:
+                              controller.proxyRoute == AiExposureProxyRoute.pool
+                              ? '${proxy?.strategy.name ?? controller.proxyConfiguration.strategy.name} · ${controller.proxyConfiguration.activeEndpoints.length}'
+                              : serviceProxyRouteText(controller, text),
                         ),
                         _StatusKeyValue(
                           label: text(zh: '论坛读取', en: 'Forum reader'),
@@ -2949,6 +2951,7 @@ class _ServiceTelemetryConsole extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final proxy = controller.proxyStatus;
     final dependencies = controller.dependencyStatus;
     final progress = controller.progress;
@@ -2996,10 +2999,12 @@ class _ServiceTelemetryConsole extends StatelessWidget {
             ),
             _line(
               'proxy',
-              proxy?.enabled == true
-                  ? 'endpoints=${proxy!.endpoints.length} selections=${proxy.totalSelections} ok=${proxy.totalSuccesses} failed=${proxy.totalFailures} timeout=${proxy.totalTimeouts} avg=${proxy.averageResponseTimeMs}ms'
-                  : 'direct connection',
-              proxy?.enabled != true || proxy!.totalFailures == 0,
+              controller.proxyRoute == AiExposureProxyRoute.pool &&
+                      proxy != null
+                  ? 'endpoints=${proxy.endpoints.length} selections=${proxy.totalSelections} ok=${proxy.totalSuccesses} failed=${proxy.totalFailures} timeout=${proxy.totalTimeouts} avg=${proxy.averageResponseTimeMs}ms'
+                  : serviceProxyRouteText(controller, text),
+              controller.proxyRoute != AiExposureProxyRoute.pool ||
+                  (proxy?.totalFailures ?? 0) == 0,
             ),
             _line(
               'storage',
