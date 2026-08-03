@@ -1228,6 +1228,11 @@ class McpController extends ChangeNotifier {
       definitions: <AiToolDefinition>[base.definition],
       toolsByName: <String, AiResolvedTool>{base.name: base},
     );
+    final effectiveArguments = _opsBuiltinArguments(
+      kind,
+      arguments,
+      context.workspaceRoot,
+    );
     try {
       final result = await runtime.execute(
         sessionId: _opsBuiltinSessionId,
@@ -1235,7 +1240,7 @@ class McpController extends ChangeNotifier {
         toolCall: AiToolCall(
           id: context.invocationId,
           name: base.name,
-          arguments: jsonEncode(arguments),
+          arguments: jsonEncode(effectiveArguments),
         ),
         model: resolvedModel ?? _opsPlaceholderModel,
         previouslyReadFiles: const <String>{},
@@ -1259,6 +1264,46 @@ class McpController extends ChangeNotifier {
         text: 'Builtin tool execution failed: $error',
         isError: true,
       );
+    }
+  }
+
+  Map<String, Object?> _opsBuiltinArguments(
+    AiBuiltinToolKind kind,
+    Map<String, Object?> arguments,
+    String workspaceRoot,
+  ) {
+    final root = workspaceRoot.trim();
+    if (root.isEmpty) return arguments;
+    final hasPath = stringFromValue(arguments['path']).trim().isNotEmpty;
+    final hasWorkingDirectory = <String>[
+      'working_directory',
+      'cwd',
+    ].any((key) => stringFromValue(arguments[key]).trim().isNotEmpty);
+
+    switch (kind) {
+      case AiBuiltinToolKind.glob ||
+          AiBuiltinToolKind.grep ||
+          AiBuiltinToolKind.ls:
+        return hasPath
+            ? arguments
+            : <String, Object?>{...arguments, 'path': root};
+      case AiBuiltinToolKind.codebaseSearch:
+        final targetDirectories = stringListFromValueOrJsonText(
+          arguments['target_directories'],
+        );
+        return hasPath || targetDirectories.isNotEmpty
+            ? arguments
+            : <String, Object?>{...arguments, 'path': root};
+      case AiBuiltinToolKind.bash ||
+          AiBuiltinToolKind.bashBackground ||
+          AiBuiltinToolKind.git ||
+          AiBuiltinToolKind.readLints ||
+          AiBuiltinToolKind.machineTerminalControl:
+        return hasWorkingDirectory
+            ? arguments
+            : <String, Object?>{...arguments, 'working_directory': root};
+      default:
+        return arguments;
     }
   }
 

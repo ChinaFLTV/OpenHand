@@ -8,6 +8,7 @@ import 'package:shelf/shelf.dart' as shelf;
 import 'package:shelf/shelf_io.dart' as shelf_io;
 import 'package:shelf_router/shelf_router.dart';
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
@@ -45,11 +46,13 @@ class McpOpsToolInvocationContext {
     required this.invocationId,
     required this.cancelSignal,
     required this.deadline,
+    this.workspaceRoot = '',
   });
 
   final String invocationId;
   final Future<void> cancelSignal;
   final DateTime deadline;
+  final String workspaceRoot;
 }
 
 const int _mcpOpsRequestBodyMaxBytes = 4 * kBytesPerMiB;
@@ -136,10 +139,14 @@ bool _mcpOpsArgumentKeyLooksLikePath(String key) {
   final words = normalized
       .split(_mcpOpsArgumentKeySeparator)
       .where((word) => word.isNotEmpty)
-      .toSet();
-  if (words.any(_mcpOpsPathArgumentWords.contains)) return true;
-  if (normalized == 'cwd' || normalized == 'workspace') return true;
-  return words.contains('workspace') && words.contains('root');
+      .toList(growable: false);
+  if (normalized == 'cwd' ||
+      normalized == 'workspace' ||
+      normalized == 'workspace_root') {
+    return true;
+  }
+  if (words.isEmpty) return false;
+  return _mcpOpsPathArgumentWords.contains(words.last);
 }
 
 /// 有界读取 MCP 请求体。失败时由响应头关闭连接；此处不提前取消 Shelf 请求流，
@@ -1090,8 +1097,7 @@ class McpServerOpsRuntime {
             'name': _serverName,
             'version': _serverVersion,
           },
-          'instructions':
-              'OpenHand exposes approved local tools, memory, skills, instructions, knowledge and MCP bridges. Respect policy errors and request approval for write operations.',
+          'instructions': _serverInstructions(),
         });
         _recordLifecycle(
           request,
@@ -1170,7 +1176,7 @@ class McpServerOpsRuntime {
         ? stringKeyedMapFromValue(message['params'])
         : const <String, Object?>{};
     final name = stringFromValue(params['name']).trim();
-    final arguments = params['arguments'] is Map
+    final rawArguments = params['arguments'] is Map
         ? stringKeyedMapFromValue(params['arguments'])
         : const <String, Object?>{};
     McpOpsToolDefinition? tool;
@@ -1187,9 +1193,19 @@ class McpServerOpsRuntime {
         reason: 'Tool not exposed: $name',
         method: 'tools/call',
         toolName: name,
-        arguments: arguments,
+        arguments: rawArguments,
       );
       return _jsonRpcError(id, -32602, 'Unknown tool: $name');
+    }
+    final arguments = _normalizeArgumentsToWorkspace(rawArguments);
+    if (arguments == null) {
+      return _workspaceScopeBlockedResponse(
+        request,
+        id,
+        inboundBytes: inboundBytes,
+        toolName: name,
+        arguments: rawArguments,
+      );
     }
     if (tool.isWrite && _config.writeMode == McpOpsWriteMode.readOnly) {
       _recordBlocked(
@@ -1288,6 +1304,7 @@ class McpServerOpsRuntime {
       invocationId: 'mcp-ops-${_auditId(started)}',
       cancelSignal: invocationCancel.future,
       deadline: DateTime.now().toUtc().add(invocationTimeout),
+      workspaceRoot: _normalizedWorkspaceRoot ?? '',
     );
     try {
       final result = await _toolInvoker(tool, arguments, invocationContext)
@@ -1535,6 +1552,54 @@ class McpServerOpsRuntime {
     return hour * 60 + minute;
   }
 
+  String _serverInstructions() {
+    final root = _normalizedWorkspaceRoot;
+    const base =
+        'OpenHand exposes approved local tools, memory, skills, instructions, knowledge and MCP bridges. Respect policy errors and request approval for write operations.';
+    if (root == null) return base;
+    return '$base Workspace root: $root. Use "." or relative paths for this workspace; recognized path arguments are resolved from this root and paths outside it are rejected.';
+  }
+
+  String? get _normalizedWorkspaceRoot {
+    final rawRoot = nullIfBlank(_config.workspaceRoot);
+    if (rawRoot == null) return null;
+    final expandedRoot = OpenHandPaths.normalizeOptionalPath(rawRoot);
+    return p.normalize(p.absolute(expandedRoot));
+  }
+
+  Map<String, Object?>? _normalizeArgumentsToWorkspace(
+    Map<String, Object?> arguments,
+  ) {
+    final root = _normalizedWorkspaceRoot;
+    if (root == null) return arguments;
+    final scan = _scanMcpOpsPathArguments(arguments);
+    if (!scan.valid) return null;
+
+    Object? normalize(Object? value, String key) {
+      if (value is Map) {
+        return <String, Object?>{
+          for (final entry in value.entries)
+            '${entry.key}': normalize(entry.value, '${entry.key}'),
+        };
+      }
+      if (value is List) {
+        return value
+            .map((item) => normalize(item, key))
+            .toList(growable: false);
+      }
+      if (value is! String || !_mcpOpsArgumentKeyLooksLikePath(key)) {
+        return value;
+      }
+      final expanded = OpenHandPaths.normalizeOptionalPath(value);
+      if (expanded.isEmpty) return value;
+      return p.isAbsolute(expanded)
+          ? p.normalize(expanded)
+          : p.normalize(p.join(root, expanded));
+    }
+
+    return normalize(arguments, '')! as Map<String, Object?>;
+  }
+
   Future<bool> _argumentsWithinWorkspaceBeforeDeadline(
     Map<String, Object?> arguments,
     DateTime processingDeadline,
@@ -1550,15 +1615,14 @@ class McpServerOpsRuntime {
   }
 
   Future<bool> _argumentsWithinWorkspace(Map<String, Object?> arguments) async {
-    final root = nullIfBlank(_config.workspaceRoot);
+    final root = _normalizedWorkspaceRoot;
     if (root == null) return true;
-    final normalizedRoot = p.normalize(p.absolute(root));
     final pathScan = _scanMcpOpsPathArguments(arguments);
     if (!pathScan.valid) return false;
     for (final path in pathScan.values) {
       final normalizedPath = p.normalize(p.absolute(path));
-      if (!isPathWithinOrEqual(normalizedRoot, normalizedPath) ||
-          !await isPhysicalPathWithinOrEqual(normalizedRoot, normalizedPath)) {
+      if (!isPathWithinOrEqual(root, normalizedPath) ||
+          !await isPhysicalPathWithinOrEqual(root, normalizedPath)) {
         return false;
       }
     }
