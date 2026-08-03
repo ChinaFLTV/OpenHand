@@ -244,11 +244,33 @@ class AiExposureScanRule {
 const int kAiExposureProxyLatencySampleLimit = 24;
 const int kAiExposureProxyRequestSampleLimit = 24;
 
+enum AiExposureProxyProbeFailure {
+  gateway('gateway'),
+  authentication('authentication'),
+  access('access'),
+  forwarding('forwarding'),
+  protocol('protocol'),
+  timeout('timeout');
+
+  const AiExposureProxyProbeFailure(this.id);
+
+  final String id;
+
+  static AiExposureProxyProbeFailure? tryFromId(String? value) {
+    for (final failure in values) {
+      if (failure.id == value) return failure;
+    }
+    return null;
+  }
+}
+
 class AiExposureProxyProbeSample {
   const AiExposureProxyProbeSample({
     required this.checkedAt,
     this.latencyMs,
     this.statusCode,
+    this.gatewayReachable = false,
+    this.failure,
     this.error,
   });
 
@@ -260,6 +282,12 @@ class AiExposureProxyProbeSample {
           DateTime.now(),
       latencyMs: (json['latencyMs'] as num?)?.toInt().clamp(0, 600000),
       statusCode: (json['statusCode'] as num?)?.toInt(),
+      gatewayReachable:
+          json['gatewayReachable'] as bool? ??
+          json['latencyMs'] != null || json['statusCode'] != null,
+      failure: AiExposureProxyProbeFailure.tryFromId(
+        json['failure'] as String?,
+      ),
       error: (json['error'] as String?)?.trim(),
     );
   }
@@ -267,6 +295,8 @@ class AiExposureProxyProbeSample {
   final DateTime checkedAt;
   final int? latencyMs;
   final int? statusCode;
+  final bool gatewayReachable;
+  final AiExposureProxyProbeFailure? failure;
   final String? error;
 
   bool get reachable => latencyMs != null && error == null;
@@ -275,6 +305,8 @@ class AiExposureProxyProbeSample {
     'checkedAt': checkedAt.toIso8601String(),
     if (latencyMs != null) 'latencyMs': latencyMs,
     if (statusCode != null) 'statusCode': statusCode,
+    if (gatewayReachable) 'gatewayReachable': true,
+    if (failure != null) 'failure': failure!.id,
     if (error?.isNotEmpty == true) 'error': error,
   };
 }

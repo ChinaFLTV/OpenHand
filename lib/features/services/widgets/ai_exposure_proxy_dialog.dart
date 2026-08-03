@@ -48,6 +48,7 @@ enum _ProxyEndpointHealth {
   disabled,
   unchecked,
   unavailable,
+  forwardingFailed,
   healthy,
   highLatency,
 }
@@ -1001,6 +1002,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     for (final endpoint in _endpoints) {
       switch (_proxyEndpointHealth(endpoint)) {
         case _ProxyEndpointHealth.unavailable:
+        case _ProxyEndpointHealth.forwardingFailed:
           unavailableUrls.add(endpoint.url);
         case _ProxyEndpointHealth.highLatency:
           highLatencyUrls.add(endpoint.url);
@@ -1328,6 +1330,15 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     context,
     endpoint: endpoint,
     statistics: statistics,
+    onProbe: (sample) async {
+      final current = _endpoints
+          .where((item) => item.url == endpoint.url)
+          .firstOrNull;
+      if (current != null && mounted) {
+        _replaceEndpointLocally(endpoint.url, current.withSample(sample));
+      }
+      await _servicesController.saveProxyProbeSamples({endpoint.url: sample});
+    },
     onIdentity: (identity) async {
       final current = _endpoints
           .where((item) => item.url == endpoint.url)
@@ -2411,6 +2422,7 @@ Future<void> _showProxyEndpointDetails(
   BuildContext context, {
   required AiExposureProxyEndpoint endpoint,
   required AiExposureProxyUsageStatistics statistics,
+  required Future<void> Function(AiExposureProxyProbeSample sample) onProbe,
   required Future<void> Function(AiExposureProxyIdentity identity) onIdentity,
 }) => showAnimatedDialog<void>(
   context: context,
@@ -2420,6 +2432,7 @@ Future<void> _showProxyEndpointDetails(
     child: ServiceDialogInteractionTheme(
       child: _ProxyEndpointDetailsDialog(
         endpoint: endpoint.copyWith(statistics: statistics),
+        onProbe: onProbe,
         onIdentity: onIdentity,
       ),
     ),
@@ -2429,10 +2442,12 @@ Future<void> _showProxyEndpointDetails(
 class _ProxyEndpointDetailsDialog extends StatefulWidget {
   const _ProxyEndpointDetailsDialog({
     required this.endpoint,
+    required this.onProbe,
     required this.onIdentity,
   });
 
   final AiExposureProxyEndpoint endpoint;
+  final Future<void> Function(AiExposureProxyProbeSample sample) onProbe;
   final Future<void> Function(AiExposureProxyIdentity identity) onIdentity;
 
   @override
@@ -2444,6 +2459,7 @@ class _ProxyEndpointDetailsDialogState
     extends State<_ProxyEndpointDetailsDialog> {
   final AiExposureProxyProbe _probe = const AiExposureProxyProbe();
   late AiExposureProxyEndpoint _endpoint;
+  bool _testingProbe = false;
   bool _loadingIdentity = false;
   String? _identityError;
 
@@ -2451,8 +2467,29 @@ class _ProxyEndpointDetailsDialogState
   void initState() {
     super.initState();
     _endpoint = widget.endpoint;
-    if (_endpoint.identity == null) {
-      WidgetsBinding.instance.addPostFrameCallback((_) => _refreshIdentity());
+    if (_endpoint.identity != null) return;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_endpoint.latestSample?.reachable == true) {
+        _refreshIdentity();
+      } else if (_endpoint.latestSample == null) {
+        _refreshProbe(refreshIdentityOnSuccess: true);
+      }
+    });
+  }
+
+  Future<void> _refreshProbe({bool refreshIdentityOnSuccess = false}) async {
+    if (_testingProbe || _loadingIdentity) return;
+    setState(() => _testingProbe = true);
+    final sample = await _probe.inspect(_endpoint);
+    if (!mounted) return;
+    setState(() {
+      _endpoint = _endpoint.withSample(sample);
+      _testingProbe = false;
+      if (!sample.reachable) _identityError = null;
+    });
+    await widget.onProbe(sample);
+    if (mounted && refreshIdentityOnSuccess && sample.reachable) {
+      await _refreshIdentity();
     }
   }
 
@@ -2551,8 +2588,27 @@ class _ProxyEndpointDetailsDialogState
               spacing: 8,
               children: [
                 ServiceDialogHeaderIconButton(
+                  tooltip: text(zh: '重新检测代理转发', en: 'Retest proxy forwarding'),
+                  onPressed: _testingProbe || _loadingIdentity
+                      ? null
+                      : () => _refreshProbe(
+                          refreshIdentityOnSuccess: _endpoint.identity == null,
+                        ),
+                  icon: _testingProbe
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.network_check_rounded),
+                ),
+                ServiceDialogHeaderIconButton(
                   tooltip: text(zh: '刷新出口身份', en: 'Refresh identity'),
-                  onPressed: _loadingIdentity ? null : _refreshIdentity,
+                  onPressed:
+                      _loadingIdentity ||
+                          _testingProbe ||
+                          _endpoint.latestSample?.reachable != true
+                      ? null
+                      : _refreshIdentity,
                   icon: _loadingIdentity
                       ? const SizedBox.square(
                           dimension: 18,
@@ -2580,13 +2636,19 @@ class _ProxyEndpointDetailsDialogState
               ),
               _ProxyMetric(
                 icon: Icons.security_rounded,
-                label: _endpoint.identity == null
-                    ? text(zh: '身份待识别', en: 'Identity pending')
-                    : _cleanlinessLabel(_endpoint.identity!.cleanliness, text),
-                color: _cleanlinessColor(
-                  _endpoint.identity?.cleanliness,
-                  colors,
-                ),
+                label: _endpoint.identity != null
+                    ? _cleanlinessLabel(_endpoint.identity!.cleanliness, text)
+                    : _identityError != null
+                    ? text(zh: '身份识别失败', en: 'Identity lookup failed')
+                    : _endpoint.latestSample?.reachable == false
+                    ? text(zh: '身份暂不可用', en: 'Identity unavailable')
+                    : text(zh: '身份待识别', en: 'Identity pending'),
+                color: _identityError != null
+                    ? OpenHandStatusColors.warning
+                    : _cleanlinessColor(
+                        _endpoint.identity?.cleanliness,
+                        colors,
+                      ),
               ),
               _ProxyMetric(
                 icon: Icons.public_rounded,
@@ -2611,6 +2673,8 @@ class _ProxyEndpointDetailsDialogState
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
+                  _buildProbeSection(context),
+                  const SizedBox(height: 12),
                   _buildIdentitySection(context),
                   const SizedBox(height: 12),
                   LayoutBuilder(
@@ -2678,7 +2742,9 @@ class _ProxyEndpointDetailsDialogState
                         _ProxyPoolMetricData(
                           Icons.speed_rounded,
                           text(zh: '探测延迟', en: 'Probe latency'),
-                          '${_endpoint.latestSample?.latencyMs ?? 0} ms',
+                          _endpoint.latestSample?.latencyMs == null
+                              ? '--'
+                              : '${_endpoint.latestSample!.latencyMs} ms',
                           '${_endpoint.samples.length} samples',
                           tone.color,
                         ),
@@ -2717,11 +2783,123 @@ class _ProxyEndpointDetailsDialogState
     );
   }
 
+  Widget _buildProbeSection(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final text = openHandTextResolver(context);
+    final sample = _endpoint.latestSample;
+    final gatewayColor = sample == null
+        ? colors.onSurfaceVariant
+        : sample.gatewayReachable
+        ? OpenHandStatusColors.success
+        : OpenHandStatusColors.error;
+    final forwardingColor = sample == null
+        ? colors.onSurfaceVariant
+        : sample.reachable
+        ? OpenHandStatusColors.success
+        : OpenHandStatusColors.error;
+    return _ProxyDetailSection(
+      icon: Icons.route_outlined,
+      title: text(zh: '代理网关与转发诊断', en: 'Gateway and forwarding'),
+      trailing: OpenHandInlineRevealSwitcher(
+        presentKey: const ValueKey<String>('probe-loading'),
+        child: _testingProbe
+            ? const SizedBox.square(
+                dimension: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : null,
+      ),
+      child: OpenHandContentStateSwitcher(
+        stateKey: _testingProbe
+            ? 'probe-running'
+            : sample == null
+            ? 'probe-pending'
+            : sample.reachable
+            ? 'probe-ready'
+            : sample.gatewayReachable
+            ? 'probe-forwarding-failed'
+            : 'probe-gateway-failed',
+        alignment: AlignmentDirectional.topStart,
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Wrap(
+              spacing: 10,
+              runSpacing: 8,
+              children: [
+                _ProxyMetric(
+                  icon: sample?.gatewayReachable == true
+                      ? Icons.dns_outlined
+                      : Icons.portable_wifi_off_rounded,
+                  label: sample == null
+                      ? text(zh: '网关待检测', en: 'Gateway pending')
+                      : sample.gatewayReachable
+                      ? text(zh: '网关已连接', en: 'Gateway connected')
+                      : text(zh: '网关不可达', en: 'Gateway unreachable'),
+                  color: gatewayColor,
+                ),
+                _ProxyMetric(
+                  icon: sample?.reachable == true
+                      ? Icons.lock_open_rounded
+                      : Icons.link_off_rounded,
+                  label: sample == null
+                      ? text(zh: '转发待检测', en: 'Forwarding pending')
+                      : sample.reachable
+                      ? text(zh: 'HTTPS 隧道可用', en: 'HTTPS tunnel ready')
+                      : text(zh: '代理转发失败', en: 'Forwarding failed'),
+                  color: forwardingColor,
+                ),
+                if (sample?.latencyMs != null)
+                  _ProxyMetric(
+                    icon: Icons.speed_rounded,
+                    label: '${sample!.latencyMs} ms',
+                    color: forwardingColor,
+                  ),
+                if (sample?.statusCode != null)
+                  _ProxyMetric(
+                    icon: Icons.http_rounded,
+                    label: 'HTTP ${sample!.statusCode}',
+                    color: forwardingColor,
+                  ),
+                if (sample != null)
+                  _ProxyMetric(
+                    icon: Icons.schedule_rounded,
+                    label: _timeLabel(sample.checkedAt),
+                    color: colors.onSurfaceVariant,
+                  ),
+              ],
+            ),
+            OpenHandVerticalRevealSwitcher(
+              presentKey: const ValueKey<String>('probe-diagnostic'),
+              child: sample?.error?.isNotEmpty == true
+                  ? Padding(
+                      padding: const EdgeInsets.only(top: 10),
+                      child: Text(
+                        sample!.error!,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: OpenHandStatusColors.error,
+                        ),
+                      ),
+                    )
+                  : null,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
   Widget _buildIdentitySection(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
     final identity = _endpoint.identity;
+    final blockedByProbe =
+        identity == null &&
+        _endpoint.latestSample?.reachable == false &&
+        !_loadingIdentity &&
+        _identityError == null;
     return _ProxyDetailSection(
       icon: Icons.badge_outlined,
       title: text(zh: '出口身份与地理归属', en: 'Exit identity and location'),
@@ -2739,6 +2917,8 @@ class _ProxyEndpointDetailsDialogState
             ? 'identity-ready'
             : _identityError != null
             ? 'identity-error'
+            : blockedByProbe
+            ? 'identity-blocked'
             : 'identity-loading',
         alignment: AlignmentDirectional.topStart,
         child: identity == null
@@ -2746,20 +2926,25 @@ class _ProxyEndpointDetailsDialogState
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   Text(
-                    _identityError ??
-                        text(
-                          zh: '正在通过该代理识别出口 IP 与网络归属。',
-                          en: 'Resolving the exit identity through this proxy.',
-                        ),
+                    blockedByProbe
+                        ? text(
+                            zh: '代理转发尚未连通，出口身份识别未启动。',
+                            en: 'Forwarding is unavailable, so identity lookup has not started.',
+                          )
+                        : _identityError ??
+                              text(
+                                zh: '正在通过该代理识别出口 IP 与网络归属。',
+                                en: 'Resolving the exit identity through this proxy.',
+                              ),
                     style: theme.textTheme.bodyMedium?.copyWith(
                       color: _identityError == null
                           ? colors.onSurfaceVariant
-                          : OpenHandStatusColors.error,
+                          : OpenHandStatusColors.warning,
                     ),
                   ),
                   OpenHandVerticalRevealSwitcher(
                     presentKey: const ValueKey<String>('identity-retry'),
-                    child: _identityError == null
+                    child: _identityError == null && !blockedByProbe
                         ? null
                         : Padding(
                             padding: const EdgeInsets.only(top: 10),
@@ -2767,10 +2952,16 @@ class _ProxyEndpointDetailsDialogState
                               alignment: AlignmentDirectional.centerStart,
                               child: OpenHandDialogActionButton.secondary(
                                 icon: Icons.refresh_rounded,
-                                onPressed: _loadingIdentity
+                                onPressed: _loadingIdentity || _testingProbe
                                     ? null
+                                    : blockedByProbe
+                                    ? () => _refreshProbe(
+                                        refreshIdentityOnSuccess: true,
+                                      )
                                     : _refreshIdentity,
-                                label: text(zh: '重新识别', en: 'Retry'),
+                                label: blockedByProbe
+                                    ? text(zh: '检测并识别', en: 'Test and identify')
+                                    : text(zh: '重新识别', en: 'Retry'),
                               ),
                             ),
                           ),
@@ -2780,6 +2971,9 @@ class _ProxyEndpointDetailsDialogState
             : LayoutBuilder(
                 builder: (context, constraints) {
                   final uri = Uri.parse(_endpoint.url);
+                  final classificationKnown =
+                      identity.networkType != 'unknown' &&
+                      identity.cleanliness != 'unknown';
                   final fields = <({String label, String value, IconData icon})>[
                     (
                       label: text(zh: '出口 IP', en: 'Exit IP'),
@@ -2880,6 +3074,25 @@ class _ProxyEndpointDetailsDialogState
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
+                      OpenHandVerticalRevealSwitcher(
+                        presentKey: const ValueKey<String>(
+                          'identity-refresh-error',
+                        ),
+                        child: _identityError == null
+                            ? null
+                            : Padding(
+                                padding: const EdgeInsets.only(bottom: 10),
+                                child: Text(
+                                  text(
+                                    zh: '出口身份刷新失败：$_identityError。当前显示上次识别结果。',
+                                    en: 'Identity refresh failed: $_identityError. Showing the last result.',
+                                  ),
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: OpenHandStatusColors.warning,
+                                  ),
+                                ),
+                              ),
+                      ),
                       Wrap(
                         spacing: gap,
                         runSpacing: gap,
@@ -2903,33 +3116,43 @@ class _ProxyEndpointDetailsDialogState
                         spacing: 8,
                         runSpacing: 8,
                         children: [
-                          _ProxyMetric(
-                            icon: Icons.phone_android_rounded,
-                            label: identity.mobile
-                                ? text(zh: '移动网络', en: 'Mobile network')
-                                : text(zh: '非移动网络', en: 'Not mobile'),
-                            color: identity.mobile
-                                ? OpenHandStatusColors.warning
-                                : colors.onSurfaceVariant,
-                          ),
-                          _ProxyMetric(
-                            icon: Icons.vpn_lock_outlined,
-                            label: identity.proxy
-                                ? text(zh: '代理特征已识别', en: 'Proxy detected')
-                                : text(zh: '未识别代理特征', en: 'No proxy flag'),
-                            color: identity.proxy
-                                ? OpenHandStatusColors.warning
-                                : OpenHandStatusColors.success,
-                          ),
-                          _ProxyMetric(
-                            icon: Icons.cloud_outlined,
-                            label: identity.hosting
-                                ? text(zh: '数据中心托管', en: 'Hosting network')
-                                : text(zh: '非托管网络', en: 'Not hosting'),
-                            color: identity.hosting
-                                ? OpenHandStatusColors.info
-                                : OpenHandStatusColors.success,
-                          ),
+                          if (classificationKnown) ...[
+                            _ProxyMetric(
+                              icon: Icons.phone_android_rounded,
+                              label: identity.mobile
+                                  ? text(zh: '移动网络', en: 'Mobile network')
+                                  : text(zh: '非移动网络', en: 'Not mobile'),
+                              color: identity.mobile
+                                  ? OpenHandStatusColors.warning
+                                  : colors.onSurfaceVariant,
+                            ),
+                            _ProxyMetric(
+                              icon: Icons.vpn_lock_outlined,
+                              label: identity.proxy
+                                  ? text(zh: '代理特征已识别', en: 'Proxy detected')
+                                  : text(zh: '未识别代理特征', en: 'No proxy flag'),
+                              color: identity.proxy
+                                  ? OpenHandStatusColors.warning
+                                  : OpenHandStatusColors.success,
+                            ),
+                            _ProxyMetric(
+                              icon: Icons.cloud_outlined,
+                              label: identity.hosting
+                                  ? text(zh: '数据中心托管', en: 'Hosting network')
+                                  : text(zh: '非托管网络', en: 'Not hosting'),
+                              color: identity.hosting
+                                  ? OpenHandStatusColors.info
+                                  : OpenHandStatusColors.success,
+                            ),
+                          ] else
+                            _ProxyMetric(
+                              icon: Icons.help_outline_rounded,
+                              label: text(
+                                zh: '风险特征数据不足',
+                                en: 'Risk signals unavailable',
+                              ),
+                              color: colors.onSurfaceVariant,
+                            ),
                           _ProxyMetric(
                             icon: Icons.update_rounded,
                             label: _timeLabel(identity.observedAt),
@@ -3325,6 +3548,7 @@ String _networkTypeLabel(String? value, OpenHandLocalizedTextResolver text) =>
       'datacenter' => text(zh: '数据中心', en: 'Datacenter'),
       'public_proxy' => text(zh: '公共代理', en: 'Public proxy'),
       'residential' => text(zh: '住宅/运营商', en: 'Residential / ISP'),
+      'unknown' => text(zh: '类型未判定', en: 'Type not determined'),
       _ => text(zh: '待识别', en: 'Pending'),
     };
 
@@ -3333,6 +3557,7 @@ String _cleanlinessLabel(String? value, OpenHandLocalizedTextResolver text) =>
       'high' => text(zh: '高干净度', en: 'High cleanliness'),
       'medium' => text(zh: '中等干净度', en: 'Medium cleanliness'),
       'low' => text(zh: '低干净度', en: 'Low cleanliness'),
+      'unknown' => text(zh: '数据不足', en: 'Insufficient data'),
       _ => text(zh: '干净度待识别', en: 'Cleanliness pending'),
     };
 
@@ -3340,6 +3565,7 @@ Color _cleanlinessColor(String? value, ColorScheme colors) => switch (value) {
   'high' => OpenHandStatusColors.success,
   'medium' => OpenHandStatusColors.warning,
   'low' => OpenHandStatusColors.error,
+  'unknown' => colors.onSurfaceVariant,
   _ => colors.onSurfaceVariant,
 };
 
@@ -3885,6 +4111,13 @@ class _ProxyEndpointCard extends StatelessWidget {
                     label: tone.label,
                     color: tone.color,
                   ),
+                  if (sample?.gatewayReachable == true &&
+                      sample?.reachable != true)
+                    _ProxyMetric(
+                      icon: Icons.dns_outlined,
+                      label: text(zh: '网关已连接', en: 'Gateway connected'),
+                      color: OpenHandStatusColors.warning,
+                    ),
                   OpenHandInlineRevealSwitcher(
                     presentKey: const ValueKey<String>('probe-latency'),
                     child: sample?.latencyMs == null
@@ -3951,7 +4184,7 @@ class _ProxyEndpointCard extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 6),
                         child: Text(
                           sample!.error!,
-                          maxLines: 1,
+                          maxLines: 2,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.bodySmall?.copyWith(
                             color: OpenHandStatusColors.error,
@@ -4026,7 +4259,7 @@ class _ProxyEndpointCard extends StatelessWidget {
         border: Border.all(
           color: selected
               ? colors.primary.withValues(alpha: 0.58)
-              : sample?.reachable == true
+              : sample != null
               ? tone.color.withValues(alpha: 0.36)
               : colors.outlineVariant,
         ),
@@ -4410,7 +4643,11 @@ _ProxyEndpointHealth _proxyEndpointHealth(AiExposureProxyEndpoint endpoint) {
   if (!endpoint.enabled) return _ProxyEndpointHealth.disabled;
   final sample = endpoint.latestSample;
   if (sample == null) return _ProxyEndpointHealth.unchecked;
-  if (!sample.reachable) return _ProxyEndpointHealth.unavailable;
+  if (!sample.reachable) {
+    return sample.gatewayReachable
+        ? _ProxyEndpointHealth.forwardingFailed
+        : _ProxyEndpointHealth.unavailable;
+  }
   return sample.latencyMs! <= _kProxyHighLatencyThresholdMs
       ? _ProxyEndpointHealth.healthy
       : _ProxyEndpointHealth.highLatency;
@@ -4444,6 +4681,11 @@ _ProxyEndpointHealth _proxyEndpointHealth(AiExposureProxyEndpoint endpoint) {
       color: OpenHandStatusColors.error,
       icon: Icons.cloud_off_outlined,
       label: text(zh: '不可用', en: 'Unavailable'),
+    ),
+    _ProxyEndpointHealth.forwardingFailed => (
+      color: OpenHandStatusColors.error,
+      icon: Icons.link_off_rounded,
+      label: text(zh: '转发失败', en: 'Forwarding failed'),
     ),
     _ProxyEndpointHealth.healthy => (
       color: OpenHandStatusColors.success,
