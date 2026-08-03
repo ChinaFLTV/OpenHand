@@ -2915,21 +2915,15 @@ class AiChatService implements AiChatClient {
 
   Future<Completer<void>> _beginRequest(Future<void>? cancelSignal) async {
     if (_disposed) throw StateError('AI 聊天服务已关闭。');
-    final queueTimeoutSignal = Completer<void>();
-    final queueTimer = Timer(_requestQueueTimeout, queueTimeoutSignal.complete);
     late final bool acquired;
     try {
-      acquired = await _requestSlots.acquireUnlessCancelled(
-        combineCancelSignals(<Future<void>?>[
-          cancelSignal,
-          queueTimeoutSignal.future,
-        ])!,
+      acquired = await _requestSlots.acquireWithin(
+        _requestQueueTimeout,
+        cancelSignal: cancelSignal,
       );
     } on StateError {
       if (_disposed) throw StateError('AI 聊天服务已关闭。');
       throw const AiChatException('AI 聊天请求排队已满，请稍后再试。');
-    } finally {
-      queueTimer.cancel();
     }
     if (!acquired) {
       if (_disposed) throw StateError('AI 聊天服务已关闭。');

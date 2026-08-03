@@ -1661,24 +1661,15 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     Future<void>? cancelSignal,
   }) async {
     if (_isDisposed) throw StateError('MCP 工具发现服务已关闭。');
-    final queueTimeoutSignal = Completer<void>();
-    final queueTimer = Timer(
-      _operationQueueTimeout,
-      queueTimeoutSignal.complete,
-    );
     late final bool acquired;
     try {
-      acquired = await _operationSlots.acquireUnlessCancelled(
-        combineCancelSignals(<Future<void>?>[
-          cancelSignal,
-          queueTimeoutSignal.future,
-        ])!,
+      acquired = await _operationSlots.acquireWithin(
+        _operationQueueTimeout,
+        cancelSignal: cancelSignal,
       );
     } on StateError {
       if (_isDisposed) throw StateError('MCP 工具发现服务已关闭。');
       throw const McpToolDiscoveryException('MCP 操作排队已满。');
-    } finally {
-      queueTimer.cancel();
     }
     if (!acquired) {
       if (_isDisposed) {

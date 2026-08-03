@@ -2767,24 +2767,15 @@ class AiToolRuntimeService {
 
   Future<Completer<void>?> _beginExecution(Future<void>? cancelSignal) async {
     if (_isShuttingDown) throw StateError('AI 工具运行时已关闭。');
-    final queueTimeoutSignal = Completer<void>();
-    final queueTimer = Timer(
-      _toolExecutionQueueTimeout,
-      queueTimeoutSignal.complete,
-    );
     late final bool acquired;
     try {
-      acquired = await _executionSlots.acquireUnlessCancelled(
-        combineCancelSignals(<Future<void>?>[
-          cancelSignal,
-          queueTimeoutSignal.future,
-        ])!,
+      acquired = await _executionSlots.acquireWithin(
+        _toolExecutionQueueTimeout,
+        cancelSignal: cancelSignal,
       );
     } on StateError {
       if (_isShuttingDown) throw StateError('AI 工具运行时已关闭。');
       throw StateError('AI 工具执行排队已满。');
-    } finally {
-      queueTimer.cancel();
     }
     if (!acquired) {
       if (_isShuttingDown) throw StateError('AI 工具运行时已关闭。');

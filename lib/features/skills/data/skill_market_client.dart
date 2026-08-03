@@ -543,18 +543,12 @@ class SkillMarketClient {
     Future<T> Function(Future<void> cancelSignal) operation,
   ) async {
     if (_closed) throw StateError('技能市场客户端已关闭。');
-    final queueTimeoutSignal = Completer<void>();
-    final queueTimer = Timer(_requestQueueTimeout, queueTimeoutSignal.complete);
     late final bool acquired;
     try {
-      acquired = await _requestSlots.acquireUnlessCancelled(
-        queueTimeoutSignal.future,
-      );
+      acquired = await _requestSlots.acquireWithin(_requestQueueTimeout);
     } on StateError {
       if (_closed) throw StateError('技能市场客户端已关闭。');
       throw const SkillMarketException('技能市场请求排队已满。');
-    } finally {
-      queueTimer.cancel();
     }
     if (!acquired) {
       if (_closed) throw StateError('技能市场客户端已关闭。');

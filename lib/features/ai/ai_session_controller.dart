@@ -1914,19 +1914,9 @@ class AiSessionController extends ChangeNotifier {
   }
 
   Future<T> _runSessionHydrationRead<T>(Future<T> Function() read) async {
-    final timeoutSignal = Completer<void>();
-    final timeoutTimer = startSafeTimer(
+    final acquired = await _sessionHydrationSemaphore.acquireWithin(
       _sessionHydrationQueueTimeout,
-      timeoutSignal.complete,
     );
-    late final bool acquired;
-    try {
-      acquired = await _sessionHydrationSemaphore.acquireUnlessCancelled(
-        timeoutSignal.future,
-      );
-    } finally {
-      timeoutTimer.cancel();
-    }
     if (!acquired) {
       if (_isDisposed) throw _disposedError;
       throw TimeoutException('会话数据加载排队超时。', _sessionHydrationQueueTimeout);

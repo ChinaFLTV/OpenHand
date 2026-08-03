@@ -941,24 +941,15 @@ class AiTransportClient {
     Future<void>? cancelSignal,
   }) async {
     if (_disposed) throw StateError('AI 传输客户端已释放。');
-    final queueTimeoutSignal = Completer<void>();
-    final queueTimer = Timer(
-      _aiTransportQueueTimeout,
-      queueTimeoutSignal.complete,
-    );
     late final bool acquired;
     try {
-      acquired = await _requestSlots.acquireUnlessCancelled(
-        combineCancelSignals(<Future<void>?>[
-          cancelSignal,
-          queueTimeoutSignal.future,
-        ])!,
+      acquired = await _requestSlots.acquireWithin(
+        _aiTransportQueueTimeout,
+        cancelSignal: cancelSignal,
       );
     } on StateError {
       if (_disposed) throw StateError('AI 传输客户端已释放。');
       throw StateError('AI 传输请求排队已满。');
-    } finally {
-      queueTimer.cancel();
     }
     if (!acquired) {
       if (_disposed) throw StateError('AI 传输客户端已释放。');

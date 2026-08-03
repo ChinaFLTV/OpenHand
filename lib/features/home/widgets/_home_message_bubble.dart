@@ -8037,8 +8037,10 @@ class _VideoThumbnailManager {
     }
   }
 
-  static Future<bool> _acquireSlot(Future<void> cancelSignal) =>
-      _semaphore.acquireUnlessCancelled(cancelSignal);
+  static Future<bool> _acquireSlot(
+    Duration timeout, {
+    required Future<void> cancelSignal,
+  }) => _semaphore.acquireWithin(timeout, cancelSignal: cancelSignal);
 
   static void _releaseSlot() => _semaphore.release();
 }
@@ -8105,29 +8107,21 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
   }
 
   Future<void> _start() async {
-    final queueTimeoutSignal = Completer<void>();
-    var queueTimedOut = false;
-    final queueTimer = startSafeTimer(_thumbnailQueueTimeout, () {
-      queueTimedOut = true;
-      queueTimeoutSignal.complete();
-    });
     var acquired = false;
     try {
       acquired = await _VideoThumbnailManager._acquireSlot(
-        combineCancelSignals(<Future<void>>[
-          _captureCancellation.future,
-          queueTimeoutSignal.future,
-        ])!,
+        _thumbnailQueueTimeout,
+        cancelSignal: _captureCancellation.future,
       );
     } catch (error, stack) {
       silentLog('home_message_bubble', '视频封面取号失败', error, stack);
       _finish(null, markFailed: false);
       return;
-    } finally {
-      queueTimer.cancel();
     }
     if (!acquired) {
-      if (queueTimedOut && !_done && mounted) {
+      if (!_done &&
+          mounted &&
+          !await isCancelSignalCompleted(_captureCancellation.future)) {
         _finish(null, markFailed: false);
       }
       return;

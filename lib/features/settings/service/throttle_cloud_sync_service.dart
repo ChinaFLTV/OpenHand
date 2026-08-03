@@ -352,20 +352,11 @@ class ThrottleCloudSyncService {
     request,
   ) async {
     if (_disposed) return ThrottleCloudSyncResult.failure(_disposedMessage);
-    final queueTimeoutSignal = Completer<void>();
-    final queueTimer = Timer(
-      _remoteRequestTimeout,
-      queueTimeoutSignal.complete,
-    );
     late final bool acquired;
     try {
-      acquired = await _requestSlots.acquireUnlessCancelled(
-        queueTimeoutSignal.future,
-      );
+      acquired = await _requestSlots.acquireWithin(_remoteRequestTimeout);
     } on StateError {
       return ThrottleCloudSyncResult.failure('云同步请求排队已满，请稍后再试。');
-    } finally {
-      queueTimer.cancel();
     }
     if (!acquired) {
       return ThrottleCloudSyncResult.failure(

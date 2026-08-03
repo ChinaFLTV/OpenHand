@@ -1174,15 +1174,9 @@ class MachineTerminalService extends ChangeNotifier {
     required int generation,
     String? workingDirectory,
   }) async {
-    final queueTimeoutSignal = Completer<void>();
-    final queueTimer = startSafeTimer(
+    final acquired = await _workspaceLoadSemaphore.acquireWithin(
       _workspaceLoadQueueTimeout,
-      queueTimeoutSignal.complete,
     );
-    final acquired = await _workspaceLoadSemaphore.acquireUnlessCancelled(
-      queueTimeoutSignal.future,
-    );
-    queueTimer.cancel();
     if (!acquired) {
       if (_isDisposed) throw StateError('终端服务已关闭。');
       throw TimeoutException('终端工作区加载排队超时。', _workspaceLoadQueueTimeout);
