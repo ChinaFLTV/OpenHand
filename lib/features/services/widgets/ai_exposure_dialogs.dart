@@ -180,12 +180,15 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
       footer: _DialogActions(
         actions: [
           OpenHandDialogActionButton.secondary(
-            onPressed: () => Navigator.of(context).maybePop(),
+            onPressed: _submitting
+                ? null
+                : () => Navigator.of(context).maybePop(),
             label: openHandCancelLabel(context),
           ),
           OpenHandDialogActionButton.primary(
             icon: Icons.play_arrow_rounded,
             onPressed: controller.isRunning && !_submitting ? _submit : null,
+            busy: _submitting,
             label: text(zh: '开始扫描', en: 'Start scan'),
           ),
         ],
@@ -581,6 +584,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   }
 
   Future<void> _submit() async {
+    if (_submitting) return;
     final text = openHandTextResolver(context);
     final fullScan = _mode == AiExposureScanMode.full;
     final scope = fullScan ? const <String>[] : _lines(_scope.text);
@@ -627,18 +631,17 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
       forumFetchMode: _forumFetchMode,
       gptAssisted: _gptAssisted,
     );
+    if (!mounted) return;
     if (!preferencesUpdated) {
-      if (mounted) {
-        setState(() => _submitting = false);
-        showOpenHandErrorSnack(
-          context,
-          controller.errorMessage ??
-              text(zh: '保存扫描参数失败。', en: 'Failed to save scan settings.'),
-        );
-      }
+      setState(() => _submitting = false);
+      showOpenHandErrorSnack(
+        context,
+        controller.errorMessage ??
+            text(zh: '保存扫描参数失败。', en: 'Failed to save scan settings.'),
+      );
       return;
     }
-    await controller.startScan(
+    final started = await controller.startScan(
       AiExposureScanRequest(
         name: _name.text.trim(),
         sources: _sources,
@@ -675,7 +678,15 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
     );
     if (!mounted) return;
     setState(() => _submitting = false);
-    if (controller.errorMessage == null) Navigator.of(context).pop();
+    if (started) {
+      Navigator.of(context).pop();
+    } else {
+      showOpenHandErrorSnack(
+        context,
+        controller.errorMessage ??
+            text(zh: '创建扫描任务失败。', en: 'Failed to create the scan job.'),
+      );
+    }
   }
 }
 

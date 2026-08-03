@@ -275,33 +275,7 @@ class AiJunglerRuntime {
       }
       throw FileSystemException('指定的扫描引擎不存在。', override);
     }
-    final suffix = Platform.isWindows ? '.exe' : '';
-    if (kDebugMode) {
-      final candidates = <String>[
-        p.join(
-          Directory.current.path,
-          'native',
-          'ai_jungler',
-          'target',
-          'release',
-          '$_kAiJunglerExecutableName$suffix',
-        ),
-        p.join(
-          Directory.current.path,
-          'native',
-          'ai_jungler',
-          'target',
-          'debug',
-          '$_kAiJunglerExecutableName$suffix',
-        ),
-      ];
-      for (final path in candidates) {
-        if (await File(path).exists().timeout(_kAiJunglerFileIoTimeout)) {
-          return path;
-        }
-      }
-    }
-    return _extractBundledExecutable(suffix);
+    return _extractBundledExecutable(Platform.isWindows ? '.exe' : '');
   }
 
   Future<String> _extractBundledExecutable(String suffix) async {

@@ -1255,13 +1255,7 @@ impl HuntEngine {
         if request.gpt_assisted && self.ai_extractor.read().await.is_none() {
             return Err(EngineError::AiExtractorNotConfigured);
         }
-        let scope = match request.mode {
-            ScanMode::Incremental => {
-                AuthorizedScope::parse(&request.authorized_scope, request.authorization_confirmed)
-            }
-            ScanMode::Full => AuthorizedScope::all(request.authorization_confirmed),
-        }
-        .map_err(anyhow::Error::from)?;
+        let scope = resolve_authorized_scope(&request)?;
         request.sources.sort();
         request.sources.dedup();
         let rules = self.store.load_rules().await.map_err(anyhow::Error::from)?;
@@ -2505,6 +2499,16 @@ fn is_resumable(stage: ScanStage) -> bool {
     stage != ScanStage::Completed
 }
 
+fn resolve_authorized_scope(request: &ScanRequest) -> anyhow::Result<AuthorizedScope> {
+    match request.mode {
+        ScanMode::Incremental => {
+            AuthorizedScope::parse(&request.authorized_scope, request.authorization_confirmed)
+        }
+        ScanMode::Full => AuthorizedScope::all(request.authorization_confirmed),
+    }
+    .map_err(anyhow::Error::from)
+}
+
 fn mask_secret(secret: &str) -> String {
     let characters: Vec<_> = secret.chars().collect();
     if characters.len() <= 10 {
@@ -2583,6 +2587,27 @@ mod tests {
         assert!(is_resumable(ScanStage::Cancelled));
         assert!(is_resumable(ScanStage::Failed));
         assert!(is_resumable(ScanStage::Fingerprinting));
+    }
+
+    #[test]
+    fn full_scan_accepts_empty_authorized_scope() {
+        let request = ScanRequest {
+            name: "全量扫描".to_owned(),
+            sources: vec![SourceKind::Github],
+            mode: ScanMode::Full,
+            authorized_scope: Vec::new(),
+            authorization_confirmed: true,
+            targets: Vec::new(),
+            vendors: Vec::new(),
+            source_queries: BTreeMap::new(),
+            forum_fetch_mode: Default::default(),
+            validation_mode: ValidationMode::Passive,
+            concurrency: 1,
+            gpt_assisted: false,
+        };
+
+        let scope = resolve_authorized_scope(&request).unwrap();
+        assert!(scope.contains_host("api.example.com"));
     }
 
     #[test]

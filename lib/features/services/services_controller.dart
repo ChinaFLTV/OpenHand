@@ -463,8 +463,17 @@ class ServicesController extends ChangeNotifier {
     });
   }
 
-  Future<void> startScan(AiExposureScanRequest request) async {
-    if (_scanBusy || hasActiveScan) return;
+  Future<bool> startScan(AiExposureScanRequest request) async {
+    if (_scanBusy) {
+      _errorMessage = '正在创建扫描任务，请稍候。';
+      _notify();
+      return false;
+    }
+    if (hasActiveScan) {
+      _errorMessage = '已有扫描任务正在运行。';
+      _notify();
+      return false;
+    }
     _scanBusy = true;
     _errorMessage = null;
     _notify();
@@ -475,10 +484,12 @@ class ServicesController extends ChangeNotifier {
       _progress = await client.progress(jobId);
       _logs.clear();
       await _watchJob(jobId);
-      await _refreshHistoryAndResults();
+      unawaited(_refreshHistoryAndResultsSafely());
+      return true;
     } catch (error, stack) {
       _errorMessage = '$error';
       silentLog('services_controller', '创建扫描任务', error, stack);
+      return false;
     } finally {
       _scanBusy = false;
       _notify();
