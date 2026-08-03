@@ -152,8 +152,8 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                     children: [
                       Text(
                         text(
-                          zh: 'AI 基础设施扫描服务运维',
-                          en: 'AI exposure scanner operations',
+                          zh: 'AI 基础设施扫描服务状态与运维',
+                          en: 'AI exposure scanner status and operations',
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -253,7 +253,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                 value: _OperationsView.overview,
                 selected: _view == _OperationsView.overview,
                 icon: Icons.dashboard_outlined,
-                label: text(zh: '运维总览', en: 'Overview'),
+                label: text(zh: '状态总览', en: 'Status overview'),
                 onSelected: (value) => setState(() => _view = value),
               ),
               _OperationsTab(

@@ -17,17 +17,13 @@ const double _kServiceIconExtent = 64;
 const double _kServiceHeaderBreakpoint = 820;
 
 enum _ServiceAction {
-  status,
   operations,
   proxy,
   logs,
   newHunt,
-  progress,
-  results,
-  history,
+  scanWorkspace,
   tools,
   rules,
-  customHunt,
   settings,
 }
 
@@ -400,14 +396,8 @@ class _ServiceActions extends StatelessWidget {
           ),
         ),
         _ServiceIconAction(
-          icon: Icons.monitor_heart_outlined,
-          tooltip: text(zh: '服务状态', en: 'Service status'),
-          action: _ServiceAction.status,
-          onAction: onAction,
-        ),
-        _ServiceIconAction(
           icon: Icons.dashboard_customize_outlined,
-          tooltip: text(zh: '服务运维', en: 'Service operations'),
+          tooltip: text(zh: '服务状态与运维', en: 'Service status and operations'),
           action: _ServiceAction.operations,
           onAction: onAction,
         ),
@@ -431,20 +421,8 @@ class _ServiceActions extends StatelessWidget {
         ),
         _ServiceIconAction(
           icon: Icons.track_changes_rounded,
-          tooltip: text(zh: '实时扫描', en: 'Live scan'),
-          action: _ServiceAction.progress,
-          onAction: onAction,
-        ),
-        _ServiceIconAction(
-          icon: Icons.fact_check_outlined,
-          tooltip: text(zh: '结果中心', en: 'Results'),
-          action: _ServiceAction.results,
-          onAction: onAction,
-        ),
-        _ServiceIconAction(
-          icon: Icons.history_rounded,
-          tooltip: text(zh: '扫描历史', en: 'Scan history'),
-          action: _ServiceAction.history,
+          tooltip: text(zh: '扫描工作台', en: 'Scan workspace'),
+          action: _ServiceAction.scanWorkspace,
           onAction: onAction,
         ),
         _ServiceIconAction(
@@ -457,12 +435,6 @@ class _ServiceActions extends StatelessWidget {
           icon: Icons.rule_rounded,
           tooltip: text(zh: '扫描规则管理', en: 'Scan rules'),
           action: _ServiceAction.rules,
-          onAction: onAction,
-        ),
-        _ServiceIconAction(
-          icon: Icons.tune_rounded,
-          tooltip: text(zh: '自定义狩猎', en: 'Custom hunt'),
-          action: _ServiceAction.customHunt,
           onAction: onAction,
         ),
         _ServiceIconAction(
@@ -638,8 +610,6 @@ String _lifecycleLabel(
 
 Future<void> _handleAction(BuildContext context, _ServiceAction action) async {
   switch (action) {
-    case _ServiceAction.status:
-      await showAiExposureStatusDialog(context);
     case _ServiceAction.operations:
       await showAiExposureOperationsDialog(context);
     case _ServiceAction.proxy:
@@ -648,18 +618,12 @@ Future<void> _handleAction(BuildContext context, _ServiceAction action) async {
       await showAiExposureLogMonitorDialog(context);
     case _ServiceAction.newHunt:
       await showAiExposureNewHuntDialog(context);
-    case _ServiceAction.progress:
-      await showAiExposureProgressDialog(context);
-    case _ServiceAction.results:
-      await showAiExposureResultsDialog(context);
-    case _ServiceAction.history:
-      await showAiExposureHistoryDialog(context);
+    case _ServiceAction.scanWorkspace:
+      await showAiExposureScanWorkspaceDialog(context);
     case _ServiceAction.tools:
       await showAiExposureToolsDialog(context);
     case _ServiceAction.rules:
       await showAiExposureRulesDialog(context);
-    case _ServiceAction.customHunt:
-      await showAiExposureNewHuntDialog(context, custom: true);
     case _ServiceAction.settings:
       await showAiExposureSettingsDialog(context);
   }

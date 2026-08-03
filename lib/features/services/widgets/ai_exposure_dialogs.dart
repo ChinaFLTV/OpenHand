@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
@@ -9,15 +8,13 @@ import 'package:provider/provider.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
-import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
-import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
-import '../../../shared/util/timer_safety.dart';
 import '../../plugin_service/index.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
@@ -27,8 +24,6 @@ const EdgeInsets _kDialogPadding = EdgeInsets.all(22);
 const double _kSectionGap = 18;
 const double _kItemGap = 12;
 const double _kMetricBreakpoint = 720;
-const Duration _kStatusRefreshInterval = Duration(seconds: 8);
-const Duration _kStatusMetadataTimeout = Duration(seconds: 2);
 const List<AiExposureSource> _kCredentialSources = <AiExposureSource>[
   AiExposureSource.github,
   AiExposureSource.gitee,
@@ -60,55 +55,29 @@ const List<String> _kVendors = <String>[
   'Mistral',
 ];
 
-Future<void> showAiExposureStatusDialog(BuildContext context) =>
-    showAnimatedDialog<void>(
-      context: context,
-      builder: (_) => buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthWide,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: const ServiceDialogInteractionTheme(child: _StatusDialog()),
-      ),
-    );
+enum _HuntConfiguration { standard, custom }
 
-Future<void> showAiExposureNewHuntDialog(
-  BuildContext context, {
-  bool custom = false,
-}) => showAnimatedDialog<void>(
-  context: context,
-  builder: (_) => buildOpenHandDialog(
-    maxWidth: kOpenHandDialogWidthPanel,
-    maxHeight: kOpenHandDialogHeightTall,
-    child: ServiceDialogInteractionTheme(child: _NewHuntDialog(custom: custom)),
-  ),
-);
+enum _ScanWorkspaceView { live, results, history }
 
-Future<void> showAiExposureProgressDialog(BuildContext context) =>
-    showAnimatedDialog<void>(
-      context: context,
-      builder: (_) => buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthExtraWide,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: const ServiceDialogInteractionTheme(child: _ProgressDialog()),
-      ),
-    );
-
-Future<void> showAiExposureResultsDialog(BuildContext context) =>
+Future<void> showAiExposureNewHuntDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthPanel,
         maxHeight: kOpenHandDialogHeightTall,
-        child: const ServiceDialogInteractionTheme(child: _ResultsDialog()),
+        child: const ServiceDialogInteractionTheme(child: _NewHuntDialog()),
       ),
     );
 
-Future<void> showAiExposureHistoryDialog(BuildContext context) =>
+Future<void> showAiExposureScanWorkspaceDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthExtraWide,
         maxHeight: kOpenHandDialogHeightTall,
-        child: const ServiceDialogInteractionTheme(child: _HistoryDialog()),
+        child: const ServiceDialogInteractionTheme(
+          child: _ScanWorkspaceDialog(),
+        ),
       ),
     );
 
@@ -142,664 +111,16 @@ Future<void> showAiExposureSettingsDialog(BuildContext context) =>
       ),
     );
 
-class _StatusDialog extends StatefulWidget {
-  const _StatusDialog();
-
-  @override
-  State<_StatusDialog> createState() => _StatusDialogState();
-}
-
-class _StatusDialogState extends State<_StatusDialog> {
-  Timer? _timer;
-  bool _refreshing = false;
-  bool _databaseAccessible = false;
-  int? _databaseBytes;
-  DateTime? _databaseModifiedAt;
-
-  @override
-  void initState() {
-    super.initState();
-    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
-    _timer = startSafePeriodicTimer(_kStatusRefreshInterval, (_) => _refresh());
-  }
-
-  @override
-  void dispose() {
-    _timer?.cancel();
-    super.dispose();
-  }
-
-  Future<void> _refresh() async {
-    if (!mounted || _refreshing) return;
-    final controller = context.read<ServicesController>();
-    setState(() => _refreshing = true);
-    if (controller.isRunning) await controller.refreshServiceStatus();
-    final path = controller.health?.databasePath.trim() ?? '';
-    var accessible = false;
-    int? bytes;
-    DateTime? modifiedAt;
-    if (path.isNotEmpty) {
-      try {
-        final stat = await File(path).stat().timeout(_kStatusMetadataTimeout);
-        accessible = stat.type == FileSystemEntityType.file;
-        if (accessible) {
-          bytes = stat.size;
-          modifiedAt = stat.modified;
-        }
-      } on FileSystemException {
-        accessible = false;
-      } on TimeoutException {
-        accessible = false;
-      } on UnsupportedError {
-        accessible = false;
-      }
-    }
-    if (!mounted) return;
-    setState(() {
-      _databaseAccessible = accessible;
-      _databaseBytes = bytes;
-      _databaseModifiedAt = modifiedAt;
-      _refreshing = false;
-    });
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final text = openHandTextResolver(context);
-    return Consumer<ServicesController>(
-      builder: (context, controller, _) {
-        final theme = Theme.of(context);
-        final health = controller.health;
-        final running = controller.isRunning;
-        final progress = controller.progress;
-        final dependencies = controller.dependencyStatus;
-        final proxy = controller.proxyStatus;
-        final proxySuccesses = proxy?.totalSuccesses ?? 0;
-        final proxyTimeouts = proxy?.totalTimeouts ?? 0;
-        final history = controller.history;
-        final results = controller.results;
-        final configuredSources = controller.sourceStatus.values
-            .where((configured) => configured)
-            .length;
-        final enabledRules = controller.rules
-            .where((rule) => rule.enabled)
-            .length;
-        final completedJobs = history
-            .where((entry) => entry.stage == 'completed')
-            .length;
-        final failedJobs = history
-            .where((entry) => entry.stage == 'failed')
-            .length;
-        final highValue = results
-            .where(
-              (result) => result.category == AiExposureResultCategory.highValue,
-            )
-            .length;
-        final warnings = controller.logs
-            .where((entry) => entry.level == 'warning')
-            .length;
-        final errors = controller.logs
-            .where((entry) => entry.level == 'error')
-            .length;
-        final recentHistory = history.take(18).toList().reversed.toList();
-        final lifecycleLabel = switch (controller.lifecycle) {
-          AiExposureServiceLifecycle.starting => text(
-            zh: '启动中',
-            en: 'Starting',
-          ),
-          AiExposureServiceLifecycle.running => text(zh: '运行中', en: 'Running'),
-          AiExposureServiceLifecycle.stopping => text(
-            zh: '停止中',
-            en: 'Stopping',
-          ),
-          AiExposureServiceLifecycle.error => text(zh: '异常', en: 'Error'),
-          AiExposureServiceLifecycle.stopped => text(zh: '已停止', en: 'Stopped'),
-        };
-        return _DialogFrame(
-          icon: Icons.monitor_heart_outlined,
-          title: text(zh: '服务状态', en: 'Service status'),
-          subtitle: text(
-            zh: 'ai_jungler 运行健康、工作负载、附属服务与持久化状态',
-            en: 'ai_jungler health, workload, dependencies, and persistence',
-          ),
-          footer: _DialogActions(
-            actions: [
-              OpenHandDialogActionButton.secondary(
-                icon: Icons.refresh_rounded,
-                onPressed: running && !_refreshing ? _refresh : null,
-                label: text(zh: '刷新状态', en: 'Refresh status'),
-              ),
-              OpenHandDialogActionButton.primary(
-                icon: running ? Icons.stop_rounded : Icons.play_arrow_rounded,
-                onPressed: controller.busy
-                    ? null
-                    : running
-                    ? controller.stopService
-                    : controller.startService,
-                label: running
-                    ? text(zh: '停止服务', en: 'Stop service')
-                    : text(zh: '启动服务', en: 'Start service'),
-              ),
-            ],
-          ),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _ServiceTelemetryConsole(controller: controller),
-              const SizedBox(height: 14),
-              _MetricGrid(
-                items: [
-                  _MetricData(
-                    icon: running
-                        ? Icons.cloud_done_outlined
-                        : Icons.cloud_off_outlined,
-                    label: text(zh: '连接状态', en: 'Connection'),
-                    value: running
-                        ? text(zh: '已连接', en: 'Connected')
-                        : text(zh: '未连接', en: 'Disconnected'),
-                    detail: controller.ownsProcess
-                        ? text(zh: 'OpenHand 托管进程', en: 'Managed process')
-                        : text(zh: '外部服务连接', en: 'External service'),
-                    color: running
-                        ? OpenHandStatusColors.success
-                        : theme.colorScheme.outline,
-                  ),
-                  _MetricData(
-                    icon: Icons.monitor_heart_rounded,
-                    label: text(zh: '生命周期', en: 'Lifecycle'),
-                    value: lifecycleLabel,
-                    detail: controller.busy
-                        ? text(zh: '状态切换中', en: 'Transitioning')
-                        : text(zh: '控制面已就绪', en: 'Control plane ready'),
-                    color: running
-                        ? OpenHandStatusColors.success
-                        : controller.lifecycle ==
-                              AiExposureServiceLifecycle.error
-                        ? OpenHandStatusColors.error
-                        : theme.colorScheme.outline,
-                  ),
-                  _MetricData(
-                    icon: Icons.memory_rounded,
-                    label: text(zh: '后端版本', en: 'Backend version'),
-                    value: health?.version.isNotEmpty == true
-                        ? health!.version
-                        : '--',
-                    detail: 'ai_jungler',
-                    color: theme.colorScheme.tertiary,
-                  ),
-                  _MetricData(
-                    icon: Icons.schedule_rounded,
-                    label: text(zh: '连续运行', en: 'Uptime'),
-                    value: _serviceDuration(health?.uptimeSeconds ?? 0),
-                    detail: text(zh: '当前进程周期', en: 'Current process cycle'),
-                    color: theme.colorScheme.primary,
-                  ),
-                  _MetricData(
-                    icon: Icons.radar_rounded,
-                    label: text(zh: '当前任务', en: 'Current job'),
-                    value: progress?.isRunning == true
-                        ? _stageLabel(context, progress!.stage)
-                        : text(zh: '空闲', en: 'Idle'),
-                    detail: progress == null
-                        ? text(zh: '等待扫描任务', en: 'Awaiting scan')
-                        : '${progress.processed}/${progress.total}',
-                    color: progress?.isRunning == true
-                        ? OpenHandStatusColors.info
-                        : theme.colorScheme.outline,
-                  ),
-                  _MetricData(
-                    icon: Icons.work_history_outlined,
-                    label: text(zh: '任务归档', en: 'Job archive'),
-                    value: '${history.length}',
-                    detail: text(
-                      zh: '完成 $completedJobs · 失败 $failedJobs',
-                      en: '$completedJobs completed · $failedJobs failed',
-                    ),
-                    color: theme.colorScheme.primary,
-                  ),
-                  _MetricData(
-                    icon: Icons.fact_check_outlined,
-                    label: text(zh: '结果库存', en: 'Result inventory'),
-                    value: '${results.length}',
-                    detail: text(
-                      zh: '高价值 $highValue',
-                      en: '$highValue high value',
-                    ),
-                    color: OpenHandStatusColors.info,
-                  ),
-                  _MetricData(
-                    icon: Icons.travel_explore_rounded,
-                    label: text(zh: '就绪数据源', en: 'Ready sources'),
-                    value:
-                        '$configuredSources/${controller.discoverySourceCount}',
-                    detail: text(
-                      zh: '启用 ${controller.enabledSources.length} 类来源',
-                      en: '${controller.enabledSources.length} source types enabled',
-                    ),
-                    color: OpenHandStatusColors.success,
-                  ),
-                  _MetricData(
-                    icon: Icons.rule_rounded,
-                    label: text(zh: '规则覆盖', en: 'Rule coverage'),
-                    value: '$enabledRules/${controller.rules.length}',
-                    detail: text(
-                      zh: '并发 ${controller.defaultConcurrency}',
-                      en: 'Concurrency ${controller.defaultConcurrency}',
-                    ),
-                    color: const Color(0xff0f766e),
-                  ),
-                  _MetricData(
-                    icon: Icons.lan_outlined,
-                    label: text(zh: '代理请求', en: 'Proxy requests'),
-                    value: '${proxy?.totalSelections ?? 0}',
-                    detail: controller.proxyRoute == AiExposureProxyRoute.pool
-                        ? text(
-                            zh: '成功 $proxySuccesses · 超时 $proxyTimeouts',
-                            en: '$proxySuccesses ok · $proxyTimeouts timeout',
-                          )
-                        : serviceProxyRouteText(controller, text),
-                    color: const Color(0xff0891b2),
-                  ),
-                  _MetricData(
-                    icon: Icons.speed_rounded,
-                    label: text(zh: '代理平均响应', en: 'Proxy latency'),
-                    value: '${proxy?.averageResponseTimeMs ?? 0} ms',
-                    detail: text(
-                      zh: '执行中 ${proxy?.inFlight ?? 0}',
-                      en: '${proxy?.inFlight ?? 0} in flight',
-                    ),
-                    color: theme.colorScheme.secondary,
-                  ),
-                  _MetricData(
-                    icon: errors > 0
-                        ? Icons.error_outline_rounded
-                        : Icons.verified_outlined,
-                    label: text(zh: '运行事件', en: 'Runtime events'),
-                    value: '${controller.logs.length}',
-                    detail: text(
-                      zh: '警告 $warnings · 错误 $errors',
-                      en: '$warnings warnings · $errors errors',
-                    ),
-                    color: errors > 0
-                        ? OpenHandStatusColors.error
-                        : warnings > 0
-                        ? OpenHandStatusColors.warning
-                        : OpenHandStatusColors.success,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              _StatusPanelGrid(
-                children: [
-                  _StatusTrendPanel(
-                    title: text(zh: '任务处理趋势', en: 'Processing trend'),
-                    subtitle: text(
-                      zh: '最近 ${recentHistory.length} 个任务',
-                      en: 'Latest ${recentHistory.length} jobs',
-                    ),
-                    series: [
-                      OpenHandChartSeries(
-                        label: text(zh: '处理', en: 'Processed'),
-                        values: recentHistory
-                            .map((entry) => entry.progress.processed.toDouble())
-                            .toList(),
-                        color: theme.colorScheme.primary,
-                      ),
-                      OpenHandChartSeries(
-                        label: text(zh: '发现', en: 'Discovered'),
-                        values: recentHistory
-                            .map(
-                              (entry) => entry.progress.discovered.toDouble(),
-                            )
-                            .toList(),
-                        color: OpenHandStatusColors.info,
-                      ),
-                      OpenHandChartSeries(
-                        label: text(zh: '有效', en: 'Valid'),
-                        values: recentHistory
-                            .map((entry) => entry.progress.valid.toDouble())
-                            .toList(),
-                        color: OpenHandStatusColors.success,
-                      ),
-                    ],
-                  ),
-                  _StatusDistributionPanel(
-                    title: text(zh: '结果分类分布', en: 'Result distribution'),
-                    centerValue: '${results.length}',
-                    items: [
-                      _StatusDistributionItem(
-                        text(zh: '有效', en: 'Valid'),
-                        results
-                            .where(
-                              (item) =>
-                                  item.category ==
-                                  AiExposureResultCategory.valid,
-                            )
-                            .length,
-                        OpenHandStatusColors.success,
-                      ),
-                      _StatusDistributionItem(
-                        text(zh: '高价值', en: 'High value'),
-                        highValue,
-                        const Color(0xffa855f7),
-                      ),
-                      _StatusDistributionItem(
-                        text(zh: '可疑', en: 'Suspicious'),
-                        results
-                            .where(
-                              (item) =>
-                                  item.category ==
-                                  AiExposureResultCategory.suspicious,
-                            )
-                            .length,
-                        OpenHandStatusColors.warning,
-                      ),
-                      _StatusDistributionItem(
-                        text(zh: '蜜罐', en: 'Honeypot'),
-                        results
-                            .where(
-                              (item) =>
-                                  item.category ==
-                                  AiExposureResultCategory.honeypot,
-                            )
-                            .length,
-                        OpenHandStatusColors.error,
-                      ),
-                    ],
-                  ),
-                ],
-              ),
-              OpenHandVerticalRevealSwitcher(
-                presentKey: progress == null
-                    ? null
-                    : ValueKey<String>(
-                        '${progress.jobId}-${progress.stage}-${progress.updatedAt.microsecondsSinceEpoch}',
-                      ),
-                child: progress == null
-                    ? null
-                    : Padding(
-                        padding: const EdgeInsets.only(top: 14),
-                        child: _StatusSectionCard(
-                          icon: Icons.radar_rounded,
-                          title: text(
-                            zh: '当前任务实时遥测',
-                            en: 'Current job telemetry',
-                          ),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.stretch,
-                            children: [
-                              Text(progress.message),
-                              const SizedBox(height: 10),
-                              LinearProgressIndicator(
-                                value: progress.total > 0
-                                    ? progress.fraction
-                                    : null,
-                                minHeight: 8,
-                                borderRadius: BorderRadius.circular(99),
-                              ),
-                              const SizedBox(height: 10),
-                              Text(
-                                text(
-                                  zh: '发现 ${progress.discovered} · 候选 ${progress.candidates} · 有效 ${progress.valid} · 高价值 ${progress.highValue} · 已处理 ${progress.processed}/${progress.total}',
-                                  en: 'Discovered ${progress.discovered} · candidates ${progress.candidates} · valid ${progress.valid} · high value ${progress.highValue} · processed ${progress.processed}/${progress.total}',
-                                ),
-                              ),
-                            ],
-                          ),
-                        ),
-                      ),
-              ),
-              const SizedBox(height: 14),
-              _StatusPanelGrid(
-                children: [
-                  _StatusSectionCard(
-                    icon: Icons.hub_outlined,
-                    title: text(zh: '运行依赖矩阵', en: 'Dependency matrix'),
-                    child: Column(
-                      children: [
-                        _DependencyRow(
-                          name: 'ai_jungler',
-                          detail: text(
-                            zh: 'OpenHand 自研 Rust 扫描引擎',
-                            en: 'OpenHand Rust scanner',
-                          ),
-                          ready: running,
-                          required: true,
-                        ),
-                        const SizedBox(height: 10),
-                        _DependencyRow(
-                          name: 'SQLite WAL',
-                          detail: text(
-                            zh: '任务、规则、结果与日志本地持久化',
-                            en: 'Local jobs, rules, results, and logs',
-                          ),
-                          ready: _databaseAccessible,
-                          required: true,
-                        ),
-                        const SizedBox(height: 10),
-                        _DependencyRow(
-                          name: 'PostgreSQL',
-                          detail:
-                              dependencies?.postgresql.message ??
-                              text(zh: '未启用远程镜像', en: 'Remote mirror off'),
-                          ready: dependencies?.postgresql.connected == true,
-                          required: false,
-                        ),
-                        const SizedBox(height: 10),
-                        _DependencyRow(
-                          name: 'Redis',
-                          detail:
-                              dependencies?.redis.message ??
-                              text(
-                                zh: '未启用跨实例协调',
-                                en: 'Cross-instance coordination off',
-                              ),
-                          ready: dependencies?.redis.connected == true,
-                          required: false,
-                        ),
-                        const SizedBox(height: 10),
-                        _DependencyRow(
-                          name: 'Playwright',
-                          detail:
-                              dependencies?.playwright.message ??
-                              text(
-                                zh: '浏览器降级通道未接入',
-                                en: 'Browser fallback is not connected',
-                              ),
-                          ready: dependencies?.playwright.connected == true,
-                          required: false,
-                        ),
-                        const SizedBox(height: 10),
-                        _DependencyRow(
-                          name: text(zh: 'GPT 辅助提取', en: 'GPT extraction'),
-                          detail:
-                              controller.aiExtractorStatus?.model ??
-                              text(zh: '使用确定性规则', en: 'Deterministic rules'),
-                          ready:
-                              controller.aiExtractorStatus?.configured == true,
-                          required: false,
-                        ),
-                      ],
-                    ),
-                  ),
-                  _StatusSectionCard(
-                    icon: Icons.storage_rounded,
-                    title: text(zh: '持久化与完整性', en: 'Persistence integrity'),
-                    child: Column(
-                      children: [
-                        _StatusKeyValue(
-                          label: text(zh: '数据库文件', en: 'Database file'),
-                          value: _databaseAccessible
-                              ? formatByteSize(_databaseBytes ?? 0)
-                              : text(zh: '当前不可访问', en: 'Not accessible'),
-                        ),
-                        _StatusKeyValue(
-                          label: text(zh: '最后写入', en: 'Last write'),
-                          value: _databaseModifiedAt == null
-                              ? '--'
-                              : _dateTime(_databaseModifiedAt!),
-                        ),
-                        _StatusKeyValue(
-                          label: text(zh: '持久化记录', en: 'Persisted records'),
-                          value: text(
-                            zh: '任务 ${history.length} · 结果 ${results.length} · 规则 ${controller.rules.length}',
-                            en: '${history.length} jobs · ${results.length} results · ${controller.rules.length} rules',
-                          ),
-                        ),
-                        _StatusKeyValue(
-                          label: text(zh: '凭证保护', en: 'Credential protection'),
-                          value: 'AES-256-GCM',
-                        ),
-                        _StatusKeyValue(
-                          label: text(zh: '日志缓冲', en: 'Log buffer'),
-                          value: text(
-                            zh: '${controller.logs.length} 条',
-                            en: '${controller.logs.length} entries',
-                          ),
-                        ),
-                        OpenHandVerticalRevealSwitcher(
-                          presentKey: const ValueKey<String>(
-                            'status-database-path',
-                          ),
-                          child: health?.databasePath.isNotEmpty != true
-                              ? null
-                              : Padding(
-                                  padding: const EdgeInsets.only(top: 8),
-                                  child: Align(
-                                    alignment: AlignmentDirectional.centerStart,
-                                    child: SelectableText(
-                                      health!.databasePath,
-                                      style: theme.textTheme.bodySmall
-                                          ?.copyWith(
-                                            color: theme
-                                                .colorScheme
-                                                .onSurfaceVariant,
-                                            fontFamily: 'monospace',
-                                          ),
-                                    ),
-                                  ),
-                                ),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 14),
-              _StatusPanelGrid(
-                children: [
-                  _StatusSectionCard(
-                    icon: Icons.data_usage_rounded,
-                    title: text(zh: '数据源配额与健康', en: 'Source quota health'),
-                    child: controller.quotas.isEmpty
-                        ? _EmptyLine(
-                            text: running
-                                ? text(
-                                    zh: '正在等待代码托管、测绘平台与论坛数据源健康响应。',
-                                    en: 'Waiting for source quota responses.',
-                                  )
-                                : text(
-                                    zh: '启动服务后可查询数据源配额。',
-                                    en: 'Start the service to query quotas.',
-                                  ),
-                          )
-                        : Column(
-                            children: [
-                              for (
-                                var index = 0;
-                                index < controller.quotas.length;
-                                index++
-                              ) ...[
-                                _QuotaRow(quota: controller.quotas[index]),
-                                if (index < controller.quotas.length - 1)
-                                  const SizedBox(height: 10),
-                              ],
-                            ],
-                          ),
-                  ),
-                  _StatusSectionCard(
-                    icon: Icons.tune_rounded,
-                    title: text(zh: '运行配置快照', en: 'Runtime configuration'),
-                    child: Column(
-                      children: [
-                        _StatusKeyValue(
-                          label: text(zh: '引擎模式', en: 'Engine mode'),
-                          value: controller.useBundledEngine
-                              ? text(zh: 'OpenHand 托管', en: 'OpenHand managed')
-                              : text(zh: '外部服务', en: 'External service'),
-                        ),
-                        _StatusKeyValue(
-                          label: text(zh: '默认并发', en: 'Concurrency'),
-                          value: '${controller.defaultConcurrency}/128',
-                        ),
-                        _StatusKeyValue(
-                          label: text(zh: '验证策略', en: 'Validation'),
-                          value:
-                              controller.defaultValidationMode ==
-                                  AiExposureValidationMode.authorizedActive
-                              ? text(zh: '授权主动验证', en: 'Authorized active')
-                              : text(zh: '被动验证', en: 'Passive'),
-                        ),
-                        _StatusKeyValue(
-                          label: text(zh: '代理选路', en: 'Proxy routing'),
-                          value:
-                              controller.proxyRoute == AiExposureProxyRoute.pool
-                              ? '${proxy?.strategy.name ?? controller.proxyConfiguration.strategy.name} · ${controller.proxyConfiguration.activeEndpoints.length}'
-                              : serviceProxyRouteText(controller, text),
-                        ),
-                        _StatusKeyValue(
-                          label: text(zh: '论坛读取', en: 'Forum reader'),
-                          value:
-                              controller.forumFetchMode ==
-                                  AiExposureForumFetchMode.jinaFallback
-                              ? text(
-                                  zh: 'Jina 优先 · Playwright 降级',
-                                  en: 'Jina first · Playwright fallback',
-                                )
-                              : text(
-                                  zh: 'Playwright 直读',
-                                  en: 'Playwright direct',
-                                ),
-                        ),
-                        _StatusKeyValue(
-                          label: text(
-                            zh: 'PostgreSQL 镜像',
-                            en: 'PostgreSQL mirror',
-                          ),
-                          value: controller.postgresqlEnabled
-                              ? text(zh: '已选择', en: 'Selected')
-                              : text(zh: '未选择', en: 'Not selected'),
-                        ),
-                        _StatusKeyValue(
-                          label: text(zh: 'Redis 协调', en: 'Redis coordination'),
-                          value: controller.redisEnabled
-                              ? text(zh: '已选择', en: 'Selected')
-                              : text(zh: '未选择', en: 'Not selected'),
-                        ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-            ],
-          ),
-        );
-      },
-    );
-  }
-}
-
 class _NewHuntDialog extends StatefulWidget {
-  const _NewHuntDialog({required this.custom});
-  final bool custom;
+  const _NewHuntDialog();
 
   @override
   State<_NewHuntDialog> createState() => _NewHuntDialogState();
 }
 
 class _NewHuntDialogState extends State<_NewHuntDialog> {
-  late final TextEditingController _name = TextEditingController(
-    text: widget.custom ? '自定义暴露面狩猎' : 'AI 基础设施暴露面扫描',
+  final TextEditingController _name = TextEditingController(
+    text: 'AI 基础设施暴露面扫描',
   );
   final TextEditingController _scope = TextEditingController();
   final TextEditingController _targets = TextEditingController();
@@ -818,6 +139,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   late AiExposureForumFetchMode _forumFetchMode;
   late bool _gptAssisted;
   late double _concurrency;
+  _HuntConfiguration _configuration = _HuntConfiguration.standard;
   bool _confirmed = false;
   bool _submitting = false;
 
@@ -825,9 +147,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   void initState() {
     super.initState();
     final controller = context.read<ServicesController>();
-    _sources = widget.custom
-        ? <AiExposureSource>{AiExposureSource.manual}
-        : Set<AiExposureSource>.of(controller.enabledSources);
+    _sources = Set<AiExposureSource>.of(controller.enabledSources);
     _validationMode = controller.defaultValidationMode;
     _forumFetchMode = controller.forumFetchMode;
     _gptAssisted = controller.defaultGptAssisted;
@@ -855,10 +175,8 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
     final text = openHandTextResolver(context);
     final controller = context.watch<ServicesController>();
     return _DialogFrame(
-      icon: widget.custom ? Icons.tune_rounded : Icons.add_rounded,
-      title: widget.custom
-          ? text(zh: '自定义狩猎', en: 'Custom hunt')
-          : text(zh: '新建狩猎', en: 'New hunt'),
+      icon: Icons.add_rounded,
+      title: text(zh: '新建狩猎', en: 'New hunt'),
       footer: _DialogActions(
         actions: [
           OpenHandDialogActionButton.secondary(
@@ -890,6 +208,24 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                     ),
                   ),
           ),
+          SegmentedButton<_HuntConfiguration>(
+            segments: [
+              ButtonSegment(
+                value: _HuntConfiguration.standard,
+                icon: const Icon(Icons.bolt_outlined),
+                label: Text(text(zh: '标准配置', en: 'Standard')),
+              ),
+              ButtonSegment(
+                value: _HuntConfiguration.custom,
+                icon: const Icon(Icons.tune_rounded),
+                label: Text(text(zh: '自定义配置', en: 'Custom')),
+              ),
+            ],
+            selected: <_HuntConfiguration>{_configuration},
+            onSelectionChanged: (selection) =>
+                setState(() => _configuration = selection.first),
+          ),
+          const SizedBox(height: _kSectionGap),
           TextField(
             controller: _name,
             maxLength: 120,
@@ -1097,24 +433,35 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                     ),
                   ),
           ),
-          if (widget.custom) ...[
-            const SizedBox(height: _kSectionGap),
-            _SectionTitle(
-              icon: Icons.manage_search_rounded,
-              title: text(zh: '补充发现查询', en: 'Supplemental queries'),
-            ),
-            const SizedBox(height: _kItemGap),
-            _QueryFields(
-              fofa: _fofaQuery,
-              shodan: _shodanQuery,
-              github: _githubQuery,
-              gitee: _giteeQuery,
-              gitcode: _gitcodeQuery,
-              nodeseek: _nodeseekQuery,
-              linuxDo: _linuxDoQuery,
-              v2ex: _v2exQuery,
-            ),
-          ],
+          OpenHandVerticalRevealSwitcher(
+            presentKey: const ValueKey<String>('custom-discovery-queries'),
+            slideBeginOffsetY: -.03,
+            child: _configuration != _HuntConfiguration.custom
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(top: _kSectionGap),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _SectionTitle(
+                          icon: Icons.manage_search_rounded,
+                          title: text(zh: '补充发现查询', en: 'Supplemental queries'),
+                        ),
+                        const SizedBox(height: _kItemGap),
+                        _QueryFields(
+                          fofa: _fofaQuery,
+                          shodan: _shodanQuery,
+                          github: _githubQuery,
+                          gitee: _giteeQuery,
+                          gitcode: _gitcodeQuery,
+                          nodeseek: _nodeseekQuery,
+                          linuxDo: _linuxDoQuery,
+                          v2ex: _v2exQuery,
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
           const SizedBox(height: _kSectionGap),
           _SectionTitle(
             icon: Icons.hub_outlined,
@@ -1305,20 +652,24 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
         concurrency: _concurrency.round(),
         gptAssisted: _gptAssisted,
         sourceQueries: <String, String>{
-          if (_fofaQuery.text.trim().isNotEmpty) 'fofa': _fofaQuery.text.trim(),
-          if (_shodanQuery.text.trim().isNotEmpty)
-            'shodan': _shodanQuery.text.trim(),
-          if (_githubQuery.text.trim().isNotEmpty)
-            'github': _githubQuery.text.trim(),
-          if (_giteeQuery.text.trim().isNotEmpty)
-            'gitee': _giteeQuery.text.trim(),
-          if (_gitcodeQuery.text.trim().isNotEmpty)
-            'gitcode': _gitcodeQuery.text.trim(),
-          if (_nodeseekQuery.text.trim().isNotEmpty)
-            'nodeseek': _nodeseekQuery.text.trim(),
-          if (_linuxDoQuery.text.trim().isNotEmpty)
-            'linux_do': _linuxDoQuery.text.trim(),
-          if (_v2exQuery.text.trim().isNotEmpty) 'v2ex': _v2exQuery.text.trim(),
+          if (_configuration == _HuntConfiguration.custom) ...{
+            if (_fofaQuery.text.trim().isNotEmpty)
+              'fofa': _fofaQuery.text.trim(),
+            if (_shodanQuery.text.trim().isNotEmpty)
+              'shodan': _shodanQuery.text.trim(),
+            if (_githubQuery.text.trim().isNotEmpty)
+              'github': _githubQuery.text.trim(),
+            if (_giteeQuery.text.trim().isNotEmpty)
+              'gitee': _giteeQuery.text.trim(),
+            if (_gitcodeQuery.text.trim().isNotEmpty)
+              'gitcode': _gitcodeQuery.text.trim(),
+            if (_nodeseekQuery.text.trim().isNotEmpty)
+              'nodeseek': _nodeseekQuery.text.trim(),
+            if (_linuxDoQuery.text.trim().isNotEmpty)
+              'linux_do': _linuxDoQuery.text.trim(),
+            if (_v2exQuery.text.trim().isNotEmpty)
+              'v2ex': _v2exQuery.text.trim(),
+          },
         },
       ),
     );
@@ -1328,113 +679,15 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   }
 }
 
-class _ProgressDialog extends StatelessWidget {
-  const _ProgressDialog();
+class _ScanWorkspaceDialog extends StatefulWidget {
+  const _ScanWorkspaceDialog();
 
   @override
-  Widget build(BuildContext context) {
-    final text = openHandTextResolver(context);
-    return Consumer<ServicesController>(
-      builder: (context, controller, _) {
-        final progress = controller.progress;
-        return _DialogFrame(
-          icon: Icons.track_changes_rounded,
-          title: text(zh: '实时扫描', en: 'Live scan'),
-          scrollable: false,
-          footer: _DialogActions(
-            actions: [
-              if (progress == null || !progress.isRunning)
-                OpenHandDialogActionButton.primary(
-                  icon: Icons.add_rounded,
-                  onPressed: controller.isRunning
-                      ? () => showAiExposureNewHuntDialog(context)
-                      : null,
-                  label: text(zh: '新建狩猎', en: 'New hunt'),
-                )
-              else
-                OpenHandDialogActionButton.destructive(
-                  icon: Icons.stop_rounded,
-                  onPressed: controller.stopScan,
-                  label: text(zh: '停止扫描', en: 'Stop scan'),
-                ),
-            ],
-          ),
-          child: progress == null
-              ? Center(
-                  child: _EmptyState(
-                    icon: Icons.radar_outlined,
-                    title: text(zh: '暂无实时任务', en: 'No active scan'),
-                    body: text(
-                      zh: '创建狩猎任务后，这里会显示阶段、计数和 SSE 日志。',
-                      en: 'Create a hunt to view stages, counters, and SSE logs.',
-                    ),
-                  ),
-                )
-              : Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    _MetricGrid(
-                      items: [
-                        _MetricData(
-                          icon: Icons.route_outlined,
-                          label: text(zh: '阶段', en: 'Stage'),
-                          value: _stageLabel(context, progress.stage),
-                        ),
-                        _MetricData(
-                          icon: Icons.ads_click_rounded,
-                          label: text(zh: '命中数', en: 'Discovered'),
-                          value: '${progress.discovered}',
-                        ),
-                        _MetricData(
-                          icon: Icons.filter_alt_outlined,
-                          label: text(zh: '候选数', en: 'Candidates'),
-                          value: '${progress.candidates}',
-                        ),
-                        _MetricData(
-                          icon: Icons.verified_outlined,
-                          label: text(zh: '有效数', en: 'Valid'),
-                          value: '${progress.valid}',
-                        ),
-                        _MetricData(
-                          icon: Icons.workspace_premium_outlined,
-                          label: text(zh: '高价值数', en: 'High value'),
-                          value: '${progress.highValue}',
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: _kSectionGap),
-                    Text(progress.message),
-                    const SizedBox(height: 8),
-                    ClipRRect(
-                      borderRadius: kOpenHandPillBorderRadius,
-                      child: LinearProgressIndicator(
-                        value: progress.total <= 0 ? null : progress.fraction,
-                        minHeight: 8,
-                      ),
-                    ),
-                    const SizedBox(height: _kSectionGap),
-                    _SectionTitle(
-                      icon: Icons.terminal_rounded,
-                      title: text(zh: 'SSE 日志', en: 'SSE logs'),
-                    ),
-                    const SizedBox(height: _kItemGap),
-                    Expanded(child: _LogList(logs: controller.logs)),
-                  ],
-                ),
-        );
-      },
-    );
-  }
+  State<_ScanWorkspaceDialog> createState() => _ScanWorkspaceDialogState();
 }
 
-class _ResultsDialog extends StatefulWidget {
-  const _ResultsDialog();
-
-  @override
-  State<_ResultsDialog> createState() => _ResultsDialogState();
-}
-
-class _ResultsDialogState extends State<_ResultsDialog> {
+class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
+  _ScanWorkspaceView _view = _ScanWorkspaceView.live;
   AiExposureResultCategory? _category;
 
   @override
@@ -1442,80 +695,145 @@ class _ResultsDialogState extends State<_ResultsDialog> {
     final text = openHandTextResolver(context);
     return Consumer<ServicesController>(
       builder: (context, controller, _) {
+        final progress = controller.progress;
         final results = controller.results
             .where(
               (result) => _category == null || result.category == _category,
             )
             .toList(growable: false);
-        final filters = <Widget>[
-          _CategoryChip(
-            label: text(zh: '全部', en: 'All'),
-            count: controller.results.length,
-            selected: _category == null,
-            onSelected: () => setState(() => _category = null),
-          ),
-          for (final category in AiExposureResultCategory.values)
-            _CategoryChip(
-              label: _categoryLabel(context, category),
-              count: controller.results
-                  .where((result) => result.category == category)
-                  .length,
-              selected: _category == category,
-              onSelected: () => setState(() => _category = category),
-            ),
-        ];
-        return _DialogFrame(
-          icon: Icons.fact_check_outlined,
-          title: text(zh: '结果中心', en: 'Results'),
-          scrollable: false,
-          footer: _DialogActions(
-            actions: [
-              OpenHandDialogActionButton.secondary(
-                icon: Icons.refresh_rounded,
-                onPressed: controller.isRunning ? controller.refreshData : null,
-                label: text(zh: '刷新', en: 'Refresh'),
-              ),
+        final actions = switch (_view) {
+          _ScanWorkspaceView.live => <Widget>[
+            if (progress == null || !progress.isRunning)
               OpenHandDialogActionButton.primary(
-                icon: Icons.download_rounded,
-                onPressed: results.isEmpty
-                    ? null
-                    : () => _exportResults(context, results),
-                label: text(zh: '导出', en: 'Export'),
+                icon: Icons.add_rounded,
+                onPressed: controller.isRunning ? _openNewHunt : null,
+                label: text(zh: '新建狩猎', en: 'New hunt'),
+              )
+            else
+              OpenHandDialogActionButton.destructive(
+                icon: Icons.stop_rounded,
+                onPressed: controller.stopScan,
+                label: text(zh: '停止扫描', en: 'Stop scan'),
               ),
-            ],
+          ],
+          _ScanWorkspaceView.results => <Widget>[
+            OpenHandDialogActionButton.secondary(
+              icon: Icons.refresh_rounded,
+              onPressed: controller.isRunning ? controller.refreshData : null,
+              label: text(zh: '刷新', en: 'Refresh'),
+            ),
+            OpenHandDialogActionButton.primary(
+              icon: Icons.download_rounded,
+              onPressed: results.isEmpty
+                  ? null
+                  : () => _exportResults(context, results),
+              label: text(zh: '导出', en: 'Export'),
+            ),
+          ],
+          _ScanWorkspaceView.history => <Widget>[
+            OpenHandDialogActionButton.secondary(
+              icon: Icons.refresh_rounded,
+              onPressed: controller.isRunning ? controller.refreshData : null,
+              label: text(zh: '刷新', en: 'Refresh'),
+            ),
+          ],
+        };
+        return _DialogFrame(
+          icon: Icons.track_changes_rounded,
+          title: text(zh: '扫描工作台', en: 'Scan workspace'),
+          subtitle: text(
+            zh: '统一跟踪实时任务、扫描结果与历史归档',
+            en: 'Track live scans, results, and history in one workspace',
+          ),
+          scrollable: false,
+          footer: AnimatedSwitcher(
+            duration: openHandMotionDuration(
+              context,
+              const Duration(milliseconds: 220),
+            ),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: KeyedSubtree(
+              key: ValueKey<_ScanWorkspaceView>(_view),
+              child: _DialogActions(actions: actions),
+            ),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              SingleChildScrollView(
-                scrollDirection: Axis.horizontal,
-                physics: openHandDialogAwareScrollPhysics(context),
-                child: Row(
-                  children: [
-                    for (var index = 0; index < filters.length; index++) ...[
-                      if (index > 0) const SizedBox(width: 8),
-                      filters[index],
-                    ],
-                  ],
-                ),
+              Wrap(
+                spacing: 8,
+                runSpacing: 8,
+                children: [
+                  _ScanWorkspaceTab(
+                    value: _ScanWorkspaceView.live,
+                    selected: _view == _ScanWorkspaceView.live,
+                    icon: Icons.radar_rounded,
+                    label: progress?.isRunning == true
+                        ? text(zh: '实时扫描 · 运行中', en: 'Live · Running')
+                        : text(zh: '实时扫描', en: 'Live scan'),
+                    onSelected: _selectView,
+                  ),
+                  _ScanWorkspaceTab(
+                    value: _ScanWorkspaceView.results,
+                    selected: _view == _ScanWorkspaceView.results,
+                    icon: Icons.fact_check_outlined,
+                    label: text(
+                      zh: '结果 ${controller.results.length}',
+                      en: 'Results ${controller.results.length}',
+                    ),
+                    onSelected: _selectView,
+                  ),
+                  _ScanWorkspaceTab(
+                    value: _ScanWorkspaceView.history,
+                    selected: _view == _ScanWorkspaceView.history,
+                    icon: Icons.history_rounded,
+                    label: text(
+                      zh: '历史 ${controller.history.length}',
+                      en: 'History ${controller.history.length}',
+                    ),
+                    onSelected: _selectView,
+                  ),
+                ],
               ),
               const SizedBox(height: _kSectionGap),
               Expanded(
-                child: results.isEmpty
-                    ? _EmptyState(
-                        icon: Icons.search_off_rounded,
-                        title: text(zh: '暂无结果', en: 'No results'),
-                        body: text(
-                          zh: '当前分类还没有扫描结果。',
-                          en: 'No scan results in this category.',
-                        ),
-                      )
-                    : ListView.separated(
-                        itemCount: results.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 10),
-                        itemBuilder: (context, index) =>
-                            _ResultTile(result: results[index]),
+                child: AnimatedSwitcher(
+                  duration: openHandMotionDuration(
+                    context,
+                    const Duration(milliseconds: 240),
+                  ),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SlideTransition(
+                      position: Tween<Offset>(
+                        begin: const Offset(0, .025),
+                        end: Offset.zero,
+                      ).animate(animation),
+                      child: child,
+                    ),
+                  ),
+                  child: KeyedSubtree(
+                    key: ValueKey<_ScanWorkspaceView>(_view),
+                    child: switch (_view) {
+                      _ScanWorkspaceView.live => _buildLiveView(
+                        context,
+                        controller,
                       ),
+                      _ScanWorkspaceView.results => _buildResultsView(
+                        context,
+                        controller,
+                        results,
+                      ),
+                      _ScanWorkspaceView.history => _buildHistoryView(
+                        context,
+                        controller,
+                      ),
+                    },
+                  ),
+                ),
               ),
             ],
           ),
@@ -1523,66 +841,221 @@ class _ResultsDialogState extends State<_ResultsDialog> {
       },
     );
   }
-}
 
-class _HistoryDialog extends StatelessWidget {
-  const _HistoryDialog();
+  void _selectView(_ScanWorkspaceView value) {
+    if (_view != value) setState(() => _view = value);
+  }
 
-  @override
-  Widget build(BuildContext context) {
+  Future<void> _openNewHunt() async {
+    await showAiExposureNewHuntDialog(context);
+    if (mounted && context.read<ServicesController>().progress != null) {
+      setState(() => _view = _ScanWorkspaceView.live);
+    }
+  }
+
+  Future<void> _resumeHistory(
+    ServicesController controller,
+    String jobId,
+  ) async {
+    setState(() => _view = _ScanWorkspaceView.live);
+    await controller.resumeHistory(jobId);
+  }
+
+  Widget _buildLiveView(BuildContext context, ServicesController controller) {
     final text = openHandTextResolver(context);
-    return Consumer<ServicesController>(
-      builder: (context, controller, _) => _DialogFrame(
-        icon: Icons.history_rounded,
-        title: text(zh: '扫描历史', en: 'Scan history'),
-        scrollable: false,
-        footer: _DialogActions(
-          actions: [
-            OpenHandDialogActionButton.secondary(
-              icon: Icons.refresh_rounded,
-              onPressed: controller.isRunning ? controller.refreshData : null,
-              label: text(zh: '刷新', en: 'Refresh'),
+    final progress = controller.progress;
+    if (progress == null) {
+      return Center(
+        child: _EmptyState(
+          icon: Icons.radar_outlined,
+          title: text(zh: '暂无实时任务', en: 'No active scan'),
+          body: text(
+            zh: '创建狩猎任务后，这里会显示阶段、计数和 SSE 日志。',
+            en: 'Create a hunt to view stages, counters, and SSE logs.',
+          ),
+        ),
+      );
+    }
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MetricGrid(
+          items: [
+            _MetricData(
+              icon: Icons.route_outlined,
+              label: text(zh: '阶段', en: 'Stage'),
+              value: _stageLabel(context, progress.stage),
+            ),
+            _MetricData(
+              icon: Icons.ads_click_rounded,
+              label: text(zh: '命中数', en: 'Discovered'),
+              value: '${progress.discovered}',
+            ),
+            _MetricData(
+              icon: Icons.filter_alt_outlined,
+              label: text(zh: '候选数', en: 'Candidates'),
+              value: '${progress.candidates}',
+            ),
+            _MetricData(
+              icon: Icons.verified_outlined,
+              label: text(zh: '有效数', en: 'Valid'),
+              value: '${progress.valid}',
+            ),
+            _MetricData(
+              icon: Icons.workspace_premium_outlined,
+              label: text(zh: '高价值数', en: 'High value'),
+              value: '${progress.highValue}',
             ),
           ],
         ),
-        child: controller.history.isEmpty
-            ? _EmptyState(
-                icon: Icons.history_toggle_off_rounded,
-                title: text(zh: '暂无历史', en: 'No history'),
-                body: text(
-                  zh: '完成或中断的扫描任务会保存在这里。',
-                  en: 'Completed and interrupted scans appear here.',
-                ),
-              )
-            : ListView.separated(
-                itemCount: controller.history.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
-                itemBuilder: (context, index) {
-                  final entry = controller.history[index];
-                  return _HistoryTile(
-                    entry: entry,
-                    onResume:
-                        entry.isResumable &&
-                            controller.isRunning &&
-                            !controller.scanBusy &&
-                            !controller.hasActiveScan
-                        ? () => controller.resumeHistory(entry.id)
-                        : null,
-                    onDelete: () =>
-                        _confirmDeleteHistory(context, controller, entry),
-                    onLogs: () => _showHistoryLogs(context, entry),
-                    onExport: () => _exportResults(
-                      context,
-                      controller.results
-                          .where((result) => result.jobId == entry.id)
-                          .toList(growable: false),
-                    ),
-                  );
-                },
-              ),
-      ),
+        const SizedBox(height: _kSectionGap),
+        Text(progress.message),
+        const SizedBox(height: 8),
+        ClipRRect(
+          borderRadius: kOpenHandPillBorderRadius,
+          child: LinearProgressIndicator(
+            value: progress.total <= 0 ? null : progress.fraction,
+            minHeight: 8,
+          ),
+        ),
+        const SizedBox(height: _kSectionGap),
+        _SectionTitle(
+          icon: Icons.terminal_rounded,
+          title: text(zh: 'SSE 日志', en: 'SSE logs'),
+        ),
+        const SizedBox(height: _kItemGap),
+        Expanded(child: _LogList(logs: controller.logs)),
+      ],
     );
   }
+
+  Widget _buildResultsView(
+    BuildContext context,
+    ServicesController controller,
+    List<AiExposureResult> results,
+  ) {
+    final text = openHandTextResolver(context);
+    final filters = <Widget>[
+      _CategoryChip(
+        label: text(zh: '全部', en: 'All'),
+        count: controller.results.length,
+        selected: _category == null,
+        onSelected: () => setState(() => _category = null),
+      ),
+      for (final category in AiExposureResultCategory.values)
+        _CategoryChip(
+          label: _categoryLabel(context, category),
+          count: controller.results
+              .where((result) => result.category == category)
+              .length,
+          selected: _category == category,
+          onSelected: () => setState(() => _category = category),
+        ),
+    ];
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        SingleChildScrollView(
+          scrollDirection: Axis.horizontal,
+          physics: openHandDialogAwareScrollPhysics(context),
+          child: Row(
+            children: [
+              for (var index = 0; index < filters.length; index++) ...[
+                if (index > 0) const SizedBox(width: 8),
+                filters[index],
+              ],
+            ],
+          ),
+        ),
+        const SizedBox(height: _kSectionGap),
+        Expanded(
+          child: results.isEmpty
+              ? _EmptyState(
+                  icon: Icons.search_off_rounded,
+                  title: text(zh: '暂无结果', en: 'No results'),
+                  body: text(
+                    zh: '当前分类还没有扫描结果。',
+                    en: 'No scan results in this category.',
+                  ),
+                )
+              : ListView.separated(
+                  physics: openHandDialogAwareScrollPhysics(context),
+                  itemCount: results.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  itemBuilder: (context, index) =>
+                      _ResultTile(result: results[index]),
+                ),
+        ),
+      ],
+    );
+  }
+
+  Widget _buildHistoryView(
+    BuildContext context,
+    ServicesController controller,
+  ) {
+    final text = openHandTextResolver(context);
+    if (controller.history.isEmpty) {
+      return _EmptyState(
+        icon: Icons.history_toggle_off_rounded,
+        title: text(zh: '暂无历史', en: 'No history'),
+        body: text(
+          zh: '完成或中断的扫描任务会保存在这里。',
+          en: 'Completed and interrupted scans appear here.',
+        ),
+      );
+    }
+    return ListView.separated(
+      physics: openHandDialogAwareScrollPhysics(context),
+      itemCount: controller.history.length,
+      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      itemBuilder: (context, index) {
+        final entry = controller.history[index];
+        return _HistoryTile(
+          entry: entry,
+          onResume:
+              entry.isResumable &&
+                  controller.isRunning &&
+                  !controller.scanBusy &&
+                  !controller.hasActiveScan
+              ? () => _resumeHistory(controller, entry.id)
+              : null,
+          onDelete: () => _confirmDeleteHistory(context, controller, entry),
+          onLogs: () => _showHistoryLogs(context, entry),
+          onExport: () => _exportResults(
+            context,
+            controller.results
+                .where((result) => result.jobId == entry.id)
+                .toList(growable: false),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _ScanWorkspaceTab extends StatelessWidget {
+  const _ScanWorkspaceTab({
+    required this.value,
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onSelected,
+  });
+
+  final _ScanWorkspaceView value;
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final ValueChanged<_ScanWorkspaceView> onSelected;
+
+  @override
+  Widget build(BuildContext context) => ServiceFilterChip(
+    selected: selected,
+    icon: Icon(icon, size: 17),
+    label: Text(label),
+    onSelected: (_) => onSelected(value),
+  );
 }
 
 class _ToolsDialog extends StatefulWidget {
@@ -2835,14 +2308,10 @@ class _MetricData {
     required this.icon,
     required this.label,
     required this.value,
-    this.detail,
-    this.color,
   });
   final IconData icon;
   final String label;
   final String value;
-  final String? detail;
-  final Color? color;
 }
 
 class _MetricGrid extends StatelessWidget {
@@ -2885,7 +2354,7 @@ class _MetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
-    final tone = data.color ?? _serviceMetricTone(data.icon, cs);
+    final tone = _serviceMetricTone(data.icon, cs);
     return Container(
       constraints: const BoxConstraints(minHeight: 106),
       padding: const EdgeInsets.all(12),
@@ -2926,497 +2395,7 @@ class _MetricTile extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                if (data.detail?.trim().isNotEmpty == true) ...[
-                  const SizedBox(height: 2),
-                  Text(
-                    data.detail!,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.bodySmall?.copyWith(color: tone),
-                  ),
-                ],
               ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _ServiceTelemetryConsole extends StatelessWidget {
-  const _ServiceTelemetryConsole({required this.controller});
-
-  final ServicesController controller;
-
-  @override
-  Widget build(BuildContext context) {
-    final text = openHandTextResolver(context);
-    final proxy = controller.proxyStatus;
-    final dependencies = controller.dependencyStatus;
-    final progress = controller.progress;
-    final configuredSources = controller.sourceStatus.values
-        .where((configured) => configured)
-        .length;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: const Color(0xff0b0e12),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-      ),
-      child: DefaultTextStyle(
-        style: const TextStyle(
-          color: Color(0xffd5dae3),
-          fontFamily: 'monospace',
-          fontSize: 13,
-          height: 1.55,
-        ),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            _line(
-              'service',
-              controller.isRunning ? 'READY' : 'STOPPED',
-              controller.isRunning,
-            ),
-            _line(
-              'engine',
-              'ai_jungler ${controller.health?.version ?? '--'} · uptime=${_serviceDuration(controller.health?.uptimeSeconds ?? 0)}',
-              controller.isRunning,
-            ),
-            _line(
-              'job',
-              progress == null
-                  ? 'idle'
-                  : '${progress.stage} ${progress.processed}/${progress.total}',
-              progress?.isRunning == true,
-            ),
-            _line(
-              'sources',
-              '$configuredSources/${controller.discoverySourceCount} configured · enabled=${controller.enabledSources.length}',
-              configuredSources > 0,
-            ),
-            _line(
-              'proxy',
-              controller.proxyRoute == AiExposureProxyRoute.pool &&
-                      proxy != null
-                  ? 'endpoints=${proxy.endpoints.length} selections=${proxy.totalSelections} ok=${proxy.totalSuccesses} failed=${proxy.totalFailures} timeout=${proxy.totalTimeouts} avg=${proxy.averageResponseTimeMs}ms'
-                  : serviceProxyRouteText(controller, text),
-              controller.proxyRoute != AiExposureProxyRoute.pool ||
-                  (proxy?.totalFailures ?? 0) == 0,
-            ),
-            _line(
-              'storage',
-              'SQLite WAL · PostgreSQL=${dependencies?.postgresql.connected == true ? 'ready' : 'off'} · Redis=${dependencies?.redis.connected == true ? 'ready' : 'off'}',
-              controller.isRunning,
-            ),
-            _line(
-              'workload',
-              'jobs=${controller.history.length} results=${controller.results.length} rules=${controller.rules.where((rule) => rule.enabled).length}/${controller.rules.length} logs=${controller.logs.length}',
-              true,
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Widget _line(String name, String value, bool healthy) => Text.rich(
-    TextSpan(
-      children: [
-        const TextSpan(
-          text: '→ ',
-          style: TextStyle(color: Color(0xff28d17c)),
-        ),
-        TextSpan(
-          text: '$name ',
-          style: const TextStyle(color: Color(0xff6fa8ed)),
-        ),
-        TextSpan(
-          text: value,
-          style: TextStyle(
-            color: healthy ? const Color(0xffd5dae3) : const Color(0xffffb14e),
-          ),
-        ),
-      ],
-    ),
-  );
-}
-
-class _StatusPanelGrid extends StatelessWidget {
-  const _StatusPanelGrid({required this.children});
-
-  final List<Widget> children;
-
-  @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final columns = constraints.maxWidth >= 760 ? 2 : 1;
-      const gap = 12.0;
-      final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
-      return Wrap(
-        spacing: gap,
-        runSpacing: gap,
-        children: children
-            .map((child) => SizedBox(width: width, child: child))
-            .toList(growable: false),
-      );
-    },
-  );
-}
-
-class _StatusTrendPanel extends StatelessWidget {
-  const _StatusTrendPanel({
-    required this.title,
-    required this.subtitle,
-    required this.series,
-  });
-
-  final String title;
-  final String subtitle;
-  final List<OpenHandChartSeries> series;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Container(
-      height: 258,
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const _StatusSectionIcon(icon: Icons.show_chart_rounded),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      title,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w900,
-                      ),
-                    ),
-                    Text(
-                      subtitle,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Expanded(
-            child: CustomPaint(
-              painter: OpenHandSmoothLineChartPainter(
-                series: series,
-                gridColor: colors.outlineVariant.withValues(alpha: 0.58),
-                labelColor: colors.onSurfaceVariant,
-                emptyLabel: '暂无趋势数据',
-                valueSuffix: ' 项',
-                textDirection: Directionality.of(context),
-              ),
-              size: Size.infinite,
-            ),
-          ),
-          const SizedBox(height: 6),
-          Wrap(
-            spacing: 12,
-            runSpacing: 6,
-            children: series
-                .map(
-                  (item) => Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: item.color,
-                          shape: BoxShape.circle,
-                        ),
-                      ),
-                      const SizedBox(width: 5),
-                      Text(item.label, style: theme.textTheme.labelSmall),
-                    ],
-                  ),
-                )
-                .toList(growable: false),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusDistributionItem {
-  const _StatusDistributionItem(this.label, this.value, this.color);
-
-  final String label;
-  final int value;
-  final Color color;
-}
-
-class _StatusDistributionPanel extends StatelessWidget {
-  const _StatusDistributionPanel({
-    required this.title,
-    required this.centerValue,
-    required this.items,
-  });
-
-  final String title;
-  final String centerValue;
-  final List<_StatusDistributionItem> items;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final visible = items.where((item) => item.value > 0).toList();
-    final max = visible.fold<int>(
-      1,
-      (value, item) => item.value > value ? item.value : value,
-    );
-    return Container(
-      constraints: const BoxConstraints(minHeight: 258),
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              const _StatusSectionIcon(icon: Icons.donut_large_rounded),
-              const SizedBox(width: 9),
-              Text(
-                title,
-                style: theme.textTheme.titleSmall?.copyWith(
-                  fontWeight: FontWeight.w900,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          if (visible.isEmpty)
-            SizedBox(
-              height: 174,
-              child: Center(
-                child: Text(
-                  '暂无分布数据',
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ),
-            )
-          else
-            LayoutBuilder(
-              builder: (context, constraints) {
-                final donut = SizedBox.square(
-                  dimension: 110,
-                  child: CustomPaint(
-                    painter: OpenHandDonutChartPainter(
-                      values: visible.map((item) => item.value).toList(),
-                      colors: visible.map((item) => item.color).toList(),
-                      trackColor: colors.surfaceContainerHighest,
-                    ),
-                    child: Center(
-                      child: Text(
-                        centerValue,
-                        style: theme.textTheme.titleLarge?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                );
-                final rows = Column(
-                  children: visible
-                      .map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.symmetric(vertical: 4),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 8,
-                                height: 8,
-                                decoration: BoxDecoration(
-                                  color: item.color,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 7),
-                              SizedBox(
-                                width: 58,
-                                child: Text(
-                                  item.label,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: theme.textTheme.labelMedium,
-                                ),
-                              ),
-                              Expanded(
-                                child: ClipRRect(
-                                  borderRadius: BorderRadius.circular(99),
-                                  child: LinearProgressIndicator(
-                                    value: item.value / max,
-                                    minHeight: 7,
-                                    color: item.color,
-                                    backgroundColor: item.color.withValues(
-                                      alpha: 0.1,
-                                    ),
-                                  ),
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Text(
-                                '${item.value}',
-                                style: theme.textTheme.labelLarge,
-                              ),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(growable: false),
-                );
-                return constraints.maxWidth < 440
-                    ? Column(
-                        children: [donut, const SizedBox(height: 12), rows],
-                      )
-                    : Row(
-                        children: [
-                          donut,
-                          const SizedBox(width: 18),
-                          Expanded(child: rows),
-                        ],
-                      );
-              },
-            ),
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusSectionCard extends StatelessWidget {
-  const _StatusSectionCard({
-    required this.icon,
-    required this.title,
-    required this.child,
-  });
-
-  final IconData icon;
-  final String title;
-  final Widget child;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.outlineVariant),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Row(
-            children: [
-              _StatusSectionIcon(icon: icon),
-              const SizedBox(width: 9),
-              Expanded(
-                child: Text(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
-                  ),
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          child,
-        ],
-      ),
-    );
-  }
-}
-
-class _StatusSectionIcon extends StatelessWidget {
-  const _StatusSectionIcon({required this.icon});
-
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return Container(
-      width: 34,
-      height: 34,
-      decoration: BoxDecoration(
-        color: colors.primary.withValues(alpha: 0.11),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
-      ),
-      child: Icon(icon, size: 19, color: colors.primary),
-    );
-  }
-}
-
-class _StatusKeyValue extends StatelessWidget {
-  const _StatusKeyValue({required this.label, required this.value});
-
-  final String label;
-  final String value;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 4,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 6,
-            child: Text(
-              value,
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.end,
-              style: theme.textTheme.labelLarge?.copyWith(
-                fontWeight: FontWeight.w700,
-              ),
             ),
           ),
         ],
@@ -3533,57 +2512,6 @@ class _DependencyRow extends StatelessWidget {
             color: cs.onSurfaceVariant,
           ),
         ),
-      ],
-    );
-  }
-}
-
-class _QuotaRow extends StatelessWidget {
-  const _QuotaRow({required this.quota});
-  final AiExposureQuota quota;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final cs = theme.colorScheme;
-    final color = quota.available
-        ? cs.primary
-        : quota.configured
-        ? cs.error
-        : cs.outline;
-    final value = !quota.configured
-        ? openHandLocalizedText(context, zh: '未配置', en: 'Not configured')
-        : !quota.available
-        ? openHandLocalizedText(context, zh: '异常', en: 'Unavailable')
-        : quota.remaining == null
-        ? openHandLocalizedText(context, zh: '可用', en: 'Available')
-        : quota.limit == null
-        ? '${quota.remaining}'
-        : '${quota.remaining}/${quota.limit}';
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Icon(_sourceIcon(quota.source), size: 19, color: color),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(_sourceLabel(context, quota.source)),
-              if (quota.message.trim().isNotEmpty)
-                Text(
-                  quota.message,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 8),
-        Text(value, style: theme.textTheme.labelLarge?.copyWith(color: color)),
       ],
     );
   }
@@ -4743,12 +3671,3 @@ String _time(DateTime value) =>
 
 String _dateTime(DateTime value) =>
     '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')} ${_time(value)}';
-
-String _serviceDuration(int seconds) {
-  final normalized = seconds < 0 ? 0 : seconds;
-  if (normalized < 60) return '${normalized}s';
-  final hours = normalized ~/ Duration.secondsPerHour;
-  final minutes =
-      normalized % Duration.secondsPerHour ~/ Duration.secondsPerMinute;
-  return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
-}
