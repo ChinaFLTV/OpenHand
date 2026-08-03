@@ -3,7 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import '../../../shared/util/async_concurrency.dart';
+import '../../../shared/net/http_response_utils.dart';
 import '../model/ai_exposure_models.dart';
 
 const Duration _kAiJunglerRequestTimeout = Duration(seconds: 15);
@@ -242,7 +242,7 @@ class AiJunglerClient {
       maxBytes: success
           ? _kAiJunglerMaxJsonResponseBytes
           : _kAiJunglerMaxErrorResponseBytes,
-    ).timeout(_kAiJunglerRequestTimeout);
+    );
     if (!success) {
       throw _textError(response.statusCode, text);
     }
@@ -273,7 +273,7 @@ class AiJunglerClient {
     await _readUtf8Response(
       response,
       maxBytes: _kAiJunglerMaxErrorResponseBytes,
-    ).timeout(_kAiJunglerRequestTimeout),
+    ),
   );
 
   AiJunglerApiException _textError(int statusCode, String text) {
@@ -301,25 +301,18 @@ Future<String> _readUtf8Response(
   HttpClientResponse response, {
   required int maxBytes,
 }) async {
-  if (response.contentLength > maxBytes) {
-    await cancelStreamSubscriptionBounded<List<int>>(response.listen((_) {}));
+  try {
+    return await readBoundedHttpResponseText(
+      response,
+      maxBytes: maxBytes,
+      idleTimeout: _kAiJunglerRequestTimeout,
+      totalTimeout: _kAiJunglerRequestTimeout,
+    );
+  } on ByteStreamSizeLimitException {
     throw AiJunglerApiException(
       '扫描引擎响应超过 $maxBytes 字节限制。',
       statusCode: response.statusCode,
     );
-  }
-  final body = BytesBuilder(copy: false);
-  await for (final chunk in response) {
-    if (body.length + chunk.length > maxBytes) {
-      throw AiJunglerApiException(
-        '扫描引擎响应超过 $maxBytes 字节限制。',
-        statusCode: response.statusCode,
-      );
-    }
-    body.add(chunk);
-  }
-  try {
-    return utf8.decode(body.takeBytes());
   } on FormatException {
     throw AiJunglerApiException(
       '扫描引擎返回了无效的 UTF-8 数据。',
