@@ -270,7 +270,7 @@ class AiTransportClient {
                   throw TimeoutException('HTTP 响应超过请求时限。', remaining),
             );
           } finally {
-            _cancelResponseStream(streamed.stream);
+            unawaited(cancelByteStream(streamed.stream));
           }
         },
       );
@@ -888,7 +888,7 @@ class AiTransportClient {
       removeDestinationOnExit = false;
       return bytesWritten;
     } catch (_) {
-      _cancelResponseStream(response.stream);
+      unawaited(cancelByteStream(response.stream));
       rethrow;
     } finally {
       deleteOnRelease = output != null;
@@ -912,7 +912,7 @@ class AiTransportClient {
   }) {
     final declaredLength = response.contentLength;
     if (declaredLength == null || declaredLength <= responseLimit) return;
-    _cancelResponseStream(response.stream);
+    unawaited(cancelByteStream(response.stream));
     throw HttpException('HTTP 响应超过 $responseLimit 字节上限。', uri: requestUrl);
   }
 
@@ -993,24 +993,12 @@ class AiTransportClient {
     _activeAborts.remove(abort);
   }
 
-  void _cancelResponseStream(Stream<List<int>> stream) {
-    try {
-      final subscription = stream.listen(
-        null,
-        onError: (Object _, StackTrace _) {},
-      );
-      unawaited(cancelStreamSubscriptionBounded<List<int>>(subscription));
-    } catch (_) {
-      // 响应已中止，同步监听失败不再提供可操作信息。
-    }
-  }
-
   Future<void> _cancelLateResponse(
     Future<http.StreamedResponse> responseFuture,
   ) async {
     try {
       final response = await responseFuture;
-      _cancelResponseStream(response.stream);
+      await cancelByteStream(response.stream);
     } catch (_) {
       // 延迟到达的传输失败已由超时结果表示。
     }

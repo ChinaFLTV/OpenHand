@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useRef, useState } from 'preact/hooks';
+import { useEventCallback } from './useEventCallback';
 import { normalizeDialogExitDurationMs } from './useDialogMotionSettings';
 import { useReducedMotion } from './useReducedMotion';
 import { useTimeoutController } from './useTimeoutController';
@@ -88,14 +89,6 @@ export function useDialogExitMotion<Reason extends string = string>(
     typeof optionsOrExitMs === 'object' && optionsOrExitMs != null
       ? optionsOrExitMs
       : undefined;
-  const onCloseRef = useRef(onClose);
-  const onBeforeCloseRef = useRef<((reason?: Reason) => void) | undefined>(
-    options?.onBeforeClose as ((reason?: Reason) => void) | undefined,
-  );
-  const requestCloseWithReasonRef = useRef<
-    ((reason?: Reason) => void) | undefined
-  >(undefined);
-  const closeOnEscapeRef = useRef(true);
   const escapeEntryIdRef = useRef(0);
   const closingRef = useRef(false);
   const closeReasonRef = useRef<Reason | undefined>(undefined);
@@ -108,29 +101,17 @@ export function useDialogExitMotion<Reason extends string = string>(
     | ((reason?: Reason) => void)
     | undefined;
 
-  useEffect(() => {
-    onCloseRef.current = onClose;
-  }, [onClose]);
-
-  useEffect(() => {
-    onBeforeCloseRef.current = onBeforeClose;
-  }, [onBeforeClose]);
-
-  useEffect(() => {
-    closeOnEscapeRef.current = closeOnEscape;
-  }, [closeOnEscape]);
-
-  const finishClose = useCallback(() => {
+  const finishClose = useEventCallback(() => {
     const reason = closeReasonRef.current;
     closeReasonRef.current = undefined;
-    onCloseRef.current(reason);
-  }, []);
+    onClose(reason);
+  });
 
-  const requestCloseWithReason = useCallback((reason?: Reason) => {
+  const requestCloseWithReason = useEventCallback((reason?: Reason) => {
     if (closingRef.current) return;
     closeReasonRef.current = reason;
     try {
-      onBeforeCloseRef.current?.(reason);
+      onBeforeClose?.(reason);
     } finally {
       closingRef.current = true;
       setClosing(true);
@@ -139,11 +120,8 @@ export function useDialogExitMotion<Reason extends string = string>(
         : normalizeDialogExitDurationMs(exitMs);
       scheduleTimer(finishClose, durationMs);
     }
-  }, [exitMs, finishClose, reduceMotion, scheduleTimer]);
-
-  useEffect(() => {
-    requestCloseWithReasonRef.current = requestCloseWithReason;
-  }, [requestCloseWithReason]);
+  });
+  const canCloseOnEscape = useEventCallback(() => closeOnEscape);
 
   const requestClose = useCallback(() => {
     requestCloseWithReason();
@@ -163,13 +141,13 @@ export function useDialogExitMotion<Reason extends string = string>(
     }
     const entry: DialogEscapeStackEntry = {
       id: escapeEntryIdRef.current,
-      closeOnEscape: () => closeOnEscapeRef.current,
+      closeOnEscape: canCloseOnEscape,
       requestEscapeClose: () => {
-        requestCloseWithReasonRef.current?.('escape' as Reason);
+        requestCloseWithReason('escape' as Reason);
       },
     };
     return registerDialogEscapeEntry(entry);
-  }, [active]);
+  }, [active, canCloseOnEscape, requestCloseWithReason]);
 
   return { closing, requestClose, requestCloseWithReason, resetClosing };
 }

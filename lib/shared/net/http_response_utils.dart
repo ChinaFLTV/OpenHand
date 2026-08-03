@@ -61,28 +61,37 @@ Future<Uint8List> fetchBoundedHttpBytes({
   try {
     final request = await client.getUrl(uri).timeout(nextOpenTimeout());
     final response = await request.close().timeout(nextOpenTimeout());
-    if (isHttpFailureStatus(response.statusCode)) {
-      throw HttpException('HTTP ${response.statusCode}', uri: uri);
+    var responseConsumptionStarted = false;
+    try {
+      if (isHttpFailureStatus(response.statusCode)) {
+        throw HttpException('HTTP ${response.statusCode}', uri: uri);
+      }
+      final contentType = response.headers.contentType;
+      if (expectedPrimaryType != null &&
+          contentType != null &&
+          contentType.primaryType != expectedPrimaryType &&
+          (!allowOctetStream ||
+              contentType.mimeType != 'application/octet-stream')) {
+        throw HttpException('响应内容类型不符合预期：${contentType.mimeType}', uri: uri);
+      }
+      final remainingTotal = totalTimeout == null
+          ? null
+          : remainingTotalBudget();
+      final effectiveIdleTimeout =
+          remainingTotal != null && remainingTotal < idleTimeout
+          ? remainingTotal
+          : idleTimeout;
+      responseConsumptionStarted = true;
+      return await readBoundedHttpResponseBytes(
+        response,
+        maxBytes: maxBytes,
+        idleTimeout: effectiveIdleTimeout,
+        totalTimeout: remainingTotal,
+      );
+    } catch (_) {
+      if (!responseConsumptionStarted) await cancelByteStream(response);
+      rethrow;
     }
-    final contentType = response.headers.contentType;
-    if (expectedPrimaryType != null &&
-        contentType != null &&
-        contentType.primaryType != expectedPrimaryType &&
-        (!allowOctetStream ||
-            contentType.mimeType != 'application/octet-stream')) {
-      throw HttpException('响应内容类型不符合预期：${contentType.mimeType}', uri: uri);
-    }
-    final remainingTotal = totalTimeout == null ? null : remainingTotalBudget();
-    final effectiveIdleTimeout =
-        remainingTotal != null && remainingTotal < idleTimeout
-        ? remainingTotal
-        : idleTimeout;
-    return readBoundedHttpResponseBytes(
-      response,
-      maxBytes: maxBytes,
-      idleTimeout: effectiveIdleTimeout,
-      totalTimeout: remainingTotal,
-    );
   } finally {
     deadline?.stop();
   }
@@ -102,6 +111,7 @@ Future<Uint8List> readBoundedHttpResponseBytes(
     totalTimeout: totalTimeout,
   );
   if (response.contentLength > maxBytes) {
+    unawaited(cancelByteStream(response));
     throw ByteStreamSizeLimitException(maxBytes);
   }
 
@@ -362,6 +372,33 @@ Future<void> drainByteStreamWithTimeout(
     truncateOnOverflow: false,
     cancelOnFailure: true,
   );
+}
+
+/// 取消尚未消费的字节流，并限制底层取消操作的等待时间。
+Future<bool> cancelByteStream(
+  Stream<List<int>> stream, {
+  Duration timeout = _byteStreamCancelTimeout,
+  OpenHandAsyncCleanupErrorHandler? onError,
+}) async {
+  try {
+    final subscription = stream.listen(
+      null,
+      onError: (Object _, StackTrace _) {},
+      cancelOnError: true,
+    );
+    return cancelStreamSubscriptionBounded<List<int>>(
+      subscription,
+      timeout: timeout,
+      onError: onError,
+    );
+  } catch (error, stack) {
+    try {
+      onError?.call(error, stack);
+    } catch (_) {
+      // 清理日志异常不能覆盖取消结果。
+    }
+    return false;
+  }
 }
 
 Future<Uint8List> _consumeByteStream(

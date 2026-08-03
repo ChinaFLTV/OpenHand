@@ -6618,6 +6618,7 @@ class WebReverseSessionController extends ChangeNotifier {
     const body = new TextDecoder('utf-8').decode(bytes);
     return JSON.stringify({ status: r.status, body });
   } catch (err) {
+    try { controller.abort('failed'); } catch (_) {}
     return JSON.stringify({
       status: -1,
       body: String(err).slice(0, maxBytes),
@@ -9224,6 +9225,7 @@ class WebReverseSessionController extends ChangeNotifier {
     }
     return JSON.stringify({ map, mapUrl });
   } catch (err) {
+    try { controller.abort('failed'); } catch (_) {}
     return JSON.stringify({ error: String(err) });
   } finally {
     clearTimeout(timer);

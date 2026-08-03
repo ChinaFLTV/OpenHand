@@ -589,6 +589,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       truncated,
     });
   } catch (error) {
+    try { controller.abort('failed'); } catch (_) {}
     return JSON.stringify({
       ok: false,
       name: error && error.name ? String(error.name) : '',

@@ -3685,20 +3685,12 @@ Future<void> _cancelLateStreamedResponse(
   http.StreamedResponse response, {
   required Duration timeout,
 }) async {
-  try {
-    final subscription = response.stream.listen(
-      (_) {},
-      onError: (Object _, StackTrace stackTrace) {},
-      cancelOnError: true,
-    );
-    await _cancelStreamSubscription(
-      subscription,
-      timeout: timeout,
-      logContext: '取消延迟返回的流式响应',
-    );
-  } catch (error, stackTrace) {
-    silentLog('ai_chat_service', '取消延迟返回的流式响应', error, stackTrace);
-  }
+  await cancelByteStream(
+    response.stream,
+    timeout: timeout,
+    onError: (error, stack) =>
+        silentLog('ai_chat_service', '取消延迟返回的流式响应', error, stack),
+  );
 }
 
 Future<http.StreamedResponse> _sendHttpRequestWithRedirects({

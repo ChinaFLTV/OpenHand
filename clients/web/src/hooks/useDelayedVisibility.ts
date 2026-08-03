@@ -116,10 +116,6 @@ export function useControlledDelayedVisibility(
   const { clearTimer, scheduleTimer } = useTimeoutController();
 
   useEffect(() => {
-    phaseRef.current = phase;
-  }, [phase]);
-
-  useEffect(() => {
     clearTimer();
     if (open) {
       if (phaseRef.current !== 'hidden') {
