@@ -4,6 +4,7 @@ use thiserror::Error;
 
 #[derive(Clone, Debug)]
 pub struct AuthorizedScope {
+    all: bool,
     domains: Vec<String>,
     addresses: Vec<IpAddr>,
     networks: Vec<IpNet>,
@@ -20,6 +21,18 @@ pub enum ScopeError {
 }
 
 impl AuthorizedScope {
+    pub fn all(confirmed: bool) -> Result<Self, ScopeError> {
+        if !confirmed {
+            return Err(ScopeError::AuthorizationNotConfirmed);
+        }
+        Ok(Self {
+            all: true,
+            domains: Vec::new(),
+            addresses: Vec::new(),
+            networks: Vec::new(),
+        })
+    }
+
     pub fn parse(entries: &[String], confirmed: bool) -> Result<Self, ScopeError> {
         if !confirmed {
             return Err(ScopeError::AuthorizationNotConfirmed);
@@ -28,6 +41,7 @@ impl AuthorizedScope {
             return Err(ScopeError::Empty);
         }
         let mut scope = Self {
+            all: false,
             domains: Vec::new(),
             addresses: Vec::new(),
             networks: Vec::new(),
@@ -54,6 +68,9 @@ impl AuthorizedScope {
     }
 
     pub fn contains_host(&self, host: &str) -> bool {
+        if self.all {
+            return true;
+        }
         let normalized = host.trim().trim_end_matches('.').to_ascii_lowercase();
         if let Ok(address) = normalized.parse::<IpAddr>() {
             return self.addresses.contains(&address)
@@ -97,6 +114,21 @@ mod tests {
     fn requires_explicit_confirmation() {
         assert!(matches!(
             AuthorizedScope::parse(&["example.com".to_owned()], false),
+            Err(ScopeError::AuthorizationNotConfirmed)
+        ));
+    }
+
+    #[test]
+    fn full_scope_accepts_any_host_after_confirmation() {
+        let scope = AuthorizedScope::all(true).unwrap();
+        assert!(scope.contains_host("any.example"));
+        assert!(scope.contains_host("192.0.2.10"));
+    }
+
+    #[test]
+    fn full_scope_requires_explicit_confirmation() {
+        assert!(matches!(
+            AuthorizedScope::all(false),
             Err(ScopeError::AuthorizationNotConfirmed)
         ));
     }

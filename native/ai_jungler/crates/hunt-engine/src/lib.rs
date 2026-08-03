@@ -1090,9 +1090,13 @@ impl HuntEngine {
         if request.gpt_assisted && self.ai_extractor.read().await.is_none() {
             return Err(EngineError::AiExtractorNotConfigured);
         }
-        let scope =
-            AuthorizedScope::parse(&request.authorized_scope, request.authorization_confirmed)
-                .map_err(anyhow::Error::from)?;
+        let scope = match request.mode {
+            ScanMode::Incremental => {
+                AuthorizedScope::parse(&request.authorized_scope, request.authorization_confirmed)
+            }
+            ScanMode::Full => AuthorizedScope::all(request.authorization_confirmed),
+        }
+        .map_err(anyhow::Error::from)?;
         request.sources.sort();
         request.sources.dedup();
         let rules = self.store.load_rules().await.map_err(anyhow::Error::from)?;

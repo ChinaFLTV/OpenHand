@@ -142,7 +142,7 @@ class ServiceFilterChip extends StatelessWidget {
 
   final Widget label;
   final bool selected;
-  final ValueChanged<bool> onSelected;
+  final ValueChanged<bool>? onSelected;
   final Widget? icon;
   final Color? accentColor;
 

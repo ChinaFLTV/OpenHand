@@ -909,17 +909,22 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             crossAxisAlignment: WrapCrossAlignment.center,
             children: AiExposureSource.values
                 .map((source) {
+                  final disabled =
+                      _mode == AiExposureScanMode.full &&
+                      source == AiExposureSource.manual;
                   return ServiceFilterChip(
                     selected: _sources.contains(source),
                     icon: Icon(_sourceIcon(source), size: 17),
                     label: Text(_sourceLabel(context, source)),
-                    onSelected: (selected) => setState(() {
-                      if (selected) {
-                        _sources.add(source);
-                      } else {
-                        _sources.remove(source);
-                      }
-                    }),
+                    onSelected: disabled
+                        ? null
+                        : (selected) => setState(() {
+                            if (selected) {
+                              _sources.add(source);
+                            } else {
+                              _sources.remove(source);
+                            }
+                          }),
                   );
                 })
                 .toList(growable: false),
@@ -1012,35 +1017,80 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
               ),
             ],
             selected: <AiExposureScanMode>{_mode},
-            onSelectionChanged: (selection) =>
-                setState(() => _mode = selection.first),
-          ),
-          const SizedBox(height: _kSectionGap),
-          TextField(
-            controller: _scope,
-            minLines: 2,
-            maxLines: 4,
-            decoration: InputDecoration(
-              labelText: text(zh: '授权目标范围', en: 'Authorized scope'),
-              hintText: 'example.com\n10.10.0.0/16',
-              border: const OutlineInputBorder(),
-            ),
+            onSelectionChanged: (selection) {
+              final mode = selection.first;
+              setState(() {
+                _mode = mode;
+                if (mode == AiExposureScanMode.full) {
+                  _sources.remove(AiExposureSource.manual);
+                }
+              });
+            },
           ),
           OpenHandVerticalRevealSwitcher(
-            presentKey: const ValueKey<String>('manual-targets'),
+            presentKey: const ValueKey<String>('scope-and-manual-targets'),
             slideBeginOffsetY: -.03,
-            child: !_sources.contains(AiExposureSource.manual)
+            child: _mode == AiExposureScanMode.full
                 ? null
                 : Padding(
-                    padding: const EdgeInsets.only(top: _kItemGap),
-                    child: TextField(
-                      controller: _targets,
-                      minLines: 3,
-                      maxLines: 7,
-                      decoration: InputDecoration(
-                        labelText: text(zh: '手工目标', en: 'Manual targets'),
-                        hintText: 'https://api.example.com\n10.10.2.8:8080',
-                        border: const OutlineInputBorder(),
+                    padding: const EdgeInsets.only(top: _kSectionGap),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        TextField(
+                          controller: _scope,
+                          minLines: 2,
+                          maxLines: 4,
+                          decoration: InputDecoration(
+                            labelText: text(
+                              zh: '授权目标范围',
+                              en: 'Authorized scope',
+                            ),
+                            hintText: 'example.com\n10.10.0.0/16',
+                            border: const OutlineInputBorder(),
+                          ),
+                        ),
+                        OpenHandVerticalRevealSwitcher(
+                          presentKey: const ValueKey<String>('manual-targets'),
+                          slideBeginOffsetY: -.03,
+                          child: !_sources.contains(AiExposureSource.manual)
+                              ? null
+                              : Padding(
+                                  padding: const EdgeInsets.only(
+                                    top: _kItemGap,
+                                  ),
+                                  child: TextField(
+                                    controller: _targets,
+                                    minLines: 3,
+                                    maxLines: 7,
+                                    decoration: InputDecoration(
+                                      labelText: text(
+                                        zh: '手工目标',
+                                        en: 'Manual targets',
+                                      ),
+                                      hintText:
+                                          'https://api.example.com\n10.10.2.8:8080',
+                                      border: const OutlineInputBorder(),
+                                    ),
+                                  ),
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
+          OpenHandVerticalRevealSwitcher(
+            presentKey: const ValueKey<String>('full-scan-notice'),
+            slideBeginOffsetY: -.03,
+            child: _mode != AiExposureScanMode.full
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(top: _kSectionGap),
+                    child: _InlineNotice(
+                      icon: Icons.public_rounded,
+                      text: text(
+                        zh: '全量模式将扫描所选数据源返回的全部候选目标，请确认你已获得相应授权。',
+                        en: 'Full mode scans every candidate returned by the selected sources. Confirm that you are authorized to assess them.',
                       ),
                     ),
                   ),
@@ -1166,8 +1216,12 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             onChanged: (value) => setState(() => _confirmed = value == true),
             title: Text(
               text(
-                zh: '我确认已获得上述目标范围的安全评估授权',
-                en: 'I confirm authorization to assess the declared scope',
+                zh: _mode == AiExposureScanMode.full
+                    ? '我确认已获得所选数据源候选目标的安全评估授权'
+                    : '我确认已获得上述目标范围的安全评估授权',
+                en: _mode == AiExposureScanMode.full
+                    ? 'I confirm authorization to assess candidates returned by the selected sources'
+                    : 'I confirm authorization to assess the declared scope',
               ),
             ),
             controlAffinity: ListTileControlAffinity.leading,
@@ -1179,19 +1233,26 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
 
   Future<void> _submit() async {
     final text = openHandTextResolver(context);
-    final scope = _lines(_scope.text);
-    final targets = _lines(_targets.text);
-    if (_name.text.trim().isEmpty || scope.isEmpty || _sources.isEmpty) {
+    final fullScan = _mode == AiExposureScanMode.full;
+    final scope = fullScan ? const <String>[] : _lines(_scope.text);
+    final targets = fullScan ? const <String>[] : _lines(_targets.text);
+    if (_name.text.trim().isEmpty ||
+        (!fullScan && scope.isEmpty) ||
+        _sources.isEmpty) {
       showOpenHandErrorSnack(
         context,
         text(
-          zh: '请填写任务名称、授权范围并选择数据源。',
-          en: 'Enter a name, scope, and at least one source.',
+          zh: fullScan ? '请填写任务名称并选择数据源。' : '请填写任务名称、授权范围并选择数据源。',
+          en: fullScan
+              ? 'Enter a name and select at least one source.'
+              : 'Enter a name, scope, and at least one source.',
         ),
       );
       return;
     }
-    if (_sources.contains(AiExposureSource.manual) && targets.isEmpty) {
+    if (!fullScan &&
+        _sources.contains(AiExposureSource.manual) &&
+        targets.isEmpty) {
       showOpenHandErrorSnack(
         context,
         text(zh: '启用手工目标时至少填写一个目标。', en: 'Add at least one manual target.'),

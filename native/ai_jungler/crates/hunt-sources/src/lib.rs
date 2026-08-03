@@ -3,7 +3,7 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::Utc;
 use futures::{StreamExt, stream};
 use hunt_core::{
-    CANDIDATE_ARTIFACT_TEXT_KEY, CANDIDATE_ARTIFACT_URL_KEY, Candidate, ForumFetchMode,
+    CANDIDATE_ARTIFACT_TEXT_KEY, CANDIDATE_ARTIFACT_URL_KEY, Candidate, ForumFetchMode, ScanMode,
     ScanRequest, SourceKind, SourceQuota,
 };
 use regex::Regex;
@@ -2091,6 +2091,9 @@ fn encode_path(value: &str) -> String {
 }
 
 fn default_github_query(request: &ScanRequest) -> String {
+    if request.mode == ScanMode::Full && request.authorized_scope.is_empty() {
+        return "api_key OR authorization OR /v1/models".to_owned();
+    }
     let scope = request
         .authorized_scope
         .first()
@@ -2100,6 +2103,9 @@ fn default_github_query(request: &ScanRequest) -> String {
 }
 
 fn default_fofa_query(request: &ScanRequest) -> String {
+    if request.mode == ScanMode::Full && request.authorized_scope.is_empty() {
+        return "title=\"OpenAI\" || title=\"Anthropic\" || title=\"Gemini\"".to_owned();
+    }
     request
         .authorized_scope
         .iter()
@@ -2115,6 +2121,10 @@ fn default_fofa_query(request: &ScanRequest) -> String {
 }
 
 fn default_shodan_query(request: &ScanRequest) -> String {
+    if request.mode == ScanMode::Full && request.authorized_scope.is_empty() {
+        return "http.title:\"OpenAI\" OR http.title:\"Anthropic\" OR http.title:\"Gemini\""
+            .to_owned();
+    }
     request
         .authorized_scope
         .iter()
@@ -2208,6 +2218,23 @@ fn unlimited_quota(source: SourceKind, message: &str) -> SourceQuota {
 mod tests {
     use super::*;
 
+    fn scan_request(mode: ScanMode, authorized_scope: Vec<String>) -> ScanRequest {
+        ScanRequest {
+            name: "测试任务".to_owned(),
+            sources: vec![SourceKind::Github],
+            mode,
+            authorized_scope,
+            authorization_confirmed: true,
+            targets: Vec::new(),
+            vendors: Vec::new(),
+            source_queries: BTreeMap::new(),
+            forum_fetch_mode: Default::default(),
+            validation_mode: Default::default(),
+            concurrency: 1,
+            gpt_assisted: false,
+        }
+    }
+
     #[derive(Default)]
     struct CompletionObserver {
         outcomes: std::sync::Mutex<Vec<HttpRequestOutcome>>,
@@ -2229,6 +2256,25 @@ mod tests {
             serde_json::from_str(r#"{"error":true,"errmsg":"额度不足"}"#).unwrap();
         assert!(response.error);
         assert!(response.results.is_empty());
+    }
+
+    #[test]
+    fn full_scan_defaults_do_not_depend_on_authorized_scope() {
+        let request = scan_request(ScanMode::Full, Vec::new());
+        assert_eq!(
+            default_github_query(&request),
+            "api_key OR authorization OR /v1/models"
+        );
+        assert!(!default_fofa_query(&request).is_empty());
+        assert!(!default_shodan_query(&request).is_empty());
+    }
+
+    #[test]
+    fn incremental_defaults_remain_limited_to_authorized_scope() {
+        let request = scan_request(ScanMode::Incremental, vec!["example.com".to_owned()]);
+        assert!(default_github_query(&request).contains("example.com"));
+        assert_eq!(default_fofa_query(&request), "domain=\"example.com\"");
+        assert_eq!(default_shodan_query(&request), "hostname:example.com");
     }
 
     #[test]
