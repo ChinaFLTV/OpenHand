@@ -66,9 +66,19 @@ const fs = require('fs');
       userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0 Safari/537.36',
     });
     const page = await context.newPage();
+    const targetUrl = new URL(input.url);
     await page.route('**/*', route => {
-      const type = route.request().resourceType();
-      return ['font', 'image', 'media'].includes(type) ? route.abort() : route.continue();
+      const request = route.request();
+      const resourceUrl = new URL(request.url());
+      const type = request.resourceType();
+      const expendable = ['font', 'image', 'media', 'stylesheet'].includes(type);
+      const trustedAsset = targetUrl.hostname.endsWith('linux.do')
+        && (resourceUrl.hostname === 'ldstatic.com' || resourceUrl.hostname.endsWith('.ldstatic.com'));
+      const unrelated = resourceUrl.origin !== targetUrl.origin
+        && resourceUrl.hostname !== 'challenges.cloudflare.com'
+        && !trustedAsset
+        && !request.isNavigationRequest();
+      return expendable || unrelated ? route.abort() : route.continue();
     });
     const response = await page.goto(input.url, {
       timeout: 18000,
