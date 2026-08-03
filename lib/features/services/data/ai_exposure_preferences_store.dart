@@ -111,6 +111,7 @@ class AiExposurePreferencesStore {
         enabledSources: preferences.enabledSources,
         defaultConcurrency: preferences.defaultConcurrency,
         defaultValidationMode: preferences.defaultValidationMode,
+        forumFetchMode: preferences.forumFetchMode,
         defaultGptAssisted: preferences.defaultGptAssisted,
         useBundledEngine: preferences.useBundledEngine,
         externalAddress: preferences.externalAddress,

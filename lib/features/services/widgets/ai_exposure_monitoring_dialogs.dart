@@ -675,7 +675,7 @@ class _Console extends StatelessWidget {
             ),
             _consoleLine(
               'sources',
-              '${controller.sourceStatus.values.where((item) => item).length}/5 configured',
+              '${controller.sourceStatus.values.where((item) => item).length}/${controller.discoverySourceCount} configured',
               controller.sourceStatus.values.any((item) => item),
             ),
             _consoleLine(
@@ -1034,10 +1034,10 @@ class _SourcesPanel extends StatelessWidget {
         _MetricGrid(
           metrics: [
             _Metric(
-              Icons.key_rounded,
-              '已配置凭证源',
-              '$configured/5',
-              '手工目标无需凭证',
+              Icons.cloud_done_outlined,
+              '已就绪来源',
+              '$configured/${controller.discoverySourceCount}',
+              '论坛来源无需 API 凭证',
               color: OpenHandStatusColors.success,
             ),
             _Metric(
@@ -1085,7 +1085,7 @@ class _SourcesPanel extends StatelessWidget {
             _Metric(
               Icons.key_off_outlined,
               '待配置来源',
-              '${5 - configured}',
+              '${controller.discoverySourceCount - configured}',
               '可在服务设置中补齐',
               color: Theme.of(context).colorScheme.outline,
             ),
@@ -1132,6 +1132,9 @@ class _SourcesPanel extends StatelessWidget {
                     AiExposureSource.gitcode => 'gitcode',
                     AiExposureSource.fofa => 'fofa',
                     AiExposureSource.shodan => 'shodan',
+                    AiExposureSource.nodeseek => 'nodeseek',
+                    AiExposureSource.linuxDo => 'linuxDo',
+                    AiExposureSource.v2ex => 'v2ex',
                     AiExposureSource.manual => 'manual',
                   };
                   final isConfigured =
@@ -2187,7 +2190,12 @@ class _SecurityPanel extends StatelessWidget {
                 name: '资产发现适配器',
                 ready: controller.sourceStatus.values.any((item) => item),
                 detail:
-                    'Manual / GitHub / Gitee / GitCode / FOFA / Shodan，已配置 ${controller.sourceStatus.values.where((item) => item).length}/5',
+                    '代码托管 / 测绘平台 / NodeSeek / LINUX DO / V2EX，已就绪 ${controller.sourceStatus.values.where((item) => item).length}/${controller.discoverySourceCount}',
+              ),
+              _DependencyLine(
+                name: 'Playwright 浏览器通道',
+                ready: dependencies?.playwright.connected == true,
+                detail: dependencies?.playwright.message ?? '未接入浏览器降级通道',
               ),
               _DependencyLine(
                 name: '指纹与规则引擎',
@@ -2844,6 +2852,9 @@ Color _sourceColor(AiExposureSource source, ColorScheme colors) =>
       AiExposureSource.gitcode => const Color(0xff2563eb),
       AiExposureSource.fofa => const Color(0xff0891b2),
       AiExposureSource.shodan => OpenHandStatusColors.warning,
+      AiExposureSource.nodeseek => const Color(0xff7c3aed),
+      AiExposureSource.linuxDo => const Color(0xff16a34a),
+      AiExposureSource.v2ex => const Color(0xff64748b),
     };
 
 class _StatusPill extends StatelessWidget {
@@ -3409,6 +3420,9 @@ String _sourceName(AiExposureSource source) => switch (source) {
   AiExposureSource.gitcode => 'GitCode',
   AiExposureSource.fofa => 'FOFA',
   AiExposureSource.shodan => 'Shodan',
+  AiExposureSource.nodeseek => 'NodeSeek',
+  AiExposureSource.linuxDo => 'LINUX DO',
+  AiExposureSource.v2ex => 'V2EX',
 };
 
 IconData _sourceIcon(AiExposureSource source) => switch (source) {
@@ -3419,6 +3433,9 @@ IconData _sourceIcon(AiExposureSource source) => switch (source) {
   AiExposureSource.gitcode => Icons.account_tree_outlined,
   AiExposureSource.fofa => Icons.public_rounded,
   AiExposureSource.shodan => Icons.radar_rounded,
+  AiExposureSource.nodeseek => Icons.forum_outlined,
+  AiExposureSource.linuxDo => Icons.terminal_rounded,
+  AiExposureSource.v2ex => Icons.explore_outlined,
 };
 
 String _stageName(String stage) => switch (stage) {

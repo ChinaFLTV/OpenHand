@@ -27,6 +27,17 @@ pub enum SourceKind {
     Gitcode,
     Fofa,
     Shodan,
+    Nodeseek,
+    LinuxDo,
+    V2ex,
+}
+
+#[derive(Clone, Copy, Debug, Default, Deserialize, Eq, PartialEq, Serialize)]
+#[serde(rename_all = "snake_case")]
+pub enum ForumFetchMode {
+    #[default]
+    JinaFallback,
+    Playwright,
 }
 
 #[derive(Clone, Copy, Debug, Deserialize, Eq, Hash, PartialEq, Serialize)]
@@ -60,6 +71,8 @@ pub struct ScanRequest {
     pub vendors: Vec<String>,
     #[serde(default)]
     pub source_queries: BTreeMap<String, String>,
+    #[serde(default)]
+    pub forum_fetch_mode: ForumFetchMode,
     #[serde(default)]
     pub validation_mode: ValidationMode,
     #[serde(default = "default_concurrency")]

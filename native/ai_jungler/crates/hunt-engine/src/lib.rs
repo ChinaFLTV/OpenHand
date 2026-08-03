@@ -5,12 +5,13 @@ use hunt_core::{
     AuthorizedScope, CANDIDATE_ARTIFACT_TEXT_KEY, CompiledRuleSet, CredentialFinding,
     CredentialState, FingerprintEvidence, MAX_SCAN_CONCURRENCY, MAX_SCAN_TARGETS, NormalizedTarget,
     ResultCategory, ScanJobSummary, ScanLogEntry, ScanMode, ScanProgress, ScanRequest, ScanResult,
-    ScanRule, ScanStage, SourceQuota, ValidationMode, honeypot_evidence, identify_product,
-    normalize_target_url,
+    ScanRule, ScanStage, SourceKind, SourceQuota, ValidationMode, honeypot_evidence,
+    identify_product, normalize_target_url,
 };
 use hunt_sources::{
-    HttpRequestObservation, HttpRequestObserver, HttpRequestOutcome, ObservedHttpClient,
-    ObservedRequestBuilder, SourceCredentials, SourceRegistry,
+    BrowserAutomationConfiguration, ExternalHttpRequestRoute, HttpRequestObservation,
+    HttpRequestObserver, HttpRequestOutcome, ObservedHttpClient, ObservedRequestBuilder,
+    SourceCredentials, SourceRegistry,
 };
 use hunt_store::HuntStore;
 use redis::aio::{ConnectionManager, ConnectionManagerConfig};
@@ -136,6 +137,9 @@ pub struct SourceConfigurationStatus {
     pub gitcode: bool,
     pub fofa: bool,
     pub shodan: bool,
+    pub nodeseek: bool,
+    pub linux_do: bool,
+    pub v2ex: bool,
 }
 
 #[derive(Clone, Copy, Debug, Default, Deserialize, Serialize)]
@@ -359,6 +363,17 @@ pub struct AiExtractorStatus {
 pub struct DependencyConfigurationInput {
     pub postgresql_url: Option<String>,
     pub redis_url: Option<String>,
+    pub playwright: Option<PlaywrightConfigurationInput>,
+}
+
+#[derive(Clone, Debug, Default, Deserialize)]
+#[serde(rename_all = "camelCase")]
+pub struct PlaywrightConfigurationInput {
+    pub enabled: bool,
+    pub node_executable: String,
+    pub package_directory: String,
+    pub browsers_path: Option<String>,
+    pub version: String,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -374,6 +389,7 @@ pub struct DependencyComponentStatus {
 pub struct DependencyStatus {
     pub postgresql: DependencyComponentStatus,
     pub redis: DependencyComponentStatus,
+    pub playwright: DependencyComponentStatus,
 }
 
 #[derive(Debug, Error)]
@@ -544,6 +560,40 @@ impl HttpRequestObserver for DynamicProxySelector {
                 },
             );
         Ok(Some(HttpRequestObservation { ticket, client }))
+    }
+
+    fn begin_external(&self, target: &reqwest::Url) -> reqwest::Result<ExternalHttpRequestRoute> {
+        let runtime = self
+            .runtime
+            .read()
+            .unwrap_or_else(|error| error.into_inner())
+            .clone();
+        let Some(endpoint_index) = runtime.endpoint_index(target) else {
+            return Ok(ExternalHttpRequestRoute {
+                ticket: None,
+                proxy: None,
+            });
+        };
+        runtime.statistics[endpoint_index].mark_selected();
+        let ticket = self
+            .observations
+            .next_ticket
+            .fetch_add(1, Ordering::Relaxed);
+        self.observations
+            .pending
+            .lock()
+            .unwrap_or_else(|error| error.into_inner())
+            .insert(
+                ticket,
+                ProxyObservation {
+                    runtime: runtime.clone(),
+                    endpoint_index,
+                },
+            );
+        Ok(ExternalHttpRequestRoute {
+            ticket: Some(ticket),
+            proxy: Some(runtime.endpoints[endpoint_index].clone()),
+        })
     }
 
     fn complete(&self, ticket: Option<u64>, elapsed: Duration, outcome: HttpRequestOutcome) {
@@ -1237,6 +1287,9 @@ impl HuntEngine {
             gitcode: credentials.gitcode_token.is_some(),
             fofa: credentials.fofa_email.is_some() && credentials.fofa_key.is_some(),
             shodan: credentials.shodan_key.is_some(),
+            nodeseek: true,
+            linux_do: true,
+            v2ex: true,
         }
     }
 
@@ -1342,12 +1395,31 @@ impl HuntEngine {
                 *self.redis.write().await = Some(coordinator);
             }
         }
+        if let Some(playwright) = input.playwright {
+            let configuration = if playwright.enabled {
+                Some(BrowserAutomationConfiguration {
+                    node_executable: playwright.node_executable.into(),
+                    package_directory: playwright.package_directory.into(),
+                    browsers_path: playwright
+                        .browsers_path
+                        .filter(|value| !value.trim().is_empty())
+                        .map(Into::into),
+                    version: playwright.version,
+                })
+            } else {
+                None
+            };
+            self.sources
+                .configure_browser(configuration)
+                .map_err(EngineError::InvalidDependency)?;
+        }
         Ok(())
     }
 
     pub async fn clear_dependencies(&self) {
         self.store.clear_postgres().await;
         *self.redis.write().await = None;
+        let _ = self.sources.configure_browser(None);
     }
 
     pub async fn dependency_status(&self) -> DependencyStatus {
@@ -1372,6 +1444,7 @@ impl HuntEngine {
                 },
             },
         };
+        let browser = self.sources.browser_status();
         DependencyStatus {
             postgresql: DependencyComponentStatus {
                 configured: postgres.configured,
@@ -1379,6 +1452,11 @@ impl HuntEngine {
                 message: postgres.message,
             },
             redis,
+            playwright: DependencyComponentStatus {
+                configured: browser.configured,
+                connected: browser.available,
+                message: browser.message,
+            },
         }
     }
 
@@ -1430,21 +1508,40 @@ impl HuntEngine {
             let Some((source, result)) = next else {
                 break;
             };
+            let source_name = match source {
+                SourceKind::Manual => "手工目标",
+                SourceKind::Github => "GitHub",
+                SourceKind::GithubArtifact => "GitHub Artifact",
+                SourceKind::Gitee => "Gitee",
+                SourceKind::Gitcode => "GitCode",
+                SourceKind::Fofa => "FOFA",
+                SourceKind::Shodan => "Shodan",
+                SourceKind::Nodeseek => "NodeSeek",
+                SourceKind::LinuxDo => "LINUX DO",
+                SourceKind::V2ex => "V2EX",
+            };
             match result {
-                Ok(mut discovered) => {
+                Ok(mut discovery) => {
+                    for warning in discovery.warnings.drain(..) {
+                        self.emit_log(&runtime, EventLevel::Warning, &warning)
+                            .await?;
+                    }
                     self.emit_log(
                         &runtime,
                         EventLevel::Info,
-                        &format!("数据源 {source:?} 返回 {} 个候选目标。", discovered.len()),
+                        &format!(
+                            "数据源 {source_name} 返回 {} 个候选目标。",
+                            discovery.candidates.len()
+                        ),
                     )
                     .await?;
-                    candidates.append(&mut discovered);
+                    candidates.append(&mut discovery.candidates);
                 }
                 Err(error) => {
                     self.emit_log(
                         &runtime,
                         EventLevel::Warning,
-                        &format!("数据源 {source:?} 查询跳过：{error}"),
+                        &format!("数据源 {source_name} 查询跳过：{error}"),
                     )
                     .await?;
                 }
@@ -2375,6 +2472,41 @@ mod tests {
                 })
                 .is_err()
         );
+    }
+
+    #[test]
+    fn records_external_browser_proxy_statistics() {
+        let selector = DynamicProxySelector::new();
+        selector
+            .update(ProxyConfigurationInput {
+                enabled: true,
+                strategy: ProxyRotationStrategy::Fixed,
+                rotation_every: 1,
+                bypass_local: true,
+                endpoints: vec![ProxyEndpointInput::Url(
+                    "http://user:secret@127.0.0.1:8080".to_owned(),
+                )],
+            })
+            .unwrap();
+        let target = reqwest::Url::parse("https://www.v2ex.com/t/1231619").unwrap();
+        let route = selector.begin_external(&target).unwrap();
+        assert_eq!(
+            route.proxy.as_ref().map(reqwest::Url::as_str),
+            Some("http://user:secret@127.0.0.1:8080/")
+        );
+        let status = selector.status();
+        assert_eq!(status.total_selections, 1);
+        assert_eq!(status.in_flight, 1);
+
+        selector.complete(
+            route.ticket,
+            Duration::from_millis(12),
+            HttpRequestOutcome::Success(200),
+        );
+        let status = selector.status();
+        assert_eq!(status.total_successes, 1);
+        assert_eq!(status.in_flight, 0);
+        assert_eq!(status.endpoints[0].statistics.status_2xx, 1);
     }
 
     #[test]

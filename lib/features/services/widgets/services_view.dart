@@ -69,9 +69,11 @@ class _AiExposureServiceCard extends StatelessWidget {
             int resultCount,
             int enabledRuleCount,
             int configuredSourceCount,
+            int sourceStatusCount,
             int enabledSourceCount,
             int defaultConcurrency,
             AiExposureValidationMode defaultValidationMode,
+            AiExposureForumFetchMode forumFetchMode,
             bool defaultGptAssisted,
             bool proxyEnabled,
             int activeProxyCount,
@@ -93,9 +95,11 @@ class _AiExposureServiceCard extends StatelessWidget {
             configuredSourceCount: controller.sourceStatus.values
                 .where((configured) => configured)
                 .length,
+            sourceStatusCount: controller.discoverySourceCount,
             enabledSourceCount: controller.enabledSources.length,
             defaultConcurrency: controller.defaultConcurrency,
             defaultValidationMode: controller.defaultValidationMode,
+            forumFetchMode: controller.forumFetchMode,
             defaultGptAssisted: controller.defaultGptAssisted,
             proxyEnabled: controller.proxyConfiguration.enabled,
             activeProxyCount: controller.proxyConfiguration.endpoints
@@ -133,6 +137,9 @@ class _AiExposureServiceCard extends StatelessWidget {
               en: 'Proxies ${snapshot.activeProxyCount}',
             )
           : text(zh: '网络直连', en: 'Direct connection'),
+      snapshot.forumFetchMode == AiExposureForumFetchMode.jinaFallback
+          ? text(zh: '论坛智能降级', en: 'Forum fallback')
+          : text(zh: '论坛浏览器直读', en: 'Forum browser'),
       if (snapshot.defaultGptAssisted) text(zh: 'GPT 辅助', en: 'GPT assisted'),
       if (snapshot.postgresqlEnabled) 'PostgreSQL',
       if (snapshot.redisEnabled) 'Redis',
@@ -215,8 +222,8 @@ class _AiExposureServiceCard extends StatelessWidget {
                       icon: Icons.travel_explore_rounded,
                       label: openHandLocalizedText(
                         context,
-                        zh: '数据源 ${snapshot.configuredSourceCount}/5',
-                        en: 'Sources ${snapshot.configuredSourceCount}/5',
+                        zh: '数据源 ${snapshot.configuredSourceCount}/${snapshot.sourceStatusCount}',
+                        en: 'Sources ${snapshot.configuredSourceCount}/${snapshot.sourceStatusCount}',
                       ),
                       color: cs.primary,
                     ),

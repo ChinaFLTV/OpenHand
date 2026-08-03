@@ -936,6 +936,7 @@ mod tests {
             targets: vec!["https://api.example.com".to_owned()],
             vendors: Vec::new(),
             source_queries: Default::default(),
+            forum_fetch_mode: Default::default(),
             validation_mode: ValidationMode::Passive,
             concurrency: 1,
             gpt_assisted: false,

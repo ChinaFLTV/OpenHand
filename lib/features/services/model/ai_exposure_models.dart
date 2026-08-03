@@ -11,7 +11,10 @@ enum AiExposureSource {
   gitee('gitee'),
   gitcode('gitcode'),
   fofa('fofa'),
-  shodan('shodan');
+  shodan('shodan'),
+  nodeseek('nodeseek'),
+  linuxDo('linux_do'),
+  v2ex('v2ex');
 
   const AiExposureSource(this.id);
   final String id;
@@ -23,6 +26,17 @@ enum AiExposureSource {
 enum AiExposureScanMode { incremental, full }
 
 enum AiExposureValidationMode { passive, authorizedActive }
+
+enum AiExposureForumFetchMode {
+  jinaFallback('jina_fallback'),
+  playwright('playwright');
+
+  const AiExposureForumFetchMode(this.id);
+  final String id;
+
+  static AiExposureForumFetchMode fromId(String? value) =>
+      values.firstWhere((item) => item.id == value, orElse: () => jinaFallback);
+}
 
 enum AiExposureResultCategory { valid, suspicious, highValue, honeypot }
 
@@ -1025,6 +1039,7 @@ class AiExposureScanRequest {
     required this.targets,
     required this.vendors,
     required this.validationMode,
+    required this.forumFetchMode,
     required this.concurrency,
     required this.gptAssisted,
     this.sourceQueries = const <String, String>{},
@@ -1038,6 +1053,7 @@ class AiExposureScanRequest {
   final List<String> targets;
   final List<String> vendors;
   final AiExposureValidationMode validationMode;
+  final AiExposureForumFetchMode forumFetchMode;
   final int concurrency;
   final bool gptAssisted;
   final Map<String, String> sourceQueries;
@@ -1054,6 +1070,7 @@ class AiExposureScanRequest {
         validationMode == AiExposureValidationMode.authorizedActive
         ? 'authorized_active'
         : 'passive',
+    'forumFetchMode': forumFetchMode.id,
     'concurrency': concurrency,
     'gptAssisted': gptAssisted,
     'sourceQueries': sourceQueries,
@@ -1119,6 +1136,7 @@ class AiExposureDependencyStatus {
   const AiExposureDependencyStatus({
     required this.postgresql,
     required this.redis,
+    required this.playwright,
   });
 
   factory AiExposureDependencyStatus.fromJson(Map<String, Object?> json) =>
@@ -1129,10 +1147,14 @@ class AiExposureDependencyStatus {
         redis: AiExposureDependencyComponentStatus.fromJson(
           _jsonMap(json['redis']),
         ),
+        playwright: AiExposureDependencyComponentStatus.fromJson(
+          _jsonMap(json['playwright']),
+        ),
       );
 
   final AiExposureDependencyComponentStatus postgresql;
   final AiExposureDependencyComponentStatus redis;
+  final AiExposureDependencyComponentStatus playwright;
 }
 
 class AiExposurePreferences {
@@ -1140,6 +1162,7 @@ class AiExposurePreferences {
     required this.enabledSources,
     required this.defaultConcurrency,
     required this.defaultValidationMode,
+    required this.forumFetchMode,
     required this.defaultGptAssisted,
     required this.useBundledEngine,
     required this.externalAddress,
@@ -1155,6 +1178,7 @@ class AiExposurePreferences {
     },
     defaultConcurrency: 24,
     defaultValidationMode: AiExposureValidationMode.passive,
+    forumFetchMode: AiExposureForumFetchMode.jinaFallback,
     defaultGptAssisted: false,
     useBundledEngine: true,
     externalAddress: 'http://127.0.0.1:37821',
@@ -1181,6 +1205,9 @@ class AiExposurePreferences {
           json['defaultValidationMode'] == 'authorized_active'
           ? AiExposureValidationMode.authorizedActive
           : AiExposureValidationMode.passive,
+      forumFetchMode: AiExposureForumFetchMode.fromId(
+        json['forumFetchMode'] as String?,
+      ),
       defaultGptAssisted: json['defaultGptAssisted'] as bool? ?? false,
       useBundledEngine: json['useBundledEngine'] as bool? ?? true,
       externalAddress:
@@ -1196,6 +1223,7 @@ class AiExposurePreferences {
   final Set<AiExposureSource> enabledSources;
   final int defaultConcurrency;
   final AiExposureValidationMode defaultValidationMode;
+  final AiExposureForumFetchMode forumFetchMode;
   final bool defaultGptAssisted;
   final bool useBundledEngine;
   final String externalAddress;
@@ -1215,6 +1243,7 @@ class AiExposurePreferences {
         defaultValidationMode == AiExposureValidationMode.authorizedActive
         ? 'authorized_active'
         : 'passive',
+    'forumFetchMode': forumFetchMode.id,
     'defaultGptAssisted': defaultGptAssisted,
     'useBundledEngine': useBundledEngine,
     'externalAddress': externalAddress,

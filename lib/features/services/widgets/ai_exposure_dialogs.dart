@@ -36,6 +36,11 @@ const List<AiExposureSource> _kCredentialSources = <AiExposureSource>[
   AiExposureSource.fofa,
   AiExposureSource.shodan,
 ];
+const Set<AiExposureSource> _kForumSources = <AiExposureSource>{
+  AiExposureSource.nodeseek,
+  AiExposureSource.linuxDo,
+  AiExposureSource.v2ex,
+};
 const List<String> _kVendors = <String>[
   'OpenAI Compatible',
   'Anthropic',
@@ -363,8 +368,9 @@ class _StatusDialogState extends State<_StatusDialog> {
                   ),
                   _MetricData(
                     icon: Icons.travel_explore_rounded,
-                    label: text(zh: '凭证数据源', en: 'Credential sources'),
-                    value: '$configuredSources/5',
+                    label: text(zh: '就绪数据源', en: 'Ready sources'),
+                    value:
+                        '$configuredSources/${controller.discoverySourceCount}',
                     detail: text(
                       zh: '启用 ${controller.enabledSources.length} 类来源',
                       en: '${controller.enabledSources.length} source types enabled',
@@ -592,6 +598,18 @@ class _StatusDialogState extends State<_StatusDialog> {
                         ),
                         const SizedBox(height: 10),
                         _DependencyRow(
+                          name: 'Playwright',
+                          detail:
+                              dependencies?.playwright.message ??
+                              text(
+                                zh: '浏览器降级通道未接入',
+                                en: 'Browser fallback is not connected',
+                              ),
+                          ready: dependencies?.playwright.connected == true,
+                          required: false,
+                        ),
+                        const SizedBox(height: 10),
+                        _DependencyRow(
                           name: text(zh: 'GPT 辅助提取', en: 'GPT extraction'),
                           detail:
                               controller.aiExtractorStatus?.model ??
@@ -676,7 +694,7 @@ class _StatusDialogState extends State<_StatusDialog> {
                         ? _EmptyLine(
                             text: running
                                 ? text(
-                                    zh: '正在等待 GitHub、Gitee、GitCode、FOFA 与 Shodan 配额响应。',
+                                    zh: '正在等待代码托管、测绘平台与论坛数据源健康响应。',
                                     en: 'Waiting for source quota responses.',
                                   )
                                 : text(
@@ -728,6 +746,20 @@ class _StatusDialogState extends State<_StatusDialog> {
                               : text(zh: '直接连接', en: 'Direct'),
                         ),
                         _StatusKeyValue(
+                          label: text(zh: '论坛读取', en: 'Forum reader'),
+                          value:
+                              controller.forumFetchMode ==
+                                  AiExposureForumFetchMode.jinaFallback
+                              ? text(
+                                  zh: 'Jina 优先 · Playwright 降级',
+                                  en: 'Jina first · Playwright fallback',
+                                )
+                              : text(
+                                  zh: 'Playwright 直读',
+                                  en: 'Playwright direct',
+                                ),
+                        ),
+                        _StatusKeyValue(
                           label: text(
                             zh: 'PostgreSQL 镜像',
                             en: 'PostgreSQL mirror',
@@ -774,10 +806,14 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
   final TextEditingController _githubQuery = TextEditingController();
   final TextEditingController _giteeQuery = TextEditingController();
   final TextEditingController _gitcodeQuery = TextEditingController();
+  final TextEditingController _nodeseekQuery = TextEditingController();
+  final TextEditingController _linuxDoQuery = TextEditingController();
+  final TextEditingController _v2exQuery = TextEditingController();
   late Set<AiExposureSource> _sources;
   final Set<String> _vendors = Set<String>.of(_kVendors);
   AiExposureScanMode _mode = AiExposureScanMode.incremental;
   late AiExposureValidationMode _validationMode;
+  late AiExposureForumFetchMode _forumFetchMode;
   late bool _gptAssisted;
   late double _concurrency;
   bool _confirmed = false;
@@ -791,6 +827,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
         ? <AiExposureSource>{AiExposureSource.manual}
         : Set<AiExposureSource>.of(controller.enabledSources);
     _validationMode = controller.defaultValidationMode;
+    _forumFetchMode = controller.forumFetchMode;
     _gptAssisted = controller.defaultGptAssisted;
     _concurrency = controller.defaultConcurrency.toDouble();
   }
@@ -805,6 +842,9 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
     _githubQuery.dispose();
     _giteeQuery.dispose();
     _gitcodeQuery.dispose();
+    _nodeseekQuery.dispose();
+    _linuxDoQuery.dispose();
+    _v2exQuery.dispose();
     super.dispose();
   }
 
@@ -884,6 +924,74 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                 })
                 .toList(growable: false),
           ),
+          OpenHandVerticalRevealSwitcher(
+            presentKey: const ValueKey<String>('forum-fetch-mode'),
+            slideBeginOffsetY: -.03,
+            child: !_sources.any(_kForumSources.contains)
+                ? null
+                : Padding(
+                    padding: const EdgeInsets.only(top: _kSectionGap),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        _SectionTitle(
+                          icon: Icons.alt_route_rounded,
+                          title: text(zh: '论坛读取通道', en: 'Forum reader route'),
+                        ),
+                        const SizedBox(height: _kItemGap),
+                        SegmentedButton<AiExposureForumFetchMode>(
+                          segments: [
+                            ButtonSegment(
+                              value: AiExposureForumFetchMode.jinaFallback,
+                              icon: const Icon(Icons.auto_awesome_rounded),
+                              label: Text(
+                                text(zh: 'Jina 优先降级', en: 'Jina with fallback'),
+                              ),
+                            ),
+                            ButtonSegment(
+                              value: AiExposureForumFetchMode.playwright,
+                              icon: const Icon(Icons.language_rounded),
+                              label: Text(
+                                text(
+                                  zh: 'Playwright 直读',
+                                  en: 'Playwright direct',
+                                ),
+                              ),
+                            ),
+                          ],
+                          selected: <AiExposureForumFetchMode>{_forumFetchMode},
+                          onSelectionChanged: (selection) =>
+                              setState(() => _forumFetchMode = selection.first),
+                        ),
+                        const SizedBox(height: 8),
+                        _InlineNotice(
+                          icon:
+                              controller
+                                      .dependencyStatus
+                                      ?.playwright
+                                      .connected ==
+                                  true
+                              ? Icons.check_circle_outline_rounded
+                              : Icons.info_outline_rounded,
+                          text:
+                              controller
+                                      .dependencyStatus
+                                      ?.playwright
+                                      .connected ==
+                                  true
+                              ? text(
+                                  zh: 'Jina 请求与浏览器读取都会复用当前网络代理和代理池。Jina 失败时将记录原因并自动切换浏览器。',
+                                  en: 'Jina and browser requests reuse the configured proxy pool. Jina failures are logged before browser fallback.',
+                                )
+                              : text(
+                                  zh: '当前未接入 Playwright，Jina 失败时会明确记录失败原因；可在服务设置中安装浏览器依赖。',
+                                  en: 'Playwright is unavailable; Jina failures will be reported clearly. Install the browser dependency in service settings.',
+                                ),
+                        ),
+                      ],
+                    ),
+                  ),
+          ),
           const SizedBox(height: _kSectionGap),
           _SectionTitle(
             icon: Icons.sync_alt_rounded,
@@ -950,6 +1058,9 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
               github: _githubQuery,
               gitee: _giteeQuery,
               gitcode: _gitcodeQuery,
+              nodeseek: _nodeseekQuery,
+              linuxDo: _linuxDoQuery,
+              v2ex: _v2exQuery,
             ),
           ],
           const SizedBox(height: _kSectionGap),
@@ -1103,6 +1214,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
       enabledSources: _sources,
       concurrency: _concurrency.round(),
       validationMode: _validationMode,
+      forumFetchMode: _forumFetchMode,
       gptAssisted: _gptAssisted,
     );
     if (!preferencesUpdated) {
@@ -1126,6 +1238,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
         targets: targets,
         vendors: _vendors.toList(growable: false),
         validationMode: _validationMode,
+        forumFetchMode: _forumFetchMode,
         concurrency: _concurrency.round(),
         gptAssisted: _gptAssisted,
         sourceQueries: <String, String>{
@@ -1138,6 +1251,11 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             'gitee': _giteeQuery.text.trim(),
           if (_gitcodeQuery.text.trim().isNotEmpty)
             'gitcode': _gitcodeQuery.text.trim(),
+          if (_nodeseekQuery.text.trim().isNotEmpty)
+            'nodeseek': _nodeseekQuery.text.trim(),
+          if (_linuxDoQuery.text.trim().isNotEmpty)
+            'linux_do': _linuxDoQuery.text.trim(),
+          if (_v2exQuery.text.trim().isNotEmpty) 'v2ex': _v2exQuery.text.trim(),
         },
       ),
     );
@@ -1560,6 +1678,7 @@ class _ToolsDialogState extends State<_ToolsDialog> {
       enabledSources: _enabledSources,
       concurrency: controller.defaultConcurrency,
       validationMode: controller.defaultValidationMode,
+      forumFetchMode: controller.forumFetchMode,
       gptAssisted: controller.defaultGptAssisted,
     );
     if (!preferencesUpdated) {
@@ -1703,6 +1822,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   late bool _redisEnabled;
   late double _concurrency;
   late bool _activeValidation;
+  late AiExposureForumFetchMode _forumFetchMode;
   late bool _gptAssisted;
   bool _applying = false;
   String? _dependencyOperationId;
@@ -1719,6 +1839,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     _activeValidation =
         controller.defaultValidationMode ==
         AiExposureValidationMode.authorizedActive;
+    _forumFetchMode = controller.forumFetchMode;
     _gptAssisted = controller.defaultGptAssisted;
   }
 
@@ -1817,6 +1938,44 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             ),
             if (source != _kCredentialSources.last) const SizedBox(height: 8),
           ],
+          const SizedBox(height: _kSectionGap),
+          _SectionTitle(
+            icon: Icons.language_rounded,
+            title: text(zh: '论坛读取通道', en: 'Forum reader route'),
+          ),
+          const SizedBox(height: _kItemGap),
+          SegmentedButton<AiExposureForumFetchMode>(
+            segments: [
+              ButtonSegment(
+                value: AiExposureForumFetchMode.jinaFallback,
+                icon: const Icon(Icons.auto_awesome_rounded),
+                label: Text(text(zh: 'Jina 优先降级', en: 'Jina with fallback')),
+              ),
+              ButtonSegment(
+                value: AiExposureForumFetchMode.playwright,
+                icon: const Icon(Icons.language_rounded),
+                label: Text(text(zh: 'Playwright 直读', en: 'Playwright direct')),
+              ),
+            ],
+            selected: <AiExposureForumFetchMode>{_forumFetchMode},
+            onSelectionChanged: (selection) =>
+                setState(() => _forumFetchMode = selection.first),
+          ),
+          const SizedBox(height: _kItemGap),
+          _PlaywrightDependencyTile(
+            plugin: pluginController.pluginById(PluginCatalogIds.playwright),
+            runtimeStatus: controller.dependencyStatus?.playwright,
+            operating: _dependencyOperationId == PluginCatalogIds.playwright,
+            onAction: _runPlaywrightAction,
+          ),
+          const SizedBox(height: 8),
+          _InlineNotice(
+            icon: Icons.lan_outlined,
+            text: text(
+              zh: 'Jina Reader 与 Playwright 均遵循网络代理和代理池配置，浏览器并发与页面等待均有硬上限。',
+              en: 'Jina Reader and Playwright both follow the proxy pool, with bounded browser concurrency and page timeouts.',
+            ),
+          ),
           const SizedBox(height: _kSectionGap),
           _SectionTitle(
             icon: Icons.extension_outlined,
@@ -1941,6 +2100,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
         validationMode: _activeValidation
             ? AiExposureValidationMode.authorizedActive
             : AiExposureValidationMode.passive,
+        forumFetchMode: _forumFetchMode,
         gptAssisted: _gptAssisted,
       );
       if (!scanPreferencesUpdated) {
@@ -2099,6 +2259,41 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     }
   }
 
+  Future<void> _runPlaywrightAction() async {
+    if (_applying || _dependencyOperationId != null) return;
+    final pluginController = context.read<PluginServiceController>();
+    final playwright = pluginController.pluginById(PluginCatalogIds.playwright);
+    if (playwright == null) return;
+    setState(() => _dependencyOperationId = PluginCatalogIds.playwright);
+    var success = true;
+    final node = pluginController.pluginById(PluginCatalogIds.nodejs);
+    if (node?.isInstalled != true) {
+      success = await pluginController.installPlugin(PluginCatalogIds.nodejs);
+    }
+    if (success) {
+      if (playwright.isInstalled) {
+        if (playwright.hasUpdate) {
+          success = await pluginController.updatePlugin(
+            PluginCatalogIds.playwright,
+          );
+        }
+      } else {
+        success = await pluginController.installPlugin(
+          PluginCatalogIds.playwright,
+        );
+      }
+    }
+    if (!mounted) return;
+    flashOpenHandSnack(
+      context,
+      success
+          ? 'Playwright 浏览器通道已就绪'
+          : pluginController.errorMessage ?? 'Playwright 浏览器通道准备失败',
+      kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
+    );
+    setState(() => _dependencyOperationId = null);
+  }
+
   Future<void> _runDependencyAction(
     String pluginId,
     _ManagedDependencyAction action,
@@ -2189,6 +2384,103 @@ extension on _ManagedDependencyAction {
     _ManagedDependencyAction.update => '升级',
     _ManagedDependencyAction.uninstall => '卸载',
   };
+}
+
+class _PlaywrightDependencyTile extends StatelessWidget {
+  const _PlaywrightDependencyTile({
+    required this.plugin,
+    required this.runtimeStatus,
+    required this.operating,
+    required this.onAction,
+  });
+
+  final PluginInfo? plugin;
+  final AiExposureDependencyComponentStatus? runtimeStatus;
+  final bool operating;
+  final VoidCallback onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final installed = plugin?.isInstalled == true;
+    final ready = runtimeStatus?.connected == true;
+    final canAct =
+        !operating && plugin != null && (!installed || plugin!.hasUpdate);
+    final tone = ready
+        ? OpenHandStatusColors.success
+        : installed
+        ? OpenHandStatusColors.warning
+        : colors.outline;
+    final detail = operating
+        ? '正在准备 Playwright 浏览器通道…'
+        : runtimeStatus?.message.trim().isNotEmpty == true
+        ? runtimeStatus!.message
+        : installed
+        ? 'Playwright 已安装，启动内嵌引擎后自动接入。'
+        : '未安装 Playwright 浏览器依赖。';
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: .65)),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 38,
+            height: 38,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: tone.withValues(alpha: .12),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(Icons.language_rounded, color: tone, size: 20),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  'Playwright',
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  detail,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(width: 10),
+          IconButton.filledTonal(
+            tooltip: installed ? '更新 Playwright' : '安装 Playwright',
+            onPressed: canAct ? onAction : null,
+            icon: operating
+                ? const SizedBox.square(
+                    dimension: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : Icon(
+                    installed
+                        ? Icons.system_update_alt_rounded
+                        : Icons.download_rounded,
+                    size: 19,
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _ManagedDependencyTile extends StatelessWidget {
@@ -2638,7 +2930,7 @@ class _ServiceTelemetryConsole extends StatelessWidget {
             ),
             _line(
               'sources',
-              '$configuredSources/5 configured · enabled=${controller.enabledSources.length}',
+              '$configuredSources/${controller.discoverySourceCount} configured · enabled=${controller.enabledSources.length}',
               configuredSources > 0,
             ),
             _line(
@@ -3282,12 +3574,18 @@ class _QueryFields extends StatelessWidget {
     required this.github,
     required this.gitee,
     required this.gitcode,
+    required this.nodeseek,
+    required this.linuxDo,
+    required this.v2ex,
   });
   final TextEditingController fofa;
   final TextEditingController shodan;
   final TextEditingController github;
   final TextEditingController gitee;
   final TextEditingController gitcode;
+  final TextEditingController nodeseek;
+  final TextEditingController linuxDo;
+  final TextEditingController v2ex;
 
   @override
   Widget build(BuildContext context) => Column(
@@ -3328,6 +3626,33 @@ class _QueryFields extends StatelessWidget {
         controller: gitcode,
         decoration: const InputDecoration(
           labelText: 'GitCode Code Search Query',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: nodeseek,
+        decoration: const InputDecoration(
+          labelText: 'NodeSeek 入口 URL',
+          hintText: 'https://www.nodeseek.com/',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: linuxDo,
+        decoration: const InputDecoration(
+          labelText: 'LINUX DO 入口 URL',
+          hintText: 'https://linux.do/c/welfare/36',
+          border: OutlineInputBorder(),
+        ),
+      ),
+      const SizedBox(height: 10),
+      TextField(
+        controller: v2ex,
+        decoration: const InputDecoration(
+          labelText: 'V2EX 入口 URL',
+          hintText: 'https://www.v2ex.com/go/openai',
           border: OutlineInputBorder(),
         ),
       ),
@@ -4249,6 +4574,9 @@ String _sourceLabel(BuildContext context, AiExposureSource source) =>
       AiExposureSource.gitcode => 'GitCode',
       AiExposureSource.fofa => 'FOFA',
       AiExposureSource.shodan => 'Shodan',
+      AiExposureSource.nodeseek => 'NodeSeek',
+      AiExposureSource.linuxDo => 'LINUX DO',
+      AiExposureSource.v2ex => 'V2EX',
     };
 
 IconData _sourceIcon(AiExposureSource source) => switch (source) {
@@ -4259,6 +4587,9 @@ IconData _sourceIcon(AiExposureSource source) => switch (source) {
   AiExposureSource.gitcode => Icons.account_tree_outlined,
   AiExposureSource.fofa => Icons.public_rounded,
   AiExposureSource.shodan => Icons.radar_rounded,
+  AiExposureSource.nodeseek => Icons.forum_outlined,
+  AiExposureSource.linuxDo => Icons.terminal_rounded,
+  AiExposureSource.v2ex => Icons.explore_outlined,
 };
 
 String _sourceStatusKey(AiExposureSource source) => switch (source) {
@@ -4267,6 +4598,9 @@ String _sourceStatusKey(AiExposureSource source) => switch (source) {
   AiExposureSource.gitcode => 'gitcode',
   AiExposureSource.fofa => 'fofa',
   AiExposureSource.shodan => 'shodan',
+  AiExposureSource.nodeseek => 'nodeseek',
+  AiExposureSource.linuxDo => 'linuxDo',
+  AiExposureSource.v2ex => 'v2ex',
   AiExposureSource.manual => 'manual',
 };
 

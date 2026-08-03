@@ -3,21 +3,24 @@ use base64::{Engine, engine::general_purpose::STANDARD};
 use chrono::Utc;
 use futures::{StreamExt, stream};
 use hunt_core::{
-    CANDIDATE_ARTIFACT_TEXT_KEY, CANDIDATE_ARTIFACT_URL_KEY, Candidate, ScanRequest, SourceKind,
-    SourceQuota,
+    CANDIDATE_ARTIFACT_TEXT_KEY, CANDIDATE_ARTIFACT_URL_KEY, Candidate, ForumFetchMode,
+    ScanRequest, SourceKind, SourceQuota,
 };
 use regex::Regex;
-use reqwest::{Client, IntoUrl, Response, StatusCode};
+use reqwest::{Client, IntoUrl, Response, StatusCode, Url};
 use secrecy::{ExposeSecret, SecretString};
 use serde::{Deserialize, Serialize, de::DeserializeOwned};
 use std::{
-    collections::BTreeMap,
+    collections::{BTreeMap, BTreeSet},
     fmt,
     net::IpAddr,
-    sync::{Arc, LazyLock},
+    path::{Path, PathBuf},
+    process::Stdio,
+    sync::{Arc, LazyLock, RwLock},
     time::{Duration, Instant},
 };
 use thiserror::Error;
+use tokio::{io::AsyncWriteExt, process::Command, sync::Semaphore, time::timeout};
 
 const MAX_SOURCE_RESULTS: usize = 1_000;
 const DEFAULT_PAGE_SIZE: usize = 100;
@@ -29,9 +32,75 @@ const MAX_GIT_REPOSITORIES: usize = 5;
 const MAX_GIT_FILES_PER_REPOSITORY: usize = 8;
 const GIT_REPOSITORY_CONCURRENCY: usize = 3;
 const GIT_CONTENT_CONCURRENCY: usize = 4;
+const MAX_FORUM_TOPICS: usize = 5;
+const FORUM_TOPIC_CONCURRENCY: usize = 3;
+const MAX_BROWSER_CONCURRENCY: usize = 2;
+const BROWSER_PROCESS_TIMEOUT: Duration = Duration::from_secs(25);
+const MAX_BROWSER_OUTPUT_BYTES: usize = 2 * 1024 * 1024;
 static URL_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
-    Regex::new(r#"https?://[^\s\"'<>\\]{4,2048}"#).expect("内置 URL 正则必须有效")
+    Regex::new(r#"https?://[^\s\"'<>\\，。；：！？、（）【】]{4,2048}"#)
+        .expect("内置 URL 正则必须有效")
 });
+static NODESEEK_TOPIC_PATTERN: LazyLock<Regex> = LazyLock::new(|| {
+    Regex::new(r"^/post-\d+-\d+(?:\.html)?/?$").expect("NodeSeek 主题正则必须有效")
+});
+static LINUX_DO_TOPIC_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^/t/topic/\d+(?:/\d+)?/?$").expect("LINUX DO 主题正则必须有效"));
+static V2EX_TOPIC_PATTERN: LazyLock<Regex> =
+    LazyLock::new(|| Regex::new(r"^/t/\d+/?$").expect("V2EX 主题正则必须有效"));
+
+const PLAYWRIGHT_READER_SCRIPT: &str = r#"
+const fs = require('fs');
+
+(async () => {
+  let browser;
+  try {
+    const input = JSON.parse(fs.readFileSync(0, 'utf8'));
+    const { chromium } = require(input.packageDirectory);
+    browser = await chromium.launch({ headless: true });
+    const context = await browser.newContext({
+      ignoreHTTPSErrors: false,
+      locale: 'zh-CN',
+      proxy: input.proxy || undefined,
+      serviceWorkers: 'block',
+      userAgent: 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 Chrome/136.0.0.0 Safari/537.36',
+    });
+    const page = await context.newPage();
+    await page.route('**/*', route => {
+      const type = route.request().resourceType();
+      return ['font', 'image', 'media'].includes(type) ? route.abort() : route.continue();
+    });
+    const response = await page.goto(input.url, {
+      timeout: 18000,
+      waitUntil: 'domcontentloaded',
+    });
+    await page.waitForTimeout(700);
+    const title = await page.title();
+    const data = await page.evaluate(() => ({
+      links: Array.from(document.querySelectorAll('a[href]'), link => link.href).slice(0, 600),
+      text: (document.body?.innerText || document.documentElement?.innerText || '').slice(0, 300000),
+    }));
+    const challenge = `${title}\n${data.text}`.toLowerCase();
+    if (challenge.includes('just a moment') || challenge.includes('enable javascript and cookies')) {
+      throw new Error('站点安全验证未通过');
+    }
+    process.stdout.write(JSON.stringify({
+      ok: true,
+      status: response ? response.status() : 200,
+      text: data.text,
+      links: data.links,
+    }));
+  } catch (error) {
+    process.stdout.write(JSON.stringify({
+      ok: false,
+      error: error instanceof Error ? error.message : String(error),
+    }));
+    process.exitCode = 1;
+  } finally {
+    if (browser) await browser.close().catch(() => {});
+  }
+})();
+"#;
 
 #[derive(Clone, Copy, Debug)]
 pub enum HttpRequestOutcome {
@@ -46,8 +115,19 @@ pub struct HttpRequestObservation {
     pub client: Client,
 }
 
+pub struct ExternalHttpRequestRoute {
+    pub ticket: Option<u64>,
+    pub proxy: Option<Url>,
+}
+
 pub trait HttpRequestObserver: Send + Sync {
     fn begin(&self, target: &reqwest::Url) -> reqwest::Result<Option<HttpRequestObservation>>;
+    fn begin_external(&self, _target: &reqwest::Url) -> reqwest::Result<ExternalHttpRequestRoute> {
+        Ok(ExternalHttpRequestRoute {
+            ticket: None,
+            proxy: None,
+        })
+    }
     fn complete(&self, ticket: Option<u64>, elapsed: Duration, outcome: HttpRequestOutcome);
 }
 
@@ -68,6 +148,47 @@ impl ObservedHttpClient {
 
     pub fn post(&self, url: impl IntoUrl) -> ObservedRequestBuilder {
         ObservedRequestBuilder::new(self.clone(), self.client.post(url))
+    }
+
+    pub fn begin_external(&self, target: &Url) -> reqwest::Result<ObservedExternalRequest> {
+        let route = self.observer.begin_external(target)?;
+        Ok(ObservedExternalRequest {
+            observer: self.observer.clone(),
+            ticket: route.ticket,
+            proxy: route.proxy,
+            started: Instant::now(),
+        })
+    }
+}
+
+pub struct ObservedExternalRequest {
+    observer: Arc<dyn HttpRequestObserver>,
+    ticket: Option<u64>,
+    proxy: Option<Url>,
+    started: Instant,
+}
+
+impl ObservedExternalRequest {
+    pub fn proxy(&self) -> Option<&Url> {
+        self.proxy.as_ref()
+    }
+
+    pub fn complete(mut self, outcome: HttpRequestOutcome) {
+        let ticket = self.ticket.take();
+        self.observer
+            .complete(ticket, self.started.elapsed(), outcome);
+    }
+}
+
+impl Drop for ObservedExternalRequest {
+    fn drop(&mut self) {
+        if let Some(ticket) = self.ticket.take() {
+            self.observer.complete(
+                Some(ticket),
+                self.started.elapsed(),
+                HttpRequestOutcome::TransportFailure,
+            );
+        }
     }
 }
 
@@ -177,6 +298,36 @@ pub struct SourceCredentials {
     pub shodan_key: Option<SecretString>,
 }
 
+#[derive(Clone, Debug)]
+pub struct BrowserAutomationConfiguration {
+    pub node_executable: PathBuf,
+    pub package_directory: PathBuf,
+    pub browsers_path: Option<PathBuf>,
+    pub version: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct BrowserAutomationStatus {
+    pub configured: bool,
+    pub available: bool,
+    pub message: String,
+}
+
+#[derive(Clone, Debug)]
+pub struct SourceDiscovery {
+    pub candidates: Vec<Candidate>,
+    pub warnings: Vec<String>,
+}
+
+impl SourceDiscovery {
+    fn new(candidates: Vec<Candidate>) -> Self {
+        Self {
+            candidates,
+            warnings: Vec::new(),
+        }
+    }
+}
+
 #[derive(Debug, Error)]
 pub enum SourceError {
     #[error("{0} 未配置 API 凭证。")]
@@ -192,6 +343,18 @@ pub enum SourceError {
     },
     #[error("{0} 返回的数据格式无效。")]
     InvalidResponse(&'static str),
+    #[error("论坛入口无效：{0}")]
+    InvalidForumEntry(String),
+    #[error("{platform} 页面读取失败：Jina Reader {reader}；Playwright {browser}")]
+    ForumFetch {
+        platform: &'static str,
+        reader: String,
+        browser: String,
+    },
+    #[error("Playwright 浏览器通道未就绪。")]
+    BrowserUnavailable,
+    #[error("Playwright 浏览器读取失败：{0}")]
+    Browser(String),
     #[error(transparent)]
     Other(#[from] anyhow::Error),
 }
@@ -203,16 +366,593 @@ pub trait AssetSource: Send + Sync {
         &self,
         request: &ScanRequest,
         credentials: &SourceCredentials,
-    ) -> Result<Vec<Candidate>, SourceError>;
+    ) -> Result<SourceDiscovery, SourceError>;
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError>;
+}
+
+#[derive(Clone)]
+struct BrowserAutomation {
+    client: ObservedHttpClient,
+    configuration: Arc<RwLock<Option<BrowserAutomationConfiguration>>>,
+    slots: Arc<Semaphore>,
+}
+
+#[derive(Serialize)]
+#[serde(rename_all = "camelCase")]
+struct BrowserReaderInput {
+    url: String,
+    package_directory: String,
+    proxy: Option<BrowserProxyInput>,
+}
+
+#[derive(Serialize)]
+struct BrowserProxyInput {
+    server: String,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    username: Option<String>,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    password: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct BrowserReaderOutput {
+    ok: bool,
+    status: Option<u16>,
+    #[serde(default)]
+    text: String,
+    #[serde(default)]
+    links: Vec<String>,
+    error: Option<String>,
+}
+
+impl BrowserAutomation {
+    fn new(client: ObservedHttpClient) -> Self {
+        Self {
+            client,
+            configuration: Arc::new(RwLock::new(None)),
+            slots: Arc::new(Semaphore::new(MAX_BROWSER_CONCURRENCY)),
+        }
+    }
+
+    fn configure(
+        &self,
+        configuration: Option<BrowserAutomationConfiguration>,
+    ) -> Result<(), String> {
+        if let Some(value) = &configuration {
+            validate_browser_path(&value.node_executable, true, "Node.js 可执行文件")?;
+            validate_browser_path(&value.package_directory, false, "Playwright 安装目录")?;
+            if !value.package_directory.join("package.json").is_file() {
+                return Err("Playwright 安装目录缺少 package.json".to_owned());
+            }
+            if let Some(path) = &value.browsers_path {
+                validate_browser_path(path, false, "Playwright 浏览器目录")?;
+            }
+        }
+        *self
+            .configuration
+            .write()
+            .map_err(|_| "Playwright 配置状态不可用".to_owned())? = configuration;
+        Ok(())
+    }
+
+    fn status(&self) -> BrowserAutomationStatus {
+        let configuration = self
+            .configuration
+            .read()
+            .ok()
+            .and_then(|value| value.clone());
+        match configuration {
+            Some(value) => BrowserAutomationStatus {
+                configured: true,
+                available: true,
+                message: if value.version.trim().is_empty() {
+                    "Playwright 浏览器通道已就绪。".to_owned()
+                } else {
+                    format!("Playwright {} 浏览器通道已就绪。", value.version.trim())
+                },
+            },
+            None => BrowserAutomationStatus {
+                configured: false,
+                available: false,
+                message: "未检测到可用的 Playwright 插件。".to_owned(),
+            },
+        }
+    }
+
+    async fn fetch(&self, target: &Url) -> Result<String, SourceError> {
+        let configuration = self
+            .configuration
+            .read()
+            .map_err(|_| SourceError::Browser("运行配置不可用".to_owned()))?
+            .clone()
+            .ok_or(SourceError::BrowserUnavailable)?;
+        let _permit = self
+            .slots
+            .acquire()
+            .await
+            .map_err(|_| SourceError::Browser("浏览器并发控制器已关闭".to_owned()))?;
+        let observation = self
+            .client
+            .begin_external(target)
+            .map_err(|_| SourceError::Browser("代理选路失败".to_owned()))?;
+        let proxy = observation.proxy().map(browser_proxy_input);
+        let input = BrowserReaderInput {
+            url: target.as_str().to_owned(),
+            package_directory: configuration
+                .package_directory
+                .to_string_lossy()
+                .into_owned(),
+            proxy,
+        };
+        let payload = serde_json::to_vec(&input)
+            .map_err(|_| SourceError::Browser("浏览器输入编码失败".to_owned()))?;
+        let mut command = Command::new(&configuration.node_executable);
+        command
+            .arg("-e")
+            .arg(PLAYWRIGHT_READER_SCRIPT)
+            .stdin(Stdio::piped())
+            .stdout(Stdio::piped())
+            .stderr(Stdio::null())
+            .kill_on_drop(true);
+        if let Some(path) = configuration.browsers_path {
+            command.env("PLAYWRIGHT_BROWSERS_PATH", path);
+        }
+        let mut child = command
+            .spawn()
+            .map_err(|_| SourceError::Browser("无法启动 Node.js".to_owned()))?;
+        let mut stdin = child
+            .stdin
+            .take()
+            .ok_or_else(|| SourceError::Browser("无法写入浏览器输入".to_owned()))?;
+        if stdin.write_all(&payload).await.is_err() {
+            let _ = child.start_kill();
+            return Err(SourceError::Browser("写入浏览器输入失败".to_owned()));
+        }
+        drop(stdin);
+        let output = match timeout(BROWSER_PROCESS_TIMEOUT, child.wait_with_output()).await {
+            Ok(Ok(output)) => output,
+            Ok(Err(_)) => {
+                observation.complete(HttpRequestOutcome::TransportFailure);
+                return Err(SourceError::Browser("浏览器进程执行失败".to_owned()));
+            }
+            Err(_) => {
+                observation.complete(HttpRequestOutcome::Timeout);
+                return Err(SourceError::Browser("页面读取超时".to_owned()));
+            }
+        };
+        if output.stdout.len() > MAX_BROWSER_OUTPUT_BYTES {
+            observation.complete(HttpRequestOutcome::TransportFailure);
+            return Err(SourceError::Browser("浏览器返回内容超过限制".to_owned()));
+        }
+        let result: BrowserReaderOutput = serde_json::from_slice(&output.stdout)
+            .map_err(|_| SourceError::Browser("浏览器返回内容格式无效".to_owned()))?;
+        if !result.ok || !output.status.success() {
+            observation.complete(
+                result
+                    .status
+                    .map_or(HttpRequestOutcome::TransportFailure, |status| {
+                        HttpRequestOutcome::Failure(status)
+                    }),
+            );
+            return Err(SourceError::Browser(normalize_browser_error(
+                result.error.as_deref(),
+            )));
+        }
+        observation.complete(HttpRequestOutcome::Success(result.status.unwrap_or(200)));
+        if result.text.trim().is_empty() && result.links.is_empty() {
+            return Err(SourceError::Browser("页面未返回可解析内容".to_owned()));
+        }
+        Ok(format!("{}\n{}", result.text, result.links.join("\n")))
+    }
+}
+
+fn validate_browser_path(path: &Path, file: bool, label: &str) -> Result<(), String> {
+    if !path.is_absolute() || path.to_string_lossy().len() > 4096 {
+        return Err(format!("{label}路径无效"));
+    }
+    let metadata = path.metadata().map_err(|_| format!("{label}不存在"))?;
+    if file && !metadata.is_file() || !file && !metadata.is_dir() {
+        return Err(format!("{label}类型无效"));
+    }
+    Ok(())
+}
+
+fn browser_proxy_input(url: &Url) -> BrowserProxyInput {
+    let host = url.host_str().unwrap_or_default();
+    let port = url.port_or_known_default().unwrap_or_default();
+    BrowserProxyInput {
+        server: format!("{}://{host}:{port}", url.scheme()),
+        username: (!url.username().is_empty()).then(|| decode_url_component(url.username())),
+        password: url.password().map(decode_url_component),
+    }
+}
+
+fn decode_url_component(value: &str) -> String {
+    urlencoding::decode(value)
+        .map(|value| value.into_owned())
+        .unwrap_or_else(|_| value.to_owned())
+}
+
+fn normalize_browser_error(value: Option<&str>) -> String {
+    let message = value.unwrap_or_default().trim();
+    if message.is_empty() {
+        "未知错误".to_owned()
+    } else if message.contains("Executable doesn't exist") {
+        "浏览器内核未安装".to_owned()
+    } else if message.contains("站点安全验证未通过") {
+        "站点安全验证未通过".to_owned()
+    } else if message.contains("Timeout") || message.contains("timeout") {
+        "页面载入超时".to_owned()
+    } else if message.contains("Cannot find module") {
+        "Playwright 模块不可用".to_owned()
+    } else {
+        "浏览器运行异常".to_owned()
+    }
+}
+
+#[derive(Clone, Copy)]
+struct ForumSpecification {
+    kind: SourceKind,
+    key: &'static str,
+    platform: &'static str,
+    host: &'static str,
+    default_entry: &'static str,
+}
+
+impl ForumSpecification {
+    fn all() -> [Self; 3] {
+        [
+            Self {
+                kind: SourceKind::Nodeseek,
+                key: "nodeseek",
+                platform: "NodeSeek",
+                host: "nodeseek.com",
+                default_entry: "https://www.nodeseek.com/",
+            },
+            Self {
+                kind: SourceKind::LinuxDo,
+                key: "linux_do",
+                platform: "LINUX DO",
+                host: "linux.do",
+                default_entry: "https://linux.do/c/welfare/36",
+            },
+            Self {
+                kind: SourceKind::V2ex,
+                key: "v2ex",
+                platform: "V2EX",
+                host: "v2ex.com",
+                default_entry: "https://www.v2ex.com/go/openai",
+            },
+        ]
+    }
+
+    fn is_topic_path(self, path: &str) -> bool {
+        match self.kind {
+            SourceKind::Nodeseek => NODESEEK_TOPIC_PATTERN.is_match(path),
+            SourceKind::LinuxDo => LINUX_DO_TOPIC_PATTERN.is_match(path),
+            SourceKind::V2ex => V2EX_TOPIC_PATTERN.is_match(path),
+            _ => false,
+        }
+    }
+}
+
+struct ForumSource {
+    client: ObservedHttpClient,
+    browser: BrowserAutomation,
+    specification: ForumSpecification,
+}
+
+impl ForumSource {
+    fn new(
+        client: ObservedHttpClient,
+        browser: BrowserAutomation,
+        specification: ForumSpecification,
+    ) -> Self {
+        Self {
+            client,
+            browser,
+            specification,
+        }
+    }
+
+    async fn fetch_page(
+        &self,
+        target: &Url,
+        mode: ForumFetchMode,
+    ) -> Result<(String, Option<String>, bool), SourceError> {
+        if mode == ForumFetchMode::Playwright {
+            return self
+                .browser
+                .fetch(target)
+                .await
+                .map(|content| (content, None, false));
+        }
+        match self.fetch_jina(target).await {
+            Ok(content) => Ok((content, None, false)),
+            Err(reader) => match self.browser.fetch(target).await {
+                Ok(content) => Ok((
+                    content,
+                    Some(format!(
+                        "{} 的 Jina Reader 读取失败，已切换 Playwright：{reader}",
+                        self.specification.platform
+                    )),
+                    true,
+                )),
+                Err(browser) => Err(SourceError::ForumFetch {
+                    platform: self.specification.platform,
+                    reader,
+                    browser: browser.to_string(),
+                }),
+            },
+        }
+    }
+
+    async fn fetch_jina(&self, target: &Url) -> Result<String, String> {
+        let reader_url = Url::parse(&format!("https://r.jina.ai/{}", target.as_str()))
+            .map_err(|_| "请求地址无效".to_owned())?;
+        let response = self
+            .client
+            .get(reader_url)
+            .header("Accept", "text/plain")
+            .send()
+            .await
+            .map_err(|error| {
+                if error.is_timeout() {
+                    "请求超时".to_owned()
+                } else {
+                    "网络请求失败".to_owned()
+                }
+            })?;
+        if !response.status().is_success() {
+            return Err(format!("返回 HTTP {}", response.status().as_u16()));
+        }
+        let content = parse_text_limited(self.specification.platform, response)
+            .await
+            .map_err(|error| error.to_string())?;
+        let trimmed = content.trim();
+        if trimmed.is_empty() {
+            return Err("返回内容为空".to_owned());
+        }
+        if trimmed.starts_with("{\"data\":null,") {
+            return Err("拒绝读取目标站点".to_owned());
+        }
+        Ok(content)
+    }
+}
+
+#[async_trait]
+impl AssetSource for ForumSource {
+    fn kind(&self) -> SourceKind {
+        self.specification.kind
+    }
+
+    async fn discover(
+        &self,
+        request: &ScanRequest,
+        _credentials: &SourceCredentials,
+    ) -> Result<SourceDiscovery, SourceError> {
+        let entry = source_query(request, self.specification.key)
+            .unwrap_or_else(|| self.specification.default_entry.to_owned());
+        let entry = parse_forum_entry(&entry, self.specification)?;
+        let (index_content, index_warning, index_fallback) =
+            self.fetch_page(&entry, request.forum_fetch_mode).await?;
+        let direct_topic = self.specification.is_topic_path(entry.path());
+        let topics = if direct_topic {
+            Vec::new()
+        } else {
+            extract_forum_topics(&index_content, self.specification)
+        };
+        if !direct_topic && topics.is_empty() {
+            return Err(SourceError::InvalidResponse(self.specification.platform));
+        }
+        let mut warnings = index_warning.into_iter().collect::<Vec<_>>();
+        let mut candidates = BTreeMap::new();
+        let mut successful_pages = 0_usize;
+        let mut last_error = None;
+        if direct_topic {
+            successful_pages = 1;
+            for candidate in forum_candidates(&index_content, &entry, self.specification) {
+                candidates
+                    .entry(candidate.target.clone())
+                    .or_insert(candidate);
+            }
+        } else {
+            let source = self;
+            let mode = if index_fallback {
+                ForumFetchMode::Playwright
+            } else {
+                request.forum_fetch_mode
+            };
+            let pages = stream::iter(topics.into_iter().map(|topic| async move {
+                let result = source.fetch_page(&topic, mode).await;
+                (topic, result)
+            }))
+            .buffer_unordered(FORUM_TOPIC_CONCURRENCY);
+            futures::pin_mut!(pages);
+            while let Some((topic, result)) = pages.next().await {
+                match result {
+                    Ok((content, warning, _)) => {
+                        successful_pages += 1;
+                        warnings.extend(warning);
+                        for candidate in forum_candidates(&content, &topic, self.specification) {
+                            candidates
+                                .entry(candidate.target.clone())
+                                .or_insert(candidate);
+                            if candidates.len() >= MAX_SOURCE_RESULTS {
+                                break;
+                            }
+                        }
+                    }
+                    Err(error) => {
+                        warnings.push(format!(
+                            "{} 主题读取失败：{}；{error}",
+                            self.specification.platform, topic
+                        ));
+                        last_error = Some(error);
+                    }
+                }
+                if candidates.len() >= MAX_SOURCE_RESULTS {
+                    break;
+                }
+            }
+        }
+        if successful_pages == 0 {
+            return Err(
+                last_error.unwrap_or(SourceError::InvalidResponse(self.specification.platform))
+            );
+        }
+        if candidates.is_empty() {
+            warnings.push(format!(
+                "{} 已读取主题，但未提取到外部 HTTP/HTTPS 链接。",
+                self.specification.platform
+            ));
+        }
+        Ok(SourceDiscovery {
+            candidates: candidates.into_values().collect(),
+            warnings,
+        })
+    }
+
+    async fn quota(&self, _credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
+        let browser = self.browser.status();
+        Ok(unlimited_quota(
+            self.specification.kind,
+            &if browser.available {
+                format!("无需 API 凭证；Jina Reader 与 {} 均可用。", browser.message)
+            } else {
+                format!("无需 API 凭证；Jina Reader 可用，{}", browser.message)
+            },
+        ))
+    }
+}
+
+fn parse_forum_entry(value: &str, specification: ForumSpecification) -> Result<Url, SourceError> {
+    let url = Url::parse(value.trim())
+        .map_err(|_| SourceError::InvalidForumEntry("请输入完整的 HTTP/HTTPS 地址".to_owned()))?;
+    let host = url.host_str().unwrap_or_default();
+    if !matches!(url.scheme(), "http" | "https")
+        || !same_forum_host(host, specification.host)
+        || !url.username().is_empty()
+        || url.password().is_some()
+    {
+        return Err(SourceError::InvalidForumEntry(format!(
+            "仅允许 {} 站内地址",
+            specification.platform
+        )));
+    }
+    Ok(url)
+}
+
+fn extract_forum_topics(content: &str, specification: ForumSpecification) -> Vec<Url> {
+    let mut seen = BTreeSet::new();
+    let mut topics = Vec::new();
+    for found in URL_PATTERN.find_iter(content) {
+        let value = trim_url_punctuation(found.as_str());
+        let Ok(mut url) = Url::parse(&value) else {
+            continue;
+        };
+        if !same_forum_host(url.host_str().unwrap_or_default(), specification.host)
+            || !specification.is_topic_path(url.path())
+        {
+            continue;
+        }
+        normalize_topic_url(&mut url, specification);
+        if seen.insert(url.as_str().to_owned()) {
+            topics.push(url);
+        }
+        if topics.len() >= MAX_FORUM_TOPICS {
+            break;
+        }
+    }
+    topics
+}
+
+fn normalize_topic_url(url: &mut Url, specification: ForumSpecification) {
+    url.set_query(None);
+    url.set_fragment(None);
+    if specification.kind == SourceKind::LinuxDo {
+        let segments = url
+            .path_segments()
+            .map(|items| items.take(3).collect::<Vec<_>>())
+            .unwrap_or_default();
+        if segments.len() == 3 {
+            url.set_path(&format!("/{}/{}/{}", segments[0], segments[1], segments[2]));
+        }
+    }
+}
+
+fn forum_candidates(
+    content: &str,
+    topic: &Url,
+    specification: ForumSpecification,
+) -> Vec<Candidate> {
+    URL_PATTERN
+        .find_iter(content)
+        .filter_map(|found| {
+            let value = trim_url_punctuation(found.as_str());
+            let url = Url::parse(&value).ok()?;
+            let host = url.host_str()?;
+            if !matches!(url.scheme(), "http" | "https")
+                || same_forum_host(host, specification.host)
+                || host.eq_ignore_ascii_case("r.jina.ai")
+                || is_forum_asset_link(content, found.start(), &url)
+            {
+                return None;
+            }
+            Some(Candidate {
+                source: specification.kind,
+                target: url.to_string(),
+                discovered_at: Utc::now(),
+                metadata: BTreeMap::from([
+                    (
+                        CANDIDATE_ARTIFACT_URL_KEY.to_owned(),
+                        topic.as_str().to_owned(),
+                    ),
+                    (
+                        CANDIDATE_ARTIFACT_TEXT_KEY.to_owned(),
+                        surrounding_text(
+                            content,
+                            found.start(),
+                            found.end(),
+                            MAX_ARTIFACT_CONTEXT_BYTES,
+                        ),
+                    ),
+                ]),
+            })
+        })
+        .take(MAX_SOURCE_RESULTS)
+        .collect()
+}
+
+fn is_forum_asset_link(content: &str, url_start: usize, url: &Url) -> bool {
+    let prefix = &content[..url_start];
+    let markdown_image = prefix.ends_with("](")
+        && prefix[..prefix.len() - 2]
+            .rfind('[')
+            .is_some_and(|start| start > 0 && prefix.as_bytes()[start - 1] == b'!');
+    let path = url.path().to_ascii_lowercase();
+    markdown_image
+        || matches!(
+            path.rsplit('.').next(),
+            Some("avif" | "gif" | "ico" | "jpeg" | "jpg" | "png" | "svg" | "webp")
+        )
+}
+
+fn same_forum_host(actual: &str, expected: &str) -> bool {
+    actual
+        .strip_prefix("www.")
+        .unwrap_or(actual)
+        .eq_ignore_ascii_case(expected)
 }
 
 pub struct SourceRegistry {
     sources: BTreeMap<SourceKind, Box<dyn AssetSource>>,
+    browser: BrowserAutomation,
 }
 
 impl SourceRegistry {
     pub fn new(client: ObservedHttpClient) -> Self {
+        let browser = BrowserAutomation::new(client.clone());
         let mut sources: BTreeMap<SourceKind, Box<dyn AssetSource>> = BTreeMap::new();
         sources.insert(SourceKind::Manual, Box::new(ManualSource));
         sources.insert(
@@ -247,8 +987,32 @@ impl SourceRegistry {
             )),
         );
         sources.insert(SourceKind::Fofa, Box::new(FofaSource::new(client.clone())));
-        sources.insert(SourceKind::Shodan, Box::new(ShodanSource::new(client)));
-        Self { sources }
+        sources.insert(
+            SourceKind::Shodan,
+            Box::new(ShodanSource::new(client.clone())),
+        );
+        for specification in ForumSpecification::all() {
+            sources.insert(
+                specification.kind,
+                Box::new(ForumSource::new(
+                    client.clone(),
+                    browser.clone(),
+                    specification,
+                )),
+            );
+        }
+        Self { sources, browser }
+    }
+
+    pub fn configure_browser(
+        &self,
+        configuration: Option<BrowserAutomationConfiguration>,
+    ) -> Result<(), String> {
+        self.browser.configure(configuration)
+    }
+
+    pub fn browser_status(&self) -> BrowserAutomationStatus {
+        self.browser.status()
     }
 
     pub async fn discover(
@@ -256,7 +1020,7 @@ impl SourceRegistry {
         kind: SourceKind,
         request: &ScanRequest,
         credentials: &SourceCredentials,
-    ) -> Result<Vec<Candidate>, SourceError> {
+    ) -> Result<SourceDiscovery, SourceError> {
         let source = self
             .sources
             .get(&kind)
@@ -290,14 +1054,34 @@ impl SourceRegistry {
             .get(&SourceKind::Shodan)
             .expect("内置 Shodan 数据源必须存在")
             .as_ref();
-        let (github, gitee, gitcode, fofa, shodan) = futures::join!(
+        let nodeseek = self
+            .sources
+            .get(&SourceKind::Nodeseek)
+            .expect("内置 NodeSeek 数据源必须存在")
+            .as_ref();
+        let linux_do = self
+            .sources
+            .get(&SourceKind::LinuxDo)
+            .expect("内置 LINUX DO 数据源必须存在")
+            .as_ref();
+        let v2ex = self
+            .sources
+            .get(&SourceKind::V2ex)
+            .expect("内置 V2EX 数据源必须存在")
+            .as_ref();
+        let (github, gitee, gitcode, fofa, shodan, nodeseek, linux_do, v2ex) = futures::join!(
             quota_or_status(github, credentials),
             quota_or_status(gitee, credentials),
             quota_or_status(gitcode, credentials),
             quota_or_status(fofa, credentials),
             quota_or_status(shodan, credentials),
+            quota_or_status(nodeseek, credentials),
+            quota_or_status(linux_do, credentials),
+            quota_or_status(v2ex, credentials),
         );
-        vec![github, gitee, gitcode, fofa, shodan]
+        vec![
+            github, gitee, gitcode, fofa, shodan, nodeseek, linux_do, v2ex,
+        ]
     }
 }
 
@@ -328,18 +1112,20 @@ impl AssetSource for ManualSource {
         &self,
         request: &ScanRequest,
         _credentials: &SourceCredentials,
-    ) -> Result<Vec<Candidate>, SourceError> {
-        Ok(request
-            .targets
-            .iter()
-            .take(MAX_SOURCE_RESULTS)
-            .map(|target| Candidate {
-                source: SourceKind::Manual,
-                target: target.clone(),
-                discovered_at: Utc::now(),
-                metadata: BTreeMap::new(),
-            })
-            .collect())
+    ) -> Result<SourceDiscovery, SourceError> {
+        Ok(SourceDiscovery::new(
+            request
+                .targets
+                .iter()
+                .take(MAX_SOURCE_RESULTS)
+                .map(|target| Candidate {
+                    source: SourceKind::Manual,
+                    target: target.clone(),
+                    discovered_at: Utc::now(),
+                    metadata: BTreeMap::new(),
+                })
+                .collect(),
+        ))
     }
 
     async fn quota(&self, _credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
@@ -405,7 +1191,7 @@ impl AssetSource for GithubSource {
         &self,
         request: &ScanRequest,
         credentials: &SourceCredentials,
-    ) -> Result<Vec<Candidate>, SourceError> {
+    ) -> Result<SourceDiscovery, SourceError> {
         let token = credentials
             .github_token
             .as_ref()
@@ -451,11 +1237,11 @@ impl AssetSource for GithubSource {
             for candidate in batch.into_iter().flatten() {
                 candidates.push(candidate);
                 if candidates.len() >= MAX_SOURCE_RESULTS {
-                    return Ok(candidates);
+                    return Ok(SourceDiscovery::new(candidates));
                 }
             }
         }
-        Ok(candidates)
+        Ok(SourceDiscovery::new(candidates))
     }
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
@@ -578,7 +1364,7 @@ impl AssetSource for GitPlatformSource {
         &self,
         request: &ScanRequest,
         credentials: &SourceCredentials,
-    ) -> Result<Vec<Candidate>, SourceError> {
+    ) -> Result<SourceDiscovery, SourceError> {
         let token = self
             .token(credentials)
             .ok_or(SourceError::MissingCredential(self.platform))?;
@@ -610,11 +1396,11 @@ impl AssetSource for GitPlatformSource {
             for candidate in batch.into_iter().flatten() {
                 candidates.push(candidate);
                 if candidates.len() >= MAX_SOURCE_RESULTS {
-                    return Ok(candidates);
+                    return Ok(SourceDiscovery::new(candidates));
                 }
             }
         }
-        Ok(candidates)
+        Ok(SourceDiscovery::new(candidates))
     }
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
@@ -889,7 +1675,7 @@ impl AssetSource for FofaSource {
         &self,
         request: &ScanRequest,
         credentials: &SourceCredentials,
-    ) -> Result<Vec<Candidate>, SourceError> {
+    ) -> Result<SourceDiscovery, SourceError> {
         let (email, key) = fofa_credentials(credentials)?;
         let query = source_query(request, "fofa").unwrap_or_else(|| default_fofa_query(request));
         let response = self
@@ -913,18 +1699,19 @@ impl AssetSource for FofaSource {
                 body.errmsg.unwrap_or_else(|| "未知错误".to_owned())
             )));
         }
-        Ok(body
-            .results
-            .into_iter()
-            .filter_map(|row| row.first().and_then(value_as_string))
-            .take(MAX_SOURCE_RESULTS)
-            .map(|target| Candidate {
-                source: SourceKind::Fofa,
-                target,
-                discovered_at: Utc::now(),
-                metadata: BTreeMap::new(),
-            })
-            .collect())
+        Ok(SourceDiscovery::new(
+            body.results
+                .into_iter()
+                .filter_map(|row| row.first().and_then(value_as_string))
+                .take(MAX_SOURCE_RESULTS)
+                .map(|target| Candidate {
+                    source: SourceKind::Fofa,
+                    target,
+                    discovered_at: Utc::now(),
+                    metadata: BTreeMap::new(),
+                })
+                .collect(),
+        ))
     }
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
@@ -996,7 +1783,7 @@ impl AssetSource for ShodanSource {
         &self,
         request: &ScanRequest,
         credentials: &SourceCredentials,
-    ) -> Result<Vec<Candidate>, SourceError> {
+    ) -> Result<SourceDiscovery, SourceError> {
         let key = credentials
             .shodan_key
             .as_ref()
@@ -1012,29 +1799,30 @@ impl AssetSource for ShodanSource {
             .map_err(|_| SourceError::Transport("Shodan"))?;
         ensure_success("Shodan", response.status())?;
         let body = parse_json_limited::<ShodanSearchResponse>("Shodan", response).await?;
-        Ok(body
-            .matches
-            .into_iter()
-            .flat_map(|item| {
-                let scheme = if item.ssl.is_some() || matches!(item.port, 443 | 8443 | 9443) {
-                    "https"
-                } else {
-                    "http"
-                };
-                let transport = item.transport.unwrap_or_else(|| "tcp".to_owned());
-                let mut hosts = vec![item.ip_str];
-                hosts.extend(item.hostnames.unwrap_or_default().into_iter().take(5));
-                hosts.sort();
-                hosts.dedup();
-                hosts.into_iter().map(move |host| Candidate {
-                    source: SourceKind::Shodan,
-                    target: format!("{scheme}://{host}:{}", item.port),
-                    discovered_at: Utc::now(),
-                    metadata: BTreeMap::from([("transport".to_owned(), transport.clone())]),
+        Ok(SourceDiscovery::new(
+            body.matches
+                .into_iter()
+                .flat_map(|item| {
+                    let scheme = if item.ssl.is_some() || matches!(item.port, 443 | 8443 | 9443) {
+                        "https"
+                    } else {
+                        "http"
+                    };
+                    let transport = item.transport.unwrap_or_else(|| "tcp".to_owned());
+                    let mut hosts = vec![item.ip_str];
+                    hosts.extend(item.hostnames.unwrap_or_default().into_iter().take(5));
+                    hosts.sort();
+                    hosts.dedup();
+                    hosts.into_iter().map(move |host| Candidate {
+                        source: SourceKind::Shodan,
+                        target: format!("{scheme}://{host}:{}", item.port),
+                        discovered_at: Utc::now(),
+                        metadata: BTreeMap::from([("transport".to_owned(), transport.clone())]),
+                    })
                 })
-            })
-            .take(MAX_SOURCE_RESULTS)
-            .collect())
+                .take(MAX_SOURCE_RESULTS)
+                .collect(),
+        ))
     }
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
@@ -1147,6 +1935,34 @@ async fn parse_json_limited<T: DeserializeOwned>(
         body.extend_from_slice(&chunk);
     }
     serde_json::from_slice(&body).map_err(|_| SourceError::InvalidResponse(platform))
+}
+
+async fn parse_text_limited(
+    platform: &'static str,
+    response: Response,
+) -> Result<String, SourceError> {
+    if response
+        .content_length()
+        .is_some_and(|length| length > MAX_SOURCE_RESPONSE_BYTES as u64)
+    {
+        return Err(SourceError::ResponseTooLarge {
+            platform,
+            limit: MAX_SOURCE_RESPONSE_BYTES,
+        });
+    }
+    let mut body = Vec::new();
+    let mut stream = response.bytes_stream();
+    while let Some(chunk) = stream.next().await {
+        let chunk = chunk.map_err(|_| SourceError::Transport(platform))?;
+        if body.len().saturating_add(chunk.len()) > MAX_SOURCE_RESPONSE_BYTES {
+            return Err(SourceError::ResponseTooLarge {
+                platform,
+                limit: MAX_SOURCE_RESPONSE_BYTES,
+            });
+        }
+        body.extend_from_slice(&chunk);
+    }
+    String::from_utf8(body).map_err(|_| SourceError::InvalidResponse(platform))
 }
 
 fn source_query(request: &ScanRequest, key: &str) -> Option<String> {
@@ -1454,5 +2270,60 @@ mod tests {
         .unwrap();
         assert_eq!(list.into_repositories().len(), 1);
         assert_eq!(wrapped.into_repositories().len(), 1);
+    }
+
+    #[test]
+    fn parses_forum_topics_and_preserves_page_order() {
+        let [nodeseek, linux_do, v2ex] = ForumSpecification::all();
+        let nodeseek_topics = extract_forum_topics(
+            "https://www.nodeseek.com/post-345678-1.html https://nodeseek.com/post-123456-2",
+            nodeseek,
+        );
+        assert_eq!(nodeseek_topics.len(), 2);
+        assert_eq!(nodeseek_topics[0].path(), "/post-345678-1.html");
+
+        let linux_topics = extract_forum_topics(
+            "https://linux.do/t/topic/2697352/3?order=created#reply https://linux.do/t/topic/2687655",
+            linux_do,
+        );
+        assert_eq!(linux_topics[0].as_str(), "https://linux.do/t/topic/2697352");
+        assert_eq!(linux_topics[1].as_str(), "https://linux.do/t/topic/2687655");
+
+        let v2ex_topics = extract_forum_topics(
+            "https://www.v2ex.com/t/1231619#reply1 https://v2ex.com/t/1231500",
+            v2ex,
+        );
+        assert_eq!(v2ex_topics[0].as_str(), "https://www.v2ex.com/t/1231619");
+        assert_eq!(v2ex_topics[1].as_str(), "https://v2ex.com/t/1231500");
+    }
+
+    #[test]
+    fn rejects_cross_site_forum_entries() {
+        let [nodeseek, linux_do, v2ex] = ForumSpecification::all();
+        assert!(parse_forum_entry("https://nodeseek.com/", nodeseek).is_ok());
+        assert!(parse_forum_entry("https://www.linux.do/c/welfare/36", linux_do).is_ok());
+        assert!(parse_forum_entry("https://v2ex.com/go/openai", v2ex).is_ok());
+        assert!(parse_forum_entry("https://evil.example/t/123", v2ex).is_err());
+        assert!(parse_forum_entry("https://user:secret@v2ex.com/t/123", v2ex).is_err());
+    }
+
+    #[test]
+    fn extracts_external_candidates_with_topic_context() {
+        let specification = ForumSpecification::all()[1];
+        let topic = Url::parse("https://linux.do/t/topic/2687655").unwrap();
+        let content = "模型入口 https://api.example.com/v1/models，站内链接 https://linux.do/t/topic/1，读取链接 https://r.jina.ai/https://linux.do/t/topic/1，头像 ![Image](https://cdn.example.com/avatar.png)，图标 https://static.example.com/logo.svg";
+        let candidates = forum_candidates(content, &topic, specification);
+        assert_eq!(candidates.len(), 1);
+        assert_eq!(candidates[0].target, "https://api.example.com/v1/models");
+        assert_eq!(
+            candidates[0].metadata.get(CANDIDATE_ARTIFACT_URL_KEY),
+            Some(&topic.to_string())
+        );
+        assert!(
+            candidates[0]
+                .metadata
+                .get(CANDIDATE_ARTIFACT_TEXT_KEY)
+                .is_some_and(|value| value.contains("模型入口"))
+        );
     }
 }

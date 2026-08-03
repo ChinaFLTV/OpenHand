@@ -39,7 +39,7 @@ sqlx-core = { version = "=0.8.6", default-features = false, features = ["_rt-tok
 sqlx-postgres = { version = "=0.8.6", default-features = false, features = ["chrono", "json"] }
 subtle = "2.6.1"
 thiserror = "2.0.17"
-tokio = { version = "1.49.0", features = ["macros", "net", "rt-multi-thread", "signal", "sync", "time"] }
+tokio = { version = "1.49.0", features = ["io-util", "macros", "net", "process", "rt-multi-thread", "signal", "sync", "time"] }
 tokio-stream = { version = "0.1.18", features = ["sync"] }
 tokio-util = "0.7.18"
 tower-http = { version = "0.6.8", features = ["limit", "timeout", "trace"] }

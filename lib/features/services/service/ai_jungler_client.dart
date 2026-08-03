@@ -168,15 +168,19 @@ class AiJunglerClient {
         await _jsonRequest('GET', '/v1/dependencies'),
       );
 
-  Future<void> updateDependencies({String? postgresqlUrl, String? redisUrl}) =>
-      _emptyRequest(
-        'PUT',
-        '/v1/dependencies',
-        body: <String, Object?>{
-          if (postgresqlUrl != null) 'postgresqlUrl': postgresqlUrl.trim(),
-          if (redisUrl != null) 'redisUrl': redisUrl.trim(),
-        },
-      );
+  Future<void> updateDependencies({
+    String? postgresqlUrl,
+    String? redisUrl,
+    Map<String, Object?>? playwright,
+  }) => _emptyRequest(
+    'PUT',
+    '/v1/dependencies',
+    body: <String, Object?>{
+      if (postgresqlUrl != null) 'postgresqlUrl': postgresqlUrl.trim(),
+      if (redisUrl != null) 'redisUrl': redisUrl.trim(),
+      if (playwright != null) 'playwright': playwright,
+    },
+  );
 
   Stream<Map<String, Object?>> events(String jobId) async* {
     final request = await _open('GET', '/v1/jobs/$jobId/events');

@@ -44,6 +44,7 @@ class ServicesController extends ChangeNotifier {
     _enabledSources = Set<AiExposureSource>.of(preferences.enabledSources);
     _defaultConcurrency = preferences.defaultConcurrency;
     _defaultValidationMode = preferences.defaultValidationMode;
+    _forumFetchMode = preferences.forumFetchMode;
     _defaultGptAssisted = preferences.defaultGptAssisted;
     _useBundledEngine = preferences.useBundledEngine;
     _externalAddress = preferences.externalAddress;
@@ -82,6 +83,7 @@ class ServicesController extends ChangeNotifier {
   late Set<AiExposureSource> _enabledSources;
   late int _defaultConcurrency;
   late AiExposureValidationMode _defaultValidationMode;
+  late AiExposureForumFetchMode _forumFetchMode;
   late bool _defaultGptAssisted;
   late bool _useBundledEngine;
   late String _externalAddress;
@@ -118,9 +120,19 @@ class ServicesController extends ChangeNotifier {
   AiExposureProxyStatus? get proxyStatus => _proxyStatus;
   AiExposureProxyConfiguration get proxyConfiguration => _proxyConfiguration;
   Map<String, bool> get sourceStatus => _sourceStatus;
+  int get discoverySourceCount => _sourceStatus.isNotEmpty
+      ? _sourceStatus.length
+      : AiExposureSource.values
+            .where(
+              (source) =>
+                  source != AiExposureSource.manual &&
+                  source != AiExposureSource.githubArtifact,
+            )
+            .length;
   Set<AiExposureSource> get enabledSources => Set.unmodifiable(_enabledSources);
   int get defaultConcurrency => _defaultConcurrency;
   AiExposureValidationMode get defaultValidationMode => _defaultValidationMode;
+  AiExposureForumFetchMode get forumFetchMode => _forumFetchMode;
   bool get defaultGptAssisted => _defaultGptAssisted;
   bool get useBundledEngine => _useBundledEngine;
   String get externalAddress => _externalAddress;
@@ -194,7 +206,9 @@ class ServicesController extends ChangeNotifier {
     final pluginId = _pluginServiceController?.lastSuccessfulPluginId;
     if (_disposed ||
         (pluginId != PluginCatalogIds.postgresql &&
-            pluginId != PluginCatalogIds.redis)) {
+            pluginId != PluginCatalogIds.redis &&
+            pluginId != PluginCatalogIds.nodejs &&
+            pluginId != PluginCatalogIds.playwright)) {
       return;
     }
     unawaited(_syncManagedDependencies());
@@ -959,10 +973,12 @@ class ServicesController extends ChangeNotifier {
         _redisEnabled && redis?.isInstalled == true && redis!.enabled
         ? ManagedServiceDefaults.redisEndpoint
         : '';
+    final playwright = _playwrightDependencyPayload();
     try {
       await client.updateDependencies(
         postgresqlUrl: postgresqlUrl,
         redisUrl: redisUrl,
+        playwright: playwright,
       );
       _dependencyStatus = await client.dependencyStatus();
       _errorMessage = null;
@@ -980,22 +996,26 @@ class ServicesController extends ChangeNotifier {
     required Set<AiExposureSource> enabledSources,
     required int concurrency,
     required AiExposureValidationMode validationMode,
+    required AiExposureForumFetchMode forumFetchMode,
     bool? gptAssisted,
   }) async {
     final previousSources = _enabledSources;
     final previousConcurrency = _defaultConcurrency;
     final previousValidationMode = _defaultValidationMode;
+    final previousForumFetchMode = _forumFetchMode;
     final previousGptAssisted = _defaultGptAssisted;
     _enabledSources = enabledSources.isEmpty
         ? <AiExposureSource>{AiExposureSource.manual}
         : Set<AiExposureSource>.of(enabledSources);
     _defaultConcurrency = concurrency.clamp(1, 128);
     _defaultValidationMode = validationMode;
+    _forumFetchMode = forumFetchMode;
     if (gptAssisted != null) _defaultGptAssisted = gptAssisted;
     if (!await _persistPreferences()) {
       _enabledSources = previousSources;
       _defaultConcurrency = previousConcurrency;
       _defaultValidationMode = previousValidationMode;
+      _forumFetchMode = previousForumFetchMode;
       _defaultGptAssisted = previousGptAssisted;
       _notify();
       return false;
@@ -1212,6 +1232,7 @@ class ServicesController extends ChangeNotifier {
           enabledSources: _enabledSources,
           defaultConcurrency: _defaultConcurrency,
           defaultValidationMode: _defaultValidationMode,
+          forumFetchMode: _forumFetchMode,
           defaultGptAssisted: _defaultGptAssisted,
           useBundledEngine: _useBundledEngine,
           externalAddress: _externalAddress,
@@ -1226,6 +1247,30 @@ class ServicesController extends ChangeNotifier {
       silentLog('services_controller', '保存扫描服务设置', error, stack);
       return false;
     }
+  }
+
+  Map<String, Object?>? _playwrightDependencyPayload() {
+    if (!ownsProcess) return null;
+    final plugins = _pluginServiceController;
+    final node = plugins?.pluginById(PluginCatalogIds.nodejs);
+    final playwright = plugins?.pluginById(PluginCatalogIds.playwright);
+    final nodeExecutable = node?.installPath?.trim() ?? '';
+    final packageDirectory =
+        '${playwright?.metadata['installation_target'] ?? ''}'.trim();
+    final browsersPath = '${playwright?.metadata['data_directory'] ?? ''}'
+        .trim();
+    final enabled =
+        node?.isInstalled == true &&
+        playwright?.isInstalled == true &&
+        nodeExecutable.isNotEmpty &&
+        packageDirectory.isNotEmpty;
+    return <String, Object?>{
+      'enabled': enabled,
+      if (enabled) 'nodeExecutable': nodeExecutable,
+      if (enabled) 'packageDirectory': packageDirectory,
+      if (enabled && browsersPath.isNotEmpty) 'browsersPath': browsersPath,
+      if (enabled) 'version': playwright?.installedVersion ?? '',
+    };
   }
 
   Future<bool> _persistProxySamples(
