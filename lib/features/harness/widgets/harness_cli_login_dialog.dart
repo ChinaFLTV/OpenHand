@@ -35,6 +35,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
   static const Duration _processStopGracePeriod = Duration(milliseconds: 500);
   static const Duration _streamDrainTimeout = Duration(milliseconds: 500);
   static const Duration _terminalStartTimeout = Duration(seconds: 5);
+  static const Duration _stdinWriteTimeout = Duration(seconds: 2);
   static const List<String> _linuxTerminalCandidates = <String>[
     'gnome-terminal',
     'xterm',
@@ -366,7 +367,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
     }
     try {
       process.stdin.write('${_inputController.text}\n');
-      await process.stdin.flush();
+      await process.stdin.flush().timeout(_stdinWriteTimeout);
     } catch (_) {
       // 进程可能已退出并关闭标准输入。
     }
@@ -380,7 +381,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
     }
     try {
       process.stdin.add(<int>[codePoint]);
-      await process.stdin.flush();
+      await process.stdin.flush().timeout(_stdinWriteTimeout);
     } catch (_) {
       // 进程可能已退出并关闭标准输入。
     }
