@@ -4,6 +4,7 @@ const Duration kOpenHandMinPeriodicTimerInterval = Duration(milliseconds: 250);
 const Duration kOpenHandMaxPeriodicTimerInterval = Duration(hours: 24);
 const Duration kOpenHandMaxTimerDelay = Duration(hours: 24);
 const Duration kOpenHandMinPeriodicCallbackTimeout = Duration(milliseconds: 1);
+const Duration kOpenHandDefaultPeriodicCallbackTimeout = Duration(minutes: 1);
 const Duration kOpenHandMaxPeriodicCallbackTimeout = Duration(hours: 24);
 const Duration kOpenHandFramePeriodicTimerInterval = Duration(milliseconds: 16);
 
@@ -194,19 +195,21 @@ void _runSafeTimerCallback(
   );
 }
 
+/// 启动非重入周期任务；回调超时后默认取消定时器，避免永久占用门闩。
 Timer startNonOverlappingPeriodicTimer(
   Duration interval,
   FutureOr<void> Function(Timer timer) callback, {
   Duration min = kOpenHandMinPeriodicTimerInterval,
   Duration max = kOpenHandMaxPeriodicTimerInterval,
-  Duration? callbackTimeout,
+  Duration callbackTimeout = kOpenHandDefaultPeriodicCallbackTimeout,
   bool cancelOnCallbackTimeout = true,
   OpenHandTimerErrorHandler? onError,
 }) {
   final zone = Zone.current;
-  final effectiveCallbackTimeout = _safeOptionalTimerDuration(
+  final effectiveCallbackTimeout = _clampTimerDuration(
     callbackTimeout,
     min: kOpenHandMinPeriodicCallbackTimeout,
+    fallbackMin: kOpenHandMinPeriodicCallbackTimeout,
     max: kOpenHandMaxPeriodicCallbackTimeout,
   );
   final gate = _NonOverlappingPeriodicTimerGate(
@@ -235,7 +238,7 @@ class _NonOverlappingPeriodicTimerGate {
   });
 
   final FutureOr<void> Function(Timer timer) callback;
-  final Duration? callbackTimeout;
+  final Duration callbackTimeout;
   final bool cancelOnCallbackTimeout;
   final Zone zone;
   final OpenHandTimerErrorHandler? onError;
@@ -260,11 +263,6 @@ class _NonOverlappingPeriodicTimerGate {
   Future<void> _runCallbackWithTimeout(Timer timer) async {
     final pending = Future<void>.sync(() => callback(timer));
     final timeout = callbackTimeout;
-    if (timeout == null) {
-      await pending;
-      return;
-    }
-
     final timeoutMarker = Object();
     final winner = await Future.any<Object?>([
       pending.then<Object?>((_) => null),
@@ -308,20 +306,6 @@ void _handleTimerCallbackTimeout({
     StackTrace.current,
     zone,
     onError,
-  );
-}
-
-Duration? _safeOptionalTimerDuration(
-  Duration? requested, {
-  required Duration min,
-  required Duration max,
-}) {
-  if (requested == null) return null;
-  return _clampTimerDuration(
-    requested,
-    min: min,
-    fallbackMin: kOpenHandMinPeriodicCallbackTimeout,
-    max: max,
   );
 }
 
