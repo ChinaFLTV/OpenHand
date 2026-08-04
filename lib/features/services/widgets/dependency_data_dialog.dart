@@ -15,6 +15,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../services_controller.dart';
+import 'dependency_metric_detail_dialog.dart';
 import 'redis_record_editor.dart';
 import 'service_dialog_controls.dart';
 
@@ -92,6 +93,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
   bool _loading = false;
   bool _operating = false;
   bool _queryVisible = false;
+  bool _metricDialogOpen = false;
 
   bool get _busy => _loading || _operating;
 
@@ -311,6 +313,8 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                   : '--',
               detail: '${telemetry['serverVersion'] ?? '未连接'}',
               color: OpenHandStatusColors.success,
+              onTap: () =>
+                  _showMetricDetail(DependencyMetricKind.postgresqlCapacity),
             ),
             _TelemetryTile(
               icon: Icons.lan_outlined,
@@ -320,6 +324,8 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               detail:
                   '连接池 ${_integer(overview['poolSize'])} · 空闲 ${_integer(overview['idleConnections'])}',
               color: Theme.of(context).colorScheme.primary,
+              onTap: () =>
+                  _showMetricDetail(DependencyMetricKind.postgresqlConnections),
             ),
             _TelemetryTile(
               icon: Icons.speed_rounded,
@@ -327,6 +333,8 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               value: '${(hitRate * 100).toStringAsFixed(1)}%',
               detail: '命中 $hitBlocks · 读取 $readBlocks',
               color: OpenHandStatusColors.info,
+              onTap: () =>
+                  _showMetricDetail(DependencyMetricKind.postgresqlCache),
             ),
             _TelemetryTile(
               icon: Icons.commit_rounded,
@@ -335,6 +343,9 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               detail:
                   '回滚 ${_integer(telemetry['transactionsRolledBack'])} · 死锁 ${_integer(telemetry['deadlocks'])}',
               color: Theme.of(context).colorScheme.tertiary,
+              onTap: () => _showMetricDetail(
+                DependencyMetricKind.postgresqlTransactions,
+              ),
             ),
           ],
         ),
@@ -517,6 +528,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               detail:
                   '峰值 ${formatByteSize(_integer(overview['peakMemoryBytes']))} · 碎片 ${_number(overview['memoryFragmentationRatio']).toStringAsFixed(2)}',
               color: OpenHandStatusColors.success,
+              onTap: () => _showMetricDetail(DependencyMetricKind.redisMemory),
             ),
             _TelemetryTile(
               icon: Icons.key_rounded,
@@ -525,6 +537,8 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               detail:
                   '过期 ${_integer(overview['expiredKeys'])} · 驱逐 ${_integer(overview['evictedKeys'])}',
               color: Theme.of(context).colorScheme.primary,
+              onTap: () =>
+                  _showMetricDetail(DependencyMetricKind.redisKeyspace),
             ),
             _TelemetryTile(
               icon: Icons.speed_rounded,
@@ -532,6 +546,8 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               value: '${_integer(overview['operationsPerSecond'])} ops/s',
               detail: '累计 ${_integer(overview['totalCommands'])} 条命令',
               color: OpenHandStatusColors.info,
+              onTap: () =>
+                  _showMetricDetail(DependencyMetricKind.redisThroughput),
             ),
             _TelemetryTile(
               icon: Icons.track_changes_rounded,
@@ -540,6 +556,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               detail:
                   '命中 ${_integer(overview['keyspaceHits'])} · 未命中 ${_integer(overview['keyspaceMisses'])}',
               color: Theme.of(context).colorScheme.tertiary,
+              onTap: () => _showMetricDetail(DependencyMetricKind.redisCache),
             ),
             _TelemetryTile(
               icon: Icons.group_outlined,
@@ -547,6 +564,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               value: '${_integer(overview['connectedClients'])}',
               detail: '阻塞 ${_integer(overview['blockedClients'])}',
               color: Theme.of(context).colorScheme.secondary,
+              onTap: () => _showMetricDetail(DependencyMetricKind.redisClients),
             ),
             _TelemetryTile(
               icon: Icons.swap_vert_circle_outlined,
@@ -558,6 +576,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               detail:
                   '入 ${formatByteSize(_integer(overview['networkInputBytes']))} · 出 ${formatByteSize(_integer(overview['networkOutputBytes']))}',
               color: const Color(0xff0f766e),
+              onTap: () => _showMetricDetail(DependencyMetricKind.redisNetwork),
             ),
           ],
         ),
@@ -797,6 +816,24 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
       if (mounted) setState(() => _operating = false);
     }
   }
+
+  Future<void> _showMetricDetail(DependencyMetricKind kind) async {
+    if (_metricDialogOpen || !mounted) return;
+    _metricDialogOpen = true;
+    final overview = context.read<ServicesController>().dependencyDataOverview;
+    final postgresql = _map(overview['postgresql']);
+    try {
+      await showDependencyMetricDetailDialog(
+        context,
+        kind: kind,
+        postgresqlTables: _maps(postgresql['tables']),
+        redisRecords: _maps(_redisPage['records']),
+        onReload: () => _refresh(includeData: true),
+      );
+    } finally {
+      _metricDialogOpen = false;
+    }
+  }
 }
 
 class _TelemetryGrid extends StatelessWidget {
@@ -830,13 +867,14 @@ class _TelemetryGrid extends StatelessWidget {
   );
 }
 
-class _TelemetryTile extends StatelessWidget {
+class _TelemetryTile extends StatefulWidget {
   const _TelemetryTile({
     required this.icon,
     required this.label,
     required this.value,
     required this.detail,
     required this.color,
+    required this.onTap,
   });
 
   final IconData icon;
@@ -844,55 +882,129 @@ class _TelemetryTile extends StatelessWidget {
   final String value;
   final String detail;
   final Color color;
+  final VoidCallback onTap;
+
+  @override
+  State<_TelemetryTile> createState() => _TelemetryTileState();
+}
+
+class _TelemetryTileState extends State<_TelemetryTile> {
+  bool _hovered = false;
+  bool _focused = false;
+  bool _pressed = false;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 112),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.28)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(icon, size: 18, color: color),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelLarge,
+    final duration = openHandMotionDuration(
+      context,
+      const Duration(milliseconds: 140),
+    );
+    final highlighted = _hovered || _focused;
+    return Semantics(
+      button: true,
+      label: '${widget.label}，${widget.value}，打开详情',
+      child: MouseRegion(
+        cursor: SystemMouseCursors.click,
+        child: AnimatedScale(
+          scale: _pressed ? 0.975 : 1,
+          duration: duration,
+          curve: Curves.easeOutCubic,
+          child: AnimatedContainer(
+            duration: duration,
+            curve: Curves.easeOutCubic,
+            constraints: const BoxConstraints(minHeight: 112),
+            decoration: BoxDecoration(
+              color: widget.color.withValues(alpha: highlighted ? 0.12 : 0.08),
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(
+                color: widget.color.withValues(
+                  alpha: highlighted ? 0.62 : 0.28,
+                ),
+                width: _focused ? 1.6 : 1,
+              ),
+              boxShadow: highlighted
+                  ? [
+                      BoxShadow(
+                        color: widget.color.withValues(alpha: 0.12),
+                        blurRadius: 16,
+                        offset: const Offset(0, 6),
+                      ),
+                    ]
+                  : const <BoxShadow>[],
+            ),
+            child: Material(
+              color: Colors.transparent,
+              borderRadius: BorderRadius.circular(8),
+              clipBehavior: Clip.antiAlias,
+              child: InkWell(
+                onTap: widget.onTap,
+                onHover: (value) => setState(() => _hovered = value),
+                onFocusChange: (value) => setState(() => _focused = value),
+                onHighlightChanged: (value) => setState(() => _pressed = value),
+                borderRadius: BorderRadius.circular(8),
+                overlayColor: WidgetStatePropertyAll(
+                  widget.color.withValues(alpha: 0.08),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(14),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(widget.icon, size: 18, color: widget.color),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              widget.label,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelLarge,
+                            ),
+                          ),
+                          AnimatedSlide(
+                            offset: highlighted
+                                ? Offset.zero
+                                : const Offset(-0.18, 0),
+                            duration: duration,
+                            curve: Curves.easeOutCubic,
+                            child: Icon(
+                              Icons.chevron_right_rounded,
+                              size: 19,
+                              color: widget.color.withValues(
+                                alpha: highlighted ? 0.9 : 0.56,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 9),
+                      Text(
+                        widget.value,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        widget.detail,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
                 ),
               ),
-            ],
-          ),
-          const SizedBox(height: 9),
-          Text(
-            value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleLarge?.copyWith(
-              fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 3),
-          Text(
-            detail,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
-          ),
-        ],
+        ),
       ),
     );
   }

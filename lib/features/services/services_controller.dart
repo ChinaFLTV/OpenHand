@@ -11,6 +11,7 @@ import '../ai/index.dart';
 import '../plugin_service/index.dart';
 import 'data/ai_exposure_preferences_store.dart';
 import 'model/ai_exposure_models.dart';
+import 'model/dependency_telemetry.dart';
 import 'service/ai_exposure_proxy_probe.dart';
 import 'service/ai_jungler_client.dart';
 import 'service/ai_jungler_runtime.dart';
@@ -87,6 +88,9 @@ class ServicesController extends ChangeNotifier {
   AiExposureAiExtractorStatus? _aiExtractorStatus;
   AiExposureDependencyStatus? _dependencyStatus;
   Map<String, Object?> _dependencyDataOverview = const <String, Object?>{};
+  final DependencyTelemetryHistory _dependencyTelemetryHistory =
+      DependencyTelemetryHistory();
+  String? _dependencyDataOverviewError;
   AiExposureProxyStatus? _proxyStatus;
   Map<String, bool> _sourceStatus = const <String, bool>{};
   final Map<String, List<AiExposureLogEntry>> _historyLogs =
@@ -138,6 +142,9 @@ class ServicesController extends ChangeNotifier {
   AiExposureDependencyStatus? get dependencyStatus => _dependencyStatus;
   Map<String, Object?> get dependencyDataOverview =>
       Map<String, Object?>.unmodifiable(_dependencyDataOverview);
+  List<DependencyTelemetrySample> get dependencyTelemetryHistory =>
+      _dependencyTelemetryHistory.samples;
+  String? get dependencyDataOverviewError => _dependencyDataOverviewError;
   AiExposureProxyStatus? get proxyStatus => _proxyStatus;
   AiExposureProxyConfiguration get proxyConfiguration => _proxyConfiguration;
   Map<String, bool> get sourceStatus => _sourceStatus;
@@ -412,6 +419,8 @@ class ServicesController extends ChangeNotifier {
       _aiExtractorStatus = null;
       _dependencyStatus = null;
       _dependencyDataOverview = const <String, Object?>{};
+      _dependencyTelemetryHistory.clear();
+      _dependencyDataOverviewError = null;
       _proxyStatus = null;
       _errorMessage = null;
       _appendLog(
@@ -495,12 +504,26 @@ class ServicesController extends ChangeNotifier {
   Future<bool> refreshDependencyDataOverview() async {
     try {
       _dependencyDataOverview = await _requireClient().dependencyDataOverview();
+      _dependencyTelemetryHistory.add(_dependencyDataOverview);
+      _dependencyDataOverviewError = null;
       _notify();
       return true;
     } catch (error, stack) {
+      _dependencyDataOverviewError = '$error';
       silentLog('services_controller', '刷新依赖数据遥测', error, stack);
+      _notify();
       return false;
     }
+  }
+
+  @visibleForTesting
+  void debugSetDependencyDataOverview(
+    Map<String, Object?> overview, {
+    DateTime? receivedAt,
+  }) {
+    _dependencyDataOverview = overview;
+    _dependencyTelemetryHistory.add(overview, receivedAt: receivedAt);
+    _dependencyDataOverviewError = null;
   }
 
   Future<Map<String, Object?>> loadPostgresqlRows(
@@ -1552,6 +1575,8 @@ class ServicesController extends ChangeNotifier {
     _aiExtractorStatus = null;
     _dependencyStatus = null;
     _dependencyDataOverview = const <String, Object?>{};
+    _dependencyTelemetryHistory.clear();
+    _dependencyDataOverviewError = null;
     if (exitCode != 0) _errorMessage = '扫描引擎异常退出：$exitCode。';
     _notify();
   }
