@@ -123,9 +123,7 @@ class _SandboxProxyInstance {
     if (settings.httpProxyPort > 0 &&
         settings.socksProxyPort > 0 &&
         settings.httpProxyPort == settings.socksProxyPort) {
-      throw const AiSandboxProxyStartException(
-        'HTTP and SOCKS sandbox proxy ports must be different.',
-      );
+      throw const AiSandboxProxyStartException('HTTP 和 SOCKS 沙箱代理端口不能相同。');
     }
     try {
       final httpServer = await _bind(settings.httpProxyPort);
@@ -200,9 +198,7 @@ class _SandboxProxyInstance {
     } catch (error, stack) {
       await close();
       silentLog('ai_sandbox_proxy', '启动沙箱代理', error, stack);
-      throw AiSandboxProxyStartException(
-        'Failed to start sandbox proxy: $error',
-      );
+      throw AiSandboxProxyStartException('启动沙箱代理失败：$error');
     }
   }
 
@@ -269,7 +265,7 @@ class _SandboxProxyInstance {
       }
       final request = _HttpProxyRequest.tryParse(rawHeader);
       if (request == null) {
-        _writeHttpError(client, 400, 'Bad proxy request.');
+        _writeHttpError(client, 400, '代理请求无效。');
         return;
       }
       final decision = _domainDecision(request.host, request.port);
@@ -284,21 +280,21 @@ class _SandboxProxyInstance {
       }
     } on FormatException {
       if (!_closed) {
-        _writeHttpError(client, 431, 'Proxy request header is too large.');
+        _writeHttpError(client, 431, '代理请求头过大。');
       } else {
         client.destroy();
       }
     } on SocketException catch (error, stack) {
       if (!_closed) {
         silentLog('ai_sandbox_proxy', '建立 HTTP 代理连接', error, stack);
-        _writeHttpError(client, 502, 'Proxy destination is unavailable.');
+        _writeHttpError(client, 502, '代理目标不可用。');
       } else {
         client.destroy();
       }
     } on TimeoutException catch (error, stack) {
       if (!_closed) {
         silentLog('ai_sandbox_proxy', '建立 HTTP 代理连接', error, stack);
-        _writeHttpError(client, 504, 'Proxy destination timed out.');
+        _writeHttpError(client, 504, '代理目标连接超时。');
       } else {
         client.destroy();
       }
@@ -356,7 +352,7 @@ class _SandboxProxyInstance {
     final contentLength = request.contentLength;
     if (contentLength != null &&
         contentLength > limits.maxHttpRequestBodyBytes) {
-      _writeHttpError(client, 413, 'Proxy request body is too large.');
+      _writeHttpError(client, 413, '代理请求体过大。');
       return;
     }
     final remote = await Socket.connect(
@@ -396,9 +392,7 @@ class _SandboxProxyInstance {
           remaining < _httpBodyChunkBytes ? remaining : _httpBodyChunkBytes,
         );
         if (chunk == null) {
-          throw const SocketException(
-            'Proxy client closed before sending its declared request body.',
-          );
+          throw const SocketException('代理客户端在发送完声明的请求体前已关闭。');
         }
         remaining -= chunk.length;
         yield chunk;
@@ -412,16 +406,14 @@ class _SandboxProxyInstance {
       reader.restartReadWindow(limits.idleTimeout);
       final sizeLine = await reader.readLine(maxBytes: _httpChunkLineMaxBytes);
       if (sizeLine == null) {
-        throw const SocketException(
-          'Proxy client closed before completing a chunked request body.',
-        );
+        throw const SocketException('代理客户端在分块请求体结束前已关闭。');
       }
       final sizeText = latin1.decode(sizeLine.sublist(0, sizeLine.length - 2));
       if (_HttpProxyRequest._containsInvalidHeaderText(
         sizeText,
         allowTab: true,
       )) {
-        throw const FormatException('Invalid HTTP chunk extension.');
+        throw const FormatException('HTTP 分块扩展无效。');
       }
       final extensionIndex = sizeText.indexOf(';');
       var chunkSizeEnd = extensionIndex < 0 ? sizeText.length : extensionIndex;
@@ -436,23 +428,22 @@ class _SandboxProxyInstance {
       final chunkSizeText = sizeText.substring(0, chunkSizeEnd);
       if (chunkSizeText.length > 16 ||
           !_HttpProxyRequest._chunkSizePattern.hasMatch(chunkSizeText)) {
-        throw const FormatException('Invalid HTTP chunk size.');
+        throw const FormatException('HTTP 分块大小无效。');
       }
       if (extensionIndex >= 0 &&
           !_HttpProxyRequest.isValidChunkExtensions(
             sizeText.substring(extensionIndex),
           )) {
-        throw const FormatException('Invalid HTTP chunk extension.');
+        throw const FormatException('HTTP 分块扩展无效。');
       }
       final chunkSize = int.tryParse(chunkSizeText, radix: 16);
       if (chunkSize == null || chunkSize < 0) {
-        throw const FormatException('Invalid HTTP chunk size.');
+        throw const FormatException('HTTP 分块大小无效。');
       }
       if (chunkSize > limits.maxHttpRequestBodyBytes - bodyBytes) {
-        throw const FormatException('Proxy request body is too large.');
+        throw const FormatException('代理请求体过大。');
       }
-      // Chunk extensions are hop-by-hop metadata. Strip them after validating
-      // their grammar so the upstream parser receives canonical framing.
+      // 分块扩展属于逐跳元数据；校验语法后移除，确保上游收到规范分帧。
       yield Uint8List.fromList(latin1.encode('$chunkSizeText\r\n'));
       if (chunkSize == 0) {
         var trailerBytes = 0;
@@ -462,13 +453,11 @@ class _SandboxProxyInstance {
             maxBytes: _httpChunkLineMaxBytes,
           );
           if (trailer == null) {
-            throw const SocketException(
-              'Proxy client closed before completing HTTP trailers.',
-            );
+            throw const SocketException('代理客户端在 HTTP 尾部结束前已关闭。');
           }
           trailerBytes += trailer.length;
           if (trailerBytes > _httpTrailerMaxBytes) {
-            throw const FormatException('HTTP trailers are too large.');
+            throw const FormatException('HTTP 尾部过大。');
           }
           if (trailer.length == 2) {
             yield Uint8List.fromList(const <int>[13, 10]);
@@ -477,11 +466,9 @@ class _SandboxProxyInstance {
           if (!_HttpProxyRequest.isValidTrailerLine(
             latin1.decode(trailer.sublist(0, trailer.length - 2)),
           )) {
-            throw const FormatException('Invalid HTTP trailer.');
+            throw const FormatException('HTTP 尾部无效。');
           }
-          // Request trailers can alter routing, authentication, or payload
-          // interpretation in parser-specific ways. Consume them within the
-          // bounded trailer budget but never forward them across the sandbox.
+          // 请求尾部可能改变路由、鉴权或载荷解释；只在有界预算内消费，不跨沙箱转发。
         }
       }
 
@@ -492,9 +479,7 @@ class _SandboxProxyInstance {
           remaining < _httpBodyChunkBytes ? remaining : _httpBodyChunkBytes,
         );
         if (chunk == null) {
-          throw const SocketException(
-            'Proxy client closed before completing an HTTP chunk.',
-          );
+          throw const SocketException('代理客户端在 HTTP 分块结束前已关闭。');
         }
         remaining -= chunk.length;
         yield chunk;
@@ -502,7 +487,7 @@ class _SandboxProxyInstance {
       reader.restartReadWindow(limits.idleTimeout);
       final terminator = await reader.readExactly(2);
       if (terminator == null || terminator[0] != 13 || terminator[1] != 10) {
-        throw const FormatException('Invalid HTTP chunk terminator.');
+        throw const FormatException('HTTP 分块终止符无效。');
       }
       yield terminator;
       bodyBytes += chunkSize;
@@ -669,7 +654,7 @@ class _SandboxProxyInstance {
     for (final rule in settings.deniedDomains) {
       if (_matchesRule(rule, host, port)) {
         return _DomainDecision.blocked(
-          'Sandbox proxy denied $host:$port by rule "${rule.pattern}".',
+          '沙箱代理按规则“${rule.pattern}”拒绝 $host:$port。',
         );
       }
     }
@@ -681,9 +666,7 @@ class _SandboxProxyInstance {
         return const _DomainDecision.allowed();
       }
     }
-    return _DomainDecision.blocked(
-      'Sandbox proxy blocked $host:$port because it is not in the allowed domain list.',
-    );
+    return _DomainDecision.blocked('沙箱代理已阻止 $host:$port：目标不在允许域名列表中。');
   }
 
   bool _matchesRule(AiSandboxPatternRule rule, String host, int port) {
@@ -708,8 +691,7 @@ class _SandboxProxyInstance {
     if (host.startsWith('[') && host.endsWith(']')) {
       host = host.substring(1, host.length - 1);
     }
-    // DNS treats a terminal dot as the absolute-name marker. Rules should see
-    // the canonical host so `example.com.` cannot bypass `example.com`.
+    // DNS 末尾点表示绝对域名；规则统一匹配规范主机名，避免借此绕过限制。
     while (host.length > 1 && host.endsWith('.')) {
       host = host.substring(0, host.length - 1);
     }
@@ -1171,8 +1153,7 @@ class _HttpProxyRequest {
     if (uri != null && uri.hasScheme && uri.host.isNotEmpty) {
       final scheme = uri.scheme.toLowerCase();
       if (scheme != 'http' && scheme != 'https') return null;
-      // HTTPS proxying must use CONNECT; forwarding an absolute HTTPS URI as
-      // plaintext would both fail and misrepresent the policy boundary.
+      // HTTPS 代理必须使用 CONNECT，禁止把绝对 HTTPS 地址按明文转发。
       if (scheme == 'https') return null;
       if (!_HostPort._isValidHost(uri.host)) return null;
       final defaultPort = scheme == 'https' ? 443 : 80;
@@ -1414,9 +1395,7 @@ class _SocketReadBuffer {
         _pause();
         if (_activeBufferLimit > 0 &&
             _buffer.length + data.length > _activeBufferLimit) {
-          _error = const FormatException(
-            'Proxy handshake read-ahead is too large.',
-          );
+          _error = const FormatException('代理握手预读数据过大。');
           _stack = StackTrace.current;
           socket.destroy();
           _wakeWaiter();
@@ -1464,7 +1443,7 @@ class _SocketReadBuffer {
 
   void claimManagedRead() {
     if (_operationActive || _handedOff || _managedRead || _cancelled) {
-      throw StateError('Proxy socket reader cannot be claimed.');
+      throw StateError('代理套接字读取器当前无法接管。');
     }
     _managedRead = true;
   }
@@ -1472,7 +1451,7 @@ class _SocketReadBuffer {
   void restartReadWindow(Duration timeout) {
     requirePositiveDuration(timeout, 'timeout');
     if (_operationActive || _handedOff || _cancelled) {
-      throw StateError('Proxy socket reader is not available.');
+      throw StateError('代理套接字读取器不可用。');
     }
     readTimeout = timeout;
     _readStopwatch
@@ -1492,14 +1471,14 @@ class _SocketReadBuffer {
         );
         if (end >= 0) {
           if (end > effectiveMaxBytes) {
-            throw const FormatException('Proxy header is too large.');
+            throw const FormatException('代理请求头过大。');
           }
           final header = _buffer.sublist(0, end);
           _buffer.removeRange(0, end);
           return latin1.decode(header);
         }
         if (_buffer.length >= effectiveMaxBytes) {
-          throw const FormatException('Proxy header is too large.');
+          throw const FormatException('代理请求头过大。');
         }
         if (_done) return null;
         scannedLength = _buffer.length;
@@ -1541,14 +1520,14 @@ class _SocketReadBuffer {
         );
         if (end >= 0) {
           if (end > maxBytes) {
-            throw const FormatException('Proxy line is too large.');
+            throw const FormatException('代理协议行过大。');
           }
           final line = Uint8List.fromList(_buffer.sublist(0, end + 2));
           _buffer.removeRange(0, end + 2);
           return line;
         }
         if (_buffer.length > maxBytes + 1) {
-          throw const FormatException('Proxy line is too large.');
+          throw const FormatException('代理协议行过大。');
         }
         if (_done) return null;
         scannedLength = _buffer.length;
@@ -1559,7 +1538,7 @@ class _SocketReadBuffer {
 
   Stream<Uint8List> handOff() {
     if (_operationActive || _handedOff || _managedRead || _cancelled) {
-      throw StateError('Proxy socket reader cannot be handed off.');
+      throw StateError('代理套接字读取器当前无法移交。');
     }
     _handedOff = true;
     _readStopwatch.stop();
@@ -1608,7 +1587,7 @@ class _SocketReadBuffer {
     Future<T?> Function() action,
   ) async {
     if (_operationActive || _handedOff || _cancelled) {
-      throw StateError('Proxy socket reader is not available.');
+      throw StateError('代理套接字读取器不可用。');
     }
     _operationActive = true;
     _activeBufferLimit = bufferLimit;

@@ -1073,10 +1073,14 @@ class WebFetchScraplingBridge {
     final process = _runtimeCommandProcess;
     if (process == null) return;
     _runtimeCommandProcess = null;
-    await terminateTrackedProcessTree(
-      process,
-      gracefulTimeout: _defaultProcessStopTimeout,
-    );
+    try {
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: _defaultProcessStopTimeout,
+      );
+    } catch (error, stack) {
+      silentLog('web_fetch_scrapling_bridge', '停止运行时命令进程', error, stack);
+    }
   }
 
   Future<void> _cleanupRuntime(
