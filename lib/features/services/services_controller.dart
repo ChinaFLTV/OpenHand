@@ -25,6 +25,7 @@ const int _kEventStreamReconnectLimit = 3;
 const Duration _kProxyInspectionFirstRunDelay = Duration(seconds: 10);
 const Duration _kProxyStatisticsSyncInterval = Duration(seconds: 5);
 const Duration _kEventStreamReconnectBaseDelay = Duration(seconds: 1);
+const Duration _kRuntimeOperationDrainTimeout = Duration(seconds: 3);
 
 typedef AiExposureProxyInspectionResultCallback =
     void Function(
@@ -426,12 +427,7 @@ class ServicesController extends ChangeNotifier {
     _systemProxySyncPending = false;
     _notify();
     try {
-      _proxyStatisticsTimer?.cancel();
-      _proxyStatisticsTimer = null;
-      await _syncProxyStatistics();
-      await _cancelEventSubscription();
-      await _managedDependencyUpdateQueue.idle;
-      await _proxyRuntimeUpdateQueue.idle;
+      await _drainRuntimeOperations();
       await _runtime.stop();
       _lifecycle = AiExposureServiceLifecycle.stopped;
       _health = null;
@@ -1747,6 +1743,24 @@ class ServicesController extends ChangeNotifier {
     );
   }
 
+  Future<void> _drainRuntimeOperations() async {
+    _proxyStatisticsTimer?.cancel();
+    _proxyStatisticsTimer = null;
+    _managedDependencyListenerSyncQueue.discardPending();
+    _systemProxySyncPending = false;
+    await _cancelEventSubscription();
+    await runAsyncCleanupBounded(
+      () => Future.wait<void>(<Future<void>>[
+        _syncProxyStatistics(),
+        _managedDependencyUpdateQueue.idle,
+        _proxyRuntimeUpdateQueue.idle,
+      ]),
+      timeout: _kRuntimeOperationDrainTimeout,
+      onError: (error, stack) =>
+          silentLog('services_controller', '等待扫描运行操作结束', error, stack),
+    );
+  }
+
   Future<void> shutdown() async {
     if (_disposed) return;
     _proxyInspectionGeneration++;
@@ -1754,11 +1768,9 @@ class ServicesController extends ChangeNotifier {
     _proxyInspectionCancelRequested = true;
     _proxyInspectionTimer?.cancel();
     _proxyInspectionTimer = null;
-    _proxyStatisticsTimer?.cancel();
-    _proxyStatisticsTimer = null;
-    await _syncProxyStatistics();
+    _lifecycle = AiExposureServiceLifecycle.stopping;
+    await _drainRuntimeOperations();
     _disposed = true;
-    _managedDependencyListenerSyncQueue.discardPending();
     final pluginController = _pluginServiceController;
     final pluginListener = _pluginStateListener;
     if (pluginController != null && pluginListener != null) {
@@ -1767,11 +1779,8 @@ class ServicesController extends ChangeNotifier {
     SystemProxyResolver.instance.revision.removeListener(
       _handleSystemProxyRevision,
     );
-    await _managedDependencyUpdateQueue.idle;
-    await _proxyRuntimeUpdateQueue.idle;
     _pluginStateListener = null;
     _pluginServiceController = null;
-    await _cancelEventSubscription();
     await Future.wait<bool>(<Future<bool>>[
       cancelStreamSubscriptionBounded<String>(
         _runtimeLogSubscription,
