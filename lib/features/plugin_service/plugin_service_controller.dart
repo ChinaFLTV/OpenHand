@@ -1,5 +1,8 @@
+import 'dart:async';
+
 import 'package:flutter/foundation.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_log_buffer.dart';
@@ -29,6 +32,8 @@ String _pluginServiceText({
   );
 }
 
+const Duration _kPluginControllerShutdownTimeout = Duration(seconds: 3);
+
 /// 插件服务控制器。
 ///
 /// 管理插件的扫描、安装、更新、卸载，并通知 UI 状态变化。
@@ -53,6 +58,8 @@ class PluginServiceController extends ManagedChangeNotifier {
       OpenHandSingleFlight<void>();
   final BoundedLogBuffer _operationLogs = BoundedLogBuffer();
   final ChangePulse _operationSuccessPulse = ChangePulse();
+  final Set<Future<void>> _activeOperations = <Future<void>>{};
+  Future<void>? _shutdownFuture;
 
   List<PluginInfo> get plugins => _plugins;
   bool get isLoading => _isLoading;
@@ -80,17 +87,22 @@ class PluginServiceController extends ManagedChangeNotifier {
 
   /// 重新扫描所有插件状态。
   Future<void> rescan() {
-    if (_refreshAllPluginsFlight.isRunning) {
-      return _refreshAllPluginsFlight.run(_refreshAllPluginsUncached);
-    }
-    if (_isOperating || _checkingPluginId != null) {
+    if (isDisposed ||
+        (!_refreshAllPluginsFlight.isRunning &&
+            (_isOperating || _checkingPluginId != null))) {
       return Future<void>.value();
     }
     return _refreshAllPlugins();
   }
 
   Future<void> _refreshAllPlugins() {
-    return _refreshAllPluginsFlight.run(_refreshAllPluginsUncached);
+    if (isDisposed) return Future<void>.value();
+    if (_refreshAllPluginsFlight.isRunning) {
+      return _refreshAllPluginsFlight.run(_refreshAllPluginsUncached);
+    }
+    return _trackOperation(
+      () => _refreshAllPluginsFlight.run(_refreshAllPluginsUncached),
+    );
   }
 
   Future<void> _refreshAllPluginsUncached() async {
@@ -98,8 +110,11 @@ class PluginServiceController extends ManagedChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      _plugins = _mergeScannedPlugins(await _scanner.scanAll());
+      final scanned = await _scanner.scanAll();
+      if (isDisposed) return;
+      _plugins = _mergeScannedPlugins(scanned);
     } catch (e) {
+      if (isDisposed) return;
       _errorMessage = '$e';
       if (_plugins.isEmpty) {
         _plugins = _mergeScannedPlugins(
@@ -148,9 +163,18 @@ class PluginServiceController extends ManagedChangeNotifier {
   }
 
   /// 检查单个插件的最新状态与可更新版本。
-  Future<PluginInfo?> checkPluginUpdate(String pluginId) async {
+  Future<PluginInfo?> checkPluginUpdate(String pluginId) {
     final plugin = pluginById(pluginId);
-    if (plugin == null || isBusy) return null;
+    if (isDisposed || plugin == null || isBusy) {
+      return Future<PluginInfo?>.value();
+    }
+    return _trackOperation(() => _checkPluginUpdate(pluginId, plugin));
+  }
+
+  Future<PluginInfo?> _checkPluginUpdate(
+    String pluginId,
+    PluginInfo plugin,
+  ) async {
     _errorMessage = null;
     _checkingPluginId = pluginId;
     notifyListeners();
@@ -177,6 +201,7 @@ class PluginServiceController extends ManagedChangeNotifier {
         PluginCatalogIds.aiJungler => Future<PluginInfo?>.value(plugin),
         _ => Future<PluginInfo?>.value(),
       };
+      if (isDisposed) return null;
       if (refreshed == null) return null;
       final merged = pluginId == PluginCatalogIds.nodejs
           ? refreshed.copyWith(
@@ -206,6 +231,7 @@ class PluginServiceController extends ManagedChangeNotifier {
       notifyListeners();
       return restored;
     } catch (e) {
+      if (isDisposed) return null;
       _errorMessage = '$e';
       notifyListeners();
       return null;
@@ -491,8 +517,22 @@ class PluginServiceController extends ManagedChangeNotifier {
     required String pluginId,
     required PluginStatus transientStatus,
     required Future<PluginOperationResult> Function() operation,
+  }) {
+    if (isDisposed || isBusy) return Future<bool>.value(false);
+    return _trackOperation(
+      () => _runPluginLifecycleOperationNow(
+        pluginId: pluginId,
+        transientStatus: transientStatus,
+        operation: operation,
+      ),
+    );
+  }
+
+  Future<bool> _runPluginLifecycleOperationNow({
+    required String pluginId,
+    required PluginStatus transientStatus,
+    required Future<PluginOperationResult> Function() operation,
   }) async {
-    if (isBusy) return false;
     _isOperating = true;
     _errorMessage = null;
     _operationLogs.clear();
@@ -533,6 +573,7 @@ class PluginServiceController extends ManagedChangeNotifier {
       );
       return false;
     } catch (e) {
+      if (isDisposed) return false;
       _setPluginOperationFailure(pluginId, '$e');
       return false;
     } finally {
@@ -693,9 +734,34 @@ class PluginServiceController extends ManagedChangeNotifier {
     ];
   }
 
+  Future<T> _trackOperation<T>(Future<T> Function() operation) {
+    final completion = Completer<void>();
+    final done = completion.future;
+    _activeOperations.add(done);
+    return Future<T>.sync(operation).whenComplete(() {
+      if (!completion.isCompleted) completion.complete();
+      _activeOperations.remove(done);
+    });
+  }
+
   @override
   void dispose() {
+    if (isDisposed) return;
+    final activeOperations = _activeOperations.toList(growable: false);
+    _shutdownFuture = activeOperations.isEmpty
+        ? Future<void>.value()
+        : runAsyncCleanupBounded(
+            () => Future.wait<void>(activeOperations),
+            timeout: _kPluginControllerShutdownTimeout,
+            onError: (error, stack) =>
+                silentLog('plugin_service', '等待插件控制器操作结束', error, stack),
+          ).then<void>((_) {});
     _operationSuccessPulse.dispose();
     super.dispose();
+  }
+
+  Future<void> shutdown() {
+    if (!isDisposed) dispose();
+    return _shutdownFuture ?? Future<void>.value();
   }
 }
