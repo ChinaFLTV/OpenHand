@@ -1,5 +1,3 @@
-import 'dart:async';
-
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../web_engine/web_engine_telemetry_store_base.dart';
@@ -26,9 +24,6 @@ class WebSearchTelemetryStore
 
   @override
   String get logTag => 'web_search_telemetry';
-
-  @override
-  List<AiWebSearchEngineKind> get kindValues => AiWebSearchEngineKind.values;
 
   @override
   AiWebSearchEngineKind? parseKind(String name) {

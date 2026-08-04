@@ -452,16 +452,18 @@ Future<void> _bootstrap() async {
     ..register('知识库控制器', knowledgeBase.controller.shutdown)
     ..register('自学习聊天客户端', selfLearningChatClient.dispose)
     ..register('AI LSP 会话', AiLspClientService.instance.disposeAll)
-    ..register(
-      'WebSearch 缓存',
-      WebSearchCacheStore.instance.shutdown,
-      timeout: WebEngineCacheStoreBase.runtimeCleanupTimeout,
-    )
-    ..register(
-      'WebFetch 缓存',
-      WebFetchCacheStore.instance.shutdown,
-      timeout: WebEngineCacheStoreBase.runtimeCleanupTimeout,
-    )
+    ..register('WebSearch 持久化', () async {
+      await Future.wait<void>(<Future<void>>[
+        WebSearchCacheStore.instance.shutdown(),
+        WebSearchTelemetryStore.instance.shutdown(),
+      ]);
+    }, timeout: WebEngineCacheStoreBase.runtimeCleanupTimeout)
+    ..register('WebFetch 持久化', () async {
+      await Future.wait<void>(<Future<void>>[
+        WebFetchCacheStore.instance.shutdown(),
+        WebFetchTelemetryStore.instance.shutdown(),
+      ]);
+    }, timeout: WebEngineCacheStoreBase.runtimeCleanupTimeout)
     ..register(
       '媒体缓存',
       MediaCacheService.instance.shutdown,

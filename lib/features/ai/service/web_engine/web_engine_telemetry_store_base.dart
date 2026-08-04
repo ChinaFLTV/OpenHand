@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../model/ai_web_engine_resilience.dart';
@@ -44,6 +45,22 @@ class WebEngineCooldownConfig {
   final int tier3Failures;
   final int tier3Seconds;
   final int quotaSeconds;
+}
+
+/// Web 引擎调度前使用的冷却与限流快照。
+class WebEngineAdmissionState {
+  const WebEngineAdmissionState({
+    required this.cooldownRemainingMs,
+    required this.callsInLastMinute,
+  });
+
+  static const empty = WebEngineAdmissionState(
+    cooldownRemainingMs: 0,
+    callsInLastMinute: 0,
+  );
+
+  final int cooldownRemainingMs;
+  final int callsInLastMinute;
 }
 
 /// 一次 per-engine 调用事件（写日志 + 折叠到 engines.json + 补一条 history 采样）。
@@ -149,20 +166,22 @@ abstract class WebEngineSampleBase {
 /// * 有界串行队列统一调度写盘动作；外部 `recordCall` 永不抛异常。
 ///
 /// 子类需要实现：
-///   * [subdir] / [logTag] / [kindValues]：领域元信息
+///   * [subdir] / [logTag]：领域元信息
 ///   * [parseKind]：name → TKind?
 ///
 /// 同时维护各自的 typed `CallLog/PerEngineLog/EngineStat/EngineSample` 包装；
 /// 写日志统一走 [recordCallRaw]，读日志拿到 raw map 后再做 fromJson。
 abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
+  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
+
   String get subdir;
   String get logTag;
-  List<TKind> get kindValues;
   TKind? parseKind(String name);
 
   final SerialTaskQueue _operations = SerialTaskQueue(
     maxPendingTasks: _maxPendingOperations,
   );
+  final OpenHandAsyncOnce _shutdownOnce = OpenHandAsyncOnce();
   static const int _maxPendingOperations = 256;
   static const int _maxPersistedCalls = 2000;
   static const int _maxPersistedHistorySamples = 2000;
@@ -170,6 +189,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   static const String _callsFileName = 'calls.json';
   static const String _enginesFileName = 'engines.json';
   static const String _engineHistoryFileName = 'engine_history.json';
+  bool _shuttingDown = false;
 
   static final RegExp _quotaErrorPattern = RegExp(
     r'\b(429|too many requests|rate[\s_-]?limit|quota|exceeded|throttl)\b',
@@ -189,6 +209,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   );
 
   Future<Object?> _readRawJson(String fileName, String action) async {
+    if (_shuttingDown) return null;
     final file = File(p.join(defaultDirectoryPath(), fileName));
     try {
       return await readWebEngineJsonFileIfExists(file);
@@ -264,6 +285,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   }
 
   Future<void> clearAll() {
+    if (_shuttingDown) return Future<void>.value();
     return _runSerialized('清理全部遥测记录', () async {
       final dir = Directory(defaultDirectoryPath());
       final complete = await clearWebEngineDirectoryBounded(dir);
@@ -273,15 +295,45 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     });
   }
 
-  /// orchestrator 用：判断某引擎当前是否处于 cooldown（暂停调用）。
-  /// 返回剩余毫秒数；0 表示可调用。
-  Future<int> cooldownRemaining(TKind kind) async {
-    final stats = await rawEngineStats();
-    final entry = stats[kind.name];
-    if (entry == null) return 0;
-    final until = webEngineNonNegativeIntFromValue(entry['cooldown_until_ms']);
+  /// 排空既有遥测写入后一次读取调度所需状态，避免逐引擎重复解析文件。
+  Future<Map<TKind, WebEngineAdmissionState>> admissionStates() async {
+    if (_shuttingDown) return const {};
+    try {
+      return await _operations.enqueue(_readAdmissionStates);
+    } catch (error, stack) {
+      silentLog(logTag, '读取引擎调度状态', error, stack);
+      return const {};
+    }
+  }
+
+  Future<Map<TKind, WebEngineAdmissionState>> _readAdmissionStates() async {
+    if (_shuttingDown) return const {};
+    final statsFuture = rawEngineStats();
+    final historyFuture = rawEngineHistory();
+    final stats = await statsFuture;
+    final history = await historyFuture;
+    if (_shuttingDown) return const {};
     final now = DateTime.now().millisecondsSinceEpoch;
-    return until > now ? (until - now) : 0;
+    final cutoff = now - const Duration(minutes: 1).inMilliseconds;
+    final result = <TKind, WebEngineAdmissionState>{};
+    for (final name in <String>{...stats.keys, ...history.keys}) {
+      final kind = parseKind(name);
+      if (kind == null) continue;
+      final until = webEngineNonNegativeIntFromValue(
+        stats[name]?['cooldown_until_ms'],
+      );
+      var recentCalls = 0;
+      for (final sample in history[name] ?? const <Map<String, Object?>>[]) {
+        if (webEngineNonNegativeIntFromValue(sample['ts']) >= cutoff) {
+          recentCalls++;
+        }
+      }
+      result[kind] = WebEngineAdmissionState(
+        cooldownRemainingMs: until > now ? until - now : 0,
+        callsInLastMinute: recentCalls,
+      );
+    }
+    return result;
   }
 
   /// 手动清掉某引擎的 cooldown（用于设置 UI 上的"重置"动作）。
@@ -305,20 +357,6 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     });
   }
 
-  /// 返回 [kind] 在最近 60 秒内的调用次数（基于 engine_history.json 时间戳）。
-  Future<int> callsInLastMinute(TKind kind) async {
-    final hist = await rawEngineHistory();
-    final samples = hist[kind.name];
-    if (samples == null || samples.isEmpty) return 0;
-    final cutoff = DateTime.now().millisecondsSinceEpoch - 60 * 1000;
-    var count = 0;
-    for (final s in samples) {
-      final ts = webEngineNonNegativeIntFromValue(s['ts']);
-      if (ts >= cutoff) count++;
-    }
-    return count;
-  }
-
   // 写入入口（子类的 typed `recordCall(...)` 包装它）
   /// 把一条调用日志（[callJson]）+ per-engine 事件批量写盘：
   /// 1) 追加到 calls.json（FIFO 上限 [maxRecentCalls]）。
@@ -334,8 +372,9 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     required List<WebEngineCallEvent> perEngine,
     required WebEngineCooldownConfig cooldownConfig,
     int maxRecentCalls = 200,
-    int maxHistorySamples = 200,
+    int maxHistorySamples = AiWebEngineResiliencePolicy.maxThrottlePerMinute,
   }) async {
+    if (_shuttingDown) return;
     final retainedCalls = maxRecentCalls.clamp(0, _maxPersistedCalls);
     final retainedHistory = maxHistorySamples.clamp(
       0,
@@ -358,6 +397,7 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     String action,
     Future<void> Function() operation,
   ) async {
+    if (_shuttingDown) return;
     try {
       await _operations.enqueue(operation);
     } catch (error, stack) {
@@ -528,6 +568,14 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     } finally {
       deadline.stop();
     }
+  }
+
+  /// 停止接收新任务，并等待已入队遥测写入结束。
+  Future<void> shutdown() {
+    _shuttingDown = true;
+    return _shutdownOnce.run(
+      () => _operations.idle.timeout(runtimeCleanupTimeout),
+    );
   }
 }
 

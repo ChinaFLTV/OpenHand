@@ -68,30 +68,29 @@ class WebEngineFallbackFilterOutcome<TConfig> {
 /// * [telemetry]：领域专属 store，由 base 类提供 cooldown/throttle 查询。
 /// * [throttlePerMinute]：0 表示不限。
 ///
-/// 注意：[telemetry] 的 `cooldownRemaining` / `callsInLastMinute` 都是 async，
-/// 所以这里也是 async；语义和老实现 1:1 对齐（一次成功 stat 自动清掉
-/// cooldown 由 base 侧负责，这里不重复处理）。
+/// 调度状态按一份持久化快照读取；成功记录会在存储层自动清除冷却状态。
 Future<WebEngineFilterOutcome<TConfig>>
 filterByCooldownAndThrottle<TConfig, TKind extends Enum>({
   required List<TConfig> configs,
   required TKind Function(TConfig) kindOf,
   required WebEngineTelemetryStoreBase<TKind> telemetry,
   required int throttlePerMinute,
+  Map<TKind, WebEngineAdmissionState>? admission,
 }) async {
   final usable = <TConfig>[];
   final skipped = <WebEngineSkippedItem<TConfig>>[];
+  final admissionStates = admission ?? await telemetry.admissionStates();
   for (final c in configs) {
     final kind = kindOf(c);
-    final remaining = await telemetry.cooldownRemaining(kind);
-    if (remaining > 0) {
+    final state = admissionStates[kind] ?? WebEngineAdmissionState.empty;
+    if (state.cooldownRemainingMs > 0) {
       skipped.add(
         WebEngineSkippedItem(config: c, reason: webEngineCooldownSkippedReason),
       );
       continue;
     }
     if (throttlePerMinute > 0) {
-      final used = await telemetry.callsInLastMinute(kind);
-      if (used >= throttlePerMinute) {
+      if (state.callsInLastMinute >= throttlePerMinute) {
         skipped.add(
           WebEngineSkippedItem(
             config: c,
@@ -121,11 +120,13 @@ filterByCooldownThrottleWithFallback<TConfig, TKind extends Enum>({
   final initialConfigs = primaryConfigs.isNotEmpty
       ? primaryConfigs
       : fallbackConfigs;
+  final admission = await telemetry.admissionStates();
   final initial = await filterByCooldownAndThrottle<TConfig, TKind>(
     configs: initialConfigs,
     kindOf: kindOf,
     telemetry: telemetry,
     throttlePerMinute: throttlePerMinute,
+    admission: admission,
   );
   if (initial.usable.isNotEmpty || primaryConfigs.isEmpty) {
     return WebEngineFallbackFilterOutcome(
@@ -154,6 +155,7 @@ filterByCooldownThrottleWithFallback<TConfig, TKind extends Enum>({
     kindOf: kindOf,
     telemetry: telemetry,
     throttlePerMinute: throttlePerMinute,
+    admission: admission,
   );
   return WebEngineFallbackFilterOutcome(
     usable: fallback.usable,
