@@ -438,7 +438,7 @@ Future<void> _bootstrap() async {
   runtimeCleanup
     ..register('数据库', DatabaseService.instance.close)
     ..register('AI 使用统计', AiUsageTracker.instance.flush)
-    ..register('设置控制器', settingsController.dispose)
+    ..register('设置控制器', settingsController.shutdown)
     ..register('Hooks 控制器', hooks.controller.shutdown)
     ..register('技能控制器', skills.controller.shutdown)
     ..register('记忆控制器', memory.controller.shutdown)

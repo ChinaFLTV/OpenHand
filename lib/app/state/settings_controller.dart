@@ -23,6 +23,7 @@ import '../../features/mcp/model/mcp_lazy_loading_mode.dart';
 import '../../features/mcp/model/mcp_stdio_mirror_mode.dart';
 import '../../shared/fps/openhand_fps_monitor.dart';
 import '../../shared/net/tcp_port_utils.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/serial_task_queue.dart';
@@ -42,6 +43,8 @@ import 'settings_store.dart';
 enum _MutationDisposition { apply, successNoChange, reject }
 
 enum AiStreamThrottleConfigImportOutcome { applied, unchanged, failed }
+
+const Duration _settingsShutdownTimeout = Duration(seconds: 3);
 
 /// 当前 AI 流式节流配置文档的 schema 版本号。
 ///
@@ -361,12 +364,11 @@ class SettingsController extends ChangeNotifier {
   SettingsPersistenceIssue? _persistenceIssue;
   bool _canPersistSettings;
   bool _isDisposed = false;
+  bool _isShuttingDown = false;
   final SerialTaskQueue _mutationQueue = SerialTaskQueue();
+  Future<void>? _shutdownFuture;
 
-  /// Increments every time a mutation is successfully persisted to disk.
-  /// Settings panels can listen on this to fire ephemeral feedback effects
-  /// (e.g. a soft highlight pulse) without each `_save*` call site needing
-  /// to wire up a per-row notifier.
+  /// 每次变更成功落盘后递增，供设置面板统一触发轻量保存反馈。
   final ValueNotifier<int> _saveSuccessSignal = ValueNotifier<int>(0);
   ValueListenable<int> get saveSuccessSignal => _saveSuccessSignal;
 
@@ -653,9 +655,28 @@ class SettingsController extends ChangeNotifier {
   @override
   void dispose() {
     if (_isDisposed) return;
+    _isShuttingDown = true;
     _isDisposed = true;
     _saveSuccessSignal.dispose();
     super.dispose();
+  }
+
+  /// 拒绝新变更并有界等待已排队设置落盘，可重复调用。
+  Future<void> shutdown() {
+    final active = _shutdownFuture;
+    if (active != null) return active;
+    _isShuttingDown = true;
+    final shutdown = () async {
+      await runAsyncCleanupBounded(
+        () => _mutationQueue.idle,
+        timeout: _settingsShutdownTimeout,
+        onError: (error, stack) =>
+            silentLog('settings_controller', '等待设置变更落盘', error, stack),
+      );
+      dispose();
+    }();
+    _shutdownFuture = shutdown;
+    return shutdown;
   }
 
   AiModelConfig? get selectedAiModel {
@@ -2723,7 +2744,7 @@ class SettingsController extends ChangeNotifier {
   }
 
   Future<bool> _commitMutation(_MutationDisposition Function() mutation) {
-    if (_isDisposed) return Future<bool>.value(false);
+    if (_isDisposed || _isShuttingDown) return Future<bool>.value(false);
     return _mutationQueue.enqueue(() async {
       AppSettingsSnapshot? previousSnapshot;
       try {
