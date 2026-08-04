@@ -366,7 +366,11 @@ class AiBashBackgroundTool extends AiTool {
     if (_disposed || reservationGeneration != _lifecycleGeneration) {
       releaseStartReservation();
       await Future.wait<void>(<Future<void>>[
-        terminateTrackedProcessTree(process),
+        runAsyncCleanupBounded(
+          () => terminateTrackedProcessTree(process),
+          onError: (error, stack) =>
+              silentLog('ai_bash_background', '清理迟到后台进程', error, stack),
+        ).then<void>((_) {}),
         _closeLaunchProxy(launchSpec.proxyLease, 'late process'),
       ]);
       return AiToolUtils.invalidResult(
@@ -455,7 +459,11 @@ class AiBashBackgroundTool extends AiTool {
       if (!sessionSetupCompleted) {
         final createdSession = _sessions.remove(handle);
         if (createdSession == null) {
-          await terminateTrackedProcessTree(process);
+          await runAsyncCleanupBounded(
+            () => terminateTrackedProcessTree(process),
+            onError: (error, stack) =>
+                silentLog('ai_bash_background', '清理未完成的后台进程', error, stack),
+          );
         } else {
           await createdSession.close(kill: true);
         }
@@ -883,7 +891,11 @@ class AiBashBackgroundTool extends AiTool {
           ..sort((a, b) => b.lastTouchedAtMs.compareTo(a.lastTouchedAtMs));
     for (final session in exited.skip(_maxRetainedExitedSessions)) {
       if (_sessions.remove(session.handle) != null) {
-        unawaited(session.close(kill: false));
+        unawaited(
+          session.close(kill: false).catchError((error, stack) {
+            silentLog('ai_bash_background', '回收已退出后台会话', error, stack);
+          }),
+        );
       }
     }
   }

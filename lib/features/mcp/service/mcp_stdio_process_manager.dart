@@ -311,45 +311,59 @@ class McpStdioProcessManager extends ChangeNotifier {
       );
 
       // 监听进程退出
-      unawaited(
-        process.exitCode.then((code) {
-          _appendLog(
-            name,
-            '\n[${_timestamp()}] 进程已退出（退出码：$code）',
-            isStderr: false,
-            expectedGeneration: generation,
-          );
-          responseRouter.rejectNewWrites(StateError('进程已退出，退出码：$code。'));
-          unawaited(
-            Future.wait<void>(<Future<void>>[
-              _cancelSubscriptionBounded(
-                stdoutSubscription,
-                '取消已退出进程 $name 的标准输出订阅',
-              ),
-              _cancelSubscriptionBounded(
-                stderrSubscription,
-                '取消已退出进程 $name 的标准错误订阅',
-              ),
-            ]),
-          );
-          final current = _processes[name];
-          if (current != null &&
-              current.generation == generation &&
-              identical(current.process, process)) {
-            if (current.info.state != StdioProcessState.stopping) {
-              unawaited(_terminateProcessTreeBounded(process!));
-            }
-            _processes[name] = _ManagedProcess(
-              generation: generation,
-              configFingerprint: current.configFingerprint,
-              info: current.info.copyWith(
-                state: StdioProcessState.stopped,
-                clearPid: true,
-              ),
-            );
-            notifyListeners();
+      void handleProcessExit({int? code, Object? error, StackTrace? stack}) {
+        final exitError = error ?? StateError('进程已退出，退出码：$code。');
+        _appendLog(
+          name,
+          error == null
+              ? '\n[${_timestamp()}] 进程已退出（退出码：$code）'
+              : '\n[${_timestamp()}] 进程退出监听异常：$error',
+          isStderr: error != null,
+          expectedGeneration: generation,
+        );
+        responseRouter.rejectNewWrites(exitError, stack);
+        unawaited(
+          Future.wait<void>(<Future<void>>[
+            _cancelSubscriptionBounded(
+              stdoutSubscription,
+              '取消已退出进程 $name 的标准输出订阅',
+            ),
+            _cancelSubscriptionBounded(
+              stderrSubscription,
+              '取消已退出进程 $name 的标准错误订阅',
+            ),
+          ]),
+        );
+        final current = _processes[name];
+        if (current != null &&
+            current.generation == generation &&
+            identical(current.process, process)) {
+          if (error != null ||
+              current.info.state != StdioProcessState.stopping) {
+            unawaited(_terminateProcessTreeBounded(process!));
           }
-        }),
+          _processes[name] = _ManagedProcess(
+            generation: generation,
+            configFingerprint: current.configFingerprint,
+            info: current.info.copyWith(
+              state: StdioProcessState.stopped,
+              clearPid: true,
+            ),
+          );
+          notifyListeners();
+        }
+      }
+
+      unawaited(
+        process.exitCode
+            .then<void>(
+              (code) => handleProcessExit(code: code),
+              onError: (Object error, StackTrace stack) =>
+                  handleProcessExit(error: error, stack: stack),
+            )
+            .catchError((Object error, StackTrace stack) {
+              silentLog('mcp_stdio_process_manager', '处理进程退出回调', error, stack);
+            }),
       );
 
       // 启动后自动执行 MCP 协议握手

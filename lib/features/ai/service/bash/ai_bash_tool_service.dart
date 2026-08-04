@@ -913,9 +913,7 @@ class AiBashToolService {
         final sessionExitedUnexpectedly =
             persistentResult.exitCode == -1 &&
             persistentResult.status == BashToolExecutionStatus.failed &&
-            persistentResult.stderr.contains(
-              'persistent bash session exited unexpectedly',
-            );
+            persistentResult.stderr.contains('持久 Bash 会话意外退出');
         if (!sessionExitedUnexpectedly) {
           return persistentResult;
         }
@@ -1079,7 +1077,11 @@ class AiBashToolService {
           _cancelProcessOutputSubscription(stdoutSubscription, 'stdout'),
           _cancelProcessOutputSubscription(stderrSubscription, 'stderr'),
         ]);
-        await terminateTrackedProcessTree(process);
+        await runAsyncCleanupBounded(
+          () => terminateTrackedProcessTree(process),
+          onError: (error, stack) =>
+              silentLog('ai_bash_tool_service', '清理未完成的 Bash 进程', error, stack),
+        );
         stopwatch.stop();
         await closeLaunchProxy();
       }
@@ -1629,9 +1631,7 @@ class AiBashToolService {
     );
     try {
       if (_disposed || _persistentSessionCloses.containsKey(sessionId)) {
-        throw StateError(
-          'AiBashToolService was disposed during shell startup.',
-        );
+        throw StateError('Bash 工具服务在 Shell 启动期间已释放。');
       }
       // Unix Shell 禁用 glob，避免命令在包装器执行前被元字符展开破坏。
       if (!Platform.isWindows) {
@@ -1672,24 +1672,52 @@ class AiBashToolService {
             onError: handleStreamError,
             cancelOnError: true,
           );
-      process.exitCode.then((_) {
-        final activeExecution = session.activeExecution;
-        if (activeExecution != null && !activeExecution.outcome.isCompleted) {
-          activeExecution.completeError(
-            StateError('The persistent bash session exited unexpectedly.'),
-            maxCapturedCharacters,
+      void handleSessionExit({Object? error, StackTrace? stack}) {
+        try {
+          final exitError = error ?? StateError('持久 Bash 会话意外退出。');
+          final activeExecution = session.activeExecution;
+          if (activeExecution != null && !activeExecution.outcome.isCompleted) {
+            activeExecution.completeError(exitError, maxCapturedCharacters);
+          }
+          if (error != null) {
+            silentLog('ai_bash_tool_service', '监听持久 Shell 退出', error, stack);
+          }
+          // 同时终止继承 Shell 管道的子孙进程。
+          unawaited(
+            _disposePersistentSession(session).catchError((
+              Object cleanupError,
+              StackTrace cleanupStack,
+            ) {
+              silentLog(
+                'ai_bash_tool_service',
+                '清理退出的持久 Shell',
+                cleanupError,
+                cleanupStack,
+              );
+            }),
+          );
+          if (identical(_persistentSessions[sessionId], session)) {
+            _persistentSessions.remove(sessionId);
+          }
+        } catch (exitError, exitStack) {
+          silentLog(
+            'ai_bash_tool_service',
+            '处理持久 Shell 退出',
+            exitError,
+            exitStack,
           );
         }
-        // 同时终止继承 Shell 管道的子孙进程。
-        unawaited(_disposePersistentSession(session));
-        if (identical(_persistentSessions[sessionId], session)) {
-          _persistentSessions.remove(sessionId);
-        }
-      });
+      }
+
+      unawaited(
+        process.exitCode.then<void>(
+          (_) => handleSessionExit(),
+          onError: (Object error, StackTrace stack) =>
+              handleSessionExit(error: error, stack: stack),
+        ),
+      );
       if (_disposed || _persistentSessionCloses.containsKey(sessionId)) {
-        throw StateError(
-          'AiBashToolService was disposed during shell startup.',
-        );
+        throw StateError('Bash 工具服务在 Shell 启动期间已释放。');
       }
       _persistentSessions[sessionId] = session;
       return session;
@@ -1932,7 +1960,12 @@ class AiBashToolService {
       _cancelProcessOutputSubscription(session.stdoutSubscription, 'stdout'),
       _cancelProcessOutputSubscription(session.stderrSubscription, 'stderr'),
     ]);
-    await terminateTrackedProcessTree(session.process);
+    await runAsyncCleanupBounded(
+      () => terminateTrackedProcessTree(session.process),
+      timeout: _persistentShutdownTimeout,
+      onError: (error, stack) =>
+          silentLog('ai_bash_tool_service', '终止持久 Shell 进程树', error, stack),
+    );
   }
 
   Future<void> _cancelProcessOutputSubscription(
@@ -2041,7 +2074,13 @@ class AiBashToolService {
 
   /// 跨平台终止进程：Windows 使用默认终止，POSIX 先 SIGTERM 后 SIGKILL。
   static void _killProcess(Process process) {
-    unawaited(terminateTrackedProcessTree(process));
+    unawaited(
+      runAsyncCleanupBounded(
+        () => terminateTrackedProcessTree(process),
+        onError: (error, stack) =>
+            silentLog('ai_bash_tool_service', '终止 Bash 进程树', error, stack),
+      ),
+    );
   }
 }
 
