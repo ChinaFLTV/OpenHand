@@ -41,6 +41,39 @@ void main() {
 
     expect(client.updateCalls, 2);
   });
+
+  test('扫描引擎退出后忽略旧客户端的依赖同步结果', () async {
+    final client = _BlockingAiJunglerClient();
+    final runtime = _TestAiJunglerRuntime(client);
+    final plugins = _TestPluginServiceController();
+    final controller = ServicesController(
+      runtime: runtime,
+      proxyInspectionFirstRunDelay: const Duration(days: 1),
+    );
+    addTearDown(() async {
+      client.unblockAll();
+      runtime.disconnect();
+      await controller.shutdown();
+      plugins.dispose();
+      client.close();
+    });
+
+    controller.attachPluginServiceController(plugins);
+    await _waitUntil(() => client.updateCalls == 1);
+
+    runtime.emitExit(7);
+    await _waitUntil(
+      () => controller.lifecycle == AiExposureServiceLifecycle.error,
+    );
+    client.release(0);
+    await _waitUntil(() => client.completedUpdateCalls == 1);
+    await Future<void>.delayed(Duration.zero);
+
+    expect(client.statusCalls, 0);
+    expect(controller.dependencyStatus, isNull);
+    expect(controller.proxyStatus, isNull);
+    expect(controller.errorMessage, '扫描引擎异常退出：7。');
+  });
 }
 
 Future<void> _waitUntil(bool Function() condition) async {
@@ -75,18 +108,33 @@ final class _TestPluginServiceController extends PluginServiceController {
 final class _TestAiJunglerRuntime extends AiJunglerRuntime {
   _TestAiJunglerRuntime(this._testClient);
 
+  final StreamController<String> _testLogs =
+      StreamController<String>.broadcast();
+  final StreamController<int> _testExits = StreamController<int>.broadcast();
   _BlockingAiJunglerClient? _testClient;
 
   @override
   AiJunglerClient? get client => _testClient;
 
   @override
-  Stream<String> get logs => const Stream<String>.empty();
+  Stream<String> get logs => _testLogs.stream;
 
   @override
-  Stream<int> get exits => const Stream<int>.empty();
+  Stream<int> get exits => _testExits.stream;
 
   void disconnect() => _testClient = null;
+
+  void emitExit(int exitCode) {
+    _testClient = null;
+    _testExits.add(exitCode);
+  }
+
+  @override
+  Future<void> dispose() async {
+    await _testLogs.close();
+    await _testExits.close();
+    await super.dispose();
+  }
 }
 
 final class _BlockingAiJunglerClient extends AiJunglerClient {
@@ -102,6 +150,7 @@ final class _BlockingAiJunglerClient extends AiJunglerClient {
   final List<Completer<void>> _gates = <Completer<void>>[];
   bool _unblocked = false;
   int updateCalls = 0;
+  int completedUpdateCalls = 0;
   int statusCalls = 0;
 
   @override
@@ -111,10 +160,12 @@ final class _BlockingAiJunglerClient extends AiJunglerClient {
     Map<String, Object?>? playwright,
   }) async {
     updateCalls++;
-    if (_unblocked) return;
-    final gate = Completer<void>();
-    _gates.add(gate);
-    await gate.future;
+    if (!_unblocked) {
+      final gate = Completer<void>();
+      _gates.add(gate);
+      await gate.future;
+    }
+    completedUpdateCalls++;
   }
 
   @override

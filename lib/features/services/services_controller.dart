@@ -226,7 +226,9 @@ class ServicesController extends ChangeNotifier {
         final client = _client;
         if (client == null) return;
         try {
-          _proxyStatus = await _updateProxyRuntime(client);
+          final status = await _updateProxyRuntime(client);
+          if (!_isCurrentClient(client)) return;
+          _proxyStatus = status;
           _notify();
         } catch (error, stack) {
           silentLog('services_controller', '同步系统代理到扫描服务', error, stack);
@@ -421,6 +423,7 @@ class ServicesController extends ChangeNotifier {
     _busy = true;
     _lifecycle = AiExposureServiceLifecycle.stopping;
     _managedDependencyListenerSyncQueue.discardPending();
+    _systemProxySyncPending = false;
     _notify();
     try {
       _proxyStatisticsTimer?.cancel();
@@ -458,8 +461,10 @@ class ServicesController extends ChangeNotifier {
   }
 
   Future<void> refreshData() async {
+    AiJunglerClient? requestClient;
     try {
       final client = _requireClient();
+      requestClient = client;
       final values = await Future.wait<Object>(<Future<Object>>[
         client.health(),
         client.history(),
@@ -470,6 +475,10 @@ class ServicesController extends ChangeNotifier {
         client.dependencyStatus(),
         client.proxyStatus(),
       ]);
+      if (!_isCurrentClient(client)) return;
+      final proxyStatus = values[7] as AiExposureProxyStatus;
+      await _mergeProxyStatistics(proxyStatus);
+      if (!_isCurrentClient(client)) return;
       _health = values[0] as AiExposureHealth;
       _setHistory(values[1] as List<AiExposureHistoryEntry>);
       _results = values[2] as List<AiExposureResult>;
@@ -477,10 +486,10 @@ class ServicesController extends ChangeNotifier {
       _sourceStatus = values[4] as Map<String, bool>;
       _aiExtractorStatus = values[5] as AiExposureAiExtractorStatus;
       _dependencyStatus = values[6] as AiExposureDependencyStatus;
-      _proxyStatus = values[7] as AiExposureProxyStatus;
-      await _mergeProxyStatistics(_proxyStatus!);
+      _proxyStatus = proxyStatus;
       _errorMessage = null;
     } catch (error, stack) {
+      if (requestClient != null && !_isCurrentClient(requestClient)) return;
       _errorMessage = '$error';
       silentLog('services_controller', '刷新扫描服务数据', error, stack);
     }
@@ -489,8 +498,10 @@ class ServicesController extends ChangeNotifier {
 
   Future<void> refreshServiceStatus() {
     return _serviceStatusRefresh.run(() async {
+      AiJunglerClient? requestClient;
       try {
         final client = _requireClient();
+        requestClient = client;
         final values = await Future.wait<Object>(<Future<Object>>[
           client.health(),
           client.quotas(),
@@ -498,14 +509,18 @@ class ServicesController extends ChangeNotifier {
           client.dependencyStatus(),
           client.proxyStatus(),
         ]);
+        if (!_isCurrentClient(client)) return;
+        final proxyStatus = values[4] as AiExposureProxyStatus;
+        await _mergeProxyStatistics(proxyStatus);
+        if (!_isCurrentClient(client)) return;
         _health = values[0] as AiExposureHealth;
         _quotas = values[1] as List<AiExposureQuota>;
         _sourceStatus = values[2] as Map<String, bool>;
         _dependencyStatus = values[3] as AiExposureDependencyStatus;
-        _proxyStatus = values[4] as AiExposureProxyStatus;
-        await _mergeProxyStatistics(_proxyStatus!);
+        _proxyStatus = proxyStatus;
         _errorMessage = null;
       } catch (error, stack) {
+        if (requestClient != null && !_isCurrentClient(requestClient)) return;
         _errorMessage = '$error';
         silentLog('services_controller', '刷新扫描服务状态', error, stack);
       }
@@ -519,13 +534,21 @@ class ServicesController extends ChangeNotifier {
   }
 
   Future<bool> refreshDependencyDataOverview() async {
+    AiJunglerClient? requestClient;
     try {
-      _dependencyDataOverview = await _requireClient().dependencyDataOverview();
-      _dependencyTelemetryHistory.add(_dependencyDataOverview);
+      final client = _requireClient();
+      requestClient = client;
+      final overview = await client.dependencyDataOverview();
+      if (!_isCurrentClient(client)) return false;
+      _dependencyDataOverview = overview;
+      _dependencyTelemetryHistory.add(overview);
       _dependencyDataOverviewError = null;
       _notify();
       return true;
     } catch (error, stack) {
+      if (requestClient != null && !_isCurrentClient(requestClient)) {
+        return false;
+      }
       _dependencyDataOverviewError = '$error';
       silentLog('services_controller', '刷新依赖数据遥测', error, stack);
       _notify();
@@ -1092,7 +1115,9 @@ class ServicesController extends ChangeNotifier {
     await _proxyStatisticsSync.run(() async {
       try {
         final status = await client.proxyStatus();
+        if (!_isCurrentClient(client)) return;
         final changed = await _mergeProxyStatistics(status);
+        if (!_isCurrentClient(client)) return;
         _proxyStatus = status;
         if (notify && changed) _notify();
       } catch (error, stack) {
@@ -1185,7 +1210,8 @@ class ServicesController extends ChangeNotifier {
   }
 
   Future<void> refreshServiceLogs() async {
-    if (_logRefreshBusy || _client == null) return;
+    final client = _client;
+    if (_logRefreshBusy || client == null) return;
     _logRefreshBusy = true;
     try {
       final recent = _history
@@ -1195,10 +1221,13 @@ class ServicesController extends ChangeNotifier {
         recent.map((entry) async {
           final cached = _cachedHistoryLogs(entry.id);
           if (cached != null) return cached;
-          final loaded = await _requireClient().logs(entry.id, limit: 500);
-          return _cacheHistoryLogs(entry.id, loaded);
+          return client.logs(entry.id, limit: 500);
         }),
       );
+      if (!_isCurrentClient(client)) return;
+      for (var index = 0; index < recent.length; index++) {
+        _cacheHistoryLogs(recent[index].id, batches[index]);
+      }
       final merged = <AiExposureLogEntry>[
         ..._logs,
         ...batches.expand((item) => item),
@@ -1219,6 +1248,7 @@ class ServicesController extends ChangeNotifier {
         );
       _errorMessage = null;
     } catch (error, stack) {
+      if (!_isCurrentClient(client)) return;
       _errorMessage = '$error';
       silentLog('services_controller', '刷新扫描服务日志', error, stack);
     } finally {
@@ -1320,11 +1350,15 @@ class ServicesController extends ChangeNotifier {
         redisUrl: redisUrl,
         playwright: playwright,
       );
-      _dependencyStatus = await client.dependencyStatus();
+      if (!_isCurrentClient(client)) return true;
+      final status = await client.dependencyStatus();
+      if (!_isCurrentClient(client)) return true;
+      _dependencyStatus = status;
       _errorMessage = null;
       _notify();
       return true;
     } catch (error, stack) {
+      if (!_isCurrentClient(client)) return true;
       _errorMessage = '$error';
       silentLog('services_controller', '同步托管运行依赖', error, stack);
       _notify();
@@ -1543,6 +1577,7 @@ class ServicesController extends ChangeNotifier {
       client.history(),
       client.results(),
     ]);
+    if (!_isCurrentClient(client)) return;
     _setHistory(values[0] as List<AiExposureHistoryEntry>);
     _results = values[1] as List<AiExposureResult>;
   }
@@ -1580,6 +1615,10 @@ class ServicesController extends ChangeNotifier {
 
   void _handleRuntimeExit(int exitCode) {
     if (_lifecycle == AiExposureServiceLifecycle.stopping || _disposed) return;
+    _proxyStatisticsTimer?.cancel();
+    _proxyStatisticsTimer = null;
+    _managedDependencyListenerSyncQueue.discardPending();
+    _systemProxySyncPending = false;
     unawaited(_cancelEventSubscription());
     _eventStreamReconnectAttempts = 0;
     if (_errorMessage == _eventStreamErrorMessage) _errorMessage = null;
@@ -1594,9 +1633,13 @@ class ServicesController extends ChangeNotifier {
     _dependencyDataOverview = const <String, Object?>{};
     _dependencyTelemetryHistory.clear();
     _dependencyDataOverviewError = null;
-    if (exitCode != 0) _errorMessage = '扫描引擎异常退出：$exitCode。';
+    _proxyStatus = null;
+    _errorMessage = exitCode == 0 ? null : '扫描引擎异常退出：$exitCode。';
     _notify();
   }
+
+  bool _isCurrentClient(AiJunglerClient client) =>
+      !_disposed && identical(_client, client);
 
   AiJunglerClient _requireClient() {
     final client = _client;
