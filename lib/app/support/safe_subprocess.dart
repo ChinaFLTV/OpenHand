@@ -1509,8 +1509,9 @@ class _BoundedProcessLineCapture {
   String get text => _buffer?.snapshot().join('\n') ?? '';
 }
 
-class _BoundedProcessLineDecoder {
-  _BoundedProcessLineDecoder({required int maxCharacters, required this.onLine})
+/// 增量解析进程文本流，并限制单行 UTF-16 代码单元，避免无换行输出无限增长。
+class BoundedProcessLineDecoder {
+  BoundedProcessLineDecoder({required int maxCharacters, required this.onLine})
     : _maxCharacters = maxCharacters < 1 ? 1 : maxCharacters;
 
   final int _maxCharacters;
@@ -1538,12 +1539,15 @@ class _BoundedProcessLineDecoder {
 
   void _append(String segment) {
     if (segment.isEmpty || _truncated) return;
-    final candidate = '${_buffer.toString()}$segment';
-    final bounded = clipText(candidate, _maxCharacters, suffix: '');
-    _truncated = bounded != candidate;
-    _buffer
-      ..clear()
-      ..write(bounded);
+    final remaining = _maxCharacters - _buffer.length;
+    if (segment.length <= remaining) {
+      _buffer.write(segment);
+      return;
+    }
+    if (remaining > 0) {
+      _buffer.write(clipTextByCodeUnits(segment, remaining, suffix: ''));
+    }
+    _truncated = true;
   }
 
   void _emit() {
@@ -1646,8 +1650,8 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
     required _BoundedProcessLineCapture capture,
     bool trimLine = false,
   }) {
-    late final _BoundedProcessLineDecoder decoder;
-    decoder = _BoundedProcessLineDecoder(
+    late final BoundedProcessLineDecoder decoder;
+    decoder = BoundedProcessLineDecoder(
       maxCharacters: effectiveMaxLineCharacters,
       onLine: (line) =>
           handleLine(handler, capture, trimLine ? line.trim() : line),

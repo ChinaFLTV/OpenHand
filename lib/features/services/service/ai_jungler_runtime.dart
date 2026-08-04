@@ -21,8 +21,10 @@ import 'ai_jungler_client.dart';
 const Duration _kAiJunglerLaunchTimeout = Duration(seconds: 10);
 const Duration _kAiJunglerReadyTimeout = Duration(seconds: 12);
 const Duration _kAiJunglerStopTimeout = Duration(seconds: 2);
+const Duration _kAiJunglerStdinTimeout = Duration(seconds: 2);
 const Duration _kAiJunglerFileIoTimeout = Duration(seconds: 3);
 const Duration _kAiJunglerFileReadTimeout = Duration(seconds: 15);
+const int _kAiJunglerMaxLogLineCharacters = 16 * 1024;
 const String _kAiJunglerExecutableName = 'ai_jungler';
 
 class AiJunglerRuntime {
@@ -67,6 +69,7 @@ class AiJunglerRuntime {
         .timeout(_kAiJunglerFileIoTimeout);
     final token = _newSessionToken();
     final ready = Completer<({Uri address, String version})>();
+    final stdoutDone = Completer<void>();
     Process? startedProcess;
     try {
       final process = await startTrackedProcessBounded(
@@ -87,45 +90,64 @@ class AiJunglerRuntime {
         throw StateError('扫描引擎启动已取消。');
       }
       _process = process;
+      final stdoutDecoder = BoundedProcessLineDecoder(
+        maxCharacters: _kAiJunglerMaxLogLineCharacters,
+        onLine: (line) {
+          if (_disposed || generation != _generation) return;
+          if (!ready.isCompleted) {
+            final parsed = _parseReadyLine(line);
+            if (parsed != null) {
+              ready.complete(parsed);
+              return;
+            }
+          }
+          if (line.trim().isNotEmpty) _logs.add(line);
+        },
+      );
       _stdoutSubscription = process.stdout
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
+          .transform(const Utf8Decoder(allowMalformed: true))
           .listen(
-            (line) {
-              if (_disposed || generation != _generation) return;
-              if (!ready.isCompleted) {
-                final parsed = _parseReadyLine(line);
-                if (parsed != null) {
-                  ready.complete(parsed);
-                  return;
-                }
-              }
-              if (line.trim().isNotEmpty) _logs.add(line);
-            },
+            stdoutDecoder.add,
             onError: (Object error, StackTrace stack) {
+              if (!stdoutDone.isCompleted) stdoutDone.complete();
               if (_disposed || generation != _generation) return;
-              if (!ready.isCompleted) ready.completeError(error, stack);
               silentLog('ai_jungler_runtime', '读取扫描引擎标准输出', error, stack);
             },
-          );
-      _stderrSubscription = process.stderr
-          .transform(utf8.decoder)
-          .transform(const LineSplitter())
-          .listen(
-            (line) {
-              if (_disposed || generation != _generation) return;
-              if (line.trim().isNotEmpty) _logs.add(line);
+            onDone: () {
+              stdoutDecoder.close();
+              if (!stdoutDone.isCompleted) stdoutDone.complete();
             },
+            cancelOnError: true,
+          );
+      final stderrDecoder = BoundedProcessLineDecoder(
+        maxCharacters: _kAiJunglerMaxLogLineCharacters,
+        onLine: (line) {
+          if (_disposed || generation != _generation) return;
+          if (line.trim().isNotEmpty) _logs.add(line);
+        },
+      );
+      _stderrSubscription = process.stderr
+          .transform(const Utf8Decoder(allowMalformed: true))
+          .listen(
+            stderrDecoder.add,
             onError: (Object error, StackTrace stack) {
               if (_disposed || generation != _generation) return;
               silentLog('ai_jungler_runtime', '读取扫描引擎错误输出', error, stack);
             },
+            onDone: stderrDecoder.close,
+            cancelOnError: true,
           );
-      process.stdin.writeln(token);
-      await process.stdin.flush();
-      await process.stdin.close();
+      await _sendSessionToken(process, token);
       unawaited(_watchExit(process));
-      final bootstrap = await ready.future.timeout(_kAiJunglerReadyTimeout);
+      final bootstrap = await Future.any<({Uri address, String version})>(
+        <Future<({Uri address, String version})>>[
+          ready.future,
+          stdoutDone.future.then((_) {
+            if (ready.isCompleted) return ready.future;
+            throw StateError('扫描引擎未返回启动信息。');
+          }),
+        ],
+      ).timeout(_kAiJunglerReadyTimeout);
       if (_disposed ||
           generation != _generation ||
           !identical(_process, process)) {
@@ -264,6 +286,15 @@ class AiJunglerRuntime {
             silentLog('ai_jungler_runtime', '取消扫描引擎错误输出订阅', error, stack),
       ),
     ]);
+  }
+
+  Future<void> _sendSessionToken(Process process, String token) async {
+    try {
+      process.stdin.writeln(token);
+      await process.stdin.flush().timeout(_kAiJunglerStdinTimeout);
+    } finally {
+      await process.stdin.close().timeout(_kAiJunglerStdinTimeout);
+    }
   }
 
   Future<String> _resolveExecutable() async {
