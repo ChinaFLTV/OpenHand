@@ -7,6 +7,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/platform_shell.dart';
+import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_deny_command_rule.dart';
@@ -25,6 +26,7 @@ import 'ai_bash_specialized_tool_policy.dart';
 import 'ai_bash_write_confirmation_gate.dart';
 
 const Utf8Decoder _backgroundOutputDecoder = Utf8Decoder(allowMalformed: true);
+const int _maxPendingBackgroundStdinWrites = 16;
 
 /// 长跑后台 Shell 工具。把 `Process.start` 启动的常驻进程拆解为 5 个 action：
 /// `start` / `write` / `read` / `stop` / `list`。
@@ -957,7 +959,9 @@ class _BgSession {
   final StringBuffer _stderrPending = StringBuffer();
   final Completer<void> _stdoutDone = Completer<void>();
   final Completer<void> _stderrDone = Completer<void>();
-  Future<void> _stdinSerial = Future<void>.value();
+  final SerialTaskQueue _stdinWrites = SerialTaskQueue(
+    maxPendingTasks: _maxPendingBackgroundStdinWrites,
+  );
   StreamSubscription<String>? stdoutSubscription;
   StreamSubscription<String>? stderrSubscription;
   bool alive = true;
@@ -995,19 +999,12 @@ class _BgSession {
     required bool appendNewline,
     required Duration timeout,
   }) {
-    final completer = Completer<void>();
-    _stdinSerial = _stdinSerial.then((_) async {
-      try {
-        if (!alive) throw StateError('Background process has exited.');
-        process.stdin.add(bytes);
-        if (appendNewline) process.stdin.add(const <int>[10]);
-        await process.stdin.flush().timeout(timeout);
-        completer.complete();
-      } catch (error, stack) {
-        completer.completeError(error, stack);
-      }
+    return _stdinWrites.enqueue(() async {
+      if (!alive) throw StateError('Background process has exited.');
+      process.stdin.add(bytes);
+      if (appendNewline) process.stdin.add(const <int>[10]);
+      await process.stdin.flush().timeout(timeout);
     });
-    return completer.future;
   }
 
   Future<void> close({required bool kill}) {
@@ -1040,6 +1037,13 @@ class _BgSession {
         stderr,
         onError: (error, stack) =>
             silentLog('ai_bash_background', '取消后台标准错误订阅', error, stack),
+      ),
+    );
+    cleanup.add(
+      runAsyncCleanupBounded(
+        () => _stdinWrites.idle,
+        onError: (error, stack) =>
+            silentLog('ai_bash_background', '排空后台标准输入队列', error, stack),
       ),
     );
     markStdoutDone();
