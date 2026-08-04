@@ -15,6 +15,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../services_controller.dart';
+import 'redis_record_editor.dart';
 import 'service_dialog_controls.dart';
 
 const Duration _kTelemetryRefreshInterval = Duration(seconds: 8);
@@ -48,14 +49,6 @@ const Map<String, String> _kPostgresqlTableLabels = <String, String>{
   'hunt_job_logs': '任务日志',
   'hunt_scanned_targets': '增量目标',
 };
-const List<String> _kRedisTypes = <String>[
-  'string',
-  'json',
-  'hash',
-  'list',
-  'set',
-  'zset',
-];
 
 enum DependencyDataView { postgresql, redis }
 
@@ -756,13 +749,13 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
   }
 
   Future<void> _editRedis({Map<String, Object?>? record}) async {
-    final result = await showAnimatedDialog<_RedisEditorResult>(
+    final result = await showAnimatedDialog<RedisRecordEditorResult>(
       context: context,
       builder: (_) => buildOpenHandDialog(
         maxWidth: kOpenHandDialogWidthCompact,
         maxHeight: kOpenHandDialogHeightTall,
         child: ServiceDialogInteractionTheme(
-          child: _RedisEditor(record: record),
+          child: RedisRecordEditor(record: record),
         ),
       ),
     );
@@ -1335,186 +1328,6 @@ class _EmptyState extends StatelessWidget {
       ],
     ),
   );
-}
-
-class _RedisEditorResult {
-  const _RedisEditorResult({
-    required this.key,
-    required this.type,
-    required this.value,
-    required this.ttlSeconds,
-  });
-
-  final String key;
-  final String type;
-  final Object? value;
-  final int? ttlSeconds;
-}
-
-class _RedisEditor extends StatefulWidget {
-  const _RedisEditor({this.record});
-
-  final Map<String, Object?>? record;
-
-  @override
-  State<_RedisEditor> createState() => _RedisEditorState();
-}
-
-class _RedisEditorState extends State<_RedisEditor> {
-  late final TextEditingController _key = TextEditingController(
-    text: '${widget.record?['key'] ?? 'openhand:custom:'}',
-  );
-  late final TextEditingController _ttl = TextEditingController(
-    text: _initialTtl(),
-  );
-  late final TextEditingController _value = TextEditingController(
-    text: _initialValue(),
-  );
-  late String _type = '${widget.record?['type'] ?? 'string'}';
-  String? _error;
-
-  String _initialTtl() {
-    final ttl = _integer(widget.record?['ttlSeconds']);
-    return ttl > 0 ? '$ttl' : '-1';
-  }
-
-  String _initialValue() {
-    final value = widget.record?['value'];
-    if (value == null) return '';
-    if ('${widget.record?['type']}' == 'string') return '$value';
-    return const JsonEncoder.withIndent('  ').convert(value);
-  }
-
-  @override
-  void dispose() {
-    _key.dispose();
-    _ttl.dispose();
-    _value.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(20),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.key_rounded),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                widget.record == null ? '新增 Redis 键' : '编辑 Redis 键',
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            ServiceDialogHeaderIconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        TextField(
-          controller: _key,
-          readOnly: widget.record != null,
-          decoration: const InputDecoration(
-            labelText: '键',
-            border: OutlineInputBorder(),
-          ),
-        ),
-        const SizedBox(height: 12),
-        Row(
-          children: [
-            Expanded(
-              child: DropdownButtonFormField<String>(
-                initialValue: _kRedisTypes.contains(_type) ? _type : 'string',
-                decoration: const InputDecoration(
-                  labelText: '类型',
-                  border: OutlineInputBorder(),
-                ),
-                items: _kRedisTypes
-                    .map(
-                      (type) =>
-                          DropdownMenuItem(value: type, child: Text(type)),
-                    )
-                    .toList(growable: false),
-                onChanged: (value) => setState(() => _type = value ?? 'string'),
-              ),
-            ),
-            const SizedBox(width: 12),
-            Expanded(
-              child: TextField(
-                controller: _ttl,
-                keyboardType: TextInputType.number,
-                decoration: const InputDecoration(
-                  labelText: 'TTL（秒）',
-                  border: OutlineInputBorder(),
-                ),
-              ),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: TextField(
-            controller: _value,
-            expands: true,
-            maxLines: null,
-            textAlignVertical: TextAlignVertical.top,
-            style: const TextStyle(fontFamily: 'monospace'),
-            decoration: InputDecoration(
-              labelText: _type == 'string' ? '值' : 'JSON 值',
-              alignLabelWithHint: true,
-              border: const OutlineInputBorder(),
-              errorText: _error,
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        Wrap(
-          alignment: WrapAlignment.end,
-          spacing: 10,
-          runSpacing: 8,
-          children: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(context).maybePop(),
-              label: '取消',
-            ),
-            OpenHandDialogActionButton.primary(
-              icon: Icons.save_outlined,
-              onPressed: _submit,
-              label: '保存',
-            ),
-          ],
-        ),
-      ],
-    ),
-  );
-
-  void _submit() {
-    try {
-      final ttl = int.tryParse(_ttl.text.trim());
-      if (_key.text.trim().isEmpty || ttl == null || (ttl != -1 && ttl <= 0)) {
-        throw const FormatException('键或 TTL 无效');
-      }
-      final Object? value = _type == 'string'
-          ? _value.text
-          : jsonDecode(_value.text);
-      Navigator.of(context).pop(
-        _RedisEditorResult(
-          key: _key.text.trim(),
-          type: _type,
-          value: value,
-          ttlSeconds: ttl,
-        ),
-      );
-    } on FormatException catch (error) {
-      setState(() => _error = error.message.isEmpty ? '值格式无效' : error.message);
-    }
-  }
 }
 
 Future<Map<String, Object?>?> _showJsonEditor(

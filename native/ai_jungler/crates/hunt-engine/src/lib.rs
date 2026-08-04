@@ -1266,7 +1266,7 @@ impl RedisCoordinator {
             "只能读取 OpenHand 命名空间"
         );
         let mut connection = self.connection.clone();
-        let value_type: String = redis::cmd("TYPE")
+        let physical_type: String = redis::cmd("TYPE")
             .arg(key)
             .query_async(&mut connection)
             .await?;
@@ -1280,15 +1280,23 @@ impl RedisCoordinator {
             .query_async(&mut connection)
             .await
             .ok();
-        let value = match value_type.as_str() {
+        let mut value_type = physical_type.clone();
+        let value = match physical_type.as_str() {
             "string" => {
                 let bytes: Option<Vec<u8>> = redis::cmd("GET")
                     .arg(key)
                     .query_async(&mut connection)
                     .await?;
-                bytes
+                let text = bytes
                     .map(|value| String::from_utf8_lossy(&value).into_owned())
-                    .into()
+                    .unwrap_or_default();
+                match serde_json::from_str::<Value>(&text) {
+                    Ok(value @ (Value::Object(_) | Value::Array(_))) => {
+                        value_type = "json".to_owned();
+                        value
+                    }
+                    _ => text.into(),
+                }
             }
             "hash" => {
                 let values: BTreeMap<String, String> = redis::cmd("HGETALL")
@@ -1315,14 +1323,19 @@ impl RedisCoordinator {
                 json!(values)
             }
             "zset" => {
-                let values: Vec<String> = redis::cmd("ZRANGE")
+                let values: Vec<(String, f64)> = redis::cmd("ZRANGE")
                     .arg(key)
                     .arg(0)
                     .arg(MAX_REDIS_COLLECTION_ITEMS - 1)
                     .arg("WITHSCORES")
                     .query_async(&mut connection)
                     .await?;
-                json!(values)
+                json!(
+                    values
+                        .into_iter()
+                        .map(|(member, score)| json!({"member": member, "score": score}))
+                        .collect::<Vec<_>>()
+                )
             }
             "stream" => {
                 let length: u64 = redis::cmd("XLEN")
@@ -1346,7 +1359,7 @@ impl RedisCoordinator {
     async fn put_record(&self, input: RedisRecordInput) -> anyhow::Result<Value> {
         let key = input.key.trim();
         anyhow::ensure!(
-            key.starts_with(REDIS_USER_KEY_PREFIX),
+            key.starts_with(REDIS_USER_KEY_PREFIX) && key.len() > REDIS_USER_KEY_PREFIX.len(),
             "可写键必须以 {REDIS_USER_KEY_PREFIX} 开头"
         );
         anyhow::ensure!(key.len() <= MAX_REDIS_KEY_CHARS, "Redis 键过长");
@@ -1375,6 +1388,10 @@ impl RedisCoordinator {
                     .as_object()
                     .filter(|values| !values.is_empty())
                     .ok_or_else(|| anyhow::anyhow!("Hash 值必须是非空对象"))?;
+                anyhow::ensure!(
+                    values.len() <= MAX_REDIS_COLLECTION_ITEMS as usize,
+                    "Hash 字段数量超过上限 {MAX_REDIS_COLLECTION_ITEMS}"
+                );
                 let command = pipeline.cmd("HSET");
                 command.arg(key);
                 for (field, value) in values {
@@ -1388,6 +1405,10 @@ impl RedisCoordinator {
                     .as_array()
                     .filter(|values| !values.is_empty())
                     .ok_or_else(|| anyhow::anyhow!("List/Set 值必须是非空数组"))?;
+                anyhow::ensure!(
+                    values.len() <= MAX_REDIS_COLLECTION_ITEMS as usize,
+                    "List/Set 元素数量超过上限 {MAX_REDIS_COLLECTION_ITEMS}"
+                );
                 let command = pipeline.cmd(if value_type == "list" {
                     "RPUSH"
                 } else {
@@ -1405,6 +1426,10 @@ impl RedisCoordinator {
                     .as_array()
                     .filter(|values| !values.is_empty())
                     .ok_or_else(|| anyhow::anyhow!("ZSet 值必须是非空数组"))?;
+                anyhow::ensure!(
+                    values.len() <= MAX_REDIS_COLLECTION_ITEMS as usize,
+                    "ZSet 成员数量超过上限 {MAX_REDIS_COLLECTION_ITEMS}"
+                );
                 let command = pipeline.cmd("ZADD");
                 command.arg(key);
                 for value in values {
