@@ -7300,6 +7300,7 @@ Widget _buildStorageMetricInsight(
       final sharedMemoryPath = path.isEmpty ? '' : '$path-shm';
       return _LocalFileStatsBuilder(
         paths: [path, walPath, sharedMemoryPath],
+        refreshKey: controller.health?.uptimeSeconds,
         builder: (context, stats) {
           final database = stats[path];
           final wal = stats[walPath];
@@ -9446,9 +9447,14 @@ String _maskProxyAddress(String value) {
 }
 
 class _LocalFileStatsBuilder extends StatefulWidget {
-  const _LocalFileStatsBuilder({required this.paths, required this.builder});
+  const _LocalFileStatsBuilder({
+    required this.paths,
+    required this.refreshKey,
+    required this.builder,
+  });
 
   final List<String> paths;
+  final Object? refreshKey;
   final Widget Function(BuildContext context, Map<String, FileStat> stats)
   builder;
 
@@ -9468,7 +9474,8 @@ class _LocalFileStatsBuilderState extends State<_LocalFileStatsBuilder> {
   @override
   void didUpdateWidget(covariant _LocalFileStatsBuilder oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (!listEquals(oldWidget.paths, widget.paths)) {
+    if (!listEquals(oldWidget.paths, widget.paths) ||
+        oldWidget.refreshKey != widget.refreshKey) {
       _stats = _loadLocalFileStats(widget.paths);
     }
   }
@@ -9683,6 +9690,7 @@ Widget _credentialEncryptionDetailSection(
   );
   return _LocalFileStatsBuilder(
     paths: [keyPath],
+    refreshKey: controller.health?.uptimeSeconds,
     builder: (context, stats) {
       final keyStat = stats[keyPath];
       return _Section(
@@ -11449,6 +11457,7 @@ Widget _recordTypeDistributionInsight(
       path,
       if (path.isNotEmpty) ...['$path-wal', '$path-shm'],
     ],
+    refreshKey: controller.health?.uptimeSeconds,
     builder: (context, stats) {
       final database = stats[path];
       return _metricInsightPage([
