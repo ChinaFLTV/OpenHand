@@ -8719,28 +8719,28 @@ button.oh-composer-pill:not(:disabled):hover {
   to   { opacity: 0; transform: translate3d(0, 22px, 0) scale(0.985); }
 }
 .oh-dialog-fade-in {
-  animation: oh-dialog-fade-in var(--oh-dialog-duration) var(--oh-dialog-curve) both;
+  animation: oh-dialog-fade-in var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
 }
 .oh-dialog-pop-in {
-  animation: oh-dialog-fade-scale-in var(--oh-dialog-duration) var(--oh-dialog-curve) both;
+  animation: oh-dialog-fade-scale-in var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
   transform-origin: center;
   will-change: transform, opacity;
 }
 .oh-dialog-fade-out {
-  animation: oh-dialog-fade-out var(--oh-dialog-duration) var(--oh-dialog-exit-curve) both;
+  animation: oh-dialog-fade-out var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve) both;
 }
 .oh-dialog-pop-out {
-  animation: oh-dialog-fade-scale-out var(--oh-dialog-duration) var(--oh-dialog-exit-curve) both;
+  animation: oh-dialog-fade-scale-out var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve) both;
   transform-origin: center;
   will-change: transform, opacity;
 }
 .oh-dialog-sheet-in {
-  animation: oh-dialog-sheet-up-in var(--oh-dialog-duration) var(--oh-dialog-curve) both;
+  animation: oh-dialog-sheet-up-in var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
   transform-origin: center bottom;
   will-change: transform, opacity;
 }
 .oh-dialog-sheet-out {
-  animation: oh-dialog-sheet-down-out var(--oh-dialog-duration) var(--oh-dialog-exit-curve) both;
+  animation: oh-dialog-sheet-down-out var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve) both;
   transform-origin: center bottom;
   will-change: transform, opacity;
 }
@@ -8811,22 +8811,13 @@ button.oh-composer-pill:not(:disabled):hover {
 }
 
 /* PopMenu (三点菜单等) 进退场：跟随 App 端全局弹窗动效设置。 */
-@keyframes oh-popmenu-pop {
-  0%   { opacity: 0; transform: scale(0.84); }
-  55%  { opacity: 1; transform: scale(1.03); }
-  100% { opacity: 1; transform: scale(1); }
-}
-@keyframes oh-menu-pop-out {
-  from { opacity: 1; transform: scale(1); }
-  to   { opacity: 0; transform: scale(0.96); }
-}
 .oh-popmenu-pop {
-  animation: oh-dialog-fade-scale-in var(--oh-dialog-duration) var(--oh-dialog-curve) both;
+  animation: oh-dialog-fade-scale-in var(--oh-dialog-enter-duration) var(--oh-dialog-curve) both;
   transform-origin: top right;
   will-change: transform, opacity;
 }
 .oh-menu-pop-out {
-  animation: oh-dialog-fade-scale-out var(--oh-dialog-duration) var(--oh-dialog-exit-curve) both;
+  animation: oh-dialog-fade-scale-out var(--oh-dialog-exit-duration) var(--oh-dialog-exit-curve) both;
   pointer-events: none;
   will-change: transform, opacity;
 }
