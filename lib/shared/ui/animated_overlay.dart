@@ -10,11 +10,9 @@ import 'motion_preference.dart';
 /// 浮层进出场的起始缩放：略小于 1，避免弹出时的生硬跳变。
 const double _kOverlayScaleBegin = 0.95;
 
-/// Builds one animated overlay entry owned by an
-/// [AnimatedOverlayEntryController].
+/// 构建由 [AnimatedOverlayEntryController] 持有的动画浮层条目。
 ///
-/// The supplied visibility signal and exit callback should be forwarded to
-/// [AnimatedOverlayContent].
+/// 调用方应把可见性信号和退场回调传给 [AnimatedOverlayContent]。
 typedef AnimatedOverlayEntryBuilder =
     Widget Function(
       BuildContext context,
@@ -22,12 +20,10 @@ typedef AnimatedOverlayEntryBuilder =
       VoidCallback onExitCompleted,
     );
 
-/// Owns an [OverlayEntry] and its animated visibility signal as one resource.
+/// 统一管理 [OverlayEntry] 及其动画可见性信号。
 ///
-/// Calling [show] while an exit is in flight reopens the same entry. [close]
-/// reverses its transition, while [dispose] removes it synchronously. Late
-/// completion callbacks are guarded by both session identity and generation,
-/// so they cannot remove a replacement entry.
+/// 退场期间调用 [show] 会复用并重新打开原条目；[close] 播放退场动画，
+/// [dispose] 同步释放。会话标识与代次可防止迟到回调误删替换后的条目。
 class AnimatedOverlayEntryController {
   _AnimatedOverlayEntrySession? _session;
   int _generation = 0;
@@ -35,7 +31,7 @@ class AnimatedOverlayEntryController {
 
   bool get hasEntry => _session != null;
 
-  /// Reopens the current entry without creating a replacement.
+  /// 重新打开当前条目，不创建替代条目。
   bool reopen({bool rebuild = false}) {
     if (_disposed) return false;
     final session = _session;
@@ -49,10 +45,9 @@ class AnimatedOverlayEntryController {
     return true;
   }
 
-  /// Inserts a new entry, or reopens and rebuilds the current entry.
+  /// 插入新条目，或重新打开并重建当前条目。
   ///
-  /// Returns false after this controller has been disposed. Insert failures
-  /// are rethrown after the controller releases the uninserted session.
+  /// 控制器释放后返回 false；插入失败时先释放未插入会话，再继续抛出异常。
   bool show({
     required OverlayState overlay,
     required AnimatedOverlayEntryBuilder builder,
@@ -96,11 +91,10 @@ class AnimatedOverlayEntryController {
     return true;
   }
 
-  /// Rebuilds the current entry without changing its visibility.
+  /// 重建当前条目，不改变可见性。
   void markNeedsBuild() => _session?.entry.markNeedsBuild();
 
-  /// Starts the reverse transition, or removes the entry synchronously when
-  /// [immediately] is true. Repeated calls are safe.
+  /// 启动退场动画；[immediately] 为 true 时同步移除。可安全重复调用。
   void close({bool immediately = false}) {
     final session = _session;
     if (session == null) return;
@@ -135,7 +129,7 @@ class AnimatedOverlayEntryController {
     session.onRemoved?.call();
   }
 
-  /// Permanently releases the owned entry. Repeated calls are safe.
+  /// 永久释放持有的条目。可安全重复调用。
   void dispose() {
     if (_disposed) return;
     _disposed = true;
@@ -163,17 +157,13 @@ class _AnimatedOverlayEntrySession {
   late final VoidCallback onExitCompleted;
 }
 
-/// Provides animated entrance and exit effects for overlay content (hover
-/// popups, tooltips, autocomplete panels, etc.).
+/// 为悬停浮窗、工具提示和自动补全面板等浮层提供进退场动画。
 ///
 /// 动效一律取自全局菜单动画设置；[customSettings] 供已自行解析过设置的宿主
 /// 透传，不提供绕过全局设置的固定时长通道。
 ///
-/// Pass [visibility] and [onExitCompleted] when the owner removes an
-/// [OverlayEntry]. Setting the listenable to false reverses the configured
-/// transition first; the callback is invoked only after that transition has
-/// finished. This keeps entry ownership with the caller while preventing
-/// abrupt removals and duplicated animation-controller plumbing.
+/// 所有者移除 [OverlayEntry] 时应传入 [visibility] 和 [onExitCompleted]；
+/// 可见性变为 false 后先播放退场动画，完成后才通知所有者移除条目。
 class AnimatedOverlayContent extends StatefulWidget {
   const AnimatedOverlayContent({
     super.key,
@@ -191,14 +181,12 @@ class AnimatedOverlayContent extends StatefulWidget {
 
   final Alignment alignment;
 
-  /// Optional visibility signal used to coordinate an [OverlayEntry] exit.
+  /// 协调 [OverlayEntry] 退场的可选可见性信号。
   ///
-  /// When omitted, the overlay remains visible for its entire lifetime and
-  /// only the entrance transition is driven.
+  /// 省略时浮层在生命周期内始终可见，仅播放进场动画。
   final ValueListenable<bool>? visibility;
 
-  /// Called once after [visibility] changes to false and the reverse
-  /// transition completes. The owner should remove and dispose its entry here.
+  /// [visibility] 变为 false 且退场完成后调用一次，所有者应在此移除条目。
   final VoidCallback? onExitCompleted;
 
   @override
@@ -246,9 +234,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
     }
     if (oldWidget.onExitCompleted != widget.onExitCompleted &&
         !_exitCompletionDelivered) {
-      // A pending post-frame completion must never retain an obsolete owner.
-      // Resetting here makes a dismissed overlay schedule the current callback
-      // from [_syncAnimationPreference] below.
+      // 取消持有旧所有者的帧后回调，随后用最新回调重新安排退场完成通知。
       _cancelExitCompletion();
     }
     if (oldWidget.customSettings != widget.customSettings ||
@@ -373,8 +359,7 @@ class _AnimatedOverlayContentState extends State<AnimatedOverlayContent>
         _cancelExitCompletion();
       }
     });
-    // A disabled transition has no ticker to request another frame. Ensure
-    // the post-frame completion still runs so the entry cannot get stuck.
+    // 禁用动画时没有 Ticker 主动请求下一帧，需确保退场回调仍能执行。
     WidgetsBinding.instance.ensureVisualUpdate();
   }
 

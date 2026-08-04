@@ -23,10 +23,9 @@ DialogAnimationSettings _resolveAnimatedMenuSettings(
   );
 }
 
-/// Shows a popup menu with configurable entrance and exit animations.
+/// 显示支持全局进退场动画设置的弹出菜单。
 ///
-/// When [settings] is null, the configuration is automatically read from the
-/// nearest [SettingsController] in the widget tree.
+/// [settings] 为空时从组件树最近的 [SettingsController] 读取配置。
 Future<T?> showAnimatedMenu<T>({
   required BuildContext context,
   required RelativeRect position,
@@ -157,11 +156,9 @@ Future<T?> showAnimatedAnchoredPopupMenu<T>({
   );
 }
 
-/// Shows arbitrary interactive content in an anchored popup route while
-/// inheriting the global menu entrance and exit motion settings.
+/// 在锚定弹出路由中显示任意交互内容，并继承全局菜单动画设置。
 ///
-/// Unlike [MenuAnchor], every dismissal path (selection, escape, and outside
-/// click) pops the route and therefore runs the configured reverse transition.
+/// 选择、ESC 和点击外部均通过路由退场，确保完整播放反向动画。
 Future<T?> showAnimatedAnchoredMenu<T>({
   required BuildContext context,
   required WidgetBuilder builder,
@@ -301,10 +298,6 @@ class _AnchoredMenuRouteLayout extends SingleChildLayoutDelegate {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Animated popup menu route
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
   _AnimatedPopupMenuRoute({
     required this.position,
@@ -359,8 +352,7 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
       capturedThemes.wrap(_PopupMenuContent<T>(route: this)),
     );
 
-    // `paddingOf` only subscribes to padding changes; full `MediaQuery.of`
-    // would rebuild this overlay on unrelated viewInsets / textScale events.
+    // 仅监听安全边距，避免其他 MediaQuery 属性变化时重建浮层。
     final mediaPadding = MediaQuery.paddingOf(context);
     return MediaQuery.removePadding(
       context: context,
@@ -383,10 +375,6 @@ class _AnimatedPopupMenuRoute<T> extends PopupRoute<T> {
     );
   }
 }
-
-// ─────────────────────────────────────────────────────────────────────────────
-// Menu content
-// ─────────────────────────────────────────────────────────────────────────────
 
 class _PopupMenuContent<T> extends StatefulWidget {
   const _PopupMenuContent({required this.route});
@@ -632,10 +620,6 @@ class _MenuItemRenderObject extends RenderProxyBox {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Layout delegate
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _PopupMenuRouteLayout extends SingleChildLayoutDelegate {
   _PopupMenuRouteLayout(this.position, this.textDirection, this.padding);
 
@@ -645,17 +629,13 @@ class _PopupMenuRouteLayout extends SingleChildLayoutDelegate {
 
   @override
   BoxConstraints getConstraintsForChild(BoxConstraints constraints) {
-    // Limit the menu to at most the screen size minus system safe-area padding.
-    // getPositionForChild() handles clamping the *position* so the menu stays
-    // on-screen; this method only constrains the menu's *size*.
-    // BoxConstraints.deflate() subtracts safe-area padding and clamps each
-    // dimension to a valid non-negative value.
+    // 尺寸只占用安全区域；位置由 getPositionForChild 单独夹取到屏幕内。
     return BoxConstraints.loose(constraints.biggest).deflate(padding);
   }
 
   @override
   Offset getPositionForChild(Size size, Size childSize) {
-    // Position the menu below / to the right of the anchor, respecting bounds.
+    // 菜单默认位于锚点下方，并根据文字方向确定横向位置。
     final double y = position.top;
     double x;
     if (textDirection == TextDirection.rtl) {
@@ -663,7 +643,7 @@ class _PopupMenuRouteLayout extends SingleChildLayoutDelegate {
     } else {
       x = position.left;
     }
-    // Clamp to screen.
+    // 夹取到屏幕安全区域内。
     x = _clampMenuCoordinate(
       x,
       lower: padding.left,
@@ -695,10 +675,6 @@ double _clampMenuCoordinate(
   return value.clamp(lower, upper).toDouble();
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Menu transition builder
-// ─────────────────────────────────────────────────────────────────────────────
-
 Widget _buildMenuTransition(
   Animation<double> animation,
   DialogAnimationSettings settings,
@@ -716,10 +692,6 @@ Widget _buildMenuTransition(
   );
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Animated dropdowns
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _AnimatedDropdownSelection<T> {
   const _AnimatedDropdownSelection({required this.index, required this.value});
 
@@ -735,12 +707,9 @@ class _AnimatedDropdownSelection<T> {
   int get hashCode => index.hashCode;
 }
 
-/// A [DropdownButton] equivalent whose popup always uses the global menu
-/// entrance and exit settings.
+/// 使用全局菜单进退场设置的 [DropdownButton] 等价实现。
 ///
-/// The selected value remains caller-owned. Nullable item values are wrapped
-/// internally so selecting `null` stays distinguishable from dismissing the
-/// popup without a selection.
+/// 选中值仍由调用方持有；内部包装可空值，以区分选择 null 与未选择直接关闭。
 class AnimatedDropdownButton<T> extends StatefulWidget {
   const AnimatedDropdownButton({
     super.key,
@@ -1225,7 +1194,7 @@ class _AnimatedDropdownButtonState<T> extends State<AnimatedDropdownButton<T>> {
   }
 }
 
-/// Form-integrated counterpart to [AnimatedDropdownButton].
+/// 集成表单状态的 [AnimatedDropdownButton]。
 class AnimatedDropdownButtonFormField<T> extends FormField<T> {
   AnimatedDropdownButtonFormField({
     super.key,
@@ -1372,12 +1341,7 @@ class _AnimatedDropdownButtonFormFieldState<T> extends FormFieldState<T> {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// AnimatedPopupMenuButton — drop-in replacement for PopupMenuButton
-// ─────────────────────────────────────────────────────────────────────────────
-
-/// A drop-in replacement for [PopupMenuButton] that uses [showAnimatedMenu] to
-/// display the popup with configurable entrance / exit transitions.
+/// [PopupMenuButton] 的动画替代实现，通过 [showAnimatedMenu] 显示菜单。
 class AnimatedPopupMenuButton<T> extends StatefulWidget {
   const AnimatedPopupMenuButton({
     super.key,

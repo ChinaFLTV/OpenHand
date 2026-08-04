@@ -6,8 +6,8 @@ import 'dart:io';
 ///      '<b>_controller.dart' 三者之一，视为深路径跨 feature import。
 ///   2. clients/web/src/features/<a>/**/*.{ts,tsx} 中禁止深路径
 ///      '@/features/<b>/<sub>/...' 或 '../<b>/<sub>/...'（b != a，sub 非 index*）。
-///   3. lib/ 业务代码禁止直接调用 Flutter 原生弹窗、菜单及底部面板 API；
-///      统一通过 shared/ui 的全局动画入口展示。
+///   3. lib/ 业务代码禁止直接调用或构造 Flutter 原生弹窗、菜单、底部面板与
+///      OverlayEntry；统一通过 shared/ui 的全局动画入口展示。
 ///
 /// 同 feature 内部 import 不限制；该脚本只约束跨 feature 深路径依赖。
 ///
@@ -99,23 +99,29 @@ Future<int> _scanDart(String root) async {
 Future<int> _scanDialogApis(String root) async {
   final libRoot = Directory('$root/lib');
   if (!libRoot.existsSync()) return 0;
-  final allowedPath = _normalize(
-    '$root${Platform.pathSeparator}lib${Platform.pathSeparator}shared'
-    '${Platform.pathSeparator}ui${Platform.pathSeparator}animated_dialog.dart',
-  );
+  final sharedUiRoot =
+      '$root${Platform.pathSeparator}lib${Platform.pathSeparator}shared'
+      '${Platform.pathSeparator}ui${Platform.pathSeparator}';
+  final allowedPaths = <String>{
+    _normalize('${sharedUiRoot}animated_dialog.dart'),
+    _normalize('${sharedUiRoot}animated_menu.dart'),
+    _normalize('${sharedUiRoot}animated_overlay.dart'),
+  };
   final forbiddenApi = RegExp(
     r'\b(showDialog|showGeneralDialog|showAdaptiveDialog|showCupertinoDialog'
     r'|showCupertinoModalPopup|showModalBottomSheet|showBottomSheet'
     r'|showDatePicker|showDateRangePicker|showTimePicker|showAboutDialog'
     r'|showLicensePage|showSearch|showMenu)\s*(?:<[^>\n]+>)?\s*\('
     r'|\b(DialogRoute|RawDialogRoute|CupertinoDialogRoute'
-    r'|ModalBottomSheetRoute|PopupMenuRoute)\s*(?:<[^>\n]+>)?\s*\(',
+    r'|ModalBottomSheetRoute|PopupMenuRoute|AlertDialog|SimpleDialog|Dialog'
+    r'|PopupMenuButton|DropdownButton|DropdownMenu|MenuAnchor|OverlayEntry)'
+    r'\s*(?:<[^>\n]+>)?\s*\(',
   );
   var violations = 0;
 
   await for (final entity in libRoot.list(recursive: true)) {
     if (entity is! File || !entity.path.endsWith('.dart')) continue;
-    if (_normalize(entity.path) == allowedPath) continue;
+    if (allowedPaths.contains(_normalize(entity.path))) continue;
     var blockCommentDepth = 0;
     final lines = await entity.readAsLines();
     for (var i = 0; i < lines.length; i++) {
