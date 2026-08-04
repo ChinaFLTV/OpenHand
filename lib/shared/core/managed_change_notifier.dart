@@ -9,13 +9,17 @@ const Duration _kManagedControllerShutdownTimeout = Duration(seconds: 3);
 /// 为功能控制器统一提供安全通知、串行异步操作和轻量成功信号。
 abstract class ManagedChangeNotifier extends ChangeNotifier {
   bool _isDisposed = false;
+  bool _isShuttingDown = false;
   final SerialTaskQueue _operationQueue = SerialTaskQueue();
   Future<void>? _shutdownFuture;
 
   @protected
   bool get isDisposed => _isDisposed;
 
-  StateError get _disposedError => StateError('$runtimeType 已释放');
+  @protected
+  bool get isShuttingDown => _isShuttingDown;
+
+  StateError get _unavailableError => StateError('$runtimeType 正在关闭或已释放');
 
   @override
   void notifyListeners() {
@@ -27,16 +31,16 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
 
   @protected
   Future<T> enqueueOperation<T>(Future<T> Function() operation) {
-    if (_isDisposed) {
-      return Future<T>.error(_disposedError);
+    if (_isDisposed || _isShuttingDown) {
+      return Future<T>.error(_unavailableError);
     }
     return _operationQueue.enqueue(() async {
       if (_isDisposed) {
-        throw _disposedError;
+        throw _unavailableError;
       }
       final result = await operation();
       if (_isDisposed) {
-        throw _disposedError;
+        throw _unavailableError;
       }
       return result;
     });
@@ -49,11 +53,15 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
   Future<void> shutdown() {
     final active = _shutdownFuture;
     if (active != null) return active;
-    final shutdown = _operationQueue.idle.timeout(
-      _kManagedControllerShutdownTimeout,
-    );
+    _isShuttingDown = true;
+    final shutdown = () async {
+      try {
+        await _operationQueue.idle.timeout(_kManagedControllerShutdownTimeout);
+      } finally {
+        if (!_isDisposed) dispose();
+      }
+    }();
     _shutdownFuture = shutdown;
-    if (!_isDisposed) dispose();
     return shutdown;
   }
 
@@ -61,6 +69,7 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
   @mustCallSuper
   void dispose() {
     if (_isDisposed) return;
+    _isShuttingDown = true;
     _isDisposed = true;
     super.dispose();
   }
