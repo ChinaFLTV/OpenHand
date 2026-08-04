@@ -152,6 +152,12 @@ final class OpenHandSingleFlight<T> {
 
   bool get isRunning => _active != null;
 
+  /// 当前操作结束时完成；没有活动操作时立即完成。
+  Future<void> get idle {
+    final active = _active;
+    return active == null ? Future<void>.value() : active.then<void>((_) {});
+  }
+
   Future<T> run(FutureOr<T> Function() operation) {
     final active = _active;
     if (active != null) return active;

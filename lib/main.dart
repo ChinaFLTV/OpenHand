@@ -447,7 +447,7 @@ Future<void> _bootstrap() async {
     ..register('扫描服务控制器', services.controller.shutdown)
     ..register('指令控制器', instructions.controller.shutdown)
     ..register('模板运行时联动控制器', templateRuntimeLinkageController.dispose)
-    ..register('知识库控制器', knowledgeBase.controller.dispose)
+    ..register('知识库控制器', knowledgeBase.controller.shutdown)
     ..register('自学习聊天客户端', selfLearningChatClient.dispose)
     ..register('AI 会话控制器', aiSessionController.shutdown)
     ..register('AI LSP 会话', AiLspClientService.instance.disposeAll)

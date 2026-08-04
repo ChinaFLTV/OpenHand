@@ -34,6 +34,7 @@ import 'service/qdrant_knowledge_vector_store.dart';
 import 'service/qdrant_monitoring_service.dart';
 
 const Duration _knowledgeSourceSearchDelay = Duration(milliseconds: 180);
+const Duration _knowledgeControllerShutdownTimeout = Duration(seconds: 3);
 const int _knowledgeNoteFileStemMaxCharacters = 64;
 const String _knowledgeMutationUnavailableMessage = '知识库正在加载或执行其他操作，请稍后重试。';
 
@@ -70,9 +71,15 @@ class KnowledgeBaseController extends ChangeNotifier {
   String? _error;
   bool _hasTrustedSettings = false;
   bool _isDisposed = false;
+  bool _isShuttingDown = false;
   int _sourceLoadGeneration = 0;
+  Future<void>? _activeMutation;
+  Future<void>? _shutdownFuture;
+  KnowledgeIndexingCancelToken? _activeIndexingCancelToken;
   final OpenHandSingleFlight<void> _initializeFlight =
       OpenHandSingleFlight<void>();
+
+  bool get _isStopping => _isDisposed || _isShuttingDown;
 
   KnowledgeBaseSettings get settings => _settings;
   List<KnowledgeSource> get sources => _sources;
@@ -83,14 +90,14 @@ class KnowledgeBaseController extends ChangeNotifier {
   List<QdrantAdminOperationLog> get qdrantAdminLogs => _qdrantAdminService.logs;
 
   void clearError() {
-    if (_error == null) return;
+    if (_error == null || _isStopping) return;
     _error = null;
     notifyListeners();
   }
 
   Future<void> initialize() {
     if (_initializeFlight.isRunning) return _initializeFlight.run(_initialize);
-    if (_busy || _isDisposed) return Future<void>.value();
+    if (_busy || _isStopping) return Future<void>.value();
     return _initializeFlight.run(_initialize);
   }
 
@@ -98,24 +105,30 @@ class KnowledgeBaseController extends ChangeNotifier {
     _loading = true;
     notifyListeners();
     try {
-      _settings = await _settingsStore.load();
+      final settings = await _settingsStore.load();
+      if (_isStopping) return;
+      _settings = settings;
       _hasTrustedSettings = true;
       _error = null;
     } catch (error) {
+      if (_isStopping) return;
       _hasTrustedSettings = false;
       _error = '$error';
     }
     try {
       await _reloadSources();
+      if (_isStopping) return;
       schedulePendingKnowledgeSourceFileCleanups(
         sourceExists: (sourceId) async =>
             await _store.loadSource(sourceId) != null,
       );
     } catch (error) {
-      _error ??= '$error';
+      if (!_isStopping) _error ??= '$error';
     } finally {
-      _loading = false;
-      notifyListeners();
+      if (!_isDisposed) {
+        _loading = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -132,6 +145,7 @@ class KnowledgeBaseController extends ChangeNotifier {
       unavailableMessage: _knowledgeMutationUnavailableMessage,
       operation: () async {
         await _settingsStore.save(settings);
+        if (_isDisposed) return;
         _settings = settings;
         _qdrantAdminService.trimLogs(settings.qdrantLogRetainLines);
       },
@@ -139,17 +153,17 @@ class KnowledgeBaseController extends ChangeNotifier {
   }
 
   void searchSources(String query) {
-    if (_isDisposed) return;
+    if (_isStopping) return;
     _query = query;
     final generation = ++_sourceLoadGeneration;
     _sourceSearchDebouncer.schedule(() async {
       try {
         final sources = await _store.loadSources(query: query);
-        if (_isDisposed || generation != _sourceLoadGeneration) return;
+        if (_isStopping || generation != _sourceLoadGeneration) return;
         _sources = sources;
         notifyListeners();
       } catch (error) {
-        if (_isDisposed || generation != _sourceLoadGeneration) return;
+        if (_isStopping || generation != _sourceLoadGeneration) return;
         _error = '$error';
         notifyListeners();
       }
@@ -164,14 +178,16 @@ class KnowledgeBaseController extends ChangeNotifier {
     KnowledgeIndexingCancelToken? cancelToken,
     KnowledgeIndexingProgressCallback? onProgress,
   }) {
+    final effectiveCancelToken = cancelToken ?? KnowledgeIndexingCancelToken();
     return _runExclusiveMutation<KnowledgeSource?>(
       unavailableResult: null,
+      cancelToken: effectiveCancelToken,
       operation: () => _importFile(
         filePath: filePath,
         embeddingModel: embeddingModel,
         readerModels: readerModels,
         tags: tags,
-        cancelToken: cancelToken,
+        cancelToken: effectiveCancelToken,
         onProgress: onProgress,
       ),
     );
@@ -210,11 +226,11 @@ class KnowledgeBaseController extends ChangeNotifier {
       await _reloadSources();
       return source;
     } on KnowledgeIndexingCancelledException {
-      _error = null;
+      if (!_isStopping) _error = null;
       await _reloadSources();
       return null;
     } catch (error) {
-      _error = '$error';
+      if (!_isStopping) _error = '$error';
       return null;
     }
   }
@@ -227,14 +243,16 @@ class KnowledgeBaseController extends ChangeNotifier {
     KnowledgeIndexingCancelToken? cancelToken,
     KnowledgeIndexingProgressCallback? onProgress,
   }) {
+    final effectiveCancelToken = cancelToken ?? KnowledgeIndexingCancelToken();
     return _runExclusiveMutation<KnowledgeSource?>(
       unavailableResult: null,
+      cancelToken: effectiveCancelToken,
       operation: () => _importNote(
         title: title,
         content: content,
         embeddingModel: embeddingModel,
         tags: tags,
-        cancelToken: cancelToken,
+        cancelToken: effectiveCancelToken,
         onProgress: onProgress,
       ),
     );
@@ -323,7 +341,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     Future<void>? cancelSignal,
   }) async {
     final normalizedQuery = query.trim();
-    if (normalizedQuery.isEmpty || _isDisposed) return null;
+    if (normalizedQuery.isEmpty || _isStopping) return null;
     final settings = _settings;
     final embeddingModel = resolveEmbeddingModel(models, settings: settings);
     if (embeddingModel == null) return null;
@@ -336,7 +354,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     );
     final vectorStore = QdrantKnowledgeVectorStore(settings: retrievalSettings);
     final available = await vectorStore.isAvailable(cancelSignal: cancelSignal);
-    if (!available || _isDisposed) return null;
+    if (!available || _isStopping) return null;
     final queryEmbeddingService = _queryEmbeddingServiceFactory();
     final retrievalService = KnowledgeRetrievalService(
       store: _store,
@@ -465,7 +483,7 @@ class KnowledgeBaseController extends ChangeNotifier {
         }
       }
       silentLog('knowledge_base_controller', '删除知识源', error, stack);
-      _error = '$error';
+      if (!_isStopping) _error = '$error';
       return false;
     }
   }
@@ -474,19 +492,40 @@ class KnowledgeBaseController extends ChangeNotifier {
     required T unavailableResult,
     required Future<T> Function() operation,
     String? unavailableMessage,
-  }) async {
-    if (_loading || _initializeFlight.isRunning || _busy || _isDisposed) {
-      if (unavailableMessage != null) throw StateError(unavailableMessage);
-      return unavailableResult;
+    KnowledgeIndexingCancelToken? cancelToken,
+  }) {
+    if (_loading || _initializeFlight.isRunning || _busy || _isStopping) {
+      if (unavailableMessage != null) {
+        return Future<T>.error(StateError(unavailableMessage));
+      }
+      return Future<T>.value(unavailableResult);
     }
+    final mutation = _executeExclusiveMutation(operation, cancelToken);
+    _activeMutation = mutation.then<void>(
+      (_) {},
+      onError: (Object _, StackTrace _) {},
+    );
+    return mutation;
+  }
+
+  Future<T> _executeExclusiveMutation<T>(
+    Future<T> Function() operation,
+    KnowledgeIndexingCancelToken? cancelToken,
+  ) async {
     _busy = true;
+    _activeIndexingCancelToken = cancelToken;
     _error = null;
     notifyListeners();
     try {
       return await operation();
     } finally {
-      _busy = false;
-      notifyListeners();
+      if (identical(_activeIndexingCancelToken, cancelToken)) {
+        _activeIndexingCancelToken = null;
+      }
+      if (!_isDisposed) {
+        _busy = false;
+        notifyListeners();
+      }
     }
   }
 
@@ -494,7 +533,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     _sourceSearchDebouncer.cancel();
     final generation = ++_sourceLoadGeneration;
     final sources = await _store.loadSources(query: _query);
-    if (_isDisposed || generation != _sourceLoadGeneration) return;
+    if (_isStopping || generation != _sourceLoadGeneration) return;
     _sources = sources;
   }
 
@@ -692,9 +731,36 @@ class KnowledgeBaseController extends ChangeNotifier {
   @override
   void dispose() {
     if (_isDisposed) return;
+    _isShuttingDown = true;
     _isDisposed = true;
+    _sourceLoadGeneration++;
+    _activeIndexingCancelToken?.cancel();
+    _activeIndexingCancelToken = null;
     _sourceSearchDebouncer.dispose();
     _embeddingService.dispose();
     super.dispose();
+  }
+
+  /// 取消活动索引并有界等待初始化和变更结束，可重复调用。
+  Future<void> shutdown() {
+    final active = _shutdownFuture;
+    if (active != null) return active;
+    _isShuttingDown = true;
+    _sourceLoadGeneration++;
+    _sourceSearchDebouncer.cancel();
+    _activeIndexingCancelToken?.cancel();
+    final mutation = _activeMutation ?? Future<void>.value();
+    final shutdown = () async {
+      await runAsyncCleanupBounded(
+        () =>
+            Future.wait<void>(<Future<void>>[_initializeFlight.idle, mutation]),
+        timeout: _knowledgeControllerShutdownTimeout,
+        onError: (error, stack) =>
+            silentLog('knowledge_base_controller', '等待知识库操作结束', error, stack),
+      );
+      dispose();
+    }();
+    _shutdownFuture = shutdown;
+    return shutdown;
   }
 }
