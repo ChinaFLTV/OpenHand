@@ -2285,31 +2285,10 @@ class _Metric {
   final Color? color;
 }
 
-class _MetricGrid extends StatefulWidget {
+class _MetricGrid extends StatelessWidget {
   const _MetricGrid({required this.title, required this.metrics});
   final String title;
   final List<_Metric> metrics;
-
-  @override
-  State<_MetricGrid> createState() => _MetricGridState();
-}
-
-class _MetricGridState extends State<_MetricGrid> {
-  late final ValueNotifier<List<_Metric>> _liveMetrics = ValueNotifier(
-    widget.metrics,
-  );
-
-  @override
-  void didUpdateWidget(_MetricGrid oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    _liveMetrics.value = widget.metrics;
-  }
-
-  @override
-  void dispose() {
-    _liveMetrics.dispose();
-    super.dispose();
-  }
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
@@ -2324,7 +2303,7 @@ class _MetricGridState extends State<_MetricGrid> {
       return Wrap(
         spacing: gap,
         runSpacing: gap,
-        children: widget.metrics
+        children: metrics
             .map(
               (metric) => SizedBox(
                 width: width,
@@ -2332,9 +2311,8 @@ class _MetricGridState extends State<_MetricGrid> {
                   metric: metric,
                   onTap: () => _showMetricInsight(
                     context,
-                    title: widget.title,
+                    title: title,
                     selected: metric,
-                    metrics: _liveMetrics,
                   ),
                 ),
               ),
@@ -2612,10 +2590,21 @@ class _TrendPanelState extends State<_TrendPanel> {
   late final ValueNotifier<List<String>> _liveSampleLabels = ValueNotifier(
     widget.sampleLabels,
   );
+  bool _syncScheduled = false;
 
   @override
   void didUpdateWidget(_TrendPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (_syncScheduled) return;
+    _syncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncScheduled = false;
+      _syncLiveValues();
+    });
+  }
+
+  void _syncLiveValues() {
     _liveSeries.value = widget.series;
     _liveSampleLabels.value = widget.sampleLabels;
   }
@@ -2744,11 +2733,18 @@ class _DistributionPanelState extends State<_DistributionPanel> {
   late final ValueNotifier<List<_DistributionItem>> _liveItems = ValueNotifier(
     widget.items,
   );
+  bool _syncScheduled = false;
 
   @override
   void didUpdateWidget(_DistributionPanel oldWidget) {
     super.didUpdateWidget(oldWidget);
-    _liveItems.value = widget.items;
+    if (_syncScheduled) return;
+    _syncScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted) return;
+      _syncScheduled = false;
+      _liveItems.value = widget.items;
+    });
   }
 
   @override
@@ -3000,9 +2996,7 @@ void _showMetricInsight(
   BuildContext context, {
   required String title,
   required _Metric selected,
-  required ValueListenable<List<_Metric>> metrics,
 }) {
-  final selectedIndex = metrics.value.indexOf(selected);
   showAnimatedDialog<void>(
     context: context,
     builder: (_) => _OperationsInsightDialog(
@@ -3010,19 +3004,7 @@ void _showMetricInsight(
       title: selected.label,
       subtitle: '$title · 指标详情',
       color: selected.color,
-      child: ValueListenableBuilder<List<_Metric>>(
-        valueListenable: metrics,
-        builder: (context, values, _) {
-          final liveSelected =
-              selectedIndex >= 0 && selectedIndex < values.length
-              ? values[selectedIndex]
-              : selected;
-          return _MetricInsightBody(
-            sectionTitle: title,
-            selected: liveSelected,
-          );
-        },
-      ),
+      child: _MetricInsightBody(sectionTitle: title, selected: selected),
     ),
   );
 }
