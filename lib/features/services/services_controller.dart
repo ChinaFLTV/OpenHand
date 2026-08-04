@@ -117,6 +117,7 @@ class ServicesController extends ChangeNotifier {
       OpenHandSingleFlight<void>();
   final OpenHandSingleFlight<void> _serviceStatusRefresh =
       OpenHandSingleFlight<void>();
+  final OpenHandAsyncOnce _shutdownOnce = OpenHandAsyncOnce();
   final SerialTaskQueue _proxyRuntimeUpdateQueue = SerialTaskQueue(
     maxPendingTasks: 8,
   );
@@ -420,7 +421,11 @@ class ServicesController extends ChangeNotifier {
   }
 
   Future<void> stopService() async {
-    if (_busy || _lifecycle == AiExposureServiceLifecycle.stopped) return;
+    if (_busy ||
+        _lifecycle == AiExposureServiceLifecycle.stopped ||
+        _lifecycle == AiExposureServiceLifecycle.stopping) {
+      return;
+    }
     _busy = true;
     _lifecycle = AiExposureServiceLifecycle.stopping;
     _managedDependencyListenerSyncQueue.discardPending();
@@ -1761,8 +1766,11 @@ class ServicesController extends ChangeNotifier {
     );
   }
 
-  Future<void> shutdown() async {
+  Future<void> shutdown() => _shutdownOnce.run(_shutdown);
+
+  Future<void> _shutdown() async {
     if (_disposed) return;
+    _busy = true;
     _proxyInspectionGeneration++;
     _proxyInspectionScheduleGeneration++;
     _proxyInspectionCancelRequested = true;
