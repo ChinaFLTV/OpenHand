@@ -2,10 +2,11 @@ import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../app/model/cron_config.dart';
 import '../../../shared/db/database_service.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/cron_parser.dart';
 
-/// Persistence layer for cron jobs and execution history using SQLite.
+/// 基于 SQLite 的定时任务与执行历史存储。
 class CronsStore {
   CronsStore({Database? database}) : _database = database;
 
@@ -21,11 +22,15 @@ class CronsStore {
   };
 
   final Database? _database;
+  late final OpenHandRetryableAsyncCache<void> _tableInitialization =
+      OpenHandRetryableAsyncCache<void>(_ensureTables);
 
   Database get _db => _database ?? DatabaseService.instance.database;
 
-  /// Ensures both tables exist. Call once at startup.
-  Future<void> ensureTable() async {
+  /// 确保任务表和历史表就绪，并合并并发初始化。
+  Future<void> ensureTable() => _tableInitialization.load();
+
+  Future<void> _ensureTables() async {
     await _db.execute('''
       CREATE TABLE IF NOT EXISTS $_tableName (
         id                      TEXT PRIMARY KEY,
@@ -167,7 +172,7 @@ class CronsStore {
     );
   }
 
-  // Cron jobs CRUD
+  // 定时任务读写。
   Future<List<CronEntry>> loadAll() async {
     final rows = await _db.query(
       _tableName,
@@ -178,7 +183,7 @@ class CronsStore {
     for (final row in rows) {
       final entry = _rowToEntry(row);
       if (!seenIds.add(entry.id)) {
-        throw FormatException('Duplicate cron id: ${entry.id}');
+        throw FormatException('定时任务 ID 重复：${entry.id}');
       }
       entries.add(entry);
     }
@@ -190,7 +195,7 @@ class CronsStore {
     final name = _canonicalText(row, 'name');
     final cronExpression = _canonicalText(row, 'cron_expression');
     if (id.isEmpty || name.isEmpty || !CronParser.isValid(cronExpression)) {
-      throw FormatException('Invalid cron row: $id');
+      throw FormatException('定时任务记录无效：$id');
     }
     final tagsText = _text(row, 'tags');
     final tags = _parseTags(tagsText);
@@ -198,7 +203,7 @@ class CronsStore {
     final environment = _parseEnv(environmentText);
     if (tags.join(',') != tagsText ||
         _encodeEnv(environment) != environmentText) {
-      throw FormatException('Invalid cron metadata: $id');
+      throw FormatException('定时任务元数据无效：$id');
     }
     _intInRange(row, 'sort_order', 0, _maxStoredCounter);
     return CronEntry(
@@ -278,13 +283,13 @@ class CronsStore {
   String _text(Map<String, Object?> row, String key) {
     final value = row[key];
     if (value is String) return value;
-    throw FormatException('Cron field $key must be text.');
+    throw FormatException('定时任务字段 $key 必须是文本。');
   }
 
   String _canonicalText(Map<String, Object?> row, String key) {
     final value = _text(row, key);
     if (value != value.trim()) {
-      throw FormatException('Cron field $key is not canonical.');
+      throw FormatException('定时任务字段 $key 格式不规范。');
     }
     return value;
   }
@@ -298,7 +303,7 @@ class CronsStore {
     return switch (row[key]) {
       0 => false,
       1 => true,
-      _ => throw FormatException('Cron field $key must be 0 or 1.'),
+      _ => throw FormatException('定时任务字段 $key 必须是 0 或 1。'),
     };
   }
 
@@ -310,7 +315,7 @@ class CronsStore {
   ) {
     final value = row[key];
     if (value is! int || value < minimum || value > maximum) {
-      throw FormatException('Cron field $key is out of range.');
+      throw FormatException('定时任务字段 $key 超出范围。');
     }
     return value;
   }
@@ -318,7 +323,7 @@ class CronsStore {
   int? _optionalInt(Map<String, Object?> row, String key) {
     final value = row[key];
     if (value == null || value is int) return value as int?;
-    throw FormatException('Cron field $key must be an integer.');
+    throw FormatException('定时任务字段 $key 必须是整数。');
   }
 
   DateTime? _dateTime(Map<String, Object?> row, String key) {
@@ -326,7 +331,7 @@ class CronsStore {
     if (raw.isEmpty) return null;
     final parsed = DateTime.tryParse(raw);
     if (parsed == null || parsed.toIso8601String() != raw) {
-      throw FormatException('Cron field $key is invalid.');
+      throw FormatException('定时任务字段 $key 无效。');
     }
     return parsed;
   }
@@ -339,7 +344,7 @@ class CronsStore {
   ) {
     final value = enumByStorageValue(values, _text(row, key), storageValue);
     if (value == null) {
-      throw FormatException('Cron field $key has an unknown value.');
+      throw FormatException('定时任务字段 $key 包含未知值。');
     }
     return value;
   }
@@ -369,7 +374,7 @@ class CronsStore {
       final row = _entryToRow(entries[index], sortOrder: index);
       final validated = _rowToEntry(row);
       if (!seenIds.add(validated.id)) {
-        throw FormatException('Duplicate cron id: ${validated.id}');
+        throw FormatException('定时任务 ID 重复：${validated.id}');
       }
       rows.add(row);
     }
@@ -385,7 +390,7 @@ class CronsStore {
     if (entry.id.trim() != entry.id ||
         entry.id.isEmpty ||
         entry.consecutiveFailures < 0) {
-      throw const FormatException('Invalid cron runtime state.');
+      throw const FormatException('定时任务运行状态无效。');
     }
     final updated = await _db.update(
       _tableName,
@@ -401,7 +406,7 @@ class CronsStore {
       whereArgs: <Object?>[entry.id],
     );
     if (updated != 1) {
-      throw StateError('Cron no longer exists: ${entry.id}');
+      throw StateError('定时任务已不存在：${entry.id}');
     }
   }
 
@@ -451,11 +456,7 @@ class CronsStore {
     };
   }
 
-  Future<void> delete(String id) async {
-    await _db.delete(_tableName, where: 'id = ?', whereArgs: <Object?>[id]);
-  }
-
-  // Execution history
+  // 执行历史。
   Future<void> insertHistory(CronExecutionRecord record) async {
     await _db.insert(_historyTable, <String, Object?>{
       'id': record.id,
@@ -512,7 +513,7 @@ class CronsStore {
         cronId.isEmpty ||
         !_historyStatuses.contains(status) ||
         triggerType.isEmpty) {
-      throw FormatException('Invalid cron history row: $id');
+      throw FormatException('定时任务历史记录无效：$id');
     }
     final environment = _historyEnvironment(row, 'environment');
     final appContext = _historyEnvironment(row, 'app_context');
@@ -549,7 +550,7 @@ class CronsStore {
     final raw = _text(row, key);
     final parsed = _parseEnv(raw);
     if (_encodeEnv(parsed) != raw) {
-      throw FormatException('Cron history field $key is invalid.');
+      throw FormatException('定时任务历史字段 $key 无效。');
     }
     return parsed;
   }
@@ -557,7 +558,7 @@ class CronsStore {
   DateTime _requiredDateTime(Map<String, Object?> row, String key) {
     final value = _dateTime(row, key);
     if (value == null) {
-      throw FormatException('Cron history field $key is required.');
+      throw FormatException('定时任务历史字段 $key 不能为空。');
     }
     return value;
   }
@@ -570,16 +571,17 @@ class CronsStore {
     );
   }
 
-  Future<void> deleteHistoryRecord(String recordId) async {
-    await _db.delete(
+  Future<bool> deleteHistoryRecord(String cronId, String recordId) async {
+    final deleted = await _db.delete(
       _historyTable,
-      where: 'id = ?',
-      whereArgs: <Object?>[recordId],
+      where: 'cron_id = ? AND id = ?',
+      whereArgs: <Object?>[cronId, recordId],
     );
+    return deleted == 1;
   }
 
   /// 删除所有 [cutoff] 之前的历史记录，返回受影响行数。
-  /// 用于冷启动时的自动清理 worker。
+  /// 用于冷启动时的自动清理任务。
   /// 注意：started_at 列存的是 ISO8601 字符串，字典序与时间序一致，
   /// 因此可直接用字符串比较，无需 datetime() 函数。
   Future<int> deleteHistoryOlderThan(DateTime cutoff) async {

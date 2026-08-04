@@ -1,10 +1,10 @@
-# Crons feature
+# 定时任务模块
 
 ## 职责
 管理定时任务（cron jobs）：解析 cron 表达式、调度触发、执行子进程、维护执行历史。
 
 ## 对外 API
-- `CronsController` — Provider 提供，含 entries / `initialize()` / `runOnce()` 等
+- `CronsController` — Provider 提供，含 entries / `initialize()` / `runNow()` 等
 - `CronsModule.bootstrap()` / `CronsModule.providers(m)`
 - `runCronHistoryCleanupOnce(...)` — 启动期单次清理（main.dart 调用）
 - `CronsView` — 设置页内的 cron 编辑 widget

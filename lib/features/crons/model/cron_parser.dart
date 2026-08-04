@@ -1,50 +1,65 @@
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
-/// Minimal cron expression parser for 5-field (minute-level) expressions.
+/// 五段式分钟级 cron 表达式解析器。
 ///
-/// Supports: `*`, exact numbers, comma-separated lists, ranges (`1-5`),
-/// and step values (`*/5`, `1-30/5`).
+/// 支持 `*`、精确值、逗号列表、范围（`1-5`）和步长（`*/5`、`1-30/5`）。
 ///
-/// Does NOT support the seconds field — the UI freezes seconds at 0.
+/// 不支持秒字段，界面固定为 0 秒。
 class CronParser {
   CronParser._();
 
   static final RegExp _fieldSeparatorPattern = RegExp(r'\s+');
 
-  /// Returns the next occurrence after [after] for the given 5-field
-  /// [expression], or null if the expression is invalid.
-  ///
-  /// Safety: bails out after scanning 366 days to prevent infinite loops.
+  /// 返回 [after] 之后的下一次执行时间；表达式无效或八年内无匹配时返回 null。
   static DateTime? nextRun(String expression, {DateTime? after}) {
     final fields = expression.trim().split(_fieldSeparatorPattern);
     final parsed = _parseExpressionFields(fields);
     if (parsed == null) return null;
     final (minutes, hours, daysOfMonth, months, daysOfWeek) = parsed;
 
-    // Normalize day-of-week: convert 7 → 0 (both mean Sunday).
+    // 星期 0 和 7 都表示周日。
     final normalizedDow = daysOfWeek.map((d) => d == 7 ? 0 : d).toSet();
+    final dayOfMonthUnrestricted = fields[2] == '*';
+    final dayOfWeekUnrestricted = fields[4] == '*';
+    final sortedHours = hours.toList(growable: false)..sort();
+    final sortedMinutes = minutes.toList(growable: false)..sort();
+    final start = after ?? DateTime.now();
+    final isUtc = start.isUtc;
+    var day = isUtc
+        ? DateTime.utc(start.year, start.month, start.day)
+        : DateTime(start.year, start.month, start.day);
 
-    var candidate = (after ?? DateTime.now()).add(const Duration(minutes: 1));
-    candidate = DateTime(
-      candidate.year,
-      candidate.month,
-      candidate.day,
-      candidate.hour,
-      candidate.minute,
-    );
-
-    // Scan forward at most ~527,040 minutes (≈ 366 days).
-    const maxIterations = 527040;
-    for (var i = 0; i < maxIterations; i++) {
-      if (months.contains(candidate.month) &&
-          daysOfMonth.contains(candidate.day) &&
-          normalizedDow.contains(candidate.weekday % 7) &&
-          hours.contains(candidate.hour) &&
-          minutes.contains(candidate.minute)) {
-        return candidate;
+    // 覆盖闰日跨 2100 年等最长八年间隔，同时按天扫描避免数百万次分钟循环。
+    const maxDays = 366 * 8 + 2;
+    for (var scannedDays = 0; scannedDays < maxDays; scannedDays++) {
+      final dayOfMonthMatches = daysOfMonth.contains(day.day);
+      final dayOfWeekMatches = normalizedDow.contains(day.weekday % 7);
+      final dayMatches = dayOfMonthUnrestricted
+          ? dayOfWeekUnrestricted || dayOfWeekMatches
+          : dayOfWeekUnrestricted
+          ? dayOfMonthMatches
+          : dayOfMonthMatches || dayOfWeekMatches;
+      if (months.contains(day.month) && dayMatches) {
+        for (final hour in sortedHours) {
+          for (final minute in sortedMinutes) {
+            final candidate = isUtc
+                ? DateTime.utc(day.year, day.month, day.day, hour, minute)
+                : DateTime(day.year, day.month, day.day, hour, minute);
+            if (candidate.year == day.year &&
+                candidate.month == day.month &&
+                candidate.day == day.day &&
+                candidate.hour == hour &&
+                candidate.minute == minute &&
+                candidate.isAfter(start)) {
+              return candidate;
+            }
+          }
+        }
       }
-      candidate = candidate.add(const Duration(minutes: 1));
+      day = isUtc
+          ? DateTime.utc(day.year, day.month, day.day + 1)
+          : DateTime(day.year, day.month, day.day + 1);
     }
     return null;
   }
@@ -74,8 +89,7 @@ class CronParser {
     return (minutes, hours, daysOfMonth, months, daysOfWeek);
   }
 
-  /// Validates a 5-field cron expression. Returns null if valid, or a
-  /// localized error description if invalid.
+  /// 校验五段式表达式；有效时返回 null，否则返回本地化错误。
   static String? validate(String expression, {required AppLocalizations l10n}) {
     final fields = expression.trim().split(_fieldSeparatorPattern);
     if (fields.length != 5) {
@@ -98,13 +112,12 @@ class CronParser {
     return null;
   }
 
-  /// Parses a single cron field into a set of matching integer values.
-  /// Returns null if the field is syntactically invalid.
+  /// 解析单个 cron 字段；语法无效时返回 null。
   static Set<int>? _parseField(String field, int min, int max) {
     final result = <int>{};
     for (final part in field.split(',')) {
       if (part.isEmpty) return null;
-      // Handle step: */n or range/n
+      // 处理 */n 或 range/n 步长。
       final stepParts = part.split('/');
       if (stepParts.length > 2) return null;
       final step = stepParts.length == 2

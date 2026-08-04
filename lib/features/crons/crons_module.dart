@@ -3,12 +3,10 @@ import 'package:provider/single_child_widget.dart';
 
 import 'crons_controller.dart';
 
-/// Assembly point for the crons feature.
+/// 定时任务模块装配入口。
 ///
-/// Construction is synchronous via [CronsController.uninitialized] — heavy
-/// I/O (sqlite seed, scheduler bind, signal watcher) runs inside the
-/// controller's `initialize()` method, kicked off from main.dart so boot
-/// is not blocked.
+/// 控制器同步构造；数据库、调度器与信号监听在 [CronsController.initialize]
+/// 中延迟初始化，避免阻塞启动。
 class CronsModule {
   CronsModule._({required this.controller});
 

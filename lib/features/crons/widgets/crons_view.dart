@@ -1967,55 +1967,73 @@ class _CronHistoryDialog extends StatelessWidget {
             ),
         ],
       ),
-      content: SizedBox(
-        width: 720,
-        height: 480,
-        child: history.isEmpty
-            ? Center(
-                child: Text(
-                  l10n.cronsNoExecutionRecords,
-                  style: theme.textTheme.bodyLarge?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              )
-            : ListView.builder(
-                padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
-                itemCount: history.length,
-                itemBuilder: (context, index) {
-                  final record = history[index];
-                  return Padding(
-                    padding: const EdgeInsets.only(bottom: 8),
-                    child: Dismissible(
-                      key: ValueKey(record.id),
-                      direction: DismissDirection.endToStart,
-                      confirmDismiss: (_) =>
-                          _confirmDeleteRecord(context, l10n),
-                      onDismissed: (_) {
-                        controller.deleteHistoryRecord(entry.id, record.id);
-                      },
-                      background: Container(
-                        alignment: Alignment.centerRight,
-                        padding: const EdgeInsets.only(right: 20),
-                        decoration: BoxDecoration(
-                          color: colorScheme.errorContainer,
-                          borderRadius: BorderRadius.circular(16),
-                        ),
-                        child: Icon(
-                          Icons.delete_outline_rounded,
-                          color: colorScheme.onErrorContainer,
-                        ),
-                      ),
-                      child: _HistoryRecordTile(
-                        record: record,
-                        onDelete: () {
-                          controller.deleteHistoryRecord(entry.id, record.id);
-                        },
-                      ),
+      content: OpenHandRemovableListScope(
+        builder: (context, removal) => SizedBox(
+          width: kOpenHandDialogWidthStandard,
+          height: 480,
+          child: history.isEmpty
+              ? Center(
+                  child: Text(
+                    l10n.cronsNoExecutionRecords,
+                    style: theme.textTheme.bodyLarge?.copyWith(
+                      color: colorScheme.onSurfaceVariant,
                     ),
-                  );
-                },
-              ),
+                  ),
+                )
+              : ListView.builder(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 4,
+                    vertical: 6,
+                  ),
+                  itemCount: history.length,
+                  itemBuilder: (context, index) {
+                    final record = history[index];
+                    return OpenHandListRemovalTransition(
+                      key: ValueKey<String>('cron-history-${record.id}'),
+                      collapsed: removal.isRemoving(record.id),
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 8),
+                        child: Dismissible(
+                          key: ValueKey(record.id),
+                          direction: DismissDirection.endToStart,
+                          confirmDismiss: (_) async {
+                            await _confirmDeleteRecord(
+                              context,
+                              controller,
+                              removal,
+                              record,
+                              l10n,
+                            );
+                            return false;
+                          },
+                          background: Container(
+                            alignment: Alignment.centerRight,
+                            padding: const EdgeInsets.only(right: 20),
+                            decoration: BoxDecoration(
+                              color: colorScheme.errorContainer,
+                              borderRadius: BorderRadius.circular(16),
+                            ),
+                            child: Icon(
+                              Icons.delete_outline_rounded,
+                              color: colorScheme.onErrorContainer,
+                            ),
+                          ),
+                          child: _HistoryRecordTile(
+                            record: record,
+                            onDelete: () => _confirmDeleteRecord(
+                              context,
+                              controller,
+                              removal,
+                              record,
+                              l10n,
+                            ),
+                          ),
+                        ),
+                      ),
+                    );
+                  },
+                ),
+        ),
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
@@ -2045,11 +2063,15 @@ class _CronHistoryDialog extends StatelessWidget {
     await controller.clearHistoryForCron(entry.id);
   }
 
-  Future<bool> _confirmDeleteRecord(
+  Future<void> _confirmDeleteRecord(
     BuildContext context,
+    CronsController controller,
+    OpenHandListRemoval removal,
+    CronExecutionRecord record,
     AppLocalizations l10n,
-  ) {
-    return showOpenHandConfirmDialog(
+  ) async {
+    if (removal.isRemoving(record.id)) return;
+    final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: l10n.cronsDeleteExecutionRecordTitle,
       message: l10n.cronsDeleteExecutionRecordMessage,
@@ -2057,6 +2079,10 @@ class _CronHistoryDialog extends StatelessWidget {
       confirmLabel: l10n.commonDelete,
       destructive: true,
     );
+    if (!confirmed || !context.mounted) return;
+    await removal.run(record.id, () async {
+      await controller.deleteHistoryRecord(entry.id, record.id);
+    });
   }
 }
 

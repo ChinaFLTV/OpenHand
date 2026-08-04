@@ -16,7 +16,7 @@ import '../../../shared/util/text_clip.dart';
 const int _maxCronOutputCharacters = 8000;
 const int _maxCronOutputBytes = _maxCronOutputCharacters * 4;
 
-/// Handle returned for a running cron execution.
+/// 运行中定时任务的取消句柄与结果。
 class CronExecutionHandle {
   const CronExecutionHandle({required this.result, required this.cancel});
 
@@ -24,13 +24,13 @@ class CronExecutionHandle {
   final void Function() cancel;
 }
 
-/// Executes a single cron job script with timeout, retry, and resource cleanup.
+/// 执行单个定时脚本，并负责超时、重试和资源回收。
 class CronExecutor {
   CronExecutor._();
 
   static const Uuid _uuid = Uuid();
 
-  /// Starts a cancellable cron execution.
+  /// 启动可取消的定时任务。
   static CronExecutionHandle start(
     CronEntry entry, {
     String triggerType = 'scheduled',
@@ -57,6 +57,7 @@ class CronExecutor {
   }) async {
     final id = _uuid.v4();
     final startedAt = DateTime.now();
+    final elapsedClock = Stopwatch()..start();
     final effectiveTimeout = Duration(
       seconds: clampCronTimeoutSeconds(entry.timeoutSeconds),
     );
@@ -71,8 +72,8 @@ class CronExecutor {
       'cron.name': entry.name,
       'cron.trigger_type': triggerType,
       'cron.script_type': entry.scriptType.storageValue,
-      'cron.timeout_seconds': '${entry.timeoutSeconds}',
-      'cron.retry_count': '${entry.retryCount}',
+      'cron.timeout_seconds': '${effectiveTimeout.inSeconds}',
+      'cron.retry_count': '$maxRetries',
     };
     final environmentSnapshot = entry.collectEnvironmentSnapshot
         ? AppRuntimeContext.captureEnvironmentSnapshot(entry.environment)
@@ -85,28 +86,48 @@ class CronExecutor {
     int? lastPid;
     int attempt = 0;
 
+    CronExecutionRecord buildRecord({
+      required String status,
+      required String stdout,
+      required String stderr,
+      required int retryAttempt,
+      String? errorMessage,
+      int? exitCode,
+      int? pid,
+    }) {
+      return _buildRecord(
+        id: id,
+        entry: entry,
+        startedAt: startedAt,
+        elapsedMs: elapsedClock.elapsedMilliseconds,
+        status: status,
+        stdout: stdout,
+        stderr: stderr,
+        errorMessage: errorMessage,
+        retryAttempt: retryAttempt,
+        exitCode: exitCode,
+        pid: pid,
+        triggerType: triggerType,
+        appContext: appContext,
+        environmentSnapshot: environmentSnapshot,
+      );
+    }
+
     for (attempt = 0; attempt <= maxRetries; attempt++) {
       if (cancellationToken.isCancelled) {
-        return _buildRecord(
-          id: id,
-          entry: entry,
-          startedAt: startedAt,
+        return buildRecord(
           status: 'killed',
           stdout: lastStdout,
           stderr: lastStderr,
-          errorMessage: 'Cancelled due to application shutdown',
+          errorMessage: '应用关闭，定时任务已取消。',
           retryAttempt: attempt,
           exitCode: lastExitCode,
           pid: lastPid,
-          triggerType: triggerType,
-          appContext: appContext,
-          environmentSnapshot: environmentSnapshot,
         );
       }
 
       if (attempt > 0) {
-        // Exponential back-off with cap (shared with WebEngineBase via
-        // [exponentialBackoffSeconds]; both keep a base=1 unit, cap=user/cap_max).
+        // 使用统一的有上限指数退避。
         final delay = Duration(
           seconds: exponentialBackoffSeconds(
             attempt: attempt,
@@ -119,20 +140,14 @@ class CronExecutor {
           cancelSignal: cancellationToken.cancelled,
         );
         if (cancellationToken.isCancelled) {
-          return _buildRecord(
-            id: id,
-            entry: entry,
-            startedAt: startedAt,
+          return buildRecord(
             status: 'killed',
             stdout: lastStdout,
             stderr: lastStderr,
-            errorMessage: 'Cancelled due to application shutdown',
+            errorMessage: '应用关闭，定时任务已取消。',
             retryAttempt: attempt,
             exitCode: lastExitCode,
             pid: lastPid,
-            triggerType: triggerType,
-            appContext: appContext,
-            environmentSnapshot: environmentSnapshot,
           );
         }
       }
@@ -150,31 +165,22 @@ class CronExecutor {
         lastError = result.error;
 
         if (result.killed || cancellationToken.isCancelled) {
-          return _buildRecord(
-            id: id,
-            entry: entry,
-            startedAt: startedAt,
+          return buildRecord(
             status: 'killed',
             stdout: lastStdout,
             stderr: lastStderr,
-            errorMessage: lastError ?? 'Cancelled due to application shutdown',
+            errorMessage: lastError ?? '应用关闭，定时任务已取消。',
             retryAttempt: attempt,
             exitCode: lastExitCode,
             pid: lastPid,
-            triggerType: triggerType,
-            appContext: appContext,
-            environmentSnapshot: environmentSnapshot,
           );
         }
 
         if (result.timedOut) {
-          lastError ??= 'Timed out after ${entry.timeoutSeconds}s';
-          // On timeout, attempt retry if allowed.
+          lastError ??= '定时任务执行超过 ${effectiveTimeout.inSeconds} 秒。';
+          // 仍有重试次数时继续执行。
           if (attempt < maxRetries) continue;
-          return _buildRecord(
-            id: id,
-            entry: entry,
-            startedAt: startedAt,
+          return buildRecord(
             status: 'timed_out',
             stdout: lastStdout,
             stderr: lastStderr,
@@ -182,37 +188,25 @@ class CronExecutor {
             retryAttempt: attempt,
             exitCode: lastExitCode,
             pid: lastPid,
-            triggerType: triggerType,
-            appContext: appContext,
-            environmentSnapshot: environmentSnapshot,
           );
         }
 
         if (lastExitCode == 0) {
-          return _buildRecord(
-            id: id,
-            entry: entry,
-            startedAt: startedAt,
+          return buildRecord(
             status: 'success',
             stdout: lastStdout,
             stderr: lastStderr,
             retryAttempt: attempt,
             exitCode: 0,
             pid: lastPid,
-            triggerType: triggerType,
-            appContext: appContext,
-            environmentSnapshot: environmentSnapshot,
           );
         }
 
-        // Non-zero exit — retry if allowed.
-        lastError ??= 'Exited with code $lastExitCode';
+        // 非零退出码仍有重试次数时继续执行。
+        lastError ??= '定时任务退出码：$lastExitCode。';
         if (attempt < maxRetries) continue;
 
-        return _buildRecord(
-          id: id,
-          entry: entry,
-          startedAt: startedAt,
+        return buildRecord(
           status: 'failed',
           stdout: lastStdout,
           stderr: lastStderr,
@@ -220,17 +214,11 @@ class CronExecutor {
           retryAttempt: attempt,
           exitCode: lastExitCode,
           pid: lastPid,
-          triggerType: triggerType,
-          appContext: appContext,
-          environmentSnapshot: environmentSnapshot,
         );
       } catch (e) {
         lastError = '$e';
         if (attempt < maxRetries) continue;
-        return _buildRecord(
-          id: id,
-          entry: entry,
-          startedAt: startedAt,
+        return buildRecord(
           status: 'failed',
           stdout: lastStdout,
           stderr: lastStderr,
@@ -238,28 +226,18 @@ class CronExecutor {
           retryAttempt: attempt,
           exitCode: lastExitCode,
           pid: lastPid,
-          triggerType: triggerType,
-          appContext: appContext,
-          environmentSnapshot: environmentSnapshot,
         );
       }
     }
 
-    // Should not reach here, but just in case.
-    return _buildRecord(
-      id: id,
-      entry: entry,
-      startedAt: startedAt,
+    return buildRecord(
       status: 'failed',
       stdout: lastStdout,
       stderr: lastStderr,
-      errorMessage: lastError ?? 'Unknown error',
+      errorMessage: lastError ?? '未知定时任务错误。',
       retryAttempt: attempt,
       exitCode: lastExitCode,
       pid: lastPid,
-      triggerType: triggerType,
-      appContext: appContext,
-      environmentSnapshot: environmentSnapshot,
     );
   }
 
@@ -269,10 +247,7 @@ class CronExecutor {
     required _ExecutionCancelToken cancellationToken,
   }) async {
     if (cancellationToken.isCancelled) {
-      return const _RunResult(
-        killed: true,
-        error: 'Cancelled before process start',
-      );
+      return const _RunResult(killed: true, error: '进程启动前已取消。');
     }
 
     final cmd = _buildCommand(entry);
@@ -298,8 +273,7 @@ class CronExecutor {
         outputDecoder: const SystemEncoding().decoder,
         onProcessStarted: (process) {
           pid = process.pid;
-          // The setter is retroactive: cancellation during spawn immediately
-          // terminates the process tree once the handle becomes available.
+          // 启动过程中发生的取消会在进程句柄就绪后立即终止进程树。
           cancellationToken.onCancel = () {
             unawaited(terminateTrackedProcessTree(process));
           };
@@ -317,7 +291,7 @@ class CronExecutor {
     if (result == null) {
       return _RunResult(
         killed: killed,
-        error: killed ? null : 'Failed to start cron process',
+        error: killed ? null : '定时任务进程启动失败。',
         pid: pid,
       );
     }
@@ -345,6 +319,7 @@ class CronExecutor {
     required String id,
     required CronEntry entry,
     required DateTime startedAt,
+    required int elapsedMs,
     required String status,
     required String stdout,
     required String stderr,
@@ -366,7 +341,7 @@ class CronExecutor {
       stdout: stdout,
       stderr: stderr,
       errorMessage: errorMessage,
-      elapsedMs: DateTime.now().difference(startedAt).inMilliseconds,
+      elapsedMs: elapsedMs,
       retryAttempt: retryAttempt,
       runAsUser: entry.runAsUser,
       workingDirectory: entry.workingDirectory,
@@ -380,7 +355,7 @@ class CronExecutor {
 
   static _ShellCommand _buildCommand(CronEntry entry) {
     if (entry.scriptPath != null && entry.scriptPath!.isNotEmpty) {
-      // File-based script.
+      // 文件脚本。
       if (Platform.isWindows) {
         final ext = p.extension(entry.scriptPath!).toLowerCase();
         if (ext == '.ps1') {
@@ -395,6 +370,7 @@ class CronExecutor {
       }
       if (entry.runAsUser != null && entry.runAsUser!.isNotEmpty) {
         return _ShellCommand('sudo', [
+          '-n',
           '-u',
           entry.runAsUser!,
           'bash',
@@ -404,13 +380,14 @@ class CronExecutor {
       return _ShellCommand('bash', [entry.scriptPath!]);
     }
 
-    // Inline script / command.
+    // 内联脚本或命令。
     final content = entry.scriptContent ?? '';
     if (Platform.isWindows) {
       return _ShellCommand('powershell', ['-Command', content]);
     }
     if (entry.runAsUser != null && entry.runAsUser!.isNotEmpty) {
       return _ShellCommand('sudo', [
+        '-n',
         '-u',
         entry.runAsUser!,
         'bash',

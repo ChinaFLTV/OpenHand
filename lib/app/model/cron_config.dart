@@ -38,13 +38,11 @@ int clampCronRetryDelaySeconds(int value) {
   return _cronRetryDelaySecondsRange.normalize(value);
 }
 
-/// Type of script source for a cron job.
+/// 定时任务脚本来源类型。
 enum CronScriptType {
   command('command'),
   script('script'),
-  // system-managed Agent entries (Hermes Talker self-learning).
-  // These dispatch to an in-process agent handler rather than spawning a
-  // shell process. UI must render them read-only with a lock icon.
+  // 系统管理的智能体任务由进程内处理器执行，界面以只读锁定状态展示。
   agent('agent');
 
   const CronScriptType(this.storageValue);
@@ -64,7 +62,7 @@ enum CronScriptType {
   }
 }
 
-/// Runtime status of a cron job.
+/// 定时任务运行状态。
 enum CronJobStatus {
   running('running'),
   paused('paused'),
@@ -96,7 +94,7 @@ enum CronJobStatus {
   }
 }
 
-/// Notification type for cron job events.
+/// 定时任务通知类型。
 enum CronNotifyType {
   none('none'),
   log('log'),
@@ -126,7 +124,7 @@ enum CronNotifyType {
   }
 }
 
-/// Notification severity for cron job events.
+/// 定时任务通知级别。
 enum CronNotifySeverity {
   info('info'),
   success('success'),
@@ -161,7 +159,7 @@ enum CronNotifySeverity {
   }
 }
 
-/// A single cron job entry.
+/// 单个定时任务配置。
 class CronEntry {
   const CronEntry({
     required this.id,
@@ -487,7 +485,7 @@ class CronEntry {
   }
 }
 
-/// A single execution history record for a cron job.
+/// 单次定时任务执行记录。
 class CronExecutionRecord {
   const CronExecutionRecord({
     required this.id,
@@ -538,7 +536,7 @@ class CronExecutionRecord {
   final DateTime startedAt;
   final DateTime? finishedAt;
 
-  /// One of: 'success', 'failed', 'timed_out', 'running', 'killed'.
+  /// 取值：success、failed、timed_out、running、killed。
   final String status;
   final int? exitCode;
   final String stdout;
@@ -549,18 +547,18 @@ class CronExecutionRecord {
   final String? runAsUser;
   final String? workingDirectory;
 
-  /// Script-level environment overrides configured on the cron entry.
+  /// 任务配置的脚本环境变量覆盖项。
   final Map<String, String> environment;
 
-  /// Captured app / host runtime context at execution time.
+  /// 执行时采集的应用与主机上下文。
   final Map<String, String> appContext;
 
-  /// Captured effective process environment snapshot at execution time.
+  /// 执行时采集的进程环境快照。
   final Map<String, String> environmentSnapshot;
 
   final int? pid;
 
-  /// One of: 'scheduled', 'manual'.
+  /// 取值：scheduled、manual。
   final String triggerType;
 
   Map<String, Object?> toJson() {

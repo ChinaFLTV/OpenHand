@@ -377,6 +377,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   final Set<Object> _activeExecutionTokens = <Object>{};
   AppLifecycleState _appLifecycleState = AppLifecycleState.resumed;
   final SerialTaskQueue _mutationQueue = SerialTaskQueue();
+  final OpenHandSingleFlight<void> _systemUserScanFlight =
+      OpenHandSingleFlight<void>();
 
   /// 按任务 ID 保存的活动定时器。
   final Map<String, Timer> _scheduledTimers = {};
@@ -421,9 +423,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   void _cacheHistory(String cronId, Iterable<CronExecutionRecord> records) {
     _historyCache.remove(cronId);
-    _historyCache[cronId] = records
-        .take(_maxCachedHistoryRecordsPerJob)
-        .toList();
+    _historyCache[cronId] = List<CronExecutionRecord>.unmodifiable(
+      records.take(_maxCachedHistoryRecordsPerJob),
+    );
     while (_historyCache.length > _maxCachedHistoryJobs) {
       _historyCache.remove(_historyCache.keys.first);
     }
@@ -685,6 +687,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     return _commitMutation(() async {
       final index = _entries.indexWhere((item) => item.id == normalizedId);
       if (index < 0) return false;
+      if (_entries[index].tags.contains(mcpKeywordIndexTag)) return false;
       final entry = _entries[index].copyWith(
         enabled: enabled,
         status: enabled ? CronJobStatus.idle : CronJobStatus.paused,
@@ -738,11 +741,26 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<bool> deleteHistoryRecord(String cronId, String recordId) async {
+    final normalizedCronId = cronId.trim();
+    final normalizedRecordId = recordId.trim();
+    if (normalizedCronId.isEmpty ||
+        normalizedCronId != cronId ||
+        normalizedRecordId.isEmpty ||
+        normalizedRecordId != recordId) {
+      return false;
+    }
     return _enqueueHistoryOperation<bool>('删除执行历史记录', false, () async {
-      await _store.deleteHistoryRecord(recordId);
-      final cached = _historyCache[cronId];
+      final deleted = await _store.deleteHistoryRecord(
+        normalizedCronId,
+        normalizedRecordId,
+      );
+      if (!deleted) return false;
+      final cached = _historyCache[normalizedCronId];
       if (cached != null) {
-        cached.removeWhere((r) => r.id == recordId);
+        _historyCache[normalizedCronId] =
+            List<CronExecutionRecord>.unmodifiable(
+              cached.where((record) => record.id != normalizedRecordId),
+            );
       }
       notifyListeners();
       return true;
@@ -760,9 +778,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       for (final cronId in _historyCache.keys.toList()) {
         final cached = _historyCache[cronId];
         if (cached == null) continue;
-        _historyCache[cronId] = cached
-            .where((record) => record.startedAt.isAfter(cutoff))
-            .toList(growable: false);
+        _historyCache[cronId] = List<CronExecutionRecord>.unmodifiable(
+          cached.where((record) => record.startedAt.isAfter(cutoff)),
+        );
       }
       notifyListeners();
       return affected;
@@ -826,7 +844,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   /// 扫描当前机器可用的系统用户。
-  Future<void> scanSystemUsers() async {
+  Future<void> scanSystemUsers() {
+    if (_isDisposed) return Future<void>.value();
+    return _systemUserScanFlight.run(_scanSystemUsers);
+  }
+
+  Future<void> _scanSystemUsers() async {
     try {
       if (Platform.isWindows) {
         _systemUsers = const <String>['SYSTEM'];
@@ -899,7 +922,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   // 调度
   void _startScheduler() {
     if (!_canExecuteInCurrentState) return;
-    scanSystemUsers();
+    unawaited(scanSystemUsers());
     for (final entry in _entries) {
       _scheduleJob(entry, refreshEntriesView: false);
     }
