@@ -1,5 +1,3 @@
-import 'dart:convert';
-
 import 'package:flutter/foundation.dart';
 
 import '../../shared/util/input_value_parsing.dart';
@@ -33,6 +31,28 @@ class TemplateRuntimeCapabilityState {
       if (normalizedMessage != null) 'message': normalizedMessage,
     };
   }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is TemplateRuntimeCapabilityState &&
+            capabilityId == other.capabilityId &&
+            enabled == other.enabled &&
+            status == other.status &&
+            serverName == other.serverName &&
+            toolCount == other.toolCount &&
+            message == other.message;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    capabilityId,
+    enabled,
+    status,
+    serverName,
+    toolCount,
+    message,
+  );
 }
 
 class TemplateRuntimeSessionLinkage {
@@ -67,7 +87,7 @@ class TemplateRuntimeSessionLinkage {
 class TemplateRuntimeLinkageController extends ChangeNotifier {
   final Map<String, TemplateRuntimeSessionLinkage> _sessions =
       <String, TemplateRuntimeSessionLinkage>{};
-  String _signature = '';
+  bool _isDisposed = false;
 
   TemplateRuntimeCapabilityState? latestCapabilityState(
     String templateId,
@@ -112,6 +132,7 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
     required String templateId,
     required Iterable<TemplateRuntimeCapabilityState> capabilities,
   }) {
+    if (_isDisposed) return;
     final normalizedSessionId = nullIfBlank(sessionId);
     final normalizedTemplateId = nullIfBlank(templateId);
     if (normalizedSessionId == null || normalizedTemplateId == null) return;
@@ -128,6 +149,11 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
         message: nullIfBlank(item.message),
       );
     }
+    final existing = _sessions[normalizedSessionId];
+    if (existing?.templateId == normalizedTemplateId &&
+        mapEquals(existing?.capabilities, capabilityMap)) {
+      return;
+    }
     _sessions[normalizedSessionId] = TemplateRuntimeSessionLinkage(
       sessionId: normalizedSessionId,
       templateId: normalizedTemplateId,
@@ -136,26 +162,23 @@ class TemplateRuntimeLinkageController extends ChangeNotifier {
         capabilityMap,
       ),
     );
-    _notifyIfChanged();
+    notifyListeners();
   }
 
   void removeSession(String sessionId) {
+    if (_isDisposed) return;
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId != null &&
         _sessions.remove(normalizedSessionId) != null) {
-      _notifyIfChanged();
+      notifyListeners();
     }
   }
 
-  void _notifyIfChanged() {
-    final nextSignature = jsonEncode(
-      _sessions.values
-          .map((session) => session.toJson())
-          .toList(growable: false)
-        ..sort((a, b) => '${a['session_id']}'.compareTo('${b['session_id']}')),
-    );
-    if (nextSignature == _signature) return;
-    _signature = nextSignature;
-    notifyListeners();
+  @override
+  void dispose() {
+    if (_isDisposed) return;
+    _isDisposed = true;
+    _sessions.clear();
+    super.dispose();
   }
 }
