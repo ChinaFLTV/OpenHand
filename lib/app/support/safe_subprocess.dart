@@ -1510,19 +1510,41 @@ class _BoundedProcessLineCapture {
 }
 
 /// 增量解析进程文本流，并限制单行 UTF-16 代码单元，避免无换行输出无限增长。
+/// [splitOnCarriageReturn] 用于解析以 `\r` 原地刷新的进度输出。
 class BoundedProcessLineDecoder {
-  BoundedProcessLineDecoder({required int maxCharacters, required this.onLine})
-    : _maxCharacters = maxCharacters < 1 ? 1 : maxCharacters;
+  BoundedProcessLineDecoder({
+    required int maxCharacters,
+    required this.onLine,
+    this.splitOnCarriageReturn = false,
+  }) : _maxCharacters = maxCharacters < 1 ? 1 : maxCharacters;
 
   final int _maxCharacters;
   final void Function(String line) onLine;
+  final bool splitOnCarriageReturn;
   final StringBuffer _buffer = StringBuffer();
   bool _truncated = false;
+  bool _skipLeadingLineFeed = false;
 
   void add(String chunk) {
+    if (chunk.isEmpty) return;
     var start = 0;
+    if (_skipLeadingLineFeed) {
+      _skipLeadingLineFeed = false;
+      if (chunk.startsWith('\n')) start = 1;
+    }
     while (start < chunk.length) {
-      final lineEnd = chunk.indexOf('\n', start);
+      var lineEnd = -1;
+      if (splitOnCarriageReturn) {
+        for (var index = start; index < chunk.length; index++) {
+          final codeUnit = chunk.codeUnitAt(index);
+          if (codeUnit == 0x0a || codeUnit == 0x0d) {
+            lineEnd = index;
+            break;
+          }
+        }
+      } else {
+        lineEnd = chunk.indexOf('\n', start);
+      }
       if (lineEnd < 0) {
         _append(chunk.substring(start));
         return;
@@ -1530,6 +1552,13 @@ class BoundedProcessLineDecoder {
       _append(chunk.substring(start, lineEnd));
       _emit();
       start = lineEnd + 1;
+      if (splitOnCarriageReturn && chunk.codeUnitAt(lineEnd) == 0x0d) {
+        if (start < chunk.length && chunk.codeUnitAt(start) == 0x0a) {
+          start += 1;
+        } else if (start == chunk.length) {
+          _skipLeadingLineFeed = true;
+        }
+      }
     }
   }
 

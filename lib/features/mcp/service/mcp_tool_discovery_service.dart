@@ -39,9 +39,6 @@ export 'mcp_tool_discovery_exception.dart'
         isExpectedMcpToolDiscoveryLifecycleError,
         kMcpStdioSessionClosingMessage;
 
-final RegExp _stdioLineBreakPattern = RegExp(r'[\r\n]');
-final RegExp _stdioLineBreaksPattern = RegExp(r'[\r\n]+');
-
 // 国内最稳的 npm / PyPI 镜像源。集中定义，避免注入逻辑与多语言提示文案
 // 各处硬编码不一致。
 const String _kNpmMirrorRegistry = mcpNpmMirrorRegistry;
@@ -50,6 +47,7 @@ const int _mcpHttpMaxErrorBytes = 64 * kBytesPerKiB;
 const int _mcpServerResponseDisplayMaxCharacters = 64 * kBytesPerKiB;
 const int _mcpLegacySseMaxLineBytes = 4 * kBytesPerMiB;
 const int _mcpLegacySseMaxEventBytes = 4 * kBytesPerMiB;
+const int _mcpStdioStderrMaxCharacters = 4 * kBytesPerKiB;
 const Duration _mcpHttpDiscardTimeout = Duration(seconds: 3);
 const Duration _mcpStreamCleanupTimeout = Duration(milliseconds: 500);
 const Duration _mcpSessionCloseTimeout = Duration(seconds: 2);
@@ -919,11 +917,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             id: _nextId(),
             protocolVersion: _streamableHttpProtocolVersion,
           ),
-          // initialize 是 stdio MCP 冷启动唯一会被 npx/uvx 拉包 / Chrome Beta
-          // 下载阻塞的 RPC。默认 _requestTimeout = 6s 完全不够 ——
-          // 以前表面上看到的「健康检查 4 分钟超时」其实是少补了这个 timeout
-          // 参数后在 6s 就仆了、但被外层 4min envelope 接中后复述成了 4min。
-          // 这里明确赋 5min（外层 6min envelope 就能火上火块包住）。
+          // 冷启动可能需要 npx/uvx 拉包或下载浏览器，初始化使用独立时限。
           timeout: _stdioInitializeTimeout,
         ),
       );
@@ -2277,44 +2271,40 @@ class _StdioSession {
       },
       cancelOnError: false,
     );
-    _stderrSubscription = _process.stderr.transform(utf8.decoder).listen((
-      chunk,
-    ) {
-      if (_stderrBuffer.length < 4096) {
-        _stderrBuffer.write(chunk);
-      }
-      // 行级解析：按 \r 或 \n 切分（npm/yarn 进度条爱用 \r 原地刷新），
-      // 把最新一行透出给 UI 做「正在下载 puppeteer 32%」类实时提示。
-      final cb = onStderrLine;
-      if (cb != null) {
-        _stderrLineBuffer.write(chunk);
-        var buffer = _stderrLineBuffer.toString();
-        var splitIndex = buffer.lastIndexOf(_stdioLineBreakPattern);
-        if (splitIndex < 0) {
-          if (buffer.length > 4096) {
-            // 防御：单行超长（无换行）时也切，避免无限堆积。
-            _stderrLineBuffer
-              ..clear()
-              ..write(buffer.substring(buffer.length ~/ 2));
-          }
-          return;
+    final stderrLineDecoder = BoundedProcessLineDecoder(
+      maxCharacters: _mcpStdioStderrMaxCharacters,
+      splitOnCarriageReturn: true,
+      onLine: (raw) {
+        final line = raw.trim();
+        final callback = onStderrLine;
+        if (line.isEmpty || callback == null) return;
+        try {
+          callback(line);
+        } catch (error, stack) {
+          silentLog('mcp_stdio', '处理标准错误输出行', error, stack);
         }
-        final completed = buffer.substring(0, splitIndex);
-        final tail = buffer.substring(splitIndex + 1);
-        _stderrLineBuffer
-          ..clear()
-          ..write(tail);
-        for (final raw in completed.split(_stdioLineBreaksPattern)) {
-          final line = raw.trim();
-          if (line.isEmpty) continue;
-          try {
-            cb(line);
-          } catch (error, stack) {
-            silentLog('mcp_stdio', '处理标准错误输出行', error, stack);
-          }
-        }
-      }
-    });
+      },
+    );
+    _stderrSubscription = _process.stderr
+        .transform(const Utf8Decoder(allowMalformed: true))
+        .listen(
+          (chunk) {
+            final remaining =
+                _mcpStdioStderrMaxCharacters - _stderrBuffer.length;
+            if (remaining > 0) {
+              _stderrBuffer.write(
+                clipTextByCodeUnits(chunk, remaining, suffix: ''),
+              );
+            }
+            stderrLineDecoder.add(chunk);
+          },
+          onError: (Object error, StackTrace stack) {
+            stderrLineDecoder.close();
+            silentLog('mcp_stdio', '读取标准错误输出', error, stack);
+          },
+          onDone: stderrLineDecoder.close,
+          cancelOnError: true,
+        );
     unawaited(
       _process.exitCode.then<void>(
         (code) => _appendTrace('process:exit:$code'),
@@ -2336,7 +2326,6 @@ class _StdioSession {
   final Duration _requestTimeout;
   final List<int> _stdoutBuffer = <int>[];
   final StringBuffer _stderrBuffer = StringBuffer();
-  final StringBuffer _stderrLineBuffer = StringBuffer();
   final StringBuffer _traceBuffer = StringBuffer();
   final void Function(String line)? onStderrLine;
   final Map<String, Completer<Map<String, Object?>?>> _pendingResponses =
