@@ -21,6 +21,7 @@ import 'ai_jungler_client.dart';
 const Duration _kAiJunglerLaunchTimeout = Duration(seconds: 10);
 const Duration _kAiJunglerReadyTimeout = Duration(seconds: 12);
 const Duration _kAiJunglerStopTimeout = Duration(seconds: 2);
+const Duration _kAiJunglerCleanupTimeout = Duration(seconds: 5);
 const Duration _kAiJunglerStdinTimeout = Duration(seconds: 2);
 const Duration _kAiJunglerFileIoTimeout = Duration(seconds: 3);
 const Duration _kAiJunglerFileReadTimeout = Duration(seconds: 15);
@@ -35,6 +36,7 @@ class AiJunglerRuntime {
   StreamSubscription<String>? _stderrSubscription;
   AiJunglerClient? _client;
   Future<AiJunglerClient>? _bundledStart;
+  final OpenHandAsyncOnce _disposeOnce = OpenHandAsyncOnce();
   int _generation = 0;
   bool _disposed = false;
 
@@ -138,7 +140,13 @@ class AiJunglerRuntime {
             cancelOnError: true,
           );
       await _sendSessionToken(process, token);
-      unawaited(_watchExit(process));
+      unawaited(
+        _watchExit(process).then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stack) =>
+              silentLog('ai_jungler_runtime', '监听扫描引擎退出', error, stack),
+        ),
+      );
       final bootstrap = await Future.any<({Uri address, String version})>(
         <Future<({Uri address, String version})>>[
           ready.future,
@@ -235,19 +243,42 @@ class AiJunglerRuntime {
     _client = null;
     final process = _process;
     _process = null;
-    if (process != null) {
-      await terminateTrackedProcessTree(
-        process,
-        gracefulTimeout: _kAiJunglerStopTimeout,
-      );
+    try {
+      if (process != null) {
+        await terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: _kAiJunglerStopTimeout,
+        );
+      }
+    } finally {
+      await _cancelSubscriptions();
     }
-    await _cancelSubscriptions();
   }
 
-  Future<void> dispose() async {
-    if (_disposed) return;
+  Future<void> dispose() => _disposeOnce.run(_dispose);
+
+  Future<void> _dispose() async {
     _disposed = true;
-    await stop();
+    _generation++;
+    final pendingStart = _bundledStart;
+    await runAsyncCleanupBounded(
+      _stopCurrent,
+      timeout: _kAiJunglerCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('ai_jungler_runtime', '停止扫描引擎', error, stack),
+    );
+    if (pendingStart != null) {
+      await runAsyncCleanupBounded(
+        () => pendingStart,
+        timeout: _kAiJunglerCleanupTimeout,
+      );
+      await runAsyncCleanupBounded(
+        _stopCurrent,
+        timeout: _kAiJunglerCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('ai_jungler_runtime', '清理迟到的扫描引擎', error, stack),
+      );
+    }
     await _logs.close();
     await _exits.close();
   }

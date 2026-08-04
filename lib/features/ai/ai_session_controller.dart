@@ -1436,9 +1436,14 @@ class AiSessionController extends ChangeNotifier {
     final payload = <String, Object?>{
       'stream_throttle_override': override?.toJson(),
     };
-    // fire-and-forget：UI 不需要等持久化完成，updateSessionMetadata 内
-    // 部已做幂等保护。
-    unawaited(updateSessionMetadata(sessionId, payload));
+    // 界面无需等待持久化，但后台任务仍必须消费迟到异常。
+    unawaited(
+      updateSessionMetadata(sessionId, payload).then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) =>
+            silentLog('ai_session_controller', '持久化会话节流覆盖', error, stack),
+      ),
+    );
   }
 
   /// 从已 hydrate 的 session.metadata 中读出 `stream_throttle_override`
@@ -1466,8 +1471,7 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
-  /// Read-only accessor used by the self-learning scheduler to query
-  /// sessions by template without reaching into private state.
+  /// 供自学习调度器按模板查询会话，避免访问私有状态。
   AiSessionStore get store => _store;
 
   void addGoalContinuationYieldPredicate(
@@ -2939,15 +2943,8 @@ class AiSessionController extends ChangeNotifier {
     String sessionId,
     bool enabled,
   ) async {
-    // Bypass the session operation queue so the permission toggle stays
-    // responsive even while sendMessage occupies the queue during AI
-    // inference. Direct in-memory update is safe because:
-    //   1. _mergeLiveSessionState (called by every _commitSessionLocked)
-    //      always preserves the live session's fullAccessPermission, so
-    //      concurrent commits from sendMessage will not overwrite this
-    //      change.
-    //   2. _executeSingleToolCall reads the live session state dynamically,
-    //      so permission changes take effect on the next tool call.
+    // 权限更新走独立的会话头队列，避免推理占用会话操作队列时阻塞界面。
+    // 后续会话提交会合并实时权限，工具执行也会动态读取当前值。
     final session = _sessionById(sessionId);
     if (session == null) {
       return false;
@@ -2969,8 +2966,7 @@ class AiSessionController extends ChangeNotifier {
     String sessionId,
     Map<String, Object?> payload,
   ) async {
-    // Bypass the session operation queue so UI data (e.g., config popups)
-    // stays responsive even while sendMessage occupies the queue.
+    // 元数据走独立的会话头队列，避免推理占用会话操作队列时阻塞界面。
     final session = _sessionById(sessionId);
     if (session == null || payload.isEmpty) {
       return false;

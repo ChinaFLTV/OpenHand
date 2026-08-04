@@ -2191,7 +2191,13 @@ class MachineTerminalSession {
   }
 
   void dispose() {
-    unawaited(stop(force: true));
+    unawaited(
+      stop(force: true).then<void>(
+        (_) {},
+        onError: (Object error, StackTrace stack) =>
+            silentLog('machine_terminal', '释放终端会话', error, stack),
+      ),
+    );
   }
 
   void _handleResize(int width, int height, int pixelWidth, int pixelHeight) {
