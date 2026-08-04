@@ -507,15 +507,11 @@ class McpKeywordIndexService {
   }
 
   Future<void> _persist(McpKeywordIndex index) async {
-    try {
-      final content = jsonEncode(index.toJson());
-      if (utf8.encode(content).length + 1 > _maxPersistedBytes) {
-        throw StateError('MCP 关键词索引超过持久化大小上限。');
-      }
-      await writeFileAtomically(_file, '$content\n');
-    } catch (e, s) {
-      silentLog('mcp_keyword_index', '持久化关键词索引', e, s);
+    final content = jsonEncode(index.toJson());
+    if (utf8.encode(content).length + 1 > _maxPersistedBytes) {
+      throw StateError('MCP 关键词索引超过持久化大小上限。');
     }
+    await writeFileAtomically(_file, '$content\n');
   }
 
   Future<void> replacePersistedServerTools({
