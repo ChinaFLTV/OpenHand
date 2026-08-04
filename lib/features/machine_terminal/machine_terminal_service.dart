@@ -48,11 +48,16 @@ const int _maxRetainedHistoryCharacters = 480000;
 const int _maxToolOutputCharacters = 120000;
 const int _maxReplayOutputCharacters = _maxRetainedHistoryCharacters;
 const int _maxCommandHistoryEntries = 80;
+const int _maxCommandHistoryCommandCharacters = 16000;
 const int _maxCommandHistoryOutputCharacters = 40000;
+const int _maxCommandHistoryErrorCharacters = 4000;
+const int _maxCommandHistoryRetainedCharacters = 480000;
+const int _maxRestoredCommandSequence = 0x7fffffff;
 const int _maxPersistedTerminalSnapshots = 48;
 const int _maxTerminalSessionsPerWorkspace = _maxPersistedTerminalSnapshots;
 const Duration _commandPollInterval = Duration(milliseconds: 80);
 const Duration _commandInterruptSettleDelay = Duration(milliseconds: 80);
+const Duration _commandRecoveryTimeout = Duration(seconds: 1);
 const Duration _metadataPersistDebounce = Duration(milliseconds: 700);
 const Duration _historyPersistDebounce = Duration(milliseconds: 650);
 const Duration _terminalStopGraceDuration = Duration(milliseconds: 900);
@@ -68,8 +73,9 @@ const String _machineTerminalSurface = 'openhand_machine_terminal';
 const String _machineTerminalWorkflow = 'builtin_terminal_panel';
 const String _machineTerminalWorkspacePrefix = 'machine-terminal';
 const String _machineTerminalHistoryFileName = 'machine-terminal-history.json';
-const int _machineTerminalHistoryStorageSchemaVersion = 1;
+const int _machineTerminalHistoryStorageSchemaVersion = 2;
 const int _machineTerminalHistoryMaxBytes = 32 * 1024 * 1024;
+const int _machineTerminalHistoryPayloadReserveBytes = 64 * 1024;
 const String _terminalBusyError = '已有其他终端命令正在运行。';
 const String _terminalNotRunningError = '终端未运行。';
 
@@ -109,7 +115,7 @@ class MachineTerminalCommandResult {
   final bool timedOut;
   final String? error;
 
-  bool get succeeded => !timedOut && error == null && (exitCode ?? 0) == 0;
+  bool get succeeded => !timedOut && error == null && exitCode == 0;
 
   Map<String, Object?> toJson() {
     return <String, Object?>{
@@ -170,44 +176,53 @@ class MachineTerminalCommandRecord {
     return <String, Object?>{
       'id': id,
       'terminal_id': terminalId,
-      'command': command,
+      'command': _clipString(command, _maxCommandHistoryCommandCharacters),
       'output': _clipString(output, _maxCommandHistoryOutputCharacters),
       'exit_code': exitCode,
       'timed_out': timedOut,
       'duration_ms': durationMs,
       'started_at': startedAt.toUtc().toIso8601String(),
       'completed_at': completedAt.toUtc().toIso8601String(),
-      if (error != null) 'error': error,
+      if (error != null)
+        'error': _clipString(error!, _maxCommandHistoryErrorCharacters),
     };
   }
 
   static MachineTerminalCommandRecord? fromJson(
     Object? value, {
     required String fallbackTerminalId,
+    String fallbackRecordId = 'cmd-restored',
   }) {
     final raw = stringKeyedMapFromValue(value);
     final command = '${raw['command'] ?? ''}';
     if (raw.isEmpty || command.trim().isEmpty) return null;
-    final terminalId =
-        nullIfBlank('${raw['terminal_id'] ?? ''}') ?? fallbackTerminalId;
+    final rawRecordId = nullIfBlank('${raw['id'] ?? ''}');
     final now = DateTime.now();
     final startedAt = utcDateTimeFromValue(raw['started_at'])?.toLocal() ?? now;
-    final completedAt =
+    final restoredCompletedAt =
         utcDateTimeFromValue(raw['completed_at'])?.toLocal() ?? startedAt;
+    final completedAt = restoredCompletedAt.isBefore(startedAt)
+        ? startedAt
+        : restoredCompletedAt;
     return MachineTerminalCommandRecord(
-      id: nullIfBlank('${raw['id'] ?? ''}') ?? 'cmd-restored',
-      terminalId: terminalId,
-      command: command,
+      id: rawRecordId != null && isSafeStorageIdentifier(rawRecordId)
+          ? rawRecordId
+          : fallbackRecordId,
+      terminalId: fallbackTerminalId,
+      command: _clipString(command, _maxCommandHistoryCommandCharacters),
       output: _clipString(
         '${raw['output'] ?? ''}',
         _maxCommandHistoryOutputCharacters,
       ),
       startedAt: startedAt,
       completedAt: completedAt,
-      durationMs: optionalIntFromValue(raw['duration_ms']) ?? 0,
+      durationMs: math.max(0, optionalIntFromValue(raw['duration_ms']) ?? 0),
       exitCode: optionalIntFromValue(raw['exit_code']),
       timedOut: boolFromValue(raw['timed_out']),
-      error: nullIfBlank('${raw['error'] ?? ''}'),
+      error: _clipNullableString(
+        nullIfBlank('${raw['error'] ?? ''}'),
+        _maxCommandHistoryErrorCharacters,
+      ),
     );
   }
 }
@@ -291,6 +306,12 @@ class MachineTerminalSnapshot {
       if (exitCode != null) 'exit_code': exitCode,
       if (errorMessage != null) 'error_message': errorMessage,
     };
+  }
+
+  Map<String, Object?> _toPersistenceJson() {
+    return toJson()
+      ..remove('output')
+      ..remove('history_output');
   }
 
   Map<String, Object?> toMetadataJson() {
@@ -1337,11 +1358,16 @@ class MachineTerminalService extends ChangeNotifier {
         sessionId: sessionId,
         defaultWorkingDirectory: defaultWorkingDirectory,
       );
+      final seenTerminalIds = <String>{};
       final retained = terminalsJson.take(_maxPersistedTerminalSnapshots);
       for (final item in retained) {
         final terminalJson = stringKeyedMapFromValue(item);
         final terminalId = nullIfBlank('${terminalJson['terminal_id'] ?? ''}');
-        if (terminalId == null) continue;
+        if (terminalId == null ||
+            !isSafeStorageIdentifier(terminalId) ||
+            !seenTerminalIds.add(terminalId)) {
+          continue;
+        }
         final terminal = _createTerminal(
           sessionId: sessionId,
           workingDirectory:
@@ -1372,9 +1398,7 @@ class MachineTerminalService extends ChangeNotifier {
         }
       }
       final snapshot = workspace.snapshot();
-      final persistedTerminals = _retainedPersistedTerminals(
-        snapshot.terminals,
-      ).map((terminal) => terminal.toJson()).toList(growable: false);
+      final persistedTerminals = _persistedTerminalMaps(snapshot);
       _lastPersistedHistoryDigestBySession[sessionId] = _workspaceHistoryDigest(
         sessionId: sessionId,
         activeTerminalId: snapshot.activeTerminalId,
@@ -1429,27 +1453,24 @@ class MachineTerminalService extends ChangeNotifier {
   Future<void> _persistWorkspaceHistoryNow(String sessionId) async {
     final workspace = _workspaces[sessionId];
     if (workspace == null) return;
-    final snapshot = workspace.snapshot();
-    final terminals = _retainedPersistedTerminals(snapshot.terminals);
-    final terminalsJson = terminals
-        .map((terminal) => terminal.toJson())
-        .toList(growable: false);
-    final digest = _workspaceHistoryDigest(
-      sessionId: snapshot.sessionId,
-      activeTerminalId: snapshot.activeTerminalId,
-      terminals: terminalsJson,
-    );
-    if (_lastPersistedHistoryDigestBySession[sessionId] == digest) return;
-    final payload = <String, Object?>{
-      'schema_version': _machineTerminalHistoryStorageSchemaVersion,
-      'session_id': snapshot.sessionId,
-      'active_terminal_id': snapshot.activeTerminalId,
-      'updated_at': DateTime.now().toUtc().toIso8601String(),
-      'terminals': terminalsJson,
-    };
-    final content = '${jsonEncode(payload)}\n';
     try {
-      if (utf8.encode(content).length > _machineTerminalHistoryMaxBytes) {
+      final snapshot = workspace.snapshot();
+      final terminalsJson = _persistedTerminalMaps(snapshot);
+      final digest = _workspaceHistoryDigest(
+        sessionId: snapshot.sessionId,
+        activeTerminalId: snapshot.activeTerminalId,
+        terminals: terminalsJson,
+      );
+      if (_lastPersistedHistoryDigestBySession[sessionId] == digest) return;
+      final payload = <String, Object?>{
+        'schema_version': _machineTerminalHistoryStorageSchemaVersion,
+        'session_id': snapshot.sessionId,
+        'active_terminal_id': snapshot.activeTerminalId,
+        'updated_at': DateTime.now().toUtc().toIso8601String(),
+        'terminals': terminalsJson,
+      };
+      final content = '${jsonEncode(payload)}\n';
+      if (utf8ByteLength(content) > _machineTerminalHistoryMaxBytes) {
         throw StateError('终端历史记录超过大小限制。');
       }
       await writeFileAtomically(_workspaceHistoryFile(sessionId), content);
@@ -1459,20 +1480,39 @@ class MachineTerminalService extends ChangeNotifier {
     }
   }
 
-  List<MachineTerminalSnapshot> _retainedPersistedTerminals(
-    List<MachineTerminalSnapshot> terminals,
+  List<Map<String, Object?>> _persistedTerminalMaps(
+    MachineTerminalWorkspaceSnapshot snapshot,
   ) {
-    if (terminals.length <= _maxPersistedTerminalSnapshots) {
-      return terminals;
+    final prioritized = List<MachineTerminalSnapshot>.from(snapshot.terminals)
+      ..sort((a, b) {
+        final aActive = a.terminalId == snapshot.activeTerminalId;
+        final bActive = b.terminalId == snapshot.activeTerminalId;
+        if (aActive != bActive) return aActive ? -1 : 1;
+        return b.updatedAt.compareTo(a.updatedAt);
+      });
+    final selected = <String, Map<String, Object?>>{};
+    var retainedBytes = 0;
+    const byteBudget =
+        _machineTerminalHistoryMaxBytes -
+        _machineTerminalHistoryPayloadReserveBytes;
+    for (final terminal in prioritized) {
+      if (selected.length >= _maxPersistedTerminalSnapshots) break;
+      final json = terminal._toPersistenceJson();
+      final bytes = utf8ByteLength(jsonEncode(json)) + 1;
+      if (bytes > byteBudget || retainedBytes + bytes > byteBudget) continue;
+      selected[terminal.terminalId] = json;
+      retainedBytes += bytes;
     }
-    final byRecent = List<MachineTerminalSnapshot>.from(terminals)
-      ..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
-    final retainedIds = byRecent
-        .take(_maxPersistedTerminalSnapshots)
-        .map((terminal) => terminal.terminalId)
-        .toSet();
-    return terminals
-        .where((terminal) => retainedIds.contains(terminal.terminalId))
+    if (snapshot.activeTerminalId.isNotEmpty &&
+        !selected.containsKey(snapshot.activeTerminalId)) {
+      throw StateError('活动终端历史记录超过大小限制。');
+    }
+    if (snapshot.terminals.isNotEmpty && selected.isEmpty) {
+      throw StateError('单个终端历史记录超过大小限制。');
+    }
+    return snapshot.terminals
+        .where((terminal) => selected.containsKey(terminal.terminalId))
+        .map((terminal) => selected[terminal.terminalId]!)
         .toList(growable: false);
   }
 
@@ -1683,9 +1723,15 @@ class MachineTerminalSession {
       ..addAll(
         _restoredCommandHistory(raw['command_history'], fallbackTerminalId: id),
       );
-    _commandSequence = math.max(
-      optionalIntFromValue(raw['command_count']) ?? _commandHistory.length,
-      _maxRestoredCommandSequence(_commandHistory),
+    _commandSequence = math.min(
+      _maxRestoredCommandSequence,
+      math.max(
+        math.max(
+          0,
+          optionalIntFromValue(raw['command_count']) ?? _commandHistory.length,
+        ),
+        _restoredCommandSequence(_commandHistory),
+      ),
     );
     _hasUserActivity = raw.containsKey('has_user_activity')
         ? boolFromValue(raw['has_user_activity']) ||
@@ -1948,7 +1994,7 @@ class MachineTerminalSession {
 
   void clear() {
     _output.clear();
-    _appendHistory('\r\n[OpenHand terminal cleared]\r\n${_welcomeBanner()}');
+    _appendHistory('\r\n[OpenHand 终端已清空]\r\n${_welcomeBanner()}');
     terminal.write('\x1b[2J\x1b[H${_welcomeBanner()}');
     _touch();
   }
@@ -2033,7 +2079,11 @@ class MachineTerminalSession {
     final startOffset = _output.endOffset;
     try {
       await _disableEchoForCommand();
-      final payload = _commandPayload(command: command, begin: begin, end: end);
+      final payload = _commandPayload(
+        command: command,
+        beginMarker: beginMarker,
+        endMarker: endMarker,
+      );
       writeInput(payload);
       final parsed = await _waitForCommandOutput(
         begin: begin,
@@ -2050,13 +2100,19 @@ class MachineTerminalSession {
         durationMs: stopwatch.elapsedMilliseconds,
       );
     } on TimeoutException {
-      await _interruptTimedOutCommand();
+      final output = _clipToolOutput(
+        _plainText(_outputSince(startOffset)).trimRight(),
+      );
+      await _recoverTimedOutCommand(
+        begin: begin,
+        end: end,
+        startOffset: startOffset,
+        startGeneration: startGeneration,
+      );
       return _recordedCommandResult(
         startedAt: startedAt,
         command: command,
-        output: _clipToolOutput(
-          _plainText(_outputSince(startOffset)).trimRight(),
-        ),
+        output: output,
         durationMs: stopwatch.elapsedMilliseconds,
         timedOut: true,
         error: '命令执行超过 ${timeout.inMilliseconds} 毫秒。',
@@ -2108,22 +2164,23 @@ class MachineTerminalSession {
       MachineTerminalCommandRecord(
         id: 'cmd-$_commandSequence',
         terminalId: id,
-        command: result.command,
-        output: result.output,
+        command: _clipString(
+          result.command,
+          _maxCommandHistoryCommandCharacters,
+        ),
+        output: _clipString(result.output, _maxCommandHistoryOutputCharacters),
         startedAt: startedAt,
         completedAt: DateTime.now(),
         durationMs: result.durationMs,
         exitCode: result.exitCode,
         timedOut: result.timedOut,
-        error: result.error,
+        error: _clipNullableString(
+          result.error,
+          _maxCommandHistoryErrorCharacters,
+        ),
       ),
     );
-    if (_commandHistory.length > _maxCommandHistoryEntries) {
-      _commandHistory.removeRange(
-        0,
-        _commandHistory.length - _maxCommandHistoryEntries,
-      );
-    }
+    _trimCommandHistory(_commandHistory);
     _touch();
   }
 
@@ -2189,6 +2246,40 @@ class MachineTerminalSession {
     }
   }
 
+  Future<void> _recoverTimedOutCommand({
+    required String begin,
+    required String end,
+    required int startOffset,
+    required int startGeneration,
+  }) async {
+    await _interruptTimedOutCommand();
+    try {
+      await _waitForCommandOutput(
+        begin: begin,
+        end: end,
+        startOffset: startOffset,
+        startGeneration: startGeneration,
+        timeout: _commandRecoveryTimeout,
+      );
+      return;
+    } catch (_) {
+      if (_startGeneration != startGeneration ||
+          _pty == null ||
+          _status != MachineTerminalStatus.running) {
+        return;
+      }
+    }
+    try {
+      final recoveryGeneration = _startGeneration + 1;
+      await stop(force: true);
+      if (_startGeneration != recoveryGeneration) return;
+      clear();
+      await start();
+    } catch (error, stack) {
+      silentLog('machine_terminal', '恢复超时终端', error, stack);
+    }
+  }
+
   Future<_ParsedCommandOutput> _waitForCommandOutput({
     required String begin,
     required String end,
@@ -2230,11 +2321,14 @@ class MachineTerminalSession {
         if (endIndex >= outputStart && outputStart >= 0) {
           final afterEnd = segment.substring(endIndex + end.length);
           final exitCodeMatch = _markerExitCodePattern.firstMatch(afterEnd);
-          final output = segment.substring(outputStart, endIndex);
-          return _ParsedCommandOutput(
-            output: _removeMarkerNoise(output),
-            exitCode: optionalIntFromValue(exitCodeMatch?.group(1)),
-          );
+          final exitCode = optionalIntFromValue(exitCodeMatch?.group(1));
+          if (exitCode != null) {
+            final output = segment.substring(outputStart, endIndex);
+            return _ParsedCommandOutput(
+              output: _removeMarkerNoise(output),
+              exitCode: exitCode,
+            );
+          }
         }
         if (_startGeneration != startGeneration ||
             _pty == null ||
@@ -2274,6 +2368,9 @@ class _MachineTerminalWorkspace {
       terminals.where((terminal) => terminal.attached).toList(growable: false);
 
   void add(MachineTerminalSession terminal, {bool activate = true}) {
+    if (terminals.any((item) => item.id == terminal.id)) {
+      throw StateError('终端 ID 重复：${terminal.id}。');
+    }
     if (terminals.length >= _maxTerminalSessionsPerWorkspace) {
       final evictedIndex = terminals.indexWhere((item) => !item.attached);
       if (evictedIndex < 0) {
@@ -2390,22 +2487,23 @@ List<MachineTerminalCommandRecord> _restoredCommandHistory(
 }) {
   if (value is! List) return const <MachineTerminalCommandRecord>[];
   final records = <MachineTerminalCommandRecord>[];
-  for (final item in value) {
+  final seenIds = <String>{};
+  final firstIndex = math.max(0, value.length - _maxCommandHistoryEntries);
+  for (var index = firstIndex; index < value.length; index++) {
     final record = MachineTerminalCommandRecord.fromJson(
-      item,
+      value[index],
       fallbackTerminalId: fallbackTerminalId,
+      fallbackRecordId: 'cmd-${index + 1}',
     );
-    if (record != null) {
+    if (record != null && seenIds.add(record.id)) {
       records.add(record);
     }
   }
-  if (records.length <= _maxCommandHistoryEntries) {
-    return records;
-  }
-  return records.sublist(records.length - _maxCommandHistoryEntries);
+  _trimCommandHistory(records);
+  return records;
 }
 
-int _maxRestoredCommandSequence(List<MachineTerminalCommandRecord> records) {
+int _restoredCommandSequence(List<MachineTerminalCommandRecord> records) {
   var maxSequence = 0;
   final pattern = RegExp(r'^cmd-(\d+)$');
   for (final record in records) {
@@ -2416,6 +2514,26 @@ int _maxRestoredCommandSequence(List<MachineTerminalCommandRecord> records) {
     }
   }
   return maxSequence;
+}
+
+void _trimCommandHistory(List<MachineTerminalCommandRecord> records) {
+  if (records.length > _maxCommandHistoryEntries) {
+    records.removeRange(0, records.length - _maxCommandHistoryEntries);
+  }
+  var retainedCharacters = records.fold<int>(
+    0,
+    (total, record) => total + _commandRecordCharacters(record),
+  );
+  while (records.length > 1 &&
+      retainedCharacters > _maxCommandHistoryRetainedCharacters) {
+    retainedCharacters -= _commandRecordCharacters(records.removeAt(0));
+  }
+}
+
+int _commandRecordCharacters(MachineTerminalCommandRecord record) {
+  return record.command.length +
+      record.output.length +
+      (record.error?.length ?? 0);
 }
 
 MachineTerminalStatus _restorableStatusFromValue(Object? value) {
@@ -2486,31 +2604,35 @@ TerminalTargetPlatform _terminalTargetPlatform() {
   return TerminalTargetPlatform.unknown;
 }
 
-String _welcomeBanner() {
-  return '\x1b[38;5;108mOpenHand machine terminal\x1b[0m\r\n';
-}
+String _welcomeBanner() => '\x1b[38;5;108mOpenHand 机器终端\x1b[0m\r\n';
 
 String _commandPayload({
   required String command,
-  required String begin,
-  required String end,
+  required String beginMarker,
+  required String endMarker,
 }) {
   if (Platform.isWindows) {
-    return 'echo $begin\r\n$command\r\necho $end:%ERRORLEVEL%\r\n';
+    return 'set "__OPENHAND_BEGIN=$beginMarker"\r\n'
+        'set "__OPENHAND_END=$endMarker"\r\n'
+        'echo __%__OPENHAND_BEGIN%__\r\n'
+        '$command\r\n'
+        'echo __%__OPENHAND_END%__:%ERRORLEVEL%\r\n'
+        'set "__OPENHAND_BEGIN="\r\n'
+        'set "__OPENHAND_END="\r\n';
   }
-  return "printf '\\n$begin\\n'\n"
+  return "printf '\\n__%s__\\n' '$beginMarker'\n"
       '(\n'
       '$command\n'
       ')\n'
       '__openhand_status=\$?\n'
-      "printf '\\n$end:%s\\n' \"\$__openhand_status\"\n"
+      "printf '\\n__%s__:%s\\n' '$endMarker' \"\$__openhand_status\"\n"
       'stty echo 2>/dev/null\n';
 }
 
 /// ANSI CSI / OSC 序列。提到顶层复用：命令等待循环每 80ms 调一次
 /// [_plainText]，就地构造正则等于每秒白白编译 25 次。
 final RegExp _ansiCsiPattern = RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]');
-final RegExp _markerExitCodePattern = RegExp(r':(-?\d+)');
+final RegExp _markerExitCodePattern = RegExp(r'^:(-?\d+)\n');
 final RegExp _ansiOscPattern = RegExp(r'\x1B\][^\x07]*(\x07|\x1B\\)');
 
 String _plainText(String value) {
@@ -2580,12 +2702,16 @@ String? _isoTimeFromValue(Object? value) {
 String _clipToolOutput(String value) =>
     _clipString(value, _maxToolOutputCharacters);
 
+String? _clipNullableString(String? value, int maxCharacters) {
+  return value == null ? null : _clipString(value, maxCharacters);
+}
+
 String _clipString(String value, int maxCharacters) {
   if (value.length <= maxCharacters) return value;
   if (maxCharacters <= 0) return '';
   var omitted = value.length - maxCharacters;
   for (var attempt = 0; attempt < 8; attempt++) {
-    final marker = '\n[... clipped $omitted chars ...]\n';
+    final marker = '\n[... 已省略 $omitted 个字符 ...]\n';
     if (marker.length >= maxCharacters) {
       return value.substring(0, safeUtf16PrefixCodeUnits(value, maxCharacters));
     }

@@ -2326,8 +2326,7 @@ Future<void> _copyCommandRecord(
 Color _commandRecordColor(ColorScheme cs, MachineTerminalCommandRecord record) {
   if (record.timedOut) return cs.tertiary;
   if (record.error != null && record.error!.trim().isNotEmpty) return cs.error;
-  final exitCode = record.exitCode ?? 0;
-  return exitCode == 0 ? const Color(0xFF4C9A2A) : cs.error;
+  return record.exitCode == 0 ? const Color(0xFF4C9A2A) : cs.error;
 }
 
 IconData _commandRecordIcon(MachineTerminalCommandRecord record) {
@@ -2335,8 +2334,10 @@ IconData _commandRecordIcon(MachineTerminalCommandRecord record) {
   if (record.error != null && record.error!.trim().isNotEmpty) {
     return Icons.error_outline_rounded;
   }
-  return (record.exitCode ?? 0) == 0
+  return record.exitCode == 0
       ? Icons.check_rounded
+      : record.exitCode == null
+      ? Icons.error_outline_rounded
       : Icons.close_rounded;
 }
 
@@ -2405,7 +2406,7 @@ String _replayAnsiOutput(MachineTerminalSnapshot snapshot) {
   if (live.isNotEmpty) return live;
   if (snapshot.commandHistory.isNotEmpty) {
     final buffer = StringBuffer()
-      ..writeln('\x1b[38;5;108mOpenHand terminal command history\x1b[0m');
+      ..writeln('\x1b[38;5;108mOpenHand 终端命令历史\x1b[0m');
     for (final command in snapshot.commandHistory) {
       buffer
         ..writeln('\x1b[38;5;75m\$ ${command.command}\x1b[0m')
@@ -2417,7 +2418,7 @@ String _replayAnsiOutput(MachineTerminalSnapshot snapshot) {
     }
     return buffer.toString();
   }
-  return '\x1b[38;5;245mNo terminal history recorded.\x1b[0m\r\n';
+  return '\x1b[38;5;245m暂无终端历史记录。\x1b[0m\r\n';
 }
 
 // ── 本文件内复用的文案 ──

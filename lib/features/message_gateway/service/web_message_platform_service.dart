@@ -4206,7 +4206,7 @@ class WebMessagePlatformService {
         timeout: Duration(milliseconds: _terminalTimeoutMs(body)),
       );
       return _json(HttpStatus.ok, <String, Object?>{
-        'ok': result.error == null && !result.timedOut,
+        'ok': result.succeeded,
         'result': result.toJson(),
         'terminal': _machineTerminalService
             .snapshot(session.id)
