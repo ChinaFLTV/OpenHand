@@ -13,20 +13,20 @@ import '../operations/ai_operation_http.dart';
 import '../runtime/ai_endpoint_router.dart';
 import '../runtime/ai_transport_client.dart';
 
-/// Result of a model scan attempt.
+/// 模型扫描结果。
 class AiModelScanResult {
   const AiModelScanResult({required this.modelIds, this.error});
 
-  /// Successfully discovered model IDs (empty if scan failed).
+  /// 成功发现的模型 ID；扫描失败时为空。
   final List<String> modelIds;
 
-  /// Human-readable error message (null on success).
+  /// 可读错误信息；成功时为空。
   final String? error;
 
   bool get isSuccess => error == null;
 }
 
-/// Scans an AI provider's API to discover available model IDs.
+/// 扫描 AI 服务商接口以发现可用模型 ID。
 class AiModelScanner {
   AiModelScanner({
     http.Client? httpClient,
@@ -47,25 +47,21 @@ class AiModelScanner {
     AiTransportClient? transport,
   ) {
     if (httpClient != null && transport != null) {
-      throw ArgumentError('Provide either httpClient or transport, not both.');
+      throw ArgumentError('httpClient 和 transport 不能同时提供。');
     }
     return transport ?? AiTransportClient(client: httpClient);
   }
 
-  /// Attempts to list all models available at the provider defined by [config].
+  /// 列出 [config] 指定服务商的全部可用模型。
   ///
-  /// Uses the appropriate models endpoint based on [config.protocolType].
-  /// Returns an [AiModelScanResult] that is never null and always safe to use.
+  /// 根据 [config.protocolType] 选择模型列表接口，始终返回非空结果。
   Future<AiModelScanResult> scan(
     AiModelConfig config, {
     Duration timeout = _defaultTimeout,
   }) async {
     final baseUrl = config.normalizedBaseUrl;
     if (baseUrl.isEmpty) {
-      return const AiModelScanResult(
-        modelIds: <String>[],
-        error: 'Base URL is empty.',
-      );
+      return const AiModelScanResult(modelIds: <String>[], error: '基础 URL 为空。');
     }
 
     try {
@@ -148,14 +144,14 @@ class AiModelScanner {
       case AiProtocolType.seed:
         return _scanSeed(config, timeout: timeout);
       default:
-        // OpenAI-compatible: openai, deepseek, qwen, kimi, glm, grok,
-        // vllm, sglang, seed-adjacent providers, stepfun, minimax,
-        // longcat, joycode, wenxin, meta, mimo, hunyuan
+        // OpenAI 兼容协议包括 openai、deepseek、qwen、kimi、glm、grok、
+        // vllm、sglang、stepfun、minimax、longcat、joycode、wenxin、
+        // meta、mimo、hunyuan 及 Seed 相邻服务商。
         return _scanOpenAiCompatible(config, timeout: timeout);
     }
   }
 
-  /// OpenAI-compatible /models endpoint.
+  /// OpenAI 兼容的 /models 接口。
   Future<AiModelScanResult> _scanOpenAiCompatible(
     AiModelConfig config, {
     required Duration timeout,
@@ -209,29 +205,28 @@ class AiModelScanner {
     return lastFailure ??
         const AiModelScanResult(
           modelIds: <String>[],
-          error: 'Failed to derive a models endpoint from the Base URL.',
+          error: '无法从基础 URL 推导模型列表接口。',
         );
   }
 
-  /// Ollama /api/tags endpoint.
+  /// Ollama /api/tags 接口。
   Future<AiModelScanResult> _scanOllama(
     AiModelConfig config, {
     required Duration timeout,
   }) async {
     final baseUrl = config.normalizedBaseUrl;
-    // Ollama base URL is usually http://localhost:11434
-    // Try both /v1/models (OpenAI compat) and /api/tags (native).
-    // First try OpenAI-compatible endpoint.
+    // Ollama 基础 URL 通常为 http://localhost:11434。
+    // 先尝试 OpenAI 兼容的 /v1/models，再回退到原生 /api/tags。
     try {
       final result = await _scanOpenAiCompatible(config, timeout: timeout);
       if (result.isSuccess && result.modelIds.isNotEmpty) {
         return result;
       }
     } catch (_) {
-      // Fall through to native endpoint.
+      // 回退到原生接口。
     }
 
-    // Try Ollama native endpoint.
+    // 尝试 Ollama 原生接口。
     String tagsUrl;
     if (baseUrl.endsWith('/v1')) {
       tagsUrl =
@@ -256,16 +251,15 @@ class AiModelScanner {
     return _parseOllamaTagsResponse(response.body);
   }
 
-  /// Gemini models.list endpoint.
-  /// Handles pagination via `nextPageToken` to retrieve all models.
+  /// Gemini models.list 接口，通过 `nextPageToken` 拉取全部分页。
   Future<AiModelScanResult> _scanGemini(
     AiModelConfig config, {
     required Duration timeout,
   }) async {
     final baseUrl = config.normalizedBaseUrl;
     final token = config.token.trim();
-    // Gemini REST: GET /v1beta/models?key=API_KEY
-    // Or: /v1/models with bearer token
+    // Gemini REST 支持携带 API_KEY 的 /v1beta/models，或使用
+    // Bearer Token 的 /v1/models。
     late final String baseModelsUrl;
     if (!config.autoCompleteBaseUrl) {
       baseModelsUrl = _router
@@ -300,7 +294,7 @@ class AiModelScanner {
 
     final allIds = <String>[];
     String? pageToken;
-    // Limit iterations to avoid infinite loops on malformed pagination.
+    // 限制页数，防止异常分页形成无限循环。
     const maxPages = 20;
 
     for (var page = 0; page < maxPages; page++) {
@@ -343,9 +337,7 @@ class AiModelScanner {
       if (json is! Map<String, dynamic>) {
         return AiModelScanResult(
           modelIds: const <String>[],
-          error: _ScanErrorMessages.formatError(
-            'expected a JSON object at $baseModelsUrl',
-          ),
+          error: _ScanErrorMessages.formatError('$baseModelsUrl 应返回 JSON 对象'),
         );
       }
 
@@ -354,7 +346,7 @@ class AiModelScanner {
         for (final item in models) {
           if (item is Map<String, dynamic>) {
             String name = '${item['name'] ?? ''}'.trim();
-            // Gemini returns "models/gemini-pro" — strip the "models/" prefix.
+            // Gemini 返回 models/gemini-pro，需移除 models/ 前缀。
             if (name.startsWith('models/')) {
               name = name.substring('models/'.length);
             }
@@ -365,7 +357,7 @@ class AiModelScanner {
         }
       }
 
-      // Handle pagination.
+      // 处理分页。
       final nextToken = json['nextPageToken'];
       if (nextToken is String && nextToken.isNotEmpty) {
         pageToken = nextToken;
@@ -378,10 +370,11 @@ class AiModelScanner {
     return AiModelScanResult(modelIds: allIds);
   }
 
-  /// Claude/Anthropic models list endpoint.
-  /// Anthropic supports GET /v1/models with `anthropic-version` header.
-  /// Response: `{ "data": [...], "has_more": bool, "last_id": "..." }`.
-  /// Pagination: pass `after_id=last_id` until `has_more` is false.
+  /// Claude/Anthropic 模型列表接口。
+  ///
+  /// Anthropic 使用带 `anthropic-version` 请求头的 GET /v1/models；
+  /// 响应包含 `data`、`has_more` 和 `last_id`，分页时持续传入
+  /// `after_id=last_id`，直至 `has_more` 为 false。
   Future<AiModelScanResult> _scanClaude(
     AiModelConfig config, {
     required Duration timeout,
@@ -430,15 +423,13 @@ class AiModelScanner {
           );
         }
         if (response.statusCode != 200) {
-          // Some Anthropic-compatible proxies may not support /models.
+          // 部分 Anthropic 兼容代理不支持 /models。
           if (allIds.isNotEmpty) break;
           return AiModelScanResult(
             modelIds: const <String>[],
             error: _ScanErrorMessages.httpStatus(
               response.statusCode,
-              hint:
-                  'If you are using a proxy / relay, it may not expose '
-                  'a /v1/models listing endpoint. Add model IDs manually below.',
+              hint: '代理或中转服务可能未提供 /v1/models 列表接口，请在下方手动添加模型 ID。',
             ),
           );
         }
@@ -449,7 +440,7 @@ class AiModelScanner {
           return AiModelScanResult(
             modelIds: const <String>[],
             error: _ScanErrorMessages.formatError(
-              'expected a JSON object at $modelsUrl',
+              '$modelsUrl 应返回 JSON 对象',
               url: modelsUrl,
             ),
           );
@@ -467,7 +458,7 @@ class AiModelScanner {
           }
         }
 
-        // Handle cursor-based pagination.
+        // 处理游标分页。
         final hasMore = json['has_more'];
         final lastId = json['last_id'];
         if (hasMore == true && lastId is String && lastId.isNotEmpty) {
@@ -550,9 +541,10 @@ class AiModelScanner {
     return '$baseUrl/models';
   }
 
-  /// Seed/豆包/Volcengine (火山方舟) models endpoint.
-  /// Base URL is typically https://ark.cn-beijing.volces.com/api/v3
-  /// which uses /api/v3/models instead of /v1/models.
+  /// Seed/豆包/Volcengine（火山方舟）模型接口。
+  ///
+  /// 基础 URL 通常为 https://ark.cn-beijing.volces.com/api/v3，
+  /// 对应 /api/v3/models，而不是 /v1/models。
   Future<AiModelScanResult> _scanSeed(
     AiModelConfig config, {
     required Duration timeout,
@@ -592,7 +584,7 @@ class AiModelScanner {
     );
   }
 
-  /// Parses OpenAI-style `{ "data": [ { "id": "model-name" }, ... ] }`.
+  /// 解析 OpenAI 风格的 `{ "data": [ { "id": "model-name" }, ... ] }`。
   AiModelScanResult _parseOpenAiModelsResponse(String body, {String? url}) {
     final Object? json;
     try {
@@ -606,20 +598,14 @@ class AiModelScanner {
     if (json is! Map<String, dynamic>) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: _ScanErrorMessages.formatError(
-          'expected a JSON object',
-          url: url,
-        ),
+        error: _ScanErrorMessages.formatError('响应必须是 JSON 对象', url: url),
       );
     }
     final data = json['data'];
     if (data is! List) {
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: _ScanErrorMessages.formatError(
-          'response does not contain a "data" array',
-          url: url,
-        ),
+        error: _ScanErrorMessages.formatError('响应缺少“data”数组', url: url),
       );
     }
     final ids = <String>[];
@@ -635,20 +621,17 @@ class AiModelScanner {
     return AiModelScanResult(modelIds: ids);
   }
 
-  /// Parses Ollama `{ "models": [ { "name": "llama3:latest" }, ... ] }`.
+  /// 解析 Ollama `{ "models": [ { "name": "llama3:latest" }, ... ] }`。
   AiModelScanResult _parseOllamaTagsResponse(String body) {
     final json = jsonDecode(body);
     if (json is! Map<String, dynamic>) {
-      return const AiModelScanResult(
-        modelIds: <String>[],
-        error: 'Unexpected response format.',
-      );
+      return const AiModelScanResult(modelIds: <String>[], error: '响应格式异常。');
     }
     final models = json['models'];
     if (models is! List) {
       return const AiModelScanResult(
         modelIds: <String>[],
-        error: 'Response does not contain a "models" array.',
+        error: '响应缺少“models”数组。',
       );
     }
     final ids = <String>[];
@@ -675,7 +658,7 @@ class AiModelScanner {
 /// 「现象 / 原因 / 建议」三段，避免直接抛出 BoringSSL / Dart 内部
 /// 错误码导致的困惑。所有文案都做成中英双语，因为该字段会原样
 /// 渲染在设置页提示条里，并未再走 ARB l10n。
-/// Scanner 错误文案统一收口；多数 transport 层情况复用
+/// 扫描错误文案统一收口；多数传输层情况复用
 /// [AiTransportDiagnosticMessages]，仅保留 /models 扫描场景特有的措辞
 /// (例如 404 / 405 推荐「在「手动添加模型 ID」处录入」)。
 class _ScanErrorMessages {

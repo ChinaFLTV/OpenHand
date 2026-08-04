@@ -34,7 +34,7 @@ class AiGitTool extends AiTool {
         operation: operation,
         workingDirectory: workingDirectory,
         durationMs: startedAt.elapsedMilliseconds,
-        message: 'operation is required.',
+        message: 'operation 参数不能为空。',
       );
     }
 
@@ -67,8 +67,7 @@ class AiGitTool extends AiTool {
         stdout: '',
         stderr: '$error',
         durationMs: startedAt.elapsedMilliseconds,
-        resultText:
-            'status: failed\nerror: Git operation "$operation" failed: $error',
+        resultText: 'status: failed\nerror: Git 操作“$operation”失败：$error',
       );
     }
   }
@@ -93,7 +92,7 @@ class AiGitTool extends AiTool {
         final filePath = AiToolUtils.readString(args['file_path']);
         final staged = AiToolUtils.readBool(args['staged']) == true;
         if (target.isNotEmpty && target.startsWith('-')) {
-          throw ArgumentError('Git diff target must not start with "-".');
+          throw ArgumentError('Git diff 的 target 不能以“-”开头。');
         }
         final gitArgs = <String>['--no-pager', 'diff', '--stat', '-p'];
         if (staged) gitArgs.add('--cached');
@@ -132,19 +131,17 @@ class AiGitTool extends AiTool {
       case 'blame':
         final filePath = AiToolUtils.readString(args['file_path']);
         if (filePath.isEmpty) {
-          throw ArgumentError('Git blame requires file_path.');
+          throw ArgumentError('Git blame 必须提供 file_path。');
         }
         final startLine = AiToolUtils.readInt(args['start_line']);
         final endLine = AiToolUtils.readInt(args['end_line']);
         if ((startLine == null) != (endLine == null)) {
-          throw ArgumentError(
-            'Git blame start_line and end_line must be provided together.',
-          );
+          throw ArgumentError('Git blame 的 start_line 和 end_line 必须同时提供。');
         }
         if (startLine != null &&
             (startLine <= 0 || endLine == null || endLine < startLine)) {
           throw ArgumentError(
-            'Git blame line range must use positive 1-based lines with end_line >= start_line.',
+            'Git blame 行号必须从 1 开始，且 end_line 不得小于 start_line。',
           );
         }
         final gitArgs = <String>['--no-pager', 'blame', '--date=short'];
@@ -162,7 +159,7 @@ class AiGitTool extends AiTool {
           'ref',
         ], fallback: 'HEAD');
         if (ref.startsWith('-')) {
-          throw ArgumentError('Git show ref must not start with "-".');
+          throw ArgumentError('Git show 的 ref 不能以“-”开头。');
         }
         return _run(workingDirectory, <String>[
           '--no-pager',
@@ -187,8 +184,7 @@ class AiGitTool extends AiTool {
 
       default:
         throw ArgumentError(
-          'Unsupported Git operation "$operation". Supported operations: '
-          '$_supportedOperationsMessage.',
+          '不支持 Git 操作“$operation”。支持的操作：$_supportedOperationsMessage。',
         );
     }
   }
@@ -225,17 +221,17 @@ class AiGitTool extends AiTool {
       toolCallId: toolCallId,
     );
     if (result == null) {
-      throw Exception('git ${args.join(' ')} timed out or failed to spawn');
+      throw Exception('git ${args.join(' ')} 执行超时或进程启动失败');
     }
     final stdout = (result.stdout as String).trimRight();
     final stderr = (result.stderr as String).trimRight();
     if (result.exitCode != 0) {
       throw Exception(
-        'git ${args.join(' ')} exited with code ${result.exitCode}\n'
+        'git ${args.join(' ')} 退出码为 ${result.exitCode}\n'
         '${stderr.isNotEmpty ? stderr : stdout}',
       );
     }
-    if (stdout.isEmpty) return '(no output)';
+    if (stdout.isEmpty) return '（无输出）';
     return AiToolUtils.truncateContent(
       stdout,
       AiToolUtils.maxSearchOutputCharacters,

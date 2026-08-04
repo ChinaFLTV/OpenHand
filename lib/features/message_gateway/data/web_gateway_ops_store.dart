@@ -28,6 +28,9 @@ class WebGatewayOpsStore {
   static const String _cleanupHistoryKey = 'cleanup_history';
   static const String _updatedAtKey = 'updated_at';
   static const int _maxStoreBytes = 32 * kBytesPerMiB;
+  static const String _untrustedSnapshotMessage = 'Web 网关运维历史缺少可信快照。';
+  static const String _externallyChangedMessage = 'Web 网关运维历史已被外部修改。';
+  static const String _externallyRemovedMessage = 'Web 网关运维历史已被外部删除。';
 
   final String filePath;
   String? _expectedContent;
@@ -51,7 +54,7 @@ class WebGatewayOpsStore {
 
   Future<void> save(WebGatewayOpsHistoryData data) async {
     if (!_hasTrustedSnapshot) {
-      throw StateError('Web gateway ops history has no trusted snapshot.');
+      throw StateError(_untrustedSnapshotMessage);
     }
     final file = File(filePath);
     await _verifySourceUnchanged(file);
@@ -62,9 +65,7 @@ class WebGatewayOpsStore {
     }
     final content = '${prettyPrintJson(data.toJson())}\n';
     if (utf8.encode(content).length > _maxStoreBytes) {
-      throw const FileSystemException(
-        'Web gateway ops history exceeds size limit.',
-      );
+      throw const FileSystemException('Web 网关运维历史超过大小上限。');
     }
     await writeFileAtomically(file, content);
     _expectedContent = content;
@@ -78,18 +79,18 @@ class WebGatewayOpsStore {
 
   Future<WebGatewayOpsPersistenceReport> measure() async {
     if (!_hasTrustedSnapshot) {
-      throw StateError('Web gateway ops history has no trusted snapshot.');
+      throw StateError(_untrustedSnapshotMessage);
     }
     final file = File(filePath);
     if (!await regularFileExistsBounded(file)) {
       if (_expectedContent != null) {
-        throw StateError('Web gateway ops history was removed externally.');
+        throw StateError(_externallyRemovedMessage);
       }
       return WebGatewayOpsPersistenceReport.empty;
     }
     final raw = await readBoundedFileString(file, maxBytes: _maxStoreBytes);
     if (_expectedContent == null || raw != _expectedContent) {
-      throw StateError('Web gateway ops history changed externally.');
+      throw StateError(_externallyChangedMessage);
     }
     return WebGatewayOpsPersistenceReport(
       bytes: utf8.encode(raw).length,
@@ -106,7 +107,7 @@ class WebGatewayOpsStore {
   WebGatewayOpsHistoryData _decode(String raw) {
     final decoded = jsonDecode(raw);
     if (decoded is! Map) {
-      throw const FormatException('Web gateway ops root must be an object.');
+      throw const FormatException('Web 网关运维历史根节点必须是对象。');
     }
     final source = stringKeyedMapFromValue(decoded);
     _requireList(source, _snapshotsKey, webGatewayOpsMaxPersistedSnapshots);
@@ -161,7 +162,7 @@ class WebGatewayOpsStore {
       _requireTimestamp(item, 'timestamp', path);
       final id = item['id'];
       if (id is! int || id <= 0 || !logIds.add(id)) {
-        throw FormatException('$path.id must be a unique positive integer.');
+        throw FormatException('$path.id 必须是唯一正整数。');
       }
     }
     final history = source[_cleanupHistoryKey]! as List;
@@ -184,15 +185,15 @@ class WebGatewayOpsStore {
   void _requireList(Map<String, Object?> source, String key, int maxItems) {
     final value = source[key];
     if (value is! List) {
-      throw FormatException('web_gateway_ops.$key must be a list.');
+      throw FormatException('web_gateway_ops.$key 必须是列表。');
     }
     if (value.length > maxItems) {
-      throw FormatException('web_gateway_ops.$key exceeds item limit.');
+      throw FormatException('web_gateway_ops.$key 超过条目上限。');
     }
   }
 
   Map<String, Object?> _requireMap(Object? value, String path) {
-    if (value is! Map) throw FormatException('$path must be an object.');
+    if (value is! Map) throw FormatException('$path 必须是对象。');
     return stringKeyedMapFromValue(value);
   }
 
@@ -203,7 +204,7 @@ class WebGatewayOpsStore {
   ) {
     for (final field in fields) {
       if (!source.containsKey(field)) {
-        throw FormatException('$path is missing $field.');
+        throw FormatException('$path 缺少字段 $field。');
       }
     }
   }
@@ -211,7 +212,7 @@ class WebGatewayOpsStore {
   void _requireTimestamp(Map<String, Object?> source, String key, String path) {
     final value = source[key];
     if (value is! String || DateTime.tryParse(value) == null) {
-      throw FormatException('$path.$key must be an ISO-8601 timestamp.');
+      throw FormatException('$path.$key 必须是 ISO-8601 时间戳。');
     }
   }
 
@@ -219,16 +220,16 @@ class WebGatewayOpsStore {
     final exists = await regularFileExistsBounded(file);
     if (_expectedContent == null) {
       if (exists) {
-        throw StateError('Web gateway ops history changed externally.');
+        throw StateError(_externallyChangedMessage);
       }
       return;
     }
     if (!exists) {
-      throw StateError('Web gateway ops history was removed externally.');
+      throw StateError(_externallyRemovedMessage);
     }
     final current = await readBoundedFileString(file, maxBytes: _maxStoreBytes);
     if (current != _expectedContent) {
-      throw StateError('Web gateway ops history changed externally.');
+      throw StateError(_externallyChangedMessage);
     }
   }
 

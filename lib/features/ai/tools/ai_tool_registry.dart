@@ -113,12 +113,12 @@ class AiToolRegistry {
       aiModelsProvider: aiModelsProvider,
     );
 
-    // Bash — 需要 AiBashToolService + AiClaudeHookService（Permission hooks）
+    // Bash 需要 AiBashToolService 和 AiClaudeHookService（权限钩子）。
     registry.register(
       AiBashTool(bashToolService: bashToolService, hookService: hookService),
     );
 
-    // BashBackground — 长跑后台子进程，共用 Bash 写命令分析、hook 与 sandbox 设置。
+    // BashBackground 负责长跑后台子进程，共用 Bash 写命令分析、钩子与沙箱设置。
     registry.register(
       AiBashBackgroundTool(
         bashToolService: bashToolService,
@@ -190,7 +190,7 @@ class AiToolRegistry {
         ..register(AiMachineTerminalControlTool());
     }
 
-    // Task — 需要 AiChatClient + AiClaudeHookService + Sub-tool executor
+    // Task 需要 AiChatClient、AiClaudeHookService 和子工具执行器。
     final taskTool = AiTaskTool(
       backgroundChatClient: backgroundChatClient,
       hookService: hookService,
@@ -228,7 +228,7 @@ class AiToolRegistry {
   /// 以支持向后兼容旧工具名（如 'bash' → AiBuiltinToolKind.bash）。
   void register(AiTool tool) {
     if (_disposed) {
-      throw StateError('AiToolRegistry is disposed.');
+      throw StateError('AI 工具注册表已释放。');
     }
     _tools[tool.kind] = tool;
     for (final alias in tool.aliases) {

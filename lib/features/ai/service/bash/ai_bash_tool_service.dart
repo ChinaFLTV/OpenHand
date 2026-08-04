@@ -565,6 +565,10 @@ class _PersistentBashSessionBusy implements Exception {
 
 class AiBashToolService {
   static const int defaultTimeoutMs = 120000;
+  static const String _disposedMessage = 'Bash 工具服务已释放。';
+  static const String _persistentSessionClosingMessage = '持久 Bash 会话正在关闭。';
+  static const String _persistentSessionUnavailableMessage = '持久 Bash 会话已不可用。';
+  static const String _persistentSessionBusyMessage = '该会话已有 Bash 命令正在运行。';
   static const Duration _processStartTimeout = Duration(seconds: 10);
   static const Duration _persistentStdinTimeout = Duration(seconds: 2);
   static const Duration _subscriptionCancelTimeout = Duration(seconds: 1);
@@ -588,7 +592,7 @@ class AiBashToolService {
   bool _disposed = false;
   Future<void>? _shutdownFuture;
 
-  /// Lazy 注册：仅当本实例真的会启动 shell 子进程（execute / 持久 session）
+  /// 按需注册：仅当本实例真的会启动 shell 子进程（execute / 持久 session）
   /// 才订阅代理变更。`AiPromptBuilder._bashWriteAnalyzer` 这种只用 analyze
   /// 的纯静态用途无需订阅。
   void _ensureProxyListenerAttached() {
@@ -601,7 +605,7 @@ class AiBashToolService {
     final next = SystemProxyResolver.instance.revision.value;
     if (next == _lastSeenProxyRevision) return;
     _lastSeenProxyRevision = next;
-    // Snapshot keys：在异步关闭过程中可能新增 session。
+    // 快照键：在异步关闭过程中可能新增 session。
     final ids = <String>{
       ..._persistentSessions.keys,
       ..._persistentSessionStarts.keys,
@@ -633,7 +637,7 @@ class AiBashToolService {
     bool forceWriteConfirmation = false,
   }) async {
     if (_disposed) {
-      throw StateError('AiBashToolService has been disposed.');
+      throw StateError(_disposedMessage);
     }
     _ensureProxyListenerAttached();
     final normalizedCommand = command.trim();
@@ -658,9 +662,9 @@ class AiBashToolService {
         command: normalizedCommand,
         workingDirectory: displayedWorkingDirectory,
         stdout: '',
-        stderr: 'The bash tool requires a non-empty command.',
+        stderr: 'Bash 工具命令不能为空。',
         durationMs: 0,
-        writeAnalysisReason: 'empty command',
+        writeAnalysisReason: '命令为空',
       );
     }
 
@@ -1230,7 +1234,7 @@ class AiBashToolService {
         command: command,
         workingDirectory: fallbackWorkingDirectory,
         stdout: '',
-        stderr: 'Another bash command is already running for this session.',
+        stderr: _persistentSessionBusyMessage,
         durationMs: 0,
         isWriteCommand: isWriteCommand,
         writeAnalysisReason: writeAnalysisReason,
@@ -1270,7 +1274,7 @@ class AiBashToolService {
         command: command,
         workingDirectory: effectiveWorkingDirectory,
         stdout: '',
-        stderr: 'Another bash command is already running for this session.',
+        stderr: _persistentSessionBusyMessage,
         durationMs: 0,
         isWriteCommand: isWriteCommand,
         writeAnalysisReason: writeAnalysisReason,
@@ -1514,10 +1518,10 @@ class AiBashToolService {
     required String initialWorkingDirectory,
   }) async {
     if (_disposed) {
-      throw StateError('AiBashToolService has been disposed.');
+      throw StateError(_disposedMessage);
     }
     if (_persistentSessionCloses.containsKey(sessionId)) {
-      throw StateError('The persistent bash session is closing.');
+      throw StateError(_persistentSessionClosingMessage);
     }
     final session = await _getOrStartPersistentSession(
       sessionId: sessionId,
@@ -1527,7 +1531,7 @@ class AiBashToolService {
     if (_disposed ||
         _persistentSessionCloses.containsKey(sessionId) ||
         !identical(_persistentSessions[sessionId], session)) {
-      throw StateError('The persistent bash session is no longer available.');
+      throw StateError(_persistentSessionUnavailableMessage);
     }
     if (session.inUse) throw const _PersistentBashSessionBusy();
     session
@@ -1566,7 +1570,7 @@ class AiBashToolService {
         await _disposePersistentSession(sessionToEvict);
       }
       if (_disposed || _persistentSessionCloses.containsKey(sessionId)) {
-        throw StateError('The persistent bash session is closing.');
+        throw StateError(_persistentSessionClosingMessage);
       }
       return _startPersistentSession(
         sessionId: sessionId,
