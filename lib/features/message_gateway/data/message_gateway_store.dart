@@ -39,7 +39,7 @@ class MessageGatewayStore {
     );
     final decoded = jsonDecode(raw);
     if (decoded is! Map) {
-      throw const FormatException('Message gateway root must be an object.');
+      throw const FormatException('消息网关配置根节点必须为对象。');
     }
     final source = stringKeyedMapFromValue(decoded);
     final config = WebMessagePlatformConfig.fromJson(source);
@@ -55,31 +55,29 @@ class MessageGatewayStore {
 
   Future<void> save(WebMessagePlatformConfig config) async {
     if (!_hasLoadedSnapshot) {
-      throw StateError('Message gateway config has no trusted snapshot.');
+      throw StateError('消息网关配置缺少可信快照。');
     }
     final file = File(filePath);
     final exists = await regularFileExistsBounded(file);
     if (_expectedContent == null) {
       if (exists) {
-        throw StateError('Message gateway config changed externally.');
+        throw StateError('消息网关配置已被外部修改。');
       }
     } else {
       if (!exists) {
-        throw StateError('Message gateway config was removed externally.');
+        throw StateError('消息网关配置已被外部删除。');
       }
       final current = await readBoundedFileString(
         file,
         maxBytes: _maxConfigFileBytes,
       );
       if (current != _expectedContent) {
-        throw StateError('Message gateway config changed externally.');
+        throw StateError('消息网关配置已被外部修改。');
       }
     }
     final content = '${prettyPrintJson(config.toJson())}\n';
     if (utf8.encode(content).length > _maxConfigFileBytes) {
-      throw const FileSystemException(
-        'Message gateway config exceeds size limit.',
-      );
+      throw const FileSystemException('消息网关配置超过大小上限。');
     }
     await writeFileAtomically(file, content);
     _expectedContent = content;

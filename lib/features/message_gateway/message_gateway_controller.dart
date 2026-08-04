@@ -260,19 +260,27 @@ class MessageGatewayController extends ManagedChangeNotifier {
     _errorMessage = null;
     notifyListeners();
     try {
-      await _service.loadPersistedOpsData();
-      final loaded = await _store.load();
-      _config = _normalizeAgainstRuntimeOptions(loaded);
-      _hasTrustedSnapshot = true;
+      try {
+        await _service.loadPersistedOpsData();
+        final loaded = await _store.load();
+        _config = _normalizeAgainstRuntimeOptions(loaded);
+        _hasTrustedSnapshot = true;
+        _hasPendingRuntimeConfig = false;
+      } catch (error) {
+        _hasTrustedSnapshot = false;
+        _errorMessage = '$error';
+        return;
+      }
       if (_config.autoStartOnLaunch && !_service.isRunning) {
         final startupConfig = _config.copyWith(enabled: true);
-        await _service.start(startupConfig);
-        _config = startupConfig;
-        _hasPendingRuntimeConfig = false;
+        try {
+          await _service.start(startupConfig);
+          _config = startupConfig;
+        } catch (error) {
+          _hasPendingRuntimeConfig = true;
+          _errorMessage = '$error';
+        }
       }
-    } catch (error) {
-      _hasTrustedSnapshot = false;
-      _errorMessage = '$error';
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -296,26 +304,33 @@ class MessageGatewayController extends ManagedChangeNotifier {
       throw StateError('消息网关配置当前不可用。');
     }
     _isSaving = true;
-    _hasTrustedSnapshot = false;
     _errorMessage = null;
     notifyListeners();
     final normalized = _normalizeAgainstRuntimeOptions(config);
     try {
-      await _store.save(normalized);
+      try {
+        await _store.save(normalized);
+      } catch (error) {
+        _hasTrustedSnapshot = false;
+        _errorMessage = '$error';
+        rethrow;
+      }
       final previous = _config;
       _config = normalized;
       _hasTrustedSnapshot = true;
       if (forceRuntimeApply || normalized.autoReloadOnChange) {
-        await _applyRuntimeConfig(previous, normalized);
-        _hasPendingRuntimeConfig = false;
+        try {
+          await _applyRuntimeConfig(previous, normalized);
+          _hasPendingRuntimeConfig = false;
+        } catch (error) {
+          _hasPendingRuntimeConfig = true;
+          _errorMessage = '$error';
+          rethrow;
+        }
       } else {
         _hasPendingRuntimeConfig = _service.isRunning;
       }
       _saveSuccessPulse.emit();
-    } catch (error) {
-      _hasTrustedSnapshot = false;
-      _errorMessage = '$error';
-      rethrow;
     } finally {
       _isSaving = false;
       notifyListeners();
