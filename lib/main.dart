@@ -439,7 +439,16 @@ Future<void> _bootstrap() async {
   // Provider 外部实例按“底层依赖在前、上层使用者在后”登记，退出时逆序释放。
   runtimeCleanup
     ..register('数据库', DatabaseService.instance.close)
-    ..register('AI 使用统计', AiUsageTracker.instance.flush)
+    ..register(
+      'AI 使用统计',
+      AiUsageTracker.instance.shutdown,
+      timeout: AiUsageTracker.runtimeCleanupTimeout,
+    )
+    ..register(
+      'AI 工具调用统计',
+      AiToolUsagePromotionStore.shared.shutdown,
+      timeout: AiToolUsagePromotionStore.runtimeCleanupTimeout,
+    )
     ..register('设置控制器', settingsController.shutdown)
     ..register('Hooks 控制器', hooks.controller.shutdown)
     ..register('技能控制器', skills.controller.shutdown)

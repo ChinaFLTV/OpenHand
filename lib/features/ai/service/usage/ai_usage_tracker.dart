@@ -5,6 +5,7 @@ import 'package:flutter/foundation.dart';
 import 'package:http/http.dart' as http;
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/date_time_format.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -93,12 +94,15 @@ class AiUsageTracker {
   static const int _defaultEstimatedCharactersPerToken = 4;
   static const int _pruneInterval = 256;
   static const int _maxErrorMessageCharacters = 8000;
+  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
 
   final AiUsageStore _store = const AiUsageStore();
   final SerialTaskQueue _writes = SerialTaskQueue(maxPendingTasks: 2048);
+  final OpenHandAsyncOnce _shutdownOnce = OpenHandAsyncOnce();
   final ValueNotifier<int> changes = ValueNotifier<int>(0);
   int _successfulWrites = 0;
   int _estimatedCharactersPerToken = _defaultEstimatedCharactersPerToken;
+  bool _shuttingDown = false;
 
   void updateEstimatedCharactersPerToken(int value) {
     if (value > 0) _estimatedCharactersPerToken = value;
@@ -192,13 +196,19 @@ class AiUsageTracker {
   }
 
   Future<void> clear() {
+    if (_shuttingDown) return Future<void>.value();
     return _writes.enqueue(() async {
       await _store.clear();
       changes.value += 1;
     });
   }
 
-  Future<void> flush() => _writes.enqueue(() async {});
+  Future<void> flush() => _writes.idle;
+
+  Future<void> shutdown() {
+    _shuttingDown = true;
+    return _shutdownOnce.run(() => flush().timeout(runtimeCleanupTimeout));
+  }
 
   void _record({
     required AiModelConfig model,
@@ -216,6 +226,7 @@ class AiUsageTracker {
     String? timeoutPhase,
     Map<String, Object?> metadata = const <String, Object?>{},
   }) {
+    if (_shuttingDown) return;
     final trace = AiUsageTraceContext.current ?? AiUsageTraceContext();
     final localStartedAt = startedAt.toLocal();
     final profile = model.profileFor(model.modelId);

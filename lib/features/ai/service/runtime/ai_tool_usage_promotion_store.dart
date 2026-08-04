@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/date_time_format.dart';
 import '../../../../shared/util/serial_task_queue.dart';
@@ -325,6 +326,7 @@ final class AiToolUsagePromotionStore {
   static const int _version = 3;
   static const int _aggregateVersion = 2;
   static const int _legacyVersion = 1;
+  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
   static const int _maxStoreBytes = 8 * 1024 * 1024;
   static const int _maxSessions = 256;
   static const int _maxResourcesPerKind = 1024;
@@ -355,6 +357,7 @@ final class AiToolUsagePromotionStore {
   final DateTime Function() _clock;
   final OpenHandDebouncer _persistDebouncer;
   final SerialTaskQueue _operations = SerialTaskQueue();
+  final OpenHandAsyncOnce _shutdownOnce = OpenHandAsyncOnce();
   final Map<String, _SessionUsage> _sessions = <String, _SessionUsage>{};
   final Map<AiResourceUsagePeriod, SplayTreeMap<String, _UsageBucket>>
   _periods = <AiResourceUsagePeriod, SplayTreeMap<String, _UsageBucket>>{
@@ -366,10 +369,14 @@ final class AiToolUsagePromotionStore {
   int _eventSequence = 0;
   bool _initialized = false;
   bool _dirty = false;
+  bool _shuttingDown = false;
 
   ValueListenable<int> get changes => _revision;
 
-  Future<void> initialize() => _operations.enqueue(_initializeLocked);
+  Future<void> initialize() {
+    if (_shuttingDown) return Future<void>.value();
+    return _operations.enqueue(_initializeLocked);
+  }
 
   Future<AiToolUsageRecord> recordToolCall({
     required String sessionId,
@@ -545,6 +552,9 @@ final class AiToolUsagePromotionStore {
     String errorSummary = '',
     String source = 'runtime',
   }) {
+    if (_shuttingDown) {
+      return Future<AiToolUsageRecord>.value(const AiToolUsageRecord.ignored());
+    }
     return _operations.enqueue(() async {
       await _initializeLocked();
       final normalizedSessionId = _validSessionId(sessionId);
@@ -788,10 +798,25 @@ final class AiToolUsagePromotionStore {
   }
 
   Future<void> flush() {
+    if (_shuttingDown) return shutdown();
     return _operations.enqueue(() async {
       await _initializeLocked();
       await _flushLocked();
     });
+  }
+
+  Future<void> shutdown() {
+    _shuttingDown = true;
+    _persistDebouncer.dispose();
+    return _shutdownOnce.run(
+      () => _finishShutdown().timeout(runtimeCleanupTimeout),
+    );
+  }
+
+  Future<void> _finishShutdown() async {
+    await _operations.idle;
+    await _initializeLocked();
+    await _flushLocked();
   }
 
   Future<void> _initializeLocked() async {
