@@ -20,8 +20,10 @@ const int _kAiExposureMaxCachedHistoryJobs = 20;
 const int _kAiExposureMaxCachedLogsPerJob = 2000;
 const int _kMaxProxyInspectionConcurrency = 32;
 const int _kProxyInspectionCheckpointSize = 512;
+const int _kEventStreamReconnectLimit = 3;
 const Duration _kProxyInspectionFirstRunDelay = Duration(seconds: 10);
 const Duration _kProxyStatisticsSyncInterval = Duration(seconds: 5);
+const Duration _kEventStreamReconnectBaseDelay = Duration(seconds: 1);
 
 typedef AiExposureProxyInspectionResultCallback =
     void Function(
@@ -72,6 +74,8 @@ class ServicesController extends ChangeNotifier {
   StreamSubscription<int>? _runtimeExitSubscription;
   StreamSubscription<Map<String, Object?>>? _eventSubscription;
   int _eventSubscriptionGeneration = 0;
+  int _eventStreamReconnectAttempts = 0;
+  String? _eventStreamErrorMessage;
   AiExposureServiceLifecycle _lifecycle = AiExposureServiceLifecycle.stopped;
   AiExposureHealth? _health;
   AiExposureProgress? _progress;
@@ -1219,16 +1223,21 @@ class ServicesController extends ChangeNotifier {
     }
   }
 
-  Future<void> _watchJob(String jobId) async {
+  Future<void> _watchJob(String jobId, {bool reconnecting = false}) async {
     await _cancelEventSubscription();
+    if (!reconnecting) _eventStreamReconnectAttempts = 0;
     final generation = ++_eventSubscriptionGeneration;
     _eventSubscription = _requireClient()
         .events(jobId)
         .listen(
           (event) {
             if (!_disposed && generation == _eventSubscriptionGeneration) {
+              if (_errorMessage == _eventStreamErrorMessage) {
+                _errorMessage = null;
+              }
+              _eventStreamErrorMessage = null;
               try {
-                _handleEvent(jobId, event);
+                _handleEvent(jobId, event, generation: generation);
               } catch (error, stack) {
                 _errorMessage = '扫描服务返回了无效的实时事件。';
                 silentLog('services_controller', '解析扫描实时事件', error, stack);
@@ -1238,27 +1247,34 @@ class ServicesController extends ChangeNotifier {
           },
           onError: (Object error, StackTrace stack) {
             if (_disposed || generation != _eventSubscriptionGeneration) return;
-            _errorMessage = '$error';
+            _eventStreamErrorMessage = error is AiJunglerApiException
+                ? error.message
+                : '扫描实时事件连接异常。';
+            _errorMessage = _eventStreamErrorMessage;
             silentLog('services_controller', '接收扫描实时事件', error, stack);
             _notify();
           },
           onDone: () {
             if (!_disposed && generation == _eventSubscriptionGeneration) {
-              unawaited(_handleEventStreamDone(jobId));
+              unawaited(_handleEventStreamDone(jobId, generation: generation));
             }
           },
           cancelOnError: false,
         );
   }
 
-  void _handleEvent(String jobId, Map<String, Object?> event) {
+  void _handleEvent(
+    String jobId,
+    Map<String, Object?> event, {
+    required int generation,
+  }) {
     switch (event['type']) {
       case 'progress':
         _progress = AiExposureProgress.fromJson(
           aiExposureJsonMap(event['progress']),
         );
         if (!(_progress?.isRunning ?? false)) {
-          unawaited(_refreshHistoryAndResultsSafely());
+          unawaited(_finishJobWatch(generation));
         }
       case 'result':
         final result = AiExposureResult.fromJson(
@@ -1283,15 +1299,62 @@ class ServicesController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> _handleEventStreamDone(String jobId) async {
-    if (_disposed || _client == null) return;
+  Future<void> _finishJobWatch(int generation) async {
+    if (_disposed || generation != _eventSubscriptionGeneration) return;
+    final completionGeneration = generation + 1;
+    await _cancelEventSubscription();
+    if (_disposed || completionGeneration != _eventSubscriptionGeneration) {
+      return;
+    }
+    _eventStreamReconnectAttempts = 0;
+    if (_errorMessage == _eventStreamErrorMessage) _errorMessage = null;
+    _eventStreamErrorMessage = null;
+    await _refreshHistoryAndResultsSafely();
+  }
+
+  Future<void> _handleEventStreamDone(
+    String jobId, {
+    required int generation,
+  }) async {
+    if (_disposed ||
+        _client == null ||
+        generation != _eventSubscriptionGeneration) {
+      return;
+    }
     try {
       _progress = await _requireClient().progress(jobId);
-      await _refreshHistoryAndResults();
+      if (_disposed || generation != _eventSubscriptionGeneration) return;
+      if (!(_progress?.isRunning ?? false)) {
+        await _finishJobWatch(generation);
+        return;
+      } else {
+        if (_eventStreamReconnectAttempts >= _kEventStreamReconnectLimit) {
+          _eventStreamErrorMessage = '扫描实时事件连接持续中断，请重新连接扫描服务。';
+          _errorMessage = _eventStreamErrorMessage;
+        } else {
+          _eventStreamReconnectAttempts += 1;
+          await Future<void>.delayed(
+            Duration(
+              milliseconds:
+                  _kEventStreamReconnectBaseDelay.inMilliseconds *
+                  _eventStreamReconnectAttempts,
+            ),
+          );
+          if (_disposed ||
+              _client == null ||
+              generation != _eventSubscriptionGeneration) {
+            return;
+          }
+          await _watchJob(jobId, reconnecting: true);
+          return;
+        }
+      }
     } catch (error, stack) {
+      _eventStreamErrorMessage = '同步扫描任务状态失败。';
+      _errorMessage = _eventStreamErrorMessage;
       silentLog('services_controller', '同步扫描任务最终状态', error, stack);
     }
-    _notify();
+    if (!_disposed && generation == _eventSubscriptionGeneration) _notify();
   }
 
   Future<void> _refreshHistoryAndResults() async {
@@ -1312,6 +1375,7 @@ class ServicesController extends ChangeNotifier {
       if (_disposed) return;
       _errorMessage = '$error';
       silentLog('services_controller', '刷新扫描历史与结果', error, stack);
+    } finally {
       _notify();
     }
   }
@@ -1337,6 +1401,10 @@ class ServicesController extends ChangeNotifier {
 
   void _handleRuntimeExit(int exitCode) {
     if (_lifecycle == AiExposureServiceLifecycle.stopping || _disposed) return;
+    unawaited(_cancelEventSubscription());
+    _eventStreamReconnectAttempts = 0;
+    if (_errorMessage == _eventStreamErrorMessage) _errorMessage = null;
+    _eventStreamErrorMessage = null;
     _lifecycle = exitCode == 0
         ? AiExposureServiceLifecycle.stopped
         : AiExposureServiceLifecycle.error;

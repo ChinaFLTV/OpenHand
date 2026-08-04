@@ -7,6 +7,7 @@ import '../../../shared/net/http_response_utils.dart';
 import '../model/ai_exposure_models.dart';
 
 const Duration _kAiJunglerRequestTimeout = Duration(seconds: 15);
+const Duration _kAiJunglerSseIdleTimeout = Duration(seconds: 45);
 const int _kAiJunglerMaxRequestBytes = 2 * 1024 * 1024;
 const int _kAiJunglerMaxJsonResponseBytes = 8 * 1024 * 1024;
 const int _kAiJunglerMaxErrorResponseBytes = 64 * 1024;
@@ -48,10 +49,10 @@ class AiJunglerClient {
   }
 
   Future<void> stopJob(String jobId) =>
-      _emptyRequest('POST', '/v1/jobs/$jobId/stop');
+      _emptyRequest('POST', _jobPath(jobId, suffix: '/stop'));
 
   Future<String> resumeJob(String jobId) async {
-    final json = await _jsonRequest('POST', '/v1/jobs/$jobId/resume');
+    final json = await _jsonRequest('POST', _jobPath(jobId, suffix: '/resume'));
     final resumedId = json['jobId'] as String?;
     if (resumedId == null || resumedId.isEmpty) {
       throw const AiJunglerApiException('扫描引擎未返回恢复后的任务编号。');
@@ -60,7 +61,7 @@ class AiJunglerClient {
   }
 
   Future<AiExposureProgress> progress(String jobId) async =>
-      AiExposureProgress.fromJson(await _jsonRequest('GET', '/v1/jobs/$jobId'));
+      AiExposureProgress.fromJson(await _jsonRequest('GET', _jobPath(jobId)));
 
   Future<List<AiExposureHistoryEntry>> history({int limit = 200}) async =>
       _jsonList(
@@ -71,7 +72,7 @@ class AiJunglerClient {
     String jobId, {
     int limit = 2000,
   }) async => _jsonList(
-    await _request('GET', '/v1/jobs/$jobId/logs?limit=$limit'),
+    await _request('GET', '${_jobPath(jobId, suffix: '/logs')}?limit=$limit'),
   ).map(AiExposureLogEntry.fromJson).toList(growable: false);
 
   Future<List<AiExposureResult>> results({
@@ -89,7 +90,7 @@ class AiJunglerClient {
   }
 
   Future<void> deleteHistory(String jobId) =>
-      _emptyRequest('DELETE', '/v1/history/$jobId');
+      _emptyRequest('DELETE', _jobPath(jobId, root: '/v1/history'));
 
   Future<List<AiExposureScanRule>> rules() async => _jsonList(
     await _request('GET', '/v1/rules'),
@@ -189,23 +190,29 @@ class AiJunglerClient {
   );
 
   Stream<Map<String, Object?>> events(String jobId) async* {
-    final request = await _open('GET', '/v1/jobs/$jobId/events');
+    final request = await _open('GET', _jobPath(jobId, suffix: '/events'));
     request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
     final response = await request.close().timeout(_kAiJunglerRequestTimeout);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw await _responseError(response);
     }
-    await for (final line in _boundedUtf8Lines(response)) {
-      if (!line.startsWith('data:')) continue;
-      final payload = line.substring(5).trim();
-      if (payload.isEmpty) continue;
-      final Object? decoded;
-      try {
-        decoded = jsonDecode(payload);
-      } on FormatException {
-        throw const AiJunglerApiException('扫描引擎返回了无效的实时事件。');
+    try {
+      await for (final line in _boundedUtf8Lines(
+        response.timeout(_kAiJunglerSseIdleTimeout),
+      )) {
+        if (!line.startsWith('data:')) continue;
+        final payload = line.substring(5).trim();
+        if (payload.isEmpty) continue;
+        final Object? decoded;
+        try {
+          decoded = jsonDecode(payload);
+        } on FormatException {
+          throw const AiJunglerApiException('扫描引擎返回了无效的实时事件。');
+        }
+        if (decoded is Map) yield aiExposureJsonMap(decoded);
       }
-      if (decoded is Map) yield aiExposureJsonMap(decoded);
+    } on TimeoutException {
+      throw const AiJunglerApiException('扫描引擎实时事件长时间无响应。');
     }
   }
 
@@ -266,6 +273,18 @@ class AiJunglerClient {
     return request;
   }
 
+  String _jobPath(
+    String jobId, {
+    String root = '/v1/jobs',
+    String suffix = '',
+  }) {
+    final normalized = jobId.trim();
+    if (normalized.isEmpty) {
+      throw const AiJunglerApiException('扫描任务编号不能为空。');
+    }
+    return '$root/${Uri.encodeComponent(normalized)}$suffix';
+  }
+
   Future<AiJunglerApiException> _responseError(
     HttpClientResponse response,
   ) async => _textError(
@@ -321,7 +340,7 @@ Future<String> _readUtf8Response(
   }
 }
 
-Stream<String> _boundedUtf8Lines(HttpClientResponse response) async* {
+Stream<String> _boundedUtf8Lines(Stream<List<int>> response) async* {
   final pending = BytesBuilder(copy: false);
   await for (final chunk in response) {
     var start = 0;
