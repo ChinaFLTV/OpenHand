@@ -8,6 +8,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/serial_task_queue.dart';
 import 'web_engine_json_utils.dart';
 import 'web_engine_persistence_io.dart';
 import 'web_engine_value_parsing.dart';
@@ -58,7 +59,7 @@ class WebEngineCacheRawLookup {
 
 /// WebSearch / WebFetch 缓存目录的公共骨架：
 ///
-/// * 单实例 → 串行写盘 `_chain`，避免 index.json 互踩
+/// * 单实例 → 有界串行写盘队列，避免 index.json 互踩和任务无限堆积
 /// * 目录 = `<openhand_cache>/<subdir>`，由子类指定 [subdir]
 /// * 单条 entry 写在 `<key>.txt`，metadata 写在 `index.json` 的 `entries[key]` 中
 /// * 子类只需声明：
@@ -85,10 +86,10 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   int cacheTtlSeconds(TSettings settings);
   int cacheMaxBytes(TSettings settings);
 
-  /// 串行写盘队列：所有写 index.json / payload 的动作都接到这里。
-  ///
-  /// 子类可以读、迫于实现需要表面上是 public，但 *仅*限与本包内部实现使用。
-  Future<void> chain = Future.value();
+  final SerialTaskQueue _operations = SerialTaskQueue(
+    maxPendingTasks: _maxPendingOperations,
+  );
+  static const int _maxPendingOperations = 64;
 
   /// 默认缓存目录路径。
   String defaultDirectoryPath() =>
@@ -122,19 +123,14 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   }
 
   /// 用于全局「应用数据 → 数据清理」直接调用：清空整个目录。
-  Future<void> clearAll() async {
-    chain = chain.then((_) async {
+  Future<void> clearAll() {
+    return _runSerialized('清理全部缓存', () async {
       final dir = Directory(defaultDirectoryPath());
-      try {
-        final complete = await clearWebEngineDirectoryBounded(dir);
-        if (!complete) {
-          throw StateError('Web 引擎缓存清理已达到安全上限。');
-        }
-      } catch (error, stack) {
-        silentLog(logTag, '清理全部缓存', error, stack);
+      final complete = await clearWebEngineDirectoryBounded(dir);
+      if (!complete) {
+        throw StateError('Web 引擎缓存清理已达到安全上限。');
       }
     });
-    await chain;
   }
 
   /// 应用启动后的「缓存预热 / 自愈」：扫描磁盘并重建 index.json。
@@ -143,133 +139,121 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   /// * 删除磁盘上 .txt 文件已丢失的孤儿条目。
   /// * 删除 index 未登记的孤儿 .txt 文件。
   Future<WebEngineCachePrewarmReport> prewarm() async {
-    var removedExpired = 0;
-    var removedOrphanFiles = 0;
-    var removedOrphanEntries = 0;
-    final completer = Completer<WebEngineCachePrewarmReport>();
-    chain = chain
-        .then((_) async {
-          final deadline = WebEngineIoDeadline();
+    try {
+      return await _operations.enqueue(() async {
+        var removedExpired = 0;
+        var removedOrphanFiles = 0;
+        var removedOrphanEntries = 0;
+        final deadline = WebEngineIoDeadline();
+        try {
+          final dir = Directory(defaultDirectoryPath());
+          if (!await webEngineEntityExists(dir, deadline: deadline)) {
+            return WebEngineCachePrewarmReport.empty;
+          }
+          final indexFile = File(p.join(dir.path, webEngineCacheIndexFileName));
+          Map<String, Object?> root = <String, Object?>{};
           try {
-            final dir = Directory(defaultDirectoryPath());
-            if (!await webEngineEntityExists(dir, deadline: deadline)) {
-              completer.complete(WebEngineCachePrewarmReport.empty);
-              return;
-            }
-            final indexFile = File(
-              p.join(dir.path, webEngineCacheIndexFileName),
+            final decoded = await readWebEngineJsonFileIfExists(
+              indexFile,
+              deadline: deadline,
             );
-            Map<String, Object?> root = <String, Object?>{};
-            try {
-              final decoded = await readWebEngineJsonFileIfExists(
-                indexFile,
-                deadline: deadline,
-              );
-              if (decoded is Map) root = stringKeyedMapFromValue(decoded);
-            } on FormatException {
-              /* 索引损坏时按空索引处理。 */
-            }
-            final entries = webEngineCacheEntriesFromValue(root['entries']);
+            if (decoded is Map) root = stringKeyedMapFromValue(decoded);
+          } on FormatException {
+            /* 索引损坏时按空索引处理。 */
+          }
+          final entries = webEngineCacheEntriesFromValue(root['entries']);
 
-            final now = DateTime.now().millisecondsSinceEpoch;
-            final keysToRemove = <String>[];
-            final keepFileNames = <String>{webEngineCacheIndexFileName};
-            for (final entry in entries.entries) {
-              final value = entry.value;
-              if (value is! Map) {
-                keysToRemove.add(entry.key);
-                continue;
+          final now = DateTime.now().millisecondsSinceEpoch;
+          final keysToRemove = <String>[];
+          final keepFileNames = <String>{webEngineCacheIndexFileName};
+          for (final entry in entries.entries) {
+            final value = entry.value;
+            if (value is! Map) {
+              keysToRemove.add(entry.key);
+              continue;
+            }
+            final expiresAt = webEngineNonNegativeIntFromValue(
+              value['expires_at'],
+            );
+            final payloadRel = '${value[payloadPathField] ?? ''}'.trim();
+            final expectedPayload = webEngineCachePayloadFileName(entry.key);
+            if (expectedPayload == null || payloadRel != expectedPayload) {
+              keysToRemove.add(entry.key);
+              removedOrphanEntries++;
+              continue;
+            }
+            if (expiresAt <= now) {
+              keysToRemove.add(entry.key);
+              final f = File(p.join(dir.path, payloadRel));
+              if (await webEngineEntityExists(f, deadline: deadline)) {
+                try {
+                  await f.delete().timeout(deadline.nextOperationTimeout());
+                } on TimeoutException {
+                  rethrow;
+                } on FileSystemException {
+                  /* 删除失败不影响其余缓存自愈。 */
+                }
               }
-              final expiresAt = webEngineNonNegativeIntFromValue(
-                value['expires_at'],
-              );
-              final payloadRel = '${value[payloadPathField] ?? ''}'.trim();
-              final expectedPayload = webEngineCachePayloadFileName(entry.key);
-              if (expectedPayload == null || payloadRel != expectedPayload) {
+              removedExpired++;
+            } else {
+              final f = File(p.join(dir.path, payloadRel));
+              if (!await webEngineEntityExists(f, deadline: deadline)) {
                 keysToRemove.add(entry.key);
                 removedOrphanEntries++;
-                continue;
-              }
-              if (expiresAt <= now) {
-                keysToRemove.add(entry.key);
-                final f = File(p.join(dir.path, payloadRel));
-                if (await webEngineEntityExists(f, deadline: deadline)) {
-                  try {
-                    await f.delete().timeout(deadline.nextOperationTimeout());
-                  } on TimeoutException {
-                    rethrow;
-                  } on FileSystemException {
-                    /* 删除失败不影响其余缓存自愈。 */
-                  }
-                }
-                removedExpired++;
               } else {
-                final f = File(p.join(dir.path, payloadRel));
-                if (!await webEngineEntityExists(f, deadline: deadline)) {
-                  keysToRemove.add(entry.key);
-                  removedOrphanEntries++;
-                } else {
-                  keepFileNames.add(payloadRel);
+                keepFileNames.add(payloadRel);
+              }
+            }
+          }
+          for (final k in keysToRemove) {
+            entries.remove(k);
+          }
+
+          try {
+            final listing = await listWebEngineDirectoryBounded(dir, deadline);
+            if (!listing.truncated) {
+              for (final entity in listing.entries) {
+                if (entity is! File) continue;
+                final name = p.basename(entity.path);
+                if (keepFileNames.contains(name)) continue;
+                if (!name.endsWith(webEngineCachePayloadExtension)) continue;
+                try {
+                  await entity.delete().timeout(
+                    deadline.nextOperationTimeout(),
+                  );
+                  removedOrphanFiles++;
+                } on TimeoutException {
+                  rethrow;
+                } on FileSystemException {
+                  /* 删除失败不影响其余缓存自愈。 */
                 }
               }
             }
-            for (final k in keysToRemove) {
-              entries.remove(k);
-            }
-
-            try {
-              final listing = await listWebEngineDirectoryBounded(
-                dir,
-                deadline,
-              );
-              if (!listing.truncated) {
-                for (final entity in listing.entries) {
-                  if (entity is! File) continue;
-                  final name = p.basename(entity.path);
-                  if (keepFileNames.contains(name)) continue;
-                  if (!name.endsWith(webEngineCachePayloadExtension)) continue;
-                  try {
-                    await entity.delete().timeout(
-                      deadline.nextOperationTimeout(),
-                    );
-                    removedOrphanFiles++;
-                  } on TimeoutException {
-                    rethrow;
-                  } on FileSystemException {
-                    /* 删除失败不影响其余缓存自愈。 */
-                  }
-                }
-              }
-            } on TimeoutException {
-              rethrow;
-            } on FileSystemException {
-              /* 枚举失败时保留现有索引。 */
-            }
-
-            root['entries'] = entries;
-            try {
-              await writeWebEngineJsonFile(indexFile, jsonSafeMap(root));
-            } catch (error, stack) {
-              silentLog(logTag, '预热缓存并写入索引', error, stack);
-            }
-            completer.complete(
-              WebEngineCachePrewarmReport(
-                removedExpired: removedExpired,
-                removedOrphanFiles: removedOrphanFiles,
-                removedOrphanEntries: removedOrphanEntries,
-              ),
-            );
-          } finally {
-            deadline.stop();
+          } on TimeoutException {
+            rethrow;
+          } on FileSystemException {
+            /* 枚举失败时保留现有索引。 */
           }
-        })
-        .catchError((Object error, StackTrace stack) {
-          silentLog(logTag, '预热缓存', error, stack);
-          if (!completer.isCompleted) {
-            completer.complete(WebEngineCachePrewarmReport.empty);
+
+          root['entries'] = entries;
+          try {
+            await writeWebEngineJsonFile(indexFile, jsonSafeMap(root));
+          } catch (error, stack) {
+            silentLog(logTag, '预热缓存并写入索引', error, stack);
           }
-        });
-    return completer.future;
+          return WebEngineCachePrewarmReport(
+            removedExpired: removedExpired,
+            removedOrphanFiles: removedOrphanFiles,
+            removedOrphanEntries: removedOrphanEntries,
+          );
+        } finally {
+          deadline.stop();
+        }
+      });
+    } catch (error, stack) {
+      silentLog(logTag, '预热缓存', error, stack);
+      return WebEngineCachePrewarmReport.empty;
+    }
   }
 
   // 供子类的强类型查询和写入逻辑调用。
@@ -309,7 +293,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         payloadFile,
         deadline: deadline,
       );
-      chain = chain.then((_) => _touchAccess(key)).catchError((_) {});
+      unawaited(_runSerialized('更新缓存访问时间', () => _touchAccess(key)));
       return WebEngineCacheRawLookup(
         payload: payload,
         metadata: jsonSafeMap(Map.from(entry)),
@@ -342,19 +326,26 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   }) async {
     if (!isCacheEnabled(settings) || !isValidWebEngineCacheKey(key)) return;
     if (nullIfBlank(payload) == null) return;
-    chain = chain
-        .then(
-          (_) => _writeEntry(
-            key: key,
-            settings: settings,
-            payload: payload,
-            extraEntryFields: extraEntryFields,
-          ),
-        )
-        .catchError((Object error, StackTrace stack) {
-          silentLog(logTag, '存储缓存', error, stack);
-        });
-    await chain;
+    await _runSerialized(
+      '存储缓存',
+      () => _writeEntry(
+        key: key,
+        settings: settings,
+        payload: payload,
+        extraEntryFields: extraEntryFields,
+      ),
+    );
+  }
+
+  Future<void> _runSerialized(
+    String action,
+    Future<void> Function() operation,
+  ) async {
+    try {
+      await _operations.enqueue(operation);
+    } catch (error, stack) {
+      silentLog(logTag, action, error, stack);
+    }
   }
 
   Future<void> _writeEntry({
