@@ -4,6 +4,7 @@ import 'dart:convert';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -12,10 +13,12 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/timer_safety.dart';
 import '../services_controller.dart';
 import 'service_dialog_controls.dart';
 
 const Duration _kTelemetryRefreshInterval = Duration(seconds: 8);
+const Duration _kTelemetryRefreshTimeout = Duration(seconds: 20);
 const List<String> _kPostgresqlTables = <String>[
   'hunt_jobs',
   'hunt_results',
@@ -86,12 +89,18 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
     WidgetsBinding.instance.addPostFrameCallback(
       (_) => _refresh(includeData: true),
     );
-    _telemetryTimer = Timer.periodic(_kTelemetryRefreshInterval, (_) {
-      if (!mounted || _operating) return;
-      unawaited(
-        context.read<ServicesController>().refreshDependencyDataOverview(),
-      );
-    });
+    _telemetryTimer = startNonOverlappingPeriodicTimer(
+      _kTelemetryRefreshInterval,
+      (_) async {
+        if (!mounted || _operating || _loading) return;
+        await context
+            .read<ServicesController>()
+            .refreshDependencyDataOverview();
+      },
+      callbackTimeout: _kTelemetryRefreshTimeout,
+      onError: (error, stack) =>
+          silentLog('dependency_data_dialog', '刷新依赖遥测', error, stack),
+    );
   }
 
   @override
