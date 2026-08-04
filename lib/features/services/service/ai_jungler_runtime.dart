@@ -178,9 +178,14 @@ class AiJunglerRuntime {
     } catch (_) {
       final process = startedProcess;
       if (process != null) {
-        await terminateTrackedProcessTree(
-          process,
-          gracefulTimeout: _kAiJunglerStopTimeout,
+        await runAsyncCleanupBounded(
+          () => terminateTrackedProcessTree(
+            process,
+            gracefulTimeout: _kAiJunglerStopTimeout,
+          ),
+          timeout: _kAiJunglerCleanupTimeout,
+          onError: (error, stack) =>
+              silentLog('ai_jungler_runtime', '清理启动失败的扫描引擎', error, stack),
         );
       }
       if (process != null && identical(_process, process)) {
@@ -245,9 +250,14 @@ class AiJunglerRuntime {
     _process = null;
     try {
       if (process != null) {
-        await terminateTrackedProcessTree(
-          process,
-          gracefulTimeout: _kAiJunglerStopTimeout,
+        await runAsyncCleanupBounded(
+          () => terminateTrackedProcessTree(
+            process,
+            gracefulTimeout: _kAiJunglerStopTimeout,
+          ),
+          timeout: _kAiJunglerCleanupTimeout,
+          onError: (error, stack) =>
+              silentLog('ai_jungler_runtime', '终止扫描引擎进程', error, stack),
         );
       }
     } finally {

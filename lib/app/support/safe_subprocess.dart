@@ -193,7 +193,13 @@ Future<bool> _isProcessGroupAlive(int processGroupId) async {
   if (Platform.isWindows || processGroupId <= 0) return false;
   final posixKill = _posixKill;
   if (posixKill != null) {
-    return posixKill(-processGroupId, _posixExistenceProbeSignal) == 0;
+    try {
+      return posixKill(-processGroupId, _posixExistenceProbeSignal) == 0;
+    } catch (error, stack) {
+      // 探针异常时保守保留登记，交给后续周期任务重试。
+      silentLog('safe_subprocess', '探测 POSIX 进程组状态', error, stack);
+      return true;
+    }
   }
   final result = await runBinaryProcessWithTimeout(
     '/bin/kill',
@@ -452,13 +458,17 @@ Future<_TrackedProcessLaunch> _startTrackedProcessInNewGroup(
   _trackedProcessGroups[process.pid] = process;
   _applyTrackedChildrenCleanupPhase(process);
   unawaited(
-    process.exitCode.then<void>(
-      (_) => _handleExitedProcessGroup(process),
-      onError: (Object error, StackTrace stack) {
-        silentLog('safe_subprocess', '监听进程组长退出', error, stack);
-        return _handleExitedProcessGroup(process);
-      },
-    ),
+    process.exitCode
+        .then<void>(
+          (_) => _handleExitedProcessGroup(process),
+          onError: (Object error, StackTrace stack) {
+            silentLog('safe_subprocess', '监听进程组长退出', error, stack);
+            return _handleExitedProcessGroup(process);
+          },
+        )
+        .catchError((Object error, StackTrace stack) {
+          silentLog('safe_subprocess', '清理退出进程组登记', error, stack);
+        }),
   );
   return _TrackedProcessLaunch(process: process, isProcessGroupLeader: true);
 }
@@ -1288,11 +1298,15 @@ Future<ProcessResult?> runProcessWithTimeout(
       unawaited(
         launchFuture.then<void>(
           (lateLaunch) async {
-            await _terminateTrackedProcessTree(
-              lateLaunch.process,
-              gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
-              knownProcessGroupLeader: lateLaunch.isProcessGroupLeader,
-            );
+            try {
+              await _terminateTrackedProcessTree(
+                lateLaunch.process,
+                gracefulTimeout: Duration(milliseconds: effectiveGracefulMs),
+                knownProcessGroupLeader: lateLaunch.isProcessGroupLeader,
+              );
+            } catch (error, stack) {
+              silentLog(tag, '终止延迟启动进程 $executable', error, stack);
+            }
           },
           onError: (Object error, StackTrace stack) {
             if (!_isMissingExecutableProcessException(error)) {
@@ -1742,10 +1756,16 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       notifyTimeout();
       unawaited(
         launchFuture.then<void>(
-          (lateProcess) => terminateTrackedProcessTree(
-            lateProcess,
-            gracefulTimeout: gracefulTerminationTimeout,
-          ),
+          (lateProcess) async {
+            try {
+              await terminateTrackedProcessTree(
+                lateProcess,
+                gracefulTimeout: gracefulTerminationTimeout,
+              );
+            } catch (error, stack) {
+              silentLog(tag, '终止延迟启动进程 $executable', error, stack);
+            }
+          },
           onError: (Object error, StackTrace stack) {
             if (!_isMissingExecutableProcessException(error)) {
               silentLog(tag, '延迟启动进程 $executable', error, stack);

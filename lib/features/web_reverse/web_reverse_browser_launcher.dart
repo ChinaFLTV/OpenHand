@@ -215,6 +215,7 @@ class WebReverseBrowserLauncher {
       process.exitCode.then<void>(
         (_) => processExited = true,
         onError: (Object error, StackTrace stack) {
+          processExited = true;
           silentLog('web_reverse_browser_launcher', '监听浏览器退出状态', error, stack);
         },
       ),

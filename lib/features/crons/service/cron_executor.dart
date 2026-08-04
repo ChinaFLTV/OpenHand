@@ -8,6 +8,7 @@ import '../../../app/model/cron_config.dart';
 import '../../../app/support/app_runtime_context.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/exponential_backoff.dart';
@@ -275,7 +276,14 @@ class CronExecutor {
           pid = process.pid;
           // 启动过程中发生的取消会在进程句柄就绪后立即终止进程树。
           cancellationToken.onCancel = () {
-            unawaited(terminateTrackedProcessTree(process));
+            unawaited(
+              terminateTrackedProcessTree(process).catchError((
+                Object error,
+                StackTrace stack,
+              ) {
+                silentLog('cron_executor', '取消定时任务进程', error, stack);
+              }),
+            );
           };
         },
         timeoutResultBuilder: (processId, stdout, stderr) {
