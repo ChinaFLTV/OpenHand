@@ -1423,7 +1423,10 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           OpenHandDialogActionButton.secondary(
             icon: Icons.refresh_rounded,
             onPressed: controller.isRunning && !_applying
-                ? controller.refreshServiceStatus
+                ? () async {
+                    await pluginController.rescan();
+                    await controller.refreshManagedDependencyStatus();
+                  }
                 : null,
             label: text(zh: '刷新 API 状态', en: 'Refresh API status'),
           ),

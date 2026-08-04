@@ -21,6 +21,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
+import 'dependency_data_dialog.dart';
 import 'service_dialog_controls.dart';
 
 const Duration _kOperationsRefreshInterval = Duration(seconds: 8);
@@ -91,7 +92,10 @@ class _OperationsDialogState extends State<_OperationsDialog> {
     int? bytes;
     DateTime? modifiedAt;
     try {
-      await controller.refreshServiceStatus();
+      await Future.wait<Object?>([
+        controller.refreshServiceStatus(),
+        controller.refreshDependencyDataOverview(),
+      ]);
       final path = controller.health?.databasePath.trim() ?? '';
       if (path.isNotEmpty) {
         try {
@@ -866,6 +870,8 @@ class _PipelinePanel extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 12),
+        _DependencyDataAccessPanel(controller: controller),
+        const SizedBox(height: 12),
         _OpsPanelGrid(
           children: [
             _TrendPanel(
@@ -1608,6 +1614,94 @@ class _NetworkPanel extends StatelessWidget {
   }
 }
 
+class _DependencyDataAccessPanel extends StatelessWidget {
+  const _DependencyDataAccessPanel({required this.controller});
+
+  final ServicesController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    final dependencies = controller.dependencyStatus;
+    final postgresqlReady = dependencies?.postgresql.connected == true;
+    final redisReady = dependencies?.redis.connected == true;
+    final overview = controller.dependencyDataOverview;
+    final postgresql = aiExposureJsonMap(overview['postgresql']);
+    final postgresqlTelemetry = aiExposureJsonMap(postgresql['telemetry']);
+    final redis = aiExposureJsonMap(overview['redis']);
+    return _Section(
+      title: '依赖数据服务',
+      icon: Icons.dns_rounded,
+      child: Column(
+        children: [
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            onTap: postgresqlReady
+                ? () => showAiExposureDependencyDataDialog(context)
+                : null,
+            leading: CircleAvatar(
+              backgroundColor:
+                  (postgresqlReady
+                          ? OpenHandStatusColors.success
+                          : Theme.of(context).colorScheme.outline)
+                      .withValues(alpha: 0.12),
+              child: const Icon(Icons.storage_rounded),
+            ),
+            title: const Text('PostgreSQL 数据与遥测'),
+            subtitle: Text(
+              postgresqlReady
+                  ? '${formatByteSize(_metricInt(postgresqlTelemetry['databaseSizeBytes']))} · ${_metricInt(postgresqlTelemetry['activeConnections'])} 个活跃连接'
+                  : dependencies?.postgresql.message ?? '未启用',
+            ),
+            trailing: _StatusPill(
+              icon: postgresqlReady
+                  ? Icons.check_rounded
+                  : Icons.link_off_rounded,
+              label: postgresqlReady ? '管理' : '未连接',
+              color: postgresqlReady
+                  ? OpenHandStatusColors.success
+                  : Theme.of(context).colorScheme.outline,
+            ),
+          ),
+          const Divider(height: 1),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            onTap: redisReady
+                ? () => showAiExposureDependencyDataDialog(
+                    context,
+                    initialView: DependencyDataView.redis,
+                  )
+                : null,
+            leading: CircleAvatar(
+              backgroundColor:
+                  (redisReady
+                          ? OpenHandStatusColors.success
+                          : Theme.of(context).colorScheme.outline)
+                      .withValues(alpha: 0.12),
+              child: const Icon(Icons.hub_rounded),
+            ),
+            title: const Text('Redis 键值与遥测'),
+            subtitle: Text(
+              redisReady
+                  ? '${formatByteSize(_metricInt(redis['usedMemoryBytes']))} · ${_metricInt(redis['operationsPerSecond'])} ops/s · ${_metricInt(redis['keyCount'])} 个键'
+                  : dependencies?.redis.message ?? '未启用',
+            ),
+            trailing: _StatusPill(
+              icon: redisReady ? Icons.check_rounded : Icons.link_off_rounded,
+              label: redisReady ? '管理' : '未连接',
+              color: redisReady
+                  ? OpenHandStatusColors.success
+                  : Theme.of(context).colorScheme.outline,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+int _metricInt(Object? value) =>
+    value is num ? value.toInt() : int.tryParse('${value ?? ''}') ?? 0;
+
 class _StoragePanel extends StatelessWidget {
   const _StoragePanel({
     required this.controller,
@@ -1775,6 +1869,8 @@ class _StoragePanel extends StatelessWidget {
             ),
           ],
         ),
+        const SizedBox(height: 12),
+        _DependencyDataAccessPanel(controller: controller),
         const SizedBox(height: 12),
         _OpsPanelGrid(
           children: [
@@ -2016,12 +2112,14 @@ class _SecurityPanel extends StatelessWidget {
     for (final rule in enabledRules) {
       vendorCounts.update(rule.vendor, (value) => value + 1, ifAbsent: () => 1);
     }
-    final dependencyReady = <bool>[
+    final dependencyReadyStates = <bool>[
       controller.isRunning,
       dependencies?.postgresql.connected == true,
       dependencies?.redis.connected == true,
+      dependencies?.playwright.connected == true,
       controller.aiExtractorStatus?.configured == true,
-    ].where((item) => item).length;
+    ];
+    final dependencyReady = dependencyReadyStates.where((item) => item).length;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
@@ -2080,8 +2178,8 @@ class _SecurityPanel extends StatelessWidget {
             _Metric(
               Icons.hub_outlined,
               '依赖就绪',
-              '$dependencyReady/4',
-              '核心 / PostgreSQL / Redis / GPT',
+              '$dependencyReady/${dependencyReadyStates.length}',
+              '核心 / PostgreSQL / Redis / Playwright / GPT',
               color: dependencyReady >= 1
                   ? OpenHandStatusColors.success
                   : OpenHandStatusColors.warning,
@@ -7174,6 +7272,7 @@ Widget _buildStorageMetricInsight(
           ],
         ),
         _dependencyInsightPanel(context, controller, only: label),
+        _DependencyDataAccessPanel(controller: controller),
       ]);
     case 'Redis 协调':
       final status = dependencies?.redis;
@@ -7203,6 +7302,7 @@ Widget _buildStorageMetricInsight(
           ],
         ),
         _dependencyInsightPanel(context, controller, only: label),
+        _DependencyDataAccessPanel(controller: controller),
       ]);
     case '凭证加密':
       final protected = results
@@ -7712,6 +7812,7 @@ Widget _buildSecurityMetricInsight(
               .toList(growable: false),
           emptyLabel: '暂无运行依赖状态。',
         ),
+        _DependencyDataAccessPanel(controller: controller),
       ]);
   }
   return const _InsightEmpty(label: '暂无该指标的安全运维数据。');

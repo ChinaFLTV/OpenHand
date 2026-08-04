@@ -12,7 +12,8 @@ use futures::StreamExt;
 use hunt_core::{ScanRequest, ScanRule};
 use hunt_engine::{
     AiExtractorInput, DependencyConfigurationInput, EngineError, EngineEvent, HuntEngine,
-    ProxyConfigurationInput, SourceCredentialInput,
+    PostgresQueryInput, PostgresRowMutationInput, ProxyConfigurationInput, RedisRecordInput,
+    SourceCredentialInput,
 };
 use hunt_store::HuntStore;
 use secrecy::{ExposeSecret, SecretString};
@@ -72,6 +73,26 @@ struct ListQuery {
     job_id: Option<Uuid>,
 }
 
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct PostgresPageQuery {
+    limit: Option<u32>,
+    offset: Option<u32>,
+}
+
+#[derive(Deserialize)]
+#[serde(rename_all = "camelCase")]
+struct RedisPageQuery {
+    cursor: Option<u64>,
+    search: Option<String>,
+    limit: Option<u32>,
+}
+
+#[derive(Deserialize)]
+struct RedisDeleteInput {
+    key: String,
+}
+
 #[derive(Debug)]
 struct ApiError {
     status: StatusCode,
@@ -107,7 +128,8 @@ impl From<EngineError> for ApiError {
             | EngineError::AiExtractorNotConfigured
             | EngineError::InvalidAiExtractor(_)
             | EngineError::InvalidProxy(_)
-            | EngineError::InvalidDependency(_) => StatusCode::BAD_REQUEST,
+            | EngineError::InvalidDependency(_)
+            | EngineError::DependencyData(_) => StatusCode::BAD_REQUEST,
             EngineError::Other(_) => StatusCode::INTERNAL_SERVER_ERROR,
         };
         Self {
@@ -193,6 +215,21 @@ fn routes(state: AppState) -> Router {
             get(dependency_status)
                 .put(update_dependencies)
                 .delete(clear_dependencies),
+        )
+        .route("/v1/dependencies/data", get(dependency_data_overview))
+        .route("/v1/dependencies/postgresql/query", post(query_postgresql))
+        .route(
+            "/v1/dependencies/postgresql/{table}",
+            get(postgresql_rows)
+                .post(insert_postgresql_row)
+                .put(update_postgresql_row)
+                .delete(delete_postgresql_row),
+        )
+        .route(
+            "/v1/dependencies/redis",
+            get(redis_records)
+                .put(put_redis_record)
+                .delete(delete_redis_record),
         )
         .with_state(state)
 }
@@ -418,6 +455,92 @@ async fn update_dependencies(
 async fn clear_dependencies(State(state): State<AppState>) -> StatusCode {
     state.engine.clear_dependencies().await;
     StatusCode::NO_CONTENT
+}
+
+async fn dependency_data_overview(State(state): State<AppState>) -> Json<serde_json::Value> {
+    Json(state.engine.dependency_data_overview().await)
+}
+
+async fn postgresql_rows(
+    State(state): State<AppState>,
+    Path(table): Path<String>,
+    Query(query): Query<PostgresPageQuery>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    Ok(Json(
+        state
+            .engine
+            .postgresql_rows(&table, query.limit.unwrap_or(50), query.offset.unwrap_or(0))
+            .await?,
+    ))
+}
+
+async fn insert_postgresql_row(
+    State(state): State<AppState>,
+    Path(table): Path<String>,
+    Json(input): Json<PostgresRowMutationInput>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    Ok(Json(
+        state.engine.insert_postgresql_row(&table, input).await?,
+    ))
+}
+
+async fn update_postgresql_row(
+    State(state): State<AppState>,
+    Path(table): Path<String>,
+    Json(input): Json<PostgresRowMutationInput>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    Ok(Json(serde_json::json!({
+        "row": state.engine.update_postgresql_row(&table, input).await?
+    })))
+}
+
+async fn delete_postgresql_row(
+    State(state): State<AppState>,
+    Path(table): Path<String>,
+    Json(input): Json<PostgresRowMutationInput>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    Ok(Json(serde_json::json!({
+        "row": state.engine.delete_postgresql_row(&table, input).await?
+    })))
+}
+
+async fn query_postgresql(
+    State(state): State<AppState>,
+    Json(input): Json<PostgresQueryInput>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    Ok(Json(state.engine.query_postgresql(input).await?))
+}
+
+async fn redis_records(
+    State(state): State<AppState>,
+    Query(query): Query<RedisPageQuery>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    Ok(Json(
+        state
+            .engine
+            .redis_records(
+                query.cursor.unwrap_or(0),
+                query.search.as_deref().unwrap_or_default(),
+                query.limit.unwrap_or(50),
+            )
+            .await?,
+    ))
+}
+
+async fn put_redis_record(
+    State(state): State<AppState>,
+    Json(input): Json<RedisRecordInput>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    Ok(Json(state.engine.put_redis_record(input).await?))
+}
+
+async fn delete_redis_record(
+    State(state): State<AppState>,
+    Json(input): Json<RedisDeleteInput>,
+) -> Result<Json<serde_json::Value>, ApiError> {
+    Ok(Json(serde_json::json!({
+        "deleted": state.engine.delete_redis_record(&input.key).await?
+    })))
 }
 
 fn event_to_sse(event: EngineEvent) -> Event {

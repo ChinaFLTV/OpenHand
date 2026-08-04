@@ -1,5 +1,6 @@
 use chrono::Utc;
 use hunt_core::{ScanLogEntry, ScanProgress, ScanRequest, ScanResult, ScanStage};
+use serde_json::{Map, Value, json};
 use sqlx_core::{query::query, query_scalar::query_scalar, raw_sql::raw_sql};
 use sqlx_postgres::{PgPool, PgPoolOptions, Postgres};
 use std::{
@@ -13,6 +14,40 @@ use std::{
 use uuid::Uuid;
 
 const CONNECT_TIMEOUT: Duration = Duration::from_secs(5);
+const MAX_PAGE_SIZE: u32 = 200;
+const MAX_QUERY_CHARS: usize = 20_000;
+const MAX_QUERY_ROWS: u32 = 500;
+const SENSITIVE_COLUMNS: &[&str] = &["encrypted_credential", "credential_fingerprint"];
+
+#[derive(Clone, Copy)]
+struct ManagedTable {
+    name: &'static str,
+    primary_keys: &'static [&'static str],
+    order_by: &'static str,
+}
+
+const MANAGED_TABLES: &[ManagedTable] = &[
+    ManagedTable {
+        name: "hunt_jobs",
+        primary_keys: &["id"],
+        order_by: "created_at",
+    },
+    ManagedTable {
+        name: "hunt_results",
+        primary_keys: &["id"],
+        order_by: "created_at",
+    },
+    ManagedTable {
+        name: "hunt_job_logs",
+        primary_keys: &["id"],
+        order_by: "id",
+    },
+    ManagedTable {
+        name: "hunt_scanned_targets",
+        primary_keys: &["url"],
+        order_by: "last_scanned_at",
+    },
+];
 
 #[derive(Clone)]
 pub(crate) struct PostgresMirror {
@@ -88,6 +123,269 @@ impl PostgresMirror {
         let result = query("SELECT 1").execute(&self.pool).await.map(|_| ());
         self.available.store(result.is_ok(), Ordering::Relaxed);
         result.map_err(Into::into)
+    }
+
+    pub(crate) async fn overview(&self) -> anyhow::Result<Value> {
+        let telemetry = query_scalar::<Postgres, Value>(
+            "SELECT jsonb_build_object(
+               'serverVersion', current_setting('server_version'),
+               'databaseSizeBytes', pg_database_size(current_database()),
+               'activeConnections', (
+                 SELECT COUNT(*) FROM pg_stat_activity
+                 WHERE datname = current_database() AND state = 'active'
+               ),
+               'maxConnections', current_setting('max_connections')::BIGINT,
+               'transactionsCommitted', xact_commit,
+               'transactionsRolledBack', xact_rollback,
+               'blocksRead', blks_read,
+               'blocksHit', blks_hit,
+               'temporaryBytes', temp_bytes,
+               'deadlocks', deadlocks
+             )
+             FROM pg_stat_database WHERE datname = current_database()",
+        )
+        .fetch_one(&self.pool)
+        .await?;
+        let mut tables = Vec::with_capacity(MANAGED_TABLES.len());
+        for table in MANAGED_TABLES {
+            let sql = format!(
+                "SELECT jsonb_build_object(
+                   'name', '{}',
+                   'rowCount', (SELECT COUNT(*) FROM {}),
+                   'totalBytes', pg_total_relation_size('public.{}'::regclass),
+                   'dataBytes', pg_relation_size('public.{}'::regclass)
+                 )",
+                table.name, table.name, table.name, table.name,
+            );
+            tables.push(
+                query_scalar::<Postgres, Value>(&sql)
+                    .fetch_one(&self.pool)
+                    .await?,
+            );
+        }
+        Ok(json!({
+            "connected": true,
+            "poolSize": self.pool.size(),
+            "idleConnections": self.pool.num_idle(),
+            "telemetry": telemetry,
+            "tables": tables,
+        }))
+    }
+
+    pub(crate) async fn rows(
+        &self,
+        table_name: &str,
+        limit: u32,
+        offset: u32,
+    ) -> anyhow::Result<Value> {
+        let table = managed_table(table_name)?;
+        let limit = limit.clamp(1, MAX_PAGE_SIZE);
+        let columns = query_scalar::<Postgres, Value>(
+            "SELECT COALESCE(jsonb_agg(jsonb_build_object(
+               'name', column_name,
+               'dataType', data_type,
+               'nullable', is_nullable = 'YES',
+               'defaultValue', column_default
+             ) ORDER BY ordinal_position), '[]'::jsonb)
+             FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = $1
+               AND column_name NOT IN ('encrypted_credential', 'credential_fingerprint')",
+        )
+        .bind(table.name)
+        .fetch_one(&self.pool)
+        .await?;
+        let total = query_scalar::<Postgres, i64>(&format!("SELECT COUNT(*) FROM {}", table.name))
+            .fetch_one(&self.pool)
+            .await?;
+        let rows = query_scalar::<Postgres, Value>(&format!(
+            "SELECT COALESCE(jsonb_agg(row_data), '[]'::jsonb) FROM (
+               SELECT to_jsonb(item) - 'encrypted_credential' - 'credential_fingerprint' AS row_data
+               FROM {} AS item ORDER BY {} DESC LIMIT $1 OFFSET $2
+             ) AS page",
+            table.name, table.order_by,
+        ))
+        .bind(i64::from(limit))
+        .bind(i64::from(offset))
+        .fetch_one(&self.pool)
+        .await?;
+        Ok(json!({
+            "table": table.name,
+            "primaryKeys": table.primary_keys,
+            "columns": columns,
+            "rows": rows,
+            "total": total,
+            "limit": limit,
+            "offset": offset,
+        }))
+    }
+
+    pub(crate) async fn insert_row(
+        &self,
+        table_name: &str,
+        values: Map<String, Value>,
+    ) -> anyhow::Result<Value> {
+        let table = managed_table(table_name)?;
+        let columns = self.mutable_columns(table, values.keys()).await?;
+        anyhow::ensure!(!columns.is_empty(), "至少填写一个可写字段");
+        let names = columns
+            .iter()
+            .map(|column| quote_identifier(column))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let sql = format!(
+            "WITH input AS (
+               SELECT * FROM jsonb_populate_record(NULL::{}, $1::jsonb)
+             )
+             INSERT INTO {} ({}) SELECT {} FROM input
+             RETURNING to_jsonb({})",
+            table.name, table.name, names, names, table.name,
+        );
+        let row = query_scalar::<Postgres, Value>(&sql)
+            .bind(Value::Object(values))
+            .fetch_one(&self.pool)
+            .await?;
+        Ok(sanitize_row(row))
+    }
+
+    pub(crate) async fn update_row(
+        &self,
+        table_name: &str,
+        keys: Map<String, Value>,
+        values: Map<String, Value>,
+    ) -> anyhow::Result<Option<Value>> {
+        let table = managed_table(table_name)?;
+        validate_primary_keys(table, &keys)?;
+        let columns = self.mutable_columns(table, values.keys()).await?;
+        let columns = columns
+            .into_iter()
+            .filter(|column| !table.primary_keys.contains(&column.as_str()))
+            .collect::<Vec<_>>();
+        anyhow::ensure!(!columns.is_empty(), "至少填写一个非主键字段");
+        let assignments = columns
+            .iter()
+            .map(|column| {
+                let identifier = quote_identifier(column);
+                format!("{identifier} = input.{identifier}")
+            })
+            .collect::<Vec<_>>()
+            .join(", ");
+        let predicates = table
+            .primary_keys
+            .iter()
+            .map(|column| {
+                let identifier = quote_identifier(column);
+                format!("target.{identifier} = keys.{identifier}")
+            })
+            .collect::<Vec<_>>()
+            .join(" AND ");
+        let sql = format!(
+            "WITH input AS (
+               SELECT * FROM jsonb_populate_record(NULL::{}, $1::jsonb)
+             ), keys AS (
+               SELECT * FROM jsonb_populate_record(NULL::{}, $2::jsonb)
+             )
+             UPDATE {} AS target SET {} FROM input, keys WHERE {}
+             RETURNING to_jsonb(target)",
+            table.name, table.name, table.name, assignments, predicates,
+        );
+        let row = query_scalar::<Postgres, Value>(&sql)
+            .bind(Value::Object(values))
+            .bind(Value::Object(keys))
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(row.map(sanitize_row))
+    }
+
+    pub(crate) async fn delete_row(
+        &self,
+        table_name: &str,
+        keys: Map<String, Value>,
+    ) -> anyhow::Result<Option<Value>> {
+        let table = managed_table(table_name)?;
+        validate_primary_keys(table, &keys)?;
+        let predicates = table
+            .primary_keys
+            .iter()
+            .map(|column| {
+                let identifier = quote_identifier(column);
+                format!("target.{identifier} = keys.{identifier}")
+            })
+            .collect::<Vec<_>>()
+            .join(" AND ");
+        let sql = format!(
+            "WITH keys AS (
+               SELECT * FROM jsonb_populate_record(NULL::{}, $1::jsonb)
+             )
+             DELETE FROM {} AS target USING keys WHERE {}
+             RETURNING to_jsonb(target)",
+            table.name, table.name, predicates,
+        );
+        let row = query_scalar::<Postgres, Value>(&sql)
+            .bind(Value::Object(keys))
+            .fetch_optional(&self.pool)
+            .await?;
+        Ok(row.map(sanitize_row))
+    }
+
+    pub(crate) async fn read_only_query(
+        &self,
+        statement: &str,
+        limit: u32,
+    ) -> anyhow::Result<Value> {
+        let statement = statement.trim().trim_end_matches(';').trim();
+        anyhow::ensure!(!statement.is_empty(), "查询不能为空");
+        anyhow::ensure!(statement.len() <= MAX_QUERY_CHARS, "查询内容过长");
+        anyhow::ensure!(!statement.contains(';'), "仅允许执行一条查询");
+        let normalized = statement.to_ascii_lowercase();
+        anyhow::ensure!(
+            normalized.starts_with("select ") || normalized.starts_with("with "),
+            "仅允许 SELECT 或 WITH 查询"
+        );
+        let limit = limit.clamp(1, MAX_QUERY_ROWS);
+        let sql = format!(
+            "SELECT COALESCE(jsonb_agg(to_jsonb(result)), '[]'::jsonb) FROM (
+               SELECT * FROM ({statement}) AS source_query LIMIT {limit}
+             ) AS result"
+        );
+        let mut transaction = self.pool.begin().await?;
+        query("SET TRANSACTION READ ONLY")
+            .execute(&mut *transaction)
+            .await?;
+        query("SET LOCAL statement_timeout = '5s'")
+            .execute(&mut *transaction)
+            .await?;
+        let rows = query_scalar::<Postgres, Value>(&sql)
+            .fetch_one(&mut *transaction)
+            .await?;
+        transaction.commit().await?;
+        Ok(json!({"rows": rows, "limit": limit}))
+    }
+
+    async fn mutable_columns<'a>(
+        &self,
+        table: ManagedTable,
+        requested: impl Iterator<Item = &'a String>,
+    ) -> anyhow::Result<Vec<String>> {
+        let available = query_scalar::<Postgres, String>(
+            "SELECT column_name FROM information_schema.columns
+             WHERE table_schema = 'public' AND table_name = $1",
+        )
+        .bind(table.name)
+        .fetch_all(&self.pool)
+        .await?
+        .into_iter()
+        .collect::<HashSet<_>>();
+        let mut columns = Vec::new();
+        for column in requested {
+            anyhow::ensure!(available.contains(column), "字段 {column} 不存在");
+            anyhow::ensure!(
+                !SENSITIVE_COLUMNS.contains(&column.as_str()),
+                "字段 {column} 受保护"
+            );
+            columns.push(column.clone());
+        }
+        columns.sort();
+        Ok(columns)
     }
 
     pub(crate) fn is_available(&self) -> bool {
@@ -293,6 +591,37 @@ impl PostgresMirror {
             .await?;
         Ok(())
     }
+}
+
+fn managed_table(name: &str) -> anyhow::Result<ManagedTable> {
+    MANAGED_TABLES
+        .iter()
+        .copied()
+        .find(|table| table.name == name.trim())
+        .ok_or_else(|| anyhow::anyhow!("不支持管理数据表：{}", name.trim()))
+}
+
+fn validate_primary_keys(table: ManagedTable, keys: &Map<String, Value>) -> anyhow::Result<()> {
+    for key in table.primary_keys {
+        anyhow::ensure!(
+            keys.get(*key).is_some_and(|value| !value.is_null()),
+            "缺少主键 {key}"
+        );
+    }
+    Ok(())
+}
+
+fn quote_identifier(value: &str) -> String {
+    format!("\"{}\"", value.replace('"', "\"\""))
+}
+
+fn sanitize_row(mut row: Value) -> Value {
+    if let Some(object) = row.as_object_mut() {
+        for column in SENSITIVE_COLUMNS {
+            object.remove(*column);
+        }
+    }
+    row
 }
 
 fn json_enum<T: serde::Serialize>(value: T) -> anyhow::Result<String> {

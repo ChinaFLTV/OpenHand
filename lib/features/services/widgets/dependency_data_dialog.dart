@@ -1,0 +1,1585 @@
+import 'dart:async';
+import 'dart:convert';
+
+import 'package:flutter/material.dart';
+import 'package:provider/provider.dart';
+
+import '../../../app/theme/openhand_status_colors.dart';
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_trailing_toolbar.dart';
+import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/localized_text.dart';
+import '../services_controller.dart';
+import 'service_dialog_controls.dart';
+
+const Duration _kTelemetryRefreshInterval = Duration(seconds: 8);
+const List<String> _kPostgresqlTables = <String>[
+  'hunt_jobs',
+  'hunt_results',
+  'hunt_job_logs',
+  'hunt_scanned_targets',
+];
+const Map<String, String> _kPostgresqlTableLabels = <String, String>{
+  'hunt_jobs': '扫描任务',
+  'hunt_results': '扫描结果',
+  'hunt_job_logs': '任务日志',
+  'hunt_scanned_targets': '增量目标',
+};
+const List<String> _kRedisTypes = <String>[
+  'string',
+  'json',
+  'hash',
+  'list',
+  'set',
+  'zset',
+];
+
+enum DependencyDataView { postgresql, redis }
+
+Future<void> showAiExposureDependencyDataDialog(
+  BuildContext context, {
+  DependencyDataView initialView = DependencyDataView.postgresql,
+}) => showAnimatedDialog<void>(
+  context: context,
+  builder: (_) => buildOpenHandDialog(
+    maxWidth: kOpenHandDialogWidthExtraWide,
+    maxHeight: kOpenHandDialogHeightTall,
+    child: ServiceDialogInteractionTheme(
+      child: _DependencyDataDialog(initialView: initialView),
+    ),
+  ),
+);
+
+class _DependencyDataDialog extends StatefulWidget {
+  const _DependencyDataDialog({required this.initialView});
+
+  final DependencyDataView initialView;
+
+  @override
+  State<_DependencyDataDialog> createState() => _DependencyDataDialogState();
+}
+
+class _DependencyDataDialogState extends State<_DependencyDataDialog> {
+  late DependencyDataView _view = widget.initialView;
+  final TextEditingController _redisSearch = TextEditingController();
+  final TextEditingController _query = TextEditingController(
+    text:
+        'SELECT id, name, stage, created_at FROM hunt_jobs ORDER BY created_at DESC',
+  );
+  Timer? _telemetryTimer;
+  String _table = _kPostgresqlTables.first;
+  Map<String, Object?> _postgresPage = const <String, Object?>{};
+  Map<String, Object?> _redisPage = const <String, Object?>{};
+  List<Object?> _queryRows = const <Object?>[];
+  final List<int> _redisCursorHistory = <int>[0];
+  int _postgresOffset = 0;
+  bool _loading = false;
+  bool _operating = false;
+  bool _queryVisible = false;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback(
+      (_) => _refresh(includeData: true),
+    );
+    _telemetryTimer = Timer.periodic(_kTelemetryRefreshInterval, (_) {
+      if (!mounted || _operating) return;
+      unawaited(
+        context.read<ServicesController>().refreshDependencyDataOverview(),
+      );
+    });
+  }
+
+  @override
+  void dispose() {
+    _telemetryTimer?.cancel();
+    _redisSearch.dispose();
+    _query.dispose();
+    super.dispose();
+  }
+
+  Future<void> _refresh({required bool includeData}) async {
+    if (_loading || !mounted) return;
+    setState(() => _loading = true);
+    final controller = context.read<ServicesController>();
+    try {
+      await controller.refreshDependencyDataOverview();
+      if (includeData) {
+        if (_view == DependencyDataView.postgresql &&
+            controller.dependencyStatus?.postgresql.connected == true) {
+          _postgresPage = await controller.loadPostgresqlRows(
+            _table,
+            offset: _postgresOffset,
+          );
+        } else if (_view == DependencyDataView.redis &&
+            controller.dependencyStatus?.redis.connected == true) {
+          _redisPage = await controller.loadRedisRecords(
+            cursor: _redisCursorHistory.last,
+            search: _redisSearch.text,
+          );
+        }
+      }
+    } catch (error) {
+      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
+  }
+
+  Future<void> _changeView(DependencyDataView view) async {
+    if (_view == view) return;
+    setState(() {
+      _view = view;
+      _queryVisible = false;
+    });
+    await _refresh(includeData: true);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<ServicesController>();
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final text = openHandTextResolver(context);
+    return Padding(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OpenHandResponsiveHeaderLayout(
+            compactBreakpoint: 720,
+            identity: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: colors.primary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.dns_rounded,
+                    color: colors.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text('依赖数据与遥测', style: theme.textTheme.titleLarge),
+                      Text(
+                        'PostgreSQL · Redis · ${_capturedAt(controller.dependencyDataOverview)}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: ServiceDialogIconActions(
+              children: [
+                ServiceDialogHeaderIconButton(
+                  tooltip: '刷新数据与遥测',
+                  onPressed: _loading
+                      ? null
+                      : () => _refresh(includeData: true),
+                  icon: _loading
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
+                ServiceDialogHeaderIconButton(
+                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          SegmentedButton<DependencyDataView>(
+            segments: const [
+              ButtonSegment(
+                value: DependencyDataView.postgresql,
+                icon: Icon(Icons.storage_rounded),
+                label: Text('PostgreSQL'),
+              ),
+              ButtonSegment(
+                value: DependencyDataView.redis,
+                icon: Icon(Icons.hub_rounded),
+                label: Text('Redis'),
+              ),
+            ],
+            selected: <DependencyDataView>{_view},
+            onSelectionChanged: _operating
+                ? null
+                : (selection) => _changeView(selection.first),
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 220),
+              ),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: SingleChildScrollView(
+                key: ValueKey<DependencyDataView>(_view),
+                physics: openHandDialogAwareScrollPhysics(context),
+                child: _view == DependencyDataView.postgresql
+                    ? _buildPostgresql(controller, text)
+                    : _buildRedis(controller, text),
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPostgresql(
+    ServicesController controller,
+    OpenHandLocalizedTextResolver text,
+  ) {
+    final connected = controller.dependencyStatus?.postgresql.connected == true;
+    final overview = _map(controller.dependencyDataOverview['postgresql']);
+    final telemetry = _map(overview['telemetry']);
+    final tables = _maps(overview['tables']);
+    final rows = _maps(_postgresPage['rows']);
+    final columns = _maps(_postgresPage['columns']);
+    final primaryKeys = _strings(_postgresPage['primaryKeys']);
+    final total = _integer(_postgresPage['total']);
+    final hitBlocks = _integer(telemetry['blocksHit']);
+    final readBlocks = _integer(telemetry['blocksRead']);
+    final hitRate = hitBlocks + readBlocks == 0
+        ? 0.0
+        : hitBlocks / (hitBlocks + readBlocks);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _TelemetryGrid(
+          children: [
+            _TelemetryTile(
+              icon: Icons.storage_rounded,
+              label: '数据库容量',
+              value: connected
+                  ? formatByteSize(_integer(telemetry['databaseSizeBytes']))
+                  : '--',
+              detail: '${telemetry['serverVersion'] ?? '未连接'}',
+              color: OpenHandStatusColors.success,
+            ),
+            _TelemetryTile(
+              icon: Icons.lan_outlined,
+              label: '活跃连接',
+              value:
+                  '${_integer(telemetry['activeConnections'])}/${_integer(telemetry['maxConnections'])}',
+              detail:
+                  '连接池 ${_integer(overview['poolSize'])} · 空闲 ${_integer(overview['idleConnections'])}',
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            _TelemetryTile(
+              icon: Icons.speed_rounded,
+              label: '缓存命中率',
+              value: '${(hitRate * 100).toStringAsFixed(1)}%',
+              detail: '命中 $hitBlocks · 读取 $readBlocks',
+              color: OpenHandStatusColors.info,
+            ),
+            _TelemetryTile(
+              icon: Icons.commit_rounded,
+              label: '事务提交',
+              value: '${_integer(telemetry['transactionsCommitted'])}',
+              detail:
+                  '回滚 ${_integer(telemetry['transactionsRolledBack'])} · 死锁 ${_integer(telemetry['deadlocks'])}',
+              color: Theme.of(context).colorScheme.tertiary,
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _DependencyNotice(
+          connected: connected,
+          message: controller.dependencyStatus?.postgresql.message ?? '未启用',
+        ),
+        if (connected) ...[
+          const SizedBox(height: 12),
+          _SurfaceSection(
+            title: '数据表与记录',
+            icon: Icons.table_rows_rounded,
+            trailing: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
+              children: [
+                SizedBox(
+                  width: 190,
+                  child: DropdownButtonFormField<String>(
+                    initialValue: _table,
+                    isExpanded: true,
+                    decoration: const InputDecoration(
+                      labelText: '数据表',
+                      border: OutlineInputBorder(),
+                      isDense: true,
+                    ),
+                    items: _kPostgresqlTables
+                        .map(
+                          (table) => DropdownMenuItem(
+                            value: table,
+                            child: Text(
+                              _kPostgresqlTableLabels[table] ?? table,
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                    onChanged: _operating
+                        ? null
+                        : (value) async {
+                            if (value == null) return;
+                            setState(() {
+                              _table = value;
+                              _postgresOffset = 0;
+                            });
+                            await _refresh(includeData: true);
+                          },
+                  ),
+                ),
+                IconButton.filledTonal(
+                  tooltip: '只读查询',
+                  onPressed: () =>
+                      setState(() => _queryVisible = !_queryVisible),
+                  icon: const Icon(Icons.terminal_rounded),
+                ),
+                FilledButton.icon(
+                  onPressed: _operating
+                      ? null
+                      : () => _editPostgresql(columns: columns),
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('新增记录'),
+                ),
+              ],
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                AnimatedSize(
+                  duration: openHandMotionDuration(
+                    context,
+                    const Duration(milliseconds: 220),
+                  ),
+                  curve: Curves.easeOutCubic,
+                  child: !_queryVisible
+                      ? const SizedBox.shrink()
+                      : Padding(
+                          padding: const EdgeInsets.only(bottom: 14),
+                          child: _QueryConsole(
+                            controller: _query,
+                            rows: _queryRows,
+                            busy: _operating,
+                            onRun: _runQuery,
+                          ),
+                        ),
+                ),
+                if (tables.isNotEmpty)
+                  Wrap(
+                    spacing: 8,
+                    runSpacing: 8,
+                    children: tables
+                        .map(
+                          (table) => _MiniMetric(
+                            label:
+                                _kPostgresqlTableLabels['${table['name']}'] ??
+                                '${table['name']}',
+                            value: '${_integer(table['rowCount'])} 条',
+                            helper: formatByteSize(
+                              _integer(table['totalBytes']),
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                if (tables.isNotEmpty) const SizedBox(height: 12),
+                if (rows.isEmpty)
+                  const _EmptyState(
+                    icon: Icons.inbox_outlined,
+                    label: '当前数据表暂无记录',
+                  )
+                else
+                  ...rows.map(
+                    (row) => _DataRecordTile(
+                      title: _postgresRowTitle(row, primaryKeys),
+                      subtitle: _postgresRowSubtitle(row, primaryKeys),
+                      tags: row.entries
+                          .where((entry) => !primaryKeys.contains(entry.key))
+                          .take(4)
+                          .map(
+                            (entry) =>
+                                '${entry.key}: ${_compactValue(entry.value)}',
+                          )
+                          .toList(growable: false),
+                      onEdit: _operating
+                          ? null
+                          : () => _editPostgresql(
+                              columns: columns,
+                              row: row,
+                              primaryKeys: primaryKeys,
+                            ),
+                      onDelete: _operating
+                          ? null
+                          : () => _deletePostgresql(row, primaryKeys),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text('共 $total 条'),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: '上一页',
+                      onPressed: _postgresOffset <= 0 || _operating
+                          ? null
+                          : () {
+                              setState(() => _postgresOffset -= 50);
+                              _refresh(includeData: true);
+                            },
+                      icon: const Icon(Icons.chevron_left_rounded),
+                    ),
+                    Text('${_postgresOffset ~/ 50 + 1}'),
+                    IconButton(
+                      tooltip: '下一页',
+                      onPressed:
+                          _postgresOffset + rows.length >= total ||
+                              rows.isEmpty ||
+                              _operating
+                          ? null
+                          : () {
+                              setState(() => _postgresOffset += 50);
+                              _refresh(includeData: true);
+                            },
+                      icon: const Icon(Icons.chevron_right_rounded),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Widget _buildRedis(
+    ServicesController controller,
+    OpenHandLocalizedTextResolver text,
+  ) {
+    final connected = controller.dependencyStatus?.redis.connected == true;
+    final overview = _map(controller.dependencyDataOverview['redis']);
+    final records = _maps(_redisPage['records']);
+    final nextCursor = _integer(_redisPage['nextCursor']);
+    final hitRate = _number(overview['hitRate']);
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _TelemetryGrid(
+          children: [
+            _TelemetryTile(
+              icon: Icons.memory_rounded,
+              label: '内存占用',
+              value: connected
+                  ? formatByteSize(_integer(overview['usedMemoryBytes']))
+                  : '--',
+              detail:
+                  '峰值 ${formatByteSize(_integer(overview['peakMemoryBytes']))} · 碎片 ${_number(overview['memoryFragmentationRatio']).toStringAsFixed(2)}',
+              color: OpenHandStatusColors.success,
+            ),
+            _TelemetryTile(
+              icon: Icons.key_rounded,
+              label: '键空间',
+              value: '${_integer(overview['keyCount'])}',
+              detail:
+                  '过期 ${_integer(overview['expiredKeys'])} · 驱逐 ${_integer(overview['evictedKeys'])}',
+              color: Theme.of(context).colorScheme.primary,
+            ),
+            _TelemetryTile(
+              icon: Icons.speed_rounded,
+              label: '实时吞吐',
+              value: '${_integer(overview['operationsPerSecond'])} ops/s',
+              detail: '累计 ${_integer(overview['totalCommands'])} 条命令',
+              color: OpenHandStatusColors.info,
+            ),
+            _TelemetryTile(
+              icon: Icons.track_changes_rounded,
+              label: '缓存命中率',
+              value: '${(hitRate * 100).toStringAsFixed(1)}%',
+              detail:
+                  '命中 ${_integer(overview['keyspaceHits'])} · 未命中 ${_integer(overview['keyspaceMisses'])}',
+              color: Theme.of(context).colorScheme.tertiary,
+            ),
+            _TelemetryTile(
+              icon: Icons.group_outlined,
+              label: '客户端',
+              value: '${_integer(overview['connectedClients'])}',
+              detail: '阻塞 ${_integer(overview['blockedClients'])}',
+              color: Theme.of(context).colorScheme.secondary,
+            ),
+            _TelemetryTile(
+              icon: Icons.swap_vert_circle_outlined,
+              label: '网络流量',
+              value: formatByteSize(
+                _integer(overview['networkInputBytes']) +
+                    _integer(overview['networkOutputBytes']),
+              ),
+              detail:
+                  '入 ${formatByteSize(_integer(overview['networkInputBytes']))} · 出 ${formatByteSize(_integer(overview['networkOutputBytes']))}',
+              color: const Color(0xff0f766e),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        _DependencyNotice(
+          connected: connected,
+          message: controller.dependencyStatus?.redis.message ?? '未启用',
+        ),
+        if (connected) ...[
+          const SizedBox(height: 12),
+          _SurfaceSection(
+            title: '键值与 TTL',
+            icon: Icons.key_rounded,
+            trailing: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              alignment: WrapAlignment.end,
+              children: [
+                SizedBox(
+                  width: 220,
+                  child: TextField(
+                    controller: _redisSearch,
+                    textInputAction: TextInputAction.search,
+                    onSubmitted: (_) => _searchRedis(),
+                    decoration: InputDecoration(
+                      labelText: '搜索键',
+                      border: const OutlineInputBorder(),
+                      isDense: true,
+                      suffixIcon: IconButton(
+                        tooltip: '搜索',
+                        onPressed: _searchRedis,
+                        icon: const Icon(Icons.search_rounded),
+                      ),
+                    ),
+                  ),
+                ),
+                FilledButton.icon(
+                  onPressed: _operating ? null : _editRedis,
+                  icon: const Icon(Icons.add_rounded),
+                  label: const Text('新增键'),
+                ),
+              ],
+            ),
+            child: Column(
+              children: [
+                if (records.isEmpty)
+                  const _EmptyState(
+                    icon: Icons.key_off_outlined,
+                    label: '当前命名空间暂无键',
+                  )
+                else
+                  ...records.map(
+                    (record) => _DataRecordTile(
+                      title: '${record['key'] ?? '--'}',
+                      subtitle:
+                          '${record['type'] ?? 'none'} · ${_ttlText(_integer(record['ttlSeconds']))} · ${formatByteSize(_integer(record['sizeBytes']))}',
+                      tags: [
+                        if (record['protected'] == true) '运行数据 · 只读',
+                        _compactValue(record['value'], maxChars: 180),
+                      ],
+                      onEdit: record['protected'] == true || _operating
+                          ? null
+                          : () => _editRedis(record: record),
+                      onDelete: record['protected'] == true || _operating
+                          ? null
+                          : () => _deleteRedis('${record['key']}'),
+                    ),
+                  ),
+                const SizedBox(height: 8),
+                Row(
+                  children: [
+                    Text('游标 ${_redisCursorHistory.last}'),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: '上一页',
+                      onPressed: _redisCursorHistory.length <= 1 || _operating
+                          ? null
+                          : () {
+                              setState(() => _redisCursorHistory.removeLast());
+                              _refresh(includeData: true);
+                            },
+                      icon: const Icon(Icons.chevron_left_rounded),
+                    ),
+                    IconButton(
+                      tooltip: '下一页',
+                      onPressed: nextCursor == 0 || _operating
+                          ? null
+                          : () {
+                              setState(
+                                () => _redisCursorHistory.add(nextCursor),
+                              );
+                              _refresh(includeData: true);
+                            },
+                      icon: const Icon(Icons.chevron_right_rounded),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      ],
+    );
+  }
+
+  Future<void> _editPostgresql({
+    required List<Map<String, Object?>> columns,
+    Map<String, Object?>? row,
+    List<String> primaryKeys = const <String>[],
+  }) async {
+    final values = await _showJsonEditor(
+      context,
+      title: row == null ? '新增 PostgreSQL 记录' : '编辑 PostgreSQL 记录',
+      initial: row ?? const <String, Object?>{},
+      columns: columns,
+    );
+    if (values == null || !mounted) return;
+    setState(() => _operating = true);
+    try {
+      final controller = context.read<ServicesController>();
+      if (row == null) {
+        await controller.insertPostgresqlRow(_table, values);
+      } else {
+        final keys = <String, Object?>{
+          for (final key in primaryKeys) key: row[key],
+        };
+        final editable = Map<String, Object?>.of(values)
+          ..removeWhere((key, _) => primaryKeys.contains(key));
+        await controller.updatePostgresqlRow(
+          _table,
+          keys: keys,
+          values: editable,
+        );
+      }
+      if (mounted) showOpenHandSuccessSnack(context, 'PostgreSQL 记录已保存');
+      await _refresh(includeData: true);
+    } catch (error) {
+      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } finally {
+      if (mounted) setState(() => _operating = false);
+    }
+  }
+
+  Future<void> _deletePostgresql(
+    Map<String, Object?> row,
+    List<String> primaryKeys,
+  ) async {
+    final keys = <String, Object?>{
+      for (final key in primaryKeys) key: row[key],
+    };
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: '删除 PostgreSQL 记录？',
+      message: keys.entries
+          .map((entry) => '${entry.key}=${entry.value}')
+          .join(' · '),
+      confirmLabel: '删除',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _operating = true);
+    try {
+      await context.read<ServicesController>().deletePostgresqlRow(
+        _table,
+        keys,
+      );
+      if (mounted) showOpenHandSuccessSnack(context, 'PostgreSQL 记录已删除');
+      await _refresh(includeData: true);
+    } catch (error) {
+      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } finally {
+      if (mounted) setState(() => _operating = false);
+    }
+  }
+
+  Future<void> _runQuery() async {
+    if (_operating || _query.text.trim().isEmpty) return;
+    setState(() => _operating = true);
+    try {
+      final result = await context.read<ServicesController>().queryPostgresql(
+        _query.text,
+      );
+      if (mounted) {
+        setState(() => _queryRows = _list(result['rows']));
+        showOpenHandSuccessSnack(context, '查询完成 · ${_queryRows.length} 行');
+      }
+    } catch (error) {
+      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } finally {
+      if (mounted) setState(() => _operating = false);
+    }
+  }
+
+  Future<void> _searchRedis() async {
+    _redisCursorHistory
+      ..clear()
+      ..add(0);
+    await _refresh(includeData: true);
+  }
+
+  Future<void> _editRedis({Map<String, Object?>? record}) async {
+    final result = await showAnimatedDialog<_RedisEditorResult>(
+      context: context,
+      builder: (_) => buildOpenHandDialog(
+        maxWidth: kOpenHandDialogWidthCompact,
+        maxHeight: kOpenHandDialogHeightTall,
+        child: ServiceDialogInteractionTheme(
+          child: _RedisEditor(record: record),
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() => _operating = true);
+    try {
+      await context.read<ServicesController>().putRedisRecord(
+        key: result.key,
+        type: result.type,
+        value: result.value,
+        ttlSeconds: result.ttlSeconds,
+      );
+      if (mounted) showOpenHandSuccessSnack(context, 'Redis 键已保存');
+      await _refresh(includeData: true);
+    } catch (error) {
+      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } finally {
+      if (mounted) setState(() => _operating = false);
+    }
+  }
+
+  Future<void> _deleteRedis(String key) async {
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: '删除 Redis 键？',
+      message: key,
+      confirmLabel: '删除',
+      destructive: true,
+    );
+    if (!confirmed || !mounted) return;
+    setState(() => _operating = true);
+    try {
+      await context.read<ServicesController>().deleteRedisRecord(key);
+      if (mounted) showOpenHandSuccessSnack(context, 'Redis 键已删除');
+      await _refresh(includeData: true);
+    } catch (error) {
+      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } finally {
+      if (mounted) setState(() => _operating = false);
+    }
+  }
+}
+
+class _TelemetryGrid extends StatelessWidget {
+  const _TelemetryGrid({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final columns = constraints.maxWidth >= 1080
+          ? 4
+          : constraints.maxWidth >= 720
+          ? 3
+          : constraints.maxWidth >= 460
+          ? 2
+          : 1;
+      final width = (constraints.maxWidth - (columns - 1) * 10) / columns;
+      return Wrap(
+        spacing: 10,
+        runSpacing: 10,
+        children: children
+            .map((child) => SizedBox(width: width, child: child))
+            .toList(),
+      );
+    },
+  );
+}
+
+class _TelemetryTile extends StatelessWidget {
+  const _TelemetryTile({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.detail,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String detail;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      constraints: const BoxConstraints(minHeight: 112),
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: color),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  label,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelLarge,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          Text(
+            value,
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.titleLarge?.copyWith(
+              fontWeight: FontWeight.w800,
+            ),
+          ),
+          const SizedBox(height: 3),
+          Text(
+            detail,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DependencyNotice extends StatelessWidget {
+  const _DependencyNotice({required this.connected, required this.message});
+
+  final bool connected;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final color = connected
+        ? OpenHandStatusColors.success
+        : OpenHandStatusColors.warning;
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.08),
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: color.withValues(alpha: 0.3)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            connected ? Icons.check_circle_rounded : Icons.link_off_rounded,
+            color: color,
+          ),
+          const SizedBox(width: 10),
+          Expanded(child: Text(message)),
+          Text(
+            connected ? '已就绪' : '未连接',
+            style: TextStyle(color: color, fontWeight: FontWeight.w700),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _SurfaceSection extends StatelessWidget {
+  const _SurfaceSection({
+    required this.title,
+    required this.icon,
+    required this.trailing,
+    required this.child,
+  });
+
+  final String title;
+  final IconData icon;
+  final Widget trailing;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(16),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          LayoutBuilder(
+            builder: (context, constraints) => constraints.maxWidth < 680
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(icon),
+                          const SizedBox(width: 8),
+                          Text(title, style: theme.textTheme.titleMedium),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      trailing,
+                    ],
+                  )
+                : Row(
+                    children: [
+                      Icon(icon),
+                      const SizedBox(width: 8),
+                      Text(title, style: theme.textTheme.titleMedium),
+                      const Spacer(),
+                      Flexible(child: trailing),
+                    ],
+                  ),
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _MiniMetric extends StatelessWidget {
+  const _MiniMetric({
+    required this.label,
+    required this.value,
+    required this.helper,
+  });
+
+  final String label;
+  final String value;
+  final String helper;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    constraints: const BoxConstraints(minWidth: 150),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+    decoration: BoxDecoration(
+      color: Theme.of(context).colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(8),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Text(label, style: Theme.of(context).textTheme.labelMedium),
+        Text('$value · $helper', style: Theme.of(context).textTheme.bodySmall),
+      ],
+    ),
+  );
+}
+
+class _DataRecordTile extends StatelessWidget {
+  const _DataRecordTile({
+    required this.title,
+    required this.subtitle,
+    required this.tags,
+    required this.onEdit,
+    required this.onDelete,
+  });
+
+  final String title;
+  final String subtitle;
+  final List<String> tags;
+  final VoidCallback? onEdit;
+  final VoidCallback? onDelete;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 36,
+            height: 36,
+            decoration: BoxDecoration(
+              color: colors.primary.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(
+              Icons.data_object_rounded,
+              size: 19,
+              color: colors.primary,
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                SelectableText(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  subtitle,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+                if (tags.isNotEmpty) ...[
+                  const SizedBox(height: 7),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: tags
+                        .where((tag) => tag.isNotEmpty)
+                        .map(
+                          (tag) => Container(
+                            constraints: const BoxConstraints(maxWidth: 360),
+                            padding: const EdgeInsets.symmetric(
+                              horizontal: 8,
+                              vertical: 4,
+                            ),
+                            decoration: BoxDecoration(
+                              color: colors.surfaceContainerHighest,
+                              borderRadius: BorderRadius.circular(6),
+                            ),
+                            child: Text(
+                              tag,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelSmall,
+                            ),
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ],
+              ],
+            ),
+          ),
+          const SizedBox(width: 8),
+          ServiceDialogIconActions(
+            children: [
+              IconButton.filledTonal(
+                tooltip: '编辑',
+                onPressed: onEdit,
+                icon: const Icon(Icons.edit_outlined, size: 19),
+              ),
+              IconButton.filledTonal(
+                tooltip: '删除',
+                onPressed: onDelete,
+                icon: Icon(
+                  Icons.delete_outline_rounded,
+                  size: 19,
+                  color: onDelete == null ? null : OpenHandStatusColors.error,
+                ),
+              ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _QueryConsole extends StatelessWidget {
+  const _QueryConsole({
+    required this.controller,
+    required this.rows,
+    required this.busy,
+    required this.onRun,
+  });
+
+  final TextEditingController controller;
+  final List<Object?> rows;
+  final bool busy;
+  final VoidCallback onRun;
+
+  @override
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.all(12),
+    decoration: BoxDecoration(
+      color: const Color(0xff0b0e12),
+      borderRadius: BorderRadius.circular(8),
+      border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
+    ),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        TextField(
+          controller: controller,
+          minLines: 3,
+          maxLines: 8,
+          style: const TextStyle(
+            color: Color(0xffe5e7eb),
+            fontFamily: 'monospace',
+          ),
+          decoration: const InputDecoration(
+            labelText: '只读 SQL',
+            labelStyle: TextStyle(color: Color(0xff9ca3af)),
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 8),
+        Align(
+          alignment: AlignmentDirectional.centerEnd,
+          child: FilledButton.icon(
+            onPressed: busy ? null : onRun,
+            icon: const Icon(Icons.play_arrow_rounded),
+            label: const Text('执行查询'),
+          ),
+        ),
+        if (rows.isNotEmpty) ...[
+          const SizedBox(height: 10),
+          ConstrainedBox(
+            constraints: const BoxConstraints(maxHeight: 280),
+            child: SingleChildScrollView(
+              child: SelectableText(
+                const JsonEncoder.withIndent('  ').convert(rows),
+                style: const TextStyle(
+                  color: Color(0xffd1d5db),
+                  fontFamily: 'monospace',
+                  fontSize: 12,
+                ),
+              ),
+            ),
+          ),
+        ],
+      ],
+    ),
+  );
+}
+
+class _EmptyState extends StatelessWidget {
+  const _EmptyState({required this.icon, required this.label});
+
+  final IconData icon;
+  final String label;
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 30),
+    child: Column(
+      children: [
+        Icon(icon, size: 32, color: Theme.of(context).colorScheme.outline),
+        const SizedBox(height: 8),
+        Text(label),
+      ],
+    ),
+  );
+}
+
+class _RedisEditorResult {
+  const _RedisEditorResult({
+    required this.key,
+    required this.type,
+    required this.value,
+    required this.ttlSeconds,
+  });
+
+  final String key;
+  final String type;
+  final Object? value;
+  final int? ttlSeconds;
+}
+
+class _RedisEditor extends StatefulWidget {
+  const _RedisEditor({this.record});
+
+  final Map<String, Object?>? record;
+
+  @override
+  State<_RedisEditor> createState() => _RedisEditorState();
+}
+
+class _RedisEditorState extends State<_RedisEditor> {
+  late final TextEditingController _key = TextEditingController(
+    text: '${widget.record?['key'] ?? 'openhand:custom:'}',
+  );
+  late final TextEditingController _ttl = TextEditingController(
+    text: _initialTtl(),
+  );
+  late final TextEditingController _value = TextEditingController(
+    text: _initialValue(),
+  );
+  late String _type = '${widget.record?['type'] ?? 'string'}';
+  String? _error;
+
+  String _initialTtl() {
+    final ttl = _integer(widget.record?['ttlSeconds']);
+    return ttl > 0 ? '$ttl' : '-1';
+  }
+
+  String _initialValue() {
+    final value = widget.record?['value'];
+    if (value == null) return '';
+    if ('${widget.record?['type']}' == 'string') return '$value';
+    return const JsonEncoder.withIndent('  ').convert(value);
+  }
+
+  @override
+  void dispose() {
+    _key.dispose();
+    _ttl.dispose();
+    _value.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(20),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.key_rounded),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                widget.record == null ? '新增 Redis 键' : '编辑 Redis 键',
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            ServiceDialogHeaderIconButton(
+              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        TextField(
+          controller: _key,
+          readOnly: widget.record != null,
+          decoration: const InputDecoration(
+            labelText: '键',
+            border: OutlineInputBorder(),
+          ),
+        ),
+        const SizedBox(height: 12),
+        Row(
+          children: [
+            Expanded(
+              child: DropdownButtonFormField<String>(
+                initialValue: _kRedisTypes.contains(_type) ? _type : 'string',
+                decoration: const InputDecoration(
+                  labelText: '类型',
+                  border: OutlineInputBorder(),
+                ),
+                items: _kRedisTypes
+                    .map(
+                      (type) =>
+                          DropdownMenuItem(value: type, child: Text(type)),
+                    )
+                    .toList(growable: false),
+                onChanged: (value) => setState(() => _type = value ?? 'string'),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: TextField(
+                controller: _ttl,
+                keyboardType: TextInputType.number,
+                decoration: const InputDecoration(
+                  labelText: 'TTL（秒）',
+                  border: OutlineInputBorder(),
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: TextField(
+            controller: _value,
+            expands: true,
+            maxLines: null,
+            textAlignVertical: TextAlignVertical.top,
+            style: const TextStyle(fontFamily: 'monospace'),
+            decoration: InputDecoration(
+              labelText: _type == 'string' ? '值' : 'JSON 值',
+              alignLabelWithHint: true,
+              border: const OutlineInputBorder(),
+              errorText: _error,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(context).maybePop(),
+              label: '取消',
+            ),
+            OpenHandDialogActionButton.primary(
+              icon: Icons.save_outlined,
+              onPressed: _submit,
+              label: '保存',
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  void _submit() {
+    try {
+      final ttl = int.tryParse(_ttl.text.trim());
+      if (_key.text.trim().isEmpty || ttl == null || (ttl != -1 && ttl <= 0)) {
+        throw const FormatException('键或 TTL 无效');
+      }
+      final Object? value = _type == 'string'
+          ? _value.text
+          : jsonDecode(_value.text);
+      Navigator.of(context).pop(
+        _RedisEditorResult(
+          key: _key.text.trim(),
+          type: _type,
+          value: value,
+          ttlSeconds: ttl,
+        ),
+      );
+    } on FormatException catch (error) {
+      setState(() => _error = error.message.isEmpty ? '值格式无效' : error.message);
+    }
+  }
+}
+
+Future<Map<String, Object?>?> _showJsonEditor(
+  BuildContext context, {
+  required String title,
+  required Map<String, Object?> initial,
+  required List<Map<String, Object?>> columns,
+}) => showAnimatedDialog<Map<String, Object?>>(
+  context: context,
+  builder: (_) => buildOpenHandDialog(
+    maxWidth: kOpenHandDialogWidthCompact,
+    maxHeight: kOpenHandDialogHeightTall,
+    child: ServiceDialogInteractionTheme(
+      child: _JsonEditor(title: title, initial: initial, columns: columns),
+    ),
+  ),
+);
+
+class _JsonEditor extends StatefulWidget {
+  const _JsonEditor({
+    required this.title,
+    required this.initial,
+    required this.columns,
+  });
+
+  final String title;
+  final Map<String, Object?> initial;
+  final List<Map<String, Object?>> columns;
+
+  @override
+  State<_JsonEditor> createState() => _JsonEditorState();
+}
+
+class _JsonEditorState extends State<_JsonEditor> {
+  late final TextEditingController _controller = TextEditingController(
+    text: const JsonEncoder.withIndent('  ').convert(widget.initial),
+  );
+  String? _error;
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => Padding(
+    padding: const EdgeInsets.all(20),
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            const Icon(Icons.data_object_rounded),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                widget.title,
+                style: Theme.of(context).textTheme.titleLarge,
+              ),
+            ),
+            ServiceDialogHeaderIconButton(
+              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+              onPressed: () => Navigator.of(context).maybePop(),
+              icon: const Icon(Icons.close_rounded),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Wrap(
+          spacing: 6,
+          runSpacing: 6,
+          children: widget.columns
+              .map(
+                (column) => Chip(
+                  label: Text('${column['name']} · ${column['dataType']}'),
+                ),
+              )
+              .toList(growable: false),
+        ),
+        const SizedBox(height: 12),
+        Expanded(
+          child: TextField(
+            controller: _controller,
+            expands: true,
+            maxLines: null,
+            textAlignVertical: TextAlignVertical.top,
+            style: const TextStyle(fontFamily: 'monospace'),
+            decoration: InputDecoration(
+              labelText: '记录 JSON',
+              alignLabelWithHint: true,
+              border: const OutlineInputBorder(),
+              errorText: _error,
+            ),
+          ),
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          alignment: WrapAlignment.end,
+          spacing: 10,
+          runSpacing: 8,
+          children: [
+            OpenHandDialogActionButton.secondary(
+              onPressed: () => Navigator.of(context).maybePop(),
+              label: '取消',
+            ),
+            OpenHandDialogActionButton.primary(
+              icon: Icons.save_outlined,
+              onPressed: _submit,
+              label: '保存',
+            ),
+          ],
+        ),
+      ],
+    ),
+  );
+
+  void _submit() {
+    try {
+      final decoded = jsonDecode(_controller.text);
+      if (decoded is! Map) throw const FormatException('记录必须是 JSON 对象');
+      Navigator.of(context).pop(<String, Object?>{
+        for (final entry in decoded.entries) '${entry.key}': entry.value,
+      });
+    } on FormatException catch (error) {
+      setState(
+        () => _error = error.message.isEmpty ? 'JSON 格式无效' : error.message,
+      );
+    }
+  }
+}
+
+Map<String, Object?> _map(Object? value) => value is Map
+    ? <String, Object?>{
+        for (final entry in value.entries) '${entry.key}': entry.value,
+      }
+    : const <String, Object?>{};
+
+List<Object?> _list(Object? value) => value is List ? value : const <Object?>[];
+
+List<Map<String, Object?>> _maps(Object? value) =>
+    _list(value).map(_map).toList(growable: false);
+
+List<String> _strings(Object? value) =>
+    _list(value).map((item) => '$item').toList(growable: false);
+
+int _integer(Object? value) =>
+    value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+
+double _number(Object? value) =>
+    value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
+
+String _capturedAt(Map<String, Object?> overview) {
+  final parsed = DateTime.tryParse(
+    '${overview['capturedAt'] ?? ''}',
+  )?.toLocal();
+  if (parsed == null) return '等待遥测';
+  return '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}:${parsed.second.toString().padLeft(2, '0')}';
+}
+
+String _postgresRowTitle(Map<String, Object?> row, List<String> primaryKeys) =>
+    primaryKeys.isEmpty
+    ? _compactValue(row)
+    : primaryKeys.map((key) => '$key=${_compactValue(row[key])}').join(' · ');
+
+String _postgresRowSubtitle(
+  Map<String, Object?> row,
+  List<String> primaryKeys,
+) => row.entries
+    .where((entry) => !primaryKeys.contains(entry.key))
+    .take(2)
+    .map((entry) => '${entry.key}=${_compactValue(entry.value)}')
+    .join(' · ');
+
+String _compactValue(Object? value, {int maxChars = 80}) {
+  final text = value is Map || value is List
+      ? jsonEncode(value)
+      : '${value ?? 'null'}';
+  return text.length <= maxChars ? text : '${text.substring(0, maxChars)}...';
+}
+
+String _ttlText(int seconds) => seconds < 0 ? '永久' : '${seconds}s';

@@ -12,6 +12,7 @@ use hunt_core::{
 };
 use postgres::PostgresMirror;
 use rusqlite::{Connection, OptionalExtension, params};
+use serde_json::{Map, Value};
 use std::{
     collections::HashSet,
     fs::{self, OpenOptions},
@@ -137,6 +138,84 @@ impl HuntStore {
                 message: "连接不可用".to_owned(),
             },
         }
+    }
+
+    pub async fn postgres_overview(&self) -> Result<Value, StoreError> {
+        let mirror = self
+            .postgres
+            .read()
+            .await
+            .clone()
+            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
+        Ok(postgres_operation(mirror.overview()).await?)
+    }
+
+    pub async fn postgres_rows(
+        &self,
+        table: &str,
+        limit: u32,
+        offset: u32,
+    ) -> Result<Value, StoreError> {
+        let mirror = self
+            .postgres
+            .read()
+            .await
+            .clone()
+            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
+        Ok(postgres_operation(mirror.rows(table, limit, offset)).await?)
+    }
+
+    pub async fn insert_postgres_row(
+        &self,
+        table: &str,
+        values: Map<String, Value>,
+    ) -> Result<Value, StoreError> {
+        let mirror = self
+            .postgres
+            .read()
+            .await
+            .clone()
+            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
+        Ok(postgres_operation(mirror.insert_row(table, values)).await?)
+    }
+
+    pub async fn update_postgres_row(
+        &self,
+        table: &str,
+        keys: Map<String, Value>,
+        values: Map<String, Value>,
+    ) -> Result<Option<Value>, StoreError> {
+        let mirror = self
+            .postgres
+            .read()
+            .await
+            .clone()
+            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
+        Ok(postgres_operation(mirror.update_row(table, keys, values)).await?)
+    }
+
+    pub async fn delete_postgres_row(
+        &self,
+        table: &str,
+        keys: Map<String, Value>,
+    ) -> Result<Option<Value>, StoreError> {
+        let mirror = self
+            .postgres
+            .read()
+            .await
+            .clone()
+            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
+        Ok(postgres_operation(mirror.delete_row(table, keys)).await?)
+    }
+
+    pub async fn query_postgres(&self, statement: &str, limit: u32) -> Result<Value, StoreError> {
+        let mirror = self
+            .postgres
+            .read()
+            .await
+            .clone()
+            .ok_or_else(|| StoreError::Other(anyhow::anyhow!("PostgreSQL 尚未启用")))?;
+        Ok(postgres_operation(mirror.read_only_query(statement, limit)).await?)
     }
 
     pub async fn create_job(

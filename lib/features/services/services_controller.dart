@@ -69,7 +69,8 @@ class ServicesController extends ChangeNotifier {
   final Duration _proxyInspectionFirstRunDelay;
   AiModelConfig? Function()? _selectedAiModelProvider;
   PluginServiceController? _pluginServiceController;
-  VoidCallback? _pluginOperationListener;
+  VoidCallback? _pluginStateListener;
+  String _managedDependencySignature = '';
   StreamSubscription<String>? _runtimeLogSubscription;
   StreamSubscription<int>? _runtimeExitSubscription;
   StreamSubscription<Map<String, Object?>>? _eventSubscription;
@@ -85,6 +86,7 @@ class ServicesController extends ChangeNotifier {
   List<AiExposureQuota> _quotas = const <AiExposureQuota>[];
   AiExposureAiExtractorStatus? _aiExtractorStatus;
   AiExposureDependencyStatus? _dependencyStatus;
+  Map<String, Object?> _dependencyDataOverview = const <String, Object?>{};
   AiExposureProxyStatus? _proxyStatus;
   Map<String, bool> _sourceStatus = const <String, bool>{};
   final Map<String, List<AiExposureLogEntry>> _historyLogs =
@@ -113,6 +115,9 @@ class ServicesController extends ChangeNotifier {
   final SerialTaskQueue _proxyRuntimeUpdateQueue = SerialTaskQueue(
     maxPendingTasks: 8,
   );
+  final SerialTaskQueue _managedDependencyUpdateQueue = SerialTaskQueue(
+    maxPendingTasks: 8,
+  );
   final List<AiExposureLogEntry> _logs = <AiExposureLogEntry>[];
   String? _errorMessage;
   bool _busy = false;
@@ -131,6 +136,8 @@ class ServicesController extends ChangeNotifier {
   List<AiExposureQuota> get quotas => _quotas;
   AiExposureAiExtractorStatus? get aiExtractorStatus => _aiExtractorStatus;
   AiExposureDependencyStatus? get dependencyStatus => _dependencyStatus;
+  Map<String, Object?> get dependencyDataOverview =>
+      Map<String, Object?>.unmodifiable(_dependencyDataOverview);
   AiExposureProxyStatus? get proxyStatus => _proxyStatus;
   AiExposureProxyConfiguration get proxyConfiguration => _proxyConfiguration;
   Map<String, bool> get sourceStatus => _sourceStatus;
@@ -274,22 +281,33 @@ class ServicesController extends ChangeNotifier {
   void attachPluginServiceController(PluginServiceController controller) {
     if (identical(_pluginServiceController, controller)) return;
     final previous = _pluginServiceController;
-    final listener = _pluginOperationListener;
+    final listener = _pluginStateListener;
     if (previous != null && listener != null) {
-      previous.operationSuccessSignal.removeListener(listener);
+      previous.removeListener(listener);
     }
     _pluginServiceController = controller;
-    _pluginOperationListener = _handlePluginOperationSuccess;
-    controller.operationSuccessSignal.addListener(_pluginOperationListener!);
+    _pluginStateListener = _handlePluginStateChange;
+    _managedDependencySignature = '';
+    controller.addListener(_pluginStateListener!);
+    _handlePluginStateChange();
   }
 
-  void _handlePluginOperationSuccess() {
-    final pluginId = _pluginServiceController?.lastSuccessfulPluginId;
-    if (_disposed ||
-        (pluginId != PluginCatalogIds.postgresql &&
-            pluginId != PluginCatalogIds.redis &&
-            pluginId != PluginCatalogIds.nodejs &&
-            pluginId != PluginCatalogIds.playwright)) {
+  void _handlePluginStateChange() {
+    final plugins = _pluginServiceController;
+    if (_disposed || plugins == null) return;
+    final signature = <String>[
+      for (final id in const <String>[
+        PluginCatalogIds.postgresql,
+        PluginCatalogIds.redis,
+        PluginCatalogIds.nodejs,
+        PluginCatalogIds.playwright,
+      ])
+        if (plugins.pluginById(id) case final plugin?)
+          '$id:${plugin.isInstalled}:${plugin.enabled}:${plugin.installPath ?? ''}:${plugin.metadata['installation_target'] ?? ''}:${plugin.metadata['data_directory'] ?? ''}',
+    ].join('|');
+    if (signature == _managedDependencySignature) return;
+    _managedDependencySignature = signature;
+    if (_client == null || _lifecycle == AiExposureServiceLifecycle.stopping) {
       return;
     }
     unawaited(_syncManagedDependencies());
@@ -385,6 +403,7 @@ class ServicesController extends ChangeNotifier {
       _proxyStatisticsTimer = null;
       await _syncProxyStatistics();
       await _cancelEventSubscription();
+      await _managedDependencyUpdateQueue.idle;
       await _proxyRuntimeUpdateQueue.idle;
       await _runtime.stop();
       _lifecycle = AiExposureServiceLifecycle.stopped;
@@ -392,6 +411,7 @@ class ServicesController extends ChangeNotifier {
       _progress = null;
       _aiExtractorStatus = null;
       _dependencyStatus = null;
+      _dependencyDataOverview = const <String, Object?>{};
       _proxyStatus = null;
       _errorMessage = null;
       _appendLog(
@@ -465,6 +485,122 @@ class ServicesController extends ChangeNotifier {
       }
       _notify();
     });
+  }
+
+  Future<void> refreshManagedDependencyStatus() async {
+    await _syncManagedDependencies();
+    await refreshServiceStatus();
+  }
+
+  Future<bool> refreshDependencyDataOverview() async {
+    try {
+      _dependencyDataOverview = await _requireClient().dependencyDataOverview();
+      _notify();
+      return true;
+    } catch (error, stack) {
+      silentLog('services_controller', '刷新依赖数据遥测', error, stack);
+      return false;
+    }
+  }
+
+  Future<Map<String, Object?>> loadPostgresqlRows(
+    String table, {
+    int limit = 50,
+    int offset = 0,
+  }) => _runDependencyDataOperation(
+    '读取 PostgreSQL 数据',
+    (client) => client.postgresqlRows(table, limit: limit, offset: offset),
+  );
+
+  Future<void> insertPostgresqlRow(
+    String table,
+    Map<String, Object?> values,
+  ) async {
+    await _runDependencyDataOperation(
+      '新增 PostgreSQL 记录',
+      (client) => client.insertPostgresqlRow(table, values),
+    );
+    await refreshDependencyDataOverview();
+  }
+
+  Future<void> updatePostgresqlRow(
+    String table, {
+    required Map<String, Object?> keys,
+    required Map<String, Object?> values,
+  }) async {
+    await _runDependencyDataOperation(
+      '更新 PostgreSQL 记录',
+      (client) => client.updatePostgresqlRow(table, keys: keys, values: values),
+    );
+    await refreshDependencyDataOverview();
+  }
+
+  Future<void> deletePostgresqlRow(
+    String table,
+    Map<String, Object?> keys,
+  ) async {
+    await _runDependencyDataOperation(
+      '删除 PostgreSQL 记录',
+      (client) => client.deletePostgresqlRow(table, keys),
+    );
+    await refreshDependencyDataOverview();
+  }
+
+  Future<Map<String, Object?>> queryPostgresql(String statement) =>
+      _runDependencyDataOperation(
+        '执行 PostgreSQL 只读查询',
+        (client) => client.queryPostgresql(statement),
+      );
+
+  Future<Map<String, Object?>> loadRedisRecords({
+    int cursor = 0,
+    String search = '',
+  }) => _runDependencyDataOperation(
+    '读取 Redis 数据',
+    (client) => client.redisRecords(cursor: cursor, search: search),
+  );
+
+  Future<void> putRedisRecord({
+    required String key,
+    required String type,
+    required Object? value,
+    required int? ttlSeconds,
+  }) async {
+    await _runDependencyDataOperation(
+      '保存 Redis 数据',
+      (client) => client.putRedisRecord(
+        key: key,
+        type: type,
+        value: value,
+        ttlSeconds: ttlSeconds,
+      ),
+    );
+    await refreshDependencyDataOverview();
+  }
+
+  Future<void> deleteRedisRecord(String key) async {
+    await _runDependencyDataOperation(
+      '删除 Redis 数据',
+      (client) => client.deleteRedisRecord(key),
+    );
+    await refreshDependencyDataOverview();
+  }
+
+  Future<T> _runDependencyDataOperation<T>(
+    String action,
+    Future<T> Function(AiJunglerClient client) operation,
+  ) async {
+    try {
+      final result = await operation(_requireClient());
+      _errorMessage = null;
+      _notify();
+      return result;
+    } catch (error, stack) {
+      _errorMessage = '$error';
+      silentLog('services_controller', action, error, stack);
+      _notify();
+      rethrow;
+    }
   }
 
   Future<bool> startScan(AiExposureScanRequest request) async {
@@ -1118,7 +1254,10 @@ class ServicesController extends ChangeNotifier {
     return false;
   }
 
-  Future<bool> _syncManagedDependencies() async {
+  Future<bool> _syncManagedDependencies() =>
+      _managedDependencyUpdateQueue.enqueue(_syncManagedDependenciesNow);
+
+  Future<bool> _syncManagedDependenciesNow() async {
     final client = _client;
     if (client == null) return true;
     final plugins = _pluginServiceController;
@@ -1412,6 +1551,7 @@ class ServicesController extends ChangeNotifier {
     _progress = null;
     _aiExtractorStatus = null;
     _dependencyStatus = null;
+    _dependencyDataOverview = const <String, Object?>{};
     if (exitCode != 0) _errorMessage = '扫描引擎异常退出：$exitCode。';
     _notify();
   }
@@ -1534,15 +1674,16 @@ class ServicesController extends ChangeNotifier {
     await _syncProxyStatistics();
     _disposed = true;
     final pluginController = _pluginServiceController;
-    final pluginListener = _pluginOperationListener;
+    final pluginListener = _pluginStateListener;
     if (pluginController != null && pluginListener != null) {
-      pluginController.operationSuccessSignal.removeListener(pluginListener);
+      pluginController.removeListener(pluginListener);
     }
     SystemProxyResolver.instance.revision.removeListener(
       _handleSystemProxyRevision,
     );
+    await _managedDependencyUpdateQueue.idle;
     await _proxyRuntimeUpdateQueue.idle;
-    _pluginOperationListener = null;
+    _pluginStateListener = null;
     _pluginServiceController = null;
     await _cancelEventSubscription();
     await Future.wait<bool>(<Future<bool>>[

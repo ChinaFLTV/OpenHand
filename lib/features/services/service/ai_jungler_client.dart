@@ -189,6 +189,88 @@ class AiJunglerClient {
     },
   );
 
+  Future<Map<String, Object?>> dependencyDataOverview() =>
+      _jsonRequest('GET', '/v1/dependencies/data');
+
+  Future<Map<String, Object?>> postgresqlRows(
+    String table, {
+    int limit = 50,
+    int offset = 0,
+  }) => _jsonRequest(
+    'GET',
+    '/v1/dependencies/postgresql/${Uri.encodeComponent(table)}?limit=$limit&offset=$offset',
+  );
+
+  Future<Map<String, Object?>> insertPostgresqlRow(
+    String table,
+    Map<String, Object?> values,
+  ) => _jsonRequest(
+    'POST',
+    '/v1/dependencies/postgresql/${Uri.encodeComponent(table)}',
+    body: <String, Object?>{'values': values},
+  );
+
+  Future<Map<String, Object?>> updatePostgresqlRow(
+    String table, {
+    required Map<String, Object?> keys,
+    required Map<String, Object?> values,
+  }) => _jsonRequest(
+    'PUT',
+    '/v1/dependencies/postgresql/${Uri.encodeComponent(table)}',
+    body: <String, Object?>{'keys': keys, 'values': values},
+  );
+
+  Future<Map<String, Object?>> deletePostgresqlRow(
+    String table,
+    Map<String, Object?> keys,
+  ) => _jsonRequest(
+    'DELETE',
+    '/v1/dependencies/postgresql/${Uri.encodeComponent(table)}',
+    body: <String, Object?>{'keys': keys},
+  );
+
+  Future<Map<String, Object?>> queryPostgresql(
+    String statement, {
+    int limit = 200,
+  }) => _jsonRequest(
+    'POST',
+    '/v1/dependencies/postgresql/query',
+    body: <String, Object?>{'statement': statement, 'limit': limit},
+  );
+
+  Future<Map<String, Object?>> redisRecords({
+    int cursor = 0,
+    String search = '',
+    int limit = 50,
+  }) => _jsonRequest(
+    'GET',
+    '/v1/dependencies/redis?cursor=$cursor&limit=$limit&search=${Uri.encodeQueryComponent(search)}',
+  );
+
+  Future<Map<String, Object?>> putRedisRecord({
+    required String key,
+    required String type,
+    required Object? value,
+    required int? ttlSeconds,
+  }) => _jsonRequest(
+    'PUT',
+    '/v1/dependencies/redis',
+    body: <String, Object?>{
+      'key': key,
+      'type': type,
+      'value': value,
+      'ttlSeconds': ttlSeconds,
+    },
+  );
+
+  Future<bool> deleteRedisRecord(String key) async =>
+      (await _jsonRequest(
+        'DELETE',
+        '/v1/dependencies/redis',
+        body: <String, Object?>{'key': key},
+      ))['deleted'] ==
+      true;
+
   Stream<Map<String, Object?>> events(String jobId) async* {
     final request = await _open('GET', _jobPath(jobId, suffix: '/events'));
     request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
