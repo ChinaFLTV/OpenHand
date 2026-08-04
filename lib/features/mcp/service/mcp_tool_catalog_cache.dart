@@ -109,6 +109,8 @@ class McpToolCatalogCacheService {
     });
   }
 
+  Future<void> flush() => _queue.idle;
+
   Future<Map<String, McpCachedToolCatalog>> _loadFromDisk() async {
     try {
       if (!_storageRecovered) {

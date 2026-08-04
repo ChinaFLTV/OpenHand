@@ -74,6 +74,8 @@ class McpServerOpsStore {
     return McpOpsPersistenceReport(bytes: bytes, itemCount: data.itemCount);
   }
 
+  Future<void> flush() => _writeQueue.idle;
+
   Future<T> _enqueueWrite<T>(Future<T> Function() task) {
     return _writeQueue.enqueue(task);
   }

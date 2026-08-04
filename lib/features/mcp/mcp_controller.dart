@@ -551,6 +551,14 @@ class McpController extends ChangeNotifier {
   void dispose() {
     if (_isDisposed) return;
     _isDisposed = true;
+    final pendingTasks = <Future<void>>[
+      _operationQueue.idle,
+      _refreshFlight.idle,
+      _runtimeCatalogWarmupFlight.idle,
+      _opsPersistenceLoadFlight.idle,
+      ..._activeToolRefreshes.values,
+      ..._activeHealthChecks.values,
+    ];
     for (final completer in _opsApprovalCompleters.values) {
       if (!completer.isCompleted) {
         completer.complete(false);
@@ -574,7 +582,10 @@ class McpController extends ChangeNotifier {
         silentLog('mcp', '释放工具发现服务', error, stack);
       }
     }
-    _shutdownFuture = _shutdownRuntimeResources(opsRuntime);
+    _shutdownFuture = _shutdownRuntimeResources(
+      opsRuntime,
+      pendingTasks: pendingTasks,
+    );
     _saveSuccessSignal.dispose();
     super.dispose();
   }
@@ -585,8 +596,9 @@ class McpController extends ChangeNotifier {
   }
 
   Future<void> _shutdownRuntimeResources(
-    McpServerOpsRuntime? opsRuntime,
-  ) async {
+    McpServerOpsRuntime? opsRuntime, {
+    required List<Future<void>> pendingTasks,
+  }) async {
     await Future.wait<void>(<Future<void>>[
       if (opsRuntime != null)
         _runShutdownStep('停止 MCP 运维服务', opsRuntime.shutdown),
@@ -595,7 +607,16 @@ class McpController extends ChangeNotifier {
         () => McpStdioProcessManager.instance.stopAll(immediate: true),
       ),
     ]);
+    await _runShutdownStep(
+      '等待 MCP 控制器任务',
+      () => Future.wait<void>(pendingTasks),
+    );
     await _runShutdownStep('保存 MCP 运维数据', _persistOpsRuntimeData);
+    await Future.wait<void>(<Future<void>>[
+      _runShutdownStep('排空 MCP 运维存储', _opsStore.flush),
+      _runShutdownStep('排空 MCP 关键词索引', _keywordIndexService.flush),
+      _runShutdownStep('排空 MCP 工具目录缓存', _toolCatalogCacheService.flush),
+    ]);
   }
 
   Future<void> _runShutdownStep(
@@ -2193,7 +2214,7 @@ class McpController extends ChangeNotifier {
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {
     if (_isDisposed) {
-      return Future<T>.error(StateError('McpController is disposed'));
+      return Future<T>.error(StateError('MCP 控制器已释放。'));
     }
     return _operationQueue.enqueue(() {
       if (_isDisposed) {

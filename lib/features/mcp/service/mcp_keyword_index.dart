@@ -433,8 +433,7 @@ class McpKeywordIndexService {
           skipped: skipped,
         ),
       );
-      // Yield to UI between servers — keeps progress dialog smooth on
-      // Catalogs with hundreds of tools (e.g. odin-cloud-ma).
+      // 服务间主动让出事件循环，避免大型工具目录阻塞进度弹窗。
       await Future<void>.delayed(Duration.zero);
     }
     stopwatch.stop();
@@ -541,6 +540,14 @@ class McpKeywordIndexService {
   /// 启动期惰性加载已落盘的索引。文件不存在 / 解析失败时返回 null。
   Future<McpKeywordIndex?> loadFromDisk() {
     return _persistenceQueue.enqueue(_loadFromDisk);
+  }
+
+  Future<void> flush() async {
+    try {
+      await _buildFlight.idle;
+    } finally {
+      await _persistenceQueue.idle;
+    }
   }
 
   Future<McpKeywordIndex?> _loadFromDisk() async {
