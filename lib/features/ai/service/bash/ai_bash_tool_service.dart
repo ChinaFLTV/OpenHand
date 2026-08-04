@@ -566,6 +566,7 @@ class _PersistentBashSessionBusy implements Exception {
 class AiBashToolService {
   static const int defaultTimeoutMs = 120000;
   static const Duration _processStartTimeout = Duration(seconds: 10);
+  static const Duration _persistentStdinTimeout = Duration(seconds: 2);
   static const Duration _subscriptionCancelTimeout = Duration(seconds: 1);
   static const int _maxPersistentSessions = 8;
   static const Duration _persistentSessionIdleTimeout = Duration(minutes: 5);
@@ -1318,7 +1319,7 @@ class AiBashToolService {
       );
       session.process.stdin.write('\n');
       // 立即刷新输入流，避免低吞吐时系统缓冲导致标记误超时。
-      await session.process.stdin.flush();
+      await session.process.stdin.flush().timeout(_persistentStdinTimeout);
       final waitForCompletion = execution.outcome.future.timeout(
         Duration(milliseconds: timeoutMs),
       );
@@ -1638,7 +1639,7 @@ class AiBashToolService {
           'set -o noglob 2>/dev/null || setopt noglob 2>/dev/null || true\n',
         );
         // 刷新失败说明 Shell 传输不可用，按启动失败回收半初始化进程。
-        await process.stdin.flush();
+        await process.stdin.flush().timeout(_persistentStdinTimeout);
       }
 
       void handleStreamError(Object error, StackTrace stack) {
