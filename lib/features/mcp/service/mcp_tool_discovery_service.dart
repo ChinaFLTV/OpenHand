@@ -942,7 +942,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     final tools = <McpTool>[];
     final warnings = <String>[];
     final seenToolIds = <String>{};
+    final seenCursors = <String>{};
     var cursor = '';
+    var cursorLoopDetected = false;
     var invalidTools = 0;
     var duplicateTools = 0;
     var metadataWarnings = 0;
@@ -988,10 +990,18 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         cursor = '';
         break;
       }
+      if (!seenCursors.add(nextCursor)) {
+        cursorLoopDetected = true;
+        cursor = nextCursor;
+        warningResponse = envelope;
+        break;
+      }
       cursor = nextCursor;
     }
 
-    if (cursor.isNotEmpty) {
+    if (cursorLoopDetected) {
+      warnings.add('工具扫描因服务重复返回分页游标而停止，工具列表可能不完整。');
+    } else if (cursor.isNotEmpty) {
       warnings.add('工具扫描达到 $_maxToolPages 页后停止，工具列表可能不完整。');
       warningResponse = lastEnvelope;
     }
