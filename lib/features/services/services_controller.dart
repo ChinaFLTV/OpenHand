@@ -122,6 +122,7 @@ class ServicesController extends ChangeNotifier {
   final SerialTaskQueue _managedDependencyUpdateQueue = SerialTaskQueue(
     maxPendingTasks: 8,
   );
+  final LatestTaskQueue _managedDependencyListenerSyncQueue = LatestTaskQueue();
   final List<AiExposureLogEntry> _logs = <AiExposureLogEntry>[];
   String? _errorMessage;
   bool _busy = false;
@@ -317,7 +318,22 @@ class ServicesController extends ChangeNotifier {
     if (_client == null || _lifecycle == AiExposureServiceLifecycle.stopping) {
       return;
     }
-    unawaited(_syncManagedDependencies());
+    unawaited(
+      _managedDependencyListenerSyncQueue.enqueue(
+        _syncManagedDependenciesFromPluginState,
+      ),
+    );
+  }
+
+  Future<void> _syncManagedDependenciesFromPluginState() async {
+    if (_disposed || _lifecycle == AiExposureServiceLifecycle.stopping) {
+      return;
+    }
+    try {
+      await _syncManagedDependencies();
+    } catch (error, stack) {
+      silentLog('services_controller', '处理插件状态触发的托管依赖同步', error, stack);
+    }
   }
 
   Future<void> startService() async {
@@ -404,6 +420,7 @@ class ServicesController extends ChangeNotifier {
     if (_busy || _lifecycle == AiExposureServiceLifecycle.stopped) return;
     _busy = true;
     _lifecycle = AiExposureServiceLifecycle.stopping;
+    _managedDependencyListenerSyncQueue.discardPending();
     _notify();
     try {
       _proxyStatisticsTimer?.cancel();
@@ -1698,6 +1715,7 @@ class ServicesController extends ChangeNotifier {
     _proxyStatisticsTimer = null;
     await _syncProxyStatistics();
     _disposed = true;
+    _managedDependencyListenerSyncQueue.discardPending();
     final pluginController = _pluginServiceController;
     final pluginListener = _pluginStateListener;
     if (pluginController != null && pluginListener != null) {
