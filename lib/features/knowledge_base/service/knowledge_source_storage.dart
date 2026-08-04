@@ -101,8 +101,7 @@ Future<void> retryPendingKnowledgeSourceFileCleanups({
             _pendingKnowledgeSourceRetryTimeout - retryStopwatch.elapsed;
         if (remaining <= Duration.zero) break;
         try {
-          // Retain recent markers while deletion may still be in progress;
-          // expire abandoned intents so they cannot occupy capacity forever.
+          // 删除可能尚未完成，保留新标记；清理过期意图，避免永久占用容量。
           final lookupTimeout = remaining < _pendingKnowledgeSourceLookupTimeout
               ? remaining
               : _pendingKnowledgeSourceLookupTimeout;
@@ -149,7 +148,7 @@ Future<void> _stageCleanup(({String sourceId, String path}) entry) async {
           : countRows.first['marker_count'];
       final count = rawCount is num ? rawCount.toInt() : 0;
       if (count >= _maxPendingKnowledgeSourceCleanups) {
-        throw StateError('Too many pending knowledge-source cleanups.');
+        throw StateError('待处理的知识源清理任务过多。');
       }
     }
     await txn.insert('app_settings', <String, Object?>{
@@ -183,7 +182,7 @@ _loadPendingKnowledgeSourceCleanups() async {
     final markerKey = row['key'];
     try {
       final decoded = jsonDecode('${row['value']}');
-      if (decoded is! Map) throw const FormatException('Invalid marker.');
+      if (decoded is! Map) throw const FormatException('清理标记格式无效。');
       final sourceId = '${decoded['source_id'] ?? ''}'.trim();
       final path = p.absolute('${decoded['path'] ?? ''}'.trim());
       final createdAtText = '${decoded['created_at'] ?? ''}'.trim();
@@ -200,7 +199,7 @@ _loadPendingKnowledgeSourceCleanups() async {
           createdAt == null ||
           markerKey != _cleanupMarkerKey(sourceId) ||
           !p.isWithin(root, path)) {
-        throw const FormatException('Invalid marker fields.');
+        throw const FormatException('清理标记字段无效。');
       }
       entries.add((createdAt: createdAt, sourceId: sourceId, path: path));
     } catch (error, stack) {
@@ -229,10 +228,7 @@ Future<void> _deleteManagedKnowledgeSourcePath(String path) async {
   final root = p.absolute(knowledgeManagedSourcesDirectoryPath);
   final candidate = p.absolute(path);
   if (!isPathWithinOrEqual(root, candidate)) {
-    throw FileSystemException(
-      'Refusing to delete a knowledge source outside managed storage.',
-      candidate,
-    );
+    throw FileSystemException('拒绝删除托管目录外的知识源。', candidate);
   }
   final type = await FileSystemEntity.type(
     candidate,
@@ -245,10 +241,7 @@ Future<void> _deleteManagedKnowledgeSourcePath(String path) async {
       p.dirname(candidate),
     ).timeout(_pendingKnowledgeSourceDeleteTimeout, onTimeout: () => false);
     if (!isParentContained) {
-      throw FileSystemException(
-        'Refusing to delete an invalid managed knowledge source link.',
-        candidate,
-      );
+      throw FileSystemException('拒绝删除无效的托管知识源链接。', candidate);
     }
     await Link(
       candidate,
@@ -260,10 +253,7 @@ Future<void> _deleteManagedKnowledgeSourcePath(String path) async {
         root,
         candidate,
       ).timeout(_pendingKnowledgeSourceDeleteTimeout, onTimeout: () => false)) {
-    throw FileSystemException(
-      'Refusing to delete an invalid managed knowledge source.',
-      candidate,
-    );
+    throw FileSystemException('拒绝删除无效的托管知识源。', candidate);
   }
   await File(candidate).delete().timeout(_pendingKnowledgeSourceDeleteTimeout);
 }
@@ -279,15 +269,12 @@ Future<void> _completeCleanup(({String sourceId, String path}) entry) async {
   if (source.metadata['copied_to_openhand_storage'] != true) return null;
   final sourceId = source.id.trim();
   if (sourceId.isEmpty || sourceId.length > _knowledgeSourceIdMaxCharacters) {
-    throw ArgumentError.value(source.id, 'source.id', 'Invalid source id.');
+    throw ArgumentError.value(source.id, 'source.id', '知识源 ID 无效。');
   }
   final root = p.absolute(knowledgeManagedSourcesDirectoryPath);
   final path = p.absolute(source.storedPath.trim());
   if (!p.isWithin(root, path)) {
-    throw FileSystemException(
-      'Refusing to delete a knowledge source outside managed storage.',
-      path,
-    );
+    throw FileSystemException('拒绝删除托管目录外的知识源。', path);
   }
   return (sourceId: sourceId, path: path);
 }

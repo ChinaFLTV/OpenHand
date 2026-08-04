@@ -8,7 +8,7 @@ import '../model/knowledge_source.dart';
 const String _knowledgeSourcesTable = 'knowledge_sources';
 const String _knowledgeChunksTable = 'knowledge_chunks';
 const String _knowledgeIdColumn = 'id';
-// Stay below SQLite's common 999 variable default while leaving room to grow.
+// 低于 SQLite 常见的 999 个变量上限，并预留扩展空间。
 const int _maxSqlWhereInParameters = 900;
 
 class KnowledgeBaseStore {
@@ -20,7 +20,7 @@ class KnowledgeBaseStore {
   Future<List<KnowledgeSource>> loadSources({String query = ''}) async {
     final normalized = query.trim();
     final rows = await _db.query(
-      'knowledge_sources',
+      _knowledgeSourcesTable,
       where: normalized.isEmpty ? null : 'title LIKE ? OR original_path LIKE ?',
       whereArgs: normalized.isEmpty
           ? null
@@ -33,7 +33,7 @@ class KnowledgeBaseStore {
 
   Future<KnowledgeSource?> loadSource(String sourceId) async {
     final rows = await _db.query(
-      'knowledge_sources',
+      _knowledgeSourcesTable,
       where: 'id = ?',
       whereArgs: <Object?>[sourceId],
       limit: 1,
@@ -45,7 +45,7 @@ class KnowledgeBaseStore {
     await _db.transaction((txn) async {
       final row = source.toRow();
       final updated = await txn.update(
-        'knowledge_sources',
+        _knowledgeSourcesTable,
         row,
         where: 'id = ?',
         whereArgs: <Object?>[source.id],
@@ -53,13 +53,13 @@ class KnowledgeBaseStore {
       if (updated > 0) {
         return;
       }
-      await txn.insert('knowledge_sources', row);
+      await txn.insert(_knowledgeSourcesTable, row);
     });
   }
 
   Future<void> deleteSource(String sourceId) async {
     await _db.delete(
-      'knowledge_sources',
+      _knowledgeSourcesTable,
       where: 'id = ?',
       whereArgs: <Object?>[sourceId],
     );
@@ -71,14 +71,14 @@ class KnowledgeBaseStore {
   }) async {
     await _db.transaction((txn) async {
       await txn.delete(
-        'knowledge_chunks',
+        _knowledgeChunksTable,
         where: 'source_id = ?',
         whereArgs: <Object?>[sourceId],
       );
       final batch = txn.batch();
       for (final chunk in chunks) {
         batch.insert(
-          'knowledge_chunks',
+          _knowledgeChunksTable,
           chunk.toRow(),
           conflictAlgorithm: ConflictAlgorithm.replace,
         );
@@ -89,7 +89,7 @@ class KnowledgeBaseStore {
 
   Future<List<KnowledgeChunk>> loadChunksForSource(String sourceId) async {
     final rows = await _db.query(
-      'knowledge_chunks',
+      _knowledgeChunksTable,
       where: 'source_id = ?',
       whereArgs: <Object?>[sourceId],
       orderBy: 'chunk_index ASC',
@@ -128,8 +128,8 @@ class KnowledgeBaseStore {
     }
 
     return (
-      sourceCount: await scalar('SELECT COUNT(*) FROM knowledge_sources'),
-      chunkCount: await scalar('SELECT COUNT(*) FROM knowledge_chunks'),
+      sourceCount: await scalar('SELECT COUNT(*) FROM $_knowledgeSourcesTable'),
+      chunkCount: await scalar('SELECT COUNT(*) FROM $_knowledgeChunksTable'),
       pendingJobs: await scalar(
         "SELECT COUNT(*) FROM knowledge_embedding_jobs WHERE status = 'pending'",
       ),

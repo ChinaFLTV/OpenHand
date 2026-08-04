@@ -346,7 +346,7 @@ class KnowledgeIngestionService {
             )
             .timeout(_partialIndexCleanupSettleTimeout);
       } catch (_) {
-        // Preserve the original ingestion failure.
+        // 保留原始导入异常。
       } finally {
         remoteCleanupTimer.cancel();
       }
@@ -357,7 +357,7 @@ class KnowledgeIngestionService {
             .replaceChunks(sourceId: sourceId, chunks: const [])
             .timeout(_partialIndexCleanupTimeout);
       } catch (_) {
-        // Preserve the original ingestion failure.
+        // 保留原始导入异常。
       }
     }();
     await Future.wait<void>(<Future<void>>[remoteCleanup, localCleanup]);
@@ -533,12 +533,10 @@ List<String> _normalizeKnowledgeTags(List<String> tags) {
     final tag = rawTag.trim();
     if (tag.isEmpty || !seen.add(tag.toLowerCase())) continue;
     if (tag.length > kKnowledgeTagMaxCharacters) {
-      throw StateError(
-        'Knowledge tag exceeds $kKnowledgeTagMaxCharacters characters.',
-      );
+      throw StateError('知识标签不能超过 $kKnowledgeTagMaxCharacters 个字符。');
     }
     if (normalized.length >= kKnowledgeTagMaxCount) {
-      throw StateError('Knowledge note has too many tags.');
+      throw StateError('知识笔记标签不能超过 $kKnowledgeTagMaxCount 个。');
     }
     normalized.add(tag);
   }

@@ -586,7 +586,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       final toolsSaved = await settingsController
           .setKnowledgeBuiltinToolsEnabled(_knowledgeBuiltinToolsEnabled);
       if (!toolsSaved) {
-        throw StateError('Failed to save Knowledge Base tool access.');
+        throw StateError('知识库工具访问设置保存失败。');
       }
       if (!mounted) return;
       Navigator.of(context).pop();
@@ -603,10 +603,12 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         ),
       );
     } catch (error, stack) {
+      var errorMessage = '$error';
       if (knowledgeSettingsSaved) {
         try {
           await knowledgeController.updateSettings(previousSettings);
         } catch (rollbackError, rollbackStack) {
+          errorMessage = '$errorMessage\n知识库配置回滚失败：$rollbackError';
           silentLog(
             'knowledge_base_config_dialog',
             '回滚设置',
@@ -617,7 +619,7 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
       }
       silentLog('knowledge_base_config_dialog', '保存设置', error, stack);
       if (mounted) {
-        showOpenHandErrorSnack(context, '$error');
+        showOpenHandErrorSnack(context, errorMessage);
       }
     } finally {
       if (mounted) setState(() => _saving = false);
@@ -4263,8 +4265,7 @@ class _KnowledgeConfigGridScope extends InheritedWidget {
   }
 }
 
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+// 本文件内复用文案。
 
 String _knowledgeBaseCDefaultLabel(BuildContext context) {
   return openHandLocalizedText(

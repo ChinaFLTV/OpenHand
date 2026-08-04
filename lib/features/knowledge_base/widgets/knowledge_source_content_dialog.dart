@@ -1655,8 +1655,7 @@ int _lineCount(String text) {
   return '\n'.allMatches(text).length + 1;
 }
 
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+// 本文件内复用文案。
 
 String _knowledgeSourcFindLabel(BuildContext context) {
   return openHandLocalizedText(

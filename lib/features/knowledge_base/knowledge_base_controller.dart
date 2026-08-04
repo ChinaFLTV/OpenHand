@@ -35,6 +35,7 @@ import 'service/qdrant_monitoring_service.dart';
 
 const Duration _knowledgeSourceSearchDelay = Duration(milliseconds: 180);
 const int _knowledgeNoteFileStemMaxCharacters = 64;
+const String _knowledgeMutationUnavailableMessage = '知识库正在加载或执行其他操作，请稍后重试。';
 
 class KnowledgeBaseController extends ChangeNotifier {
   KnowledgeBaseController({
@@ -124,14 +125,17 @@ class KnowledgeBaseController extends ChangeNotifier {
 
   Future<void> updateSettings(KnowledgeBaseSettings settings) async {
     if (!_hasTrustedSettings) {
-      throw StateError(
-        'Knowledge Base settings are unavailable; existing data was kept.',
-      );
+      throw StateError('知识库配置不可用，已保留现有数据。');
     }
-    await _settingsStore.save(settings);
-    _settings = settings;
-    _qdrantAdminService.trimLogs(settings.qdrantLogRetainLines);
-    notifyListeners();
+    await _runExclusiveMutation<void>(
+      unavailableResult: null,
+      unavailableMessage: _knowledgeMutationUnavailableMessage,
+      operation: () async {
+        await _settingsStore.save(settings);
+        _settings = settings;
+        _qdrantAdminService.trimLogs(settings.qdrantLogRetainLines);
+      },
+    );
   }
 
   void searchSources(String query) {
@@ -161,7 +165,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     KnowledgeIndexingProgressCallback? onProgress,
   }) {
     return _runExclusiveMutation<KnowledgeSource?>(
-      busyResult: null,
+      unavailableResult: null,
       operation: () => _importFile(
         filePath: filePath,
         embeddingModel: embeddingModel,
@@ -182,7 +186,8 @@ class KnowledgeBaseController extends ChangeNotifier {
     required KnowledgeIndexingProgressCallback? onProgress,
   }) async {
     try {
-      final vectorStore = QdrantKnowledgeVectorStore(settings: _settings);
+      final settings = _settings;
+      final vectorStore = QdrantKnowledgeVectorStore(settings: settings);
       final ingestion = KnowledgeIngestionService(
         store: _store,
         embeddingService: _embeddingService,
@@ -192,7 +197,7 @@ class KnowledgeBaseController extends ChangeNotifier {
       try {
         source = await ingestion.importFile(
           filePath: filePath,
-          settings: _settings,
+          settings: settings,
           embeddingModel: embeddingModel,
           readerModels: readerModels,
           tags: tags,
@@ -223,7 +228,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     KnowledgeIndexingProgressCallback? onProgress,
   }) {
     return _runExclusiveMutation<KnowledgeSource?>(
-      busyResult: null,
+      unavailableResult: null,
       operation: () => _importNote(
         title: title,
         content: content,
@@ -357,6 +362,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     KnowledgeSource source,
   ) async {
     try {
+      final settings = _settings;
       final file = await _resolveReadableSourceFile(source);
       if (file == null) {
         return const <KnowledgeChunk>[];
@@ -367,7 +373,7 @@ class KnowledgeBaseController extends ChangeNotifier {
       final parsed = await const KnowledgeDocumentParserRegistry().parse(
         KnowledgeDocumentParseRequest(
           file: file,
-          settings: _settings,
+          settings: settings,
           stat: stat,
           tags: tags,
         ),
@@ -375,7 +381,7 @@ class KnowledgeBaseController extends ChangeNotifier {
       final chunks = const KnowledgeChunker().chunk(
         source: source,
         text: parsed.text,
-        settings: _settings,
+        settings: settings,
         tags: tags,
       );
       if (chunks.isEmpty) {
@@ -419,7 +425,7 @@ class KnowledgeBaseController extends ChangeNotifier {
 
   Future<bool> deleteSource(KnowledgeSource source) {
     return _runExclusiveMutation<bool>(
-      busyResult: false,
+      unavailableResult: false,
       operation: () => _deleteSource(source),
     );
   }
@@ -427,10 +433,11 @@ class KnowledgeBaseController extends ChangeNotifier {
   Future<bool> _deleteSource(KnowledgeSource source) async {
     var sourceDeleted = false;
     try {
+      final settings = _settings;
       await stageManagedKnowledgeSourceFileCleanup(source);
-      final vectorStore = QdrantKnowledgeVectorStore(settings: _settings);
+      final vectorStore = QdrantKnowledgeVectorStore(settings: settings);
       await vectorStore.deleteBySource(
-        collectionName: _settings.effectiveCollectionName,
+        collectionName: settings.effectiveCollectionName,
         sourceId: source.id,
       );
       await _store.deleteSource(source.id);
@@ -464,10 +471,14 @@ class KnowledgeBaseController extends ChangeNotifier {
   }
 
   Future<T> _runExclusiveMutation<T>({
-    required T busyResult,
+    required T unavailableResult,
     required Future<T> Function() operation,
+    String? unavailableMessage,
   }) async {
-    if (_busy || _isDisposed) return busyResult;
+    if (_loading || _initializeFlight.isRunning || _busy || _isDisposed) {
+      if (unavailableMessage != null) throw StateError(unavailableMessage);
+      return unavailableResult;
+    }
     _busy = true;
     _error = null;
     notifyListeners();
@@ -537,7 +548,8 @@ class KnowledgeBaseController extends ChangeNotifier {
     int maxPoints = kKnowledgeVectorDistributionDefaultMaxPoints,
   }) async {
     final stopwatch = Stopwatch()..start();
-    final vectorStore = QdrantKnowledgeVectorStore(settings: _settings);
+    final settings = _settings;
+    final vectorStore = QdrantKnowledgeVectorStore(settings: settings);
     final safeMaxPoints = maxPoints.clamp(1, 2000).toInt();
     final samples = <KnowledgeVectorSamplePoint>[];
     Object? offset;
@@ -548,7 +560,7 @@ class KnowledgeBaseController extends ChangeNotifier {
         safeMaxPoints - samples.length,
       );
       final page = await vectorStore.sample(
-        collectionName: _settings.effectiveCollectionName,
+        collectionName: settings.effectiveCollectionName,
         limit: limit,
         offset: offset,
       );
@@ -596,7 +608,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     stopwatch.stop();
     return KnowledgeVectorProjector.project(
       inputs: inputs,
-      originalDimensions: _settings.dimensions,
+      originalDimensions: settings.dimensions,
       hasMore: hasMore,
       durationMs: stopwatch.elapsedMilliseconds,
       generatedAt: DateTime.now().toUtc(),
@@ -604,22 +616,38 @@ class KnowledgeBaseController extends ChangeNotifier {
   }
 
   Future<Map<String, Object?>> createDefaultQdrantPayloadIndexes() {
-    return _qdrantAdminService.createDefaultPayloadIndexes(
-      _settings,
-      collection: _settings.effectiveCollectionName,
+    final settings = _settings;
+    return _runExclusiveMutation<Map<String, Object?>>(
+      unavailableResult: const <String, Object?>{},
+      unavailableMessage: _knowledgeMutationUnavailableMessage,
+      operation: () => _qdrantAdminService.createDefaultPayloadIndexes(
+        settings,
+        collection: settings.effectiveCollectionName,
+      ),
     );
   }
 
   Future<void> deleteQdrantPoints(List<String> ids) {
-    return _qdrantAdminService.deletePoints(
-      _settings,
-      collection: _settings.effectiveCollectionName,
-      ids: ids,
+    final settings = _settings;
+    return _runExclusiveMutation<void>(
+      unavailableResult: null,
+      unavailableMessage: _knowledgeMutationUnavailableMessage,
+      operation: () => _qdrantAdminService.deletePoints(
+        settings,
+        collection: settings.effectiveCollectionName,
+        ids: ids,
+      ),
     );
   }
 
   Future<void> deleteQdrantCollection(String collection) {
-    return _qdrantAdminService.deleteCollection(_settings, collection);
+    final settings = _settings;
+    return _runExclusiveMutation<void>(
+      unavailableResult: null,
+      unavailableMessage: _knowledgeMutationUnavailableMessage,
+      operation: () =>
+          _qdrantAdminService.deleteCollection(settings, collection),
+    );
   }
 
   AiModelConfig? resolveEmbeddingModel(

@@ -528,5 +528,5 @@ class KnowledgeEmbeddingException implements Exception {
 }
 
 String _embeddingModelLabel(AiModelConfig model) {
-  return nullIfBlank(model.modelId) ?? 'embedding model';
+  return nullIfBlank(model.modelId) ?? '嵌入模型';
 }

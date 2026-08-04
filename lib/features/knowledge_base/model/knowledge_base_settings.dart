@@ -1215,13 +1215,11 @@ class KnowledgeBaseSettings {
   static KnowledgeBaseSettings decode(String value) {
     final text = nullIfBlank(value);
     if (text == null) {
-      throw const FormatException('Knowledge Base settings are empty.');
+      throw const FormatException('知识库配置为空。');
     }
     final decoded = jsonDecode(text);
     if (decoded is! Map) {
-      throw const FormatException(
-        'Knowledge Base settings must be a JSON object.',
-      );
+      throw const FormatException('知识库配置必须是 JSON 对象。');
     }
     return KnowledgeBaseSettings.fromJson(stringKeyedMapFromValue(decoded));
   }

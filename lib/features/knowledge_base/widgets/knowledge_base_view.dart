@@ -247,7 +247,7 @@ class _KnowledgeToolbarActions extends StatelessWidget {
       label: Text(knowledgeRefreshLabel(context)),
     );
     final importButton = FilledButton.icon(
-      onPressed: controller.busy
+      onPressed: controller.loading || controller.busy
           ? null
           : () => KnowledgeBaseView._pickAndImportFile(
               context,
@@ -259,8 +259,12 @@ class _KnowledgeToolbarActions extends StatelessWidget {
       label: Text(openHandImportLabel(context)),
     );
     final configButton = FilledButton.tonalIcon(
-      onPressed: () =>
-          showKnowledgeBaseConfigDialog(context, onOpenPlugins: onOpenPlugins),
+      onPressed: controller.loading || controller.busy
+          ? null
+          : () => showKnowledgeBaseConfigDialog(
+              context,
+              onOpenPlugins: onOpenPlugins,
+            ),
       icon: const Icon(Icons.settings_rounded),
       label: Text(
         openHandLocalizedText(
@@ -297,7 +301,7 @@ class _KnowledgeToolbarActions extends StatelessWidget {
           FeaturePageToolbarIconButton(
             tooltip: _knowledgeBaseVNewNoteLabel(context),
             icon: Icons.note_add_outlined,
-            onPressed: controller.busy
+            onPressed: controller.loading || controller.busy
                 ? null
                 : () => showKnowledgeImportDialog(context),
           ),
@@ -316,12 +320,16 @@ class _KnowledgeToolbarActions extends StatelessWidget {
           FeaturePageToolbarIconButton(
             tooltip: _knowledgeBaseVQdrantOpsLabel(context),
             icon: Icons.monitor_heart_outlined,
-            onPressed: () => showQdrantStatusDialog(context),
+            onPressed: controller.loading
+                ? null
+                : () => showQdrantStatusDialog(context),
           ),
           FeaturePageToolbarIconButton(
             tooltip: knowledgeQdrantAdminLabel(context),
             icon: Icons.storage_outlined,
-            onPressed: () => showQdrantAdminDialog(context),
+            onPressed: controller.loading
+                ? null
+                : () => showQdrantAdminDialog(context),
           ),
         ],
       );
@@ -331,12 +339,16 @@ class _KnowledgeToolbarActions extends StatelessWidget {
       primaryActions: [
         refreshButton,
         OutlinedButton.icon(
-          onPressed: () => showQdrantStatusDialog(context),
+          onPressed: controller.loading
+              ? null
+              : () => showQdrantStatusDialog(context),
           icon: const Icon(Icons.monitor_heart_outlined),
           label: Text(_knowledgeBaseVQdrantOpsLabel(context)),
         ),
         OutlinedButton.icon(
-          onPressed: () => showQdrantAdminDialog(context),
+          onPressed: controller.loading
+              ? null
+              : () => showQdrantAdminDialog(context),
           icon: const Icon(Icons.storage_outlined),
           label: Text(knowledgeQdrantAdminLabel(context)),
         ),
@@ -355,7 +367,7 @@ class _KnowledgeToolbarActions extends StatelessWidget {
           label: Text(_knowledgeBaseVReindexLabel(context)),
         ),
         FilledButton.tonalIcon(
-          onPressed: controller.busy
+          onPressed: controller.loading || controller.busy
               ? null
               : () => showKnowledgeImportDialog(context),
           icon: const Icon(Icons.note_add_outlined),
@@ -948,8 +960,7 @@ class _SmallPill extends StatelessWidget {
   }
 }
 
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+// 本文件内复用文案。
 
 String _knowledgeBaseVNewNoteLabel(BuildContext context) {
   return openHandLocalizedText(

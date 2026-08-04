@@ -78,9 +78,7 @@ Future<T?> runKnowledgeIndexingProgressTask<T>({
   }
 }
 
-/// Opens a tracked indexing dialog and owns [controller] until that exact
-/// route closes. If the route disappears unexpectedly, indexing is cancelled
-/// before the controller is released.
+/// 跟踪索引弹窗路由；路由异常关闭时先取消索引，再释放 [controller]。
 OpenHandDialogSession<void> showKnowledgeIndexingProgressDialog({
   required BuildContext context,
   required KnowledgeIndexingProgressController controller,

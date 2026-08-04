@@ -224,7 +224,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     return must.isEmpty ? null : <String, Object?>{'must': must};
   }
 
-  Future<void> _runOperation(
+  Future<bool> _runOperation(
     Future<Map<String, Object?>> Function(KnowledgeBaseController controller)
     action,
   ) async {
@@ -234,10 +234,12 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     });
     try {
       final result = await action(context.read<KnowledgeBaseController>());
-      if (!mounted) return;
+      if (!mounted) return false;
       setState(() => _operationResult = result);
+      return true;
     } catch (error) {
       if (mounted) setState(() => _error = '$error');
+      return false;
     } finally {
       if (mounted) setState(() => _operating = false);
     }
@@ -274,10 +276,10 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   }
 
   Future<void> _createPayloadIndexes() async {
-    await _runOperation(
+    final succeeded = await _runOperation(
       (controller) => controller.createDefaultQdrantPayloadIndexes(),
     );
-    if (!mounted) return;
+    if (!succeeded || !mounted) return;
     showOpenHandSuccessSnack(
       context,
       _l10n.qdrantStatusPayloadIndexesSubmitted,
@@ -379,6 +381,10 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   @override
   Widget build(BuildContext context) {
     final l10n = AppLocalizations.of(context)!;
+    final controllerUnavailable = context.select<KnowledgeBaseController, bool>(
+      (controller) => controller.loading || controller.busy,
+    );
+    final operationBusy = _operating || controllerUnavailable;
     final height = math.min(MediaQuery.sizeOf(context).height * 0.82, 760.0);
     final dialog = buildOpenHandAlertDialog(
       title: Text(l10n.qdrantStatusTitle),
@@ -417,7 +423,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
                     ),
                     _CollectionsTab(
                       collections: _collections,
-                      busy: _operating,
+                      busy: operationBusy,
                       l10n: l10n,
                       onInfo: _loadCollectionInfo,
                       onDelete: _deleteCollection,
@@ -428,7 +434,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
                       tag: _tag,
                       limit: _limit,
                       rawVector: _rawVector,
-                      busy: _operating,
+                      busy: operationBusy,
                       result: _operationResult,
                       l10n: l10n,
                       onLoadIds: _loadPointIds,

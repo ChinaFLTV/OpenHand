@@ -157,6 +157,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<KnowledgeBaseController>();
+    final operationBusy = _busy || controller.loading || controller.busy;
     final isChineseLayout = openHandIsChineseLocale(context);
     final dialog = buildOpenHandAlertDialog(
       title: Text(knowledgeQdrantAdminLabel(context)),
@@ -188,6 +189,13 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                         child: Center(child: CircularProgressIndicator()),
                       );
                     }
+                    if (snapshot.hasError) {
+                      return KnowledgeDialogNotice(
+                        icon: Icons.error_outline_rounded,
+                        message: '${snapshot.error}',
+                        tone: KnowledgeDialogNoticeTone.error,
+                      );
+                    }
                     final collections =
                         snapshot.data ?? const <Map<String, Object?>>[];
                     if (collections.isEmpty) {
@@ -210,7 +218,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                           KnowledgeCollectionTile(
                             item: item,
                             margin: const EdgeInsets.only(bottom: 8),
-                            busy: _busy,
+                            busy: operationBusy,
                             onInfo: () => _loadInfo('${item['name'] ?? ''}'),
                             onDelete: () =>
                                 _deleteCollection('${item['name'] ?? ''}'),
@@ -250,7 +258,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                     ),
                     const SizedBox(height: 12),
                     FilledButton.tonalIcon(
-                      onPressed: _busy ? null : _scroll,
+                      onPressed: operationBusy ? null : _scroll,
                       icon: const Icon(Icons.list_alt_rounded),
                       label: Text(
                         openHandLocalizedText(
@@ -329,7 +337,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
       ),
       actions: [
         OpenHandDialogActionButton.secondary(
-          onPressed: _refresh,
+          onPressed: _busy ? null : _refresh,
           icon: Icons.refresh_rounded,
           label: knowledgeRefreshLabel(context),
         ),

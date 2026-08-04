@@ -114,10 +114,7 @@ abstract class KnowledgeDocumentParser {
   );
 }
 
-/// 代码类文档的后缀名单。
-///
-/// 解析器与「支持的文件类型」列表共用同一份：此前两处各写一遍，新增语言时
-/// 只改解析器会让文件选择器直接把它过滤掉。
+/// 解析器与文件选择器共用的代码文件后缀。
 const Set<String> kCodeKnowledgeDocumentExtensions = <String>{
   'dart',
   'js',

@@ -1225,8 +1225,7 @@ Future<void> _copyText(
   );
 }
 
-// ── 本文件内复用的文案 ──
-// 同一标签在本文件里出现两次以上；抽成函数后措辞只有一个改动点。
+// 本文件内复用文案。
 
 String _knowledgeRetriHitChunkDetailLabel(BuildContext context) {
   return openHandLocalizedText(

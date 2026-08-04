@@ -26,10 +26,7 @@ IconData knowledgeSourceKindIcon(String kind) {
   };
 }
 
-/// 导入入口共用的三条文案。
-///
-/// 知识库视图与导入弹窗此前各自内联了同一份六语言字面量，改一处措辞就得
-/// 同步改另一处。
+/// 导入入口共用文案。
 String knowledgeEmbeddingModelMissingMessage(BuildContext context) {
   return openHandLocalizedText(
     context,
@@ -176,10 +173,7 @@ String localizedKnowledgeSourceStatus(BuildContext context, String status) {
   };
 }
 
-/// 知识库文档预览的 Markdown 样式。
-///
-/// 导入弹窗与内容弹窗此前各写了一份完全相同的 styleSheet，改一处代码块底色
-/// 就会两边不一致。
+/// 知识库文档预览共用的 Markdown 样式。
 MarkdownStyleSheet knowledgeMarkdownStyleSheet(BuildContext context) {
   final theme = Theme.of(context);
   final colorScheme = theme.colorScheme;
@@ -214,10 +208,7 @@ const BorderRadius _kKnowledgeMarkdownBlockRadius = BorderRadius.all(
   Radius.circular(10),
 );
 
-/// 知识库弹窗顶部的错误提示：出现与消失走全局动效的纵向展开。
-///
-/// Qdrant 管理与状态两个弹窗此前各写了一份 `if (_error != null) Padding(...)`，
-/// 报错出现时下方内容会被硬生生顶下去一次。
+/// 知识库弹窗顶部的错误提示，出现与消失沿用全局动效。
 class KnowledgeDialogErrorNotice extends StatelessWidget {
   const KnowledgeDialogErrorNotice({
     super.key,
@@ -747,10 +738,7 @@ InputDecoration knowledgeDialogInputDecoration(
   );
 }
 
-/// 明细弹窗键值列表的标签列宽。
-///
-/// 中文标签更短，其余语言需要更宽的列才不会折行；集中一处，避免各弹窗抄写
-/// 同一组魔法数字 后逐渐对不齐。
+/// 明细弹窗键值列表按语言适配的标签列宽。
 double knowledgeDetailLabelWidth(bool isChinese) => isChinese ? 112 : 132;
 
 String knowledgeDialogValue(Object? value) {
@@ -760,10 +748,7 @@ String knowledgeDialogValue(Object? value) {
   return text.isEmpty ? '-' : text;
 }
 
-/// Qdrant collection 行卡：管理弹窗与状态弹窗共用。
-///
-/// 两处此前各维护一份同名 `_CollectionTile`，一份用内联多语言文本、一份用
-/// 生成的 l10n，样式也悄悄分叉；此处统一为唯一实现。
+/// Qdrant collection 管理与状态弹窗共用行卡。
 class KnowledgeCollectionTile extends StatelessWidget {
   const KnowledgeCollectionTile({
     super.key,
@@ -845,12 +830,7 @@ class KnowledgeCollectionTile extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// 知识库弹窗共用文案
-//
-// 下列标签在多个弹窗里各写了一份六语言字面量，改一处措辞就得同步改两到四处。
-// 收敛为具名函数后只剩一个改动点。
-// ─────────────────────────────────────────────────────────────────────────────
+// 知识库弹窗共用文案。
 
 String knowledgeQdrantAdminLabel(BuildContext context) {
   return openHandLocalizedText(
