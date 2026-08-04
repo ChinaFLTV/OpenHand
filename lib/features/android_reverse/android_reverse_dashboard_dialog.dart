@@ -813,12 +813,13 @@ class _AndroidReverseDashboardDialogState
     if (!enabled) return;
     _logcatStickToBottom = true;
     unawaited(_fetchLogcat(append: _logcatLines.isNotEmpty, silent: true));
-    _logcatTimer = startSafePeriodicTimer(_kLogcatAutoRefreshInterval, (
-      _,
-    ) async {
-      if (!mounted || !_logcatAutoRefresh || _loadingLogcat) return;
-      await _fetchLogcat(append: true, silent: true);
-    });
+    _logcatTimer = startNonOverlappingPeriodicTimer(
+      _kLogcatAutoRefreshInterval,
+      (_) async {
+        if (!mounted || !_logcatAutoRefresh || _loadingLogcat) return;
+        await _fetchLogcat(append: true, silent: true);
+      },
+    );
   }
 
   void _scheduleLogcatFollowScroll({bool force = false}) {

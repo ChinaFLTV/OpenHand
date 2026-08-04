@@ -1102,7 +1102,7 @@ class ServicesController extends ChangeNotifier {
     _proxyStatisticsTimer?.cancel();
     _proxyStatisticsTimer = null;
     if (_client == null || !_proxyConfiguration.enabled) return;
-    _proxyStatisticsTimer = startSafePeriodicTimer(
+    _proxyStatisticsTimer = startNonOverlappingPeriodicTimer(
       _kProxyStatisticsSyncInterval,
       (_) => _syncProxyStatistics(notify: true),
       onError: (error, stack) =>

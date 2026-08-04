@@ -708,7 +708,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   void _restartProgressPolling() {
     _progressPollTimer?.cancel();
-    _progressPollTimer = startSafePeriodicTimer(
+    _progressPollTimer = startNonOverlappingPeriodicTimer(
       _kNativeAudioPollInterval,
       (_) => _pollPlaybackState(),
     );

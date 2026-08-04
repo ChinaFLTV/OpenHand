@@ -838,7 +838,7 @@ class McpServerOpsRuntime {
 
     void scheduleKeepAlive() {
       if (released || timer != null) return;
-      timer = startSafePeriodicTimer(
+      timer = startNonOverlappingPeriodicTimer(
         _sseKeepAliveInterval,
         (_) async {
           if (released || controller.isClosed) return;
