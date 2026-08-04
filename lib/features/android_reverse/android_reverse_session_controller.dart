@@ -22,6 +22,9 @@ const String _kTag = 'android_reverse_session_controller';
 const String _kAndroidReverseBashExecutable = 'bash';
 const String _kAndroidReverseChmodExecutable = 'chmod';
 const String _kNetworkCaptureDisplayCommand = '启动 mitmdump 捕获';
+const String _kNetworkCaptureStopDisplayCommand = '停止 mitmdump 捕获';
+const String _kEvidenceBundleDisplayCommand = '生成证据包';
+const String _kReadQuickScanDisplayCommand = '读取快速扫描产物';
 const Duration _kDeviceWatchdogInterval = Duration(seconds: 8);
 const Duration _kDeviceReportTimeout = Duration(seconds: 18);
 const Duration _kPackageReportTimeout = Duration(seconds: 12);
@@ -437,7 +440,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: const <String>['package-report', '<invalid-package>'],
         exitCode: -1,
         stdout: '',
-        stderr: 'Invalid Android package name: $packageName',
+        stderr: 'Android 包名无效：$packageName',
       );
     }
     final client = _clientForSerial(serial);
@@ -494,10 +497,10 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['package-report', normalizedPackage],
         exitCode: dumpsys.exitCode,
         stdout: <String>[
-          'Package report: $markdownPath',
-          'Package report JSON: $jsonPath',
-          if (paths.isNotEmpty) 'APK paths: ${paths.join(', ')}',
-          if (launcher != null && launcher.isNotEmpty) 'Launcher: $launcher',
+          '软件包报告：$markdownPath',
+          '软件包报告 JSON：$jsonPath',
+          if (paths.isNotEmpty) 'APK 路径：${paths.join(', ')}',
+          if (launcher != null && launcher.isNotEmpty) '启动 Activity：$launcher',
         ].join('\n'),
         stderr: dumpsys.stderr,
         timedOut: dumpsys.timedOut,
@@ -577,19 +580,16 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'text_path': txtPath,
       };
       await Future.wait(<Future<void>>[
-        writeFileAtomically(
-          File(txtPath),
-          text.isEmpty ? '(empty)\n' : '$text\n',
-        ),
+        writeFileAtomically(File(txtPath), text.isEmpty ? '（空）\n' : '$text\n'),
         writeFileAtomically(File(jsonPath), prettyPrintJson(json)),
       ]);
       return AdbCommandResult(
         args: <String>['logcat-snapshot'],
         exitCode: result.exitCode,
         stdout: <String>[
-          'Logcat snapshot: $txtPath',
-          'Logcat snapshot JSON: $jsonPath',
-          if (text.isNotEmpty) 'Captured lines: ${text.split('\n').length}',
+          'Logcat 快照：$txtPath',
+          'Logcat 快照 JSON：$jsonPath',
+          if (text.isNotEmpty) '捕获行数：${text.split('\n').length}',
         ].join('\n'),
         stderr: result.stderr,
         timedOut: result.timedOut,
@@ -727,7 +727,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['frida-script-save', '<empty>'],
         exitCode: -1,
         stdout: '',
-        stderr: 'Frida script is empty.',
+        stderr: 'Frida 脚本为空。',
       );
     }
     final target = _safeArtifactName(
@@ -762,8 +762,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: const <String>['frida-script-save'],
         exitCode: 0,
         stdout: <String>[
-          'Frida script: $scriptPath',
-          'Frida script metadata: $jsonPath',
+          'Frida 脚本：$scriptPath',
+          'Frida 脚本元数据：$jsonPath',
         ].join('\n'),
         stderr: '',
       );
@@ -917,9 +917,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['device-report', reportSerial],
         exitCode: 0,
         stdout: <String>[
-          'Device report: $markdownPath',
-          'Device report JSON: $jsonPath',
-          if (launcher != null && launcher.isNotEmpty) 'Launcher: $launcher',
+          '设备报告：$markdownPath',
+          '设备报告 JSON：$jsonPath',
+          if (launcher != null && launcher.isNotEmpty) '启动 Activity：$launcher',
         ].join('\n'),
         stderr: <String>[
           if (snapshot.stderr.trim().isNotEmpty) snapshot.stderr.trim(),
@@ -949,7 +949,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: const <String>['shell', 'pm path <package>'],
         exitCode: -1,
         stdout: '',
-        stderr: 'No APK path was found for $packageName.',
+        stderr: '未找到 $packageName 的 APK 路径。',
       );
     }
     final targetDir = Directory('$apksDir/${_safeArtifactName(packageName)}');
@@ -973,7 +973,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['static-quick-scan'],
         exitCode: -1,
         stdout: '',
-        stderr: 'Static quick scan requires /bin/sh.',
+        stderr: '静态快速扫描需要 /bin/sh。',
       );
     }
     final rawApkPath = (apkPath ?? config.apkPath ?? '').trim();
@@ -982,7 +982,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['static-quick-scan', '<missing-apk>'],
         exitCode: -1,
         stdout: '',
-        stderr: 'APK path is required for static quick scan.',
+        stderr: '静态快速扫描必须提供 APK 路径。',
       );
     }
     final apkFile = File(rawApkPath);
@@ -991,7 +991,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['static-quick-scan', rawApkPath],
         exitCode: -1,
         stdout: '',
-        stderr: 'APK file does not exist: $rawApkPath',
+        stderr: 'APK 文件不存在：$rawApkPath',
       );
     }
     final slug = _safeArtifactName(
@@ -1113,7 +1113,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         );
       }
       return <String>[
-        'Certificate artifacts: $certsDir',
+        '证书产物：$certsDir',
         'network_security_config: $networkSecurityConfigPath',
         'manifest_snippet: $manifestNetworkConfigSnippetPath',
         'root_ca_install_script: $installMitmCaRootScriptPath',
@@ -1147,8 +1147,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['evidence-bundle'],
         exitCode: -1,
         stdout: '',
-        stderr: 'Evidence bundle generation requires bash.',
-        displayCommand: 'make evidence bundle',
+        stderr: '生成证据包需要 bash。',
+        displayCommand: _kEvidenceBundleDisplayCommand,
       );
     }
     try {
@@ -1175,7 +1175,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         exitCode: result.exitCode,
         stdout: stdoutText,
         stderr: failedWithoutOutput
-            ? 'Evidence bundle command timed out or failed to start within ${_kEvidenceBundleTimeout.inSeconds} seconds.'
+            ? '证据包命令执行超时，或未能在 ${_kEvidenceBundleTimeout.inSeconds} 秒内启动。'
             : stderrText,
         timedOut: failedWithoutOutput,
         displayCommand:
@@ -1188,7 +1188,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         exitCode: -1,
         stdout: '',
         stderr: '$e',
-        displayCommand: 'make evidence bundle',
+        displayCommand: _kEvidenceBundleDisplayCommand,
       );
     }
   }
@@ -1206,7 +1206,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['local-script', scriptPath, ...args],
         exitCode: -1,
         stdout: '',
-        stderr: 'Local artifact scripts require bash.',
+        stderr: '本地产物脚本需要 bash。',
         displayCommand: displayCommand,
       );
     }
@@ -1216,7 +1216,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['local-script', scriptPath, ...args],
         exitCode: -1,
         stdout: '',
-        stderr: 'Script does not exist: $scriptPath',
+        stderr: '脚本不存在：$scriptPath',
         displayCommand: displayCommand,
       );
     }
@@ -1238,9 +1238,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>['local-script', scriptPath, ...args],
         exitCode: result.exitCode,
         stdout: stdoutText,
-        stderr: timedOut
-            ? 'Local script timed out after ${timeout.inSeconds} seconds.'
-            : stderrText,
+        stderr: timedOut ? '本地脚本执行超过 ${timeout.inSeconds} 秒。' : stderrText,
         timedOut: timedOut,
         displayCommand:
             displayCommand ??
@@ -1433,7 +1431,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
           stdout: stdoutText,
           stderr: exitCode == 0
               ? ''
-              : 'mitmdump exited during startup. Check port availability and mitmproxy installation.',
+              : 'mitmdump 在启动期间退出，请检查端口占用和 mitmproxy 安装状态。',
           displayCommand:
               'OPENHAND_NETWORK_JSONL=$networkJsonlPath mitmdump -p $port -s $addonPath -w $networkDir/flows.mitm',
         );
@@ -1446,11 +1444,11 @@ class AndroidReverseSessionController extends ChangeNotifier {
           args: const <String>['network-capture', 'start'],
           exitCode: 0,
           stdout: <String>[
-            'mitmdump capture started',
-            'pid: ${process.pid}',
-            'port: $port',
-            'jsonl: $networkJsonlPath',
-            'flows: $networkDir/flows.mitm',
+            'mitmdump 捕获已启动',
+            '进程 ID：${process.pid}',
+            '端口：$port',
+            'JSONL：$networkJsonlPath',
+            '流量文件：$networkDir/flows.mitm',
           ].join('\n'),
           stderr: '',
           displayCommand:
@@ -1480,7 +1478,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         exitCode: -1,
         stdout: networkCaptureTranscript,
         stderr: '$e',
-        displayCommand: 'start mitmdump capture',
+        displayCommand: _kNetworkCaptureDisplayCommand,
       );
     }
   }
@@ -1494,8 +1492,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: const <String>['network-capture', 'stop'],
         exitCode: 0,
         stdout: networkCaptureTranscript,
-        stderr: startPending ? '网络捕获启动取消请求已提交。' : 'mitmdump is not running.',
-        displayCommand: 'stop mitmdump capture',
+        stderr: startPending ? '网络捕获启动取消请求已提交。' : 'mitmdump 未运行。',
+        displayCommand: _kNetworkCaptureStopDisplayCommand,
       );
     }
     await _stopNetworkCaptureResources();
@@ -1510,9 +1508,9 @@ class AndroidReverseSessionController extends ChangeNotifier {
       args: const <String>['network-capture', 'stop'],
       exitCode: exitCode,
       stdout: networkCaptureTranscript,
-      stderr: exitCode == -1 ? 'mitmdump stop timed out after SIGTERM.' : '',
+      stderr: exitCode == -1 ? 'mitmdump 收到 SIGTERM 后仍未在限时内退出。' : '',
       timedOut: exitCode == -1,
-      displayCommand: 'stop mitmdump capture',
+      displayCommand: _kNetworkCaptureStopDisplayCommand,
     );
   }
 
@@ -1527,7 +1525,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'TAIL_LINES': '$boundedLines',
       },
       timeout: _kStaticArtifactReadTimeout,
-      displayCommand: 'read network capture artifacts',
+      displayCommand: '读取网络捕获产物',
       tag: 'android_reverse.network_read',
     );
   }
@@ -1538,7 +1536,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       command: _networkCaptureExportScript,
       environment: <String, String>{'NETWORK_DIR': networkDir},
       timeout: _kLocalShellActionTimeout,
-      displayCommand: 'export mitmproxy flows',
+      displayCommand: '导出 mitmproxy 流量',
       tag: 'android_reverse.network_export',
     );
   }
@@ -1560,8 +1558,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
           args: <String>['static-read-quick-scan'],
           exitCode: -1,
           stdout: '',
-          stderr: 'Run quick scan first or configure an APK path.',
-          displayCommand: 'read quick scan artifacts',
+          stderr: '请先运行快速扫描或配置 APK 路径。',
+          displayCommand: _kReadQuickScanDisplayCommand,
         );
       }
       quickScanDir = '$decompiledDir/${resolved.slug}/quick_scan';
@@ -1571,8 +1569,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: const <String>['static-read-quick-scan'],
         exitCode: -1,
         stdout: '',
-        stderr: 'Quick scan artifacts do not exist: $quickScanDir',
-        displayCommand: 'read quick scan artifacts',
+        stderr: '快速扫描产物不存在：$quickScanDir',
+        displayCommand: _kReadQuickScanDisplayCommand,
       );
     }
     return _runLocalShellDetailed(
@@ -1580,7 +1578,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       command: _staticQuickScanReadScript,
       environment: <String, String>{'QUICK_SCAN_DIR': quickScanDir},
       timeout: _kStaticArtifactReadTimeout,
-      displayCommand: 'read quick scan artifacts',
+      displayCommand: _kReadQuickScanDisplayCommand,
       tag: 'android_reverse.static_read',
     );
   }
@@ -1596,7 +1594,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       outputCategory: 'identity',
       command: _staticApkIdentityScript,
       timeout: _kStaticIdentityTimeout,
-      displayCommand: 'inspect APK identity and signing certs',
+      displayCommand: '检查 APK 身份与签名证书',
       tag: 'android_reverse.static_identity',
     );
   }
@@ -1612,7 +1610,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       outputCategory: 'jadx_${_artifactTimestamp()}',
       command: _staticJadxScript,
       timeout: _kStaticDecompileTimeout,
-      displayCommand: 'jadx decompile APK',
+      displayCommand: '使用 jadx 反编译 APK',
       tag: 'android_reverse.static_jadx',
     );
   }
@@ -1628,7 +1626,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       outputCategory: 'apktool_${_artifactTimestamp()}',
       command: _staticApktoolScript,
       timeout: _kStaticDecompileTimeout,
-      displayCommand: 'apktool unpack APK',
+      displayCommand: '使用 apktool 解包 APK',
       tag: 'android_reverse.static_apktool',
     );
   }
@@ -1644,7 +1642,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       outputCategory: 'strings_${_artifactTimestamp()}',
       command: _staticStringsScript,
       timeout: _kStaticStringsTimeout,
-      displayCommand: 'scan APK strings',
+      displayCommand: '扫描 APK 字符串',
       tag: 'android_reverse.static_strings',
     );
   }
@@ -1658,7 +1656,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       command: _certificateArtifactsReadScript,
       environment: <String, String>{'CERTS_DIR': certsDir},
       timeout: _kStaticArtifactReadTimeout,
-      displayCommand: 'read certificate artifacts',
+      displayCommand: '读取证书产物',
       tag: 'android_reverse.certs_read',
     );
   }
@@ -1673,7 +1671,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
           'MITM_CERT_PATH': certPath!.trim(),
       },
       timeout: _kStaticIdentityTimeout,
-      displayCommand: 'inspect mitmproxy CA',
+      displayCommand: '检查 mitmproxy CA',
       tag: 'android_reverse.certs_mitm_ca',
     );
   }
@@ -1692,7 +1690,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         if (serial?.trim().isNotEmpty ?? false) 'ADB_SERIAL': serial!.trim(),
       },
       timeout: const Duration(seconds: 35),
-      displayCommand: 'install mitmproxy CA as system cert',
+      displayCommand: '将 mitmproxy CA 安装为系统证书',
       tag: 'android_reverse.certs_install_system_ca',
     );
   }
@@ -1719,7 +1717,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>[actionName, '<missing-apk>'],
         exitCode: -1,
         stdout: '',
-        stderr: 'APK path is required and must point to an existing file.',
+        stderr: '必须提供指向现有文件的 APK 路径。',
         displayCommand: displayCommand,
       );
     }
@@ -1783,7 +1781,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         args: <String>[actionName],
         exitCode: -1,
         stdout: '',
-        stderr: 'Local shell actions require /bin/sh.',
+        stderr: '本地 shell 操作需要 /bin/sh。',
         displayCommand: displayCommand,
       );
     }
@@ -1809,7 +1807,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         exitCode: result.exitCode,
         stdout: stdoutText,
         stderr: timedOut
-            ? 'Local shell action timed out after ${timeout.inSeconds} seconds.'
+            ? '本地 shell 操作执行超过 ${timeout.inSeconds} 秒。'
             : stderrText,
         timedOut: timedOut,
         displayCommand: displayCommand ?? actionName,
@@ -1999,7 +1997,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         );
       }
       return <String>[
-        'MCP linkage artifacts: $mcpDir',
+        'MCP 关联产物：$mcpDir',
         'templates_json: $mcpTemplatesPath',
         'readme: $mcpReadmePath',
         'setup_guide: $mcpSetupGuidePath',
@@ -2024,7 +2022,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         _safeNotify();
         rethrow;
       }
-      return 'Failed to write MCP linkage artifacts: $e';
+      return '写入 MCP 关联产物失败：$e';
     }
   }
 
@@ -2120,7 +2118,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
       final err = result.stderr.trim();
       stdout
         ..writeln('\$ ${result.commandLine}')
-        ..writeln('exit: ${result.exitCode}');
+        ..writeln('退出码：${result.exitCode}');
       if (out.isNotEmpty) stdout.writeln(out);
       if (err.isNotEmpty) {
         stderr
@@ -2246,16 +2244,14 @@ class AndroidReverseSessionController extends ChangeNotifier {
     required bool timedOut,
   }) async {
     final buffer = StringBuffer()
-      ..writeln('Static quick scan output: ${outputDir.path}')
-      ..writeln('exit: ${result.exitCode}');
+      ..writeln('静态快速扫描输出：${outputDir.path}')
+      ..writeln('退出码：${result.exitCode}');
     final deadline = MonotonicDeadline(
       _kStaticArtifactReadTimeout,
       timeoutMessage: '静态快速扫描摘要读取超时。',
     );
     if (timedOut) {
-      buffer.writeln(
-        'status: timed out; partial artifacts may still be useful',
-      );
+      buffer.writeln('状态：执行超时，部分产物仍可使用');
     }
     final files = <String>[
       'SUMMARY.md',

@@ -31,6 +31,7 @@ const int _kMaxLogcatLines = 2000;
 const int _kMaxPackageApkPaths = 64;
 const int _kMinTcpPort = kTcpPortMin;
 const int _kMaxTcpPort = kTcpPortMax;
+const String _kInvalidAndroidPackageMessage = 'Android 包名无效。';
 
 class AdbCommandResult {
   const AdbCommandResult({
@@ -411,7 +412,7 @@ class AndroidReverseAdbClient {
           args: <String>['install', '<empty-apk-path>'],
           exitCode: -1,
           stdout: '',
-          stderr: 'APK path is empty.',
+          stderr: 'APK 路径为空。',
         ),
       );
     }
@@ -430,7 +431,7 @@ class AndroidReverseAdbClient {
           args: const <String>['shell', 'am force-stop <invalid-package>'],
           exitCode: -1,
           stdout: '',
-          stderr: 'Invalid Android package name: $packageName',
+          stderr: '$_kInvalidAndroidPackageMessage：$packageName',
         ),
       );
     }
@@ -444,7 +445,7 @@ class AndroidReverseAdbClient {
           args: const <String>['shell', 'pm clear <invalid-package>'],
           exitCode: -1,
           stdout: '',
-          stderr: 'Invalid Android package name: $packageName',
+          stderr: '$_kInvalidAndroidPackageMessage：$packageName',
         ),
       );
     }
@@ -461,7 +462,7 @@ class AndroidReverseAdbClient {
           args: const <String>['uninstall', '<invalid-package>'],
           exitCode: -1,
           stdout: '',
-          stderr: 'Invalid Android package name: $packageName',
+          stderr: '$_kInvalidAndroidPackageMessage：$packageName',
         ),
       );
     }
@@ -478,7 +479,7 @@ class AndroidReverseAdbClient {
         args: const <String>['shell', 'monkey -p <invalid-package>'],
         exitCode: -1,
         stdout: '',
-        stderr: 'Invalid Android package name: $packageName',
+        stderr: '$_kInvalidAndroidPackageMessage：$packageName',
       );
     }
     final launcher = await resolveLauncherActivity(packageName);
@@ -527,7 +528,7 @@ class AndroidReverseAdbClient {
         packageName: normalizedPackageName,
         pid: null,
         timedOut: false,
-        stderr: 'Invalid Android package name.',
+        stderr: _kInvalidAndroidPackageMessage,
       );
     }
     final direct = await _runDeviceDetailed(<String>[
@@ -576,7 +577,7 @@ class AndroidReverseAdbClient {
           args: <String>['shell', 'kill -9 <invalid-pid>'],
           exitCode: -1,
           stdout: '',
-          stderr: 'Invalid process id.',
+          stderr: '进程 ID 无效。',
         ),
       );
     }
@@ -600,7 +601,7 @@ class AndroidReverseAdbClient {
           args: <String>['push', '<local>', '<remote>'],
           exitCode: -1,
           stdout: '',
-          stderr: 'Both local and remote paths are required.',
+          stderr: '本地路径和远程路径均不能为空。',
         ),
       );
     }
@@ -620,7 +621,7 @@ class AndroidReverseAdbClient {
           args: <String>['pull', '<remote>', '<local>'],
           exitCode: -1,
           stdout: '',
-          stderr: 'Both remote and local paths are required.',
+          stderr: '远程路径和本地路径均不能为空。',
         ),
       );
     }
@@ -767,7 +768,7 @@ class AndroidReverseAdbClient {
           args: <String>['connect', '<empty-endpoint>'],
           exitCode: -1,
           stdout: '',
-          stderr: 'ADB connect endpoint is empty.',
+          stderr: 'ADB 连接地址为空。',
         ),
       );
     }
@@ -803,7 +804,7 @@ class AndroidReverseAdbClient {
           args: <String>['tcpip', '<invalid-port>'],
           exitCode: -1,
           stdout: '',
-          stderr: 'Invalid TCP/IP port.',
+          stderr: 'TCP/IP 端口无效。',
         ),
       );
     }
@@ -818,7 +819,7 @@ class AndroidReverseAdbClient {
           args: <String>['shell', 'screencap -p <remote-path>'],
           exitCode: -1,
           stdout: '',
-          stderr: 'Remote screenshot path is empty.',
+          stderr: '远程截图路径为空。',
         ),
       );
     }
@@ -842,7 +843,7 @@ class AndroidReverseAdbClient {
           args: <String>['shell', 'screenrecord --time-limit <seconds> <path>'],
           exitCode: -1,
           stdout: '',
-          stderr: 'Remote recording path or duration is invalid.',
+          stderr: '远程录屏路径或时长无效。',
         ),
       );
     }
@@ -898,7 +899,7 @@ class AndroidReverseAdbClient {
       },
     );
     if (result == null) {
-      final error = failure ?? 'ADB command failed before producing a result.';
+      final error = failure ?? 'ADB 命令未能返回结果。';
       return AdbCommandResult(
         args: List<String>.unmodifiable(args),
         exitCode: -1,
@@ -909,7 +910,7 @@ class AndroidReverseAdbClient {
     final stdout = result.stdout as String;
     var stderr = result.stderr as String;
     if (timedOut && nullIfBlank(stderr) == null) {
-      stderr = 'ADB command timed out before completion.';
+      stderr = 'ADB 命令执行超时。';
     }
     return AdbCommandResult(
       args: List<String>.unmodifiable(args),
@@ -946,7 +947,7 @@ class AndroidReverseAdbClient {
         args: <String>['shell', '<empty-command>'],
         exitCode: -1,
         stdout: '',
-        stderr: 'ADB shell command is empty.',
+        stderr: 'ADB shell 命令为空。',
       ),
     );
   }
@@ -968,7 +969,7 @@ class AndroidReverseAdbClient {
         ],
         exitCode: -1,
         stdout: '',
-        stderr: 'TCP port must be between $_kMinTcpPort and $_kMaxTcpPort.',
+        stderr: 'TCP 端口必须在 $_kMinTcpPort 至 $_kMaxTcpPort 之间。',
       ),
     );
   }
@@ -1034,8 +1035,8 @@ class AndroidReverseAdbClient {
     if (!launchCompleted || launchFailed) return result;
     final stderr = nullIfBlank(result.stderr);
     final warning = stderr == null
-        ? 'ADB shell did not close after launch output; treated as success from stdout.'
-        : '$stderr\nADB shell did not close after launch output; treated as success from stdout.';
+        ? 'ADB shell 返回启动输出后未退出，已根据标准输出判定为成功。'
+        : '$stderr\nADB shell 返回启动输出后未退出，已根据标准输出判定为成功。';
     return result.copyWith(exitCode: 0, stderr: warning, timedOut: false);
   }
 
