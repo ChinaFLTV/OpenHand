@@ -257,29 +257,32 @@ class McpStdioProcessManager extends ChangeNotifier {
               // 如果路由成功但日志已记录，不影响功能
               if (routed) return;
             },
-            onError: (e) {
-              responseRouter.failAll(e is Object ? e : StateError('$e'));
+            onError: (Object error, StackTrace stack) {
+              responseRouter.rejectNewWrites(error, stack);
               _appendLog(
                 name,
-                '[标准输出异常] $e',
+                '[标准输出异常] $error',
                 isStderr: true,
                 expectedGeneration: generation,
               );
+              unawaited(_terminateProcessTreeBounded(process!));
             },
             onDone: () {
-              responseRouter.failAll(StateError('标准输出已关闭。'));
+              responseRouter.rejectNewWrites(StateError('标准输出已关闭。'));
               _appendLog(
                 name,
                 '[标准输出已关闭]',
                 isStderr: false,
                 expectedGeneration: generation,
               );
+              unawaited(_terminateProcessTreeBounded(process!));
             },
+            cancelOnError: true,
           );
 
       // 监听标准错误。
       stderrSubscription = process.stderr
-          .transform(utf8.decoder)
+          .transform(const Utf8Decoder(allowMalformed: true))
           .listen(
             (data) => _appendLog(
               name,
@@ -316,7 +319,7 @@ class McpStdioProcessManager extends ChangeNotifier {
             isStderr: false,
             expectedGeneration: generation,
           );
-          responseRouter.failAll(StateError('进程已退出，退出码：$code。'));
+          responseRouter.rejectNewWrites(StateError('进程已退出，退出码：$code。'));
           unawaited(
             Future.wait<void>(<Future<void>>[
               _cancelSubscriptionBounded(
@@ -699,7 +702,11 @@ class McpStdioProcessManager extends ChangeNotifier {
       returnSession(serverName);
       return null;
     }
-    return ManagedStdioSession._(managed.process!, managed.responseRouter!);
+    return ManagedStdioSession._(
+      managed.process!,
+      managed.responseRouter!,
+      managed.instructions,
+    );
   }
 
   /// 归还借用的会话，释放引用计数。
@@ -968,6 +975,9 @@ class McpStdioProcessManager extends ChangeNotifier {
           response['result'] is Map;
 
       if (gotResponse) {
+        final result = stringKeyedMapFromValue(response['result']);
+        final instructions =
+            optionalStringFromValue(result['instructions']) ?? '';
         _appendLog(
           serverName,
           '[${_timestamp()}] ✓ MCP 握手成功',
@@ -1004,7 +1014,10 @@ class McpStdioProcessManager extends ChangeNotifier {
             current.info.isRunning &&
             identical(current.responseRouter, responseRouter) &&
             !responseRouter.isClosed) {
-          _processes[serverName] = current.copyWith(handshakeCompleted: true);
+          _processes[serverName] = current.copyWith(
+            handshakeCompleted: true,
+            instructions: instructions,
+          );
         }
       } else {
         final detail = response?['error'] ?? '响应缺少 result 字段';
@@ -1172,12 +1185,12 @@ class McpStdioProcessManager extends ChangeNotifier {
 /// 不拥有进程生命周期——进程由 McpStdioProcessManager 管理。
 /// 响应路由通过 McpStdioProcessManager 的标准输出监听器完成。
 class ManagedStdioSession {
-  ManagedStdioSession._(this._process, this._responseRouter);
+  ManagedStdioSession._(this._process, this._responseRouter, this.instructions);
 
   final Process _process;
   final _ManagedResponseRouter _responseRouter;
   final Set<String> _cancelledRequestIds = <String>{};
-  String instructions = '';
+  final String instructions;
 
   static const Duration _requestTimeout = Duration(seconds: 8);
 
@@ -1368,6 +1381,7 @@ class _ManagedResponseRouter {
         // JSON 解析失败——可能是非 JSON 输出（如 npm 进度信息），跳过
       }
     }
+    if (_pending.isEmpty) _lineBuffer.clear();
     return routed;
   }
 
@@ -1389,6 +1403,7 @@ class _ManagedProcess {
     required this.info,
     this.process,
     this.handshakeCompleted = false,
+    this.instructions = '',
     this.responseRouter,
     this.stdoutSubscription,
     this.stderrSubscription,
@@ -1399,6 +1414,7 @@ class _ManagedProcess {
   final StdioProcessInfo info;
   final Process? process;
   final bool handshakeCompleted;
+  final String instructions;
   final _ManagedResponseRouter? responseRouter;
   final StreamSubscription<String>? stdoutSubscription;
   final StreamSubscription<String>? stderrSubscription;
@@ -1407,6 +1423,7 @@ class _ManagedProcess {
     StdioProcessInfo? info,
     Process? process,
     bool? handshakeCompleted,
+    String? instructions,
     _ManagedResponseRouter? responseRouter,
     StreamSubscription<String>? stdoutSubscription,
     StreamSubscription<String>? stderrSubscription,
@@ -1418,6 +1435,7 @@ class _ManagedProcess {
       info: info ?? this.info,
       process: clearProcess ? null : (process ?? this.process),
       handshakeCompleted: handshakeCompleted ?? this.handshakeCompleted,
+      instructions: instructions ?? this.instructions,
       responseRouter: responseRouter ?? this.responseRouter,
       stdoutSubscription: stdoutSubscription ?? this.stdoutSubscription,
       stderrSubscription: stderrSubscription ?? this.stderrSubscription,
