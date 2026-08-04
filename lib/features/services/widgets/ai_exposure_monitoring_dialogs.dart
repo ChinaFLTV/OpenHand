@@ -3190,27 +3190,11 @@ class _MetricInsightBody extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ServicesController>();
-    final analysis = _serviceMetricAnalysisSections(
+    return _buildDistinctMetricInsight(
       context,
       section: sectionTitle,
       label: selected.label,
       controller: controller,
-    );
-    final details = _serviceMetricDetailSections(
-      context,
-      section: sectionTitle,
-      label: selected.label,
-      controller: controller,
-    );
-    final sections = [...analysis, ...details];
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        for (final section in sections.indexed) ...[
-          if (section.$1 > 0) const SizedBox(height: 14),
-          section.$2,
-        ],
-      ],
     );
   }
 }
@@ -3700,13 +3684,11 @@ class _InsightDonutSection extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.items,
-    this.centerLabel,
   });
 
   final String title;
   final IconData icon;
   final List<_DistributionItem> items;
-  final String? centerLabel;
 
   @override
   Widget build(BuildContext context) {
@@ -3727,7 +3709,7 @@ class _InsightDonutSection extends StatelessWidget {
               ),
               child: Center(
                 child: Text(
-                  centerLabel ?? '$total',
+                  '$total',
                   textAlign: TextAlign.center,
                   style: Theme.of(
                     context,
@@ -3757,829 +3739,3142 @@ class _InsightDonutSection extends StatelessWidget {
   }
 }
 
-List<Widget> _serviceMetricAnalysisSections(
+class _InsightKpi {
+  const _InsightKpi({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.helper,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String helper;
+  final Color color;
+}
+
+class _InsightKpiBand extends StatelessWidget {
+  const _InsightKpiBand({
+    required this.title,
+    required this.icon,
+    required this.items,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<_InsightKpi> items;
+
+  @override
+  Widget build(BuildContext context) => _Section(
+    title: title,
+    icon: icon,
+    child: LayoutBuilder(
+      builder: (context, constraints) {
+        final columns = constraints.maxWidth >= 760
+            ? 4
+            : constraints.maxWidth >= 500
+            ? 2
+            : 1;
+        const gap = 10.0;
+        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
+        return Wrap(
+          spacing: gap,
+          runSpacing: gap,
+          children: items
+              .map(
+                (item) => SizedBox(
+                  width: width,
+                  child: Container(
+                    constraints: const BoxConstraints(minHeight: 108),
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: item.color.withValues(alpha: 0.08),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: item.color.withValues(alpha: 0.26),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Icon(item.icon, size: 18, color: item.color),
+                            const SizedBox(width: 7),
+                            Expanded(
+                              child: Text(
+                                item.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.labelMedium,
+                              ),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(height: 10),
+                        Text(
+                          item.value,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.titleLarge
+                              ?.copyWith(fontWeight: FontWeight.w900),
+                        ),
+                        const SizedBox(height: 3),
+                        Text(
+                          item.helper,
+                          maxLines: 2,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(
+                                color: Theme.of(
+                                  context,
+                                ).colorScheme.onSurfaceVariant,
+                              ),
+                        ),
+                      ],
+                    ),
+                  ),
+                ),
+              )
+              .toList(growable: false),
+        );
+      },
+    ),
+  );
+}
+
+class _InsightRankItem {
+  const _InsightRankItem({
+    required this.label,
+    required this.value,
+    required this.valueLabel,
+    required this.color,
+    this.helper = '',
+  });
+
+  final String label;
+  final double value;
+  final String valueLabel;
+  final Color color;
+  final String helper;
+}
+
+class _InsightRankingSection extends StatelessWidget {
+  const _InsightRankingSection({
+    required this.title,
+    required this.icon,
+    required this.items,
+    required this.emptyLabel,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<_InsightRankItem> items;
+  final String emptyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final sorted = [...items]
+      ..sort((left, right) => right.value.compareTo(left.value));
+    final maxValue = sorted.fold<double>(
+      0,
+      (current, item) => item.value > current ? item.value : current,
+    );
+    return _Section(
+      title: title,
+      icon: icon,
+      child: sorted.isEmpty
+          ? _InsightEmpty(label: emptyLabel)
+          : Column(
+              children: sorted.indexed
+                  .map((entry) {
+                    final item = entry.$2;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              SizedBox(
+                                width: 28,
+                                child: Text(
+                                  '${entry.$1 + 1}',
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(
+                                        color: item.color,
+                                        fontWeight: FontWeight.w900,
+                                      ),
+                                ),
+                              ),
+                              Expanded(
+                                child: Text(
+                                  item.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(context).textTheme.labelLarge
+                                      ?.copyWith(fontWeight: FontWeight.w800),
+                                ),
+                              ),
+                              const SizedBox(width: 12),
+                              Text(
+                                item.valueLabel,
+                                style: Theme.of(context).textTheme.labelLarge,
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 7),
+                          ClipRRect(
+                            borderRadius: BorderRadius.circular(99),
+                            child: LinearProgressIndicator(
+                              value: maxValue <= 0 ? 0 : item.value / maxValue,
+                              minHeight: 9,
+                              color: item.color,
+                              backgroundColor: item.color.withValues(
+                                alpha: 0.1,
+                              ),
+                            ),
+                          ),
+                          if (item.helper.isNotEmpty) ...[
+                            const SizedBox(height: 5),
+                            Text(
+                              item.helper,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+    );
+  }
+}
+
+class _InsightMatrixCell {
+  const _InsightMatrixCell({required this.label, required this.color});
+
+  final String label;
+  final Color color;
+}
+
+class _InsightMatrixRow {
+  const _InsightMatrixRow({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.color,
+    required this.cells,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Color color;
+  final List<_InsightMatrixCell> cells;
+}
+
+class _InsightMatrixSection extends StatelessWidget {
+  const _InsightMatrixSection({
+    required this.title,
+    required this.icon,
+    required this.rows,
+    required this.emptyLabel,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<_InsightMatrixRow> rows;
+  final String emptyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return _Section(
+      title: title,
+      icon: icon,
+      child: rows.isEmpty
+          ? _InsightEmpty(label: emptyLabel)
+          : Column(
+              children: rows.indexed
+                  .map(
+                    (entry) => Column(
+                      children: [
+                        if (entry.$1 > 0)
+                          Divider(
+                            height: 18,
+                            color: colors.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                        Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Container(
+                              width: 38,
+                              height: 38,
+                              alignment: Alignment.center,
+                              decoration: BoxDecoration(
+                                color: entry.$2.color.withValues(alpha: 0.1),
+                                borderRadius: BorderRadius.circular(8),
+                              ),
+                              child: Icon(
+                                entry.$2.icon,
+                                size: 19,
+                                color: entry.$2.color,
+                              ),
+                            ),
+                            const SizedBox(width: 11),
+                            Expanded(
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    entry.$2.title,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                  if (entry.$2.subtitle.isNotEmpty) ...[
+                                    const SizedBox(height: 3),
+                                    Text(
+                                      entry.$2.subtitle,
+                                      maxLines: 2,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: colors.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                  const SizedBox(height: 7),
+                                  Wrap(
+                                    spacing: 6,
+                                    runSpacing: 6,
+                                    children: entry.$2.cells
+                                        .map(
+                                          (cell) => _StatusPill(
+                                            icon: Icons.circle,
+                                            label: cell.label,
+                                            color: cell.color,
+                                          ),
+                                        )
+                                        .toList(growable: false),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ],
+                    ),
+                  )
+                  .toList(growable: false),
+            ),
+    );
+  }
+}
+
+class _InsightTimelineEntry {
+  const _InsightTimelineEntry({
+    required this.at,
+    required this.title,
+    required this.detail,
+    required this.color,
+    this.tag = '',
+  });
+
+  final DateTime at;
+  final String title;
+  final String detail;
+  final Color color;
+  final String tag;
+}
+
+class _InsightTimelineSection extends StatelessWidget {
+  const _InsightTimelineSection({
+    required this.title,
+    required this.icon,
+    required this.entries,
+    required this.emptyLabel,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<_InsightTimelineEntry> entries;
+  final String emptyLabel;
+
+  @override
+  Widget build(BuildContext context) {
+    final shown = entries.take(24).toList(growable: false);
+    final colors = Theme.of(context).colorScheme;
+    return _Section(
+      title: entries.isEmpty ? title : '$title · ${entries.length}',
+      icon: icon,
+      child: shown.isEmpty
+          ? _InsightEmpty(label: emptyLabel)
+          : Column(
+              children: shown.indexed
+                  .map((entry) {
+                    final item = entry.$2;
+                    return IntrinsicHeight(
+                      child: Row(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          SizedBox(
+                            width: 76,
+                            child: Text(
+                              _shortDateTime(item.at),
+                              maxLines: 2,
+                              style: Theme.of(context).textTheme.labelSmall
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            ),
+                          ),
+                          SizedBox(
+                            width: 18,
+                            child: Column(
+                              children: [
+                                Container(
+                                  width: 10,
+                                  height: 10,
+                                  decoration: BoxDecoration(
+                                    color: item.color,
+                                    shape: BoxShape.circle,
+                                  ),
+                                ),
+                                if (entry.$1 < shown.length - 1)
+                                  Expanded(
+                                    child: Container(
+                                      width: 2,
+                                      color: colors.outlineVariant,
+                                    ),
+                                  ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Padding(
+                              padding: const EdgeInsets.only(bottom: 14),
+                              child: Column(
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Row(
+                                    children: [
+                                      Expanded(
+                                        child: Text(
+                                          item.title,
+                                          maxLines: 2,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: Theme.of(context)
+                                              .textTheme
+                                              .labelLarge
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w800,
+                                              ),
+                                        ),
+                                      ),
+                                      if (item.tag.isNotEmpty) ...[
+                                        const SizedBox(width: 8),
+                                        _InsightMiniTag(label: item.tag),
+                                      ],
+                                    ],
+                                  ),
+                                  if (item.detail.isNotEmpty) ...[
+                                    const SizedBox(height: 4),
+                                    Text(
+                                      item.detail,
+                                      maxLines: 3,
+                                      overflow: TextOverflow.ellipsis,
+                                      style: Theme.of(context)
+                                          .textTheme
+                                          .bodySmall
+                                          ?.copyWith(
+                                            color: colors.onSurfaceVariant,
+                                          ),
+                                    ),
+                                  ],
+                                ],
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+    );
+  }
+}
+
+class _InsightFunnelItem {
+  const _InsightFunnelItem({
+    required this.label,
+    required this.value,
+    required this.color,
+  });
+
+  final String label;
+  final int value;
+  final Color color;
+}
+
+class _InsightFunnelSection extends StatelessWidget {
+  const _InsightFunnelSection({
+    required this.title,
+    required this.icon,
+    required this.items,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<_InsightFunnelItem> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final maxValue = items.fold<int>(
+      0,
+      (current, item) => item.value > current ? item.value : current,
+    );
+    return _Section(
+      title: title,
+      icon: icon,
+      child: items.isEmpty
+          ? const _InsightEmpty(label: '暂无漏斗样本。')
+          : Column(
+              children: items.indexed
+                  .map((entry) {
+                    final item = entry.$2;
+                    final width = maxValue <= 0
+                        ? 0.16
+                        : (item.value / maxValue).clamp(0.16, 1.0);
+                    final previous = entry.$1 == 0 ? null : items[entry.$1 - 1];
+                    final conversion = previous == null || previous.value <= 0
+                        ? null
+                        : item.value * 100 / previous.value;
+                    return Padding(
+                      padding: const EdgeInsets.symmetric(vertical: 6),
+                      child: Column(
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  item.label,
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                              ),
+                              Text(
+                                conversion == null
+                                    ? '${item.value}'
+                                    : '${item.value} · ${conversion.toStringAsFixed(1)}%',
+                                style: Theme.of(context).textTheme.labelLarge
+                                    ?.copyWith(fontWeight: FontWeight.w800),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 7),
+                          Align(
+                            child: FractionallySizedBox(
+                              widthFactor: width,
+                              child: Container(
+                                height: 20,
+                                decoration: BoxDecoration(
+                                  color: item.color.withValues(alpha: 0.78),
+                                  borderRadius: BorderRadius.circular(4),
+                                ),
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+    );
+  }
+}
+
+class _InsightCapacitySection extends StatelessWidget {
+  const _InsightCapacitySection({
+    required this.title,
+    required this.icon,
+    required this.configured,
+    required this.maximum,
+    required this.color,
+  });
+
+  final String title;
+  final IconData icon;
+  final int configured;
+  final int maximum;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final safeMaximum = maximum.clamp(1, 256);
+    final safeConfigured = configured.clamp(0, safeMaximum);
+    return _Section(
+      title: title,
+      icon: icon,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Text(
+                '$safeConfigured',
+                style: Theme.of(context).textTheme.headlineMedium?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              Text(
+                ' / $safeMaximum 个可配置工作槽',
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              const gap = 4.0;
+              final columns = constraints.maxWidth >= 720 ? 32 : 16;
+              final size =
+                  (constraints.maxWidth - gap * (columns - 1)) / columns;
+              return Wrap(
+                spacing: gap,
+                runSpacing: gap,
+                children: List<Widget>.generate(
+                  safeMaximum,
+                  (index) => Container(
+                    width: size,
+                    height: size.clamp(7, 16),
+                    decoration: BoxDecoration(
+                      color: index < safeConfigured
+                          ? color
+                          : colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(2),
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+          const SizedBox(height: 10),
+          Text(
+            '该图展示任务内部工作并发配置，不推断服务未上报的实时槽位占用。',
+            style: Theme.of(
+              context,
+            ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Widget _metricInsightPage(List<Widget> sections) => Column(
+  crossAxisAlignment: CrossAxisAlignment.stretch,
+  children: sections.indexed
+      .expand(
+        (entry) => [if (entry.$1 > 0) const SizedBox(height: 14), entry.$2],
+      )
+      .toList(growable: false),
+);
+
+Widget _buildDistinctMetricInsight(
   BuildContext context, {
   required String section,
   required String label,
   required ServicesController controller,
-}) {
+}) => switch (section) {
+  '状态总览' => _buildOverviewMetricInsight(context, label, controller),
+  '任务管线' => _buildPipelineMetricInsight(context, label, controller),
+  '数据源' => _buildSourceMetricInsight(context, label, controller),
+  '网络遥测' => _buildNetworkMetricInsight(context, label, controller),
+  '存储与持久化' => _buildStorageMetricInsight(context, label, controller),
+  '安全与依赖' => _buildSecurityMetricInsight(context, label, controller),
+  _ => const _InsightEmpty(label: '暂无该指标的运维数据。'),
+};
+
+_InsightRecordPanel _metricTaskPanel(
+  Iterable<AiExposureHistoryEntry> entries, {
+  required String title,
+  required String emptyLabel,
+  _TaskRecordLens lens = _TaskRecordLens.overview,
+}) => _InsightRecordPanel(
+  icon: Icons.work_history_outlined,
+  title: title,
+  records: entries
+      .map((entry) => _taskInsightRecord(entry, lens))
+      .toList(growable: false),
+  emptyLabel: emptyLabel,
+);
+
+_InsightRecordPanel _metricResultPanel(
+  Iterable<AiExposureResult> entries, {
+  required String title,
+  required String emptyLabel,
+  _ResultRecordLens lens = _ResultRecordLens.overview,
+}) => _InsightRecordPanel(
+  icon: Icons.fact_check_outlined,
+  title: title,
+  records: entries
+      .map((entry) => _resultInsightRecord(entry, lens))
+      .toList(growable: false),
+  emptyLabel: emptyLabel,
+);
+
+List<AiExposureHistoryEntry> _chronologicalTasks(
+  ServicesController controller, {
+  int limit = 24,
+}) => controller.history.take(limit).toList().reversed.toList(growable: false);
+
+Widget _buildOverviewMetricInsight(
+  BuildContext context,
+  String label,
+  ServicesController controller,
+) {
   final colors = Theme.of(context).colorScheme;
   final history = controller.history;
-  final chronological = history.take(24).toList().reversed.toList();
+  final chronological = _chronologicalTasks(controller);
   final results = controller.results;
-  final rules = controller.rules;
   final logs = controller.logs;
-  final proxy = controller.proxyStatus;
-  final endpoints = controller.proxyConfiguration.endpoints;
-  final requestSamples = _proxyRequestSamples(controller);
-  final taskLabels = chronological
-      .map((entry) => _shortDateTime(entry.createdAt))
-      .toList(growable: false);
-  final requestLabels = requestSamples
-      .map((sample) => _shortDateTime(sample.at))
-      .toList(growable: false);
-  final sources = AiExposureSource.values
-      .where((source) => source != AiExposureSource.githubArtifact)
-      .toList(growable: false);
-  final discoverySources = sources
-      .where((source) => source != AiExposureSource.manual)
-      .toList(growable: false);
+  int taskCount(String stage) =>
+      history.where((entry) => entry.stage == stage).length;
+  final terminalStages = <String>{'completed', 'failed', 'cancelled'};
+  final active = history
+      .where((entry) => !terminalStages.contains(entry.stage))
+      .length;
 
-  _InsightDonutSection donut(
-    String title,
-    IconData icon,
-    List<_DistributionItem> items, {
-    String? centerLabel,
-  }) => _InsightDonutSection(
-    title: title,
-    icon: icon,
-    items: items,
-    centerLabel: centerLabel,
-  );
-
-  _InsightTrendSection taskTrend(
-    String title,
-    IconData icon,
-    List<OpenHandChartSeries> series, {
-    String suffix = ' 项',
-    String emptyLabel = '暂无任务趋势样本',
-  }) => _InsightTrendSection(
-    title: title,
-    icon: icon,
-    series: series,
-    sampleLabels: taskLabels,
-    suffix: suffix,
-    emptyLabel: emptyLabel,
-  );
-
-  _InsightTrendSection requestTrend(
-    String title,
-    List<AiExposureProxyRequestSample> samples,
-    List<OpenHandChartSeries> series, {
-    String suffix = ' ms',
-    String emptyLabel = '暂无请求时延样本',
-  }) => _InsightTrendSection(
-    title: title,
-    icon: Icons.multiline_chart_rounded,
-    series: series,
-    sampleLabels: samples
-        .map((sample) => _shortDateTime(sample.at))
-        .toList(growable: false),
-    suffix: suffix,
-    emptyLabel: emptyLabel,
-  );
-
-  List<_DistributionItem> taskStages() {
-    int count(String stage) =>
-        history.where((entry) => entry.stage == stage).length;
-    const terminal = {'completed', 'failed', 'cancelled'};
-    return [
-      _DistributionItem('完成', count('completed'), OpenHandStatusColors.success),
-      _DistributionItem('失败', count('failed'), OpenHandStatusColors.error),
-      _DistributionItem('取消', count('cancelled'), OpenHandStatusColors.warning),
-      _DistributionItem(
-        '运行中',
-        history.where((entry) => !terminal.contains(entry.stage)).length,
-        OpenHandStatusColors.info,
-      ),
-    ];
-  }
-
-  List<_DistributionItem> requestOutcomes() => [
-    _DistributionItem(
-      '成功',
-      proxy?.totalSuccesses ?? 0,
-      OpenHandStatusColors.success,
-    ),
-    _DistributionItem(
-      '失败',
-      proxy?.totalFailures ?? 0,
-      OpenHandStatusColors.error,
-    ),
-    _DistributionItem(
-      '超时',
-      proxy?.totalTimeouts ?? 0,
-      OpenHandStatusColors.warning,
-    ),
-    _DistributionItem('执行中', proxy?.inFlight ?? 0, OpenHandStatusColors.info),
-  ];
-
-  final sourceConfigured = <AiExposureSource, bool>{
-    for (final source in discoverySources)
-      source: controller.sourceStatus[_sourceCredentialKey(source)] == true,
-  };
-  final quotaBySource = {
-    for (final quota in controller.quotas) quota.source: quota,
-  };
-  final sourceJobCounts = <AiExposureSource, int>{};
-  for (final entry in history) {
-    for (final source in entry.sources) {
-      sourceJobCounts.update(source, (value) => value + 1, ifAbsent: () => 1);
-    }
-  }
-  final sourceResultCounts = <AiExposureSource, int>{};
-  for (final result in results) {
-    sourceResultCounts.update(
-      result.source,
-      (value) => value + 1,
-      ifAbsent: () => 1,
-    );
-  }
-
-  switch ('$section/$label') {
-    case '状态总览/任务总数':
-      return [donut('任务终态构成', Icons.account_tree_outlined, taskStages())];
-    case '状态总览/结果总数':
-      int category(AiExposureResultCategory value) =>
-          results.where((entry) => entry.category == value).length;
-      return [
-        donut('结果质量构成', Icons.fact_check_outlined, [
-          _DistributionItem(
-            '有效',
-            category(AiExposureResultCategory.valid),
-            OpenHandStatusColors.success,
-          ),
-          _DistributionItem(
-            '高价值',
-            category(AiExposureResultCategory.highValue),
-            const Color(0xffa855f7),
-          ),
-          _DistributionItem(
-            '可疑',
-            category(AiExposureResultCategory.suspicious),
-            OpenHandStatusColors.warning,
-          ),
-          _DistributionItem(
-            '蜜罐',
-            category(AiExposureResultCategory.honeypot),
-            OpenHandStatusColors.error,
-          ),
-        ]),
-      ];
-    case '状态总览/高价值':
-      return [
-        taskTrend('高价值结果产出趋势', Icons.workspace_premium_outlined, [
-          OpenHandChartSeries(
-            label: '高价值',
-            values: chronological
-                .map((entry) => entry.progress.highValue.toDouble())
-                .toList(growable: false),
-            color: const Color(0xffa855f7),
-          ),
-          OpenHandChartSeries(
-            label: '有效',
-            values: chronological
-                .map((entry) => entry.progress.valid.toDouble())
-                .toList(growable: false),
-            color: OpenHandStatusColors.success,
-          ),
-        ], emptyLabel: '暂无高价值结果趋势'),
-      ];
-    case '状态总览/累计处理':
-      return [
-        taskTrend('累计处理吞吐', Icons.radar_rounded, [
-          OpenHandChartSeries(
-            label: '处理',
-            values: chronological
-                .map((entry) => entry.progress.processed.toDouble())
-                .toList(growable: false),
-            color: colors.primary,
-          ),
-          OpenHandChartSeries(
-            label: '发现',
-            values: chronological
-                .map((entry) => entry.progress.discovered.toDouble())
-                .toList(growable: false),
-            color: colors.tertiary,
-          ),
-        ], emptyLabel: '暂无处理吞吐样本'),
-      ];
-    case '状态总览/平均任务耗时':
-      return [
-        taskTrend(
-          '任务端到端耗时',
-          Icons.timer_outlined,
-          [
-            OpenHandChartSeries(
-              label: '耗时',
-              values: chronological
-                  .map(
-                    (entry) =>
-                        (entry.finishedAt
-                                    ?.difference(entry.createdAt)
-                                    .inMilliseconds ??
-                                0)
-                            .clamp(0, 86400000)
-                            .toDouble(),
-                  )
-                  .toList(growable: false),
-              color: colors.tertiary,
+  switch (label) {
+    case '任务总数':
+      final completed = taskCount('completed');
+      final failed = taskCount('failed');
+      final cancelled = taskCount('cancelled');
+      final throughput = history.fold<int>(
+        0,
+        (sum, entry) => sum + entry.progress.processed,
+      );
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '任务运行账本',
+          icon: Icons.work_history_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.task_alt_rounded,
+              label: '完成',
+              value: '$completed',
+              helper: history.isEmpty
+                  ? '暂无任务'
+                  : '${(completed * 100 / history.length).toStringAsFixed(1)}% 完成率',
+              color: OpenHandStatusColors.success,
+            ),
+            _InsightKpi(
+              icon: Icons.pending_actions_rounded,
+              label: '运行中',
+              value: '$active',
+              helper: '服务当前活动任务',
+              color: OpenHandStatusColors.info,
+            ),
+            _InsightKpi(
+              icon: Icons.error_outline_rounded,
+              label: '失败',
+              value: '$failed',
+              helper: '可进入恢复检查',
+              color: OpenHandStatusColors.error,
+            ),
+            _InsightKpi(
+              icon: Icons.radar_rounded,
+              label: '累计处理',
+              value: '$throughput',
+              helper: '跨全部任务汇总',
+              color: colors.primary,
             ),
           ],
-          suffix: ' ms',
-          emptyLabel: '暂无已结束任务耗时样本',
         ),
-      ];
-    case '状态总览/已配置源':
-      final configured = sourceConfigured.values.where((value) => value).length;
-      return [
-        donut('数据源配置覆盖', Icons.travel_explore_rounded, [
-          _DistributionItem('已配置', configured, OpenHandStatusColors.success),
-          _DistributionItem(
-            '待配置',
-            discoverySources.length - configured,
-            colors.outline,
-          ),
-        ]),
-      ];
-    case '状态总览/启用规则':
-      final enabled = rules.where((rule) => rule.enabled).length;
-      return [
-        donut('规则启用覆盖', Icons.rule_rounded, [
-          _DistributionItem('已启用', enabled, OpenHandStatusColors.success),
-          _DistributionItem('未启用', rules.length - enabled, colors.outline),
-        ]),
-      ];
-    case '状态总览/代理选路':
-      return [donut('代理请求结果构成', Icons.alt_route_rounded, requestOutcomes())];
-    case '状态总览/代理平均响应':
-      return [
-        requestTrend('代理端到端响应趋势', requestSamples, [
-          OpenHandChartSeries(
-            label: '响应耗时',
-            values: requestSamples
-                .map((sample) => sample.responseTimeMs.toDouble())
-                .toList(growable: false),
-            color: colors.secondary,
-          ),
-        ]),
-      ];
-    case '状态总览/警告日志':
-      final warnings = logs.where((entry) => entry.level == 'warning').toList();
-      return [
-        donut('警告归属构成', Icons.warning_amber_rounded, [
-          _DistributionItem(
-            '任务警告',
-            warnings.where((entry) => entry.jobId.isNotEmpty).length,
-            OpenHandStatusColors.warning,
-          ),
-          _DistributionItem(
-            '系统警告',
-            warnings.where((entry) => entry.jobId.isEmpty).length,
-            colors.tertiary,
-          ),
-        ]),
-      ];
-    case '状态总览/错误日志':
-      final errors = logs.where((entry) => entry.level == 'error').toList();
-      return [
-        donut('错误归属构成', Icons.error_outline_rounded, [
-          _DistributionItem(
-            '任务错误',
-            errors.where((entry) => entry.jobId.isNotEmpty).length,
-            OpenHandStatusColors.error,
-          ),
-          _DistributionItem(
-            '系统错误',
-            errors.where((entry) => entry.jobId.isEmpty).length,
-            colors.tertiary,
-          ),
-        ]),
-      ];
-    case '状态总览/已取消任务':
-      final cancelled = chronological
-          .where((entry) => entry.stage == 'cancelled')
+        _InsightRankingSection(
+          title: '任务终态规模',
+          icon: Icons.account_tree_outlined,
+          items: [
+            _InsightRankItem(
+              label: '完成',
+              value: completed.toDouble(),
+              valueLabel: '$completed',
+              color: OpenHandStatusColors.success,
+            ),
+            _InsightRankItem(
+              label: '失败',
+              value: failed.toDouble(),
+              valueLabel: '$failed',
+              color: OpenHandStatusColors.error,
+            ),
+            _InsightRankItem(
+              label: '取消',
+              value: cancelled.toDouble(),
+              valueLabel: '$cancelled',
+              color: OpenHandStatusColors.warning,
+            ),
+            _InsightRankItem(
+              label: '运行中',
+              value: active.toDouble(),
+              valueLabel: '$active',
+              color: OpenHandStatusColors.info,
+            ),
+          ],
+          emptyLabel: '暂无任务状态数据。',
+        ),
+        _metricTaskPanel(history, title: '最近任务时间线', emptyLabel: '尚未创建扫描任务。'),
+      ]);
+    case '结果总数':
+      int category(AiExposureResultCategory value) =>
+          results.where((entry) => entry.category == value).length;
+      final sourceCounts = <AiExposureSource, int>{};
+      for (final result in results) {
+        sourceCounts.update(
+          result.source,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
+      }
+      return _metricInsightPage([
+        _InsightDonutSection(
+          title: '结果质量构成',
+          icon: Icons.fact_check_outlined,
+          items: [
+            _DistributionItem(
+              '有效',
+              category(AiExposureResultCategory.valid),
+              OpenHandStatusColors.success,
+            ),
+            _DistributionItem(
+              '高价值',
+              category(AiExposureResultCategory.highValue),
+              const Color(0xffa855f7),
+            ),
+            _DistributionItem(
+              '可疑',
+              category(AiExposureResultCategory.suspicious),
+              OpenHandStatusColors.warning,
+            ),
+            _DistributionItem(
+              '蜜罐',
+              category(AiExposureResultCategory.honeypot),
+              OpenHandStatusColors.error,
+            ),
+          ],
+        ),
+        _InsightRankingSection(
+          title: '来源产出排名',
+          icon: Icons.travel_explore_rounded,
+          items: sourceCounts.entries
+              .map(
+                (entry) => _InsightRankItem(
+                  label: _sourceName(entry.key),
+                  value: entry.value.toDouble(),
+                  valueLabel: '${entry.value} 条',
+                  color: _sourceColor(entry.key, colors),
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无来源产出。',
+        ),
+        _metricResultPanel(results, title: '最近结果明细', emptyLabel: '暂无扫描结果。'),
+      ]);
+    case '高价值':
+      final highValue = results
+          .where(
+            (entry) => entry.category == AiExposureResultCategory.highValue,
+          )
           .toList(growable: false);
-      return [
+      return _metricInsightPage([
         _InsightTrendSection(
-          title: '取消任务处理量与候选量',
-          icon: Icons.cancel_outlined,
+          title: '逐任务高价值产出',
+          icon: Icons.workspace_premium_outlined,
+          series: [
+            OpenHandChartSeries(
+              label: '高价值',
+              values: chronological
+                  .map((entry) => entry.progress.highValue.toDouble())
+                  .toList(growable: false),
+              color: const Color(0xffa855f7),
+            ),
+            OpenHandChartSeries(
+              label: '有效',
+              values: chronological
+                  .map((entry) => entry.progress.valid.toDouble())
+                  .toList(growable: false),
+              color: OpenHandStatusColors.success,
+            ),
+          ],
+          sampleLabels: chronological
+              .map((entry) => _shortDateTime(entry.createdAt))
+              .toList(growable: false),
+          suffix: ' 条',
+          emptyLabel: '暂无任务产出样本',
+        ),
+        _InsightMatrixSection(
+          title: '高价值风险画像',
+          icon: Icons.security_rounded,
+          rows: highValue
+              .map(
+                (result) => _InsightMatrixRow(
+                  icon: Icons.workspace_premium_outlined,
+                  title: result.product.trim().isEmpty
+                      ? result.host
+                      : '${result.product} · ${result.host}',
+                  subtitle: result.url,
+                  color: const Color(0xffa855f7),
+                  cells: [
+                    _InsightMatrixCell(
+                      label: _sourceName(result.source),
+                      color: _sourceColor(result.source, colors),
+                    ),
+                    _InsightMatrixCell(
+                      label: '证据 ${result.evidence.length}',
+                      color: colors.primary,
+                    ),
+                    _InsightMatrixCell(
+                      label: '模型 ${result.modelCount}',
+                      color: colors.tertiary,
+                    ),
+                    if (result.duplicateKeyHosts > 0)
+                      _InsightMatrixCell(
+                        label: '同凭证 ${result.duplicateKeyHosts}',
+                        color: OpenHandStatusColors.warning,
+                      ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无高价值结果。',
+        ),
+      ]);
+    case '累计处理':
+      final ranked = [...history]
+        ..sort(
+          (left, right) =>
+              right.progress.processed.compareTo(left.progress.processed),
+        );
+      return _metricInsightPage([
+        _InsightTrendSection(
+          title: '任务处理吞吐曲线',
+          icon: Icons.radar_rounded,
           series: [
             OpenHandChartSeries(
               label: '处理',
-              values: cancelled
+              values: chronological
                   .map((entry) => entry.progress.processed.toDouble())
                   .toList(growable: false),
               color: colors.primary,
             ),
             OpenHandChartSeries(
-              label: '候选',
-              values: cancelled
-                  .map((entry) => entry.progress.candidates.toDouble())
+              label: '发现',
+              values: chronological
+                  .map((entry) => entry.progress.discovered.toDouble())
                   .toList(growable: false),
-              color: OpenHandStatusColors.warning,
+              color: colors.tertiary,
             ),
           ],
-          sampleLabels: cancelled
+          sampleLabels: chronological
               .map((entry) => _shortDateTime(entry.createdAt))
               .toList(growable: false),
           suffix: ' 项',
-          emptyLabel: '暂无取消任务样本',
+          emptyLabel: '暂无处理吞吐样本',
         ),
-      ];
-    case '任务管线/当前状态':
-      final progress = controller.progress;
-      final processed = progress?.processed ?? 0;
-      final total = progress?.total ?? 0;
-      return [
-        donut(
-          '当前任务进度构成',
-          Icons.play_circle_outline_rounded,
-          [
-            _DistributionItem('已处理', processed, OpenHandStatusColors.success),
-            _DistributionItem(
-              '待处理',
-              (total - processed).clamp(0, total),
-              colors.outline,
-            ),
-          ],
-          centerLabel: progress == null ? '空闲' : _stageName(progress.stage),
+        _InsightRankingSection(
+          title: '任务处理量排名',
+          icon: Icons.leaderboard_outlined,
+          items: ranked
+              .map(
+                (entry) => _InsightRankItem(
+                  label: entry.name.trim().isEmpty ? entry.id : entry.name,
+                  value: entry.progress.processed.toDouble(),
+                  valueLabel: '${entry.progress.processed}',
+                  helper:
+                      '发现 ${entry.progress.discovered} · 总量 ${entry.progress.total}',
+                  color: colors.primary,
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无任务处理样本。',
         ),
-      ];
-    case '任务管线/累计处理':
-      return [
-        taskTrend('逐任务处理吞吐', Icons.checklist_rounded, [
-          OpenHandChartSeries(
-            label: '处理',
-            values: chronological
-                .map((entry) => entry.progress.processed.toDouble())
-                .toList(growable: false),
-            color: colors.primary,
-          ),
-        ], emptyLabel: '暂无任务处理样本'),
-      ];
-    case '任务管线/候选目标':
-      final processed = history.fold<int>(
-        0,
-        (sum, entry) => sum + entry.progress.processed,
-      );
-      final candidates = history.fold<int>(
-        0,
-        (sum, entry) => sum + entry.progress.candidates,
-      );
-      return [
-        donut('候选转化构成', Icons.filter_alt_outlined, [
-          _DistributionItem('候选目标', candidates, OpenHandStatusColors.info),
-          _DistributionItem(
-            '未转候选',
-            (processed - candidates).clamp(0, processed),
-            colors.outline,
-          ),
-        ]),
-      ];
-    case '任务管线/有效结果':
-      final candidates = history.fold<int>(
-        0,
-        (sum, entry) => sum + entry.progress.candidates,
-      );
-      final valid = history.fold<int>(
-        0,
-        (sum, entry) => sum + entry.progress.valid,
-      );
-      return [
-        donut('有效转化构成', Icons.verified_outlined, [
-          _DistributionItem('有效结果', valid, OpenHandStatusColors.success),
-          _DistributionItem(
-            '未通过验证',
-            (candidates - valid).clamp(0, candidates),
-            OpenHandStatusColors.warning,
-          ),
-        ]),
-      ];
-    case '任务管线/高价值结果':
-      final valid = history.fold<int>(
-        0,
-        (sum, entry) => sum + entry.progress.valid,
-      );
-      final high = history.fold<int>(
-        0,
-        (sum, entry) => sum + entry.progress.highValue,
-      );
-      return [
-        donut('高价值占有效结果构成', Icons.workspace_premium_outlined, [
-          _DistributionItem('高价值', high, const Color(0xffa855f7)),
-          _DistributionItem(
-            '普通有效',
-            (valid - high).clamp(0, valid),
-            OpenHandStatusColors.success,
-          ),
-        ]),
-      ];
-    case '任务管线/任务并发':
-      final active = history.where((entry) => entry.progress.isRunning).length;
-      final limit = controller.defaultConcurrency;
-      return [
-        donut('并发槽占用', Icons.speed_rounded, [
-          _DistributionItem('活动任务', active, OpenHandStatusColors.info),
-          _DistributionItem(
-            '空闲槽位',
-            (limit - active).clamp(0, limit),
-            colors.outline,
-          ),
-        ], centerLabel: '$active/$limit'),
-      ];
-    case '任务管线/全量扫描':
-      final full = history
-          .where((entry) => entry.mode == AiExposureScanMode.full)
-          .length;
-      return [
-        donut('扫描模式构成', Icons.layers_outlined, [
-          _DistributionItem('全量扫描', full, OpenHandStatusColors.info),
-          _DistributionItem('增量扫描', history.length - full, colors.tertiary),
-        ]),
-      ];
-    case '任务管线/可恢复任务':
-      final resumable = history.where((entry) => entry.isResumable).length;
-      return [
-        donut('恢复状态构成', Icons.restart_alt_rounded, [
-          _DistributionItem('可恢复', resumable, OpenHandStatusColors.warning),
-          _DistributionItem(
-            '已完成',
-            history.length - resumable,
-            OpenHandStatusColors.success,
-          ),
-        ]),
-      ];
-    case '数据源/已就绪来源':
-      final ready = discoverySources.where((source) {
-        final quota = quotaBySource[source];
-        return sourceConfigured[source] == true &&
-            (quota == null || quota.available);
-      }).length;
-      return [
-        donut('来源就绪覆盖', Icons.cloud_done_outlined, [
-          _DistributionItem('已就绪', ready, OpenHandStatusColors.success),
-          _DistributionItem(
-            '未就绪',
-            discoverySources.length - ready,
-            colors.outline,
-          ),
-        ]),
-      ];
-    case '数据源/配额可用源':
-      final metered = controller.quotas
-          .where((quota) => quota.configured)
-          .length;
-      final available = controller.quotas
-          .where((quota) => quota.configured && quota.available)
-          .length;
-      return [
-        donut('实时配额探测结果', Icons.data_usage_rounded, [
-          _DistributionItem('配额可用', available, OpenHandStatusColors.success),
-          _DistributionItem(
-            '配额不可用',
-            metered - available,
-            OpenHandStatusColors.error,
-          ),
-        ]),
-      ];
-    case '数据源/剩余配额':
-      final quotas = controller.quotas
-          .where((quota) => quota.remaining != null)
+      ]);
+    case '平均任务耗时':
+      final finished = history
+          .where((entry) => entry.finishedAt != null)
           .toList(growable: false);
-      return [
-        _InsightTrendSection(
-          title: '各来源剩余配额',
-          icon: Icons.data_saver_on_outlined,
-          series: [
-            OpenHandChartSeries(
-              label: '剩余',
-              values: quotas
-                  .map((quota) => quota.remaining!.toDouble())
-                  .toList(growable: false),
+      final durations =
+          finished
+              .map(
+                (entry) => entry.finishedAt!
+                    .difference(entry.createdAt)
+                    .inMilliseconds
+                    .clamp(0, 86400000),
+              )
+              .toList()
+            ..sort();
+      final average = durations.isEmpty
+          ? 0
+          : (durations.fold<int>(0, (sum, value) => sum + value) /
+                    durations.length)
+                .round();
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '任务耗时分位',
+          icon: Icons.timer_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.av_timer_rounded,
+              label: '平均',
+              value: '$average ms',
+              helper: '${durations.length} 个已结束任务',
               color: colors.primary,
             ),
+            _InsightKpi(
+              icon: Icons.horizontal_rule_rounded,
+              label: 'p50',
+              value: '${_latencyPercentile(durations, 0.5)} ms',
+              helper: '中位任务耗时',
+              color: OpenHandStatusColors.info,
+            ),
+            _InsightKpi(
+              icon: Icons.trending_up_rounded,
+              label: 'p95',
+              value: '${_latencyPercentile(durations, 0.95)} ms',
+              helper: '尾部任务耗时',
+              color: OpenHandStatusColors.warning,
+            ),
+            _InsightKpi(
+              icon: Icons.vertical_align_top_rounded,
+              label: '最大',
+              value: '${durations.isEmpty ? 0 : durations.last} ms',
+              helper: '最慢任务样本',
+              color: colors.tertiary,
+            ),
           ],
-          sampleLabels: quotas
-              .map((quota) => _sourceName(quota.source))
-              .toList(growable: false),
-          suffix: '',
-          emptyLabel: '暂无可计量配额样本',
         ),
-      ];
-    case '数据源/启用发现源':
-      final enabled = sources.where(controller.enabledSources.contains).length;
-      return [
-        donut('发现来源启用覆盖', Icons.travel_explore_rounded, [
-          _DistributionItem('已启用', enabled, OpenHandStatusColors.info),
-          _DistributionItem('未启用', sources.length - enabled, colors.outline),
-        ]),
-      ];
-    case '数据源/来源调用任务':
-      return [
-        donut(
-          '任务来源调用构成',
-          Icons.hub_outlined,
-          sources
+        _metricTaskPanel(
+          finished..sort((left, right) {
+            final leftDuration = left.finishedAt!.difference(left.createdAt);
+            final rightDuration = right.finishedAt!.difference(right.createdAt);
+            return rightDuration.compareTo(leftDuration);
+          }),
+          title: '最慢任务清单',
+          emptyLabel: '暂无已结束任务耗时样本。',
+          lens: _TaskRecordLens.duration,
+        ),
+      ]);
+    case '已配置源':
+      return _buildSourceConfigurationInsight(context, controller);
+    case '启用规则':
+      final enabled = controller.rules.where((rule) => rule.enabled).toList();
+      final vendors = <String, int>{};
+      for (final rule in enabled) {
+        final vendor = rule.vendor.trim().isEmpty ? '未分类' : rule.vendor;
+        vendors.update(vendor, (value) => value + 1, ifAbsent: () => 1);
+      }
+      return _metricInsightPage([
+        _InsightRankingSection(
+          title: '规则供应商覆盖',
+          icon: Icons.category_outlined,
+          items: vendors.entries
               .map(
-                (source) => _DistributionItem(
-                  _sourceName(source),
-                  sourceJobCounts[source] ?? 0,
-                  _sourceColor(source, colors),
+                (entry) => _InsightRankItem(
+                  label: entry.key,
+                  value: entry.value.toDouble(),
+                  valueLabel: '${entry.value} 条',
+                  color: colors.primary,
                 ),
               )
               .toList(growable: false),
+          emptyLabel: '暂无启用规则。',
         ),
-      ];
-    case '数据源/来源产出结果':
-      return [
-        donut(
-          '来源结果产出构成',
-          Icons.fact_check_outlined,
-          sources
-              .map(
-                (source) => _DistributionItem(
-                  _sourceName(source),
-                  sourceResultCounts[source] ?? 0,
-                  _sourceColor(source, colors),
-                ),
-              )
-              .toList(growable: false),
-        ),
-      ];
-    case '数据源/配额异常':
-      final configured = controller.quotas
-          .where((quota) => quota.configured)
-          .toList(growable: false);
-      return [
-        donut('配额健康构成', Icons.warning_amber_rounded, [
-          _DistributionItem(
-            '正常',
-            configured.where((quota) => quota.available).length,
-            OpenHandStatusColors.success,
-          ),
-          _DistributionItem(
-            '异常',
-            configured.where((quota) => !quota.available).length,
-            OpenHandStatusColors.error,
-          ),
-        ]),
-      ];
-    case '数据源/待配置来源':
-      final configured = sourceConfigured.values.where((value) => value).length;
-      return [
-        donut('来源配置缺口', Icons.key_off_outlined, [
-          _DistributionItem(
-            '待配置',
-            discoverySources.length - configured,
-            OpenHandStatusColors.warning,
-          ),
-          _DistributionItem('已配置', configured, OpenHandStatusColors.success),
-        ]),
-      ];
-    case '网络遥测/选路状态':
-      final route = controller.proxyRoute;
-      return [
-        donut(
-          '当前网络出口模式',
-          Icons.route_outlined,
-          [
-            _DistributionItem(
-              '直接连接',
-              route == AiExposureProxyRoute.direct ? 1 : 0,
-              colors.outline,
+        _ruleInsightPanel(context, enabled),
+      ]);
+    case '代理选路':
+      return _metricInsightPage([
+        _proxyRouteReadinessPanel(context, controller),
+        _proxyPolicySection(context, controller),
+        _proxyRoutingDecisionPanel(context, controller),
+      ]);
+    case '代理平均响应':
+      final samples = _proxyRequestSamples(controller);
+      final latencies = samples.map((sample) => sample.responseTimeMs).toList()
+        ..sort();
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '代理响应分位',
+          icon: Icons.speed_rounded,
+          items: [
+            _InsightKpi(
+              icon: Icons.speed_rounded,
+              label: '累计平均',
+              value: '${controller.proxyStatus?.averageResponseTimeMs ?? 0} ms',
+              helper: '服务运行时累计口径',
+              color: colors.secondary,
             ),
-            _DistributionItem(
-              '系统代理',
-              route == AiExposureProxyRoute.system ? 1 : 0,
-              colors.tertiary,
+            _InsightKpi(
+              icon: Icons.horizontal_rule_rounded,
+              label: '近期 p50',
+              value: '${_latencyPercentile(latencies, 0.5)} ms',
+              helper: '${samples.length} 个近期样本',
+              color: OpenHandStatusColors.info,
             ),
-            _DistributionItem(
-              '代理池',
-              route == AiExposureProxyRoute.pool ? 1 : 0,
-              colors.primary,
+            _InsightKpi(
+              icon: Icons.multiline_chart_rounded,
+              label: '近期 p95',
+              value: '${_latencyPercentile(latencies, 0.95)} ms',
+              helper: '长尾响应边界',
+              color: colors.tertiary,
             ),
           ],
-          centerLabel: serviceProxyRouteText(
-            controller,
-            openHandTextResolver(context),
-            includePoolCount: false,
-          ),
         ),
-      ];
-    case '网络遥测/代理节点':
-      final enabled = endpoints.where((endpoint) => endpoint.enabled).length;
-      return [
-        donut('代理节点启用构成', Icons.dns_outlined, [
-          _DistributionItem('已启用', enabled, OpenHandStatusColors.info),
-          _DistributionItem('已停用', endpoints.length - enabled, colors.outline),
-        ]),
-      ];
-    case '网络遥测/可连通节点':
-      final reachable = endpoints
-          .where((endpoint) => endpoint.latestSample?.reachable == true)
-          .length;
-      final unreachable = endpoints
-          .where((endpoint) => endpoint.latestSample?.reachable == false)
-          .length;
-      return [
-        donut('节点巡检可用性', Icons.cloud_done_outlined, [
-          _DistributionItem('可连通', reachable, OpenHandStatusColors.success),
-          _DistributionItem('不可连通', unreachable, OpenHandStatusColors.error),
-          _DistributionItem(
-            '未巡检',
-            endpoints.length - reachable - unreachable,
-            colors.outline,
-          ),
-        ]),
-      ];
-    case '网络遥测/累计请求':
-      return [donut('代理请求全景构成', Icons.swap_vert_rounded, requestOutcomes())];
-    case '网络遥测/成功请求':
-      final success = requestSamples
-          .where((sample) => sample.succeeded)
-          .toList(growable: false);
-      return [
-        requestTrend('成功请求响应时延', success, [
-          OpenHandChartSeries(
-            label: '成功时延',
-            values: success
-                .map((sample) => sample.responseTimeMs.toDouble())
-                .toList(growable: false),
-            color: OpenHandStatusColors.success,
-          ),
-        ], emptyLabel: '暂无成功请求时延样本'),
-      ];
-    case '网络遥测/失败请求':
-      final failures = requestSamples
-          .where((sample) => !sample.succeeded && !sample.timedOut)
-          .toList(growable: false);
-      return [
-        donut('失败与超时异常构成', Icons.error_outline_rounded, [
-          _DistributionItem(
-            '失败',
-            proxy?.totalFailures ?? 0,
-            OpenHandStatusColors.error,
-          ),
-          _DistributionItem(
-            '超时',
-            proxy?.totalTimeouts ?? 0,
-            OpenHandStatusColors.warning,
-          ),
-        ]),
-        requestTrend('失败请求响应时延', failures, [
-          OpenHandChartSeries(
-            label: '失败时延',
-            values: failures
-                .map((sample) => sample.responseTimeMs.toDouble())
-                .toList(growable: false),
-            color: OpenHandStatusColors.error,
-          ),
-        ], emptyLabel: '暂无失败请求时延样本'),
-      ];
-    case '网络遥测/超时请求':
-      final timeouts = requestSamples
-          .where((sample) => sample.timedOut)
-          .toList(growable: false);
-      return [
-        requestTrend('超时请求耗时样本', timeouts, [
-          OpenHandChartSeries(
-            label: '超时耗时',
-            values: timeouts
-                .map((sample) => sample.responseTimeMs.toDouble())
-                .toList(growable: false),
-            color: OpenHandStatusColors.warning,
-          ),
-        ], emptyLabel: '暂无超时请求耗时样本'),
-      ];
-    case '网络遥测/平均响应':
-      return [
-        requestTrend('全量请求响应时延', requestSamples, [
-          OpenHandChartSeries(
-            label: '响应耗时',
-            values: requestSamples
-                .map((sample) => sample.responseTimeMs.toDouble())
-                .toList(growable: false),
-            color: colors.secondary,
-          ),
-        ]),
-      ];
-    case '网络遥测/p95 响应':
-      final p95 = _latencyPercentile(
-        requestSamples.map((sample) => sample.responseTimeMs).toList(),
-        0.95,
-      );
-      return [
         _InsightTrendSection(
-          title: '长尾响应与 p95 基线',
+          title: '代理响应时序',
           icon: Icons.multiline_chart_rounded,
           series: [
             OpenHandChartSeries(
               label: '响应耗时',
-              values: requestSamples
+              values: samples
                   .map((sample) => sample.responseTimeMs.toDouble())
+                  .toList(growable: false),
+              color: colors.secondary,
+            ),
+          ],
+          sampleLabels: samples
+              .map((sample) => _shortDateTime(sample.at))
+              .toList(growable: false),
+          suffix: ' ms',
+          emptyLabel: '暂无代理请求时延样本',
+        ),
+        _proxyFleetLatencyPanel(context, controller),
+      ]);
+    case '警告日志':
+      return _buildLogMetricInsight(
+        context,
+        logs.where((entry) => entry.level == 'warning'),
+        levelLabel: '警告',
+        color: OpenHandStatusColors.warning,
+      );
+    case '错误日志':
+      return _buildLogMetricInsight(
+        context,
+        logs.where((entry) => entry.level == 'error'),
+        levelLabel: '错误',
+        color: OpenHandStatusColors.error,
+      );
+    case '已取消任务':
+      final cancelled = history
+          .where((entry) => entry.stage == 'cancelled')
+          .toList(growable: false);
+      final processed = cancelled.fold<int>(
+        0,
+        (sum, entry) => sum + entry.progress.processed,
+      );
+      final candidates = cancelled.fold<int>(
+        0,
+        (sum, entry) => sum + entry.progress.candidates,
+      );
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '取消任务影响',
+          icon: Icons.cancel_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.cancel_outlined,
+              label: '取消任务',
+              value: '${cancelled.length}',
+              helper: '未进入完成终态',
+              color: OpenHandStatusColors.warning,
+            ),
+            _InsightKpi(
+              icon: Icons.radar_rounded,
+              label: '已处理',
+              value: '$processed',
+              helper: '取消前累计处理量',
+              color: colors.primary,
+            ),
+            _InsightKpi(
+              icon: Icons.filter_alt_outlined,
+              label: '候选',
+              value: '$candidates',
+              helper: '取消前已发现候选',
+              color: OpenHandStatusColors.info,
+            ),
+          ],
+        ),
+        _metricTaskPanel(
+          cancelled,
+          title: '取消任务检查点',
+          emptyLabel: '暂无已取消任务。',
+          lens: _TaskRecordLens.recovery,
+        ),
+      ]);
+  }
+  return const _InsightEmpty(label: '暂无该指标的运维数据。');
+}
+
+Widget _buildPipelineMetricInsight(
+  BuildContext context,
+  String label,
+  ServicesController controller,
+) {
+  final colors = Theme.of(context).colorScheme;
+  final history = controller.history;
+  final chronological = _chronologicalTasks(controller);
+  final progress = controller.progress;
+  int total(int Function(AiExposureProgress value) select) =>
+      history.fold<int>(0, (sum, entry) => sum + select(entry.progress));
+  final processed = total((value) => value.processed);
+  final candidates = total((value) => value.candidates);
+  final valid = total((value) => value.valid);
+  final highValue = total((value) => value.highValue);
+
+  switch (label) {
+    case '当前状态':
+      const stages = [
+        'queued',
+        'discovering',
+        'normalizing',
+        'fingerprinting',
+        'extracting',
+        'validating',
+        'persisting',
+        'completed',
+      ];
+      final activeIndex = progress == null
+          ? -1
+          : stages.indexOf(progress.stage);
+      return _metricInsightPage([
+        _Section(
+          title: '当前执行链',
+          icon: Icons.account_tree_outlined,
+          child: Column(
+            children: stages.indexed
+                .map(
+                  (entry) => _StageRow(
+                    stage: entry.$2,
+                    completed: activeIndex >= 0 && entry.$1 < activeIndex,
+                    active: entry.$1 == activeIndex,
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ),
+        _InsightKpiBand(
+          title: '活动任务快照',
+          icon: Icons.pending_actions_rounded,
+          items: [
+            _InsightKpi(
+              icon: Icons.play_circle_outline_rounded,
+              label: '阶段',
+              value: progress == null ? '空闲' : _stageName(progress.stage),
+              helper: progress?.message.trim().isNotEmpty == true
+                  ? progress!.message.trim()
+                  : '等待扫描任务',
+              color: progress?.isRunning == true
+                  ? OpenHandStatusColors.success
+                  : colors.outline,
+            ),
+            _InsightKpi(
+              icon: Icons.radar_rounded,
+              label: '处理进度',
+              value: '${progress?.processed ?? 0}/${progress?.total ?? 0}',
+              helper:
+                  '${((progress?.fraction ?? 0) * 100).toStringAsFixed(1)}%',
+              color: colors.primary,
+            ),
+            _InsightKpi(
+              icon: Icons.update_rounded,
+              label: '最近更新',
+              value: progress == null
+                  ? '--'
+                  : _shortDateTime(progress.updatedAt),
+              helper: progress?.jobId.isEmpty == false
+                  ? '任务 ${progress!.jobId}'
+                  : '无活动任务',
+              color: colors.tertiary,
+            ),
+          ],
+        ),
+        _metricTaskPanel(
+          history.where((entry) => entry.progress.isRunning),
+          title: '活动任务运行上下文',
+          emptyLabel: '当前没有活动任务。',
+          lens: _TaskRecordLens.runtime,
+        ),
+      ]);
+    case '累计处理':
+      return _metricInsightPage([
+        _InsightTrendSection(
+          title: '逐任务处理量',
+          icon: Icons.checklist_rounded,
+          series: [
+            OpenHandChartSeries(
+              label: '处理',
+              values: chronological
+                  .map((entry) => entry.progress.processed.toDouble())
+                  .toList(growable: false),
+              color: colors.primary,
+            ),
+            OpenHandChartSeries(
+              label: '总量',
+              values: chronological
+                  .map((entry) => entry.progress.total.toDouble())
+                  .toList(growable: false),
+              color: colors.outline,
+            ),
+          ],
+          sampleLabels: chronological
+              .map((entry) => _shortDateTime(entry.createdAt))
+              .toList(growable: false),
+          suffix: ' 项',
+          emptyLabel: '暂无任务处理样本',
+        ),
+        _metricTaskPanel(
+          [...history]..sort(
+            (left, right) =>
+                right.progress.processed.compareTo(left.progress.processed),
+          ),
+          title: '处理吞吐任务明细',
+          emptyLabel: '暂无任务处理记录。',
+          lens: _TaskRecordLens.throughput,
+        ),
+      ]);
+    case '候选目标':
+      return _metricInsightPage([
+        _InsightFunnelSection(
+          title: '候选提取漏斗',
+          icon: Icons.filter_alt_outlined,
+          items: [
+            _InsightFunnelItem(
+              label: '已处理目标',
+              value: processed,
+              color: colors.primary,
+            ),
+            _InsightFunnelItem(
+              label: '候选目标',
+              value: candidates,
+              color: OpenHandStatusColors.info,
+            ),
+          ],
+        ),
+        _InsightRankingSection(
+          title: '任务候选率排名',
+          icon: Icons.filter_list_rounded,
+          items: history
+              .map((entry) {
+                final rate = entry.progress.processed <= 0
+                    ? 0.0
+                    : entry.progress.candidates / entry.progress.processed;
+                return _InsightRankItem(
+                  label: entry.name.trim().isEmpty ? entry.id : entry.name,
+                  value: rate,
+                  valueLabel: '${(rate * 100).toStringAsFixed(1)}%',
+                  helper:
+                      '${entry.progress.candidates}/${entry.progress.processed} 个目标进入候选',
+                  color: OpenHandStatusColors.info,
+                );
+              })
+              .toList(growable: false),
+          emptyLabel: '暂无候选转化样本。',
+        ),
+      ]);
+    case '有效结果':
+      return _metricInsightPage([
+        _InsightFunnelSection(
+          title: '验证转化漏斗',
+          icon: Icons.verified_outlined,
+          items: [
+            _InsightFunnelItem(
+              label: '候选目标',
+              value: candidates,
+              color: OpenHandStatusColors.info,
+            ),
+            _InsightFunnelItem(
+              label: '有效结果',
+              value: valid,
+              color: OpenHandStatusColors.success,
+            ),
+          ],
+        ),
+        _InsightTrendSection(
+          title: '逐任务验证产出',
+          icon: Icons.query_stats_rounded,
+          series: [
+            OpenHandChartSeries(
+              label: '候选',
+              values: chronological
+                  .map((entry) => entry.progress.candidates.toDouble())
+                  .toList(growable: false),
+              color: OpenHandStatusColors.info,
+            ),
+            OpenHandChartSeries(
+              label: '有效',
+              values: chronological
+                  .map((entry) => entry.progress.valid.toDouble())
+                  .toList(growable: false),
+              color: OpenHandStatusColors.success,
+            ),
+          ],
+          sampleLabels: chronological
+              .map((entry) => _shortDateTime(entry.createdAt))
+              .toList(growable: false),
+          suffix: ' 条',
+          emptyLabel: '暂无验证产出样本',
+        ),
+        _metricTaskPanel(
+          [...history]..sort(
+            (left, right) =>
+                right.progress.valid.compareTo(left.progress.valid),
+          ),
+          title: '有效产出任务',
+          emptyLabel: '暂无有效产出任务。',
+          lens: _TaskRecordLens.valid,
+        ),
+      ]);
+    case '高价值结果':
+      return _metricInsightPage([
+        _InsightFunnelSection(
+          title: '高价值筛选漏斗',
+          icon: Icons.workspace_premium_outlined,
+          items: [
+            _InsightFunnelItem(
+              label: '有效结果',
+              value: valid,
+              color: OpenHandStatusColors.success,
+            ),
+            _InsightFunnelItem(
+              label: '高价值结果',
+              value: highValue,
+              color: const Color(0xffa855f7),
+            ),
+          ],
+        ),
+        _metricTaskPanel(
+          history.where((entry) => entry.progress.highValue > 0),
+          title: '高价值任务贡献',
+          emptyLabel: '暂无高价值任务产出。',
+          lens: _TaskRecordLens.highValue,
+        ),
+        _metricResultPanel(
+          controller.results.where(
+            (entry) => entry.category == AiExposureResultCategory.highValue,
+          ),
+          title: '高价值结果证据',
+          emptyLabel: '暂无高价值结果。',
+          lens: _ResultRecordLens.risk,
+        ),
+      ]);
+    case '任务并发':
+      final activeTasks = history
+          .where((entry) => entry.progress.isRunning)
+          .toList(growable: false);
+      return _metricInsightPage([
+        _InsightCapacitySection(
+          title: '任务工作并发容量',
+          icon: Icons.speed_rounded,
+          configured: controller.defaultConcurrency,
+          maximum: 128,
+          color: colors.tertiary,
+        ),
+        _InsightKpiBand(
+          title: '实时调度压力',
+          icon: Icons.schema_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.pending_actions_rounded,
+              label: '活动扫描任务',
+              value: '${activeTasks.length}',
+              helper: activeTasks.isEmpty ? '当前队列空闲' : '单任务扫描执行中',
+              color: OpenHandStatusColors.info,
+            ),
+            _InsightKpi(
+              icon: Icons.swap_horiz_rounded,
+              label: '代理在途请求',
+              value: '${controller.proxyStatus?.inFlight ?? 0}',
+              helper: '代理运行时实测值',
+              color: colors.primary,
+            ),
+            _InsightKpi(
+              icon: Icons.tune_rounded,
+              label: '配置边界',
+              value: '1 - 128',
+              helper: '新建任务时执行范围',
+              color: colors.outline,
+            ),
+          ],
+        ),
+        _metricTaskPanel(
+          activeTasks,
+          title: '活动任务调度表',
+          emptyLabel: '当前没有活动扫描任务，调度队列为空。',
+          lens: _TaskRecordLens.runtime,
+        ),
+      ]);
+    case '全量扫描':
+      final full = history
+          .where((entry) => entry.mode == AiExposureScanMode.full)
+          .toList(growable: false);
+      return _metricInsightPage([
+        _InsightMatrixSection(
+          title: '全量扫描范围覆盖',
+          icon: Icons.layers_outlined,
+          rows: full
+              .map(
+                (entry) => _InsightMatrixRow(
+                  icon: Icons.layers_outlined,
+                  title: entry.name.trim().isEmpty ? entry.id : entry.name,
+                  subtitle: entry.authorizedScope.isEmpty
+                      ? '未记录授权范围'
+                      : entry.authorizedScope.join(' · '),
+                  color: const Color(0xff0891b2),
+                  cells: [
+                    _InsightMatrixCell(
+                      label: _stageName(entry.stage),
+                      color: entry.stage == 'completed'
+                          ? OpenHandStatusColors.success
+                          : OpenHandStatusColors.info,
+                    ),
+                    _InsightMatrixCell(
+                      label: '来源 ${entry.sources.length}',
+                      color: colors.primary,
+                    ),
+                    _InsightMatrixCell(
+                      label: '处理 ${entry.progress.processed}',
+                      color: colors.tertiary,
+                    ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无全量扫描任务。',
+        ),
+        _metricTaskPanel(
+          full,
+          title: '全量任务授权明细',
+          emptyLabel: '暂无全量扫描任务。',
+          lens: _TaskRecordLens.scope,
+        ),
+      ]);
+    case '可恢复任务':
+      final resumable = history
+          .where((entry) => entry.isResumable)
+          .toList(growable: false);
+      return _metricInsightPage([
+        _InsightMatrixSection(
+          title: '恢复就绪检查',
+          icon: Icons.restart_alt_rounded,
+          rows: resumable
+              .map(
+                (entry) => _InsightMatrixRow(
+                  icon: Icons.restore_rounded,
+                  title: entry.name.trim().isEmpty ? entry.id : entry.name,
+                  subtitle: entry.errorMessage?.trim().isNotEmpty == true
+                      ? entry.errorMessage!.trim()
+                      : entry.progress.message,
+                  color: OpenHandStatusColors.warning,
+                  cells: [
+                    _InsightMatrixCell(
+                      label: _stageName(entry.stage),
+                      color: entry.stage == 'failed'
+                          ? OpenHandStatusColors.error
+                          : OpenHandStatusColors.warning,
+                    ),
+                    _InsightMatrixCell(
+                      label: '检查点 ${_shortDateTime(entry.progress.updatedAt)}',
+                      color: colors.primary,
+                    ),
+                    _InsightMatrixCell(
+                      label: '范围 ${entry.authorizedScope.length}',
+                      color: colors.tertiary,
+                    ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '当前没有需要恢复的任务。',
+        ),
+        _metricTaskPanel(
+          resumable,
+          title: '恢复上下文',
+          emptyLabel: '当前没有需要恢复的任务。',
+          lens: _TaskRecordLens.recovery,
+        ),
+      ]);
+  }
+  return const _InsightEmpty(label: '暂无该指标的管线数据。');
+}
+
+Widget _buildLogMetricInsight(
+  BuildContext context,
+  Iterable<AiExposureLogEntry> source, {
+  required String levelLabel,
+  required Color color,
+}) {
+  final entries = source.toList()
+    ..sort((left, right) => right.at.compareTo(left.at));
+  final now = DateTime.now();
+  final recent = entries
+      .where((entry) => now.difference(entry.at).inMinutes <= 60)
+      .length;
+  final jobRelated = entries.where((entry) => entry.jobId.isNotEmpty).length;
+  final clusters = <String, List<AiExposureLogEntry>>{};
+  for (final entry in entries) {
+    final key = entry.message
+        .replaceAll(RegExp(r'\d+'), '#')
+        .replaceAll(RegExp(r'\s+'), ' ')
+        .trim();
+    clusters.putIfAbsent(key, () => <AiExposureLogEntry>[]).add(entry);
+  }
+  final hourCounts = <String, int>{};
+  for (final entry in entries) {
+    final key =
+        '${entry.at.month.toString().padLeft(2, '0')}-${entry.at.day.toString().padLeft(2, '0')} '
+        '${entry.at.hour.toString().padLeft(2, '0')}:00';
+    hourCounts.update(key, (value) => value + 1, ifAbsent: () => 1);
+  }
+  final colors = Theme.of(context).colorScheme;
+  return _metricInsightPage([
+    _InsightKpiBand(
+      title: '$levelLabel日志态势',
+      icon: levelLabel == '警告'
+          ? Icons.warning_amber_rounded
+          : Icons.error_outline_rounded,
+      items: [
+        _InsightKpi(
+          icon: Icons.receipt_long_outlined,
+          label: '事件总数',
+          value: '${entries.length}',
+          helper: '当前日志保留窗口',
+          color: color,
+        ),
+        _InsightKpi(
+          icon: Icons.schedule_rounded,
+          label: '最近 60 分钟',
+          value: '$recent',
+          helper: '按事件时间实时统计',
+          color: recent > 0 ? color : colors.outline,
+        ),
+        _InsightKpi(
+          icon: Icons.work_history_outlined,
+          label: '任务关联',
+          value: '$jobRelated',
+          helper: '其余 ${entries.length - jobRelated} 条为系统事件',
+          color: colors.primary,
+        ),
+        _InsightKpi(
+          icon: Icons.hub_outlined,
+          label: '消息聚类',
+          value: '${clusters.length}',
+          helper: '忽略消息中的动态数字',
+          color: colors.tertiary,
+        ),
+      ],
+    ),
+    _InsightRankingSection(
+      title: '$levelLabel时间分布',
+      icon: Icons.bar_chart_rounded,
+      items: hourCounts.entries
+          .map(
+            (entry) => _InsightRankItem(
+              label: entry.key,
+              value: entry.value.toDouble(),
+              valueLabel: '${entry.value} 条',
+              color: color,
+            ),
+          )
+          .toList(growable: false),
+      emptyLabel: '暂无$levelLabel时间样本。',
+    ),
+    _InsightRankingSection(
+      title: '$levelLabel消息聚类',
+      icon: Icons.account_tree_outlined,
+      items: clusters.entries
+          .map(
+            (entry) => _InsightRankItem(
+              label: entry.key.isEmpty ? '空消息' : entry.key,
+              value: entry.value.length.toDouble(),
+              valueLabel: '${entry.value.length} 次',
+              helper:
+                  '最近 ${_shortDateTime(entry.value.first.at)} · 关联任务 ${entry.value.where((item) => item.jobId.isNotEmpty).map((item) => item.jobId).toSet().length}',
+              color: color,
+            ),
+          )
+          .toList(growable: false),
+      emptyLabel: '暂无$levelLabel消息聚类。',
+    ),
+    _InsightTimelineSection(
+      title: '最近$levelLabel时间线',
+      icon: Icons.timeline_rounded,
+      entries: entries
+          .map(
+            (entry) => _InsightTimelineEntry(
+              at: entry.at,
+              title: entry.message,
+              detail: entry.jobId.isEmpty ? '系统运行事件' : '任务 ${entry.jobId}',
+              tag: entry.jobId.isEmpty ? 'SYSTEM' : 'JOB',
+              color: color,
+            ),
+          )
+          .toList(growable: false),
+      emptyLabel: '暂无$levelLabel事件。',
+    ),
+  ]);
+}
+
+class _SourceInsightState {
+  const _SourceInsightState({
+    required this.source,
+    required this.requiresCredential,
+    required this.configured,
+    required this.enabled,
+    required this.quota,
+    required this.taskCount,
+    required this.resultCount,
+  });
+
+  final AiExposureSource source;
+  final bool requiresCredential;
+  final bool configured;
+  final bool enabled;
+  final AiExposureQuota? quota;
+  final int taskCount;
+  final int resultCount;
+
+  bool get ready => configured && (quota == null || quota!.available);
+}
+
+bool _sourceRequiresCredential(AiExposureSource source) => switch (source) {
+  AiExposureSource.github ||
+  AiExposureSource.gitee ||
+  AiExposureSource.gitcode ||
+  AiExposureSource.fofa ||
+  AiExposureSource.shodan => true,
+  _ => false,
+};
+
+List<_SourceInsightState> _sourceInsightStates(
+  ServicesController controller, {
+  bool includeManual = false,
+}) {
+  final quotas = {for (final quota in controller.quotas) quota.source: quota};
+  final tasks = <AiExposureSource, int>{};
+  for (final entry in controller.history) {
+    for (final source in entry.sources.toSet()) {
+      tasks.update(source, (value) => value + 1, ifAbsent: () => 1);
+    }
+  }
+  final results = <AiExposureSource, int>{};
+  for (final entry in controller.results) {
+    results.update(entry.source, (value) => value + 1, ifAbsent: () => 1);
+  }
+  return AiExposureSource.values
+      .where(
+        (source) =>
+            source != AiExposureSource.githubArtifact &&
+            (includeManual || source != AiExposureSource.manual),
+      )
+      .map((source) {
+        final requiresCredential = _sourceRequiresCredential(source);
+        final configured =
+            !requiresCredential ||
+            controller.sourceStatus[_sourceCredentialKey(source)] == true;
+        return _SourceInsightState(
+          source: source,
+          requiresCredential: requiresCredential,
+          configured: configured,
+          enabled: controller.enabledSources.contains(source),
+          quota: quotas[source],
+          taskCount: tasks[source] ?? 0,
+          resultCount: results[source] ?? 0,
+        );
+      })
+      .toList(growable: false);
+}
+
+class _SourceReadinessSection extends StatelessWidget {
+  const _SourceReadinessSection({required this.states});
+
+  final List<_SourceInsightState> states;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return _Section(
+      title: '来源执行依赖链',
+      icon: Icons.schema_outlined,
+      child: states.isEmpty
+          ? const _InsightEmpty(label: '暂无来源就绪数据。')
+          : Column(
+              children: states.indexed
+                  .map((entry) {
+                    return Column(
+                      children: [
+                        if (entry.$1 > 0)
+                          Divider(
+                            height: 20,
+                            color: colors.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                        _SourceReadinessRow(state: entry.$2),
+                      ],
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+    );
+  }
+}
+
+class _SourceReadinessRow extends StatelessWidget {
+  const _SourceReadinessRow({required this.state});
+
+  final _SourceInsightState state;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final quotaReady = state.quota == null || state.quota!.available;
+    final checkpoints = <(String, bool, String)>[
+      ('访问前置', state.configured, state.requiresCredential ? '凭证' : '免凭证'),
+      ('任务启用', state.enabled, state.enabled ? '启用' : '停用'),
+      (
+        '配额检查',
+        quotaReady,
+        state.quota == null
+            ? '无需计量'
+            : state.quota!.available
+            ? '可用'
+            : '异常',
+      ),
+    ];
+    final identity = Row(
+      children: [
+        Icon(
+          _sourceIcon(state.source),
+          size: 19,
+          color: _sourceColor(state.source, colors),
+        ),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(
+            _sourceName(state.source),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: Theme.of(
+              context,
+            ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
+          ),
+        ),
+        _StatusPill(
+          icon: state.ready ? Icons.check_circle_rounded : Icons.block_rounded,
+          label: state.ready ? '就绪' : '阻塞',
+          color: state.ready
+              ? OpenHandStatusColors.success
+              : OpenHandStatusColors.warning,
+        ),
+      ],
+    );
+    final checkpointWidgets = checkpoints
+        .map(
+          (checkpoint) => Container(
+            constraints: const BoxConstraints(minWidth: 108),
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
+            decoration: BoxDecoration(
+              color:
+                  (checkpoint.$2
+                          ? OpenHandStatusColors.success
+                          : OpenHandStatusColors.warning)
+                      .withValues(alpha: 0.09),
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color:
+                    (checkpoint.$2
+                            ? OpenHandStatusColors.success
+                            : OpenHandStatusColors.warning)
+                        .withValues(alpha: 0.26),
+              ),
+            ),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  checkpoint.$1,
+                  style: Theme.of(context).textTheme.labelSmall,
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  checkpoint.$3,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                    color: checkpoint.$2
+                        ? OpenHandStatusColors.success
+                        : OpenHandStatusColors.warning,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        )
+        .toList(growable: false);
+    final blocker = !state.ready
+        ? Text(
+            !state.configured
+                ? '阻塞原因：访问凭证尚未配置。'
+                : state.quota?.message.trim().isNotEmpty == true
+                ? '阻塞原因：${state.quota!.message.trim()}'
+                : '阻塞原因：实时配额检查未通过。',
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              color: OpenHandStatusColors.warning,
+            ),
+          )
+        : null;
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 720) {
+          return Column(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              identity,
+              const SizedBox(height: 9),
+              Wrap(spacing: 6, runSpacing: 6, children: checkpointWidgets),
+              if (blocker != null) ...[const SizedBox(height: 6), blocker],
+            ],
+          );
+        }
+        return Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            SizedBox(width: 190, child: identity),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Row(
+                    children: checkpointWidgets.indexed
+                        .expand(
+                          (entry) => [
+                            if (entry.$1 > 0)
+                              Padding(
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 5,
+                                ),
+                                child: Icon(
+                                  Icons.chevron_right_rounded,
+                                  size: 18,
+                                  color: colors.outline,
+                                ),
+                              ),
+                            Expanded(child: entry.$2),
+                          ],
+                        )
+                        .toList(growable: false),
+                  ),
+                  if (blocker != null) ...[const SizedBox(height: 6), blocker],
+                ],
+              ),
+            ),
+          ],
+        );
+      },
+    );
+  }
+}
+
+class _QuotaCapacitySection extends StatelessWidget {
+  const _QuotaCapacitySection({required this.title, required this.states});
+
+  final String title;
+  final List<_SourceInsightState> states;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return _Section(
+      title: title,
+      icon: Icons.data_usage_rounded,
+      child: states.isEmpty
+          ? const _InsightEmpty(label: '暂无可计量配额数据。')
+          : Column(
+              children: states.indexed
+                  .map((entry) {
+                    final state = entry.$2;
+                    final quota = state.quota!;
+                    final remaining = quota.remaining;
+                    final limit = quota.limit;
+                    final fraction =
+                        remaining == null || limit == null || limit <= 0
+                        ? null
+                        : (remaining / limit).clamp(0.0, 1.0);
+                    final tone = !quota.available
+                        ? OpenHandStatusColors.error
+                        : fraction != null && fraction <= 0.15
+                        ? OpenHandStatusColors.warning
+                        : OpenHandStatusColors.success;
+                    final identity = Row(
+                      children: [
+                        Icon(
+                          _sourceIcon(state.source),
+                          size: 20,
+                          color: _sourceColor(state.source, colors),
+                        ),
+                        const SizedBox(width: 9),
+                        Expanded(
+                          child: Text(
+                            _sourceName(state.source),
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                        ),
+                        Text(
+                          remaining == null
+                              ? quota.available
+                                    ? '可用'
+                                    : '不可用'
+                              : '$remaining${limit == null ? '' : ' / $limit'}',
+                          style: Theme.of(context).textTheme.labelLarge
+                              ?.copyWith(
+                                color: tone,
+                                fontWeight: FontWeight.w800,
+                              ),
+                        ),
+                      ],
+                    );
+                    final capacity = fraction == null
+                        ? Text(
+                            quota.available ? '配额可用，服务未返回计量上限' : '配额不可用',
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(color: colors.onSurfaceVariant),
+                          )
+                        : ClipRRect(
+                            borderRadius: BorderRadius.circular(99),
+                            child: LinearProgressIndicator(
+                              value: fraction,
+                              minHeight: 10,
+                              color: tone,
+                              backgroundColor: tone.withValues(alpha: 0.1),
+                            ),
+                          );
+                    final resetLabel = quota.resetsAt == null
+                        ? '重置时间 --'
+                        : '重置 ${_shortDateTime(quota.resetsAt!)}';
+                    return Column(
+                      children: [
+                        if (entry.$1 > 0)
+                          Divider(
+                            height: 20,
+                            color: colors.outlineVariant.withValues(alpha: 0.5),
+                          ),
+                        LayoutBuilder(
+                          builder: (context, constraints) {
+                            final message = Text(
+                              quota.message.trim().isEmpty
+                                  ? '实时配额探测已完成'
+                                  : quota.message.trim(),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            );
+                            if (constraints.maxWidth < 620) {
+                              return Column(
+                                crossAxisAlignment: CrossAxisAlignment.stretch,
+                                children: [
+                                  identity,
+                                  const SizedBox(height: 8),
+                                  capacity,
+                                  const SizedBox(height: 6),
+                                  message,
+                                  const SizedBox(height: 3),
+                                  Text(
+                                    resetLabel,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelSmall,
+                                  ),
+                                ],
+                              );
+                            }
+                            return Column(
+                              children: [
+                                Row(
+                                  children: [
+                                    SizedBox(width: 250, child: identity),
+                                    const SizedBox(width: 12),
+                                    Expanded(child: capacity),
+                                  ],
+                                ),
+                                const SizedBox(height: 5),
+                                Row(
+                                  children: [
+                                    const SizedBox(width: 262),
+                                    Expanded(child: message),
+                                    const SizedBox(width: 12),
+                                    Text(
+                                      resetLabel,
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.labelSmall,
+                                    ),
+                                  ],
+                                ),
+                              ],
+                            );
+                          },
+                        ),
+                      ],
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+    );
+  }
+}
+
+Widget _buildSourceConfigurationInsight(
+  BuildContext context,
+  ServicesController controller,
+) {
+  final colors = Theme.of(context).colorScheme;
+  final states = _sourceInsightStates(controller);
+  final credentialSources = states.where((state) => state.requiresCredential);
+  final configured = credentialSources
+      .where((state) => state.configured)
+      .length;
+  final gaps = credentialSources
+      .where((state) => !state.configured)
+      .toList(growable: false);
+  return _metricInsightPage([
+    _InsightKpiBand(
+      title: '访问前置覆盖',
+      icon: Icons.key_rounded,
+      items: [
+        _InsightKpi(
+          icon: Icons.key_rounded,
+          label: '需要凭证',
+          value: '${credentialSources.length}',
+          helper: 'API 与搜索服务来源',
+          color: colors.primary,
+        ),
+        _InsightKpi(
+          icon: Icons.verified_user_outlined,
+          label: '已配置凭证',
+          value: '$configured',
+          helper: '满足访问前置条件',
+          color: OpenHandStatusColors.success,
+        ),
+        _InsightKpi(
+          icon: Icons.public_rounded,
+          label: '无需凭证',
+          value: '${states.where((state) => !state.requiresCredential).length}',
+          helper: '论坛与公开抓取来源',
+          color: OpenHandStatusColors.info,
+        ),
+        _InsightKpi(
+          icon: Icons.key_off_outlined,
+          label: '配置缺口',
+          value: '${gaps.length}',
+          helper: gaps.isEmpty ? '凭证前置完整' : '需要在服务设置中补齐',
+          color: gaps.isEmpty
+              ? OpenHandStatusColors.success
+              : OpenHandStatusColors.warning,
+        ),
+      ],
+    ),
+    _InsightMatrixSection(
+      title: '来源能力与配置矩阵',
+      icon: Icons.grid_view_rounded,
+      rows: states
+          .map(
+            (state) => _InsightMatrixRow(
+              icon: _sourceIcon(state.source),
+              title: _sourceName(state.source),
+              subtitle: state.requiresCredential
+                  ? '使用服务访问凭证进行发现'
+                  : '公开来源，无需 API 凭证',
+              color: _sourceColor(state.source, colors),
+              cells: [
+                _InsightMatrixCell(
+                  label: state.requiresCredential
+                      ? state.configured
+                            ? '凭证已配置'
+                            : '凭证缺失'
+                      : '无需凭证',
+                  color: state.configured
+                      ? OpenHandStatusColors.success
+                      : OpenHandStatusColors.warning,
+                ),
+                _InsightMatrixCell(
+                  label: state.enabled ? '任务已启用' : '任务未启用',
+                  color: state.enabled ? colors.primary : colors.outline,
+                ),
+                _InsightMatrixCell(
+                  label: state.quota == null
+                      ? '无需计量'
+                      : state.quota!.available
+                      ? '配额可用'
+                      : '配额异常',
+                  color: state.quota == null || state.quota!.available
+                      ? OpenHandStatusColors.success
+                      : OpenHandStatusColors.error,
+                ),
+              ],
+            ),
+          )
+          .toList(growable: false),
+      emptyLabel: '暂无来源配置数据。',
+    ),
+    _InsightMatrixSection(
+      title: '配置缺口操作清单',
+      icon: Icons.rule_folder_outlined,
+      rows: gaps
+          .map(
+            (state) => _InsightMatrixRow(
+              icon: Icons.key_off_outlined,
+              title: _sourceName(state.source),
+              subtitle: '在服务设置中配置访问凭证后，重新刷新服务状态与配额。',
+              color: OpenHandStatusColors.warning,
+              cells: [
+                const _InsightMatrixCell(
+                  label: '凭证待配置',
+                  color: OpenHandStatusColors.warning,
+                ),
+                _InsightMatrixCell(
+                  label: state.enabled ? '任务已启用' : '任务未启用',
+                  color: state.enabled ? colors.primary : colors.outline,
+                ),
+              ],
+            ),
+          )
+          .toList(growable: false),
+      emptyLabel: '访问凭证配置完整，无待处理缺口。',
+    ),
+  ]);
+}
+
+Widget _buildSourceMetricInsight(
+  BuildContext context,
+  String label,
+  ServicesController controller,
+) {
+  final colors = Theme.of(context).colorScheme;
+  final states = _sourceInsightStates(controller);
+  switch (label) {
+    case '已就绪来源':
+      final blocked = states.where((state) => !state.ready).toList();
+      return _metricInsightPage([
+        _SourceReadinessSection(states: states),
+        _InsightMatrixSection(
+          title: '阻塞原因与处置',
+          icon: Icons.report_problem_outlined,
+          rows: blocked
+              .map(
+                (state) => _InsightMatrixRow(
+                  icon: Icons.block_rounded,
+                  title: _sourceName(state.source),
+                  subtitle: !state.configured
+                      ? '访问凭证未满足，来源无法进入执行链。'
+                      : state.quota?.message.trim().isNotEmpty == true
+                      ? state.quota!.message.trim()
+                      : '实时配额检查未通过。',
+                  color: OpenHandStatusColors.warning,
+                  cells: [
+                    if (!state.configured)
+                      const _InsightMatrixCell(
+                        label: '补齐凭证',
+                        color: OpenHandStatusColors.warning,
+                      ),
+                    if (state.quota != null && !state.quota!.available)
+                      const _InsightMatrixCell(
+                        label: '检查配额或网络',
+                        color: OpenHandStatusColors.error,
+                      ),
+                    _InsightMatrixCell(
+                      label: state.enabled ? '任务已启用' : '任务未启用',
+                      color: state.enabled ? colors.primary : colors.outline,
+                    ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '全部来源执行前置均已就绪。',
+        ),
+      ]);
+    case '配额可用源':
+      final metered = states
+          .where((state) => state.quota?.configured == true)
+          .toList(growable: false);
+      final resetEntries =
+          metered
+              .where((state) => state.quota?.resetsAt != null)
+              .map(
+                (state) => _InsightTimelineEntry(
+                  at: state.quota!.resetsAt!,
+                  title: '${_sourceName(state.source)} 配额重置',
+                  detail:
+                      '当前剩余 ${state.quota!.remaining ?? '--'}${state.quota!.limit == null ? '' : ' / ${state.quota!.limit}'}',
+                  tag: state.quota!.available ? 'AVAILABLE' : 'BLOCKED',
+                  color: state.quota!.available
+                      ? OpenHandStatusColors.success
+                      : OpenHandStatusColors.error,
+                ),
+              )
+              .toList(growable: false)
+            ..sort((left, right) => left.at.compareTo(right.at));
+      return _metricInsightPage([
+        _QuotaCapacitySection(title: '实时配额容量', states: metered),
+        _InsightRankingSection(
+          title: '配额消耗风险排名',
+          icon: Icons.low_priority_rounded,
+          items: metered
+              .map((state) {
+                final quota = state.quota!;
+                final remaining = quota.remaining;
+                final limit = quota.limit;
+                final consumed =
+                    remaining == null || limit == null || limit <= 0
+                    ? 0.0
+                    : ((limit - remaining).clamp(0, limit) / limit);
+                return _InsightRankItem(
+                  label: _sourceName(state.source),
+                  value: quota.available ? consumed : 1,
+                  valueLabel: !quota.available
+                      ? '不可用'
+                      : remaining == null
+                      ? '可用'
+                      : '$remaining${limit == null ? '' : ' / $limit'}',
+                  helper: quota.message.trim(),
+                  color: !quota.available || consumed >= 0.85
+                      ? OpenHandStatusColors.error
+                      : consumed >= 0.65
+                      ? OpenHandStatusColors.warning
+                      : OpenHandStatusColors.success,
+                );
+              })
+              .toList(growable: false),
+          emptyLabel: '暂无实时配额探测结果。',
+        ),
+        _InsightTimelineSection(
+          title: '配额重置日程',
+          icon: Icons.event_repeat_rounded,
+          entries: resetEntries,
+          emptyLabel: '服务未返回配额重置时间。',
+        ),
+      ]);
+    case '剩余配额':
+      final metered = states
+          .where((state) => state.quota?.remaining != null)
+          .toList(growable: false);
+      return _metricInsightPage([
+        _QuotaCapacitySection(title: '来源剩余配额', states: metered),
+        _InsightRankingSection(
+          title: '绝对剩余额度排名',
+          icon: Icons.leaderboard_outlined,
+          items: metered
+              .map(
+                (state) => _InsightRankItem(
+                  label: _sourceName(state.source),
+                  value: state.quota!.remaining!.toDouble(),
+                  valueLabel:
+                      '${state.quota!.remaining}${state.quota!.limit == null ? '' : ' / ${state.quota!.limit}'}',
+                  helper: state.quota!.resetsAt == null
+                      ? '未返回重置时间'
+                      : '重置 ${_shortDateTime(state.quota!.resetsAt!)}',
+                  color: _sourceColor(state.source, colors),
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无剩余配额计量值。',
+        ),
+      ]);
+    case '启用发现源':
+      return _metricInsightPage([
+        _InsightMatrixSection(
+          title: '发现源启用矩阵',
+          icon: Icons.travel_explore_rounded,
+          rows: states
+              .map(
+                (state) => _InsightMatrixRow(
+                  icon: _sourceIcon(state.source),
+                  title: _sourceName(state.source),
+                  subtitle: state.enabled ? '新建任务默认可选择该来源。' : '该来源未纳入当前默认发现范围。',
+                  color: _sourceColor(state.source, colors),
+                  cells: [
+                    _InsightMatrixCell(
+                      label: state.enabled ? '已启用' : '未启用',
+                      color: state.enabled ? colors.primary : colors.outline,
+                    ),
+                    _InsightMatrixCell(
+                      label: state.requiresCredential ? '凭证来源' : '公开来源',
+                      color: state.requiresCredential
+                          ? colors.tertiary
+                          : OpenHandStatusColors.info,
+                    ),
+                    _InsightMatrixCell(
+                      label: '历史调用 ${state.taskCount}',
+                      color: state.taskCount > 0
+                          ? OpenHandStatusColors.success
+                          : colors.outline,
+                    ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无发现源配置。',
+        ),
+      ]);
+    case '来源调用任务':
+      final called = states.where((state) => state.taskCount > 0).toList();
+      return _metricInsightPage([
+        _InsightRankingSection(
+          title: '来源任务调用排名',
+          icon: Icons.hub_outlined,
+          items: called
+              .map(
+                (state) => _InsightRankItem(
+                  label: _sourceName(state.source),
+                  value: state.taskCount.toDouble(),
+                  valueLabel: '${state.taskCount} 个任务',
+                  helper: '产出 ${state.resultCount} 条结果',
+                  color: _sourceColor(state.source, colors),
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无来源调用任务。',
+        ),
+        _metricTaskPanel(
+          controller.history.where((entry) => entry.sources.isNotEmpty),
+          title: '任务来源编排明细',
+          emptyLabel: '暂无来源调用任务。',
+          lens: _TaskRecordLens.scope,
+        ),
+      ]);
+    case '来源产出结果':
+      final produced = states.where((state) => state.resultCount > 0).toList();
+      return _metricInsightPage([
+        _InsightRankingSection(
+          title: '来源结果产出排名',
+          icon: Icons.fact_check_outlined,
+          items: produced
+              .map(
+                (state) => _InsightRankItem(
+                  label: _sourceName(state.source),
+                  value: state.resultCount.toDouble(),
+                  valueLabel: '${state.resultCount} 条',
+                  helper: state.taskCount <= 0
+                      ? '无可关联的任务调用'
+                      : '每任务 ${(state.resultCount / state.taskCount).toStringAsFixed(1)} 条',
+                  color: _sourceColor(state.source, colors),
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无来源产出结果。',
+        ),
+        _metricResultPanel(
+          controller.results,
+          title: '来源产出证据明细',
+          emptyLabel: '暂无来源产出结果。',
+          lens: _ResultRecordLens.source,
+        ),
+      ]);
+    case '配额异常':
+      final abnormal = states
+          .where(
+            (state) =>
+                state.quota?.configured == true &&
+                state.quota?.available == false,
+          )
+          .toList(growable: false);
+      return _metricInsightPage([
+        _InsightMatrixSection(
+          title: '配额异常诊断',
+          icon: Icons.warning_amber_rounded,
+          rows: abnormal
+              .map(
+                (state) => _InsightMatrixRow(
+                  icon: Icons.report_gmailerrorred_rounded,
+                  title: _sourceName(state.source),
+                  subtitle: state.quota!.message.trim().isEmpty
+                      ? '实时配额探测未通过，服务未返回详细原因。'
+                      : state.quota!.message.trim(),
+                  color: OpenHandStatusColors.error,
+                  cells: [
+                    _InsightMatrixCell(
+                      label: state.configured ? '凭证已配置' : '凭证缺失',
+                      color: state.configured
+                          ? OpenHandStatusColors.success
+                          : OpenHandStatusColors.warning,
+                    ),
+                    _InsightMatrixCell(
+                      label: state.enabled ? '任务已启用' : '任务未启用',
+                      color: state.enabled ? colors.primary : colors.outline,
+                    ),
+                    if (state.quota!.resetsAt != null)
+                      _InsightMatrixCell(
+                        label: '重置 ${_shortDateTime(state.quota!.resetsAt!)}',
+                        color: colors.tertiary,
+                      ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '实时配额探测未发现异常。',
+        ),
+      ]);
+    case '待配置来源':
+      final gaps = states
+          .where((state) => state.requiresCredential && !state.configured)
+          .toList(growable: false);
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '来源配置缺口',
+          icon: Icons.key_off_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.key_off_outlined,
+              label: '待配置',
+              value: '${gaps.length}',
+              helper: '需要补齐访问凭证',
+              color: gaps.isEmpty
+                  ? OpenHandStatusColors.success
+                  : OpenHandStatusColors.warning,
+            ),
+            _InsightKpi(
+              icon: Icons.power_settings_new_rounded,
+              label: '已启用但缺失',
+              value: '${gaps.where((state) => state.enabled).length}',
+              helper: '会影响任务来源可用性',
+              color: OpenHandStatusColors.error,
+            ),
+            _InsightKpi(
+              icon: Icons.public_rounded,
+              label: '公开来源',
+              value:
+                  '${states.where((state) => !state.requiresCredential).length}',
+              helper: '无需配置 API 凭证',
+              color: OpenHandStatusColors.info,
+            ),
+          ],
+        ),
+        _InsightMatrixSection(
+          title: '凭证补齐清单',
+          icon: Icons.playlist_add_check_circle_outlined,
+          rows: gaps
+              .map(
+                (state) => _InsightMatrixRow(
+                  icon: _sourceIcon(state.source),
+                  title: _sourceName(state.source),
+                  subtitle: '进入服务设置补齐该来源凭证，然后刷新服务状态与实时配额。',
+                  color: OpenHandStatusColors.warning,
+                  cells: [
+                    const _InsightMatrixCell(
+                      label: '凭证未配置',
+                      color: OpenHandStatusColors.warning,
+                    ),
+                    _InsightMatrixCell(
+                      label: state.enabled ? '优先处理' : '未启用',
+                      color: state.enabled
+                          ? OpenHandStatusColors.error
+                          : colors.outline,
+                    ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '所有需要凭证的来源均已配置。',
+        ),
+      ]);
+  }
+  return const _InsightEmpty(label: '暂无该指标的来源数据。');
+}
+
+Widget _buildNetworkMetricInsight(
+  BuildContext context,
+  String label,
+  ServicesController controller,
+) {
+  final colors = Theme.of(context).colorScheme;
+  final endpoints = controller.proxyConfiguration.endpoints;
+  final runtimeById = _proxyRuntimeById(controller);
+  final statistics = {
+    for (final endpoint in endpoints)
+      endpoint: _proxyEndpointStatistics(endpoint, runtimeById),
+  };
+  int sum(int Function(AiExposureProxyUsageStatistics value) select) =>
+      statistics.values.fold<int>(0, (total, value) => total + select(value));
+  final requests = sum((value) => value.requests);
+  final successes = sum((value) => value.successes);
+  final failures = sum((value) => value.failures);
+  final timeouts = sum((value) => value.timeouts);
+  final completed = successes + failures + timeouts;
+  final samples = _proxyRequestSamples(controller);
+  final latencies = samples.map((sample) => sample.responseTimeMs).toList()
+    ..sort();
+  final average = completed <= 0
+      ? 0
+      : (sum((value) => value.totalResponseTimeMs) / completed).round();
+  final p95 = _latencyPercentile(latencies, 0.95);
+
+  switch (label) {
+    case '选路状态':
+      return _metricInsightPage([
+        _proxyRouteReadinessPanel(context, controller),
+        _proxyPolicySection(context, controller),
+        _proxyRoutingDecisionPanel(context, controller),
+      ]);
+    case '代理节点':
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '代理节点资产概览',
+          icon: Icons.dns_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.dns_outlined,
+              label: '节点总数',
+              value: '${endpoints.length}',
+              helper: '本地代理池配置',
+              color: OpenHandStatusColors.info,
+            ),
+            _InsightKpi(
+              icon: Icons.toggle_on_rounded,
+              label: '已启用',
+              value: '${endpoints.where((entry) => entry.enabled).length}',
+              helper: '可进入调度选择',
+              color: OpenHandStatusColors.success,
+            ),
+            _InsightKpi(
+              icon: Icons.monitor_heart_outlined,
+              label: '已巡检',
+              value:
+                  '${endpoints.where((entry) => entry.latestSample != null).length}',
+              helper: '具有最近连通性样本',
+              color: colors.primary,
+            ),
+            _InsightKpi(
+              icon: Icons.settings_input_component_outlined,
+              label: '运行时注册',
+              value: '${runtimeById.length}',
+              helper: '服务当前返回的节点',
+              color: colors.tertiary,
+            ),
+          ],
+        ),
+        _proxyNodeInventoryPanel(context, controller),
+        _proxyRequestLoadPanel(context, controller),
+      ]);
+    case '可连通节点':
+      final inspected = endpoints
+          .where((entry) => entry.latestSample != null)
+          .length;
+      final reachable = endpoints
+          .where((entry) => entry.latestSample?.reachable == true)
+          .length;
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '连通性探测摘要',
+          icon: Icons.cloud_done_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.cloud_done_outlined,
+              label: '可连通',
+              value: '$reachable',
+              helper: inspected <= 0
+                  ? '等待首次巡检'
+                  : '${(reachable * 100 / inspected).toStringAsFixed(1)}% 巡检可用率',
+              color: OpenHandStatusColors.success,
+            ),
+            _InsightKpi(
+              icon: Icons.cloud_off_outlined,
+              label: '不可连通',
+              value:
+                  '${endpoints.where((entry) => entry.latestSample?.reachable == false).length}',
+              helper: '需要检查网关或转发链路',
+              color: OpenHandStatusColors.error,
+            ),
+            _InsightKpi(
+              icon: Icons.hourglass_empty_rounded,
+              label: '未巡检',
+              value: '${endpoints.length - inspected}',
+              helper: '尚无连通性结论',
+              color: colors.outline,
+            ),
+          ],
+        ),
+        _proxyReachabilityPanel(context, controller),
+        _proxyInspectionEventPanel(context, controller),
+      ]);
+    case '累计请求':
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '请求负载总览',
+          icon: Icons.swap_vert_rounded,
+          items: [
+            _InsightKpi(
+              icon: Icons.swap_vert_rounded,
+              label: '累计请求',
+              value: '$requests',
+              helper: '全部代理节点汇总',
+              color: colors.primary,
+            ),
+            _InsightKpi(
+              icon: Icons.task_alt_rounded,
+              label: '已完成',
+              value: '$completed',
+              helper: '成功、失败与超时',
+              color: OpenHandStatusColors.info,
+            ),
+            _InsightKpi(
+              icon: Icons.pending_actions_rounded,
+              label: '执行中',
+              value: '${controller.proxyStatus?.inFlight ?? 0}',
+              helper: '服务运行时实测值',
+              color: colors.tertiary,
+            ),
+          ],
+        ),
+        _InsightDonutSection(
+          title: '请求结果构成',
+          icon: Icons.donut_small_rounded,
+          items: [
+            _DistributionItem('成功', successes, OpenHandStatusColors.success),
+            _DistributionItem('失败', failures, OpenHandStatusColors.error),
+            _DistributionItem('超时', timeouts, OpenHandStatusColors.warning),
+            _DistributionItem(
+              '执行中',
+              controller.proxyStatus?.inFlight ?? 0,
+              OpenHandStatusColors.info,
+            ),
+          ],
+        ),
+        _proxyRequestLoadPanel(context, controller),
+      ]);
+    case '成功请求':
+      final successSamples = samples
+          .where((sample) => sample.succeeded)
+          .toList(growable: false);
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '成功请求质量',
+          icon: Icons.check_circle_outline_rounded,
+          items: [
+            _InsightKpi(
+              icon: Icons.task_alt_rounded,
+              label: '成功总数',
+              value: '$successes',
+              helper: completed <= 0
+                  ? '暂无完成请求'
+                  : '${(successes * 100 / completed).toStringAsFixed(1)}% 成功率',
+              color: OpenHandStatusColors.success,
+            ),
+            _InsightKpi(
+              icon: Icons.http_rounded,
+              label: 'HTTP 2xx',
+              value: '${sum((value) => value.status2xx)}',
+              helper: '成功状态码累计',
+              color: OpenHandStatusColors.info,
+            ),
+            _InsightKpi(
+              icon: Icons.speed_rounded,
+              label: '近期 p50',
+              value:
+                  '${_latencyPercentile(successSamples.map((entry) => entry.responseTimeMs).toList(), 0.5)} ms',
+              helper: '${successSamples.length} 个成功样本',
+              color: colors.primary,
+            ),
+          ],
+        ),
+        _InsightTrendSection(
+          title: '成功请求响应曲线',
+          icon: Icons.show_chart_rounded,
+          series: [
+            OpenHandChartSeries(
+              label: '成功时延',
+              values: successSamples
+                  .map((entry) => entry.responseTimeMs.toDouble())
+                  .toList(growable: false),
+              color: OpenHandStatusColors.success,
+            ),
+          ],
+          sampleLabels: successSamples
+              .map((entry) => _shortDateTime(entry.at))
+              .toList(growable: false),
+          suffix: ' ms',
+          emptyLabel: '暂无成功请求样本',
+        ),
+        _proxySuccessEndpointAuditPanel(context, controller),
+      ]);
+    case '失败请求':
+      return _metricInsightPage([
+        _InsightRankingSection(
+          title: '失败节点排名',
+          icon: Icons.report_problem_outlined,
+          items: endpoints
+              .where((entry) => statistics[entry]!.failures > 0)
+              .map(
+                (entry) => _InsightRankItem(
+                  label: entry.displayName,
+                  value: statistics[entry]!.failures.toDouble(),
+                  valueLabel: '${statistics[entry]!.failures} 次',
+                  helper:
+                      '连续失败 ${statistics[entry]!.consecutiveFailures} · 最近 ${statistics[entry]!.lastFailureAt == null ? '--' : _shortDateTime(statistics[entry]!.lastFailureAt!)}',
+                  color: OpenHandStatusColors.error,
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无失败代理节点。',
+        ),
+        _proxyFailureEndpointPanel(context, controller),
+        _proxyRequestInsightPanel(
+          context,
+          controller,
+          _ProxyRequestLens.failure,
+          title: '失败请求事件',
+        ),
+      ]);
+    case '超时请求':
+      return _metricInsightPage([
+        _InsightRankingSection(
+          title: '节点超时压力',
+          icon: Icons.timer_off_outlined,
+          items: endpoints
+              .where((entry) => statistics[entry]!.timeouts > 0)
+              .map(
+                (entry) => _InsightRankItem(
+                  label: entry.displayName,
+                  value: statistics[entry]!.timeouts.toDouble(),
+                  valueLabel: '${statistics[entry]!.timeouts} 次',
+                  helper:
+                      '累计请求 ${statistics[entry]!.requests} · 最长 ${statistics[entry]!.maxResponseTimeMs} ms',
+                  color: OpenHandStatusColors.warning,
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无超时节点。',
+        ),
+        _proxyRequestInsightPanel(
+          context,
+          controller,
+          _ProxyRequestLens.timeout,
+          title: '超时请求时间线',
+        ),
+      ]);
+    case '平均响应':
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '响应时延统计',
+          icon: Icons.speed_rounded,
+          items: [
+            _InsightKpi(
+              icon: Icons.speed_rounded,
+              label: '累计平均',
+              value: '$average ms',
+              helper: '$completed 个完成请求',
+              color: colors.secondary,
+            ),
+            _InsightKpi(
+              icon: Icons.horizontal_rule_rounded,
+              label: '近期 p50',
+              value: '${_latencyPercentile(latencies, 0.5)} ms',
+              helper: '${samples.length} 个近期样本',
+              color: OpenHandStatusColors.info,
+            ),
+            _InsightKpi(
+              icon: Icons.vertical_align_top_rounded,
+              label: '近期峰值',
+              value: '${latencies.isEmpty ? 0 : latencies.last} ms',
+              helper: '有限请求窗口峰值',
+              color: colors.tertiary,
+            ),
+          ],
+        ),
+        _InsightTrendSection(
+          title: '响应时延曲线',
+          icon: Icons.multiline_chart_rounded,
+          series: [
+            OpenHandChartSeries(
+              label: '响应耗时',
+              values: samples
+                  .map((entry) => entry.responseTimeMs.toDouble())
+                  .toList(growable: false),
+              color: colors.secondary,
+            ),
+          ],
+          sampleLabels: samples
+              .map((entry) => _shortDateTime(entry.at))
+              .toList(growable: false),
+          suffix: ' ms',
+          emptyLabel: '暂无请求时延样本',
+        ),
+        _proxyLatencyQualityPanel(context, controller),
+      ]);
+    case 'p95 响应':
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '长尾响应边界',
+          icon: Icons.multiline_chart_rounded,
+          items: [
+            _InsightKpi(
+              icon: Icons.multiline_chart_rounded,
+              label: '近期 p95',
+              value: '$p95 ms',
+              helper: '${samples.length} 个近期请求样本',
+              color: colors.tertiary,
+            ),
+            _InsightKpi(
+              icon: Icons.speed_rounded,
+              label: '近期 p50',
+              value: '${_latencyPercentile(latencies, 0.5)} ms',
+              helper: '用于观察长尾偏移',
+              color: OpenHandStatusColors.info,
+            ),
+            _InsightKpi(
+              icon: Icons.vertical_align_top_rounded,
+              label: '近期峰值',
+              value: '${latencies.isEmpty ? 0 : latencies.last} ms',
+              helper: '有限请求窗口峰值',
+              color: OpenHandStatusColors.warning,
+            ),
+          ],
+        ),
+        _InsightTrendSection(
+          title: '长尾响应与 p95 基线',
+          icon: Icons.stacked_line_chart_rounded,
+          series: [
+            OpenHandChartSeries(
+              label: '响应耗时',
+              values: samples
+                  .map((entry) => entry.responseTimeMs.toDouble())
                   .toList(growable: false),
               color: colors.tertiary,
             ),
             OpenHandChartSeries(
               label: 'p95 基线',
-              values: List<double>.filled(
-                requestSamples.length,
-                p95.toDouble(),
-              ),
+              values: List<double>.filled(samples.length, p95.toDouble()),
               color: OpenHandStatusColors.warning,
             ),
           ],
-          sampleLabels: requestLabels,
+          sampleLabels: samples
+              .map((entry) => _shortDateTime(entry.at))
+              .toList(growable: false),
           suffix: ' ms',
-          emptyLabel: '暂无 p95 响应样本',
+          emptyLabel: '暂无长尾响应样本',
         ),
-      ];
-    case '网络遥测/HTTP 2xx':
-      int statuses(int min, int max) => requestSamples
-          .where(
-            (sample) =>
-                sample.statusCode != null &&
-                sample.statusCode! >= min &&
-                sample.statusCode! <= max,
-          )
-          .length;
-      return [
-        donut('HTTP 状态码族构成', Icons.http_rounded, [
-          _DistributionItem(
-            '2xx',
-            statuses(200, 299),
-            OpenHandStatusColors.success,
-          ),
-          _DistributionItem(
-            '3xx',
-            statuses(300, 399),
-            OpenHandStatusColors.info,
-          ),
-          _DistributionItem(
-            '4xx',
-            statuses(400, 499),
-            OpenHandStatusColors.warning,
-          ),
-          _DistributionItem(
-            '5xx',
-            statuses(500, 599),
-            OpenHandStatusColors.error,
-          ),
-        ]),
-      ];
-    case '网络遥测/出口国家':
-      final countries = <String, int>{};
-      for (final endpoint in endpoints) {
-        final country = endpoint.identity?.country.trim() ?? '';
-        if (country.isEmpty) continue;
-        countries.update(country, (value) => value + 1, ifAbsent: () => 1);
-      }
-      return [
-        donut(
-          '代理出口地域构成',
-          Icons.public_rounded,
-          countries.entries
+        _proxyTailLatencyPanel(context, controller),
+      ]);
+    case 'HTTP 2xx':
+      final status2xx = sum((value) => value.status2xx);
+      final status3xx = sum((value) => value.status3xx);
+      final status4xx = sum((value) => value.status4xx);
+      final status5xx = sum((value) => value.status5xx);
+      return _metricInsightPage([
+        _InsightDonutSection(
+          title: 'HTTP 状态码族构成',
+          icon: Icons.http_rounded,
+          items: [
+            _DistributionItem('2xx', status2xx, OpenHandStatusColors.success),
+            _DistributionItem('3xx', status3xx, OpenHandStatusColors.info),
+            _DistributionItem('4xx', status4xx, OpenHandStatusColors.warning),
+            _DistributionItem('5xx', status5xx, OpenHandStatusColors.error),
+          ],
+        ),
+        _InsightMatrixSection(
+          title: '节点 HTTP 响应矩阵',
+          icon: Icons.grid_view_rounded,
+          rows: endpoints
               .map(
-                (entry) => _DistributionItem(
-                  entry.key,
-                  entry.value,
-                  _distributionColor(
-                    countries.keys.toList().indexOf(entry.key),
-                    colors,
-                  ),
+                (entry) => _InsightMatrixRow(
+                  icon: Icons.http_rounded,
+                  title: entry.displayName,
+                  subtitle: entry.maskedUrl,
+                  color: _sourceColor(AiExposureSource.manual, colors),
+                  cells: [
+                    _InsightMatrixCell(
+                      label: '2xx ${statistics[entry]!.status2xx}',
+                      color: OpenHandStatusColors.success,
+                    ),
+                    _InsightMatrixCell(
+                      label: '3xx ${statistics[entry]!.status3xx}',
+                      color: OpenHandStatusColors.info,
+                    ),
+                    _InsightMatrixCell(
+                      label: '4xx ${statistics[entry]!.status4xx}',
+                      color: OpenHandStatusColors.warning,
+                    ),
+                    _InsightMatrixCell(
+                      label: '5xx ${statistics[entry]!.status5xx}',
+                      color: OpenHandStatusColors.error,
+                    ),
+                  ],
                 ),
               )
               .toList(growable: false),
+          emptyLabel: '暂无节点 HTTP 响应数据。',
         ),
-      ];
-    case '网络遥测/巡检计划':
-      final inspected = endpoints
-          .where((endpoint) => endpoint.latestSample != null)
-          .length;
-      return [
-        donut('巡检覆盖状态', Icons.health_and_safety_outlined, [
-          _DistributionItem('已巡检', inspected, OpenHandStatusColors.success),
-          _DistributionItem(
-            '待巡检',
-            endpoints.length - inspected,
-            colors.outline,
-          ),
-        ]),
-      ];
-    case '存储与持久化/SQLite 数据库':
-      return [
-        donut('本地持久化完整性', Icons.storage_rounded, [
-          _DistributionItem('任务', history.length, colors.primary),
-          _DistributionItem('结果', results.length, OpenHandStatusColors.info),
-          _DistributionItem('规则', rules.length, colors.tertiary),
-          _DistributionItem('日志', logs.length, colors.secondary),
-        ]),
-      ];
-    case '存储与持久化/最后写入':
-      final events = <DateTime>[
+        _proxyRequestInsightPanel(
+          context,
+          controller,
+          _ProxyRequestLens.http,
+          title: 'HTTP 请求样本',
+        ),
+      ]);
+    case '出口国家':
+      final countryCounts = <String, int>{};
+      for (final endpoint in endpoints) {
+        final country = endpoint.identity?.country.trim() ?? '';
+        if (country.isEmpty) continue;
+        countryCounts.update(country, (value) => value + 1, ifAbsent: () => 1);
+      }
+      return _metricInsightPage([
+        _InsightRankingSection(
+          title: '代理出口地域排名',
+          icon: Icons.public_rounded,
+          items: countryCounts.entries
+              .map(
+                (entry) => _InsightRankItem(
+                  label: entry.key,
+                  value: entry.value.toDouble(),
+                  valueLabel: '${entry.value} 个节点',
+                  color: const Color(0xff0891b2),
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无已识别出口地域。',
+        ),
+        _proxyExitIdentityPanel(context, controller),
+      ]);
+    case '巡检计划':
+      return _metricInsightPage([
+        _proxyInspectionPolicySection(context, controller),
+        _proxyInspectionEventPanel(context, controller),
+        _proxyReachabilityPanel(context, controller),
+      ]);
+  }
+  return const _InsightEmpty(label: '暂无该指标的网络遥测数据。');
+}
+
+Widget _buildStorageMetricInsight(
+  BuildContext context,
+  String label,
+  ServicesController controller,
+) {
+  final colors = Theme.of(context).colorScheme;
+  final history = controller.history;
+  final results = controller.results;
+  final rules = controller.rules;
+  final logs = controller.logs;
+  final chronological = _chronologicalTasks(controller);
+  final dependencies = controller.dependencyStatus;
+
+  switch (label) {
+    case 'SQLite 数据库':
+      final path = controller.health?.databasePath.trim() ?? '';
+      final database = _localFileStat(path);
+      final wal = _localFileStat(path.isEmpty ? '' : '$path-wal');
+      final sharedMemory = _localFileStat(path.isEmpty ? '' : '$path-shm');
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: 'SQLite 文件组成',
+          icon: Icons.storage_rounded,
+          items: [
+            _InsightKpi(
+              icon: Icons.storage_rounded,
+              label: '主数据库',
+              value: formatByteSize(database?.size ?? 0),
+              helper: database == null ? '文件不可访问' : database.modeString(),
+              color: database == null
+                  ? OpenHandStatusColors.warning
+                  : OpenHandStatusColors.success,
+            ),
+            _InsightKpi(
+              icon: Icons.edit_note_rounded,
+              label: 'WAL 日志',
+              value: formatByteSize(wal?.size ?? 0),
+              helper: wal == null ? '当前无 WAL 文件' : '事务预写日志',
+              color: colors.primary,
+            ),
+            _InsightKpi(
+              icon: Icons.memory_rounded,
+              label: '共享内存',
+              value: formatByteSize(sharedMemory?.size ?? 0),
+              helper: sharedMemory == null ? '当前无 SHM 文件' : 'WAL 索引共享内存',
+              color: colors.tertiary,
+            ),
+            _InsightKpi(
+              icon: Icons.inventory_2_outlined,
+              label: '实体记录',
+              value:
+                  '${history.length + results.length + rules.length + logs.length}',
+              helper: '任务、结果、规则与日志',
+              color: OpenHandStatusColors.info,
+            ),
+          ],
+        ),
+        _InsightRankingSection(
+          title: '数据库文件占用',
+          icon: Icons.bar_chart_rounded,
+          items: [
+            _InsightRankItem(
+              label: '主数据库',
+              value: (database?.size ?? 0).toDouble(),
+              valueLabel: formatByteSize(database?.size ?? 0),
+              color: OpenHandStatusColors.success,
+            ),
+            _InsightRankItem(
+              label: 'WAL 日志',
+              value: (wal?.size ?? 0).toDouble(),
+              valueLabel: formatByteSize(wal?.size ?? 0),
+              color: colors.primary,
+            ),
+            _InsightRankItem(
+              label: '共享内存',
+              value: (sharedMemory?.size ?? 0).toDouble(),
+              valueLabel: formatByteSize(sharedMemory?.size ?? 0),
+              color: colors.tertiary,
+            ),
+          ],
+          emptyLabel: '暂无 SQLite 文件占用数据。',
+        ),
+        _sqliteDatabaseDetailSection(context, controller),
+      ]);
+    case '最后写入':
+      final eventTimes = <DateTime>[
         ...history.map((entry) => entry.finishedAt ?? entry.createdAt),
         ...results.map((entry) => entry.createdAt),
         ...logs.map((entry) => entry.at),
       ]..sort();
-      final recent = events.reversed.take(24).toList().reversed.toList();
-      return [
+      final recent = eventTimes.length <= 24
+          ? eventTimes
+          : eventTimes.sublist(eventTimes.length - 24);
+      return _metricInsightPage([
         _InsightTrendSection(
-          title: '最近持久化活动序列',
+          title: '最近持久化活动节奏',
           icon: Icons.edit_calendar_outlined,
           series: [
             OpenHandChartSeries(
-              label: '累计写入',
+              label: '累计写入事件',
               values: List<double>.generate(
                 recent.length,
                 (index) => (index + 1).toDouble(),
@@ -4591,295 +6886,844 @@ List<Widget> _serviceMetricAnalysisSections(
           suffix: ' 条',
           emptyLabel: '暂无持久化活动时间样本',
         ),
-      ];
-    case '存储与持久化/可见记录':
-      return [
-        donut('可见记录类型构成', Icons.inventory_2_outlined, [
-          _DistributionItem('任务', history.length, colors.primary),
-          _DistributionItem('结果', results.length, OpenHandStatusColors.info),
-          _DistributionItem('规则', rules.length, colors.tertiary),
-          _DistributionItem('日志', logs.length, colors.secondary),
-        ]),
-      ];
-    case '存储与持久化/任务归档':
-      return [donut('归档任务阶段构成', Icons.work_history_outlined, taskStages())];
-    case '存储与持久化/结果归档':
-      final evidence = results
-          .where((result) => result.evidence.isNotEmpty)
-          .length;
-      return [
-        donut('结果证据完整性', Icons.fact_check_outlined, [
-          _DistributionItem('证据完整', evidence, OpenHandStatusColors.success),
-          _DistributionItem(
-            '缺少证据',
-            results.length - evidence,
-            OpenHandStatusColors.warning,
-          ),
-        ]),
-      ];
-    case '存储与持久化/规则快照':
-      final enabled = rules.where((rule) => rule.enabled).length;
-      return [
-        donut('规则快照启用构成', Icons.rule_folder_outlined, [
-          _DistributionItem('已启用', enabled, OpenHandStatusColors.success),
-          _DistributionItem('未启用', rules.length - enabled, colors.outline),
-        ]),
-      ];
-    case '存储与持久化/日志缓冲':
-      int level(String value) =>
-          logs.where((entry) => entry.level == value).length;
-      return [
-        donut('日志级别构成', Icons.receipt_long_outlined, [
-          _DistributionItem('信息', level('info'), OpenHandStatusColors.info),
-          _DistributionItem(
-            '警告',
-            level('warning'),
-            OpenHandStatusColors.warning,
-          ),
-          _DistributionItem('错误', level('error'), OpenHandStatusColors.error),
-        ]),
-      ];
-    case '存储与持久化/可恢复任务':
-      final resumable = history.where((entry) => entry.isResumable).length;
-      return [
-        donut('归档恢复能力', Icons.restart_alt_rounded, [
-          _DistributionItem('可恢复', resumable, OpenHandStatusColors.warning),
-          _DistributionItem(
-            '无需恢复',
-            history.length - resumable,
-            OpenHandStatusColors.success,
-          ),
-        ]),
-      ];
-    case '存储与持久化/PostgreSQL 镜像':
-      final status = controller.dependencyStatus?.postgresql;
-      return [
-        donut('PostgreSQL 镜像状态', Icons.cloud_sync_outlined, [
-          _DistributionItem(
-            '已连接',
-            status?.connected == true ? 1 : 0,
-            OpenHandStatusColors.success,
-          ),
-          _DistributionItem(
-            '已配置未连接',
-            status?.configured == true && status?.connected != true ? 1 : 0,
-            OpenHandStatusColors.warning,
-          ),
-          _DistributionItem(
-            '未配置',
-            status?.configured == true ? 0 : 1,
-            colors.outline,
-          ),
-        ]),
-      ];
-    case '存储与持久化/Redis 协调':
-      final status = controller.dependencyStatus?.redis;
-      return [
-        donut('Redis 协调状态', Icons.hub_outlined, [
-          _DistributionItem(
-            '已连接',
-            status?.connected == true ? 1 : 0,
-            OpenHandStatusColors.success,
-          ),
-          _DistributionItem(
-            '已配置未连接',
-            status?.configured == true && status?.connected != true ? 1 : 0,
-            OpenHandStatusColors.warning,
-          ),
-          _DistributionItem(
-            '未配置',
-            status?.configured == true ? 0 : 1,
-            colors.outline,
-          ),
-        ]),
-      ];
-    case '存储与持久化/凭证加密':
-      return [
-        donut('加密存储对象构成', Icons.enhanced_encryption_outlined, [
-          _DistributionItem(
-            '含凭证结果',
-            results
-                .where(
-                  (result) =>
-                      result.maskedCredential?.trim().isNotEmpty == true,
-                )
-                .length,
-            colors.tertiary,
-          ),
-          _DistributionItem(
-            '无凭证结果',
-            results
-                .where(
-                  (result) =>
-                      result.maskedCredential?.trim().isNotEmpty != true,
-                )
-                .length,
-            colors.outline,
-          ),
-        ]),
-      ];
-    case '存储与持久化/一致性审计':
-      final ids = history.map((entry) => entry.id).toSet();
-      final orphan = results
-          .where((result) => !ids.contains(result.jobId))
-          .length;
-      final noEvidence = results
-          .where((result) => result.evidence.isEmpty)
-          .length;
-      final complete = results
-          .where(
-            (result) =>
-                ids.contains(result.jobId) && result.evidence.isNotEmpty,
-          )
-          .length;
-      return [
-        donut('一致性问题构成', Icons.verified_outlined, [
-          _DistributionItem('孤立结果', orphan, OpenHandStatusColors.error),
-          _DistributionItem('缺少证据', noEvidence, OpenHandStatusColors.warning),
-          _DistributionItem('完整记录', complete, OpenHandStatusColors.success),
-        ]),
-      ];
-    case '安全与依赖/启用规则':
-      final vendorCounts = <String, int>{};
-      for (final rule in rules.where((rule) => rule.enabled)) {
-        final vendor = rule.vendor.trim().isEmpty ? '未分类' : rule.vendor;
-        vendorCounts.update(vendor, (value) => value + 1, ifAbsent: () => 1);
+        _persistenceWriteEventPanel(context, controller),
+      ]);
+    case '可见记录':
+      return _metricInsightPage([
+        _InsightDonutSection(
+          title: '可见记录类型构成',
+          icon: Icons.inventory_2_outlined,
+          items: [
+            _DistributionItem('任务', history.length, colors.primary),
+            _DistributionItem('结果', results.length, OpenHandStatusColors.info),
+            _DistributionItem('规则', rules.length, colors.tertiary),
+            _DistributionItem('日志', logs.length, colors.secondary),
+          ],
+        ),
+        _InsightTimelineSection(
+          title: '最近可见记录时间线',
+          icon: Icons.timeline_rounded,
+          entries: [
+            ...history.map(
+              (entry) => _InsightTimelineEntry(
+                at: entry.finishedAt ?? entry.createdAt,
+                title:
+                    '任务 · ${entry.name.trim().isEmpty ? entry.id : entry.name}',
+                detail:
+                    '${_stageName(entry.stage)} · 处理 ${entry.progress.processed}',
+                tag: 'JOB',
+                color: colors.primary,
+              ),
+            ),
+            ...results.map(
+              (entry) => _InsightTimelineEntry(
+                at: entry.createdAt,
+                title:
+                    '结果 · ${entry.product.isEmpty ? entry.host : entry.product}',
+                detail:
+                    '${_sourceName(entry.source)} · 证据 ${entry.evidence.length}',
+                tag: 'RESULT',
+                color: OpenHandStatusColors.info,
+              ),
+            ),
+            ...logs.map(
+              (entry) => _InsightTimelineEntry(
+                at: entry.at,
+                title: '日志 · ${entry.message}',
+                detail: entry.jobId.isEmpty ? '系统事件' : '任务 ${entry.jobId}',
+                tag: 'LOG',
+                color: entry.level == 'error'
+                    ? OpenHandStatusColors.error
+                    : entry.level == 'warning'
+                    ? OpenHandStatusColors.warning
+                    : colors.secondary,
+              ),
+            ),
+          ]..sort((left, right) => right.at.compareTo(left.at)),
+          emptyLabel: '暂无可见记录。',
+        ),
+      ]);
+    case '任务归档':
+      final stageCounts = <String, int>{};
+      for (final entry in history) {
+        stageCounts.update(
+          entry.stage,
+          (value) => value + 1,
+          ifAbsent: () => 1,
+        );
       }
-      return [
-        donut(
-          '启用规则供应商覆盖',
-          Icons.category_outlined,
-          vendorCounts.entries
+      return _metricInsightPage([
+        _InsightRankingSection(
+          title: '任务归档阶段构成',
+          icon: Icons.work_history_outlined,
+          items: stageCounts.entries
               .map(
-                (entry) => _DistributionItem(
-                  entry.key,
-                  entry.value,
-                  _distributionColor(
-                    vendorCounts.keys.toList().indexOf(entry.key),
-                    colors,
-                  ),
+                (entry) => _InsightRankItem(
+                  label: _stageName(entry.key),
+                  value: entry.value.toDouble(),
+                  valueLabel: '${entry.value} 个',
+                  color: entry.key == 'completed'
+                      ? OpenHandStatusColors.success
+                      : entry.key == 'failed'
+                      ? OpenHandStatusColors.error
+                      : OpenHandStatusColors.warning,
                 ),
               )
               .toList(growable: false),
+          emptyLabel: '暂无任务归档。',
         ),
-      ];
-    case '安全与依赖/凭证模式':
-      final enabled = rules
-          .where((rule) => rule.enabled)
-          .toList(growable: false);
-      return [
         _InsightTrendSection(
-          title: '规则凭证模式与上下文约束',
-          icon: Icons.fingerprint_rounded,
+          title: '归档任务处理规模',
+          icon: Icons.stacked_line_chart_rounded,
           series: [
             OpenHandChartSeries(
-              label: '凭证模式',
-              values: enabled
-                  .map((rule) => rule.credentialPatterns.length.toDouble())
+              label: '处理',
+              values: chronological
+                  .map((entry) => entry.progress.processed.toDouble())
                   .toList(growable: false),
               color: colors.primary,
             ),
             OpenHandChartSeries(
-              label: '上下文词',
-              values: enabled
-                  .map((rule) => rule.contextTerms.length.toDouble())
+              label: '有效',
+              values: chronological
+                  .map((entry) => entry.progress.valid.toDouble())
                   .toList(growable: false),
-              color: colors.tertiary,
+              color: OpenHandStatusColors.success,
             ),
           ],
-          sampleLabels: enabled
-              .map((rule) => rule.vendor.trim().isEmpty ? rule.id : rule.vendor)
+          sampleLabels: chronological
+              .map((entry) => _shortDateTime(entry.createdAt))
               .toList(growable: false),
-          suffix: ' 个',
-          emptyLabel: '暂无启用凭证识别规则',
+          suffix: ' 项',
+          emptyLabel: '暂无归档任务样本',
         ),
-      ];
-    case '安全与依赖/模型端点':
-      final modelPaths = rules.fold<int>(
-        0,
-        (sum, rule) => sum + (rule.enabled ? rule.modelPaths.length : 0),
-      );
-      final balancePaths = rules.fold<int>(
-        0,
-        (sum, rule) => sum + (rule.enabled ? rule.balancePaths.length : 0),
-      );
-      return [
-        donut('主动验证端点构成', Icons.api_rounded, [
-          _DistributionItem('模型端点', modelPaths, OpenHandStatusColors.info),
-          _DistributionItem('余额端点', balancePaths, colors.tertiary),
-        ]),
-      ];
-    case '安全与依赖/编码识别':
-      final counts = <AiExposureContentEncoding, int>{};
-      for (final rule in rules.where((rule) => rule.enabled)) {
-        for (final encoding in rule.contentEncodings) {
-          counts.update(encoding, (value) => value + 1, ifAbsent: () => 1);
-        }
-      }
-      return [
-        donut(
-          '内容编码规则覆盖',
-          Icons.code_rounded,
-          AiExposureContentEncoding.values
+        _metricTaskPanel(
+          history,
+          title: '任务归档索引',
+          emptyLabel: '暂无任务归档。',
+          lens: _TaskRecordLens.archive,
+        ),
+      ]);
+    case '结果归档':
+      final withEvidence = results.where((entry) => entry.evidence.isNotEmpty);
+      final jobIds = history.map((entry) => entry.id).toSet();
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '结果归档完整性',
+          icon: Icons.fact_check_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.fact_check_outlined,
+              label: '归档结果',
+              value: '${results.length}',
+              helper:
+                  '${results.map((entry) => entry.jobId).toSet().length} 个关联任务',
+              color: OpenHandStatusColors.info,
+            ),
+            _InsightKpi(
+              icon: Icons.verified_outlined,
+              label: '证据完整',
+              value: '${withEvidence.length}',
+              helper: '具有至少一条审计证据',
+              color: OpenHandStatusColors.success,
+            ),
+            _InsightKpi(
+              icon: Icons.warning_amber_rounded,
+              label: '缺少证据',
+              value: '${results.length - withEvidence.length}',
+              helper: '需要完整性复核',
+              color: OpenHandStatusColors.warning,
+            ),
+            _InsightKpi(
+              icon: Icons.link_off_rounded,
+              label: '孤立结果',
+              value:
+                  '${results.where((entry) => !jobIds.contains(entry.jobId)).length}',
+              helper: '关联任务不存在',
+              color: OpenHandStatusColors.error,
+            ),
+          ],
+        ),
+        _metricResultPanel(
+          results,
+          title: '结果归档索引',
+          emptyLabel: '暂无结果归档。',
+          lens: _ResultRecordLens.archive,
+        ),
+      ]);
+    case '规则快照':
+      final enabled = rules.where((entry) => entry.enabled).length;
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '规则快照版本面',
+          icon: Icons.rule_folder_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.rule_folder_outlined,
+              label: '规则总数',
+              value: '${rules.length}',
+              helper: '当前服务返回快照',
+              color: colors.primary,
+            ),
+            _InsightKpi(
+              icon: Icons.toggle_on_rounded,
+              label: '已启用',
+              value: '$enabled',
+              helper: '参与扫描匹配',
+              color: OpenHandStatusColors.success,
+            ),
+            _InsightKpi(
+              icon: Icons.toggle_off_rounded,
+              label: '未启用',
+              value: '${rules.length - enabled}',
+              helper: '保留但不参与扫描',
+              color: colors.outline,
+            ),
+          ],
+        ),
+        _ruleInsightPanel(context, rules, title: '规则快照明细'),
+      ]);
+    case '日志缓冲':
+      final info = logs.where((entry) => entry.level == 'info').length;
+      final warnings = logs.where((entry) => entry.level == 'warning').length;
+      final errors = logs.where((entry) => entry.level == 'error').length;
+      return _metricInsightPage([
+        _InsightDonutSection(
+          title: '日志缓冲级别构成',
+          icon: Icons.receipt_long_outlined,
+          items: [
+            _DistributionItem('信息', info, OpenHandStatusColors.info),
+            _DistributionItem('警告', warnings, OpenHandStatusColors.warning),
+            _DistributionItem('错误', errors, OpenHandStatusColors.error),
+          ],
+        ),
+        _InsightTimelineSection(
+          title: '日志缓冲时间线',
+          icon: Icons.history_rounded,
+          entries: logs.reversed
               .map(
-                (encoding) => _DistributionItem(
-                  encoding.id,
-                  counts[encoding] ?? 0,
-                  _distributionColor(encoding.index, colors),
+                (entry) => _InsightTimelineEntry(
+                  at: entry.at,
+                  title: entry.message,
+                  detail: entry.jobId.isEmpty ? '系统日志' : '任务 ${entry.jobId}',
+                  tag: entry.level.toUpperCase(),
+                  color: entry.level == 'error'
+                      ? OpenHandStatusColors.error
+                      : entry.level == 'warning'
+                      ? OpenHandStatusColors.warning
+                      : OpenHandStatusColors.info,
                 ),
               )
               .toList(growable: false),
+          emptyLabel: '日志缓冲为空。',
+        ),
+      ]);
+    case '可恢复任务':
+      final resumable = history.where((entry) => entry.isResumable).toList();
+      return _metricInsightPage([
+        _InsightMatrixSection(
+          title: '归档恢复检查点',
+          icon: Icons.restart_alt_rounded,
+          rows: resumable
+              .map(
+                (entry) => _InsightMatrixRow(
+                  icon: Icons.restore_rounded,
+                  title: entry.name.trim().isEmpty ? entry.id : entry.name,
+                  subtitle: entry.errorMessage?.trim().isNotEmpty == true
+                      ? entry.errorMessage!.trim()
+                      : entry.progress.message,
+                  color: OpenHandStatusColors.warning,
+                  cells: [
+                    _InsightMatrixCell(
+                      label: _stageName(entry.stage),
+                      color: entry.stage == 'failed'
+                          ? OpenHandStatusColors.error
+                          : OpenHandStatusColors.warning,
+                    ),
+                    _InsightMatrixCell(
+                      label: '更新 ${_shortDateTime(entry.progress.updatedAt)}',
+                      color: colors.primary,
+                    ),
+                    _InsightMatrixCell(
+                      label: '授权范围 ${entry.authorizedScope.length}',
+                      color: colors.tertiary,
+                    ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '归档中没有需要恢复的任务。',
+        ),
+      ]);
+    case 'PostgreSQL 镜像':
+      final status = dependencies?.postgresql;
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: 'PostgreSQL 镜像链路',
+          icon: Icons.cloud_sync_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.settings_outlined,
+              label: '配置状态',
+              value: status?.configured == true ? '已配置' : '未配置',
+              helper: controller.postgresqlEnabled ? '偏好设置已启用' : '偏好设置未启用',
+              color: status?.configured == true
+                  ? colors.primary
+                  : colors.outline,
+            ),
+            _InsightKpi(
+              icon: Icons.link_rounded,
+              label: '连接状态',
+              value: status?.connected == true ? '在线' : '未连接',
+              helper: status?.message ?? '服务未返回状态',
+              color: status?.connected == true
+                  ? OpenHandStatusColors.success
+                  : OpenHandStatusColors.warning,
+            ),
+          ],
+        ),
+        _dependencyInsightPanel(context, controller, only: label),
+      ]);
+    case 'Redis 协调':
+      final status = dependencies?.redis;
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: 'Redis 协调链路',
+          icon: Icons.hub_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.settings_outlined,
+              label: '配置状态',
+              value: status?.configured == true ? '已配置' : '未配置',
+              helper: controller.redisEnabled ? '偏好设置已启用' : '偏好设置未启用',
+              color: status?.configured == true
+                  ? colors.primary
+                  : colors.outline,
+            ),
+            _InsightKpi(
+              icon: Icons.link_rounded,
+              label: '连接状态',
+              value: status?.connected == true ? '在线' : '未连接',
+              helper: status?.message ?? '服务未返回状态',
+              color: status?.connected == true
+                  ? OpenHandStatusColors.success
+                  : OpenHandStatusColors.warning,
+            ),
+          ],
+        ),
+        _dependencyInsightPanel(context, controller, only: label),
+      ]);
+    case '凭证加密':
+      final protected = results
+          .where((entry) => entry.maskedCredential?.trim().isNotEmpty == true)
+          .toList(growable: false);
+      final duplicateHosts = protected.fold<int>(
+        0,
+        (sum, entry) => sum + entry.duplicateKeyHosts,
+      );
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '加密对象边界',
+          icon: Icons.enhanced_encryption_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.lock_outline_rounded,
+              label: '受保护结果',
+              value: '${protected.length}',
+              helper: '仅展示脱敏凭证',
+              color: colors.tertiary,
+            ),
+            _InsightKpi(
+              icon: Icons.copy_all_outlined,
+              label: '重复凭证主机',
+              value: '$duplicateHosts',
+              helper: '凭证关联范围统计',
+              color: OpenHandStatusColors.warning,
+            ),
+            const _InsightKpi(
+              icon: Icons.security_rounded,
+              label: '加密算法',
+              value: 'AES-256-GCM',
+              helper: '认证加密与独立随机数',
+              color: OpenHandStatusColors.success,
+            ),
+          ],
+        ),
+        _credentialEncryptionDetailSection(context, controller),
+        _metricResultPanel(
+          protected,
+          title: '受保护凭证记录',
+          emptyLabel: '暂无需要加密持久化的凭证记录。',
+          lens: _ResultRecordLens.credentials,
+        ),
+      ]);
+    case '一致性审计':
+      final jobIds = history.map((entry) => entry.id).toSet();
+      final orphan = results
+          .where((entry) => !jobIds.contains(entry.jobId))
+          .length;
+      final missingEvidence = results
+          .where((entry) => entry.evidence.isEmpty)
+          .length;
+      final unfinished = history
+          .where(
+            (entry) => !const {
+              'completed',
+              'failed',
+              'cancelled',
+            }.contains(entry.stage),
+          )
+          .length;
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '一致性审计结论',
+          icon: Icons.verified_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.link_off_rounded,
+              label: '孤立结果',
+              value: '$orphan',
+              helper: '关联任务不存在',
+              color: orphan == 0
+                  ? OpenHandStatusColors.success
+                  : OpenHandStatusColors.error,
+            ),
+            _InsightKpi(
+              icon: Icons.find_in_page_outlined,
+              label: '缺少证据',
+              value: '$missingEvidence',
+              helper: '结果没有审计证据',
+              color: missingEvidence == 0
+                  ? OpenHandStatusColors.success
+                  : OpenHandStatusColors.warning,
+            ),
+            _InsightKpi(
+              icon: Icons.pending_actions_outlined,
+              label: '未结束归档',
+              value: '$unfinished',
+              helper: '任务尚未进入终态',
+              color: unfinished == 0
+                  ? OpenHandStatusColors.success
+                  : colors.tertiary,
+            ),
+          ],
+        ),
+        _integrityInsightPanel(context, controller),
+      ]);
+  }
+  return const _InsightEmpty(label: '暂无该指标的存储运维数据。');
+}
+
+Widget _buildSecurityMetricInsight(
+  BuildContext context,
+  String label,
+  ServicesController controller,
+) {
+  final colors = Theme.of(context).colorScheme;
+  final enabledRules = controller.rules
+      .where((entry) => entry.enabled)
+      .toList(growable: false);
+  final proxy = controller.proxyStatus;
+  final samples = _proxyRequestSamples(controller);
+
+  switch (label) {
+    case '启用规则':
+      final vendors = <String, int>{};
+      for (final rule in enabledRules) {
+        final vendor = rule.vendor.trim().isEmpty ? '未分类' : rule.vendor;
+        vendors.update(vendor, (value) => value + 1, ifAbsent: () => 1);
+      }
+      return _metricInsightPage([
+        _InsightRankingSection(
+          title: '规则供应商覆盖排名',
+          icon: Icons.category_outlined,
+          items: vendors.entries
+              .map(
+                (entry) => _InsightRankItem(
+                  label: entry.key,
+                  value: entry.value.toDouble(),
+                  valueLabel: '${entry.value} 条',
+                  color: colors.primary,
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无启用规则。',
+        ),
+        _InsightMatrixSection(
+          title: '启用规则能力矩阵',
+          icon: Icons.grid_view_rounded,
+          rows: enabledRules
+              .map(
+                (rule) => _InsightMatrixRow(
+                  icon: Icons.rule_rounded,
+                  title: rule.vendor.trim().isEmpty ? rule.id : rule.vendor,
+                  subtitle: rule.protocol.trim().isEmpty
+                      ? '未声明协议'
+                      : rule.protocol,
+                  color: colors.primary,
+                  cells: [
+                    _InsightMatrixCell(
+                      label: '凭证模式 ${rule.credentialPatterns.length}',
+                      color: const Color(0xff0f766e),
+                    ),
+                    _InsightMatrixCell(
+                      label: '上下文词 ${rule.contextTerms.length}',
+                      color: colors.tertiary,
+                    ),
+                    _InsightMatrixCell(
+                      label: '模型端点 ${rule.modelPaths.length}',
+                      color: OpenHandStatusColors.info,
+                    ),
+                    _InsightMatrixCell(
+                      label: '编码 ${rule.contentEncodings.length}',
+                      color: const Color(0xff0891b2),
+                    ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无启用规则。',
+        ),
+      ]);
+    case '凭证模式':
+      final ruleItems = enabledRules
+          .where((rule) => rule.credentialPatterns.isNotEmpty)
+          .toList(growable: false);
+      return _metricInsightPage([
+        _InsightRankingSection(
+          title: '凭证模式复杂度排名',
+          icon: Icons.fingerprint_rounded,
+          items: ruleItems
+              .map(
+                (rule) => _InsightRankItem(
+                  label: rule.vendor.trim().isEmpty ? rule.id : rule.vendor,
+                  value: rule.credentialPatterns.length.toDouble(),
+                  valueLabel: '${rule.credentialPatterns.length} 个模式',
+                  helper:
+                      '${rule.contextTerms.length} 个上下文词 · ${rule.protocol.trim().isEmpty ? '未声明协议' : rule.protocol}',
+                  color: const Color(0xff0f766e),
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无启用凭证识别规则。',
+        ),
+        _ruleInsightPanel(
+          context,
+          ruleItems,
+          title: '凭证模式与上下文约束',
+          lens: _RuleDetailLens.credentials,
+        ),
+      ]);
+    case '模型端点':
+      final ruleItems = enabledRules
+          .where(
+            (rule) =>
+                rule.modelPaths.isNotEmpty || rule.balancePaths.isNotEmpty,
+          )
+          .toList(growable: false);
+      return _metricInsightPage([
+        _InsightMatrixSection(
+          title: '主动验证端点矩阵',
+          icon: Icons.api_rounded,
+          rows: ruleItems
+              .map(
+                (rule) => _InsightMatrixRow(
+                  icon: Icons.api_rounded,
+                  title: rule.vendor.trim().isEmpty ? rule.id : rule.vendor,
+                  subtitle: rule.protocol.trim().isEmpty
+                      ? '未声明验证协议'
+                      : rule.protocol,
+                  color: OpenHandStatusColors.info,
+                  cells: [
+                    _InsightMatrixCell(
+                      label: '模型端点 ${rule.modelPaths.length}',
+                      color: OpenHandStatusColors.info,
+                    ),
+                    _InsightMatrixCell(
+                      label: '余额端点 ${rule.balancePaths.length}',
+                      color: colors.tertiary,
+                    ),
+                    _InsightMatrixCell(
+                      label: '凭证模式 ${rule.credentialPatterns.length}',
+                      color: colors.primary,
+                    ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无主动验证端点。',
+        ),
+        _ruleInsightPanel(
+          context,
+          ruleItems,
+          title: '模型与余额端点路径',
+          lens: _RuleDetailLens.endpoints,
+        ),
+      ]);
+    case '编码识别':
+      final encodingCounts = <AiExposureContentEncoding, int>{};
+      for (final rule in enabledRules) {
+        for (final encoding in rule.contentEncodings) {
+          encodingCounts.update(
+            encoding,
+            (value) => value + 1,
+            ifAbsent: () => 1,
+          );
+        }
+      }
+      return _metricInsightPage([
+        _InsightRankingSection(
+          title: '内容编码覆盖',
+          icon: Icons.code_rounded,
+          items: AiExposureContentEncoding.values
+              .map(
+                (encoding) => _InsightRankItem(
+                  label: encoding.id,
+                  value: (encodingCounts[encoding] ?? 0).toDouble(),
+                  valueLabel: '${encodingCounts[encoding] ?? 0} 条规则',
+                  color: _distributionColor(encoding.index, colors),
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无内容编码识别配置。',
+        ),
+        _ruleInsightPanel(
+          context,
+          enabledRules.where((rule) => rule.contentEncodings.isNotEmpty),
+          title: '编码识别规则明细',
+          lens: _RuleDetailLens.encodings,
+        ),
+      ]);
+    case '代理请求':
+      return _metricInsightPage([
+        _proxySecurityBoundaryPanel(context, controller),
+        _InsightDonutSection(
+          title: '验证出口请求构成',
+          icon: Icons.lan_outlined,
+          items: [
+            _DistributionItem(
+              '成功',
+              proxy?.totalSuccesses ?? 0,
+              OpenHandStatusColors.success,
+            ),
+            _DistributionItem(
+              '失败',
+              proxy?.totalFailures ?? 0,
+              OpenHandStatusColors.error,
+            ),
+            _DistributionItem(
+              '超时',
+              proxy?.totalTimeouts ?? 0,
+              OpenHandStatusColors.warning,
+            ),
+            _DistributionItem(
+              '执行中',
+              proxy?.inFlight ?? 0,
+              OpenHandStatusColors.info,
+            ),
+          ],
+        ),
+        _proxyRequestInsightPanel(
+          context,
+          controller,
+          _ProxyRequestLens.abnormal,
+          title: '近期出口异常审计',
+        ),
+      ]);
+    case '代理成功':
+      final successSamples = samples
+          .where((entry) => entry.succeeded)
+          .toList(growable: false);
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '验证出口成功质量',
+          icon: Icons.task_alt_rounded,
+          items: [
+            _InsightKpi(
+              icon: Icons.task_alt_rounded,
+              label: '累计成功',
+              value: '${proxy?.totalSuccesses ?? 0}',
+              helper: '运行时累计值',
+              color: OpenHandStatusColors.success,
+            ),
+            _InsightKpi(
+              icon: Icons.speed_rounded,
+              label: '平均响应',
+              value: '${proxy?.averageResponseTimeMs ?? 0} ms',
+              helper: '全量完成请求',
+              color: colors.primary,
+            ),
+            _InsightKpi(
+              icon: Icons.multiline_chart_rounded,
+              label: '近期 p95',
+              value:
+                  '${_latencyPercentile(successSamples.map((entry) => entry.responseTimeMs).toList(), 0.95)} ms',
+              helper: '${successSamples.length} 个成功样本',
+              color: colors.tertiary,
+            ),
+          ],
+        ),
+        _InsightTrendSection(
+          title: '验证成功响应曲线',
+          icon: Icons.show_chart_rounded,
+          series: [
+            OpenHandChartSeries(
+              label: '验证成功',
+              values: successSamples
+                  .map((entry) => entry.responseTimeMs.toDouble())
+                  .toList(growable: false),
+              color: OpenHandStatusColors.success,
+            ),
+          ],
+          sampleLabels: successSamples
+              .map((entry) => _shortDateTime(entry.at))
+              .toList(growable: false),
+          suffix: ' ms',
+          emptyLabel: '暂无验证成功请求样本',
+        ),
+        _proxySuccessEndpointAuditPanel(context, controller),
+      ]);
+    case '代理异常':
+      final abnormal = samples
+          .where((entry) => !entry.succeeded)
+          .toList(growable: false);
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '验证出口异常态势',
+          icon: Icons.report_gmailerrorred_rounded,
+          items: [
+            _InsightKpi(
+              icon: Icons.error_outline_rounded,
+              label: '失败',
+              value: '${proxy?.totalFailures ?? 0}',
+              helper: '非超时请求异常',
+              color: OpenHandStatusColors.error,
+            ),
+            _InsightKpi(
+              icon: Icons.timer_off_outlined,
+              label: '超时',
+              value: '${proxy?.totalTimeouts ?? 0}',
+              helper: '请求超过等待边界',
+              color: OpenHandStatusColors.warning,
+            ),
+            _InsightKpi(
+              icon: Icons.history_rounded,
+              label: '近期异常样本',
+              value: '${abnormal.length}',
+              helper: '有限请求窗口',
+              color: colors.tertiary,
+            ),
+          ],
+        ),
+        _proxyFailureEndpointPanel(context, controller, title: '验证出口异常节点'),
+        _proxyRequestInsightPanel(
+          context,
+          controller,
+          _ProxyRequestLens.abnormal,
+          title: '异常验证请求',
+        ),
+      ]);
+    case '依赖就绪':
+      final dependencies = controller.dependencyStatus;
+      final states = <(String, IconData, bool, bool, String)>[
+        (
+          '扫描核心',
+          Icons.memory_rounded,
+          true,
+          controller.isRunning,
+          'ai_jungler ${controller.health?.version ?? '--'}',
+        ),
+        (
+          'PostgreSQL 镜像',
+          Icons.cloud_sync_outlined,
+          dependencies?.postgresql.configured ?? false,
+          dependencies?.postgresql.connected ?? false,
+          dependencies?.postgresql.message ?? '未启用',
+        ),
+        (
+          'Redis 协调',
+          Icons.hub_outlined,
+          dependencies?.redis.configured ?? false,
+          dependencies?.redis.connected ?? false,
+          dependencies?.redis.message ?? '未启用',
+        ),
+        (
+          'Playwright 浏览器',
+          Icons.web_outlined,
+          dependencies?.playwright.configured ?? false,
+          dependencies?.playwright.connected ?? false,
+          dependencies?.playwright.message ?? '未启用',
+        ),
+        (
+          'GPT 辅助提取',
+          Icons.auto_awesome_outlined,
+          controller.aiExtractorStatus?.configured ?? false,
+          controller.aiExtractorStatus?.configured ?? false,
+          controller.aiExtractorStatus?.model ?? '未启用',
         ),
       ];
-    case '安全与依赖/代理请求':
-      return [donut('验证出口请求构成', Icons.lan_outlined, requestOutcomes())];
-    case '安全与依赖/代理成功':
-      final success = requestSamples
-          .where((sample) => sample.succeeded)
-          .toList(growable: false);
-      return [
-        requestTrend('验证成功请求时延', success, [
-          OpenHandChartSeries(
-            label: '验证成功',
-            values: success
-                .map((sample) => sample.responseTimeMs.toDouble())
-                .toList(growable: false),
-            color: OpenHandStatusColors.success,
-          ),
-        ], emptyLabel: '暂无验证成功请求样本'),
-      ];
-    case '安全与依赖/代理异常':
-      return [
-        donut('验证网络异常构成', Icons.report_gmailerrorred_rounded, [
-          _DistributionItem(
-            '失败',
-            proxy?.totalFailures ?? 0,
-            OpenHandStatusColors.error,
-          ),
-          _DistributionItem(
-            '超时',
-            proxy?.totalTimeouts ?? 0,
-            OpenHandStatusColors.warning,
-          ),
-        ]),
-      ];
-    case '安全与依赖/依赖就绪':
-      final dependencies = controller.dependencyStatus;
-      final states = [
-        controller.isRunning,
-        dependencies?.postgresql.connected == true,
-        dependencies?.redis.connected == true,
-        controller.aiExtractorStatus?.configured == true,
-      ];
-      final ready = states.where((value) => value).length;
-      return [
-        donut('验证依赖就绪构成', Icons.hub_outlined, [
-          _DistributionItem('已就绪', ready, OpenHandStatusColors.success),
-          _DistributionItem('未就绪', states.length - ready, colors.outline),
-        ], centerLabel: '$ready/${states.length}'),
-      ];
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '依赖就绪摘要',
+          icon: Icons.hub_outlined,
+          items: [
+            _InsightKpi(
+              icon: Icons.task_alt_rounded,
+              label: '已就绪',
+              value: '${states.where((entry) => entry.$4).length}',
+              helper: '${states.length} 个运行组件',
+              color: OpenHandStatusColors.success,
+            ),
+            _InsightKpi(
+              icon: Icons.settings_outlined,
+              label: '已配置',
+              value: '${states.where((entry) => entry.$3).length}',
+              helper: '满足配置前置',
+              color: colors.primary,
+            ),
+            _InsightKpi(
+              icon: Icons.link_off_rounded,
+              label: '未连接',
+              value: '${states.where((entry) => entry.$3 && !entry.$4).length}',
+              helper: '已配置但当前不可用',
+              color: OpenHandStatusColors.warning,
+            ),
+          ],
+        ),
+        _InsightMatrixSection(
+          title: '运行依赖拓扑',
+          icon: Icons.account_tree_outlined,
+          rows: states
+              .map(
+                (entry) => _InsightMatrixRow(
+                  icon: entry.$2,
+                  title: entry.$1,
+                  subtitle: entry.$5,
+                  color: entry.$4
+                      ? OpenHandStatusColors.success
+                      : entry.$3
+                      ? OpenHandStatusColors.warning
+                      : colors.outline,
+                  cells: [
+                    _InsightMatrixCell(
+                      label: entry.$3 ? '已配置' : '未配置',
+                      color: entry.$3 ? colors.primary : colors.outline,
+                    ),
+                    _InsightMatrixCell(
+                      label: entry.$4 ? '已就绪' : '未就绪',
+                      color: entry.$4
+                          ? OpenHandStatusColors.success
+                          : OpenHandStatusColors.warning,
+                    ),
+                  ],
+                ),
+              )
+              .toList(growable: false),
+          emptyLabel: '暂无运行依赖状态。',
+        ),
+      ]);
   }
-  return const [];
+  return const _InsightEmpty(label: '暂无该指标的安全运维数据。');
 }
 
 List<AiExposureProxyRequestSample> _proxyRequestSamples(
@@ -4907,434 +7751,6 @@ Color _distributionColor(int index, ColorScheme colors) => <Color>[
   const Color(0xff0f766e),
   const Color(0xff0891b2),
 ][index % 8];
-
-List<Widget> _serviceMetricDetailSections(
-  BuildContext context, {
-  required String section,
-  required String label,
-  required ServicesController controller,
-}) {
-  final histories = controller.history;
-  final results = controller.results;
-  final rules = controller.rules;
-  final logs = controller.logs.reversed.toList(growable: false);
-
-  _InsightRecordPanel taskPanel(
-    Iterable<AiExposureHistoryEntry> entries, {
-    String title = '任务明细',
-    String emptyLabel = '暂无符合条件的任务。',
-    _TaskRecordLens lens = _TaskRecordLens.overview,
-  }) => _InsightRecordPanel(
-    icon: Icons.work_history_outlined,
-    title: title,
-    records: entries.map((entry) => _taskInsightRecord(entry, lens)).toList(),
-    emptyLabel: emptyLabel,
-  );
-
-  _InsightRecordPanel resultPanel(
-    Iterable<AiExposureResult> entries, {
-    String title = '结果明细',
-    String emptyLabel = '暂无符合条件的结果。',
-    _ResultRecordLens lens = _ResultRecordLens.overview,
-  }) => _InsightRecordPanel(
-    icon: Icons.fact_check_outlined,
-    title: title,
-    records: entries.map((entry) => _resultInsightRecord(entry, lens)).toList(),
-    emptyLabel: emptyLabel,
-  );
-
-  _InsightRecordPanel logPanel(
-    Iterable<AiExposureLogEntry> entries, {
-    String title = '运行事件',
-    String emptyLabel = '暂无符合条件的运行事件。',
-  }) => _InsightRecordPanel(
-    icon: Icons.receipt_long_outlined,
-    title: title,
-    records: entries.map(_logInsightRecord).toList(),
-    emptyLabel: emptyLabel,
-  );
-
-  switch ('$section/$label') {
-    case '状态总览/任务总数':
-      return [taskPanel(histories, title: '最近任务')];
-    case '状态总览/结果总数':
-      return [resultPanel(results, title: '最近扫描结果')];
-    case '状态总览/高价值':
-      return [
-        resultPanel(
-          results.where(
-            (entry) => entry.category == AiExposureResultCategory.highValue,
-          ),
-          title: '高价值结果',
-          emptyLabel: '暂无高价值结果。',
-          lens: _ResultRecordLens.risk,
-        ),
-      ];
-    case '状态总览/累计处理':
-      return [
-        taskPanel(
-          histories.where((entry) => entry.progress.processed > 0),
-          title: '处理量最高任务',
-          lens: _TaskRecordLens.throughput,
-        ),
-      ];
-    case '状态总览/平均任务耗时':
-      final finished =
-          histories.where((entry) => entry.finishedAt != null).toList()..sort(
-            (a, b) => b.finishedAt!
-                .difference(b.createdAt)
-                .compareTo(a.finishedAt!.difference(a.createdAt)),
-          );
-      return [
-        taskPanel(finished, title: '任务耗时明细', lens: _TaskRecordLens.duration),
-      ];
-    case '状态总览/已配置源':
-      return [_sourceInsightPanel(context, controller, _SourceLens.configured)];
-    case '状态总览/启用规则':
-      return [_ruleInsightPanel(context, rules.where((rule) => rule.enabled))];
-    case '状态总览/代理选路':
-      return [_proxyRouteReadinessPanel(context, controller)];
-    case '状态总览/代理平均响应':
-      return [_proxyFleetLatencyPanel(context, controller)];
-    case '状态总览/警告日志':
-      return [
-        logPanel(
-          logs.where((entry) => entry.level == 'warning'),
-          title: '警告事件',
-          emptyLabel: '暂无警告事件。',
-        ),
-      ];
-    case '状态总览/错误日志':
-      return [
-        logPanel(
-          logs.where((entry) => entry.level == 'error'),
-          title: '错误事件',
-          emptyLabel: '暂无错误事件。',
-        ),
-      ];
-    case '状态总览/已取消任务':
-      return [
-        taskPanel(
-          histories.where((entry) => entry.stage == 'cancelled'),
-          title: '已取消任务',
-          emptyLabel: '暂无已取消任务。',
-        ),
-      ];
-    case '任务管线/当前状态':
-      final active = histories.where((entry) => entry.progress.isRunning);
-      return [
-        taskPanel(
-          active,
-          title: '活动任务',
-          emptyLabel: '当前没有活动任务。',
-          lens: _TaskRecordLens.runtime,
-        ),
-        logPanel(logs.take(20), title: '最近管线事件'),
-      ];
-    case '任务管线/累计处理':
-    case '任务管线/候选目标':
-    case '任务管线/有效结果':
-    case '任务管线/高价值结果':
-      final sorted = [...histories]
-        ..sort((a, b) {
-          int value(AiExposureHistoryEntry entry) => switch (label) {
-            '候选目标' => entry.progress.candidates,
-            '有效结果' => entry.progress.valid,
-            '高价值结果' => entry.progress.highValue,
-            _ => entry.progress.processed,
-          };
-          return value(b).compareTo(value(a));
-        });
-      final lens = switch (label) {
-        '候选目标' => _TaskRecordLens.candidates,
-        '有效结果' => _TaskRecordLens.valid,
-        '高价值结果' => _TaskRecordLens.highValue,
-        _ => _TaskRecordLens.throughput,
-      };
-      return [taskPanel(sorted, title: '$label任务明细', lens: lens)];
-    case '任务管线/任务并发':
-      return [
-        _Section(
-          title: '并发配置',
-          icon: Icons.speed_rounded,
-          child: Column(
-            children: [
-              _OpsKeyValue(
-                label: '当前并发',
-                value: '${controller.defaultConcurrency}',
-              ),
-              const _OpsKeyValue(label: '配置上限', value: '128'),
-              _OpsKeyValue(
-                label: '活动任务',
-                value:
-                    '${histories.where((entry) => entry.progress.isRunning).length}',
-              ),
-              _OpsKeyValue(
-                label: '代理在途请求',
-                value: '${controller.proxyStatus?.inFlight ?? 0}',
-              ),
-            ],
-          ),
-        ),
-        taskPanel(
-          histories.where((entry) => entry.progress.isRunning),
-          title: '并发中的任务',
-          emptyLabel: '当前没有并发任务。',
-          lens: _TaskRecordLens.runtime,
-        ),
-      ];
-    case '任务管线/全量扫描':
-      return [
-        taskPanel(
-          histories.where((entry) => entry.mode == AiExposureScanMode.full),
-          title: '全量扫描任务',
-          emptyLabel: '暂无全量扫描任务。',
-          lens: _TaskRecordLens.scope,
-        ),
-      ];
-    case '任务管线/可恢复任务':
-      return [
-        taskPanel(
-          histories.where((entry) => entry.isResumable),
-          title: '可恢复任务',
-          emptyLabel: '暂无可恢复任务。',
-          lens: _TaskRecordLens.recovery,
-        ),
-      ];
-    case '数据源/已就绪来源':
-      return [_sourceInsightPanel(context, controller, _SourceLens.ready)];
-    case '数据源/配额可用源':
-      return [
-        _sourceInsightPanel(context, controller, _SourceLens.quotaAvailable),
-      ];
-    case '数据源/剩余配额':
-      return [_sourceInsightPanel(context, controller, _SourceLens.metered)];
-    case '数据源/启用发现源':
-      return [_sourceInsightPanel(context, controller, _SourceLens.enabled)];
-    case '数据源/来源调用任务':
-      return [
-        _sourceInsightPanel(context, controller, _SourceLens.invoked),
-        taskPanel(
-          histories.where((entry) => entry.sources.isNotEmpty),
-          title: '来源调用任务',
-        ),
-      ];
-    case '数据源/来源产出结果':
-      return [
-        _sourceInsightPanel(context, controller, _SourceLens.produced),
-        resultPanel(results, title: '来源产出结果'),
-      ];
-    case '数据源/配额异常':
-      return [
-        _sourceInsightPanel(context, controller, _SourceLens.quotaFailed),
-      ];
-    case '数据源/待配置来源':
-      return [
-        _sourceInsightPanel(context, controller, _SourceLens.unconfigured),
-      ];
-    case '网络遥测/选路状态':
-      return [
-        _proxyPolicySection(context, controller),
-        _proxyRoutingDecisionPanel(context, controller),
-      ];
-    case '网络遥测/代理节点':
-      return [_proxyNodeInventoryPanel(context, controller)];
-    case '网络遥测/可连通节点':
-      return [_proxyReachabilityPanel(context, controller)];
-    case '网络遥测/出口国家':
-      return [_proxyExitIdentityPanel(context, controller)];
-    case '网络遥测/巡检计划':
-      return [
-        _proxyInspectionPolicySection(context, controller),
-        _proxyInspectionEventPanel(context, controller),
-      ];
-    case '网络遥测/累计请求':
-      return [
-        _proxyRequestInsightPanel(
-          context,
-          controller,
-          _ProxyRequestLens.all,
-          title: '近期代理请求',
-        ),
-        _proxyRequestLoadPanel(context, controller),
-      ];
-    case '网络遥测/成功请求':
-      return [
-        _proxyRequestInsightPanel(
-          context,
-          controller,
-          _ProxyRequestLens.success,
-          title: '成功请求',
-        ),
-      ];
-    case '网络遥测/失败请求':
-      return [
-        _proxyRequestInsightPanel(
-          context,
-          controller,
-          _ProxyRequestLens.failure,
-          title: '失败请求',
-        ),
-        _proxyFailureEndpointPanel(context, controller),
-      ];
-    case '网络遥测/超时请求':
-      return [
-        _proxyRequestInsightPanel(
-          context,
-          controller,
-          _ProxyRequestLens.timeout,
-          title: '超时请求',
-        ),
-      ];
-    case '网络遥测/平均响应':
-      return [
-        _proxyRequestInsightPanel(
-          context,
-          controller,
-          _ProxyRequestLens.all,
-          title: '近期响应时序',
-        ),
-        _proxyLatencyQualityPanel(context, controller),
-      ];
-    case '网络遥测/p95 响应':
-      return [
-        _proxyRequestInsightPanel(
-          context,
-          controller,
-          _ProxyRequestLens.all,
-          title: '长尾响应样本',
-          sortByLatency: true,
-        ),
-        _proxyTailLatencyPanel(context, controller),
-      ];
-    case '网络遥测/HTTP 2xx':
-      return [
-        _proxyRequestInsightPanel(
-          context,
-          controller,
-          _ProxyRequestLens.http,
-          title: 'HTTP 响应样本',
-        ),
-      ];
-    case '存储与持久化/SQLite 数据库':
-      return [_sqliteDatabaseDetailSection(context, controller)];
-    case '存储与持久化/最后写入':
-      return [_persistenceWriteEventPanel(context, controller)];
-    case '存储与持久化/凭证加密':
-      return [
-        _credentialEncryptionDetailSection(context, controller),
-        resultPanel(
-          results.where(
-            (result) => result.maskedCredential?.trim().isNotEmpty == true,
-          ),
-          title: '受保护凭证记录',
-          emptyLabel: '暂无需要加密持久化的凭证记录。',
-          lens: _ResultRecordLens.credentials,
-        ),
-      ];
-    case '存储与持久化/可见记录':
-      return [
-        taskPanel(
-          histories.take(8),
-          title: '最近任务记录',
-          lens: _TaskRecordLens.archive,
-        ),
-        resultPanel(
-          results.take(8),
-          title: '最近结果记录',
-          lens: _ResultRecordLens.archive,
-        ),
-        logPanel(logs.take(8), title: '最近日志记录'),
-      ];
-    case '存储与持久化/任务归档':
-      return [
-        taskPanel(histories, title: '任务归档', lens: _TaskRecordLens.archive),
-      ];
-    case '存储与持久化/结果归档':
-      return [
-        resultPanel(results, title: '结果归档', lens: _ResultRecordLens.archive),
-      ];
-    case '存储与持久化/规则快照':
-      return [_ruleInsightPanel(context, rules, title: '规则快照')];
-    case '存储与持久化/日志缓冲':
-      return [logPanel(logs, title: '日志缓冲', emptyLabel: '日志缓冲为空。')];
-    case '存储与持久化/可恢复任务':
-      return [
-        taskPanel(
-          histories.where((entry) => entry.isResumable),
-          title: '可恢复任务归档',
-          lens: _TaskRecordLens.recovery,
-        ),
-      ];
-    case '存储与持久化/PostgreSQL 镜像':
-    case '存储与持久化/Redis 协调':
-      return [_dependencyInsightPanel(context, controller, only: label)];
-    case '存储与持久化/一致性审计':
-      return [_integrityInsightPanel(context, controller)];
-    case '安全与依赖/启用规则':
-      return [_ruleInsightPanel(context, rules.where((rule) => rule.enabled))];
-    case '安全与依赖/凭证模式':
-      return [
-        _ruleInsightPanel(
-          context,
-          rules.where(
-            (rule) => rule.enabled && rule.credentialPatterns.isNotEmpty,
-          ),
-          title: '凭证识别规则',
-          lens: _RuleDetailLens.credentials,
-        ),
-      ];
-    case '安全与依赖/模型端点':
-      return [
-        _ruleInsightPanel(
-          context,
-          rules.where(
-            (rule) =>
-                rule.enabled &&
-                (rule.modelPaths.isNotEmpty || rule.balancePaths.isNotEmpty),
-          ),
-          title: '主动验证端点',
-          lens: _RuleDetailLens.endpoints,
-        ),
-      ];
-    case '安全与依赖/编码识别':
-      return [
-        _ruleInsightPanel(
-          context,
-          rules.where(
-            (rule) => rule.enabled && rule.contentEncodings.isNotEmpty,
-          ),
-          title: '内容解码规则',
-          lens: _RuleDetailLens.encodings,
-        ),
-      ];
-    case '安全与依赖/代理请求':
-      return [
-        _proxySecurityBoundaryPanel(context, controller),
-        _proxyRequestInsightPanel(
-          context,
-          controller,
-          _ProxyRequestLens.abnormal,
-          title: '近期出口异常审计',
-        ),
-      ];
-    case '安全与依赖/代理成功':
-      return [_proxySuccessEndpointAuditPanel(context, controller)];
-    case '安全与依赖/代理异常':
-      return [
-        _proxyRequestInsightPanel(
-          context,
-          controller,
-          _ProxyRequestLens.abnormal,
-          title: '异常验证请求',
-        ),
-        _proxyFailureEndpointPanel(context, controller, title: '验证出口异常节点'),
-      ];
-    case '安全与依赖/依赖就绪':
-      return [_dependencyInsightPanel(context, controller)];
-  }
-  return [logPanel(logs.take(20), title: '最近相关事件')];
-}
 
 enum _TaskRecordLens {
   overview,
@@ -5556,119 +7972,6 @@ _InsightRecord _logInsightRecord(AiExposureLogEntry entry) {
     subtitle: entry.jobId.isEmpty ? '' : '关联任务 ${entry.jobId}',
     tags: [entry.level.toUpperCase(), _shortDateTime(entry.at)],
     color: tone,
-  );
-}
-
-enum _SourceLens {
-  configured,
-  ready,
-  quotaAvailable,
-  metered,
-  enabled,
-  invoked,
-  produced,
-  quotaFailed,
-  unconfigured,
-}
-
-Widget _sourceInsightPanel(
-  BuildContext context,
-  ServicesController controller,
-  _SourceLens lens,
-) {
-  final colors = Theme.of(context).colorScheme;
-  final jobCounts = <AiExposureSource, int>{};
-  for (final job in controller.history) {
-    for (final source in job.sources) {
-      jobCounts.update(source, (value) => value + 1, ifAbsent: () => 1);
-    }
-  }
-  final resultCounts = <AiExposureSource, int>{};
-  for (final result in controller.results) {
-    resultCounts.update(result.source, (value) => value + 1, ifAbsent: () => 1);
-  }
-  final quotaBySource = {
-    for (final quota in controller.quotas) quota.source: quota,
-  };
-  final records = <_InsightRecord>[];
-  for (final source in AiExposureSource.values) {
-    if (source == AiExposureSource.githubArtifact) continue;
-    final credentialScoped = switch (lens) {
-      _SourceLens.configured ||
-      _SourceLens.ready ||
-      _SourceLens.quotaAvailable ||
-      _SourceLens.metered ||
-      _SourceLens.quotaFailed ||
-      _SourceLens.unconfigured => true,
-      _SourceLens.enabled ||
-      _SourceLens.invoked ||
-      _SourceLens.produced => false,
-    };
-    if (credentialScoped && source == AiExposureSource.manual) continue;
-    final key = _sourceCredentialKey(source);
-    final configured =
-        source == AiExposureSource.manual ||
-        controller.sourceStatus[key] == true;
-    final quota = quotaBySource[source];
-    final enabled = controller.enabledSources.contains(source);
-    final calls = jobCounts[source] ?? 0;
-    final produced = resultCounts[source] ?? 0;
-    final include = switch (lens) {
-      _SourceLens.configured => configured,
-      _SourceLens.ready => configured && (quota == null || quota.available),
-      _SourceLens.quotaAvailable => quota?.available == true,
-      _SourceLens.metered => quota?.remaining != null || quota?.limit != null,
-      _SourceLens.enabled => enabled,
-      _SourceLens.invoked => calls > 0,
-      _SourceLens.produced => produced > 0,
-      _SourceLens.quotaFailed => quota?.configured == true && !quota!.available,
-      _SourceLens.unconfigured => !configured,
-    };
-    if (!include) continue;
-    final tone = quota?.available == true || (configured && quota == null)
-        ? OpenHandStatusColors.success
-        : configured
-        ? OpenHandStatusColors.warning
-        : colors.outline;
-    records.add(
-      _InsightRecord(
-        icon: _sourceIcon(source),
-        title: _sourceName(source),
-        subtitle: quota?.message.trim().isNotEmpty == true
-            ? quota!.message.trim()
-            : configured
-            ? '凭证条件已满足，等待或无需配额探测。'
-            : '尚未配置访问凭证。',
-        tags: [
-          enabled ? '已启用' : '未启用',
-          configured ? '已配置' : '待配置',
-          if (quota != null) quota.available ? '配额可用' : '配额不可用',
-          if (quota?.remaining != null)
-            '剩余 ${quota!.remaining}${quota.limit == null ? '' : '/${quota.limit}'}',
-          '调用任务 $calls',
-          '产出结果 $produced',
-          if (quota?.resetsAt != null) '重置 ${_shortDateTime(quota!.resetsAt!)}',
-        ],
-        color: tone,
-      ),
-    );
-  }
-  final title = switch (lens) {
-    _SourceLens.configured => '已配置来源',
-    _SourceLens.ready => '就绪来源',
-    _SourceLens.quotaAvailable => '配额可用来源',
-    _SourceLens.metered => '可计量配额来源',
-    _SourceLens.enabled => '启用发现来源',
-    _SourceLens.invoked => '已调用来源',
-    _SourceLens.produced => '有产出来源',
-    _SourceLens.quotaFailed => '配额异常来源',
-    _SourceLens.unconfigured => '待配置来源',
-  };
-  return _InsightRecordPanel(
-    icon: Icons.travel_explore_rounded,
-    title: title,
-    records: records,
-    emptyLabel: '暂无$title。',
   );
 }
 
