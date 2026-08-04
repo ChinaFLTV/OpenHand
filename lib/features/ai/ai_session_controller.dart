@@ -568,6 +568,7 @@ class AiSessionController extends ChangeNotifier {
   static const Duration _sessionHydrationQueueTimeout = Duration(seconds: 8);
   static const int _maxConcurrentSessionHydrations = 4;
   static const int _maxPendingSessionHydrations = 64;
+  static const int _maxPendingSessionScopedOperations = 2048;
   static const int _maxTrackedSessionHydrationTasks =
       _maxConcurrentSessionHydrations + _maxPendingSessionHydrations;
 
@@ -930,35 +931,31 @@ class AiSessionController extends ChangeNotifier {
   final DateTime Function() _clock;
   final MachineTerminalService? _machineTerminalService;
 
-  /// Exposes the chat client for subsystems (e.g. Harness API phase runner)
-  /// that need to perform API calls independently of the session loop.
+  /// 供 Harness API 阶段等独立于会话循环的子系统调用聊天接口。
   AiChatClient get chatClient => _chatClient;
 
-  /// Exposes the tool runtime service for subsystems that run their own
-  /// agentic tool loops outside the standard session controller.
+  /// 供自主管理工具循环的子系统调用工具运行时。
   AiToolRuntimeService get toolRuntimeService => _toolRuntimeService;
 
   AiToolUsagePromotionStore get toolUsagePromotionStore =>
       _toolUsagePromotionStore;
 
-  /// Exposes the prompt template repository for subsystems that need to
-  /// load template bundles (system instructions, developer instructions, etc.).
+  /// 供子系统加载系统指令、开发者指令等提示词模板。
   AiPromptTemplateRepository get templateRepository => _templateRepository;
 
   bool _isDisposed = false;
   bool _notifierDisposed = false;
   Future<void>? _shutdownFuture;
-  StateError get _disposedError => StateError('$runtimeType is disposed');
+  StateError get _disposedError => StateError('$runtimeType 已关闭');
   bool _isLoading = false;
-  // Header refresh keeps the sidebar responsive; selected transcripts hydrate
-  // messages on demand via [_hydratingSessionMessageIds]. This legacy global
-  // flag is retained for broad load states that still need a single signal.
+  // 头信息刷新只加载侧栏数据，选中会话再按需加载消息；该状态保留给仍需统一信号的全局加载流程。
   bool _isMessagesHydrating = false;
   final Map<String, AiSendPhase> _sessionSendPhases = <String, AiSendPhase>{};
   final Map<String, Future<void>> _sessionOperationQueues =
       <String, Future<void>>{};
   final Map<String, Future<void>> _sessionHeaderOperationQueues =
       <String, Future<void>>{};
+  int _pendingSessionScopedOperations = 0;
   final Map<String, int> _sessionHeaderMutationGenerations = <String, int>{};
   final Map<String, int> _sessionPendingSendOperationCounts = <String, int>{};
   final Map<String, Future<AiSession?>> _sessionMessageHydrationTasks =
@@ -1076,12 +1073,7 @@ class AiSessionController extends ChangeNotifier {
   List<AiSessionPersistenceIssue> _persistenceIssues =
       const <AiSessionPersistenceIssue>[];
   final SerialTaskQueue _operationQueue = SerialTaskQueue();
-  // Auto-title prompt cache. The asset is read once per (max-character cap)
-  // value and reused for every subsequent title generation, so we don't pay
-  // the rootBundle hit on each first-message turn. Cache key is the
-  // `_generatedTitleMaxCharacters` runtime field; if the user changes the
-  // cap in settings, the next title fetch transparently reloads the asset
-  // with the new substitution.
+  // 自动标题提示词按字符上限缓存；上限变化后，下次生成会重新加载资源。
   String? _cachedAutoTitleSystemPrompt;
   int? _cachedAutoTitleSystemPromptForMaxCharacters;
   Future<String>? _pendingAutoTitleSystemPromptLoad;
@@ -4049,13 +4041,10 @@ class AiSessionController extends ChangeNotifier {
     }).whenComplete(() => _completeSessionSendPending(sessionId));
   }
 
-  /// Public read-only accessor so the self-learning runner can fetch a
-  /// session snapshot without reaching into private state.
+  /// 供自学习运行器读取会话快照，避免访问私有状态。
   AiSession? sessionById(String sessionId) => _sessionById(sessionId);
 
-  /// Persists the model selection to the given session without going through
-  /// the session operation queue (keeps the UI responsive while AI inference
-  /// may be occupying the queue).
+  /// 不经过会话操作队列直接保存模型选择，避免推理占用队列时阻塞界面。
   Future<bool> updateSessionLastUsedModel(
     String sessionId, {
     required String providerConfigId,
@@ -4089,10 +4078,7 @@ class AiSessionController extends ChangeNotifier {
       _lastErrorMessage = '会话标题不能超过 $maxManualTitleCharacters 个字符。';
       return false;
     }
-    // Keep manual renaming responsive even while sendMessage owns the
-    // per-session operation queue during streaming or write approval. This
-    // mirrors updateSessionFullAccessPermission: later concurrent commits run
-    // through _mergeLiveSessionState and preserve live manually edited titles.
+    // 手动重命名不进入推理队列；后续提交会合并实时状态并保留手动标题。
     final session = _sessionById(sessionId);
     if (session == null) {
       return false;
@@ -12014,60 +12000,60 @@ $tail''';
     }
     final generation = (_sessionHeaderMutationGenerations[session.id] ?? 0) + 1;
     _sessionHeaderMutationGenerations[session.id] = generation;
-    return _enqueueSessionHeaderOperation(session.id, () async {
-      if (_isDisposed || _deletedSessionIds.contains(session.id)) {
-        return false;
-      }
-      try {
-        await _store.saveSessionHeader(effectiveSession);
-        return true;
-      } catch (error, stack) {
-        silentLog('ai_session_controller', logOperation, error, stack);
-        if (_sessionHeaderMutationGenerations[session.id] == generation) {
-          await _restoreHeaderAfterSaveFailure(
-            sessionId: session.id,
-            previousSession: previousSession,
-            failedSession: effectiveSession,
-          );
+    try {
+      return await _enqueueSessionHeaderOperation(session.id, () async {
+        if (_isDisposed || _deletedSessionIds.contains(session.id)) {
+          return false;
         }
-        _lastErrorMessage = _friendlyAiSessionPersistenceError(
-          error,
-          operation: 'save header',
-        );
-        notifyListeners();
-        return false;
+        try {
+          await _store.saveSessionHeader(effectiveSession);
+          return true;
+        } catch (error, stack) {
+          silentLog('ai_session_controller', logOperation, error, stack);
+          if (_sessionHeaderMutationGenerations[session.id] == generation) {
+            await _restoreHeaderAfterSaveFailure(
+              sessionId: session.id,
+              previousSession: previousSession,
+              failedSession: effectiveSession,
+            );
+          }
+          _lastErrorMessage = _friendlyAiSessionPersistenceError(
+            error,
+            operation: 'save header',
+          );
+          notifyListeners();
+          return false;
+        }
+      });
+    } catch (error, stack) {
+      silentLog('ai_session_controller', '提交会话头持久化任务', error, stack);
+      if (_sessionHeaderMutationGenerations[session.id] == generation) {
+        _replaceSessionHeaderInMemory(previousSession);
       }
-    });
+      _lastErrorMessage = _friendlyAiSessionPersistenceError(
+        error,
+        operation: 'save header',
+      );
+      notifyListeners();
+      return false;
+    }
   }
 
   Future<T> _enqueueSessionHeaderOperation<T>(
     String sessionId,
     Future<T> Function() operation,
   ) {
-    final completer = Completer<T>();
-    final previousQueue =
-        _sessionHeaderOperationQueues[sessionId] ?? Future<void>.value();
-    late final Future<void> nextQueue;
-    nextQueue = previousQueue
-        .catchError((_) {})
-        .then((_) async {
-          try {
-            completer.complete(await operation());
-          } catch (error, stack) {
-            completer.completeError(error, stack);
-          }
-        })
-        .whenComplete(() {
-          if (identical(_sessionHeaderOperationQueues[sessionId], nextQueue)) {
-            _sessionHeaderOperationQueues.remove(sessionId);
-            if (!_sessionsById.containsKey(sessionId)) {
-              _sessionHeaderMutationGenerations.remove(sessionId);
-            }
-            _releaseDeletedSessionMarkerIfIdle(sessionId);
-          }
-        });
-    _sessionHeaderOperationQueues[sessionId] = nextQueue;
-    return completer.future;
+    return _enqueueSessionScopedOperation(
+      queues: _sessionHeaderOperationQueues,
+      sessionId: sessionId,
+      operation: operation,
+      onIdle: () {
+        if (!_sessionsById.containsKey(sessionId)) {
+          _sessionHeaderMutationGenerations.remove(sessionId);
+        }
+        _releaseDeletedSessionMarkerIfIdle(sessionId);
+      },
+    );
   }
 
   Future<void> _restoreHeaderAfterSaveFailure({
@@ -13818,12 +13804,29 @@ $tail''';
     String sessionId,
     Future<T> Function() operation,
   ) {
+    return _enqueueSessionScopedOperation(
+      queues: _sessionOperationQueues,
+      sessionId: sessionId,
+      operation: operation,
+      onIdle: () => _releaseDeletedSessionMarkerIfIdle(sessionId),
+    );
+  }
+
+  Future<T> _enqueueSessionScopedOperation<T>({
+    required Map<String, Future<void>> queues,
+    required String sessionId,
+    required Future<T> Function() operation,
+    required void Function() onIdle,
+  }) {
     if (_isDisposed) {
       return Future<T>.error(_disposedError);
     }
+    if (_pendingSessionScopedOperations >= _maxPendingSessionScopedOperations) {
+      return Future<T>.error(StateError('AI 会话操作队列已满，拒绝继续堆积任务。'));
+    }
+    _pendingSessionScopedOperations++;
     final completer = Completer<T>();
-    final previousQueue =
-        _sessionOperationQueues[sessionId] ?? Future<void>.value();
+    final previousQueue = queues[sessionId] ?? Future<void>.value();
     late final Future<void> nextQueue;
     nextQueue = previousQueue
         .catchError((_) {})
@@ -13838,12 +13841,13 @@ $tail''';
           }
         })
         .whenComplete(() {
-          if (identical(_sessionOperationQueues[sessionId], nextQueue)) {
-            _sessionOperationQueues.remove(sessionId);
-            _releaseDeletedSessionMarkerIfIdle(sessionId);
+          _pendingSessionScopedOperations--;
+          if (identical(queues[sessionId], nextQueue)) {
+            queues.remove(sessionId);
+            onIdle();
           }
         });
-    _sessionOperationQueues[sessionId] = nextQueue;
+    queues[sessionId] = nextQueue;
     return completer.future;
   }
 

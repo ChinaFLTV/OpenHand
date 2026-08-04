@@ -414,6 +414,7 @@ class WebMessagePlatformService {
   ({Object error, StackTrace stack})? _opsDataLoadFailure;
   bool _opsMutationInProgress = false;
   bool _opsPersistencePending = false;
+  bool _opsPersistenceClosing = false;
 
   /// 当前活跃的 SSE 订阅数（每个 `/api/sessions/<id>/events` 长连接 +1，
   /// onCancel 时 -1）。Ops 面板用它判断"是否有人在看活跃流"，并辅助识别
@@ -473,6 +474,7 @@ class WebMessagePlatformService {
   Future<void> ensurePersistedOpsDataLoaded({
     bool requireTrusted = false,
   }) async {
+    _throwIfDisposed();
     if (_opsDataLoaded && (_opsDataTrusted || !requireTrusted)) {
       return;
     }
@@ -538,11 +540,12 @@ class WebMessagePlatformService {
     if (failure != null) {
       Error.throwWithStackTrace(failure.error, failure.stack);
     }
-    throw StateError('Web gateway ops history has no trusted snapshot.');
+    throw StateError('Web 消息网关没有可信的运维记录快照。');
   }
 
   Future<WebGatewayOpsPersistenceReport> measurePersistedOpsData() async {
     await ensurePersistedOpsDataLoaded(requireTrusted: true);
+    _throwIfDisposed();
     return _opsPersistenceQueue.enqueue(_measureOpsHistoryLocked);
   }
 
@@ -555,13 +558,21 @@ class WebMessagePlatformService {
       return _clearAllPersistedOpsData();
     }
     await ensurePersistedOpsDataLoaded(requireTrusted: true);
+    _throwIfDisposed();
+    return _opsPersistenceQueue.enqueue(
+      () => _clearPersistedOpsDataLocked(startUtc: startUtc, endUtc: endUtc),
+    );
+  }
+
+  Future<WebGatewayOpsPersistenceReport> _clearPersistedOpsDataLocked({
+    required DateTime? startUtc,
+    required DateTime? endUtc,
+  }) async {
     _opsMutationInProgress = true;
     _opsPersistencePending = false;
     _opsPersistDebouncer.cancel();
     try {
-      final before = await _opsPersistenceQueue.enqueue(
-        _measureOpsHistoryLocked,
-      );
+      final before = await _measureOpsHistoryLocked();
       final initialItemCount =
           _persistedSnapshots.length +
           _memoryLogs.length +
@@ -595,7 +606,7 @@ class WebMessagePlatformService {
             )
             .toList(growable: false),
       );
-      await _persistOpsHistoryData(next);
+      await _saveOpsHistoryLocked(next);
       _persistedSnapshots.removeWhere(
         (record) => isDateTimeInUtcRange(
           record.timestamp,
@@ -617,9 +628,7 @@ class WebMessagePlatformService {
           endUtc: endUtc,
         ),
       );
-      final after = await _opsPersistenceQueue.enqueue(
-        _measureOpsHistoryLocked,
-      );
+      final after = await _measureOpsHistoryLocked();
       return WebGatewayOpsPersistenceReport(
         bytes: math.max(0, before.bytes - after.bytes),
         itemCount: math.max(0, initialItemCount - next.itemCount),
@@ -634,7 +643,13 @@ class WebMessagePlatformService {
     }
   }
 
-  Future<WebGatewayOpsPersistenceReport> _clearAllPersistedOpsData() async {
+  Future<WebGatewayOpsPersistenceReport> _clearAllPersistedOpsData() {
+    _throwIfDisposed();
+    return _opsPersistenceQueue.enqueue(_clearAllPersistedOpsDataLocked);
+  }
+
+  Future<WebGatewayOpsPersistenceReport>
+  _clearAllPersistedOpsDataLocked() async {
     final cutoff = DateTime.now().toUtc();
     final knownItemCount =
         _persistedSnapshots.length +
@@ -646,21 +661,20 @@ class WebMessagePlatformService {
     _opsPersistDebouncer.cancel();
     var shouldPersistRetainedItems = false;
     try {
-      final before = await _opsPersistenceQueue.enqueue(() async {
-        try {
-          final report = await _opsStore.measure();
-          return WebGatewayOpsPersistenceReport(
-            bytes: report.bytes,
-            itemCount: math.max(report.itemCount, knownItemCount),
-          );
-        } catch (_) {
-          return WebGatewayOpsPersistenceReport(
-            bytes: await _opsStore.measureBytesOnly(),
-            itemCount: knownItemCount,
-          );
-        }
-      });
-      await _opsPersistenceQueue.enqueue(_opsStore.clear);
+      late final WebGatewayOpsPersistenceReport before;
+      try {
+        final report = await _opsStore.measure();
+        before = WebGatewayOpsPersistenceReport(
+          bytes: report.bytes,
+          itemCount: math.max(report.itemCount, knownItemCount),
+        );
+      } catch (_) {
+        before = WebGatewayOpsPersistenceReport(
+          bytes: await _opsStore.measureBytesOnly(),
+          itemCount: knownItemCount,
+        );
+      }
+      await _opsStore.clear();
       _persistedSnapshots.removeWhere(
         (item) => !item.timestamp.isAfter(cutoff),
       );
@@ -781,7 +795,7 @@ class WebMessagePlatformService {
   }
 
   void _scheduleOpsPersistence() {
-    if (!_opsDataTrusted) return;
+    if (_opsPersistenceClosing || !_opsDataTrusted) return;
     if (_opsMutationInProgress) {
       _opsPersistencePending = true;
       return;
@@ -789,8 +803,10 @@ class WebMessagePlatformService {
     _opsPersistDebouncer.schedule(_persistOpsHistory);
   }
 
-  Future<void> _persistOpsHistory() {
-    if (!_opsDataTrusted) return Future<void>.value();
+  Future<void> _persistOpsHistory({bool duringClose = false}) {
+    if ((!duringClose && _opsPersistenceClosing) || !_opsDataTrusted) {
+      return Future<void>.value();
+    }
     return _opsPersistenceQueue.enqueue(() {
       final data = WebGatewayOpsHistoryData(
         snapshots: _trimSnapshotRecords(_persistedSnapshots),
@@ -799,10 +815,6 @@ class WebMessagePlatformService {
       );
       return _saveOpsHistoryLocked(data);
     });
-  }
-
-  Future<void> _persistOpsHistoryData(WebGatewayOpsHistoryData data) {
-    return _opsPersistenceQueue.enqueue(() => _saveOpsHistoryLocked(data));
   }
 
   Future<void> _saveOpsHistoryLocked(WebGatewayOpsHistoryData data) async {
@@ -1291,8 +1303,9 @@ class WebMessagePlatformService {
     if (startupCleanup != null) {
       await cleanup('等待启动清理任务结束', () => startupCleanup);
     }
+    _opsPersistenceClosing = true;
     _opsPersistDebouncer.dispose();
-    await cleanup('持久化运维记录', _persistOpsHistory);
+    await cleanup('持久化运维记录', () => _persistOpsHistory(duringClose: true));
     await cleanup(
       '移除目标续跑判断器',
       () => _sessionController.removeGoalContinuationYieldPredicate(
