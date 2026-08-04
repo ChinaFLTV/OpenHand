@@ -456,7 +456,7 @@ Future<void> _bootstrap() async {
       await machineTerminalService.shutdown();
       machineTerminalService.dispose();
     })
-    ..register('定时任务控制器', cronsController.dispose)
+    ..register('定时任务控制器', cronsController.shutdown)
     ..register('消息网关控制器', () async {
       messageGateway.controller.pluginServiceController = null;
       await messageGateway.controller.shutdown();

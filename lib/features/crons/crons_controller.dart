@@ -19,6 +19,8 @@ import 'data/crons_store.dart';
 import 'model/cron_parser.dart';
 import 'service/cron_executor.dart';
 
+const Duration _cronControllerShutdownTimeout = Duration(seconds: 3);
+
 /// 管理定时任务配置与调度。
 ///
 /// 沿用 HooksController 的 ChangeNotifier 与变更队列模式。
@@ -47,12 +49,12 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   static const int _maxCachedHistoryJobs = 20;
   static const int _maxCachedHistoryRecordsPerJob = 50;
 
-  /// 执行延迟初始化：加载数据、同步系统任务、绑定生命周期与信号监听并启动调度器。
+  /// 执行延迟初始化：加载数据、同步系统任务、绑定生命周期并启动调度器。
   /// 重复调用不会重复初始化。
   Future<void> initialize() async {
-    if (_isDisposed) return;
+    if (_isDisposed || _isPermanentlyStopped) return;
     await _mutationQueue.enqueue(() async {
-      if (_isDisposed || _hasInitialized) return;
+      if (_isDisposed || _isPermanentlyStopped || _hasInitialized) return;
       await _loadConfigurationLocked();
     });
   }
@@ -66,9 +68,6 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     for (final job in _runningJobs.values) {
       job.cancel();
     }
-    _runningJobs.clear();
-    _startingJobTokens.clear();
-    _activeExecutionTokens.clear();
     notifyListeners();
     try {
       await _store.ensureTable();
@@ -156,14 +155,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         }
       }
       if (needsSave) await _store.saveAll(entries);
-      if (_isDisposed) return;
+      if (_isDisposed || _isPermanentlyStopped) return;
       _setEntries(entries);
       final activeIds = entries.map((entry) => entry.id).toSet();
       _entryRuntimeTokens.removeWhere((id, _) => !activeIds.contains(id));
       _hasTrustedSnapshot = true;
       if (!_hasInitialized) {
         WidgetsBinding.instance.addObserver(this);
-        _bindProcessSignalWatchers();
         _hasInitialized = true;
       }
       _startScheduler();
@@ -379,6 +377,8 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   final SerialTaskQueue _mutationQueue = SerialTaskQueue();
   final OpenHandSingleFlight<void> _systemUserScanFlight =
       OpenHandSingleFlight<void>();
+  Completer<void>? _activeExecutionsCompleter;
+  Future<void>? _shutdownFuture;
 
   /// 按任务 ID 保存的活动定时器。
   final Map<String, Timer> _scheduledTimers = {};
@@ -395,9 +395,6 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   /// 单个任务运行态令牌。配置变更后，旧执行结果不得回写新配置。
   final Map<String, Object> _entryRuntimeTokens = <String, Object>{};
 
-  StreamSubscription<ProcessSignal>? _sigTermWatcher;
-  StreamSubscription<ProcessSignal>? _sigIntWatcher;
-
   /// 按任务 ID 缓存的执行历史。
   final Map<String, List<CronExecutionRecord>> _historyCache = {};
 
@@ -407,6 +404,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   List<CronEntry> get entries => _entriesView;
 
   int get _activeExecutionCount => _activeExecutionTokens.length;
+
+  Future<void> get _activeExecutionsIdle =>
+      _activeExecutionsCompleter?.future ?? Future<void>.value();
 
   /// 暴露内部 store 句柄以便"应用数据 → 数据清理"模块在不增设额外
   /// 控制器方法的前提下查询执行历史的体积估算。**只读**用法；写入仍走
@@ -439,29 +439,35 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
 
   @override
   void dispose() {
-    if (_hasInitialized) {
-      WidgetsBinding.instance.removeObserver(this);
-    }
+    if (_isDisposed) return;
+    _startShutdownCleanup();
     _isDisposed = true;
-    _shutdownSchedulersAndJobs(permanent: true);
-    final sigTermWatcher = _sigTermWatcher;
-    final sigIntWatcher = _sigIntWatcher;
-    _sigTermWatcher = null;
-    _sigIntWatcher = null;
-    unawaited(_cancelSignalWatcher(sigTermWatcher, 'SIGTERM'));
-    unawaited(_cancelSignalWatcher(sigIntWatcher, 'SIGINT'));
     super.dispose();
   }
 
-  Future<void> _cancelSignalWatcher(
-    StreamSubscription<ProcessSignal>? subscription,
-    String signalName,
-  ) async {
-    await cancelStreamSubscriptionBounded<ProcessSignal>(
-      subscription,
-      onError: (error, stack) =>
-          silentLog('crons_controller', '取消 $signalName 信号监听', error, stack),
-    );
+  /// 停止调度并有界等待队列和活动任务结束，可重复调用。
+  Future<void> shutdown() => _startShutdownCleanup();
+
+  Future<void> _startShutdownCleanup() {
+    final active = _shutdownFuture;
+    if (active != null) return active;
+    if (_hasInitialized) WidgetsBinding.instance.removeObserver(this);
+    _shutdownSchedulersAndJobs(permanent: true);
+    final shutdown = () async {
+      await runAsyncCleanupBounded(
+        () => Future.wait<void>(<Future<void>>[
+          _mutationQueue.idle,
+          _systemUserScanFlight.idle,
+          _activeExecutionsIdle,
+        ]),
+        timeout: _cronControllerShutdownTimeout,
+        onError: (error, stack) =>
+            silentLog('crons_controller', '等待定时任务控制器关闭', error, stack),
+      );
+      if (!_isDisposed) dispose();
+    }();
+    _shutdownFuture = shutdown;
+    return shutdown;
   }
 
   @override
@@ -590,6 +596,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     required int generation,
     required Object entryRuntimeToken,
     required Object executionToken,
+    required Object activeExecutionToken,
   }) async {
     var keepsAgentLock = false;
     final startedAt = DateTime.now();
@@ -616,6 +623,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
             pending,
             entryId: entry.id,
             executionToken: executionToken,
+            activeExecutionToken: activeExecutionToken,
           );
           rethrow;
         }
@@ -667,14 +675,22 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     Future<AgentHandlerResult> pending, {
     required String entryId,
     required Object executionToken,
+    required Object activeExecutionToken,
   }) {
-    if (!identical(_runningAgentJobTokens[entryId], executionToken)) return;
+    if (!identical(_runningAgentJobTokens[entryId], executionToken)) {
+      _finishActiveExecution(activeExecutionToken);
+      return;
+    }
 
     unawaited(
       pending.then<void>(
-        (_) => _releaseAgentExecutionLock(entryId, executionToken),
+        (_) {
+          _finishActiveExecution(activeExecutionToken);
+          _releaseAgentExecutionLock(entryId, executionToken);
+        },
         onError: (Object error, StackTrace stack) {
           silentLog('crons_controller', '观察超时智能体任务的迟到异常', error, stack);
+          _finishActiveExecution(activeExecutionToken);
           _releaseAgentExecutionLock(entryId, executionToken);
         },
       ),
@@ -837,15 +853,16 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> refresh() async {
+    if (_isDisposed || _isPermanentlyStopped) return;
     await _mutationQueue.enqueue(() async {
-      if (_isDisposed) return;
+      if (_isDisposed || _isPermanentlyStopped) return;
       await _loadConfigurationLocked();
     });
   }
 
   /// 扫描当前机器可用的系统用户。
   Future<void> scanSystemUsers() {
-    if (_isDisposed) return Future<void>.value();
+    if (_isDisposed || _isPermanentlyStopped) return Future<void>.value();
     return _systemUserScanFlight.run(_scanSystemUsers);
   }
 
@@ -861,6 +878,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         '-f1',
         '/etc/passwd',
       ], tag: 'crons_controller');
+      if (_isDisposed || _isPermanentlyStopped) return;
       if (result != null && result.exitCode == 0) {
         final users = trimmedNonEmptyStrings(
           (result.stdout as String).split('\n'),
@@ -876,21 +894,6 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       // 保留默认 root 用户。
     }
     notifyListeners();
-  }
-
-  void _bindProcessSignalWatchers() {
-    if (kIsWeb || Platform.isWindows) return;
-    try {
-      _sigTermWatcher = ProcessSignal.sigterm.watch().listen((_) {
-        _shutdownSchedulersAndJobs(permanent: true);
-      });
-      _sigIntWatcher = ProcessSignal.sigint.watch().listen((_) {
-        _shutdownSchedulersAndJobs(permanent: true);
-      });
-    } catch (error, stack) {
-      silentLog('crons_controller', '绑定进程信号监听', error, stack);
-      // 部分桌面运行时不支持信号流。
-    }
   }
 
   bool get _canExecuteInCurrentState {
@@ -915,7 +918,6 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     _runningJobs.clear();
     _startingJobTokens.clear();
     _runningAgentJobTokens.clear();
-    _activeExecutionTokens.clear();
     _entryRuntimeTokens.clear();
   }
 
@@ -1028,7 +1030,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       _startingJobTokens[entry.id] = processStartToken;
     }
     final activeExecutionToken = Object();
-    _activeExecutionTokens.add(activeExecutionToken);
+    _registerActiveExecution(activeExecutionToken);
     _updateEntryStatus(entry.id, CronJobStatus.running);
 
     if (!_isCurrentRuntime(
@@ -1044,7 +1046,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           identical(_runningAgentJobTokens[entry.id], agentExecutionToken)) {
         _runningAgentJobTokens.remove(entry.id);
       }
-      _activeExecutionTokens.remove(activeExecutionToken);
+      _finishActiveExecution(activeExecutionToken);
       notifyListeners();
       return;
     }
@@ -1059,12 +1061,13 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           generation: generation,
           entryRuntimeToken: entryRuntimeToken,
           executionToken: executionToken,
+          activeExecutionToken: activeExecutionToken,
         );
       } finally {
-        _activeExecutionTokens.remove(activeExecutionToken);
         if (keepsAgentLock) {
           notifyListeners();
         } else {
+          _finishActiveExecution(activeExecutionToken);
           _releaseAgentExecutionLock(entry.id, executionToken);
         }
       }
@@ -1138,7 +1141,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
           identical(_runningJobs[entry.id], executionHandle)) {
         _runningJobs.remove(entry.id);
       }
-      _activeExecutionTokens.remove(activeExecutionToken);
+      _finishActiveExecution(activeExecutionToken);
       _scheduleCurrentEntry(entry.id);
       notifyListeners();
     }
@@ -1150,6 +1153,23 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     _entries[index] = _entries[index].copyWith(status: status);
     _refreshEntriesView();
     notifyListeners();
+  }
+
+  void _registerActiveExecution(Object token) {
+    if (_activeExecutionTokens.isEmpty) {
+      _activeExecutionsCompleter = Completer<void>();
+    }
+    _activeExecutionTokens.add(token);
+  }
+
+  void _finishActiveExecution(Object token) {
+    if (!_activeExecutionTokens.remove(token) ||
+        _activeExecutionTokens.isNotEmpty) {
+      return;
+    }
+    final completer = _activeExecutionsCompleter;
+    _activeExecutionsCompleter = null;
+    if (completer != null && !completer.isCompleted) completer.complete();
   }
 
   Object _ensureEntryRuntimeToken(String id) {
@@ -1475,7 +1495,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
     T fallback,
     Future<T> Function() operation,
   ) {
-    if (_isDisposed) return Future<T>.value(fallback);
+    if (_isDisposed || _isPermanentlyStopped) {
+      return Future<T>.value(fallback);
+    }
     return _mutationQueue.enqueue(() async {
       if (_isDisposed) return fallback;
       try {
@@ -1489,7 +1511,9 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<bool> _commitMutation(Future<bool> Function() mutation) {
-    if (_isDisposed) return Future<bool>.value(false);
+    if (_isDisposed || _isPermanentlyStopped) {
+      return Future<bool>.value(false);
+    }
     return _mutationQueue.enqueue(() async {
       if (_isDisposed) return false;
       if (!await _ensureReadyLocked()) return false;
