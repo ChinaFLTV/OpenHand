@@ -3,7 +3,7 @@ import 'package:sqflite_common/sqlite_api.dart';
 import '../../../app/model/hook_config.dart';
 import '../../../shared/db/database_service.dart';
 
-/// Persistence layer for hooks configuration using SQLite.
+/// 基于 SQLite 的 Hook 配置持久化层。
 class HooksStore {
   HooksStore({Database? database}) : _database = database;
 
@@ -13,7 +13,7 @@ class HooksStore {
 
   Database get _db => _database ?? DatabaseService.instance.database;
 
-  /// Ensures the hooks table exists. Call once at startup.
+  /// 确保 Hook 数据表存在，启动时调用一次。
   Future<void> ensureTable() async {
     await _db.execute('''
       CREATE TABLE IF NOT EXISTS $_tableName (
@@ -58,11 +58,11 @@ class HooksStore {
           timeoutSeconds > HookEntry.maxTimeoutSeconds ||
           sortOrder is! int ||
           sortOrder < 0) {
-        throw FormatException('Invalid hook row: $id');
+        throw FormatException('Hook 数据行无效：$id');
       }
       final scriptPath = _text(row, 'script_path');
       if (scriptPath != scriptPath.trim()) {
-        throw FormatException('Invalid hook script path: $id');
+        throw FormatException('Hook 脚本路径无效：$id');
       }
       final scriptContent = _text(row, 'script_content');
       entries.add(
@@ -93,7 +93,7 @@ class HooksStore {
   String _text(Map<String, Object?> row, String key) {
     final value = row[key];
     if (value is String) return value;
-    throw FormatException('Hook field $key must be text.');
+    throw FormatException('Hook 字段 $key 必须为文本。');
   }
 
   Map<String, Object?> _entryValues(HookEntry entry, int sortOrder) {

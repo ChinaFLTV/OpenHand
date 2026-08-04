@@ -13,14 +13,11 @@ class SkillsController extends ManagedChangeNotifier {
        _storagePath = storagePath,
        _isLoading = isLoading;
 
-  /// Constructs a [SkillsController] synchronously without performing the
-  /// initial filesystem scan. Reports `isLoading == true` until the caller
-  /// invokes [refresh] (typically as `unawaited(controller.refresh())`).
+  /// 同步创建控制器，不立即扫描文件系统。调用方执行 [refresh] 前，
+  /// `isLoading` 保持为 `true`。
   ///
-  /// Used by `main.dart` to keep the skills directory walk off the boot
-  /// critical path — home reads `skills` only inside `_buildRuntimeContext`
-  /// (user-action) and the workspace-selected branch (which observes
-  /// [isLoading] for a placeholder).
+  /// 用于让 `main.dart` 避免在启动关键路径遍历技能目录；首页仅在构建
+  /// 运行时上下文或选择工作区后读取技能列表。
   factory SkillsController.uninitialized({
     required String initialStoragePath,
     SkillsRepository? repository,
@@ -38,11 +35,12 @@ class SkillsController extends ManagedChangeNotifier {
   bool _isLoading;
   String? _errorMessage;
   List<LocalSkill> _skills = const <LocalSkill>[];
+  List<LocalSkill> _skillsView = const <LocalSkill>[];
 
   String get storagePath => _storagePath;
   bool get isLoading => _isLoading;
   String? get errorMessage => _errorMessage;
-  List<LocalSkill> get skills => List<LocalSkill>.unmodifiable(_skills);
+  List<LocalSkill> get skills => _skillsView;
 
   Future<void> refresh() async {
     await _enqueueOperation(_refreshLocked);
@@ -51,15 +49,11 @@ class SkillsController extends ManagedChangeNotifier {
   Future<bool> reloadFromPath(String storagePath) async {
     return _enqueueOperation(() async {
       final previousStoragePath = _storagePath;
-      final previousSkills = List<LocalSkill>.from(_skills);
-      final previousErrorMessage = _errorMessage;
       _storagePath = storagePath;
       await _refreshLocked();
       final reloadSucceeded = _errorMessage == null;
       if (_storagePath != previousStoragePath && !reloadSucceeded) {
         _storagePath = previousStoragePath;
-        _skills = previousSkills;
-        _errorMessage = previousErrorMessage;
         notifyListeners();
       }
       return reloadSucceeded;
@@ -180,9 +174,8 @@ class SkillsController extends ManagedChangeNotifier {
     notifyListeners();
 
     try {
-      _skills = await _repository.loadInstalledSkills(_storagePath);
+      _setSkills(await _repository.loadInstalledSkills(_storagePath));
     } catch (error) {
-      _skills = const <LocalSkill>[];
       _errorMessage = '$error';
     } finally {
       _isLoading = false;
@@ -205,6 +198,11 @@ class SkillsController extends ManagedChangeNotifier {
       }
     }
     return null;
+  }
+
+  void _setSkills(List<LocalSkill> skills) {
+    _skills = skills;
+    _skillsView = List<LocalSkill>.unmodifiable(skills);
   }
 
   Future<T> _enqueueOperation<T>(Future<T> Function() operation) {

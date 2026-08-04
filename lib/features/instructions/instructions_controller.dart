@@ -1,4 +1,4 @@
-/// User Instructions controller
+/// 用户指令控制器。
 library;
 
 import 'package:flutter/foundation.dart';
@@ -53,8 +53,7 @@ class InstructionsController extends ManagedChangeNotifier {
 
   final ChangePulse _saveSuccessPulse = ChangePulse();
 
-  /// Increments after each successful `_store.saveAll`. UI may listen via
-  /// `HighlightPulse` to flash on commit.
+  /// 每次 `_store.saveAll` 成功后递增，界面可据此播放提交反馈。
   ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
 
   @override
@@ -261,7 +260,7 @@ class InstructionsController extends ManagedChangeNotifier {
     });
   }
 
-  // === internals ===
+  // 内部状态管理。
 
   Future<void> _loadLocked() async {
     _isLoading = true;
@@ -306,7 +305,10 @@ class InstructionsController extends ManagedChangeNotifier {
       // 触发重载。这里立刻回读磁盘做一次自愈，把「不可信」窗口压到最短。
       final saveError = '$error';
       await _loadLocked();
-      _errorMessage = saveError;
+      final reloadError = _hasTrustedSnapshot ? null : _errorMessage;
+      _errorMessage = reloadError == null
+          ? saveError
+          : '$saveError；重新加载指令失败：$reloadError';
       notifyListeners();
       return false;
     }

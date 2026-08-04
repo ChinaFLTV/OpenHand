@@ -5,10 +5,9 @@ import '../../app/model/hook_config.dart';
 import '../../shared/core/managed_change_notifier.dart';
 import 'data/hooks_store.dart';
 
-/// Controller for managing hook configurations.
+/// Hook 配置控制器。
 ///
-/// Follows the same ChangeNotifier + mutation queue pattern used by
-/// SettingsController, McpController, etc.
+/// 与 SettingsController、McpController 共用 ChangeNotifier 和变更队列模式。
 class HooksController extends ManagedChangeNotifier {
   HooksController._({
     required HooksStore store,
@@ -42,7 +41,7 @@ class HooksController extends ManagedChangeNotifier {
   String? get errorMessage => _errorMessage;
   ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
 
-  /// Returns all enabled hooks for a specific event.
+  /// 返回指定事件的全部可用 Hook。
   List<HookEntry> enabledHooksForEvent(HookEvent event) {
     if (!_hasTrustedSnapshot) return const <HookEntry>[];
     return _entries
@@ -140,7 +139,6 @@ class HooksController extends ManagedChangeNotifier {
     return enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) return false;
       final previousEntries = List<HookEntry>.from(_entries);
-      _hasTrustedSnapshot = false;
       _errorMessage = null;
       notifyListeners();
       try {
@@ -153,7 +151,7 @@ class HooksController extends ManagedChangeNotifier {
         return result;
       } catch (error) {
         _setEntries(previousEntries);
-        _hasTrustedSnapshot = false;
+        _hasTrustedSnapshot = true;
         _errorMessage = '$error';
         notifyListeners();
         return false;
@@ -162,8 +160,8 @@ class HooksController extends ManagedChangeNotifier {
   }
 
   Future<void> _loadLocked() async {
+    final hadTrustedSnapshot = _hasTrustedSnapshot;
     _isLoading = true;
-    _hasTrustedSnapshot = false;
     _errorMessage = null;
     notifyListeners();
     try {
@@ -171,7 +169,7 @@ class HooksController extends ManagedChangeNotifier {
       _setEntries(await _store.loadAll());
       _hasTrustedSnapshot = true;
     } catch (error) {
-      _hasTrustedSnapshot = false;
+      _hasTrustedSnapshot = hadTrustedSnapshot;
       _errorMessage = '$error';
     } finally {
       _isLoading = false;

@@ -14,14 +14,11 @@ class MemoryController extends ManagedChangeNotifier {
        _idGenerator = idGenerator,
        _clock = clock;
 
-  /// Constructs a [MemoryController] synchronously without performing the
-  /// initial sqlite load. Callers MUST invoke [refresh] (typically as
-  /// `unawaited(controller.refresh())`) to populate the in-memory entries.
+  /// 同步创建控制器，不立即加载 SQLite。调用方必须执行 [refresh]，
+  /// 通常以 `unawaited(controller.refresh())` 在后台填充内存条目。
   ///
-  /// Used by `main.dart` to keep memory loading off the boot critical path:
-  /// the home page only reads memory entries inside user-action paths
-  /// (`_buildRuntimeContext`), so providing an empty controller at first
-  /// paint and refreshing in the background is safe and visibly faster.
+  /// 用于让 `main.dart` 避免在启动关键路径加载记忆；首页仅在用户操作触发
+  /// 的运行时上下文中读取记忆，因此首帧使用空控制器并后台刷新更快。
   factory MemoryController.uninitialized({
     MemoryStore? store,
     String Function()? idGenerator,
@@ -47,8 +44,7 @@ class MemoryController extends ManagedChangeNotifier {
   bool _isQuotaRecoveryMode = false;
   final ChangePulse _saveSuccessPulse = ChangePulse();
 
-  /// Increments after each successful persistent mutation. UI may listen via
-  /// `HighlightPulse` to flash on commit.
+  /// 每次持久化变更成功后递增，界面可据此播放提交反馈。
   ValueListenable<int> get saveSuccessSignal => _saveSuccessPulse.listenable;
 
   bool get isLoading => _isLoading;
@@ -59,7 +55,7 @@ class MemoryController extends ManagedChangeNotifier {
   MemoryPersistenceIssue? get persistenceIssue => _persistenceIssue;
   bool get isQuotaRecoveryMode => _isQuotaRecoveryMode;
 
-  /// Returns the single user profile entry in memory, or null if none.
+  /// 返回唯一的用户画像条目；不存在时返回 null。
   UserMemoryEntry? get userProfile {
     for (final entry in _entries) {
       if (entry.type == UserMemoryEntry.userProfileType) {
@@ -69,7 +65,7 @@ class MemoryController extends ManagedChangeNotifier {
     return null;
   }
 
-  /// Returns all in-memory entries carrying [tag] (case-insensitive match).
+  /// 返回包含 [tag] 的全部内存条目，匹配时忽略大小写。
   List<UserMemoryEntry> memoriesWithTag(String tag) {
     final needle = tag.trim().toLowerCase();
     if (needle.isEmpty) {
@@ -184,9 +180,8 @@ class MemoryController extends ManagedChangeNotifier {
     });
   }
 
-  /// Upserts the single user_profile entry and updates the trusted in-memory
-  /// snapshot. The operation queue prevents UI and self-learning writes from
-  /// interleaving.
+  /// 新增或更新唯一的 `user_profile` 条目，并刷新可信内存快照。
+  /// 操作队列用于避免界面写入和自学习写入交错。
   Future<UserMemoryEntry> upsertUserProfile({
     required String content,
     List<String>? tags,
@@ -220,7 +215,7 @@ class MemoryController extends ManagedChangeNotifier {
   }) {
     return _enqueueOperation(() async {
       if (!await _ensureTrustedSnapshotLocked()) {
-        throw StateError('Unable to load memories before updating profile.');
+        throw StateError('更新用户画像前无法加载记忆。');
       }
       if (requireUnchangedProfile && !identical(userProfile, expectedProfile)) {
         return null;
