@@ -19,6 +19,23 @@ import 'service_dialog_controls.dart';
 
 const Duration _kTelemetryRefreshInterval = Duration(seconds: 8);
 const Duration _kTelemetryRefreshTimeout = Duration(seconds: 20);
+const double _kPostgresqlTableFieldWidth = 190;
+const double _kRedisSearchFieldWidth = 220;
+const double _kRecordCompactBreakpoint = 520;
+const double _kSurfaceSectionCompactBreakpoint = 680;
+const EdgeInsets _kToolbarFieldPadding = EdgeInsets.symmetric(
+  horizontal: 12,
+  vertical: 11,
+);
+const ButtonStyle _kToolbarButtonStyle = ButtonStyle(
+  minimumSize: WidgetStatePropertyAll(Size(0, 44)),
+  padding: WidgetStatePropertyAll(
+    EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+  ),
+  shape: WidgetStatePropertyAll(
+    RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+  ),
+);
 const List<String> _kPostgresqlTables = <String>[
   'hunt_jobs',
   'hunt_results',
@@ -82,6 +99,8 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
   bool _loading = false;
   bool _operating = false;
   bool _queryVisible = false;
+
+  bool get _busy => _loading || _operating;
 
   @override
   void initState() {
@@ -201,9 +220,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               children: [
                 ServiceDialogHeaderIconButton(
                   tooltip: '刷新数据与遥测',
-                  onPressed: _loading
-                      ? null
-                      : () => _refresh(includeData: true),
+                  onPressed: _busy ? null : () => _refresh(includeData: true),
                   icon: _loading
                       ? const SizedBox.square(
                           dimension: 18,
@@ -234,7 +251,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               ),
             ],
             selected: <DependencyDataView>{_view},
-            onSelectionChanged: _operating
+            onSelectionChanged: _busy
                 ? null
                 : (selection) => _changeView(selection.first),
           ),
@@ -247,6 +264,16 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               ),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
+              transitionBuilder: (child, animation) {
+                final offset = Tween<Offset>(
+                  begin: const Offset(0.018, 0),
+                  end: Offset.zero,
+                ).animate(animation);
+                return FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(position: offset, child: child),
+                );
+              },
               child: SingleChildScrollView(
                 key: ValueKey<DependencyDataView>(_view),
                 physics: openHandDialogAwareScrollPhysics(context),
@@ -328,51 +355,47 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
           _SurfaceSection(
             title: '数据表与记录',
             icon: Icons.table_rows_rounded,
-            trailing: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.end,
-              children: [
-                SizedBox(
-                  width: 190,
-                  child: DropdownButtonFormField<String>(
-                    initialValue: _table,
-                    isExpanded: true,
-                    decoration: const InputDecoration(
-                      labelText: '数据表',
-                      border: OutlineInputBorder(),
-                      isDense: true,
-                    ),
-                    items: _kPostgresqlTables
-                        .map(
-                          (table) => DropdownMenuItem(
-                            value: table,
-                            child: Text(
-                              _kPostgresqlTableLabels[table] ?? table,
-                            ),
-                          ),
-                        )
-                        .toList(growable: false),
-                    onChanged: _operating
-                        ? null
-                        : (value) async {
-                            if (value == null) return;
-                            setState(() {
-                              _table = value;
-                              _postgresOffset = 0;
-                            });
-                            await _refresh(includeData: true);
-                          },
-                  ),
+            trailing: _SurfaceToolbar(
+              fieldWidth: _kPostgresqlTableFieldWidth,
+              field: DropdownButtonFormField<String>(
+                initialValue: _table,
+                isExpanded: true,
+                decoration: const InputDecoration(
+                  labelText: '数据表',
+                  border: OutlineInputBorder(),
+                  isDense: true,
+                  contentPadding: _kToolbarFieldPadding,
                 ),
-                IconButton.filledTonal(
+                items: _kPostgresqlTables
+                    .map(
+                      (table) => DropdownMenuItem(
+                        value: table,
+                        child: Text(_kPostgresqlTableLabels[table] ?? table),
+                      ),
+                    )
+                    .toList(growable: false),
+                onChanged: _busy
+                    ? null
+                    : (value) async {
+                        if (value == null) return;
+                        setState(() {
+                          _table = value;
+                          _postgresOffset = 0;
+                        });
+                        await _refresh(includeData: true);
+                      },
+              ),
+              actions: [
+                ServiceDialogCompactIconButton(
                   tooltip: '只读查询',
-                  onPressed: () =>
-                      setState(() => _queryVisible = !_queryVisible),
-                  icon: const Icon(Icons.terminal_rounded),
+                  onPressed: _busy
+                      ? null
+                      : () => setState(() => _queryVisible = !_queryVisible),
+                  icon: const Icon(Icons.terminal_rounded, size: 20),
                 ),
                 FilledButton.icon(
-                  onPressed: _operating
+                  style: _kToolbarButtonStyle,
+                  onPressed: _busy
                       ? null
                       : () => _editPostgresql(columns: columns),
                   icon: const Icon(Icons.add_rounded),
@@ -396,7 +419,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                           child: _QueryConsole(
                             controller: _query,
                             rows: _queryRows,
-                            busy: _operating,
+                            busy: _busy,
                             onRun: _runQuery,
                           ),
                         ),
@@ -438,48 +461,37 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                                 '${entry.key}: ${_compactValue(entry.value)}',
                           )
                           .toList(growable: false),
-                      onEdit: _operating
+                      onEdit: _busy
                           ? null
                           : () => _editPostgresql(
                               columns: columns,
                               row: row,
                               primaryKeys: primaryKeys,
                             ),
-                      onDelete: _operating
+                      onDelete: _busy
                           ? null
                           : () => _deletePostgresql(row, primaryKeys),
                     ),
                   ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text('共 $total 条'),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: '上一页',
-                      onPressed: _postgresOffset <= 0 || _operating
-                          ? null
-                          : () {
-                              setState(() => _postgresOffset -= 50);
-                              _refresh(includeData: true);
-                            },
-                      icon: const Icon(Icons.chevron_left_rounded),
-                    ),
-                    Text('${_postgresOffset ~/ 50 + 1}'),
-                    IconButton(
-                      tooltip: '下一页',
-                      onPressed:
-                          _postgresOffset + rows.length >= total ||
-                              rows.isEmpty ||
-                              _operating
-                          ? null
-                          : () {
-                              setState(() => _postgresOffset += 50);
-                              _refresh(includeData: true);
-                            },
-                      icon: const Icon(Icons.chevron_right_rounded),
-                    ),
-                  ],
+                _PaginationBar(
+                  summary: '共 $total 条',
+                  page: '${_postgresOffset ~/ 50 + 1}',
+                  onPrevious: _postgresOffset <= 0 || _busy
+                      ? null
+                      : () {
+                          setState(() => _postgresOffset -= 50);
+                          _refresh(includeData: true);
+                        },
+                  onNext:
+                      _postgresOffset + rows.length >= total ||
+                          rows.isEmpty ||
+                          _busy
+                      ? null
+                      : () {
+                          setState(() => _postgresOffset += 50);
+                          _refresh(includeData: true);
+                        },
                 ),
               ],
             ),
@@ -566,31 +578,33 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
           _SurfaceSection(
             title: '键值与 TTL',
             icon: Icons.key_rounded,
-            trailing: Wrap(
-              spacing: 8,
-              runSpacing: 8,
-              alignment: WrapAlignment.end,
-              children: [
-                SizedBox(
-                  width: 220,
-                  child: TextField(
-                    controller: _redisSearch,
-                    textInputAction: TextInputAction.search,
-                    onSubmitted: (_) => _searchRedis(),
-                    decoration: InputDecoration(
-                      labelText: '搜索键',
-                      border: const OutlineInputBorder(),
-                      isDense: true,
-                      suffixIcon: IconButton(
-                        tooltip: '搜索',
-                        onPressed: _searchRedis,
-                        icon: const Icon(Icons.search_rounded),
-                      ),
-                    ),
+            trailing: _SurfaceToolbar(
+              fieldWidth: _kRedisSearchFieldWidth,
+              field: TextField(
+                controller: _redisSearch,
+                enabled: !_busy,
+                textInputAction: TextInputAction.search,
+                onSubmitted: (_) => _searchRedis(),
+                decoration: InputDecoration(
+                  hintText: '搜索键',
+                  border: const OutlineInputBorder(),
+                  isDense: true,
+                  contentPadding: _kToolbarFieldPadding,
+                  suffixIcon: ServiceDialogCompactIconButton(
+                    tooltip: '搜索',
+                    onPressed: _busy ? null : _searchRedis,
+                    icon: const Icon(Icons.search_rounded, size: 19),
+                  ),
+                  suffixIconConstraints: const BoxConstraints.tightFor(
+                    width: 44,
+                    height: 44,
                   ),
                 ),
+              ),
+              actions: [
                 FilledButton.icon(
-                  onPressed: _operating ? null : _editRedis,
+                  style: _kToolbarButtonStyle,
+                  onPressed: _busy ? null : _editRedis,
                   icon: const Icon(Icons.add_rounded),
                   label: const Text('新增键'),
                 ),
@@ -613,42 +627,29 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                         if (record['protected'] == true) '运行数据 · 只读',
                         _compactValue(record['value'], maxChars: 180),
                       ],
-                      onEdit: record['protected'] == true || _operating
+                      onEdit: record['protected'] == true || _busy
                           ? null
                           : () => _editRedis(record: record),
-                      onDelete: record['protected'] == true || _operating
+                      onDelete: record['protected'] == true || _busy
                           ? null
                           : () => _deleteRedis('${record['key']}'),
                     ),
                   ),
                 const SizedBox(height: 8),
-                Row(
-                  children: [
-                    Text('游标 ${_redisCursorHistory.last}'),
-                    const Spacer(),
-                    IconButton(
-                      tooltip: '上一页',
-                      onPressed: _redisCursorHistory.length <= 1 || _operating
-                          ? null
-                          : () {
-                              setState(() => _redisCursorHistory.removeLast());
-                              _refresh(includeData: true);
-                            },
-                      icon: const Icon(Icons.chevron_left_rounded),
-                    ),
-                    IconButton(
-                      tooltip: '下一页',
-                      onPressed: nextCursor == 0 || _operating
-                          ? null
-                          : () {
-                              setState(
-                                () => _redisCursorHistory.add(nextCursor),
-                              );
-                              _refresh(includeData: true);
-                            },
-                      icon: const Icon(Icons.chevron_right_rounded),
-                    ),
-                  ],
+                _PaginationBar(
+                  summary: '游标 ${_redisCursorHistory.last}',
+                  onPrevious: _redisCursorHistory.length <= 1 || _busy
+                      ? null
+                      : () {
+                          setState(() => _redisCursorHistory.removeLast());
+                          _refresh(includeData: true);
+                        },
+                  onNext: nextCursor == 0 || _busy
+                      ? null
+                      : () {
+                          setState(() => _redisCursorHistory.add(nextCursor));
+                          _refresh(includeData: true);
+                        },
                 ),
               ],
             ),
@@ -729,7 +730,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
   }
 
   Future<void> _runQuery() async {
-    if (_operating || _query.text.trim().isEmpty) return;
+    if (_busy || _query.text.trim().isEmpty) return;
     setState(() => _operating = true);
     try {
       final result = await context.read<ServicesController>().queryPostgresql(
@@ -747,6 +748,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
   }
 
   Future<void> _searchRedis() async {
+    if (_busy) return;
     _redisCursorHistory
       ..clear()
       ..add(0);
@@ -812,17 +814,21 @@ class _TelemetryGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
-      final columns = constraints.maxWidth >= 1080
-          ? 4
-          : constraints.maxWidth >= 720
-          ? 3
-          : constraints.maxWidth >= 460
+      final columns = constraints.maxWidth >= 840
+          ? children.length == 4
+                ? 4
+                : 3
+          : constraints.maxWidth >= 620
+          ? children.length == 4
+                ? 2
+                : 3
+          : constraints.maxWidth >= 420
           ? 2
           : 1;
-      final width = (constraints.maxWidth - (columns - 1) * 10) / columns;
+      final width = (constraints.maxWidth - (columns - 1) * 12) / columns;
       return Wrap(
-        spacing: 10,
-        runSpacing: 10,
+        spacing: 12,
+        runSpacing: 12,
         children: children
             .map((child) => SizedBox(width: width, child: child))
             .toList(),
@@ -963,7 +969,8 @@ class _SurfaceSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           LayoutBuilder(
-            builder: (context, constraints) => constraints.maxWidth < 680
+            builder: (context, constraints) =>
+                constraints.maxWidth < _kSurfaceSectionCompactBreakpoint
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
@@ -984,7 +991,12 @@ class _SurfaceSection extends StatelessWidget {
                       const SizedBox(width: 8),
                       Text(title, style: theme.textTheme.titleMedium),
                       const Spacer(),
-                      Flexible(child: trailing),
+                      Flexible(
+                        child: Align(
+                          alignment: AlignmentDirectional.centerEnd,
+                          child: trailing,
+                        ),
+                      ),
                     ],
                   ),
           ),
@@ -994,6 +1006,37 @@ class _SurfaceSection extends StatelessWidget {
       ),
     );
   }
+}
+
+class _SurfaceToolbar extends StatelessWidget {
+  const _SurfaceToolbar({
+    required this.field,
+    required this.fieldWidth,
+    required this.actions,
+  });
+
+  final Widget field;
+  final double fieldWidth;
+  final List<Widget> actions;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final width = constraints.hasBoundedWidth
+          ? constraints.maxWidth.clamp(0.0, fieldWidth)
+          : fieldWidth;
+      return Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        alignment: WrapAlignment.end,
+        crossAxisAlignment: WrapCrossAlignment.center,
+        children: [
+          SizedBox(width: width, child: field),
+          ...actions,
+        ],
+      );
+    },
+  );
 }
 
 class _MiniMetric extends StatelessWidget {
@@ -1044,6 +1087,80 @@ class _DataRecordTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final leading = Container(
+      width: 36,
+      height: 36,
+      decoration: BoxDecoration(
+        color: colors.primary.withValues(alpha: 0.1),
+        borderRadius: BorderRadius.circular(8),
+      ),
+      child: Icon(Icons.data_object_rounded, size: 19, color: colors.primary),
+    );
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SelectableText(
+          title,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+        if (tags.isNotEmpty) ...[
+          const SizedBox(height: 7),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: tags
+                .where((tag) => tag.isNotEmpty)
+                .map(
+                  (tag) => Container(
+                    constraints: const BoxConstraints(maxWidth: 360),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      tag,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall,
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+          ),
+        ],
+      ],
+    );
+    final actions = ServiceDialogIconActions(
+      spacing: 4,
+      children: [
+        ServiceDialogCompactIconButton(
+          tooltip: '编辑',
+          onPressed: onEdit,
+          icon: const Icon(Icons.edit_outlined, size: 19),
+        ),
+        ServiceDialogCompactIconButton(
+          tooltip: '删除',
+          onPressed: onDelete,
+          foregroundColor: OpenHandStatusColors.error,
+          icon: const Icon(Icons.delete_outline_rounded, size: 19),
+        ),
+      ],
+    );
     return Container(
       margin: const EdgeInsets.only(bottom: 8),
       padding: const EdgeInsets.all(12),
@@ -1052,97 +1169,84 @@ class _DataRecordTile extends StatelessWidget {
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: colors.outlineVariant),
       ),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Container(
-            width: 36,
-            height: 36,
-            decoration: BoxDecoration(
-              color: colors.primary.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(
-              Icons.data_object_rounded,
-              size: 19,
-              color: colors.primary,
-            ),
-          ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                SelectableText(
-                  title,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w700,
-                  ),
-                ),
-                const SizedBox(height: 2),
-                Text(
-                  subtitle,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-                if (tags.isNotEmpty) ...[
-                  const SizedBox(height: 7),
-                  Wrap(
-                    spacing: 6,
-                    runSpacing: 6,
-                    children: tags
-                        .where((tag) => tag.isNotEmpty)
-                        .map(
-                          (tag) => Container(
-                            constraints: const BoxConstraints(maxWidth: 360),
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: colors.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(6),
-                            ),
-                            child: Text(
-                              tag,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.labelSmall,
-                            ),
-                          ),
-                        )
-                        .toList(growable: false),
-                  ),
-                ],
-              ],
-            ),
-          ),
-          const SizedBox(width: 8),
-          ServiceDialogIconActions(
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final content = Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              IconButton.filledTonal(
-                tooltip: '编辑',
-                onPressed: onEdit,
-                icon: const Icon(Icons.edit_outlined, size: 19),
-              ),
-              IconButton.filledTonal(
-                tooltip: '删除',
-                onPressed: onDelete,
-                icon: Icon(
-                  Icons.delete_outline_rounded,
-                  size: 19,
-                  color: onDelete == null ? null : OpenHandStatusColors.error,
-                ),
-              ),
+              leading,
+              const SizedBox(width: 10),
+              Expanded(child: details),
             ],
-          ),
-        ],
+          );
+          if (constraints.maxWidth < _kRecordCompactBreakpoint) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                content,
+                const SizedBox(height: 4),
+                Align(
+                  alignment: AlignmentDirectional.centerEnd,
+                  child: actions,
+                ),
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: content),
+              const SizedBox(width: 8),
+              actions,
+            ],
+          );
+        },
       ),
     );
   }
+}
+
+class _PaginationBar extends StatelessWidget {
+  const _PaginationBar({
+    required this.summary,
+    required this.onPrevious,
+    required this.onNext,
+    this.page,
+  });
+
+  final String summary;
+  final String? page;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) => Row(
+    children: [
+      Expanded(
+        child: Text(summary, maxLines: 1, overflow: TextOverflow.ellipsis),
+      ),
+      ServiceDialogIconActions(
+        spacing: 2,
+        children: [
+          ServiceDialogCompactIconButton(
+            tooltip: '上一页',
+            onPressed: onPrevious,
+            icon: const Icon(Icons.chevron_left_rounded, size: 22),
+          ),
+          if (page != null)
+            ConstrainedBox(
+              constraints: const BoxConstraints(minWidth: 24),
+              child: Text(page!, textAlign: TextAlign.center),
+            ),
+          ServiceDialogCompactIconButton(
+            tooltip: '下一页',
+            onPressed: onNext,
+            icon: const Icon(Icons.chevron_right_rounded, size: 22),
+          ),
+        ],
+      ),
+    ],
+  );
 }
 
 class _QueryConsole extends StatelessWidget {
@@ -1187,6 +1291,7 @@ class _QueryConsole extends StatelessWidget {
         Align(
           alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
+            style: _kToolbarButtonStyle,
             onPressed: busy ? null : onRun,
             icon: const Icon(Icons.play_arrow_rounded),
             label: const Text('执行查询'),

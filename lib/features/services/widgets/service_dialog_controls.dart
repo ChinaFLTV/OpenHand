@@ -85,6 +85,61 @@ class ServiceDialogHeaderIconButton extends StatelessWidget {
   }
 }
 
+class ServiceDialogCompactIconButton extends StatelessWidget {
+  const ServiceDialogCompactIconButton({
+    super.key,
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.foregroundColor,
+    this.size = 40,
+  }) : assert(size > 0);
+
+  final String tooltip;
+  final Widget icon;
+  final VoidCallback? onPressed;
+  final Color? foregroundColor;
+  final double size;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final color = foregroundColor ?? colors.onSurfaceVariant;
+    final buttonSize = Size.square(size);
+    return IconButton(
+      tooltip: tooltip,
+      onPressed: onPressed,
+      icon: icon,
+      style: ButtonStyle(
+        minimumSize: WidgetStatePropertyAll(buttonSize),
+        maximumSize: WidgetStatePropertyAll(buttonSize),
+        fixedSize: WidgetStatePropertyAll(buttonSize),
+        padding: const WidgetStatePropertyAll(EdgeInsets.zero),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        visualDensity: VisualDensity.standard,
+        backgroundColor: const WidgetStatePropertyAll(Colors.transparent),
+        foregroundColor: WidgetStateProperty.resolveWith(
+          (states) => states.contains(WidgetState.disabled)
+              ? colors.onSurface.withValues(alpha: 0.38)
+              : color,
+        ),
+        overlayColor: WidgetStateProperty.resolveWith((states) {
+          if (states.contains(WidgetState.disabled)) return Colors.transparent;
+          if (states.contains(WidgetState.pressed)) {
+            return color.withValues(alpha: 0.12);
+          }
+          if (states.contains(WidgetState.hovered) ||
+              states.contains(WidgetState.focused)) {
+            return color.withValues(alpha: 0.08);
+          }
+          return Colors.transparent;
+        }),
+        shape: const WidgetStatePropertyAll(CircleBorder()),
+      ),
+    );
+  }
+}
+
 class ServiceDialogInteractionTheme extends StatelessWidget {
   const ServiceDialogInteractionTheme({super.key, required this.child});
 
