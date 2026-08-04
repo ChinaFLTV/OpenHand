@@ -411,6 +411,19 @@ class McpController extends ChangeNotifier {
     if (!_isDisposed && revision == _keywordIndexRevision) {
       _keywordIndex = result.index;
       notifyListeners();
+    } else if (!_isDisposed) {
+      // 构建期间的单服务刷新可能已写入更新索引。读取串行持久化队列的
+      // 最新快照，避免构建结果被修订守卫丢弃后内存索引仍为空。
+      for (var attempt = 0; attempt < 2; attempt++) {
+        final recoveryRevision = _keywordIndexRevision;
+        final recovered = await _keywordIndexService.loadFromDisk();
+        if (_isDisposed) break;
+        if (recoveryRevision == _keywordIndexRevision && recovered != null) {
+          _keywordIndex = recovered;
+          notifyListeners();
+          break;
+        }
+      }
     }
     return result;
   }

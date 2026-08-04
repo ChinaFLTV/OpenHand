@@ -452,7 +452,7 @@ class McpKeywordIndexService {
       builtAt: DateTime.now().toUtc(),
       durationMs: stopwatch.elapsedMilliseconds,
     );
-    await _persistenceQueue.enqueue(() async {
+    final persistedIndex = await _persistenceQueue.enqueue(() async {
       // 全量重建始终落盘，不因期间发生过单服务替换而整轮丢弃（此前的守卫
       // 恰好反了：跳过重建、却让「陈旧全量 + 单服务增量」的替换写入胜出）。
       // 期间到达的替换比重建更新，叠加到全量结果之上，二者都不丢。
@@ -468,9 +468,10 @@ class McpKeywordIndexService {
       }
       _replacesDuringBuild.clear();
       await _persist(toPersist);
+      return toPersist;
     });
     return McpKeywordIndexBuildResult(
-      index: index,
+      index: persistedIndex,
       skippedServers: skipped,
       errors: errors,
     );
