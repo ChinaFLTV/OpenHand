@@ -225,6 +225,9 @@ class AiSessionController extends ChangeNotifier {
       return _persistMachineTerminalMetadata(sessionId, metadata);
     });
   }
+
+  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
+
   static const int maxManualTitleCharacters =
       AiSessionDataLimits.maxSessionTitleCharacters;
   static const String _editRollbackMarkerKey = 'deleted_by_edit_message_id';

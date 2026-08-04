@@ -508,6 +508,8 @@ class MachineTerminalService extends ChangeNotifier {
     : _sessionsDirectoryPath =
           sessionsDirectoryPath ?? OpenHandPaths.defaultSessionsDirectoryPath();
 
+  static const Duration runtimeCleanupTimeout = Duration(seconds: 10);
+
   final String _sessionsDirectoryPath;
   final Map<String, _MachineTerminalWorkspace> _workspaces =
       <String, _MachineTerminalWorkspace>{};

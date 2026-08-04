@@ -42,6 +42,7 @@ import 'shared/fps/openhand_fps_monitor.dart';
 import 'shared/ui/structured_error_text.dart';
 
 const Duration _mcpRuntimeCleanupTimeout = Duration(seconds: 10);
+const Duration _runtimeCleanupTotalTimeout = Duration(seconds: 60);
 
 Future<void> main() async {
   // 用 Zone 统一兜住异步异常，并过滤第三方库已知的可恢复输出噪声。
@@ -63,6 +64,7 @@ Future<void> _bootstrap() async {
   WidgetsFlutterBinding.ensureInitialized();
   final runtimeCleanup = AppRuntimeCleanupRegistry(
     cleanupTimeout: const Duration(seconds: 5),
+    totalTimeout: _runtimeCleanupTotalTimeout,
   );
   MediaKit.ensureInitialized();
   iaw.PlatformInAppWebViewController.debugLoggingSettings.enabled = false;
@@ -454,13 +456,17 @@ Future<void> _bootstrap() async {
     ..register('机器终端服务', () async {
       await machineTerminalService.shutdown();
       machineTerminalService.dispose();
-    })
+    }, timeout: MachineTerminalService.runtimeCleanupTimeout)
     ..register(
       'MCP 控制器',
       mcp.controller.shutdown,
       timeout: _mcpRuntimeCleanupTimeout,
     )
-    ..register('AI 会话控制器', aiSessionController.shutdown)
+    ..register(
+      'AI 会话控制器',
+      aiSessionController.shutdown,
+      timeout: AiSessionController.runtimeCleanupTimeout,
+    )
     ..register('定时任务控制器', cronsController.shutdown)
     ..register('消息网关控制器', () async {
       messageGateway.controller.pluginServiceController = null;
