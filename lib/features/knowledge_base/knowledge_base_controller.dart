@@ -758,6 +758,12 @@ class KnowledgeBaseController extends ChangeNotifier {
         onError: (error, stack) =>
             silentLog('knowledge_base_controller', '等待知识库操作结束', error, stack),
       );
+      await runAsyncCleanupBounded(
+        flushPendingKnowledgeSourceFileCleanups,
+        timeout: _knowledgeControllerShutdownTimeout,
+        onError: (error, stack) =>
+            silentLog('knowledge_base_controller', '等待知识源清理结束', error, stack),
+      );
       dispose();
     }();
     _shutdownFuture = shutdown;

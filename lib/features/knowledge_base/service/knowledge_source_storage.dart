@@ -25,7 +25,9 @@ const Duration _knowledgeSourceCleanupFutureClockTolerance = Duration(
 );
 const String _pendingKnowledgeSourceCleanupSettingPrefix =
     'knowledge_source_cleanup:';
-final SerialTaskQueue _knowledgeSourceCleanupQueue = SerialTaskQueue();
+final SerialTaskQueue _knowledgeSourceCleanupQueue = SerialTaskQueue(
+  maxPendingTasks: _maxPendingKnowledgeSourceCleanups,
+);
 Future<void>? _scheduledKnowledgeSourceCleanupRetry;
 
 String get knowledgeManagedSourcesDirectoryPath => p.join(
@@ -79,11 +81,15 @@ void schedulePendingKnowledgeSourceFileCleanups({
   );
   _scheduledKnowledgeSourceCleanupRetry = future;
   unawaited(
-    future.whenComplete(() {
-      if (identical(_scheduledKnowledgeSourceCleanupRetry, future)) {
-        _scheduledKnowledgeSourceCleanupRetry = null;
-      }
-    }),
+    future
+        .whenComplete(() {
+          if (identical(_scheduledKnowledgeSourceCleanupRetry, future)) {
+            _scheduledKnowledgeSourceCleanupRetry = null;
+          }
+        })
+        .catchError((Object error, StackTrace stack) {
+          silentLog('knowledge_source_storage', '调度待处理知识源清理', error, stack);
+        }),
   );
 }
 
@@ -125,6 +131,12 @@ Future<void> retryPendingKnowledgeSourceFileCleanups({
       silentLog('knowledge_source_storage', '处理待处理知识源清理', error, stack);
     }
   });
+}
+
+Future<void> flushPendingKnowledgeSourceFileCleanups() {
+  return _knowledgeSourceCleanupQueue.idle.timeout(
+    _pendingKnowledgeSourceRetryTimeout,
+  );
 }
 
 Future<void> _stageCleanup(({String sourceId, String path}) entry) async {
