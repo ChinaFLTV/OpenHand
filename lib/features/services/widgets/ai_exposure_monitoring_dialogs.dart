@@ -7296,74 +7296,81 @@ Widget _buildStorageMetricInsight(
   switch (label) {
     case 'SQLite 数据库':
       final path = controller.health?.databasePath.trim() ?? '';
-      final database = _localFileStat(path);
-      final wal = _localFileStat(path.isEmpty ? '' : '$path-wal');
-      final sharedMemory = _localFileStat(path.isEmpty ? '' : '$path-shm');
-      return _metricInsightPage([
-        _InsightKpiBand(
-          title: 'SQLite 文件组成',
-          icon: Icons.storage_rounded,
-          items: [
-            _InsightKpi(
+      final walPath = path.isEmpty ? '' : '$path-wal';
+      final sharedMemoryPath = path.isEmpty ? '' : '$path-shm';
+      return _LocalFileStatsBuilder(
+        paths: [path, walPath, sharedMemoryPath],
+        builder: (context, stats) {
+          final database = stats[path];
+          final wal = stats[walPath];
+          final sharedMemory = stats[sharedMemoryPath];
+          return _metricInsightPage([
+            _InsightKpiBand(
+              title: 'SQLite 文件组成',
               icon: Icons.storage_rounded,
-              label: '主数据库',
-              value: formatByteSize(database?.size ?? 0),
-              helper: database == null ? '文件不可访问' : database.modeString(),
-              color: database == null
-                  ? OpenHandStatusColors.warning
-                  : OpenHandStatusColors.success,
+              items: [
+                _InsightKpi(
+                  icon: Icons.storage_rounded,
+                  label: '主数据库',
+                  value: formatByteSize(database?.size ?? 0),
+                  helper: database == null ? '文件不可访问' : database.modeString(),
+                  color: database == null
+                      ? OpenHandStatusColors.warning
+                      : OpenHandStatusColors.success,
+                ),
+                _InsightKpi(
+                  icon: Icons.edit_note_rounded,
+                  label: 'WAL 日志',
+                  value: formatByteSize(wal?.size ?? 0),
+                  helper: wal == null ? '当前无 WAL 文件' : '事务预写日志',
+                  color: colors.primary,
+                ),
+                _InsightKpi(
+                  icon: Icons.memory_rounded,
+                  label: '共享内存',
+                  value: formatByteSize(sharedMemory?.size ?? 0),
+                  helper: sharedMemory == null ? '当前无 SHM 文件' : 'WAL 索引共享内存',
+                  color: colors.tertiary,
+                ),
+                _InsightKpi(
+                  icon: Icons.inventory_2_outlined,
+                  label: '实体记录',
+                  value:
+                      '${history.length + results.length + rules.length + logs.length}',
+                  helper: '任务、结果、规则与日志',
+                  color: OpenHandStatusColors.info,
+                ),
+              ],
             ),
-            _InsightKpi(
-              icon: Icons.edit_note_rounded,
-              label: 'WAL 日志',
-              value: formatByteSize(wal?.size ?? 0),
-              helper: wal == null ? '当前无 WAL 文件' : '事务预写日志',
-              color: colors.primary,
+            _InsightRankingSection(
+              title: '数据库文件占用',
+              icon: Icons.bar_chart_rounded,
+              items: [
+                _InsightRankItem(
+                  label: '主数据库',
+                  value: (database?.size ?? 0).toDouble(),
+                  valueLabel: formatByteSize(database?.size ?? 0),
+                  color: OpenHandStatusColors.success,
+                ),
+                _InsightRankItem(
+                  label: 'WAL 日志',
+                  value: (wal?.size ?? 0).toDouble(),
+                  valueLabel: formatByteSize(wal?.size ?? 0),
+                  color: colors.primary,
+                ),
+                _InsightRankItem(
+                  label: '共享内存',
+                  value: (sharedMemory?.size ?? 0).toDouble(),
+                  valueLabel: formatByteSize(sharedMemory?.size ?? 0),
+                  color: colors.tertiary,
+                ),
+              ],
+              emptyLabel: '暂无 SQLite 文件占用数据。',
             ),
-            _InsightKpi(
-              icon: Icons.memory_rounded,
-              label: '共享内存',
-              value: formatByteSize(sharedMemory?.size ?? 0),
-              helper: sharedMemory == null ? '当前无 SHM 文件' : 'WAL 索引共享内存',
-              color: colors.tertiary,
-            ),
-            _InsightKpi(
-              icon: Icons.inventory_2_outlined,
-              label: '实体记录',
-              value:
-                  '${history.length + results.length + rules.length + logs.length}',
-              helper: '任务、结果、规则与日志',
-              color: OpenHandStatusColors.info,
-            ),
-          ],
-        ),
-        _InsightRankingSection(
-          title: '数据库文件占用',
-          icon: Icons.bar_chart_rounded,
-          items: [
-            _InsightRankItem(
-              label: '主数据库',
-              value: (database?.size ?? 0).toDouble(),
-              valueLabel: formatByteSize(database?.size ?? 0),
-              color: OpenHandStatusColors.success,
-            ),
-            _InsightRankItem(
-              label: 'WAL 日志',
-              value: (wal?.size ?? 0).toDouble(),
-              valueLabel: formatByteSize(wal?.size ?? 0),
-              color: colors.primary,
-            ),
-            _InsightRankItem(
-              label: '共享内存',
-              value: (sharedMemory?.size ?? 0).toDouble(),
-              valueLabel: formatByteSize(sharedMemory?.size ?? 0),
-              color: colors.tertiary,
-            ),
-          ],
-          emptyLabel: '暂无 SQLite 文件占用数据。',
-        ),
-        _sqliteDatabaseDetailSection(context, controller),
-      ]);
+            _sqliteDatabaseDetailSection(controller, path, stats),
+          ]);
+        },
+      );
     case '最后写入':
       final eventTimes = <DateTime>[
         ...history.map((entry) => entry.finishedAt ?? entry.createdAt),
@@ -9438,24 +9445,81 @@ String _maskProxyAddress(String value) {
   return '${uri.scheme}://$username:******@$host$port';
 }
 
-FileStat? _localFileStat(String path) {
-  if (kIsWeb || path.trim().isEmpty) return null;
-  try {
-    final stat = File(path).statSync();
-    return stat.type == FileSystemEntityType.file ? stat : null;
-  } on FileSystemException {
-    return null;
+class _LocalFileStatsBuilder extends StatefulWidget {
+  const _LocalFileStatsBuilder({required this.paths, required this.builder});
+
+  final List<String> paths;
+  final Widget Function(BuildContext context, Map<String, FileStat> stats)
+  builder;
+
+  @override
+  State<_LocalFileStatsBuilder> createState() => _LocalFileStatsBuilderState();
+}
+
+class _LocalFileStatsBuilderState extends State<_LocalFileStatsBuilder> {
+  late Future<Map<String, FileStat>> _stats;
+
+  @override
+  void initState() {
+    super.initState();
+    _stats = _loadLocalFileStats(widget.paths);
   }
+
+  @override
+  void didUpdateWidget(covariant _LocalFileStatsBuilder oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (!listEquals(oldWidget.paths, widget.paths)) {
+      _stats = _loadLocalFileStats(widget.paths);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) => FutureBuilder<Map<String, FileStat>>(
+    future: _stats,
+    initialData: const <String, FileStat>{},
+    builder: (context, snapshot) =>
+        widget.builder(context, snapshot.data ?? const <String, FileStat>{}),
+  );
+}
+
+Future<Map<String, FileStat>> _loadLocalFileStats(List<String> paths) async {
+  if (kIsWeb) return const <String, FileStat>{};
+  final uniquePaths = paths
+      .map((path) => path.trim())
+      .where((path) => path.isNotEmpty)
+      .toSet();
+  final entries = await Future.wait(
+    uniquePaths.map((path) async {
+      try {
+        final stat = await File(
+          path,
+        ).stat().timeout(_kOperationsMetadataTimeout);
+        return stat.type == FileSystemEntityType.file
+            ? MapEntry<String, FileStat>(path, stat)
+            : null;
+      } on FileSystemException {
+        return null;
+      } on TimeoutException {
+        return null;
+      } on UnsupportedError {
+        return null;
+      }
+    }),
+  );
+  return Map<String, FileStat>.unmodifiable({
+    for (final entry in entries.whereType<MapEntry<String, FileStat>>())
+      entry.key: entry.value,
+  });
 }
 
 Widget _sqliteDatabaseDetailSection(
-  BuildContext context,
   ServicesController controller,
+  String path,
+  Map<String, FileStat> stats,
 ) {
-  final path = controller.health?.databasePath.trim() ?? '';
-  final database = _localFileStat(path);
-  final wal = _localFileStat(path.isEmpty ? '' : '$path-wal');
-  final sharedMemory = _localFileStat(path.isEmpty ? '' : '$path-shm');
+  final database = stats[path];
+  final wal = stats[path.isEmpty ? '' : '$path-wal'];
+  final sharedMemory = stats[path.isEmpty ? '' : '$path-shm'];
   final totalBytes = [
     database,
     wal,
@@ -9610,7 +9674,6 @@ Widget _credentialEncryptionDetailSection(
   final keyPath = separator < 0
       ? ''
       : '${databasePath.substring(0, separator + 1)}credential.key';
-  final keyStat = _localFileStat(keyPath);
   final protectedResults = controller.results
       .where((result) => result.maskedCredential?.trim().isNotEmpty == true)
       .toList(growable: false);
@@ -9618,30 +9681,36 @@ Widget _credentialEncryptionDetailSection(
     0,
     (total, result) => total + result.duplicateKeyHosts,
   );
-  return _Section(
-    title: '凭证密文边界与密钥隔离',
-    icon: Icons.enhanced_encryption_outlined,
-    child: Column(
-      children: [
-        const _OpsKeyValue(label: '加密算法', value: 'AES-256-GCM'),
-        const _OpsKeyValue(label: '随机数长度', value: '96 bit · 每条凭证独立生成'),
-        const _OpsKeyValue(label: '完整性保护', value: 'GCM 认证标签'),
-        const _OpsKeyValue(label: '密钥长度', value: '256 bit'),
-        _OpsKeyValue(
-          label: '独立密钥文件',
-          value: keyStat == null
-              ? '不可访问或服务未初始化'
-              : '${formatByteSize(keyStat.size)} · ${keyStat.modeString()}',
-          color: keyStat == null
-              ? OpenHandStatusColors.warning
-              : OpenHandStatusColors.success,
+  return _LocalFileStatsBuilder(
+    paths: [keyPath],
+    builder: (context, stats) {
+      final keyStat = stats[keyPath];
+      return _Section(
+        title: '凭证密文边界与密钥隔离',
+        icon: Icons.enhanced_encryption_outlined,
+        child: Column(
+          children: [
+            const _OpsKeyValue(label: '加密算法', value: 'AES-256-GCM'),
+            const _OpsKeyValue(label: '随机数长度', value: '96 bit · 每条凭证独立生成'),
+            const _OpsKeyValue(label: '完整性保护', value: 'GCM 认证标签'),
+            const _OpsKeyValue(label: '密钥长度', value: '256 bit'),
+            _OpsKeyValue(
+              label: '独立密钥文件',
+              value: keyStat == null
+                  ? '不可访问或服务未初始化'
+                  : '${formatByteSize(keyStat.size)} · ${keyStat.modeString()}',
+              color: keyStat == null
+                  ? OpenHandStatusColors.warning
+                  : OpenHandStatusColors.success,
+            ),
+            const _OpsKeyValue(label: '明文暴露边界', value: '仅写入前短暂驻留 · API 不返回明文'),
+            const _OpsKeyValue(label: '界面展示策略', value: '仅展示脱敏凭证'),
+            _OpsKeyValue(label: '受保护结果', value: '${protectedResults.length}'),
+            _OpsKeyValue(label: '重复凭证关联主机', value: '$duplicateReferences'),
+          ],
         ),
-        const _OpsKeyValue(label: '明文暴露边界', value: '仅写入前短暂驻留 · API 不返回明文'),
-        const _OpsKeyValue(label: '界面展示策略', value: '仅展示脱敏凭证'),
-        _OpsKeyValue(label: '受保护结果', value: '${protectedResults.length}'),
-        _OpsKeyValue(label: '重复凭证关联主机', value: '$duplicateReferences'),
-      ],
-    ),
+      );
+    },
   );
 }
 
@@ -11370,66 +11439,74 @@ Widget _recordTypeDistributionInsight(
 ) {
   final colors = Theme.of(context).colorScheme;
   final path = controller.health?.databasePath.trim() ?? '';
-  final database = _localFileStat(path);
   final total =
       controller.history.length +
       controller.results.length +
       controller.rules.length +
       controller.logs.length;
-  return _metricInsightPage([
-    _InsightKpiBand(
-      title: '持久化记录概览',
-      icon: Icons.storage_rounded,
-      items: [
-        _InsightKpi(
-          icon: Icons.receipt_long_outlined,
-          label: '可见记录',
-          value: '$total',
-          helper: '任务、结果、规则、日志',
-          color: colors.primary,
-        ),
-        _InsightKpi(
-          icon: Icons.work_history_outlined,
-          label: '任务',
-          value: '${controller.history.length}',
-          helper: '任务归档',
-          color: colors.tertiary,
-        ),
-        _InsightKpi(
-          icon: Icons.fact_check_outlined,
-          label: '结果',
-          value: '${controller.results.length}',
-          helper: '扫描结果归档',
-          color: OpenHandStatusColors.info,
-        ),
-        _InsightKpi(
+  return _LocalFileStatsBuilder(
+    paths: [
+      path,
+      if (path.isNotEmpty) ...['$path-wal', '$path-shm'],
+    ],
+    builder: (context, stats) {
+      final database = stats[path];
+      return _metricInsightPage([
+        _InsightKpiBand(
+          title: '持久化记录概览',
           icon: Icons.storage_rounded,
-          label: '数据库文件',
-          value: database == null ? '未采集' : formatByteSize(database.size),
-          helper: path.isEmpty ? '路径未上报' : path,
-          color: database == null
-              ? colors.outline
-              : OpenHandStatusColors.success,
+          items: [
+            _InsightKpi(
+              icon: Icons.receipt_long_outlined,
+              label: '可见记录',
+              value: '$total',
+              helper: '任务、结果、规则、日志',
+              color: colors.primary,
+            ),
+            _InsightKpi(
+              icon: Icons.work_history_outlined,
+              label: '任务',
+              value: '${controller.history.length}',
+              helper: '任务归档',
+              color: colors.tertiary,
+            ),
+            _InsightKpi(
+              icon: Icons.fact_check_outlined,
+              label: '结果',
+              value: '${controller.results.length}',
+              helper: '扫描结果归档',
+              color: OpenHandStatusColors.info,
+            ),
+            _InsightKpi(
+              icon: Icons.storage_rounded,
+              label: '数据库文件',
+              value: database == null ? '未采集' : formatByteSize(database.size),
+              helper: path.isEmpty ? '路径未上报' : path,
+              color: database == null
+                  ? colors.outline
+                  : OpenHandStatusColors.success,
+            ),
+          ],
         ),
-      ],
-    ),
-    _InsightDonutSection(
-      title: '记录类型构成',
-      icon: Icons.pie_chart_outline_rounded,
-      items: [
-        _DistributionItem('任务', controller.history.length, colors.primary),
-        _DistributionItem(
-          '结果',
-          controller.results.length,
-          OpenHandStatusColors.info,
+        _InsightDonutSection(
+          title: '记录类型构成',
+          icon: Icons.pie_chart_outline_rounded,
+          items: [
+            _DistributionItem('任务', controller.history.length, colors.primary),
+            _DistributionItem(
+              '结果',
+              controller.results.length,
+              OpenHandStatusColors.info,
+            ),
+            _DistributionItem('规则', controller.rules.length, colors.tertiary),
+            _DistributionItem('日志', controller.logs.length, colors.secondary),
+          ],
         ),
-        _DistributionItem('规则', controller.rules.length, colors.tertiary),
-        _DistributionItem('日志', controller.logs.length, colors.secondary),
-      ],
-    ),
-    _sqliteDatabaseDetailSection(context, controller),
-    _persistenceWriteEventPanel(context, controller),
-  ]);
+        _sqliteDatabaseDetailSection(controller, path, stats),
+        _persistenceWriteEventPanel(context, controller),
+      ]);
+    },
+  );
 }
 
 Widget _archiveStageDistributionInsight(
