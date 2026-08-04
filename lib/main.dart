@@ -434,7 +434,7 @@ Future<void> _bootstrap() async {
     settingsController: settingsController,
   )..start();
 
-  // 这些实例由 Provider 外部创建，退出时按反向顺序统一释放。
+  // Provider 外部实例按“底层依赖在前、上层使用者在后”登记，退出时逆序释放。
   runtimeCleanup
     ..register('数据库', DatabaseService.instance.close)
     ..register('AI 使用统计', AiUsageTracker.instance.flush)
@@ -449,23 +449,23 @@ Future<void> _bootstrap() async {
     ..register('模板运行时联动控制器', templateRuntimeLinkageController.dispose)
     ..register('知识库控制器', knowledgeBase.controller.shutdown)
     ..register('自学习聊天客户端', selfLearningChatClient.dispose)
-    ..register('AI 会话控制器', aiSessionController.shutdown)
     ..register('AI LSP 会话', AiLspClientService.instance.disposeAll)
     ..register('媒体缓存', MediaCacheService.instance.shutdown)
     ..register('机器终端服务', () async {
       await machineTerminalService.shutdown();
       machineTerminalService.dispose();
     })
-    ..register('定时任务控制器', cronsController.shutdown)
-    ..register('消息网关控制器', () async {
-      messageGateway.controller.pluginServiceController = null;
-      await messageGateway.controller.shutdown();
-    }, timeout: MessageGatewayController.runtimeCleanupTimeout)
     ..register(
       'MCP 控制器',
       mcp.controller.shutdown,
       timeout: _mcpRuntimeCleanupTimeout,
     )
+    ..register('AI 会话控制器', aiSessionController.shutdown)
+    ..register('定时任务控制器', cronsController.shutdown)
+    ..register('消息网关控制器', () async {
+      messageGateway.controller.pluginServiceController = null;
+      await messageGateway.controller.shutdown();
+    }, timeout: MessageGatewayController.runtimeCleanupTimeout)
     ..register('FPS 监控器', OpenHandFpsMonitor.instance.stop);
   runtimeCleanup
     ..register('定时任务智能体处理器', () => cronsController.registerAgentHandler(null))
