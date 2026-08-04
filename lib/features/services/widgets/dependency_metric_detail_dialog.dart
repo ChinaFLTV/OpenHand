@@ -12,11 +12,11 @@ import '../model/dependency_telemetry.dart';
 import '../services_controller.dart';
 import 'service_dialog_controls.dart';
 
-const double _kMetricDialogWidth = 1040;
-const double _kMetricDialogHeight = 820;
+const double _kMetricDialogWidth = 1120;
+const double _kMetricDialogHeight = 860;
 const double _kCompactBreakpoint = 720;
 const double _kChartHeight = 224;
-const double _kSectionGap = 22;
+const double _kSectionGap = 18;
 
 enum DependencyMetricKind {
   postgresqlCapacity,
@@ -111,18 +111,33 @@ Future<void> showDependencyMetricDetailDialog(
   required Future<void> Function() onReload,
 }) => showAnimatedDialog<void>(
   context: context,
-  builder: (_) => buildOpenHandDialog(
-    maxWidth: _kMetricDialogWidth,
-    maxHeight: _kMetricDialogHeight,
-    child: ServiceDialogInteractionTheme(
-      child: _DependencyMetricDetailDialog(
-        kind: kind,
-        postgresqlTables: postgresqlTables,
-        redisRecords: redisRecords,
-        onReload: onReload,
+  builder: (dialogContext) {
+    final colors = Theme.of(dialogContext).colorScheme;
+    return buildOpenHandResponsiveDialogShell(
+      context: dialogContext,
+      maxWidth: _kMetricDialogWidth,
+      maxHeight: _kMetricDialogHeight,
+      minAvailableWidth: 300,
+      minAvailableHeight: 420,
+      horizontalMargin: 28,
+      verticalMargin: 72,
+      expandToMax: true,
+      backgroundColor: colors.surface,
+      surfaceTintColor: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: BorderRadius.circular(26),
+        side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.42)),
       ),
-    ),
-  ),
+      child: ServiceDialogInteractionTheme(
+        child: _DependencyMetricDetailDialog(
+          kind: kind,
+          postgresqlTables: postgresqlTables,
+          redisRecords: redisRecords,
+          onReload: onReload,
+        ),
+      ),
+    );
+  },
 );
 
 class _DependencyMetricDetailDialog extends StatefulWidget {
@@ -183,51 +198,56 @@ class _DependencyMetricDetailDialogState
     final colors = Theme.of(context).colorScheme;
     final tone = widget.kind.tone(colors);
     final error = _reloadError ?? controller.dependencyDataOverviewError;
-    return Padding(
-      padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          _MetricDialogHeader(
-            kind: widget.kind,
-            tone: tone,
-            reloading: _reloading,
-            onReload: _reload,
-          ),
-          const SizedBox(height: 14),
-          _MetricRangeBar(
-            selected: _range,
-            capturedAt: _capturedAt(overview),
-            onChanged: (range) => setState(() => _range = range),
-          ),
-          const SizedBox(height: 10),
-          SizedBox(
-            height: 3,
-            child: _reloading
-                ? LinearProgressIndicator(color: tone)
-                : const SizedBox.shrink(),
-          ),
-          const SizedBox(height: 10),
-          Expanded(
-            child: overview.isEmpty
-                ? _MetricLoadState(
-                    loading: _reloading,
-                    error: error,
-                    onReload: _reload,
-                  )
-                : SingleChildScrollView(
-                    physics: openHandDialogAwareScrollPhysics(context),
-                    child: _buildMetricContent(
-                      context,
-                      overview: overview,
-                      samples: samples,
-                      tone: tone,
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        _MetricDialogHeader(
+          kind: widget.kind,
+          tone: tone,
+          reloading: _reloading,
+          onReload: _reload,
+        ),
+        _MetricRangeBar(
+          selected: _range,
+          capturedAt: _capturedAt(overview),
+          onChanged: (range) => setState(() => _range = range),
+        ),
+        SizedBox(
+          height: 3,
+          child: _reloading
+              ? LinearProgressIndicator(
+                  color: tone,
+                  backgroundColor: tone.withValues(alpha: 0.12),
+                )
+              : const SizedBox.shrink(),
+        ),
+        Expanded(
+          child: DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerLowest.withValues(alpha: 0.72),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.fromLTRB(24, 20, 24, 24),
+              child: overview.isEmpty
+                  ? _MetricLoadState(
+                      loading: _reloading,
                       error: error,
+                      onReload: _reload,
+                    )
+                  : SingleChildScrollView(
+                      physics: openHandDialogAwareScrollPhysics(context),
+                      child: _buildMetricContent(
+                        context,
+                        overview: overview,
+                        samples: samples,
+                        tone: tone,
+                        error: error,
+                      ),
                     ),
-                  ),
+            ),
           ),
-        ],
-      ),
+        ),
+      ],
     );
   }
 
@@ -1961,64 +1981,103 @@ class _MetricDialogHeader extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Row(
-      children: [
-        Container(
-          width: 44,
-          height: 44,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: tone.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
-            border: Border.all(color: tone.withValues(alpha: 0.28)),
+    return Container(
+      padding: const EdgeInsets.fromLTRB(24, 22, 18, 18),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        border: Border(
+          bottom: BorderSide(
+            color: colors.outlineVariant.withValues(alpha: 0.5),
           ),
-          child: Icon(kind.icon, color: tone),
         ),
-        const SizedBox(width: 12),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          final actions = ServiceDialogIconActions(
             children: [
-              Text(
-                kind.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.titleLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
+              ServiceDialogHeaderIconButton(
+                tooltip: '重新加载指标',
+                onPressed: reloading ? null : onReload,
+                icon: reloading
+                    ? const SizedBox.square(
+                        dimension: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
               ),
-              const SizedBox(height: 2),
-              Text(
-                kind.subtitle,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.bodySmall?.copyWith(
-                  color: colors.onSurfaceVariant,
+              ServiceDialogHeaderIconButton(
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                onPressed: () => Navigator.of(context).maybePop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          );
+          final identity = Row(
+            children: [
+              Container(
+                width: 46,
+                height: 46,
+                alignment: Alignment.center,
+                decoration: BoxDecoration(
+                  color: tone.withValues(alpha: 0.14),
+                  borderRadius: BorderRadius.circular(14),
+                  border: Border.all(color: tone.withValues(alpha: 0.28)),
+                ),
+                child: Icon(kind.icon, color: tone, size: 24),
+              ),
+              const SizedBox(width: 14),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: [
+                        Flexible(
+                          child: Text(
+                            kind.title,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: theme.textTheme.titleLarge?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        _StatusTag(label: '遥测详情', color: tone),
+                      ],
+                    ),
+                    const SizedBox(height: 4),
+                    Text(
+                      kind.subtitle,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
                 ),
               ),
             ],
-          ),
-        ),
-        ServiceDialogIconActions(
-          children: [
-            ServiceDialogHeaderIconButton(
-              tooltip: '重新加载指标',
-              onPressed: reloading ? null : onReload,
-              icon: reloading
-                  ? const SizedBox.square(
-                      dimension: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : const Icon(Icons.refresh_rounded),
-            ),
-            ServiceDialogHeaderIconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ],
-        ),
-      ],
+          );
+          if (constraints.maxWidth < 560) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                identity,
+                const SizedBox(height: 12),
+                Align(alignment: Alignment.centerRight, child: actions),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              Expanded(child: identity),
+              actions,
+            ],
+          );
+        },
+      ),
     );
   }
 }
@@ -2049,6 +2108,15 @@ class _MetricRangeBar extends StatelessWidget {
             ],
             selected: <_MetricTimeRange>{selected},
             showSelectedIcon: false,
+            style: ButtonStyle(
+              visualDensity: VisualDensity.compact,
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              ),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+              ),
+            ),
             onSelectionChanged: (selection) => onChanged(selection.first),
           ),
         );
@@ -2060,18 +2128,28 @@ class _MetricRangeBar extends StatelessWidget {
             color: colors.onSurfaceVariant,
           ),
         );
-        if (constraints.maxWidth < 620) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [range, const SizedBox(height: 8), stamp],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: range),
-            const SizedBox(width: 12),
-            Flexible(child: stamp),
-          ],
+        return Container(
+          padding: const EdgeInsets.fromLTRB(24, 12, 24, 12),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerLowest,
+            border: Border(
+              bottom: BorderSide(
+                color: colors.outlineVariant.withValues(alpha: 0.34),
+              ),
+            ),
+          ),
+          child: constraints.maxWidth < 620
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [range, const SizedBox(height: 8), stamp],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: range),
+                    const SizedBox(width: 12),
+                    Flexible(child: stamp),
+                  ],
+                ),
         );
       },
     );
@@ -2161,45 +2239,61 @@ class _MetricSection extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow.withValues(alpha: 0.78),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.42),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(17, 15, 17, 17),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            Padding(
-              padding: const EdgeInsets.only(top: 1),
-              child: Icon(icon, size: 20, color: colors.primary),
-            ),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    title,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w800,
-                    ),
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Container(
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: colors.primary.withValues(alpha: 0.1),
+                    borderRadius: BorderRadius.circular(9),
                   ),
-                  const SizedBox(height: 2),
-                  Text(
-                    subtitle,
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
+                  child: Icon(icon, size: 18, color: colors.primary),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
-                ],
-              ),
+                ),
+                if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+              ],
             ),
-            if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+            const SizedBox(height: 15),
+            child,
           ],
         ),
-        const SizedBox(height: 12),
-        child,
-        const SizedBox(height: 2),
-        Divider(height: 1, color: colors.outlineVariant.withValues(alpha: 0.7)),
-      ],
+      ),
     );
   }
 }
@@ -2272,58 +2366,72 @@ class _KpiStrip extends StatelessWidget {
           132.0,
           (constraints.maxWidth - gap * (columns - 1)) / columns,
         );
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final item in items)
-              SizedBox(
-                width: width,
-                child: DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: Color.alphaBlend(
-                      tone.withValues(alpha: 0.06),
-                      colors.surfaceContainerHighest.withValues(alpha: 0.42),
-                    ),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(color: tone.withValues(alpha: 0.2)),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(12),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(item.icon, size: 17, color: tone),
-                            const SizedBox(width: 6),
-                            Expanded(
-                              child: Text(
-                                item.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: theme.textTheme.labelSmall?.copyWith(
-                                  color: colors.onSurfaceVariant,
-                                ),
-                              ),
+        return DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerHighest.withValues(alpha: 0.34),
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: colors.outlineVariant.withValues(alpha: 0.5),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(6),
+            child: Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final item in items)
+                  SizedBox(
+                    width: width,
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 10,
+                        vertical: 9,
+                      ),
+                      child: Row(
+                        children: [
+                          Container(
+                            width: 30,
+                            height: 30,
+                            alignment: Alignment.center,
+                            decoration: BoxDecoration(
+                              color: tone.withValues(alpha: 0.12),
+                              borderRadius: BorderRadius.circular(9),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 7),
-                        Text(
-                          item.value,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: theme.textTheme.titleMedium?.copyWith(
-                            fontWeight: FontWeight.w800,
+                            child: Icon(item.icon, size: 17, color: tone),
                           ),
-                        ),
-                      ],
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  item.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.labelSmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                                const SizedBox(height: 3),
+                                Text(
+                                  item.value,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.titleMedium?.copyWith(
+                                    fontWeight: FontWeight.w800,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
-                ),
-              ),
-          ],
+              ],
+            ),
+          ),
         );
       },
     );
@@ -2342,23 +2450,21 @@ class _InlineNotice extends StatelessWidget {
   final Color color;
 
   @override
-  Widget build(BuildContext context) => DecoratedBox(
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: BorderRadius.circular(10),
       border: Border.all(color: color.withValues(alpha: 0.24)),
     ),
-    child: Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      child: Row(
-        children: [
-          Icon(icon, size: 18, color: color),
-          const SizedBox(width: 8),
-          Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.bodySmall),
-          ),
-        ],
-      ),
+    child: Row(
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Expanded(
+          child: Text(label, style: Theme.of(context).textTheme.bodySmall),
+        ),
+      ],
     ),
   );
 }
@@ -2374,12 +2480,12 @@ class _InlineUnavailable extends StatelessWidget {
     return Semantics(
       label: label,
       child: SizedBox(
-        height: 128,
+        height: 116,
         child: Center(
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
-              Icon(Icons.data_array_rounded, color: colors.onSurfaceVariant),
+              Icon(Icons.data_array_rounded, color: colors.outline, size: 30),
               const SizedBox(height: 8),
               Text(
                 label,
@@ -2410,14 +2516,25 @@ class _StatusTag extends StatelessWidget {
       borderRadius: BorderRadius.circular(999),
       border: Border.all(color: color.withValues(alpha: 0.25)),
     ),
-    child: Text(
-      label,
-      maxLines: 1,
-      overflow: TextOverflow.ellipsis,
-      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-        color: color,
-        fontWeight: FontWeight.w700,
-      ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Container(
+          width: 6,
+          height: 6,
+          decoration: BoxDecoration(color: color, shape: BoxShape.circle),
+        ),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          maxLines: 1,
+          overflow: TextOverflow.ellipsis,
+          style: Theme.of(context).textTheme.labelSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
+          ),
+        ),
+      ],
     ),
   );
 }
@@ -2450,14 +2567,14 @@ class _ConnectionCapacityHero extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: Color.alphaBlend(
-          tone.withValues(alpha: 0.07),
-          colors.surfaceContainerHighest.withValues(alpha: 0.5),
+          tone.withValues(alpha: 0.08),
+          colors.surfaceContainerHigh,
         ),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: tone.withValues(alpha: 0.24)),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: riskColor.withValues(alpha: 0.28)),
       ),
       child: Padding(
-        padding: const EdgeInsets.all(16),
+        padding: const EdgeInsets.all(20),
         child: LayoutBuilder(
           builder: (context, constraints) {
             final usage = Column(
@@ -2548,11 +2665,14 @@ class _MemoryRiskHero extends StatelessWidget {
         ? '需关注'
         : '健康';
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: riskColor.withValues(alpha: 0.3)),
-        color: riskColor.withValues(alpha: 0.06),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: riskColor.withValues(alpha: 0.28)),
+        color: Color.alphaBlend(
+          riskColor.withValues(alpha: 0.07),
+          colors.surfaceContainerHigh,
+        ),
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
@@ -2637,68 +2757,73 @@ class _ThroughputHero extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 2,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: tone.withValues(alpha: 0.09),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: tone.withValues(alpha: 0.28)),
+    final current = Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Color.alphaBlend(
+          tone.withValues(alpha: 0.1),
+          colors.surfaceContainerHigh,
+        ),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: tone.withValues(alpha: 0.28)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text('当前吞吐', style: theme.textTheme.labelMedium),
+          const SizedBox(height: 5),
+          FittedBox(
+            fit: BoxFit.scaleDown,
+            alignment: AlignmentDirectional.centerStart,
+            child: Text(
+              '$currentOps ops/s',
+              style: theme.textTheme.headlineSmall?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
             ),
-            child: Column(
+          ),
+        ],
+      ),
+    );
+    final facts = Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHigh,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.55),
+        ),
+      ),
+      child: Wrap(
+        spacing: 22,
+        runSpacing: 10,
+        alignment: WrapAlignment.spaceBetween,
+        children: [
+          _HeroFact(
+            label: '窗口峰值',
+            value: '${peakOps.toStringAsFixed(1)} ops/s',
+          ),
+          _HeroFact(label: '累计命令', value: _compactCount(totalCommands)),
+          _HeroFact(
+            label: '平均耗时',
+            value: averageLatency <= 0
+                ? '暂未接入'
+                : '${averageLatency.toStringAsFixed(2)} ms',
+          ),
+        ],
+      ),
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth < 620
+          ? Column(children: [current, const SizedBox(height: 10), facts])
+          : Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('当前吞吐', style: theme.textTheme.labelMedium),
-                const SizedBox(height: 4),
-                FittedBox(
-                  fit: BoxFit.scaleDown,
-                  alignment: AlignmentDirectional.centerStart,
-                  child: Text(
-                    '$currentOps ops/s',
-                    style: theme.textTheme.headlineSmall?.copyWith(
-                      fontWeight: FontWeight.w900,
-                    ),
-                  ),
-                ),
+                Expanded(flex: 2, child: current),
+                const SizedBox(width: 10),
+                Expanded(flex: 3, child: facts),
               ],
             ),
-          ),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          flex: 3,
-          child: Container(
-            padding: const EdgeInsets.all(16),
-            decoration: BoxDecoration(
-              color: colors.surfaceContainerHighest.withValues(alpha: 0.48),
-              borderRadius: BorderRadius.circular(8),
-              border: Border.all(color: colors.outlineVariant),
-            ),
-            child: Wrap(
-              spacing: 22,
-              runSpacing: 10,
-              alignment: WrapAlignment.spaceBetween,
-              children: [
-                _HeroFact(
-                  label: '窗口峰值',
-                  value: '${peakOps.toStringAsFixed(1)} ops/s',
-                ),
-                _HeroFact(label: '累计命令', value: _compactCount(totalCommands)),
-                _HeroFact(
-                  label: '平均耗时',
-                  value: averageLatency <= 0
-                      ? '暂未接入'
-                      : '${averageLatency.toStringAsFixed(2)} ms',
-                ),
-              ],
-            ),
-          ),
-        ),
-      ],
     );
   }
 }
@@ -2812,10 +2937,13 @@ class _DirectionMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     return Container(
-      padding: const EdgeInsets.all(16),
+      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(8),
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.08),
+          Theme.of(context).colorScheme.surfaceContainerHigh,
+        ),
+        borderRadius: BorderRadius.circular(16),
         border: Border.all(color: color.withValues(alpha: 0.26)),
       ),
       child: Row(
@@ -3134,8 +3262,8 @@ class _RankTable extends StatelessWidget {
             children: [
               TableRow(
                 decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest.withValues(alpha: 0.48),
-                  borderRadius: BorderRadius.circular(6),
+                  color: colors.surfaceContainerHighest.withValues(alpha: 0.72),
+                  borderRadius: BorderRadius.circular(9),
                 ),
                 children: [
                   for (final header in headers)
@@ -3156,18 +3284,24 @@ class _RankTable extends StatelessWidget {
                     ),
                 ],
               ),
-              for (final row in sorted)
+              for (var rowIndex = 0; rowIndex < sorted.length; rowIndex++)
                 TableRow(
-                  decoration: row.alert
+                  decoration: sorted[rowIndex].alert
                       ? BoxDecoration(
                           color: colors.errorContainer.withValues(alpha: 0.22),
+                        )
+                      : rowIndex.isOdd
+                      ? BoxDecoration(
+                          color: colors.surfaceContainerHighest.withValues(
+                            alpha: 0.2,
+                          ),
                         )
                       : null,
                   children: [
                     for (var index = 0; index < headers.length; index++)
                       Tooltip(
-                        message: index < row.cells.length
-                            ? row.cells[index]
+                        message: index < sorted[rowIndex].cells.length
+                            ? sorted[rowIndex].cells[index]
                             : '--',
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
@@ -3175,11 +3309,13 @@ class _RankTable extends StatelessWidget {
                             vertical: 9,
                           ),
                           child: Text(
-                            index < row.cells.length ? row.cells[index] : '--',
+                            index < sorted[rowIndex].cells.length
+                                ? sorted[rowIndex].cells[index]
+                                : '--',
                             maxLines: 2,
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.bodySmall?.copyWith(
-                              color: row.alert && index == 0
+                              color: sorted[rowIndex].alert && index == 0
                                   ? colors.error
                                   : null,
                               fontWeight: index == 0 ? FontWeight.w700 : null,
@@ -3394,53 +3530,58 @@ class _OperationalSummary extends StatelessWidget {
   final List<_SummaryItem> items;
 
   @override
-  Widget build(BuildContext context) => Column(
-    children: [
-      for (var index = 0; index < items.length; index++) ...[
-        if (index > 0) const SizedBox(height: 6),
-        Container(
-          padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 9),
-          decoration: BoxDecoration(
-            color: items[index].color.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(6),
-            border: Border.all(
-              color: items[index].color.withValues(alpha: 0.18),
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Column(
+      children: [
+        for (var index = 0; index < items.length; index++) ...[
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
+            decoration: BoxDecoration(
+              border: index == items.length - 1
+                  ? null
+                  : Border(
+                      bottom: BorderSide(
+                        color: colors.outlineVariant.withValues(alpha: 0.45),
+                      ),
+                    ),
+            ),
+            child: Row(
+              children: [
+                Container(
+                  width: 3,
+                  height: 24,
+                  decoration: BoxDecoration(
+                    color: items[index].color,
+                    borderRadius: BorderRadius.circular(2),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    items[index].label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: TextStyle(color: colors.onSurfaceVariant),
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Flexible(
+                  child: Text(
+                    items[index].value,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    textAlign: TextAlign.end,
+                    style: const TextStyle(fontWeight: FontWeight.w800),
+                  ),
+                ),
+              ],
             ),
           ),
-          child: Row(
-            children: [
-              Container(
-                width: 7,
-                height: 7,
-                decoration: BoxDecoration(
-                  color: items[index].color,
-                  shape: BoxShape.circle,
-                ),
-              ),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Text(
-                  items[index].label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Flexible(
-                child: Text(
-                  items[index].value,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  textAlign: TextAlign.end,
-                  style: const TextStyle(fontWeight: FontWeight.w700),
-                ),
-              ),
-            ],
-          ),
-        ),
+        ],
       ],
-    ],
-  );
+    );
+  }
 }
 
 class _AnomalyRow {
