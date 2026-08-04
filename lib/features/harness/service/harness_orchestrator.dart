@@ -8,6 +8,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -43,7 +44,7 @@ const BoundedDeletePolicy _kHarnessPromptDeletePolicy = BoundedDeletePolicy(
 );
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Phase-level status & log
+// 阶段状态与日志
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum HarnessPhaseStatus {
@@ -137,12 +138,10 @@ class HarnessPhaseLog {
   int? exitCode;
   String? savedLogPath;
 
-  /// For reviewing phases: true if the review verdict was FAIL.
-  /// Used by the UI to show a distinct status for completed-but-failed reviews.
+  /// 验收阶段是否判定失败。
   bool reviewVerdictFail = false;
 
-  /// Files changed during this phase execution.
-  /// Each entry: relative path → (before content hash, after content hash).
+  /// 本阶段产生的文件变更。
   List<HarnessChangedFile> changedFiles = [];
 
   HarnessPhaseLogSnapshot toSnapshot() {
@@ -255,7 +254,7 @@ class HarnessPhaseLogSnapshot {
   }
 }
 
-/// Represents a file changed during a phase execution.
+/// 阶段执行产生的文件变更。
 class HarnessChangedFile {
   const HarnessChangedFile({
     required this.relativePath,
@@ -328,15 +327,13 @@ enum HarnessFileChangeType { added, modified, deleted }
 const Object _harnessPhaseLogSnapshotUnset = Object();
 
 // ─────────────────────────────────────────────────────────────────────────────
-// Overall orchestrator status
+// 编排器整体状态
 // ─────────────────────────────────────────────────────────────────────────────
 
 enum HarnessOrchestratorStatus { idle, running, completed, failed, cancelled }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// HarnessOrchestrator
-// Program-driven state machine that executes Harness Engineering phases
-// directly via CLI processes — no AI orchestration layer involved.
+// Harness 工程阶段编排器
 // ─────────────────────────────────────────────────────────────────────────────
 
 class HarnessOrchestrator extends ChangeNotifier {
@@ -345,21 +342,19 @@ class HarnessOrchestrator extends ChangeNotifier {
   HarnessSessionConfig _config;
   HarnessSessionConfig get config => _config;
 
-  /// Optional API phase runner for URL mode execution. Must be set before
-  /// starting a session that contains URL-mode role configs.
+  /// URL 模式使用的 API 阶段执行器。
   HarnessApiPhaseRunner? apiPhaseRunner;
 
-  /// Callback to resolve an AiModelConfig by its ID from settings.
-  /// Must be set before starting a session that contains URL-mode role configs.
+  /// 按配置 ID 解析 AI 模型。
   AiModelConfig? Function(String configId)? resolveAiModelConfig;
 
-  /// Callback to build the runtime context for API-based phase execution.
-  /// Provides memory entries, MCP servers, skills, etc.
+  /// 构建 API 阶段执行所需的运行上下文。
   Future<AiSessionRuntimeContext> Function(String workingDirectory)?
   buildApiRuntimeContext;
 
   HarnessOrchestratorStatus _status = HarnessOrchestratorStatus.idle;
   HarnessOrchestratorStatus get status => _status;
+  final OpenHandSingleFlight<void> _startFlight = OpenHandSingleFlight<void>();
 
   List<HarnessPhaseLog> _phaseLogs = <HarnessPhaseLog>[];
   List<HarnessPhaseLog> get phaseLogs => _phaseLogs;
@@ -377,19 +372,18 @@ class HarnessOrchestrator extends ChangeNotifier {
   Process? _activeProcess;
   Completer<void>? _apiCancelCompleter;
 
-  /// Tracks how many review→re-plan→re-implement cycles have been executed
-  /// to prevent infinite loops.
+  /// 验收失败后的重试轮数，用于阻止无限循环。
   int _reviewRetryCount = 0;
   int get reviewRetryCount => _reviewRetryCount;
   static const int _maxReviewRetries = 3;
 
-  /// When true, phases auto-advance without user approval (YOLO mode).
+  /// 是否无需逐阶段审批。
   bool _fullAccessPermission = false;
   bool get fullAccessPermission => _fullAccessPermission;
   set fullAccessPermission(bool value) {
     if (_fullAccessPermission == value) return;
     _fullAccessPermission = value;
-    // If full-access was just enabled while waiting for approval, auto-approve.
+    // 等待审批时启用完全访问权限，立即通过当前审批。
     if (value &&
         _phaseApprovalCompleter != null &&
         !_phaseApprovalCompleter!.isCompleted) {
@@ -399,29 +393,24 @@ class HarnessOrchestrator extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Callback invoked between phases when [fullAccessPermission] is false.
-  /// Serves as a notification so the UI can rebuild and show the approval
-  /// banner. The actual approval/rejection flows through [resolvePhaseApproval].
+  /// 等待阶段审批时通知界面刷新；审批结果由 [resolvePhaseApproval] 提交。
   void Function(HarnessPhase nextPhase)? onPhaseApprovalRequired;
 
-  /// Completer used to resume the pipeline after waiting for user approval.
+  /// 当前阶段审批结果。
   Completer<bool>? _phaseApprovalCompleter;
 
-  /// The phase that is awaiting user approval, or null.
+  /// 当前等待审批的阶段。
   HarnessPhase? _awaitingApprovalPhase;
   HarnessPhase? get awaitingApprovalPhase => _awaitingApprovalPhase;
 
-  /// When true, the paused phase is waiting for user-authored input from the
-  /// composer before continuing.
+  /// 暂停阶段是否正在等待用户补充内容。
   bool _manualPhaseInputRequested = false;
   bool get manualPhaseInputRequested => _manualPhaseInputRequested;
   HarnessPhase? get awaitingManualPhaseInputPhase =>
       _manualPhaseInputRequested ? _awaitingApprovalPhase : null;
   bool get awaitingManualPhaseInput => awaitingManualPhaseInputPhase != null;
 
-  /// User-authored content queued for the next execution of a specific phase.
-  /// This survives app restarts so an interrupted approval can continue with
-  /// the same human context.
+  /// 指定阶段下次执行时使用的用户补充内容，可跨应用重启恢复。
   HarnessPhase? _queuedManualPhaseInputPhase;
   HarnessPhase? get queuedManualPhaseInputPhase => _queuedManualPhaseInputPhase;
   String? _queuedManualPhaseInput;
@@ -433,8 +422,7 @@ class HarnessOrchestrator extends ChangeNotifier {
   bool isManualPhaseInputActiveFor(HarnessPhase phase) =>
       awaitingManualPhaseInputPhase == phase;
 
-  /// Explicit review verdict set by the user through the pass/fail buttons.
-  /// true = PASS, false = FAIL, null = not set (AI-only review).
+  /// 用户验收结论；空值表示仅采用 AI 验收结果。
   bool? _userReviewVerdict;
 
   bool _resumePendingApproval = false;
@@ -480,7 +468,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     _queuedManualPhaseInput = normalized;
     _manualPhaseInputRequested = false;
 
-    // Store explicit user review verdict when provided.
+    // 记录用户明确提交的验收结论。
     if (awaitingPhase == HarnessPhase.reviewing && reviewVerdict != null) {
       _userReviewVerdict = reviewVerdict;
     }
@@ -494,7 +482,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         awaitingLog,
         '【${_manualPhaseInputLogHeading(awaitingPhase)}】',
       );
-      // Prepend explicit verdict marker for reviewing phase.
+      // 将明确结论置于验收补充内容之前。
       if (awaitingPhase == HarnessPhase.reviewing && reviewVerdict != null) {
         _appendLine(awaitingLog, reviewVerdict ? 'PASS' : 'FAIL');
         _appendLine(awaitingLog, '');
@@ -503,7 +491,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         _appendLine(awaitingLog, line);
       }
       _appendLine(awaitingLog, '');
-      // Show verdict-specific accepted-log for reviewing phase.
+      // 记录验收结论已被接收。
       if (awaitingPhase == HarnessPhase.reviewing && reviewVerdict != null) {
         _appendLine(
           awaitingLog,
@@ -520,7 +508,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     return true;
   }
 
-  /// Called by the UI to approve/reject advancing to the pending phase.
+  /// 提交当前待执行阶段的审批结果。
   void resolvePhaseApproval(bool approved) {
     _manualPhaseInputRequested = false;
     _completePhaseApproval(approved);
@@ -553,7 +541,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Updates the config (e.g. role CLI/model changes for pending phases).
+  /// 更新后续阶段使用的配置。
   void updateConfig(HarnessSessionConfig newConfig) {
     _config = newConfig;
     notifyListeners();
@@ -565,7 +553,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       return HarnessPhaseExecutionBlocker.missingConfig;
     }
     if (roleConfig.isUrlMode) {
-      // URL mode: check API infrastructure and model config availability.
+      // URL 模式需具备 API 执行器和模型配置。
       if (apiPhaseRunner == null || buildApiRuntimeContext == null) {
         return HarnessPhaseExecutionBlocker.missingApiRunner;
       }
@@ -579,7 +567,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       }
       return null;
     }
-    // CLI mode: check headless support.
+    // CLI 模式必须支持无界面执行。
     final cliEntry = _cliEntryForRoleConfig(roleConfig);
     if (!cliEntry.supportsHeadless) {
       return HarnessPhaseExecutionBlocker.unsupportedCli;
@@ -587,7 +575,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     return null;
   }
 
-  // ── Public API ──────────────────────────────────────────────────────────────
+  // ── 公共接口 ──────────────────────────────────────────────────────────────
 
   Future<void> startOrResume() async {
     if (_status == HarnessOrchestratorStatus.running) {
@@ -605,11 +593,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       await _resumeFromIndex(failedIndex);
       return;
     }
-    // Handle the case where the overall status is "failed" due to an
-    // unhandled exception (e.g. the old fixed-length list bug) but no
-    // individual phase is actually "failed".  Recompute the true status
-    // and try to resume from the last non-completed phase instead of
-    // restarting the entire pipeline.
+    // 顶层异常可能只标记整体失败；此时从首个未完成阶段恢复。
     if (_status == HarnessOrchestratorStatus.failed &&
         _phaseLogs.isNotEmpty &&
         failedIndex == null) {
@@ -621,7 +605,6 @@ class HarnessOrchestrator extends ChangeNotifier {
         await _resumeFromIndex(resumable);
         return;
       }
-      // All phases completed — nothing more to do.
       if (_status == HarnessOrchestratorStatus.completed) {
         return;
       }
@@ -636,10 +619,15 @@ class HarnessOrchestrator extends ChangeNotifier {
     await start();
   }
 
-  /// Starts the full Harness Engineering phase pipeline.
-  /// Safe to call only when [status] is [HarnessOrchestratorStatus.idle].
-  Future<void> start() async {
-    if (_status == HarnessOrchestratorStatus.running) return;
+  /// 启动完整的 Harness 工程阶段流水线。
+  Future<void> start() {
+    if (_isDisposed) return Future<void>.value();
+    return _startFlight.run(_startPipeline);
+  }
+
+  Future<void> _startPipeline() async {
+    if (_isDisposed || _status == HarnessOrchestratorStatus.running) return;
+    _status = HarnessOrchestratorStatus.running;
     _stopRequested = false;
     _reviewRetryCount = 0;
     _errorMessage = null;
@@ -651,25 +639,44 @@ class HarnessOrchestrator extends ChangeNotifier {
     _queuedManualPhaseInputPhase = null;
     _queuedManualPhaseInput = null;
     _userReviewVerdict = null;
+    notifyListeners();
 
-    final firstRun = await config.isFirstRun();
-    final phases = firstRun
-        ? [
-            HarnessPhase.metaCollection,
-            HarnessPhase.reading,
-            HarnessPhase.planning,
-            HarnessPhase.implementing,
-            HarnessPhase.reviewing,
-          ]
-        : [
-            HarnessPhase.reading,
-            HarnessPhase.planning,
-            HarnessPhase.implementing,
-            HarnessPhase.reviewing,
-          ];
+    try {
+      final firstRun = await config.isFirstRun();
+      if (_isDisposed) return;
+      if (_stopRequested) {
+        _status = HarnessOrchestratorStatus.cancelled;
+        notifyListeners();
+        return;
+      }
+      final phases = firstRun
+          ? [
+              HarnessPhase.metaCollection,
+              HarnessPhase.reading,
+              HarnessPhase.planning,
+              HarnessPhase.implementing,
+              HarnessPhase.reviewing,
+            ]
+          : [
+              HarnessPhase.reading,
+              HarnessPhase.planning,
+              HarnessPhase.implementing,
+              HarnessPhase.reviewing,
+            ];
 
-    _phaseLogs = List<HarnessPhaseLog>.from(phases.map(HarnessPhaseLog.new));
-    await _executePipeline(startIndex: 0, skipApprovalForStartIndex: !firstRun);
+      _phaseLogs = List<HarnessPhaseLog>.from(phases.map(HarnessPhaseLog.new));
+      await _executePipeline(
+        startIndex: 0,
+        skipApprovalForStartIndex: !firstRun,
+      );
+    } catch (error, stack) {
+      if (_isDisposed) return;
+      _status = HarnessOrchestratorStatus.failed;
+      _currentPhase = null;
+      _errorMessage = _friendlyOrchestratorError(error);
+      silentLog('harness_orchestrator', '启动 Harness 流水线', error, stack);
+      notifyListeners();
+    }
   }
 
   Future<void> _resumeFromIndex(int startIndex) async {
@@ -715,7 +722,7 @@ class HarnessOrchestrator extends ChangeNotifier {
           continue;
         }
 
-        // ── Phase-gate: request user approval unless full-access ────────
+        // 非完全访问模式下，进入阶段前需用户审批。
         final shouldSkipApprovalForThisPhase =
             skipApprovalForStartIndex && i == startIndex;
         if (!_fullAccessPermission &&
@@ -723,24 +730,11 @@ class HarnessOrchestrator extends ChangeNotifier {
             _shouldGatePhaseEntry(i, log.phase)) {
           _currentPhase = log.phase;
           log.status = HarnessPhaseStatus.paused;
-          _awaitingApprovalPhase = log.phase;
-          _phaseApprovalCompleter = Completer<bool>();
-          notifyListeners();
-
-          // Notify external listener (fire-and-forget) so the UI can rebuild
-          // and show the approval banner.
-          onPhaseApprovalRequired?.call(log.phase);
-
-          // Block until resolvePhaseApproval() is called from the UI.
-          final approved = await _phaseApprovalCompleter!.future;
-          _phaseApprovalCompleter = null;
-          _awaitingApprovalPhase = null;
-          notifyListeners();
+          final approved = await _awaitPhaseApproval(log.phase);
 
           if (!approved || _isDisposed) {
             log.status = HarnessPhaseStatus.cancelled;
             notifyListeners();
-            // Mark all remaining phases as cancelled too.
             _markRemainingPhasesCancelledFrom(i + 1);
             _status = HarnessOrchestratorStatus.cancelled;
             _currentPhase = null;
@@ -757,20 +751,9 @@ class HarnessOrchestrator extends ChangeNotifier {
 
         await _runPhase(log);
 
-        // ── Review verdict handling ────────────────────────────────────
-        // Check for review verdict BEFORE the generic failed/cancelled
-        // break so that a reviewing phase whose CLI/API execution happened
-        // to fail can still enter the feedback loop when the user already
-        // submitted a FAIL verdict.  "Review not passed" is a *result*,
-        // not an execution failure — the orchestrator should continue to
-        // the plan→implement→review retry cycle.
+        // 验收不通过属于业务结论，应优先进入反馈迭代而非按执行异常终止。
         if (log.phase == HarnessPhase.reviewing &&
             _reviewIndicatesFailure(log)) {
-          // The reviewing phase detected a FAIL verdict (either from the
-          // user button or from the CLI output).  Override a potential
-          // execution failure status to "completed" because the phase did
-          // produce the expected semantics (a verdict), and mark it as
-          // review-verdict-fail.
           if (log.status == HarnessPhaseStatus.failed) {
             _appendLine(log, '');
             _appendLine(log, 'ℹ 验收判定为 FAIL，执行异常已降级处理，进入反馈迭代流程。');
@@ -783,8 +766,6 @@ class HarnessOrchestrator extends ChangeNotifier {
             _insertReviewRetryPhasesAfter(i);
             notifyListeners();
           }
-          // Do NOT break — continue to the next iteration which processes
-          // the freshly-inserted planning phase.
           if (log.status == HarnessPhaseStatus.completed &&
               _queuedManualPhaseInputPhase == log.phase) {
             _queuedManualPhaseInputPhase = null;
@@ -807,7 +788,7 @@ class HarnessOrchestrator extends ChangeNotifier {
 
       if (_isDisposed) return;
 
-      // Mark any remaining untouched phases according to the final outcome.
+      // 根据最终结果收敛尚未执行的阶段。
       for (final log in _phaseLogs) {
         if (log.status == HarnessPhaseStatus.pending ||
             log.status == HarnessPhaseStatus.paused) {
@@ -839,15 +820,14 @@ class HarnessOrchestrator extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Requests cancellation of the currently running phase.
-  /// Sends SIGTERM followed by SIGKILL after a short grace period.
+  /// 取消当前阶段及其活动进程。
   void cancel() {
     if (_status != HarnessOrchestratorStatus.running) return;
     _stopRequested = true;
     _manualPhaseInputRequested = false;
     _completePendingApproval(approved: false);
     _cancelActiveApiPhase();
-    // Immediately mark any running phase as cancelled for instant UI feedback.
+    // 立即更新状态，避免界面等待进程清理完成。
     for (final log in _phaseLogs) {
       if (log.status == HarnessPhaseStatus.running) {
         log.status = HarnessPhaseStatus.cancelled;
@@ -857,8 +837,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     notifyListeners();
   }
 
-  /// Gracefully kills the active CLI process: SIGTERM first, then SIGKILL
-  /// after 3 seconds if still alive.
+  /// 先请求正常退出，超时后强制终止活动 CLI 进程。
   void _killActiveProcess() {
     final process = _activeProcess;
     if (process == null) return;
@@ -881,6 +860,25 @@ class HarnessOrchestrator extends ChangeNotifier {
     }
     _phaseApprovalCompleter = null;
     _awaitingApprovalPhase = null;
+  }
+
+  Future<bool> _awaitPhaseApproval(HarnessPhase phase) async {
+    final approval = Completer<bool>();
+    _awaitingApprovalPhase = phase;
+    _phaseApprovalCompleter = approval;
+    notifyListeners();
+    try {
+      if (!approval.isCompleted && !_isDisposed) {
+        onPhaseApprovalRequired?.call(phase);
+      }
+      return await approval.future;
+    } finally {
+      if (identical(_phaseApprovalCompleter, approval)) {
+        _phaseApprovalCompleter = null;
+        if (_awaitingApprovalPhase == phase) _awaitingApprovalPhase = null;
+        notifyListeners();
+      }
+    }
   }
 
   void _cancelActiveApiPhase() {
@@ -995,10 +993,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     _errorMessage = null;
   }
 
-  /// Re-executes a single phase at the given index.
-  /// Resets the phase log, runs it, and does NOT auto-advance.
-  /// If [fullAccessPermission] is false, the phase will first pause for
-  /// approval before executing.
+  /// 重置并重新执行指定阶段；非完全访问模式下仍需审批。
   Future<void> reExecutePhase(int phaseIndex) async {
     if (phaseIndex < 0 || phaseIndex >= _phaseLogs.length) return;
     if (_status == HarnessOrchestratorStatus.running) return;
@@ -1015,20 +1010,10 @@ class HarnessOrchestrator extends ChangeNotifier {
     notifyListeners();
 
     try {
-      // ── Phase-gate: request user approval if not full-access ──────
       if (!_fullAccessPermission) {
         _currentPhase = freshLog.phase;
         freshLog.status = HarnessPhaseStatus.paused;
-        _awaitingApprovalPhase = freshLog.phase;
-        _phaseApprovalCompleter = Completer<bool>();
-        notifyListeners();
-
-        onPhaseApprovalRequired?.call(freshLog.phase);
-
-        final approved = await _phaseApprovalCompleter!.future;
-        _phaseApprovalCompleter = null;
-        _awaitingApprovalPhase = null;
-        notifyListeners();
+        final approved = await _awaitPhaseApproval(freshLog.phase);
 
         if (!approved || _isDisposed) {
           freshLog.status = HarnessPhaseStatus.cancelled;
@@ -1055,10 +1040,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         _queuedManualPhaseInput = null;
       }
 
-      // Handle review verdict fail for single-phase re-execution.
-      // When a FAIL verdict is detected, insert retry phases (plan→impl→
-      // review) after the current position and continue as a pipeline
-      // instead of ending the single-phase re-execution here.
+      // 单阶段验收失败时继续插入规划、实现和验收阶段。
       if (freshLog.phase == HarnessPhase.reviewing &&
           _reviewIndicatesFailure(freshLog)) {
         if (freshLog.status == HarnessPhaseStatus.failed) {
@@ -1072,7 +1054,6 @@ class HarnessOrchestrator extends ChangeNotifier {
         if (_reviewRetryCount <= _maxReviewRetries) {
           _insertReviewRetryPhasesAfter(phaseIndex);
           notifyListeners();
-          // Continue as a pipeline from the newly inserted planning phase.
           await _executePipeline(
             startIndex: phaseIndex + 1,
             skipApprovalForStartIndex: false,
@@ -1086,20 +1067,18 @@ class HarnessOrchestrator extends ChangeNotifier {
       _errorMessage = _friendlyOrchestratorError(e);
     }
 
-    // Determine overall status from all phase logs.
     _status = _computeOverallStatus();
     _currentPhase = null;
     notifyListeners();
   }
 
-  /// Deletes the phase log at the given index and refreshes state.
+  /// 删除指定阶段日志并重新计算整体状态。
   void deletePhaseLog(int phaseIndex) {
     if (phaseIndex < 0 || phaseIndex >= _phaseLogs.length) return;
     if (_status == HarnessOrchestratorStatus.running) return;
 
     _phaseLogs = List<HarnessPhaseLog>.from(_phaseLogs)..removeAt(phaseIndex);
 
-    // Recompute overall status.
     _status = _computeOverallStatus();
     _reviewRetryCount = _inferReviewRetryCount();
     notifyListeners();
@@ -1107,10 +1086,7 @@ class HarnessOrchestrator extends ChangeNotifier {
 
   /// 验收连续判 FAIL 且重试次数已耗尽。
   ///
-  /// 达到上限后不再插入重试阶段，而 reviewing 日志早已被降级成 completed
-  /// （为了让反馈迭代流程能继续走），于是收尾判断看不到任何 failed 阶段，
-  /// 整体状态会落到 completed——用户看到「全部完成」，实际是连续
-  /// [_maxReviewRetries] + 1 轮验收都没通过。
+  /// 达到上限后不再插入重试阶段，避免已降级的验收日志误导整体状态。
   bool get _reviewRetriesExhausted {
     return _reviewRetryCount > _maxReviewRetries &&
         _phaseLogs.any(
@@ -1184,10 +1160,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     }
   }
 
-  /// 把 orchestrator 顶层 catch 拿到的未识别异常翻译成 header 错误栏
-  /// 上的简短中英双语标题 + Raw，使 ProcessException / TimeoutException
-  /// / FormatException / FileSystem 错误能立刻定位类别，详细栈仍然写
-  /// 进 phase log。
+  /// 将未识别异常转换为简短的双语错误标题，详细信息仍写入阶段日志。
   String _friendlyOrchestratorError(Object error) {
     final raw = error.toString();
     if (error is ProcessException) {
@@ -1325,7 +1298,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     super.dispose();
   }
 
-  // ── Phase execution ─────────────────────────────────────────────────────────
+  // ── 阶段执行 ──────────────────────────────────────────────────────────────
 
   Future<void> _runPhase(HarnessPhaseLog log) async {
     _currentPhase = log.phase;
@@ -1371,7 +1344,6 @@ class HarnessOrchestrator extends ChangeNotifier {
       return;
     }
 
-    // Dispatch to the appropriate execution path.
     if (roleConfig.isUrlMode) {
       await _runPhaseViaApi(log, roleConfig);
     } else {
@@ -1379,7 +1351,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     }
   }
 
-  // ── URL/API-based phase execution ─────────────────────────────────────────
+  // ── URL/API 阶段执行 ──────────────────────────────────────────────────────
 
   Future<void> _runPhaseViaApi(
     HarnessPhaseLog log,
@@ -1405,8 +1377,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       return;
     }
 
-    // Override the model ID if the role config specifies a specific model
-    // within the provider.
+    // 阶段配置可覆盖服务商的默认模型 ID。
     final overrideModelId = roleConfig.urlModeModelId?.trim();
     final modelConfig = (overrideModelId != null && overrideModelId.isNotEmpty)
         ? resolvedConfig.copyWith(modelId: overrideModelId)
@@ -1422,14 +1393,12 @@ class HarnessOrchestrator extends ChangeNotifier {
 
     File? promptFile;
     try {
-      // 1. Build the phase prompt (same as CLI path).
       final prompt = await _buildPhasePrompt(log.phase);
       if (_isDisposed) return;
 
       promptFile = await _writePromptFile(log.phase, prompt);
       if (_isDisposed) return;
 
-      // 2. Build runtime context (memory, MCP, skills, etc.).
       final runtimeContext = await contextBuilder(config.workingDirectory);
       if (_isDisposed) return;
 
@@ -1443,7 +1412,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       _appendLine(log, '');
       notifyListeners();
 
-      // 2b. Snapshot working directory before execution.
+      // 执行前记录工作目录快照。
       HarnessDirectorySnapshot preSnapshot;
       if (_stopRequested) {
         preSnapshot = HarnessDirectorySnapshot.incomplete();
@@ -1462,7 +1431,6 @@ class HarnessOrchestrator extends ChangeNotifier {
         return;
       }
 
-      // 3. Run the phase via API with tool loop.
       final cancelCompleter = Completer<void>();
       _apiCancelCompleter = cancelCompleter;
 
@@ -1484,7 +1452,6 @@ class HarnessOrchestrator extends ChangeNotifier {
 
       if (_isDisposed) return;
 
-      // 3b. Skip post-snapshot if cancelled.
       if (_stopRequested) {
         log.exitCode = result.success ? 0 : 1;
         if (log.status != HarnessPhaseStatus.cancelled) {
@@ -1504,11 +1471,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         log.exitCode = 0;
         log.status = HarnessPhaseStatus.completed;
 
-        // ── Post-completion artifact verification ──────────────────────
-        // Phases with mandatory output files (metaCollection, planning,
-        // reviewing) must actually produce them. A "success" from the
-        // API runner only means the model replied — it doesn't guarantee
-        // the expected files were written.
+        // API 返回成功后仍需验证阶段必需产物。
         final missingArtifacts = await _checkMandatoryArtifacts(log.phase);
         if (missingArtifacts.isNotEmpty) {
           _appendLine(log, '');
@@ -1539,7 +1502,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       }
     } catch (e) {
       if (_isDisposed) return;
-      // Sanitize error to avoid leaking auth tokens from model config.
+      // 避免模型令牌进入错误信息。
       var safeError = '$e';
       final token = modelConfig.token;
       if (token.length >= 8) {
@@ -1555,13 +1518,12 @@ class HarnessOrchestrator extends ChangeNotifier {
     }
   }
 
-  // ── CLI-based phase execution ─────────────────────────────────────────────
+  // ── CLI 阶段执行 ─────────────────────────────────────────────────────────
 
   Future<void> _runPhaseViaCli(
     HarnessPhaseLog log,
     HarnessRoleConfig roleConfig,
   ) async {
-    // Resolve CLI entry from catalog; fall back to a minimal entry if unknown.
     final cliEntry = _cliEntryForRoleConfig(roleConfig);
 
     final configuredModelId = roleConfig.modelId.trim();
@@ -1583,15 +1545,13 @@ class HarnessOrchestrator extends ChangeNotifier {
 
     File? promptFile;
     try {
-      // 1. Build the prompt from persistence context + mission template.
       final prompt = await _buildPhasePrompt(log.phase);
       if (_isDisposed) return;
 
       promptFile = await _writePromptFile(log.phase, prompt);
       if (_isDisposed) return;
 
-      // 1b. Pre-execution auth re-validation for CLIs that support it.
-      //     Auth tokens may expire between session setup and phase execution.
+      // 支持认证探测的 CLI 在执行前重新确认登录状态。
       if (cliEntry.hasLoginCheck) {
         final CliScanEntry scanEntry = (
           cli: cliEntry,
@@ -1614,7 +1574,6 @@ class HarnessOrchestrator extends ChangeNotifier {
         }
       }
 
-      // 2. Construct the shell command string.
       final cliCmd = _buildCliCommandStr(
         cliEntry.executable,
         invocationModelId,
@@ -1638,7 +1597,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       _appendLine(log, '');
       notifyListeners();
 
-      // 2b. Snapshot working directory files before execution.
+      // 执行前记录工作目录快照。
       final preSnapshot = _stopRequested
           ? HarnessDirectorySnapshot.incomplete()
           : await _snapshotWorkingDirectory();
@@ -1650,7 +1609,6 @@ class HarnessOrchestrator extends ChangeNotifier {
         return;
       }
 
-      // 3. Run the CLI and stream output.
       final exitCode = await _spawnAndCollect(
         cliCmd,
         workingDirectory: _config.workingDirectory,
@@ -1662,7 +1620,6 @@ class HarnessOrchestrator extends ChangeNotifier {
 
       if (_isDisposed) return;
 
-      // 3b. Skip post-snapshot if cancelled for immediate feedback.
       if (_stopRequested) {
         log.exitCode = exitCode;
         if (log.status != HarnessPhaseStatus.cancelled) {
@@ -1689,8 +1646,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         _appendGeminiHeadlessRuntimeHints(log);
         await _appendCliFailureDiagnostics(log, cliEntry.executable);
       } else if (_looksLikeCliAuthInterrupt(log.lines)) {
-        // Exit code 0 but the CLI emitted an interactive auth prompt and
-        // exited without performing any work (stdin was closed → EOF).
+        // 退出码为 0，但交互式认证提示表明任务并未执行。
         _appendLine(log, '');
         _appendLine(log, '✗ CLI 在未完成认证的情况下退出（退出码 0），本阶段未产生有效产出。');
         _appendLine(
@@ -1699,8 +1655,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         );
         log.status = HarnessPhaseStatus.failed;
       } else if (_looksLikeHollowCliSession(log.lines)) {
-        // Exit code 0 but the CLI produced no substantive output, indicating
-        // it silently skipped execution (e.g. expired token, config error).
+        // 退出码为 0，但缺少有效输出，视为静默跳过。
         _appendLine(log, '');
         _appendLine(log, '✗ CLI 以退出码 0 结束，但未产生有效输出，本阶段执行可能未真正生效。');
         _appendLine(log, '  → 可能原因：认证已过期、配置异常或 CLI 静默跳过了任务。请检查 CLI 状态后重试。');
@@ -1709,7 +1664,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       } else {
         log.status = HarnessPhaseStatus.completed;
 
-        // ── Post-completion artifact verification (CLI path) ──────────
+        // CLI 返回成功后仍需验证阶段必需产物。
         final missingArtifacts = await _checkMandatoryArtifacts(log.phase);
         if (missingArtifacts.isNotEmpty) {
           _appendLine(log, '');
@@ -1752,26 +1707,19 @@ class HarnessOrchestrator extends ChangeNotifier {
     }
   }
 
-  // ── Review failure detection ─────────────────────────────────────────────
+  // ── 验收失败识别 ─────────────────────────────────────────────────────────
 
-  /// Returns true if the reviewing phase indicates a FAIL verdict,
-  /// considering both explicit user verdict and CLI output analysis.
+  /// 综合用户结论和 CLI 输出判断验收是否失败。
   bool _reviewIndicatesFailure(HarnessPhaseLog log) {
-    // Priority 1: explicit user verdict from pass/fail buttons.
     final userVerdict = _userReviewVerdict;
     if (userVerdict != null) {
-      _userReviewVerdict = null; // consume once
+      _userReviewVerdict = null;
       return !userVerdict;
     }
-    // Priority 2: scan CLI output for verdict keywords.
     return _reviewOutputIndicatesFailure(log);
   }
 
-  /// Scans the reviewer's output for a "FAIL" verdict.
-  /// The reviewer mission template instructs the agent to begin with PASS or
-  /// FAIL on the first non-empty line. We scan meaningful lines (skipping
-  /// blanks, command echoes, UI decoration, and manual input headers) for a
-  /// FAIL indicator.
+  /// 跳过界面标记和人工输入，在有效输出前部识别 PASS/FAIL。
   bool _reviewOutputIndicatesFailure(HarnessPhaseLog log) {
     var meaningfulLineCount = 0;
     var insideManualInput = false;
@@ -1780,34 +1728,27 @@ class HarnessOrchestrator extends ChangeNotifier {
       if (trimmed.isEmpty) {
         continue;
       }
-      // Skip UI decoration lines.
       if (trimmed.startsWith('▶ ') ||
           trimmed.startsWith('✓ ') ||
           trimmed.startsWith('✗ ') ||
           trimmed.startsWith('⚠ ') ||
           trimmed.startsWith('> ')) {
-        // A command-echo line ("> ...") marks the end of any manual input
-        // section and the start of CLI output. Reset the skip flag.
         if (trimmed.startsWith('> ')) {
           insideManualInput = false;
         }
         continue;
       }
-      // Skip manual input header and its content (they are user text,
-      // not the reviewer CLI's verdict).
       if (trimmed.startsWith('【') && trimmed.endsWith('】')) {
         insideManualInput = true;
         continue;
       }
       if (trimmed.startsWith('ℹ ')) {
-        // Acknowledgment lines like "ℹ 已接收用户人工验收结果..."
         insideManualInput = false;
         continue;
       }
       if (insideManualInput) {
         continue;
       }
-      // Check for FAIL verdict (case-insensitive, may be prefixed by ** markdown).
       final normalized = trimmed
           .replaceAll('*', '')
           .replaceAll('#', '')
@@ -1819,7 +1760,6 @@ class HarnessOrchestrator extends ChangeNotifier {
       if (normalized.startsWith('PASS')) {
         return false;
       }
-      // Only inspect the first several meaningful lines of CLI output.
       meaningfulLineCount++;
       if (meaningfulLineCount >= 20) {
         return false;
@@ -1828,7 +1768,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     return false;
   }
 
-  // ── Role ↔ config mapping ────────────────────────────────────────────────
+  // ── 阶段配置映射 ─────────────────────────────────────────────────────────
 
   HarnessRoleConfig _roleConfigForPhase(HarnessPhase phase) => switch (phase) {
     HarnessPhase.metaCollection => config.profilerConfig,
@@ -1849,7 +1789,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         );
   }
 
-  // ── Prompt construction ──────────────────────────────────────────────────
+  // ── 提示词构建 ───────────────────────────────────────────────────────────
 
   static final HarnessFileIoLimits _promptContextIoLimits = HarnessFileIoLimits(
     maxScannedFiles: 1024,
@@ -1879,8 +1819,7 @@ class HarnessOrchestrator extends ChangeNotifier {
         ? await readContextFile(p.join(steeringDir, 'meta', 'conventions.md'))
         : '';
 
-    // Load the latest plan and feedback before the potentially larger lesson
-    // collection so essential current-phase context retains budget priority.
+    // 优先加载计划和反馈，确保关键上下文先占用容量预算。
     String planContent = '';
     if (contextConfig.includePlan) {
       try {
@@ -1903,7 +1842,6 @@ class HarnessOrchestrator extends ChangeNotifier {
       }
     }
 
-    // Latest handoff document.
     String handoffContent = '';
     if (contextConfig.includeHandoff) {
       try {
@@ -1915,7 +1853,6 @@ class HarnessOrchestrator extends ChangeNotifier {
       }
     }
 
-    // Load lessons based on config mode.
     String lessonsContent = '';
     if (contextConfig.lessonsMode != HarnessLessonInclusionMode.none) {
       try {
@@ -1926,7 +1863,6 @@ class HarnessOrchestrator extends ChangeNotifier {
           maxFiles: _maxLessonContextFiles,
         );
         if (fullContent.isNotEmpty) {
-          // Use summary mode for lessons when configured
           lessonsContent =
               contextConfig.lessonsMode == HarnessLessonInclusionMode.summary
               ? harnessPromptBuilder.renderLessonsSummary(fullContent)
@@ -1940,8 +1876,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     var manualPhaseInputContent = _queuedManualPhaseInputPhase == phase
         ? _queuedManualPhaseInput?.trim() ?? ''
         : '';
-    // If the user provided an explicit review verdict, prepend it to the
-    // manual input so the reviewer CLI receives an unambiguous signal.
+    // 将用户结论置于补充内容之前，避免验收含义不明确。
     if (phase == HarnessPhase.reviewing &&
         manualPhaseInputContent.isNotEmpty &&
         _userReviewVerdict != null) {
@@ -2025,9 +1960,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     return sb.toString();
   }
 
-  /// Returns a phase-specific directory permission constraint. Reading and
-  /// planning phases are restricted to read-only access on the working
-  /// directory to prevent the AI from implementing changes prematurely.
+  /// 返回当前阶段的目录权限约束。
   String _phaseDirectoryPermissionConstraint(HarnessPhase phase) {
     return switch (phase) {
       HarnessPhase.reading || HarnessPhase.planning =>
@@ -2115,20 +2048,16 @@ class HarnessOrchestrator extends ChangeNotifier {
     };
   }
 
-  // ── CLI command construction ─────────────────────────────────────────────
+  // ── CLI 命令构建 ─────────────────────────────────────────────────────────
 
-  /// Returns a shell command string suitable for the Harness POSIX shell
-  /// wrapper, which uses the same interactive login environment as CLI scan.
-  /// Returns [null] for CLI executables with no known non-interactive mode.
+  /// 构建 POSIX Shell 命令；不支持无交互模式时返回空值。
   String? _buildCliCommandStr(
     String executable,
     String modelId,
     String promptFilePath,
   ) {
     final quotedPath = _shellSingleQuote(promptFilePath);
-    // Double-quoted command substitution prevents word-splitting when the
-    // shell expands the file contents as a CLI argument.
-    // \$ escapes Dart interpolation; the resulting shell string is "$(cat '...')".
+    // 双引号阻止 Shell 展开提示词内容时发生分词。
     final promptSubst = '"\$(cat $quotedPath)"';
     final modelFlag = modelId.isNotEmpty
         ? ' --model ${_shellSingleQuote(modelId)}'
@@ -2136,35 +2065,26 @@ class HarnessOrchestrator extends ChangeNotifier {
     final modelFlagShort = modelId.isNotEmpty
         ? ' -m ${_shellSingleQuote(modelId)}'
         : '';
-    // Quoted working directory — used by CLIs that accept an explicit -C flag.
     final quotedWd = _shellSingleQuote(config.workingDirectory);
     final geminiIncludeDirectoriesFlags = _buildGeminiIncludeDirectoriesFlags();
 
     return switch (executable) {
       'claude' => 'claude$modelFlag -p $promptSubst',
-      // codex exec flags:
-      //   -m / --model  : exec-level model flag
-      //   --skip-git-repo-check : required when the workdir is not a git repo
-      //   --full-auto   : non-interactive mode (-a on-request + sandbox workspace-write)
-      //   -C <dir>      : tell codex the project root (distinct from shell cd)
-      //   --            : end of flags, next token is positional PROMPT
+      // Codex 使用完全自动模式，并显式传入项目目录和提示词。
       'codex' =>
         'codex exec$modelFlag --skip-git-repo-check --full-auto -C $quotedWd -- $promptSubst',
       'aider' =>
         'aider$modelFlag --message $promptSubst --yes --no-auto-commits',
-      // Harness approval already happens at the phase boundary. In Gemini
-      // headless mode, mutating tools are unavailable unless approval is
-      // auto-granted for the session, and paths outside the cwd must be added
-      // as extra workspace roots.
+      // Harness 已在阶段边界完成审批，Gemini 会话可直接授权并补充外部目录。
       'gemini' =>
         'gemini$modelFlagShort --approval-mode yolo$geminiIncludeDirectoriesFlags -p $promptSubst',
       'goose' => 'goose run$modelFlag --text $promptSubst',
       'q' => 'q chat --no-interactive $promptSubst',
       'amp' => 'amp$modelFlag $promptSubst',
       'plandex' => 'plandex tell -f $quotedPath',
-      // GUI IDEs — do not support headless non-interactive CLI invocation.
+      // 图形化 IDE 不支持无界面调用。
       'cursor' || 'windsurf' || 'kiro' => null,
-      // Generic fallback — try -p flag; may not work for all CLIs.
+      // 未知 CLI 尝试通用的 -p 参数。
       _ => '$executable$modelFlag -p $promptSubst',
     };
   }
@@ -2320,34 +2240,31 @@ class HarnessOrchestrator extends ChangeNotifier {
             joinedOutput.contains('include-directories'));
   }
 
-  // ── Auth-interrupt & hollow-session detection ───────────────────────────
+  // ── 认证中断与空执行识别 ─────────────────────────────────────────────────
 
-  /// Detects whether the CLI emitted an interactive authentication prompt
-  /// and exited without performing any work.  This happens when the CLI's
-  /// auth token has expired (or was never granted) and stdin was closed
-  /// (EOF), causing it to exit cleanly (code 0) without doing anything.
+  /// 识别 CLI 因认证失效进入交互提示后未执行任务便正常退出的情况。
   bool _looksLikeCliAuthInterrupt(List<String> lines) {
     final joined = lines.join('\n').toLowerCase();
-    // Gemini CLI auth prompts
+    // Gemini CLI 认证提示。
     if (joined.contains('opening authentication page') ||
         joined.contains('authenticate with google') ||
         joined.contains('please authenticate') ||
         joined.contains('authorization required')) {
       return true;
     }
-    // Claude Code auth prompts
+    // Claude Code 认证提示。
     if (joined.contains('please sign in') ||
         joined.contains('you need to authenticate') ||
         joined.contains('login required')) {
       return true;
     }
-    // Codex / OpenAI auth prompts
+    // Codex/OpenAI 认证提示。
     if (joined.contains('not logged in') ||
         joined.contains('authentication is required') ||
         (joined.contains('log in') && joined.contains('continue'))) {
       return true;
     }
-    // Generic patterns across CLIs
+    // 各类 CLI 的通用认证提示。
     if (joined.contains('do you want to continue? [y/n]') &&
         joined.contains('authentication')) {
       return true;
@@ -2355,18 +2272,12 @@ class HarnessOrchestrator extends ChangeNotifier {
     return false;
   }
 
-  /// Detects a "hollow" CLI session: the process exited with code 0 but
-  /// produced no substantive output, strongly suggesting it silently skipped
-  /// execution (expired credentials, silent config error, etc.).
-  ///
-  /// Ignores: blank lines, our own `▶ > ✓ ✗ ⚠ ℹ` decoration, and the
-  /// leading command-echo line.
+  /// 识别退出码为 0 但没有有效输出的空执行。
   bool _looksLikeHollowCliSession(List<String> lines) {
     var substantiveLineCount = 0;
     for (final line in lines) {
       final trimmed = line.trim();
       if (trimmed.isEmpty) continue;
-      // Skip our own UI decoration lines.
       if (trimmed.startsWith('▶ ') ||
           trimmed.startsWith('> ') ||
           trimmed.startsWith('✓ ') ||
@@ -2377,9 +2288,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       }
       substantiveLineCount++;
     }
-    // A healthy phase always produces meaningful output from the AI agent.
-    // Fewer than 3 substantive lines (after stripping decorations and
-    // command echoes) is highly suspicious.
+    // 正常阶段应至少产生三行有效输出。
     return substantiveLineCount < 3;
   }
 
@@ -2563,13 +2472,13 @@ class HarnessOrchestrator extends ChangeNotifier {
     }
   }
 
-  /// POSIX single-quote a string, safely escaping embedded single quotes.
+  /// 使用 POSIX 单引号安全转义参数。
   static String _shellSingleQuote(String s) =>
       "'${s.replaceAll("'", "'\\''")}'";
 
-  // ── File change tracking ────────────────────────────────────────────────
+  // ── 文件变更跟踪 ─────────────────────────────────────────────────────────
 
-  /// Ignored directory names for snapshot (common build artifacts / VCS).
+  /// 工作目录快照忽略的构建产物和版本控制目录。
   static const Set<String> _snapshotIgnoredDirs = {
     '.git',
     '.svn',
@@ -2585,7 +2494,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     '.DS_Store',
   };
 
-  /// Max file size to capture content for diff (1 MB).
+  /// 单个差异文件最多保留 1 MiB。
   static const int _maxDiffFileSize = 1024 * 1024;
 
   static final HarnessFileIoLimits _snapshotIoLimits = HarnessFileIoLimits(
@@ -2598,7 +2507,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     operationTimeout: const Duration(seconds: 2),
   );
 
-  /// Takes a bounded snapshot of working-directory metadata and diff content.
+  /// 在容量和时限内获取工作目录快照。
   Future<HarnessDirectorySnapshot> _snapshotWorkingDirectory() {
     return HarnessBoundedFileIo(_snapshotIoLimits).snapshotDirectory(
       Directory(_config.workingDirectory),
@@ -2633,7 +2542,7 @@ class HarnessOrchestrator extends ChangeNotifier {
   ) {
     final changes = <HarnessChangedFile>[];
 
-    // Added or modified files
+    // 新增或修改的文件。
     for (final entry in after.entries) {
       final rel = entry.key;
       final post = entry.value;
@@ -2665,7 +2574,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       }
     }
 
-    // Deleted files
+    // 删除的文件。
     for (final rel in before.keys) {
       if (!after.containsKey(rel)) {
         changes.add(

@@ -581,9 +581,12 @@ class MachineTerminalService extends ChangeNotifier {
       final active = workspace.activeTerminal;
       if (active != null && !active.isRunningOrStarting) {
         unawaited(
-          active.start().whenComplete(
-            () => _scheduleMetadataPersist(workspace.sessionId),
-          ),
+          active
+              .start()
+              .whenComplete(() => _scheduleMetadataPersist(workspace.sessionId))
+              .catchError((Object error, StackTrace stack) {
+                silentLog('machine_terminal', '自动启动终端', error, stack);
+              }),
         );
       }
     }
