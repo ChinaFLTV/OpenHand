@@ -542,19 +542,22 @@ class ServicesController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> saveRules(List<AiExposureScanRule> rules) async {
+  Future<bool> saveRules(List<AiExposureScanRule> rules) async {
     try {
       await _requireClient().saveRules(rules);
       _rules = await _requireClient().rules();
       _errorMessage = null;
+      return true;
     } catch (error, stack) {
       _errorMessage = '$error';
       silentLog('services_controller', '保存扫描规则', error, stack);
+      return false;
+    } finally {
+      _notify();
     }
-    _notify();
   }
 
-  Future<void> updateSourceCredentials({
+  Future<bool> updateSourceCredentials({
     String? githubToken,
     String? giteeToken,
     String? gitcodeToken,
@@ -574,11 +577,14 @@ class ServicesController extends ChangeNotifier {
       );
       _sourceStatus = await client.sourceStatus();
       _errorMessage = null;
+      return true;
     } catch (error, stack) {
       _errorMessage = '$error';
       silentLog('services_controller', '更新扫描数据源凭证', error, stack);
+      return false;
+    } finally {
+      _notify();
     }
-    _notify();
   }
 
   Future<bool> updateProxyConfiguration(

@@ -1219,36 +1219,41 @@ class _ToolsDialogState extends State<_ToolsDialog> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     setState(() => _saving = true);
     final controller = context.read<ServicesController>();
-    final preferencesUpdated = await controller.updateScanPreferences(
-      enabledSources: _enabledSources,
-      concurrency: controller.defaultConcurrency,
-      validationMode: controller.defaultValidationMode,
-      forumFetchMode: controller.forumFetchMode,
-      gptAssisted: controller.defaultGptAssisted,
-    );
-    if (!preferencesUpdated) {
-      if (mounted) {
-        setState(() => _saving = false);
+    try {
+      final preferencesUpdated = await controller.updateScanPreferences(
+        enabledSources: _enabledSources,
+        concurrency: controller.defaultConcurrency,
+        validationMode: controller.defaultValidationMode,
+        forumFetchMode: controller.forumFetchMode,
+        gptAssisted: controller.defaultGptAssisted,
+      );
+      if (!mounted) return;
+      if (!preferencesUpdated) {
         showOpenHandErrorSnack(
           context,
           controller.errorMessage ?? '保存扫描工具设置失败。',
         );
+        return;
       }
-      return;
-    }
-    await controller.updateSourceCredentials(
-      githubToken: _githubToken.text,
-      giteeToken: _giteeToken.text,
-      gitcodeToken: _gitcodeToken.text,
-      fofaEmail: _fofaEmail.text,
-      fofaKey: _fofaKey.text,
-      shodanKey: _shodanKey.text,
-    );
-    if (!mounted) return;
-    setState(() => _saving = false);
-    if (controller.errorMessage == null) {
+      final credentialsUpdated = await controller.updateSourceCredentials(
+        githubToken: _githubToken.text,
+        giteeToken: _giteeToken.text,
+        gitcodeToken: _gitcodeToken.text,
+        fofaEmail: _fofaEmail.text,
+        fofaKey: _fofaKey.text,
+        shodanKey: _shodanKey.text,
+      );
+      if (!mounted) return;
+      if (!credentialsUpdated) {
+        showOpenHandErrorSnack(
+          context,
+          controller.errorMessage ?? '更新扫描数据源凭证失败。',
+        );
+        return;
+      }
       showOpenHandSuccessSnack(
         context,
         openHandLocalizedText(
@@ -1257,6 +1262,8 @@ class _ToolsDialogState extends State<_ToolsDialog> {
           en: 'Scanner tool settings updated.',
         ),
       );
+    } finally {
+      if (mounted) setState(() => _saving = false);
     }
   }
 }
@@ -1343,14 +1350,20 @@ class _RulesDialogState extends State<_RulesDialog> {
   }
 
   Future<void> _save() async {
+    if (_saving) return;
     setState(() => _saving = true);
     final controller = context.read<ServicesController>();
-    await controller.saveRules(_rules);
-    if (!mounted) return;
-    setState(() {
-      _saving = false;
-      _rules = List.of(controller.rules);
-    });
+    try {
+      final saved = await controller.saveRules(_rules);
+      if (!mounted) return;
+      if (!saved) {
+        showOpenHandErrorSnack(context, controller.errorMessage ?? '保存扫描规则失败。');
+        return;
+      }
+      setState(() => _rules = List.of(controller.rules));
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
   }
 }
 

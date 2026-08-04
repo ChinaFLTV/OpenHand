@@ -7,6 +7,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
@@ -67,9 +68,11 @@ class _OperationsDialogState extends State<_OperationsDialog> {
   void initState() {
     super.initState();
     WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
-    _timer = startSafePeriodicTimer(
+    _timer = startNonOverlappingPeriodicTimer(
       _kOperationsRefreshInterval,
       (_) => _refresh(),
+      onError: (error, stack) =>
+          silentLog('service_operations', '执行定时状态刷新', error, stack),
     );
   }
 
@@ -84,36 +87,42 @@ class _OperationsDialogState extends State<_OperationsDialog> {
     final controller = context.read<ServicesController>();
     if (!controller.isRunning) return;
     setState(() => _refreshing = true);
-    await controller.refreshServiceStatus();
-    final path = controller.health?.databasePath.trim() ?? '';
     var accessible = false;
     int? bytes;
     DateTime? modifiedAt;
-    if (path.isNotEmpty) {
-      try {
-        final stat = await File(
-          path,
-        ).stat().timeout(_kOperationsMetadataTimeout);
-        accessible = stat.type == FileSystemEntityType.file;
-        if (accessible) {
-          bytes = stat.size;
-          modifiedAt = stat.modified;
+    try {
+      await controller.refreshServiceStatus();
+      final path = controller.health?.databasePath.trim() ?? '';
+      if (path.isNotEmpty) {
+        try {
+          final stat = await File(
+            path,
+          ).stat().timeout(_kOperationsMetadataTimeout);
+          accessible = stat.type == FileSystemEntityType.file;
+          if (accessible) {
+            bytes = stat.size;
+            modifiedAt = stat.modified;
+          }
+        } on FileSystemException {
+          accessible = false;
+        } on TimeoutException {
+          accessible = false;
+        } on UnsupportedError {
+          accessible = false;
         }
-      } on FileSystemException {
-        accessible = false;
-      } on TimeoutException {
-        accessible = false;
-      } on UnsupportedError {
-        accessible = false;
+      }
+    } catch (error, stack) {
+      silentLog('service_operations', '刷新服务运维状态', error, stack);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _databaseAccessible = accessible;
+          _databaseBytes = bytes;
+          _databaseModifiedAt = modifiedAt;
+          _refreshing = false;
+        });
       }
     }
-    if (!mounted) return;
-    setState(() {
-      _databaseAccessible = accessible;
-      _databaseBytes = bytes;
-      _databaseModifiedAt = modifiedAt;
-      _refreshing = false;
-    });
   }
 
   @override
@@ -9581,10 +9590,15 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
   }
 
   Future<void> _refresh() async {
-    if (_refreshing) return;
+    if (!mounted || _refreshing) return;
     setState(() => _refreshing = true);
-    await context.read<ServicesController>().refreshServiceLogs();
-    if (mounted) setState(() => _refreshing = false);
+    try {
+      await context.read<ServicesController>().refreshServiceLogs();
+    } catch (error, stack) {
+      silentLog('service_log_monitor', '刷新服务日志', error, stack);
+    } finally {
+      if (mounted) setState(() => _refreshing = false);
+    }
   }
 
   void _scrollToLatest() {
