@@ -1825,33 +1825,40 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     final playwright = pluginController.pluginById(PluginCatalogIds.playwright);
     if (playwright == null) return;
     setState(() => _dependencyOperationId = PluginCatalogIds.playwright);
-    var success = true;
-    final node = pluginController.pluginById(PluginCatalogIds.nodejs);
-    if (node?.isInstalled != true) {
-      success = await pluginController.installPlugin(PluginCatalogIds.nodejs);
-    }
-    if (success) {
-      if (playwright.isInstalled) {
-        if (playwright.hasUpdate) {
-          success = await pluginController.updatePlugin(
+    try {
+      var success = true;
+      final node = pluginController.pluginById(PluginCatalogIds.nodejs);
+      if (node?.isInstalled != true) {
+        success = await pluginController.installPlugin(PluginCatalogIds.nodejs);
+      }
+      if (success) {
+        if (playwright.isInstalled) {
+          if (playwright.hasUpdate) {
+            success = await pluginController.updatePlugin(
+              PluginCatalogIds.playwright,
+            );
+          }
+        } else {
+          success = await pluginController.installPlugin(
             PluginCatalogIds.playwright,
           );
         }
-      } else {
-        success = await pluginController.installPlugin(
-          PluginCatalogIds.playwright,
-        );
       }
+      if (!mounted) return;
+      flashOpenHandSnack(
+        context,
+        success
+            ? 'Playwright 浏览器通道已就绪'
+            : pluginController.errorMessage ?? 'Playwright 浏览器通道准备失败',
+        kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
+      );
+    } catch (error) {
+      if (mounted) {
+        showOpenHandErrorSnack(context, '准备 Playwright 浏览器通道失败：$error');
+      }
+    } finally {
+      if (mounted) setState(() => _dependencyOperationId = null);
     }
-    if (!mounted) return;
-    flashOpenHandSnack(
-      context,
-      success
-          ? 'Playwright 浏览器通道已就绪'
-          : pluginController.errorMessage ?? 'Playwright 浏览器通道准备失败',
-      kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
-    );
-    setState(() => _dependencyOperationId = null);
   }
 
   Future<void> _runDependencyAction(
@@ -1874,63 +1881,72 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       if (!confirmed || !mounted) return;
     }
     setState(() => _dependencyOperationId = pluginId);
-    var success = switch (action) {
-      _ManagedDependencyAction.install => await pluginController.installPlugin(
-        pluginId,
-      ),
-      _ManagedDependencyAction.start =>
-        await pluginController.toggleManagedRuntime(pluginId, enabled: true),
-      _ManagedDependencyAction.stop =>
-        await pluginController.toggleManagedRuntime(pluginId, enabled: false),
-      _ManagedDependencyAction.update => await pluginController.updatePlugin(
-        pluginId,
-      ),
-      _ManagedDependencyAction.uninstall =>
-        await pluginController.uninstallPlugin(pluginId),
-    };
-    if (!mounted) return;
-    String? preferenceError;
-    if (success &&
-        (action == _ManagedDependencyAction.stop ||
-            action == _ManagedDependencyAction.uninstall)) {
-      setState(() {
-        if (pluginId == PluginCatalogIds.postgresql) {
-          _postgresqlEnabled = false;
-        } else {
-          _redisEnabled = false;
-        }
-      });
-      final servicesController = context.read<ServicesController>();
-      final updated = await servicesController
-          .updateManagedDependencyPreferences(
-            postgresqlEnabled: _postgresqlEnabled,
-            redisEnabled: _redisEnabled,
-          );
-      if (!updated) {
-        success = false;
-        preferenceError = servicesController.errorMessage;
-        if (mounted) {
-          setState(() {
-            if (pluginId == PluginCatalogIds.postgresql) {
-              _postgresqlEnabled = true;
-            } else {
-              _redisEnabled = true;
-            }
-          });
+    try {
+      var success = switch (action) {
+        _ManagedDependencyAction.install =>
+          await pluginController.installPlugin(pluginId),
+        _ManagedDependencyAction.start =>
+          await pluginController.toggleManagedRuntime(pluginId, enabled: true),
+        _ManagedDependencyAction.stop =>
+          await pluginController.toggleManagedRuntime(pluginId, enabled: false),
+        _ManagedDependencyAction.update => await pluginController.updatePlugin(
+          pluginId,
+        ),
+        _ManagedDependencyAction.uninstall =>
+          await pluginController.uninstallPlugin(pluginId),
+      };
+      if (!mounted) return;
+      String? preferenceError;
+      if (success &&
+          (action == _ManagedDependencyAction.stop ||
+              action == _ManagedDependencyAction.uninstall)) {
+        setState(() {
+          if (pluginId == PluginCatalogIds.postgresql) {
+            _postgresqlEnabled = false;
+          } else {
+            _redisEnabled = false;
+          }
+        });
+        final servicesController = context.read<ServicesController>();
+        final updated = await servicesController
+            .updateManagedDependencyPreferences(
+              postgresqlEnabled: _postgresqlEnabled,
+              redisEnabled: _redisEnabled,
+            );
+        if (!updated) {
+          success = false;
+          preferenceError = servicesController.errorMessage;
+          if (mounted) {
+            setState(() {
+              if (pluginId == PluginCatalogIds.postgresql) {
+                _postgresqlEnabled = true;
+              } else {
+                _redisEnabled = true;
+              }
+            });
+          }
         }
       }
+      if (!mounted) return;
+      flashOpenHandSnack(
+        context,
+        success
+            ? '${action.label} ${plugin.name}成功'
+            : preferenceError ??
+                  pluginController.errorMessage ??
+                  '${action.label} ${plugin.name}失败',
+        kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
+      );
+    } catch (error) {
+      if (mounted) {
+        showOpenHandErrorSnack(
+          context,
+          '${action.label} ${plugin.name}失败：$error',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _dependencyOperationId = null);
     }
-    if (!mounted) return;
-    flashOpenHandSnack(
-      context,
-      success
-          ? '${action.label} ${plugin.name}成功'
-          : preferenceError ??
-                pluginController.errorMessage ??
-                '${action.label} ${plugin.name}失败',
-      kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
-    );
-    setState(() => _dependencyOperationId = null);
   }
 }
 

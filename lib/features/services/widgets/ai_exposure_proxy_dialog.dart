@@ -1327,19 +1327,22 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       await _servicesController.saveProxyProbeSamples({endpoint.url: sample});
     },
     onIdentity: (identity) async {
+      final controller = context.read<ServicesController>();
+      final saved = await controller.updateProxyIdentity(
+        endpoint.url,
+        identity,
+      );
+      if (!saved || !mounted) return saved;
       final current = _endpoints
           .where((item) => item.url == endpoint.url)
           .firstOrNull;
-      if (current != null && mounted) {
+      if (current != null) {
         _replaceEndpointLocally(
           endpoint.url,
           current.copyWith(identity: identity),
         );
       }
-      await context.read<ServicesController>().updateProxyIdentity(
-        endpoint.url,
-        identity,
-      );
+      return true;
     },
   );
 
@@ -2410,7 +2413,7 @@ Future<void> _showProxyEndpointDetails(
   required AiExposureProxyEndpoint endpoint,
   required AiExposureProxyUsageStatistics statistics,
   required Future<void> Function(AiExposureProxyProbeSample sample) onProbe,
-  required Future<void> Function(AiExposureProxyIdentity identity) onIdentity,
+  required Future<bool> Function(AiExposureProxyIdentity identity) onIdentity,
 }) => showAnimatedDialog<void>(
   context: context,
   builder: (_) => buildOpenHandDialog(
@@ -2435,7 +2438,7 @@ class _ProxyEndpointDetailsDialog extends StatefulWidget {
 
   final AiExposureProxyEndpoint endpoint;
   final Future<void> Function(AiExposureProxyProbeSample sample) onProbe;
-  final Future<void> Function(AiExposureProxyIdentity identity) onIdentity;
+  final Future<bool> Function(AiExposureProxyIdentity identity) onIdentity;
 
   @override
   State<_ProxyEndpointDetailsDialog> createState() =>
@@ -2489,8 +2492,13 @@ class _ProxyEndpointDetailsDialogState
     try {
       final identity = await _probe.inspectIdentity(_endpoint);
       if (!mounted) return;
-      setState(() => _endpoint = _endpoint.copyWith(identity: identity));
-      await widget.onIdentity(identity);
+      if (!await widget.onIdentity(identity)) {
+        if (mounted) setState(() => _identityError = '保存代理身份失败，请重试。');
+        return;
+      }
+      if (mounted) {
+        setState(() => _endpoint = _endpoint.copyWith(identity: identity));
+      }
     } on FormatException catch (error) {
       if (mounted) setState(() => _identityError = error.message);
     } catch (_) {

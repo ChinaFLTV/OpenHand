@@ -953,21 +953,55 @@ class ServicesController extends ChangeNotifier {
     return changed || runtimeChanged;
   }
 
-  Future<void> updateProxyIdentity(
+  Future<bool> updateProxyIdentity(
     String url,
     AiExposureProxyIdentity identity,
   ) async {
     final index = _proxyConfiguration.endpoints.indexWhere(
       (endpoint) => endpoint.url == url,
     );
-    if (index < 0) return;
+    if (index < 0) {
+      _errorMessage = '代理节点不存在。';
+      _notify();
+      return false;
+    }
+    final previousIdentity = _proxyConfiguration.endpoints[index].identity;
     final endpoints = List<AiExposureProxyEndpoint>.of(
       _proxyConfiguration.endpoints,
     );
     endpoints[index] = endpoints[index].copyWith(identity: identity);
     _proxyConfiguration = _proxyConfiguration.copyWith(endpoints: endpoints);
-    await _persistPreferences();
+    if (!await _persistPreferences()) {
+      final currentEndpoints = List<AiExposureProxyEndpoint>.of(
+        _proxyConfiguration.endpoints,
+      );
+      final currentIndex = currentEndpoints.indexWhere(
+        (endpoint) => endpoint.url == url,
+      );
+      if (currentIndex >= 0) {
+        final current = currentEndpoints[currentIndex];
+        if (!identical(current.identity, identity)) {
+          _notify();
+          return false;
+        }
+        currentEndpoints[currentIndex] = AiExposureProxyEndpoint(
+          url: current.url,
+          name: current.name,
+          enabled: current.enabled,
+          samples: current.samples,
+          statistics: current.statistics,
+          identity: previousIdentity,
+        );
+        _proxyConfiguration = _proxyConfiguration.copyWith(
+          endpoints: currentEndpoints,
+        );
+      }
+      _notify();
+      return false;
+    }
+    _errorMessage = null;
     _notify();
+    return true;
   }
 
   Future<void> refreshServiceLogs() async {
@@ -1047,17 +1081,37 @@ class ServicesController extends ChangeNotifier {
   }) async {
     final previousPostgresqlEnabled = _postgresqlEnabled;
     final previousRedisEnabled = _redisEnabled;
+    final changed =
+        previousPostgresqlEnabled != postgresqlEnabled ||
+        previousRedisEnabled != redisEnabled;
     _postgresqlEnabled = postgresqlEnabled;
     _redisEnabled = redisEnabled;
-    if (!await _persistPreferences()) {
+
+    if (!await _syncManagedDependencies()) {
+      if (!changed) return false;
+      final failure = _errorMessage ?? '更新扫描运行依赖失败。';
       _postgresqlEnabled = previousPostgresqlEnabled;
       _redisEnabled = previousRedisEnabled;
+      final restored = await _syncManagedDependencies();
+      _errorMessage = restored ? failure : '$failure；运行依赖恢复失败，请重启扫描服务。';
       _notify();
       return false;
     }
-    final updated = await _syncManagedDependencies();
+
+    if (!changed) return true;
+    if (await _persistPreferences()) {
+      _errorMessage = null;
+      _notify();
+      return true;
+    }
+
+    final failure = _errorMessage ?? '保存扫描运行依赖失败。';
+    _postgresqlEnabled = previousPostgresqlEnabled;
+    _redisEnabled = previousRedisEnabled;
+    final restored = await _syncManagedDependencies();
+    _errorMessage = restored ? failure : '$failure；运行依赖恢复失败，请重启扫描服务。';
     _notify();
-    return updated;
+    return false;
   }
 
   Future<bool> _syncManagedDependencies() async {
