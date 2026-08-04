@@ -7,6 +7,7 @@ import '../../../shared/util/serial_task_queue.dart';
 
 const int kMcpStdioMaxPendingRequests = 256;
 const int kMcpStdioMaxPendingWrites = 256;
+const Duration _mcpStdioWriteTimeout = Duration(seconds: 2);
 final RegExp _mcpShellWhitespacePattern = RegExp(r'\s');
 
 List<String> tokenizeMcpShellCommand(String input, {bool? isWindows}) {
@@ -142,7 +143,7 @@ Future<void> writeMcpJsonLineToStdin(
 ) async {
   stdin.add(utf8.encode(jsonEncode(payload)));
   stdin.add(const [0x0A]);
-  await stdin.flush();
+  await stdin.flush().timeout(_mcpStdioWriteTimeout);
 }
 
 Future<void> closeMcpStdioSinkQuietly({
