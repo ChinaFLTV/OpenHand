@@ -82,6 +82,8 @@ export 'service/session_io/ai_session_jsonl_exporter.dart';
 export 'service/session_io/ai_token_usage_parser.dart';
 export 'service/usage/ai_usage_tracker.dart';
 export 'service/web_engine/web_engine_base.dart';
+export 'service/web_engine/web_engine_cache_store_base.dart'
+    show WebEngineCacheStoreBase;
 export 'service/web_engine/web_engine_telemetry_store_base.dart';
 export 'service/web_fetch/web_fetch_cache_store.dart';
 export 'service/web_fetch/web_fetch_scrapling_bridge.dart';

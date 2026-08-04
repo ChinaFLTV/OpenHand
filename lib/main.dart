@@ -249,7 +249,7 @@ Future<void> _bootstrap() async {
   final ai = await aiModuleFuture;
   final aiSessionController = ai.controller;
   developer.Timeline.finishSync();
-  // WebSearch/WebFetch 可用前尽量完成系统代理检测，失败则继续直连。
+  // 后台完成系统代理检测，失败时网络客户端继续直连。
   _runMainBackgroundTask(systemProxyFuture, '初始化系统代理');
 
   // 自学习调度器只暴露 Memory / SkillManager 工具，并把流式过程写入自学习卡片。
@@ -452,7 +452,21 @@ Future<void> _bootstrap() async {
     ..register('知识库控制器', knowledgeBase.controller.shutdown)
     ..register('自学习聊天客户端', selfLearningChatClient.dispose)
     ..register('AI LSP 会话', AiLspClientService.instance.disposeAll)
-    ..register('媒体缓存', MediaCacheService.instance.shutdown)
+    ..register(
+      'WebSearch 缓存',
+      WebSearchCacheStore.instance.shutdown,
+      timeout: WebEngineCacheStoreBase.runtimeCleanupTimeout,
+    )
+    ..register(
+      'WebFetch 缓存',
+      WebFetchCacheStore.instance.shutdown,
+      timeout: WebEngineCacheStoreBase.runtimeCleanupTimeout,
+    )
+    ..register(
+      '媒体缓存',
+      MediaCacheService.instance.shutdown,
+      timeout: MediaCacheService.runtimeCleanupTimeout,
+    )
     ..register('机器终端服务', () async {
       await machineTerminalService.shutdown();
       machineTerminalService.dispose();

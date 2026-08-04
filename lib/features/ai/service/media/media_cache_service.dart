@@ -54,6 +54,8 @@ class MediaCacheService {
 
   static final MediaCacheService instance = MediaCacheService._();
 
+  static const Duration runtimeCleanupTimeout = Duration(seconds: 20);
+
   static const Duration _requestOpenTimeout = Duration(seconds: 20);
   static const Duration _responseHeaderTimeout = Duration(seconds: 30);
   static const Duration _responseChunkTimeout = Duration(seconds: 30);
@@ -815,11 +817,22 @@ class MediaCacheService {
     _generation++;
     _validatedCachePaths.clear();
     _pendingInvalidations.clear();
+    final deadline = MonotonicDeadline(
+      runtimeCleanupTimeout,
+      timeoutMessage: '媒体缓存关闭超过总时限。',
+    );
     try {
-      await _cancelActiveOperations();
-      final acquired = await _commitSemaphore.acquireWithin(_cleanupTimeout);
-      if (acquired) _commitSemaphore.release();
+      await _cancelActiveOperations(
+        timeout: deadline.limit(_cacheScanTimeout),
+        waitForCacheClear: true,
+      );
+      final acquired = await _commitSemaphore.acquireWithin(
+        deadline.remaining(),
+      );
+      if (!acquired) throw deadline.timeoutException();
+      _commitSemaphore.release();
     } finally {
+      deadline.stop();
       _clearing = false;
     }
   }
@@ -858,7 +871,10 @@ class MediaCacheService {
     }
   }
 
-  Future<void> _cancelActiveOperations() async {
+  Future<void> _cancelActiveOperations({
+    Duration timeout = _cleanupTimeout,
+    bool waitForCacheClear = false,
+  }) async {
     _downloadSemaphore.cancelWaiters();
     _commitSemaphore.cancelWaiters();
     for (final client in _activeClients.toList(growable: false)) {
@@ -873,11 +889,20 @@ class MediaCacheService {
         operation.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
       for (final operation in _activeImports)
         operation.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+      if (_invalidationWorker case final worker?)
+        worker.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+      if (_prewarmFuture case final prewarm?)
+        prewarm.then<void>((_) {}, onError: (Object _, StackTrace _) {}),
+      if (waitForCacheClear && _clearFlight.isRunning)
+        _clearFlight.idle.then<void>(
+          (_) {},
+          onError: (Object _, StackTrace _) {},
+        ),
     ];
     if (pending.isNotEmpty) {
       await Future.wait<void>(
         pending,
-      ).timeout(_cleanupTimeout, onTimeout: () => <void>[]);
+      ).timeout(timeout, onTimeout: () => <void>[]);
     }
     _inflight.clear();
   }

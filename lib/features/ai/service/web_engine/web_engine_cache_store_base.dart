@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/serial_task_queue.dart';
 import 'web_engine_json_utils.dart';
@@ -67,6 +68,8 @@ class WebEngineCacheRawLookup {
 ///   * 取出 `cacheEnabled / cacheTtlSeconds / cacheMaxBytes` 的 `TSettings` 适配
 ///   * `logTag`（用于 silentLog 上下文）
 abstract class WebEngineCacheStoreBase<TSettings> {
+  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
+
   /// 子目录名（`web_search` / `web_fetch`）。
   String get subdir;
 
@@ -90,6 +93,8 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     maxPendingTasks: _maxPendingOperations,
   );
   static const int _maxPendingOperations = 64;
+  final OpenHandAsyncOnce _shutdownOnce = OpenHandAsyncOnce();
+  bool _shuttingDown = false;
 
   /// 默认缓存目录路径。
   String defaultDirectoryPath() =>
@@ -97,6 +102,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
 
   /// 计算当前缓存目录的总字节数（含 index）。
   Future<int> totalBytesOnDisk() async {
+    if (_shuttingDown) return 0;
     final dir = Directory(defaultDirectoryPath());
     final deadline = WebEngineIoDeadline();
     try {
@@ -124,6 +130,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
 
   /// 用于全局「应用数据 → 数据清理」直接调用：清空整个目录。
   Future<void> clearAll() {
+    if (_shuttingDown) return Future<void>.value();
     return _runSerialized('清理全部缓存', () async {
       final dir = Directory(defaultDirectoryPath());
       final complete = await clearWebEngineDirectoryBounded(dir);
@@ -139,6 +146,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
   /// * 删除磁盘上 .txt 文件已丢失的孤儿条目。
   /// * 删除 index 未登记的孤儿 .txt 文件。
   Future<WebEngineCachePrewarmReport> prewarm() async {
+    if (_shuttingDown) return WebEngineCachePrewarmReport.empty;
     try {
       return await _operations.enqueue(() async {
         var removedExpired = 0;
@@ -263,7 +271,9 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     required String key,
     required TSettings settings,
   }) async {
-    if (!isCacheEnabled(settings) || !isValidWebEngineCacheKey(key)) {
+    if (_shuttingDown ||
+        !isCacheEnabled(settings) ||
+        !isValidWebEngineCacheKey(key)) {
       return null;
     }
     final deadline = WebEngineIoDeadline();
@@ -293,7 +303,9 @@ abstract class WebEngineCacheStoreBase<TSettings> {
         payloadFile,
         deadline: deadline,
       );
-      unawaited(_runSerialized('更新缓存访问时间', () => _touchAccess(key)));
+      if (!_shuttingDown) {
+        unawaited(_runSerialized('更新缓存访问时间', () => _touchAccess(key)));
+      }
       return WebEngineCacheRawLookup(
         payload: payload,
         metadata: jsonSafeMap(Map.from(entry)),
@@ -324,7 +336,11 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     required String payload,
     required Map<String, Object?> extraEntryFields,
   }) async {
-    if (!isCacheEnabled(settings) || !isValidWebEngineCacheKey(key)) return;
+    if (_shuttingDown ||
+        !isCacheEnabled(settings) ||
+        !isValidWebEngineCacheKey(key)) {
+      return;
+    }
     if (nullIfBlank(payload) == null) return;
     await _runSerialized(
       '存储缓存',
@@ -341,6 +357,7 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     String action,
     Future<void> Function() operation,
   ) async {
+    if (_shuttingDown) return;
     try {
       await _operations.enqueue(operation);
     } catch (error, stack) {
@@ -544,6 +561,14 @@ abstract class WebEngineCacheStoreBase<TSettings> {
     } catch (error, stack) {
       silentLog(logTag, '执行容量限制并写入索引', error, stack);
     }
+  }
+
+  /// 停止接收新任务，并等待已入队写操作结束。
+  Future<void> shutdown() {
+    _shuttingDown = true;
+    return _shutdownOnce.run(
+      () => _operations.idle.timeout(runtimeCleanupTimeout),
+    );
   }
 }
 

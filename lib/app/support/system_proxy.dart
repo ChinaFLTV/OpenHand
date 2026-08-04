@@ -8,28 +8,16 @@ import 'package:http/http.dart' as http;
 import 'package:http/io_client.dart';
 
 import '../../shared/net/tcp_port_utils.dart';
+import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../model/app_proxy_settings.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
 
-/// Resolves the host's HTTP/HTTPS proxy configuration so internal HTTP
-/// clients (WebSearch / WebFetch and friends) can transparently follow
-/// the user's system proxy — required for users whose only path to
-/// `duckduckgo.com`, `github.com`, …, etc. goes through a local Clash /
-/// V2Ray-style proxy.
+/// 解析系统 HTTP/HTTPS 代理，供内部网络客户端透明复用。
 ///
-/// Detection order (later wins; sources are merged so env overrides for
-/// specific schemes don't lose the others):
-///   1. Process environment (`HTTPS_PROXY` / `HTTP_PROXY` / `ALL_PROXY` /
-///      `NO_PROXY` and lowercase variants). Useful when launched from a
-///      shell that already has the variables set.
-///   2. macOS only: `scutil --proxy` output (the system-wide proxy
-///      pane), so GUI launches that don't inherit shell env still pick
-///      up the user's actual proxy.
-///
-/// Initialization is best-effort: any failure falls back to "no proxy"
-/// without surfacing errors to the user.
+/// 优先读取进程环境变量，再用 macOS `scutil --proxy` 补全缺失协议。
+/// 探测失败时回退直连，不向用户暴露非关键错误。
 class SystemProxyResolver {
   SystemProxyResolver._();
 
@@ -44,6 +32,8 @@ class SystemProxyResolver {
   String? _httpsProxy;
   String? _socksProxy;
   final List<String> _noProxyHosts = <String>[];
+  final OpenHandSingleFlight<void> _initializeFlight =
+      OpenHandSingleFlight<void>();
 
   AppProxySettings get effectiveSettings => _settings;
 
@@ -61,9 +51,7 @@ class SystemProxyResolver {
   final ValueNotifier<int> _revision = ValueNotifier<int>(0);
   ValueListenable<int> get revision => _revision;
 
-  /// True once [initialize] has run at least once. Until then, callers
-  /// fall back to env-only detection synchronously (good enough for
-  /// shell launches; the macOS scutil refresh kicks in shortly after).
+  /// 是否已至少完成一次自动代理探测。
   bool _initialized = false;
   bool get isInitialized => _initialized;
 
@@ -115,9 +103,10 @@ class SystemProxyResolver {
     return raw == null ? null : _parseHostPortEndpoint(raw);
   }
 
-  /// Best-effort discovery. Safe to call multiple times — each call
-  /// re-reads env + scutil so callers can refresh on demand.
-  Future<void> initialize() async {
+  /// 探测自动代理；并发调用共享同一轮任务，完成后可再次刷新。
+  Future<void> initialize() => _initializeFlight.run(_initialize);
+
+  Future<void> _initialize() async {
     _resolveFromEnvironment();
     if (Platform.isMacOS) {
       await _resolveFromMacScutil();
@@ -185,10 +174,7 @@ class SystemProxyResolver {
     try {
       final stdout = result.stdout?.toString() ?? '';
       final parsed = _parseScutilProxyDictionary(stdout);
-      // Env wins only when scutil reports nothing for that scheme so a
-      // user who explicitly set `https_proxy` in their shell still gets
-      // their override — but a GUI launch where env is empty falls
-      // through to scutil cleanly.
+      // 环境变量优先，`scutil` 只补全缺失协议。
       _httpProxy ??= parsed.http;
       _httpsProxy ??= parsed.https;
       _socksProxy ??= parsed.socks;
@@ -203,8 +189,7 @@ class SystemProxyResolver {
     }
   }
 
-  /// Returns the `findProxy` directive string for the given URI, or
-  /// `'DIRECT'` when no proxy applies. Mode-aware: 反映设置中心当前选择。
+  /// 返回指定地址的代理指令；无需代理时返回 `DIRECT`。
   String findProxyFor(Uri uri) {
     switch (_settings.mode) {
       case AppProxyMode.disabled:
@@ -286,9 +271,7 @@ class SystemProxyResolver {
     return false;
   }
 
-  /// Builds an `http.Client` whose underlying [HttpClient] follows the
-  /// resolved system proxy. Each created client is independent — callers
-  /// may keep one long-lived instance per service.
+  /// 创建遵循当前代理设置的独立 HTTP 客户端。
   http.Client createHttpClient({
     Duration connectionTimeout = const Duration(seconds: 15),
   }) {
@@ -404,10 +387,7 @@ class SystemProxyResolver {
     return result;
   }
 
-  /// Builds a raw `dart:io` [HttpClient] configured with the resolver's
-  /// proxy + credentials. Useful for callers that need fine-grained
-  /// control (cancellation via `close(force: true)`, response stream
-  /// access, …) and can't use the higher-level `http.Client` wrapper.
+  /// 创建支持代理、凭据和强制取消的底层 HTTP 客户端。
   HttpClient createRawHttpClient({
     Duration connectionTimeout = const Duration(seconds: 15),
   }) {
@@ -542,7 +522,7 @@ bool _matchesExceptionPattern(String lowerHost, String lowerPattern) {
   if (lowerPattern.isEmpty) return false;
   if (lowerPattern == '*') return true;
 
-  // /regex/ or /regex/i
+  // 正则表达式。
   if (lowerPattern.startsWith('/') && lowerPattern.length >= 2) {
     final lastSlash = lowerPattern.lastIndexOf('/');
     if (lastSlash > 0) {
@@ -557,13 +537,13 @@ bool _matchesExceptionPattern(String lowerHost, String lowerPattern) {
     }
   }
 
-  // CIDR (IPv4)
+  // IPv4 CIDR。
   if (lowerPattern.contains('/')) {
     final cidr = _tryMatchIpv4Cidr(lowerHost, lowerPattern);
     if (cidr != null) return cidr;
   }
 
-  // Glob *.suffix
+  // 域名后缀通配符。
   if (lowerPattern.startsWith('*.')) {
     final suffix = lowerPattern.substring(1); // ".example.com"
     if (lowerHost.endsWith(suffix)) return true;
@@ -622,10 +602,9 @@ class _ScutilProxyConfig {
   final List<String> exceptions;
 }
 
-/// Parse the indented block emitted by `scutil --proxy`.
+/// 解析 `scutil --proxy` 输出的缩进字典。
 ///
-/// Sample (truncated):
-///
+/// 示例：
 /// ```
 /// <dictionary> {
 ///   ExceptionsList : <array> {
