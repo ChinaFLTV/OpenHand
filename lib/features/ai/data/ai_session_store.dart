@@ -121,11 +121,12 @@ class AiSessionStore {
       throw ArgumentError.value(
         sessionsDirectoryPath,
         'sessionsDirectoryPath',
-        'Must not be blank.',
+        '不能为空。',
       );
     }
   }
 
+  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
   static const int _compactMemoryMarkdownMaxBytes = 16 * kBytesPerMiB;
   static const int _compactMemoryMetadataMaxBytes = 2 * kBytesPerMiB;
   static const String _compactMemoryGenerationPrefix = '- generation: ';
@@ -144,7 +145,9 @@ class AiSessionStore {
       );
 
   final String _sessionsDirectoryPath;
-  final SerialTaskQueue _sessionCleanupQueue = SerialTaskQueue();
+  final SerialTaskQueue _sessionCleanupQueue = SerialTaskQueue(
+    maxPendingTasks: _maxPendingSessionCleanups,
+  );
   final Map<String, int> _sessionDeletionGuardCounts = <String, int>{};
   Future<void>? _pendingSessionCleanupRetry;
 
@@ -171,13 +174,7 @@ class AiSessionStore {
     return p.join(sessionDirectoryPath(sessionId), 'tool-results');
   }
 
-  /// Modern per-session attachments directory used by the new attachment
-  /// storage layout: `~/.openhand/sessions/{sessionId}/attachments/`.
-  ///
-  /// Inside this directory, individual files are named
-  /// `{messageId}-{attachmentId}.{ext}`. Older attachments stored under
-  /// [sessionAttachmentsDirectoryPath] continue to be honored on read because
-  /// each `AiMessageAttachment` carries its full storage path.
+  /// 当前会话附件目录。旧版附件仍按附件对象中保存的完整路径读取。
   String perSessionAttachmentsDirectoryPath(String sessionId) {
     return p.join(sessionDirectoryPath(sessionId), 'attachments');
   }
@@ -243,14 +240,10 @@ class AiSessionStore {
             .toString();
     final metadataJson = prettyPrintJson(metadata);
     if (utf8.encode(markdown).length > _compactMemoryMarkdownMaxBytes) {
-      throw const FileSystemException(
-        'Compact memory markdown exceeds the 16 MiB limit.',
-      );
+      throw const FileSystemException('压缩记忆 Markdown 超过 16 MiB 上限。');
     }
     if (utf8.encode(metadataJson).length > _compactMemoryMetadataMaxBytes) {
-      throw const FileSystemException(
-        'Compact memory metadata exceeds the 2 MiB limit.',
-      );
+      throw const FileSystemException('压缩记忆元数据超过 2 MiB 上限。');
     }
     await writeFileAtomically(File(markdownPath), markdown);
     await writeFileAtomically(File(metadataPath), metadataJson);
@@ -367,7 +360,7 @@ class AiSessionStore {
     );
   }
 
-  /// Retained for backward compatibility (attachment management).
+  /// 为兼容旧版附件管理保留。
   String sessionFilePath(String sessionId) {
     final normalizedSessionId = requireSafeStorageIdentifier(
       sessionId,
@@ -377,7 +370,7 @@ class AiSessionStore {
   }
 
   Database get _db => DatabaseService.instance.database;
-  // Core CRUD
+  // 核心增删改查。
   Future<bool> exists(String sessionId) async {
     final normalizedSessionId = sessionId.trim();
     if (!isSafeStorageIdentifier(normalizedSessionId)) {
@@ -560,8 +553,7 @@ class AiSessionStore {
     return rows;
   }
 
-  /// Loads **only session metadata** (no messages). Much faster and safer for
-  /// building the sidebar session list. Excludes archived rows by default.
+  /// 仅加载会话元数据，不加载消息；默认排除已归档会话。
   Future<AiSessionLoadResult> loadAllHeaders({
     bool includeArchived = false,
   }) async {
@@ -636,23 +628,8 @@ class AiSessionStore {
     );
   }
 
-  /// Default ordering for the sessions table.
-  ///
-  /// Pinned sessions come first. Among the rest, sessions that have NEVER
-  /// been manually reordered (`display_order IS NULL`) are surfaced before
-  /// any manually-ordered ones, sorted by `updated_at DESC` so freshly
-  /// created threads land at the top of the sidebar — this is the original
-  /// sidebar behaviour and matches the user expectation that "the thread I
-  /// just opened sits at the top". Sessions that the user explicitly
-  /// reordered via the Thread Session Management dialog follow in their
-  /// saved order.
-  ///
-  /// This uses `(display_order IS NULL) DESC` rather than ASC so NULLs sort
-  /// above manually ordered rows. A previous ASC ordering accidentally pushed
-  /// all newly-created sessions beneath any manually ordered session, making
-  /// fresh threads appear to vanish from the visible sidebar when the user had
-  /// scrolled off-screen below their dragged threads even though they were
-  /// correctly persisted in SQLite.
+  /// 会话默认顺序：置顶优先；未手动排序的会话按更新时间降序；其余按手动顺序排列。
+  /// `display_order IS NULL` 必须降序，确保新建会话不会落到手动排序会话之后。
   static const String _sessionsOrderBy =
       'pinned DESC, '
       '(display_order IS NULL) DESC, '
@@ -661,11 +638,7 @@ class AiSessionStore {
       'created_at DESC, '
       'id ASC';
 
-  /// Persist a manual ordering of the supplied [orderedSessionIds]. The
-  /// first id receives `display_order = 0`, the second `1`, etc. Any
-  /// session id missing from the list keeps its existing order (which may
-  /// be NULL). The transaction is atomic and silent on errors so the UI
-  /// can fall back to the previous ordering on disk.
+  /// 原子保存 [orderedSessionIds] 的手动顺序；未传入的会话保持原顺序。
   Future<void> reorderSessions(List<String> orderedSessionIds) async {
     if (orderedSessionIds.isEmpty) return;
     await _db.transaction((txn) async {
@@ -684,8 +657,7 @@ class AiSessionStore {
     });
   }
 
-  /// Sets the `pinned` flag for a single session. Pinned sessions sort
-  /// to the top of every listing (above any manual `display_order`).
+  /// 设置单个会话的置顶状态。
   Future<void> setSessionPinned(String sessionId, bool pinned) async {
     final id = sessionId.trim();
     if (!isSafeStorageIdentifier(id)) return;
@@ -697,9 +669,7 @@ class AiSessionStore {
     );
   }
 
-  /// Sets the `archived` flag for a single session. Archived sessions
-  /// are excluded from default loaders (sidebar) but remain accessible
-  /// via [loadAll]/[loadAllHeaders] when `includeArchived: true`.
+  /// 设置单个会话的归档状态；默认加载不会返回已归档会话。
   Future<void> setSessionArchived(String sessionId, bool archived) async {
     final id = sessionId.trim();
     if (!isSafeStorageIdentifier(id)) return;
@@ -711,10 +681,7 @@ class AiSessionStore {
     );
   }
 
-  /// Returns a map of `sessionId -> (pinned, archived)` flags for every
-  /// session in the database. The Thread Session Management dialog uses
-  /// this to render badges and toggle states without bloating the
-  /// in-memory `AiSession` model.
+  /// 加载全部会话的置顶与归档状态，避免为管理界面加载完整会话模型。
   Future<Map<String, ({bool pinned, bool archived})>> loadSessionFlags() async {
     final rows = await _db.query(
       'sessions',
@@ -732,16 +699,7 @@ class AiSessionStore {
     return result;
   }
 
-  /// Computes the on-disk byte footprint of every session in a single
-  /// pass. Returns a map of `sessionId -> bytes`. Counts the LENGTH of
-  /// every TEXT column on the session row plus every TEXT column on its
-  /// associated messages — this matches what a `VACUUM`-trimmed SQLite
-  /// file actually pays for those rows. The query joins via correlated
-  /// subquery so sessions with zero messages still receive an entry.
-  ///
-  /// We intentionally do this in one query rather than per-session loops
-  /// so opening the Thread Session Management dialog stays O(1) round
-  /// trips even with thousands of sessions.
+  /// 单次查询计算全部会话文本列的存储字节数，并保留无消息会话。
   Future<Map<String, int>> computeAllSessionDiskBytes() async {
     final rows = await _db.rawQuery('''
       SELECT s.id AS session_id,
@@ -800,7 +758,7 @@ class AiSessionStore {
     return result;
   }
 
-  /// Loads a single session with all its messages.
+  /// 加载单个会话及其全部消息。
   Future<AiSession?> loadSession(String sessionId) async {
     final normalizedId = sessionId.trim();
     if (!isSafeStorageIdentifier(normalizedId)) return null;
@@ -1092,11 +1050,8 @@ class AiSessionStore {
         (usage is String ? usage.length : 0);
   }
 
-  /// Loads a bounded, stable page of sessions (with messages) that belong to
-  /// [templateId] and whose `created_at` is on or after [minCreatedAt].
-  ///
-  /// Keyset pagination uses the immutable `created_at + id` pair so updates
-  /// performed by a scheduler cannot reorder rows underneath its next page.
+  /// 分页加载指定模板和起始时间后的会话及消息。
+  /// 使用不可变的 `created_at + id` 游标，避免调度更新干扰翻页顺序。
   Future<AiSessionTemplatePage> loadSessionPageByTemplate({
     required String templateId,
     required DateTime minCreatedAt,
@@ -1151,8 +1106,7 @@ class AiSessionStore {
         await _yieldAfterSessionDecodeIfNeeded(sessions.length);
       } catch (error, stack) {
         silentLog('ai_session_store', '加载模板会话 ${row['id']}', error, stack);
-        // Skip rows that fail to decode; loadAllHeaders() surfaces persistence
-        // issues for the UI — the scheduler should stay silent.
+        // 跳过损坏行；持久化问题由 loadAllHeaders() 统一呈现。
       }
     }
     AiSessionTemplateCursor? nextCursor;
@@ -1328,7 +1282,7 @@ class AiSessionStore {
     );
   }
 
-  /// Loads one message row without hydrating the whole session.
+  /// 加载单条消息，不加载完整会话。
   Future<AiSessionMessage?> loadMessage(
     String sessionId,
     String messageId,
@@ -1373,10 +1327,10 @@ class AiSessionStore {
     return offset is int ? math.max(0, offset) : null;
   }
 
-  /// Returns the stored message count without decoding any message rows.
+  /// 不解码消息行，直接返回持久化消息数。
   Future<int> countMessages(String sessionId) => _countMessages(sessionId);
 
-  /// Persists a complete [session] (metadata + all messages) atomically.
+  /// 原子保存完整 [session]，包括元数据和全部消息。
   Future<void> save(AiSession session) async {
     _validateSessionForStorage(session);
     if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
@@ -1427,7 +1381,7 @@ class AiSessionStore {
         }
       }
 
-      // Replace all messages: delete existing, then bulk-insert.
+      // 删除旧消息后批量写入当前完整消息列表。
       await txn.delete(
         'messages',
         where: 'session_id = ?',
@@ -1449,9 +1403,7 @@ class AiSessionStore {
     });
   }
 
-  /// Persists only the session row. Use this for title, permission, model,
-  /// metadata and other header-only updates so long transcripts do not pay a
-  /// delete + bulk-insert cycle for every small state change.
+  /// 仅保存会话头，避免标题、权限等轻量变更重写完整长会话。
   Future<void> saveSessionHeader(AiSession session) async {
     _validateSessionForStorage(session);
     if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
@@ -1474,8 +1426,7 @@ class AiSessionStore {
     });
   }
 
-  /// Updates only one message's metadata. This keeps small UI-only changes
-  /// from forcing full transcript hydration or a delete + bulk-insert cycle.
+  /// 仅更新单条消息元数据，避免轻量界面变更重写完整会话。
   Future<bool> updateMessageMetadata({
     required String sessionId,
     required String messageId,
@@ -1517,8 +1468,7 @@ class AiSessionStore {
     return updated > 0;
   }
 
-  /// Deletes a session and all its messages from the database, plus
-  /// per-session artifacts from disk.
+  /// 删除数据库中的会话及消息，并清理磁盘会话产物。
   Future<void> delete(String sessionId) async {
     final normalizedSessionId = requireSafeStorageIdentifier(
       sessionId,
@@ -1558,7 +1508,7 @@ class AiSessionStore {
                 'value': normalizedSessionId,
               }, conflictAlgorithm: ConflictAlgorithm.ignore);
             }
-            // Database CASCADE will remove messages automatically.
+            // 数据库级联删除关联消息。
             await txn.delete(
               'sessions',
               where: 'id = ?',
@@ -1623,16 +1573,24 @@ class AiSessionStore {
     });
   }
 
+  Future<void> flush() {
+    return _sessionCleanupQueue.idle.timeout(runtimeCleanupTimeout);
+  }
+
   void _schedulePendingSessionCleanupRetry() {
     if (_pendingSessionCleanupRetry != null) return;
     final future = retryPendingSessionCleanups();
     _pendingSessionCleanupRetry = future;
     unawaited(
-      future.whenComplete(() {
-        if (identical(_pendingSessionCleanupRetry, future)) {
-          _pendingSessionCleanupRetry = null;
-        }
-      }),
+      future
+          .whenComplete(() {
+            if (identical(_pendingSessionCleanupRetry, future)) {
+              _pendingSessionCleanupRetry = null;
+            }
+          })
+          .catchError((Object error, StackTrace stack) {
+            silentLog('ai_session_store', '调度待处理会话清理', error, stack);
+          }),
     );
   }
 
@@ -1756,7 +1714,7 @@ class AiSessionStore {
         .timeout(defaultBoundedFileReadIdleTimeout);
   }
 
-  // Row ↔ Model conversion
+  // 数据库行与模型转换。
   AiSession _sessionFromRow(
     Map<String, Object?> row,
     List<Map<String, Object?>> messageRows, {

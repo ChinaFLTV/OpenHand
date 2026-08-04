@@ -449,6 +449,11 @@ Future<void> _bootstrap() async {
       AiToolUsagePromotionStore.shared.shutdown,
       timeout: AiToolUsagePromotionStore.runtimeCleanupTimeout,
     )
+    ..register(
+      'AI 会话存储',
+      aiSessionController.store.flush,
+      timeout: AiSessionStore.runtimeCleanupTimeout,
+    )
     ..register('设置控制器', settingsController.shutdown)
     ..register('Hooks 控制器', hooks.controller.shutdown)
     ..register('技能控制器', skills.controller.shutdown)

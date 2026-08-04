@@ -3,6 +3,9 @@
 export 'ai_module.dart';
 export 'ai_session_controller.dart';
 
+// 数据
+export 'data/ai_session_store.dart';
+
 // 模型
 export 'model/ai_allow_command_rule.dart';
 export 'model/ai_api_dialect.dart';
