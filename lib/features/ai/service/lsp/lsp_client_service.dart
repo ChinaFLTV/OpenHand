@@ -1943,6 +1943,7 @@ class _AiLspSession {
 
   static const Duration _idleTimeout = Duration(seconds: 30);
   static const Duration _transportCancelTimeout = Duration(seconds: 1);
+  static const Duration _processCleanupTimeout = Duration(seconds: 3);
   // 限制异常 LSP 服务端造成的请求堆积；单次请求最长 15 秒，正常负载不会触及上限。
   static const int _maxPendingRequests = 256;
   static const int _maxOpenDocuments = 64;
@@ -2950,9 +2951,14 @@ class _AiLspSession {
         StateError('LSP 进程意外退出，退出码：$exitCode。'),
         StackTrace.current,
       );
-      await terminateTrackedProcessTree(
-        process,
-        gracefulTimeout: Duration.zero,
+      await runAsyncCleanupBounded(
+        () => terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: Duration.zero,
+        ),
+        timeout: _processCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('lsp_client_service', '清理意外退出的 LSP 进程', error, stack),
       );
     }
     await _cancelTransportSubscriptions('进程退出');
@@ -3006,7 +3012,12 @@ class _AiLspSession {
     if (identical(_process, process)) {
       _process = null;
     }
-    await terminateTrackedProcessTree(process);
+    await runAsyncCleanupBounded(
+      () => terminateTrackedProcessTree(process),
+      timeout: _processCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('lsp_client_service', '终止 LSP 进程', error, stack),
+    );
     await _cancelTransportSubscriptions('关闭');
     _clearSessionState();
     _notifyTerminated();
