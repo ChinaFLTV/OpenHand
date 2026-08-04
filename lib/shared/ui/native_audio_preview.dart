@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../util/async_concurrency.dart';
 import '../util/bounded_file_io.dart';
 import '../util/input_value_parsing.dart';
+import '../util/serial_task_queue.dart';
 import '../util/timer_safety.dart';
 import 'animated_menu.dart';
 import 'motion_durations.dart';
@@ -446,8 +447,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   bool _pollInFlight = false;
   int _seekSerial = 0;
   bool _handlingComplete = false;
-  Future<void> _bootstrapQueue = Future<void>.value();
-  Future<void> _seekCommandChain = Future<void>.value();
+  final LatestTaskQueue _bootstrapQueue = LatestTaskQueue();
+  final LatestTaskQueue _seekCommandQueue = LatestTaskQueue();
   Duration? _recentSeekTarget;
   DateTime? _recentSeekAt;
 
@@ -545,6 +546,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     _disposed = true;
     _bootstrapSerial++;
     _seekSerial++;
+    _bootstrapQueue.discardPending();
+    _seekCommandQueue.discardPending();
     _progressPollTimer?.cancel();
     if (widget.controller?._state == this) widget.controller?._state = null;
     for (final subscription in _subscriptions) {
@@ -560,11 +563,12 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     super.dispose();
   }
 
-  Future<void> _bootstrap() {
-    if (_disposed) return Future<void>.value();
+  Future<void> _bootstrap() async {
+    if (_disposed) return;
     final serial = ++_bootstrapSerial;
     final source = widget.source;
     _seekSerial++;
+    _seekCommandQueue.discardPending();
     setState(() {
       _loading = true;
       _sourceReady = false;
@@ -578,11 +582,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       _recentSeekAt = null;
     });
 
-    final operation = _bootstrapQueue.then(
-      (_) => _runBootstrap(serial: serial, source: source),
+    await _bootstrapQueue.enqueue(
+      () => _runBootstrap(serial: serial, source: source),
     );
-    _bootstrapQueue = operation;
-    return operation;
   }
 
   Future<void> _runBootstrap({
@@ -878,17 +880,17 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     try {
       switch (_playMode) {
         case _NativeAudioPlayMode.repeatOne:
-          await _seekTo(Duration.zero);
+          if (!await _seekTo(Duration.zero)) return;
           await _play();
         case _NativeAudioPlayMode.shuffle:
           final dur = _duration;
           final maxMs = math.max(0, dur.inMilliseconds - 1000);
           final offset = maxMs > 0 ? math.Random().nextInt(maxMs) : 0;
-          await _seekTo(Duration(milliseconds: offset));
+          if (!await _seekTo(Duration(milliseconds: offset))) return;
           await _play();
         case _NativeAudioPlayMode.sequence:
           await _player.pause().timeout(kNativeAudioControlTimeout);
-          await _seekTo(Duration.zero);
+          if (!await _seekTo(Duration.zero)) return;
           if (mounted) {
             setState(() => _playerState = _NativeAudioPlaybackState.completed);
           }
@@ -932,7 +934,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     if (!_sourceReady || !isActive()) return;
     if (_playerState == _NativeAudioPlaybackState.completed &&
         _isNearAudioEnd(_position)) {
-      await _seekTo(Duration.zero);
+      if (!await _seekTo(Duration.zero)) return;
       if (!isActive()) return;
     }
     await _applyEffectToPlayer();
@@ -945,8 +947,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     await _seekTo(_position + delta);
   }
 
-  Future<void> _seekTo(Duration target) async {
-    if (!_sourceReady) return;
+  Future<bool> _seekTo(Duration target) async {
+    if (!_sourceReady) return false;
     final seekSerial = ++_seekSerial;
     final shouldResumeAfterSeek = _isPlaying;
     final upperBound = _duration > Duration.zero
@@ -966,9 +968,10 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
         _playerState = _NativeAudioPlaybackState.paused;
       }
     });
-    await _enqueueSeekCommand(
+    final executed = await _seekCommandQueue.enqueue(
       () => _performSeekTo(seekSerial, clamped, shouldResumeAfterSeek),
     );
+    return executed && _isCurrentSeek(seekSerial);
   }
 
   Future<void> _performSeekTo(
@@ -1050,24 +1053,6 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   bool _isCurrentSeek(int seekSerial) {
     return !_disposed && mounted && seekSerial == _seekSerial;
-  }
-
-  Future<void> _enqueueSeekCommand(Future<void> Function() command) {
-    final previous = _seekCommandChain;
-
-    Future<void> run() async {
-      try {
-        await previous;
-      } catch (error, stack) {
-        silentLog('native_audio_preview', '上一条定位命令失败', error, stack);
-      }
-      if (_disposed) return;
-      await command();
-    }
-
-    final next = run();
-    _seekCommandChain = next;
-    return next;
   }
 
   Future<void> _setVolume(double value) async {

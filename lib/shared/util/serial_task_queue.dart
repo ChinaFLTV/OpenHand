@@ -36,6 +36,67 @@ final class SerialTaskQueue {
   }
 }
 
+/// 串行执行任务，并且等待区仅保留最新任务。
+///
+/// 新任务会替换尚未开始的旧任务；返回值表示任务是否实际执行。
+final class LatestTaskQueue {
+  bool _running = false;
+  _LatestTask? _pending;
+
+  Future<bool> enqueue(Future<void> Function() task) {
+    final next = _LatestTask(task);
+    if (_running) {
+      _pending?.discard();
+      _pending = next;
+    } else {
+      _running = true;
+      unawaited(_drain(next));
+    }
+    return next.done;
+  }
+
+  void discardPending() {
+    _pending?.discard();
+    _pending = null;
+  }
+
+  Future<void> _drain(_LatestTask first) async {
+    var current = first;
+    while (true) {
+      await current.run();
+      final next = _pending;
+      _pending = null;
+      if (next == null) {
+        _running = false;
+        return;
+      }
+      current = next;
+    }
+  }
+}
+
+final class _LatestTask {
+  _LatestTask(this._task);
+
+  final Future<void> Function() _task;
+  final Completer<bool> _completer = Completer<bool>();
+
+  Future<bool> get done => _completer.future;
+
+  void discard() {
+    if (!_completer.isCompleted) _completer.complete(false);
+  }
+
+  Future<void> run() async {
+    try {
+      await _task();
+      _completer.complete(true);
+    } catch (error, stack) {
+      _completer.completeError(error, stack);
+    }
+  }
+}
+
 /// 按键分别串行执行任务，不同键之间保持并行。
 ///
 /// 总待执行任务数受限，防止单键长队列或大量唯一键持续占用内存。
