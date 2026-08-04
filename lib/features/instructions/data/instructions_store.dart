@@ -1,4 +1,4 @@
-/// Instructions persistence layer
+/// 用户指令持久化层。
 library;
 
 import 'dart:convert';
@@ -28,7 +28,7 @@ class InstructionsStore {
     for (final row in rows) {
       final entry = _rowToEntry(row);
       if (!seenIds.add(entry.id)) {
-        throw FormatException('Duplicate instruction id: ${entry.id}');
+        throw FormatException('用户指令 ID 重复：${entry.id}');
       }
       result.add(entry);
     }
@@ -128,7 +128,7 @@ class InstructionsStore {
         enabled == null ||
         sortOrder is! int ||
         sortOrder < 0) {
-      throw FormatException('Invalid instruction row: $id');
+      throw FormatException('用户指令记录无效：$id');
     }
     final notes = _decodeStringList(
       row['notes_json'],
@@ -171,11 +171,11 @@ class InstructionsStore {
     bool dedupeCaseInsensitive = false,
   }) {
     if (raw is! String) {
-      throw const FormatException('Instruction list field must be JSON text.');
+      throw const FormatException('用户指令列表字段必须是 JSON 文本。');
     }
     final decoded = jsonDecode(raw);
     if (decoded is! List || decoded.any((item) => item is! String)) {
-      throw const FormatException('Instruction list field must be an array.');
+      throw const FormatException('用户指令列表字段必须是数组。');
     }
     final normalized = UserInstructionEntry.normalizeStringList(
       decoded.cast<String>(),
@@ -184,7 +184,7 @@ class InstructionsStore {
       dedupeCaseInsensitive: dedupeCaseInsensitive,
     );
     if (!listEquals(decoded.cast<String>(), normalized)) {
-      throw const FormatException('Instruction list field is not canonical.');
+      throw const FormatException('用户指令列表字段格式不规范。');
     }
     return normalized;
   }
@@ -192,14 +192,14 @@ class InstructionsStore {
   String _text(Map<String, Object?> row, String key) {
     final value = row[key];
     if (value is String) return value;
-    throw FormatException('Instruction field $key must be text.');
+    throw FormatException('用户指令字段 $key 必须是文本。');
   }
 
   DateTime _dateTime(Map<String, Object?> row, String key) {
     final raw = _text(row, key);
     final parsed = DateTime.tryParse(raw);
     if (parsed == null || parsed.toUtc().toIso8601String() != raw) {
-      throw FormatException('Instruction field $key is invalid.');
+      throw FormatException('用户指令字段 $key 无效。');
     }
     return parsed;
   }

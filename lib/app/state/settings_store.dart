@@ -61,13 +61,15 @@ class SettingsLoadResult {
 class SettingsStore {
   static const String _dbSettingsKey = 'app_settings_json';
   static const String _legacyMigrationKey = 'legacy_settings_toml_v1';
+  static const String _emptySettingsJsonMessage = '设置 JSON 为空。';
+  static const String _invalidSettingsRootMessage = '设置 JSON 根节点必须是对象。';
   static const int _currentSchemaVersion = 5;
 
-  /// Retained for backward compatibility with controllers that expose a path.
+  /// 保留该路径以兼容仍对外暴露路径的控制器。
   String get settingsFilePath => 'db://app_settings';
 
   Database get _db => DatabaseService.instance.database;
-  // Primary load / save (DB-backed)
+  // 数据库承载的主要加载与保存入口。
   Future<SettingsLoadResult> load() async {
     try {
       final rows = await _db.query(
@@ -81,11 +83,11 @@ class SettingsStore {
         try {
           final jsonStr = rows.first['value'];
           if (jsonStr is! String || jsonStr.trim().isEmpty) {
-            throw const FormatException('Settings JSON is empty.');
+            throw const FormatException(_emptySettingsJsonMessage);
           }
           final decoded = jsonDecode(jsonStr);
           if (decoded is! Map) {
-            throw const FormatException('Settings JSON must be an object.');
+            throw const FormatException(_invalidSettingsRootMessage);
           }
           final snapshot = _snapshotFromJson(stringKeyedMapFromValue(decoded));
           try {
@@ -151,9 +153,7 @@ class SettingsStore {
       if (legacyFile != null) {
         document = await readLegacySettingsDocument(legacyFile);
         if (optionalIntegralIntFromValue(document.rootValues['version']) != 1) {
-          throw const FormatException(
-            'Legacy settings version is missing or unsupported.',
-          );
+          throw const FormatException('旧版设置缺少版本号或版本不受支持。');
         }
         candidate = _snapshotFromJson(_legacySettingsJson(document));
       }
@@ -211,15 +211,15 @@ class SettingsStore {
         limit: 1,
       );
       if (racedRows.isEmpty) {
-        throw StateError('Settings initialization lost its target row.');
+        throw StateError('设置初始化期间目标记录丢失。');
       }
       final raw = racedRows.first['value'];
       if (raw is! String || raw.trim().isEmpty) {
-        throw const FormatException('Settings JSON is empty.');
+        throw const FormatException(_emptySettingsJsonMessage);
       }
       final decoded = jsonDecode(raw);
       if (decoded is! Map) {
-        throw const FormatException('Settings JSON must be an object.');
+        throw const FormatException(_invalidSettingsRootMessage);
       }
       return SettingsLoadResult(
         snapshot: _snapshotFromJson(stringKeyedMapFromValue(decoded)),
@@ -264,13 +264,13 @@ class SettingsStore {
       try {
         json[key] = jsonDecode(value);
       } on FormatException {
-        // Current parsing will apply the field's production default.
+        // 当前解析会为该字段应用生产默认值。
       }
     }
     return json;
   }
 
-  // JSON serialization for AppSettingsSnapshot
+  // AppSettingsSnapshot 的 JSON 序列化。
   static Map<String, Object?> _snapshotToJson(AppSettingsSnapshot snapshot) {
     return <String, Object?>{
       'version': _currentSchemaVersion,
@@ -396,7 +396,7 @@ class SettingsStore {
           snapshot.aiStreamThrottleConfigUpdatedAtMs,
       // v3 schema 起，按线程模板覆盖节流参数已下线，
       // 持久化层不再写出 `ai_stream_throttle_template_overrides`；
-      // read 路径会静默丢弃任何老 doc 上的同名字段。
+      // 读取路径会静默丢弃任何旧文档上的同名字段。
       'ai_auto_title_enabled': snapshot.aiAutoTitleEnabled,
       'ai_auto_title_fetch_mode': snapshot.aiAutoTitleFetchMode.storageValue,
       'ai_default_session_mode': snapshot.aiDefaultSessionMode,
@@ -453,10 +453,8 @@ class SettingsStore {
     required int schemaVersion,
   }) {
     if (schemaVersion < 3 && !persisted) {
-      // v2 wrote the old false default into DB for many users. Treat that
-      // value as legacy default state once so Claude-compatible threads get
-      // explicit prompt-cache breakpoints after upgrade; v3 false remains a
-      // deliberate opt-out.
+      // v2 为大量用户写入旧的 false 默认值。升级时将其视为旧默认状态，
+      // 让 Claude 兼容会话启用明确的提示缓存断点；v3 的 false 仍表示主动关闭。
       return AppSettingsSnapshot.defaultAiInputCacheEnabled;
     }
     return persisted;
@@ -467,10 +465,8 @@ class SettingsStore {
     required int schemaVersion,
   }) {
     if (schemaVersion < 4 && !persisted) {
-      // Earlier schema versions wrote the old false default for most users.
-      // Treat that value as legacy default state once so consumed tool
-      // results stop bloating every follow-up prompt after upgrade; v4 false
-      // remains an explicit opt-out.
+      // 旧架构为多数用户写入 false 默认值。升级时将其视为旧默认状态，
+      // 避免已消费的工具结果持续膨胀后续提示；v4 的 false 仍表示主动关闭。
       return AppSettingsSnapshot.defaultAiMicroCompressionEnabled;
     }
     return persisted;
@@ -851,7 +847,7 @@ class SettingsStore {
     final rawSandboxSettings = json['ai_sandbox'];
     final aiSandboxSettings = AiSandboxSettings.fromJson(rawSandboxSettings);
 
-    // Session timeout settings.
+    // 会话超时设置。
     final aiConnectTimeoutSeconds =
         AppSettingsSnapshot.aiConnectTimeoutSecondsFromValue(
           json['ai_connect_timeout_seconds'],
@@ -874,8 +870,8 @@ class SettingsStore {
         );
     // v3 schema 起，按线程模板覆盖节流参数已下线。
     // 旧设置记录仍可能携带 `ai_stream_throttle_template_overrides` 字段
-    //（v1/v2 残留），这里完全忽略：不再读、不再透传给 snapshot，
-    // write 路径也不会再写出。任何形状的旧 value（Map/null/异常类型）都
+    //（v1/v2 残留），这里完全忽略：不再读、不再透传给快照，
+    // 写入路径也不会再写出。任何形状的旧值（Map/null/异常类型）都
     // 必须被静默丢弃，保证 `load()` 不抛。
     final aiStreamThrottleEnabled = boolFromValue(
       json['ai_stream_throttle_enabled'],
@@ -917,7 +913,7 @@ class SettingsStore {
       json['ai_default_full_access_permission'],
     );
 
-    // AI models.
+    // AI 模型。
     final aiModels = <AiModelConfig>[];
     for (final item in stringKeyedMapListFromValueOrJsonText(
       json['ai_models'],
@@ -938,7 +934,7 @@ class SettingsStore {
       selectedAiModelId = aiModels.isEmpty ? '' : aiModels.first.id;
     }
 
-    // Recent model selections.
+    // 最近模型选择。
     final recentModelSelections = <RecentModelSelection>[];
     for (final item in stringKeyedMapListFromValueOrJsonText(
       json['recent_model_selections'],
@@ -953,7 +949,7 @@ class SettingsStore {
       }
     }
 
-    // Shortcut bindings.
+    // 快捷键绑定。
     final rawBindings = json['shortcut_bindings'];
     var shortcutBindings = defaultOpenHandShortcutBindings();
     if (rawBindings is Map) {
@@ -976,7 +972,7 @@ class SettingsStore {
       };
     }
 
-    // Animation settings.
+    // 动画设置。
     final dialogAnimationSettings = _animationSettingsFromStorage(
       json,
       'dialog_animation_settings',
@@ -1045,7 +1041,7 @@ class SettingsStore {
       schemaVersion: schemaVersion,
     );
 
-    // Builtin tool configs.
+    // 内置工具配置。
     final rawBuiltinToolConfigs = json['builtin_tool_configs'];
     var builtinToolConfigs = AiBuiltinToolConfig.defaults();
     if (rawBuiltinToolConfigs is List) {
@@ -1067,7 +1063,7 @@ class SettingsStore {
             )) {
           builtinToolConfigs = AiBuiltinToolConfig.defaults();
         } else {
-          // Merge: keep parsed entries, add missing defaults for new tool kinds.
+          // 保留已解析条目，并为新增工具类型补齐默认配置。
           final parsedKinds = parsed.map((c) => c.kind).toSet();
           final defaults = AiBuiltinToolConfig.defaults();
           for (final def in defaults) {

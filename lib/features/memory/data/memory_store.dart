@@ -34,6 +34,8 @@ class MemoryStore {
   static const String _table = 'memories';
   static const String _legacyMigrationKey = 'legacy_user_memory_json_v1';
   static const String _settingsMigrationKey = 'legacy_settings_toml_v1';
+  static const String _multipleProfilesMessage = '存储中存在多个用户资料。';
+  static const String _invalidMigrationMarkerMessage = '记忆迁移标记无效。';
   static const int _snapshotPageSize = 64;
   static const int _maxTagsJsonBytes =
       UserMemoryEntry.maxTags * (UserMemoryEntry.maxTagCharacters * 6 + 3) + 2;
@@ -69,11 +71,11 @@ class MemoryStore {
     for (final row in snapshot.rows) {
       final entry = _parseStoredEntry(row);
       if (!seenIds.add(entry.id)) {
-        throw FormatException('Duplicate memory id: ${entry.id}');
+        throw FormatException('记忆 ID 重复：${entry.id}');
       }
       if (entry.isUserProfile) {
         if (hasProfile) {
-          throw const FormatException('Multiple user profiles are stored.');
+          throw const FormatException(_multipleProfilesMessage);
         }
         hasProfile = true;
       }
@@ -224,16 +226,16 @@ class MemoryStore {
     if (rows.isNotEmpty) {
       final value = rows.first['value'];
       if (value is! String) {
-        throw const FormatException('Settings migration marker is invalid.');
+        throw const FormatException('设置迁移标记无效。');
       }
       final decoded = jsonDecode(value);
       if (decoded is! Map) {
-        throw const FormatException('Settings migration marker is invalid.');
+        throw const FormatException('设置迁移标记无效。');
       }
       final rawPath = decoded['memory_file_path'];
       if (rawPath != null) {
         if (rawPath is! String) {
-          throw const FormatException('Settings memory path is invalid.');
+          throw const FormatException('设置中的记忆路径无效。');
         }
         final path = rawPath.trim();
         if (path.isNotEmpty) return path;
@@ -247,7 +249,7 @@ class MemoryStore {
 
   List<UserMemoryEntry> _parseLegacyMemories(Object? decoded) {
     if (decoded is! List) {
-      throw const FormatException('Legacy memory root must be a JSON array.');
+      throw const FormatException('旧版记忆根节点必须是 JSON 数组。');
     }
 
     final entries = <UserMemoryEntry>[];
@@ -255,17 +257,15 @@ class MemoryStore {
     var hasProfile = false;
     for (final raw in decoded) {
       if (raw is! Map) {
-        throw const FormatException('Legacy memory entry must be an object.');
+        throw const FormatException('旧版记忆条目必须是对象。');
       }
       final entry = _parseLegacyEntry(raw);
       if (!seenIds.add(entry.id)) {
-        throw FormatException('Duplicate legacy memory id: ${entry.id}');
+        throw FormatException('旧版记忆 ID 重复：${entry.id}');
       }
       if (entry.isUserProfile) {
         if (hasProfile) {
-          throw const FormatException(
-            'Legacy memory contains multiple user profiles.',
-          );
+          throw const FormatException('旧版记忆中存在多个用户资料。');
         }
         hasProfile = true;
       }
@@ -305,11 +305,11 @@ class MemoryStore {
         limit: 1,
       );
       if (existingRows.isEmpty) {
-        throw StateError('Memory no longer exists: ${entry.id}');
+        throw StateError('记忆已不存在：${entry.id}');
       }
       final existing = _parseStoredEntry(existingRows.single);
       if (existing.type != entry.type) {
-        throw StateError('Memory type cannot be changed: ${entry.id}');
+        throw StateError('记忆类型不可修改：${entry.id}');
       }
       final usage = await _queryUsage(txn);
       _ensureUpdateWithinQuota(
@@ -324,7 +324,7 @@ class MemoryStore {
         whereArgs: <Object?>[entry.id],
       );
       if (updated != 1) {
-        throw StateError('Memory no longer exists: ${entry.id}');
+        throw StateError('记忆已不存在：${entry.id}');
       }
     });
   }
@@ -348,11 +348,7 @@ class MemoryStore {
   }) async {
     final normalizedContent = UserMemoryEntry.normalizeContent(content);
     if (normalizedContent.isEmpty) {
-      throw ArgumentError.value(
-        content,
-        'content',
-        'Profile content cannot be empty.',
-      );
+      throw ArgumentError.value(content, 'content', '用户资料内容不能为空。');
     }
     return _db.transaction<UserMemoryEntry>((txn) async {
       final existingRows = await txn.query(
@@ -362,7 +358,7 @@ class MemoryStore {
       );
 
       if (existingRows.length > 1) {
-        throw const FormatException('Multiple user profiles are stored.');
+        throw const FormatException(_multipleProfilesMessage);
       }
       final existing = existingRows.isEmpty
           ? null
@@ -402,7 +398,7 @@ class MemoryStore {
           whereArgs: <Object?>[existing.id],
         );
         if (updated != 1) {
-          throw StateError('User profile no longer exists: ${existing.id}');
+          throw StateError('用户资料已不存在：${existing.id}');
         }
       }
 
@@ -433,7 +429,7 @@ class MemoryStore {
       content: row['content'],
       title: row['title'],
       tags: _decodeTagsJson(row['tags_json']),
-      source: 'Stored memory',
+      source: '已存储记忆',
     );
   }
 
@@ -441,7 +437,7 @@ class MemoryStore {
     final rawTitle = row.containsKey('title') ? row['title'] : '';
     final rawTags = row.containsKey('tags') ? row['tags'] : const <Object?>[];
     if (rawTags is! List) {
-      throw const FormatException('Legacy memory tags must be an array.');
+      throw const FormatException('旧版记忆标签必须是数组。');
     }
     return _parseEntry(
       id: row['id'],
@@ -450,7 +446,7 @@ class MemoryStore {
       content: row['content'],
       title: rawTitle,
       tags: rawTags,
-      source: 'Legacy memory',
+      source: '旧版记忆',
     );
   }
 
@@ -467,33 +463,33 @@ class MemoryStore {
         id.isEmpty ||
         id.trim() != id ||
         id.length > UserMemoryEntry.maxIdCharacters) {
-      throw FormatException('$source id is invalid.');
+      throw FormatException('$source ID 无效。');
     }
     if (type is! String || !_allowedTypes.contains(type)) {
-      throw FormatException('$source type is invalid: $id');
+      throw FormatException('$source类型无效：$id');
     }
     if (createdAt is! String) {
-      throw FormatException('$source timestamp is invalid: $id');
+      throw FormatException('$source时间戳无效：$id');
     }
     final parsedCreatedAt = DateTime.tryParse(createdAt);
     if (parsedCreatedAt == null ||
         !parsedCreatedAt.isUtc ||
         parsedCreatedAt.toIso8601String() != createdAt) {
-      throw FormatException('$source timestamp is not canonical UTC: $id');
+      throw FormatException('$source时间戳不是规范 UTC 格式：$id');
     }
     if (content is! String ||
         content.isEmpty ||
         UserMemoryEntry.normalizeContent(content) != content ||
         content.length > UserMemoryEntry.maxContentCharacters) {
-      throw FormatException('$source content is invalid: $id');
+      throw FormatException('$source内容无效：$id');
     }
     if (title is! String || UserMemoryEntry.normalizeTitle(title) != title) {
-      throw FormatException('$source title is invalid: $id');
+      throw FormatException('$source标题无效：$id');
     }
     final parsedTags = <String>[];
     for (final tag in tags) {
       if (tag is! String) {
-        throw FormatException('$source tags are invalid: $id');
+        throw FormatException('$source标签无效：$id');
       }
       parsedTags.add(tag);
     }
@@ -503,7 +499,7 @@ class MemoryStore {
         parsedTags.any(
           (tag) => tag.length > UserMemoryEntry.maxTagCharacters,
         )) {
-      throw FormatException('$source tags are not canonical: $id');
+      throw FormatException('$source标签格式不规范：$id');
     }
     return UserMemoryEntry(
       id: id,
@@ -517,32 +513,30 @@ class MemoryStore {
 
   List<dynamic> _decodeTagsJson(Object? raw) {
     if (raw is! String) {
-      throw const FormatException('Stored memory tags must be JSON text.');
+      throw const FormatException('已存储记忆标签必须是 JSON 文本。');
     }
     final Object? decoded;
     try {
       decoded = jsonDecode(raw);
     } on FormatException {
-      throw const FormatException('Stored memory tags JSON is invalid.');
+      throw const FormatException('已存储记忆标签 JSON 无效。');
     }
     if (decoded is! List) {
-      throw const FormatException('Stored memory tags must be a JSON array.');
+      throw const FormatException('已存储记忆标签必须是 JSON 数组。');
     }
     return decoded;
   }
 
   void _validateWriteCollection(List<UserMemoryEntry> entries) {
     if (entries.length > maxEntries) {
-      throw StateError('Memory entry limit exceeded ($maxEntries).');
+      throw StateError('记忆条目超过上限（$maxEntries）。');
     }
     var totalBytes = 0;
     for (final entry in entries) {
       _validateEntryForWrite(entry);
       totalBytes += _rowPayloadBytes(_entryToRow(entry));
       if (totalBytes > maxTotalPayloadBytes) {
-        throw StateError(
-          'Memory payload limit exceeded ($maxTotalPayloadBytes bytes).',
-        );
+        throw StateError('记忆载荷超过上限（$maxTotalPayloadBytes 字节）。');
       }
     }
   }
@@ -551,33 +545,21 @@ class MemoryStore {
     if (entry.id.isEmpty ||
         entry.id.trim() != entry.id ||
         entry.id.length > UserMemoryEntry.maxIdCharacters) {
-      throw ArgumentError.value(entry.id, 'id', 'Memory id is invalid.');
+      throw ArgumentError.value(entry.id, 'id', '记忆 ID 无效。');
     }
     if (!_allowedTypes.contains(entry.type)) {
-      throw ArgumentError.value(entry.type, 'type', 'Memory type is invalid.');
+      throw ArgumentError.value(entry.type, 'type', '记忆类型无效。');
     }
     if (!entry.createdAt.isUtc) {
-      throw ArgumentError.value(
-        entry.createdAt,
-        'createdAt',
-        'Memory timestamp must be UTC.',
-      );
+      throw ArgumentError.value(entry.createdAt, 'createdAt', '记忆时间戳必须使用 UTC。');
     }
     if (entry.content.isEmpty ||
         UserMemoryEntry.normalizeContent(entry.content) != entry.content ||
         entry.content.length > UserMemoryEntry.maxContentCharacters) {
-      throw ArgumentError.value(
-        entry.content,
-        'content',
-        'Memory content is invalid or too long.',
-      );
+      throw ArgumentError.value(entry.content, 'content', '记忆内容无效或过长。');
     }
     if (UserMemoryEntry.normalizeTitle(entry.title) != entry.title) {
-      throw ArgumentError.value(
-        entry.title,
-        'title',
-        'Memory title is invalid.',
-      );
+      throw ArgumentError.value(entry.title, 'title', '记忆标题无效。');
     }
     final normalizedTags = UserMemoryEntry.normalizeTags(entry.tags);
     if (!listEquals(entry.tags, normalizedTags) ||
@@ -585,7 +567,7 @@ class MemoryStore {
         entry.tags.any(
           (tag) => tag.length > UserMemoryEntry.maxTagCharacters,
         )) {
-      throw ArgumentError.value(entry.tags, 'tags', 'Memory tags are invalid.');
+      throw ArgumentError.value(entry.tags, 'tags', '记忆标签无效。');
     }
   }
 
@@ -614,7 +596,7 @@ class MemoryStore {
       FROM $_table
     ''');
     if (rows.length != 1) {
-      throw const FormatException('Memory usage query returned no result.');
+      throw const FormatException('记忆用量查询未返回结果。');
     }
     final entryCount = rows.single['entry_count'];
     final totalBytes = rows.single['total_bytes'];
@@ -624,13 +606,13 @@ class MemoryStore {
         totalBytes is! int ||
         invalidCount is! int ||
         profileCount is! int) {
-      throw const FormatException('Memory usage metadata is invalid.');
+      throw const FormatException('记忆用量元数据无效。');
     }
     if (invalidCount != 0) {
-      throw const FormatException('Memory storage contains invalid fields.');
+      throw const FormatException('记忆存储包含无效字段。');
     }
     if (profileCount > 1) {
-      throw const FormatException('Multiple user profiles are stored.');
+      throw const FormatException(_multipleProfilesMessage);
     }
     return _MemoryUsage(entryCount: entryCount, totalBytes: totalBytes);
   }
@@ -638,29 +620,29 @@ class MemoryStore {
   void _validateLegacyMigrationMarker(Map<String, Object?> row) {
     final value = row['value'];
     if (value is! String) {
-      throw const FormatException('Memory migration marker is invalid.');
+      throw const FormatException(_invalidMigrationMarkerMessage);
     }
     final Object? decoded;
     try {
       decoded = jsonDecode(value);
     } on FormatException {
-      throw const FormatException('Memory migration marker is invalid.');
+      throw const FormatException(_invalidMigrationMarkerMessage);
     }
     if (decoded is! Map<String, dynamic> || jsonEncode(decoded) != value) {
-      throw const FormatException('Memory migration marker is not canonical.');
+      throw const FormatException('记忆迁移标记格式不规范。');
     }
     final status = decoded['status'];
     final completedAt = decoded['completed_at'];
     if (status is! String ||
         !_legacyMigrationStatuses.contains(status) ||
         completedAt is! String) {
-      throw const FormatException('Memory migration marker is invalid.');
+      throw const FormatException(_invalidMigrationMarkerMessage);
     }
     final parsedCompletedAt = DateTime.tryParse(completedAt);
     if (parsedCompletedAt == null ||
         !parsedCompletedAt.isUtc ||
         parsedCompletedAt.toIso8601String() != completedAt) {
-      throw const FormatException('Memory migration marker time is invalid.');
+      throw const FormatException('记忆迁移标记时间无效。');
     }
     final expectedKeys = <String>{'status', 'completed_at'};
     if (status == legacyMigrationStatusImported) {
@@ -668,26 +650,22 @@ class MemoryStore {
       if (sourcePath is! String ||
           sourcePath.isEmpty ||
           sourcePath.trim() != sourcePath) {
-        throw const FormatException('Memory migration source path is invalid.');
+        throw const FormatException('记忆迁移来源路径无效。');
       }
       expectedKeys.add('source_path');
     }
     if (decoded.length != expectedKeys.length ||
         !expectedKeys.every(decoded.containsKey)) {
-      throw const FormatException(
-        'Memory migration marker fields are invalid.',
-      );
+      throw const FormatException('记忆迁移标记字段无效。');
     }
   }
 
   void _ensureInsertWithinQuota(_MemoryUsage usage, int payloadBytes) {
     if (usage.entryCount >= maxEntries) {
-      throw StateError('Memory entry limit exceeded ($maxEntries).');
+      throw StateError('记忆条目超过上限（$maxEntries）。');
     }
     if (usage.totalBytes + payloadBytes > maxTotalPayloadBytes) {
-      throw StateError(
-        'Memory payload limit exceeded ($maxTotalPayloadBytes bytes).',
-      );
+      throw StateError('记忆载荷超过上限（$maxTotalPayloadBytes 字节）。');
     }
   }
 
@@ -701,14 +679,12 @@ class MemoryStore {
         usage.totalBytes > maxTotalPayloadBytes;
     if (isHistoricallyOverLimit) {
       if (nextBytes >= previousBytes) {
-        throw StateError('Over-limit memory updates must reduce payload size.');
+        throw StateError('超限记忆更新必须减少载荷大小。');
       }
       return;
     }
     if (usage.totalBytes - previousBytes + nextBytes > maxTotalPayloadBytes) {
-      throw StateError(
-        'Memory payload limit exceeded ($maxTotalPayloadBytes bytes).',
-      );
+      throw StateError('记忆载荷超过上限（$maxTotalPayloadBytes 字节）。');
     }
   }
 
@@ -724,7 +700,7 @@ class MemoryStore {
       limit: 1,
     );
     if (rows.isNotEmpty) {
-      throw StateError('A user profile already exists.');
+      throw StateError('用户资料已存在。');
     }
   }
 
@@ -740,7 +716,7 @@ class MemoryStore {
     ]) {
       final value = row[key];
       if (value is! String) {
-        throw FormatException('Memory $key is not text.');
+        throw FormatException('记忆字段 $key 不是文本。');
       }
       total += utf8.encode(value).length;
     }
