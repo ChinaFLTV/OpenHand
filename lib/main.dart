@@ -460,7 +460,7 @@ Future<void> _bootstrap() async {
     ..register('消息网关控制器', () async {
       messageGateway.controller.pluginServiceController = null;
       await messageGateway.controller.shutdown();
-    })
+    }, timeout: MessageGatewayController.runtimeCleanupTimeout)
     ..register(
       'MCP 控制器',
       mcp.controller.shutdown,

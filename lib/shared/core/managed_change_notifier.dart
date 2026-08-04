@@ -19,6 +19,9 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
   @protected
   bool get isShuttingDown => _isShuttingDown;
 
+  @protected
+  Duration get operationShutdownTimeout => _kManagedControllerShutdownTimeout;
+
   StateError get _unavailableError => StateError('$runtimeType 正在关闭或已释放');
 
   @override
@@ -46,9 +49,6 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
     });
   }
 
-  @protected
-  Future<void> get operationsIdle => _operationQueue.idle;
-
   /// 停止接收新操作，并有界等待已经入队的操作结束。
   Future<void> shutdown() {
     final active = _shutdownFuture;
@@ -56,7 +56,7 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
     _isShuttingDown = true;
     final shutdown = () async {
       try {
-        await _operationQueue.idle.timeout(_kManagedControllerShutdownTimeout);
+        await _operationQueue.idle.timeout(operationShutdownTimeout);
       } finally {
         if (!_isDisposed) dispose();
       }

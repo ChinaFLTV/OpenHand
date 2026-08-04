@@ -94,12 +94,16 @@ class MessageGatewayController extends ManagedChangeNotifier {
   final WebMessagePlatformService _service;
   late final StreamSubscription<WebGatewayLogEntry> _logSub;
   Future<void>? _shutdownFuture;
+  Future<void>? _resourceShutdownFuture;
   bool _disposed = false;
   late final OpenHandDebouncer _logNotifyDebouncer = OpenHandDebouncer(
     delay: _logNotifyDelay,
   );
   static const Duration _logNotifyDelay = Duration(milliseconds: 120);
-  static const Duration _shutdownTimeout = Duration(seconds: 15);
+  static const Duration runtimeCleanupTimeout = Duration(seconds: 15);
+
+  @override
+  Duration get operationShutdownTimeout => runtimeCleanupTimeout;
 
   WebMessagePlatformConfig _config = const WebMessagePlatformConfig();
   bool _isLoading = true;
@@ -596,8 +600,17 @@ class MessageGatewayController extends ManagedChangeNotifier {
   /// 释放通知器并有界关闭 HTTP 服务、订阅和自有媒体资源，可重复调用。
   @override
   Future<void> shutdown() {
-    if (!_disposed) dispose();
-    return _shutdownFuture ?? Future<void>.value();
+    final active = _shutdownFuture;
+    if (active != null) return active;
+    final shutdown = () async {
+      try {
+        await super.shutdown();
+      } finally {
+        await (_resourceShutdownFuture ?? Future<void>.value());
+      }
+    }();
+    _shutdownFuture = shutdown;
+    return shutdown;
   }
 
   @override
@@ -606,27 +619,19 @@ class MessageGatewayController extends ManagedChangeNotifier {
     _disposed = true;
     _logNotifyDebouncer.dispose();
     _saveSuccessPulse.dispose();
-    _shutdownFuture = () async {
-      await runAsyncCleanupBounded(
-        () => operationsIdle,
-        timeout: _shutdownTimeout,
+    _resourceShutdownFuture = Future.wait<bool>(<Future<bool>>[
+      cancelStreamSubscriptionBounded<WebGatewayLogEntry>(
+        _logSub,
         onError: (error, stack) =>
-            silentLog('message_gateway', '等待控制器操作结束', error, stack),
-      );
-      await Future.wait<bool>(<Future<bool>>[
-        cancelStreamSubscriptionBounded<WebGatewayLogEntry>(
-          _logSub,
-          onError: (error, stack) =>
-              silentLog('message_gateway', '取消日志订阅', error, stack),
-        ),
-        runAsyncCleanupBounded(
-          _service.dispose,
-          timeout: _shutdownTimeout,
-          onError: (error, stack) =>
-              silentLog('message_gateway', '关闭消息网关服务', error, stack),
-        ),
-      ]);
-    }();
+            silentLog('message_gateway', '取消日志订阅', error, stack),
+      ),
+      runAsyncCleanupBounded(
+        _service.dispose,
+        timeout: runtimeCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('message_gateway', '关闭消息网关服务', error, stack),
+      ),
+    ]).then<void>((_) {});
     super.dispose();
   }
 
