@@ -1,4 +1,3 @@
-import 'dart:async';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -6,6 +5,7 @@ import 'package:path/path.dart' as p;
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/serial_task_queue.dart';
 import '../../model/ai_web_engine_resilience.dart';
 import 'web_engine_json_utils.dart';
 import 'web_engine_persistence_io.dart';
@@ -146,7 +146,7 @@ abstract class WebEngineSampleBase {
 /// * 目录：`<openhand_cache>/<subdir>/telemetry/`
 /// * 三份文件：`calls.json` (FIFO log) / `engines.json` (累计 + cooldown) /
 ///   `engine_history.json` (每引擎 ring buffer，趋势图用)。
-/// * `_chain` 串联所有写盘动作；外部 `recordCall` 永不抛异常。
+/// * 有界串行队列统一调度写盘动作；外部 `recordCall` 永不抛异常。
 ///
 /// 子类需要实现：
 ///   * [subdir] / [logTag] / [kindValues]：领域元信息
@@ -160,7 +160,10 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   List<TKind> get kindValues;
   TKind? parseKind(String name);
 
-  Future<void> _chain = Future.value();
+  final SerialTaskQueue _operations = SerialTaskQueue(
+    maxPendingTasks: _maxPendingOperations,
+  );
+  static const int _maxPendingOperations = 256;
   static const int _maxPersistedCalls = 2000;
   static const int _maxPersistedHistorySamples = 2000;
   static const String _telemetryDirectoryName = 'telemetry';
@@ -260,19 +263,14 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
     return result;
   }
 
-  Future<void> clearAll() async {
-    _chain = _chain.then((_) async {
+  Future<void> clearAll() {
+    return _runSerialized('清理全部遥测记录', () async {
       final dir = Directory(defaultDirectoryPath());
-      try {
-        final complete = await clearWebEngineDirectoryBounded(dir);
-        if (!complete) {
-          throw StateError('Web 引擎遥测清理已达到安全上限。');
-        }
-      } catch (error, stack) {
-        silentLog(logTag, '清理全部遥测记录', error, stack);
+      final complete = await clearWebEngineDirectoryBounded(dir);
+      if (!complete) {
+        throw StateError('Web 引擎遥测清理已达到安全上限。');
       }
     });
-    await _chain;
   }
 
   /// orchestrator 用：判断某引擎当前是否处于 cooldown（暂停调用）。
@@ -287,29 +285,24 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
   }
 
   /// 手动清掉某引擎的 cooldown（用于设置 UI 上的"重置"动作）。
-  Future<void> clearEngineCooldown(TKind kind) async {
-    _chain = _chain.then((_) async {
+  Future<void> clearEngineCooldown(TKind kind) {
+    return _runSerialized('清理引擎冷却状态', () async {
       final f = File(p.join(defaultDirectoryPath(), _enginesFileName));
-      try {
-        final decoded = await readWebEngineJsonFileIfExists(f);
-        if (decoded is! Map) return;
-        final agg = <String, Map<String, Object?>>{};
-        for (final entry in decoded.entries) {
-          if (entry.value is Map) {
-            agg['${entry.key}'] = stringKeyedMapFromValue(entry.value);
-          }
+      final decoded = await readWebEngineJsonFileIfExists(f);
+      if (decoded is! Map) return;
+      final agg = <String, Map<String, Object?>>{};
+      for (final entry in decoded.entries) {
+        if (entry.value is Map) {
+          agg['${entry.key}'] = stringKeyedMapFromValue(entry.value);
         }
-        final cur = agg[kind.name];
-        if (cur == null) return;
-        cur.remove('cooldown_until_ms');
-        cur['consecutive_failures'] = 0;
-        agg[kind.name] = cur;
-        await writeWebEngineJsonFile(f, agg);
-      } catch (error, stack) {
-        silentLog(logTag, '清理引擎冷却状态', error, stack);
       }
+      final cur = agg[kind.name];
+      if (cur == null) return;
+      cur.remove('cooldown_until_ms');
+      cur['consecutive_failures'] = 0;
+      agg[kind.name] = cur;
+      await writeWebEngineJsonFile(f, agg);
     });
-    await _chain;
   }
 
   /// 返回 [kind] 在最近 60 秒内的调用次数（基于 engine_history.json 时间戳）。
@@ -348,21 +341,28 @@ abstract class WebEngineTelemetryStoreBase<TKind extends Enum> {
       0,
       _maxPersistedHistorySamples,
     );
-    _chain = _chain
-        .then(
-          (_) => _writeCallRaw(
-            callJson: callJson,
-            timestampMs: timestampMs,
-            perEngine: perEngine,
-            cooldownConfig: cooldownConfig,
-            maxRecentCalls: retainedCalls,
-            maxHistorySamples: retainedHistory,
-          ),
-        )
-        .catchError((Object error, StackTrace stack) {
-          silentLog(logTag, '记录原始调用', error, stack);
-        });
-    await _chain;
+    await _runSerialized(
+      '记录原始调用',
+      () => _writeCallRaw(
+        callJson: callJson,
+        timestampMs: timestampMs,
+        perEngine: perEngine,
+        cooldownConfig: cooldownConfig,
+        maxRecentCalls: retainedCalls,
+        maxHistorySamples: retainedHistory,
+      ),
+    );
+  }
+
+  Future<void> _runSerialized(
+    String action,
+    Future<void> Function() operation,
+  ) async {
+    try {
+      await _operations.enqueue(operation);
+    } catch (error, stack) {
+      silentLog(logTag, action, error, stack);
+    }
   }
 
   Future<void> _writeCallRaw({
