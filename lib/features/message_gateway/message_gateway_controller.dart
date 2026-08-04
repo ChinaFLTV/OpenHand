@@ -594,6 +594,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
   }
 
   /// 释放通知器并有界关闭 HTTP 服务、订阅和自有媒体资源，可重复调用。
+  @override
   Future<void> shutdown() {
     if (!_disposed) dispose();
     return _shutdownFuture ?? Future<void>.value();

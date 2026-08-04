@@ -760,6 +760,7 @@ class PluginServiceController extends ManagedChangeNotifier {
     super.dispose();
   }
 
+  @override
   Future<void> shutdown() {
     if (!isDisposed) dispose();
     return _shutdownFuture ?? Future<void>.value();
