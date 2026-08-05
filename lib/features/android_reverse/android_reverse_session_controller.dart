@@ -390,11 +390,12 @@ class AndroidReverseSessionController extends ChangeNotifier {
       final procs = await _clientForSerial(
         serial,
       ).listProcesses(filterName: filterName);
+      final snapshot = List<AndroidProcess>.unmodifiable(procs);
       if (!_disposed && generation == _processRefreshGeneration) {
-        _processes = procs;
+        _processes = snapshot;
         _safeNotify();
       }
-      return procs;
+      return snapshot;
     } catch (e, st) {
       silentLog(_kTag, '刷新进程列表失败', e, st);
       if (!_disposed && generation == _processRefreshGeneration) {
@@ -2078,8 +2079,8 @@ class AndroidReverseSessionController extends ChangeNotifier {
     try {
       final devices = await _adbClient.listDevices();
       if (_disposed || _state == AndroidReverseSessionState.stopped) return;
-      _allDevices = devices;
-      _connectedDevice = _adbClient.selectOnlineDevice(devices);
+      _allDevices = List<AdbDevice>.unmodifiable(devices);
+      _connectedDevice = _adbClient.selectOnlineDevice(_allDevices);
       if (_state == AndroidReverseSessionState.running &&
           _connectedDevice == null &&
           devices.isNotEmpty) {

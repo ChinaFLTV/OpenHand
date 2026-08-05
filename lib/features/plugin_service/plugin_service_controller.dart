@@ -49,7 +49,7 @@ class PluginServiceController extends ManagedChangeNotifier {
   final PluginScannerService _scanner;
   final PluginLifecycleService _lifecycle;
 
-  List<PluginInfo> _plugins = [];
+  List<PluginInfo> _plugins = const <PluginInfo>[];
   bool _isLoading = true;
   bool _isOperating = false;
   String? _checkingPluginId;
@@ -113,7 +113,7 @@ class PluginServiceController extends ManagedChangeNotifier {
     try {
       final scanned = await _scanner.scanAll();
       if (isDisposed) return;
-      _plugins = _mergeScannedPlugins(scanned);
+      _setPlugins(_mergeScannedPlugins(scanned));
     } catch (error, stack) {
       silentLog('plugin_service', '扫描插件状态', error, stack);
       if (isDisposed) return;
@@ -129,8 +129,8 @@ class PluginServiceController extends ManagedChangeNotifier {
         ),
       );
       if (_plugins.isEmpty) {
-        _plugins = _mergeScannedPlugins(
-          PluginScannerService.knownPluginPlaceholders(),
+        _setPlugins(
+          _mergeScannedPlugins(PluginScannerService.knownPluginPlaceholders()),
         );
       }
     } finally {
@@ -228,10 +228,10 @@ class PluginServiceController extends ManagedChangeNotifier {
             )
           : refreshed;
       final restored = _restoreRuntimeState(merged, plugin);
-      _plugins = [
+      _setPlugins(<PluginInfo>[
         for (final p in _plugins)
           if (p.id == pluginId) restored else p,
-      ];
+      ]);
       final updateCheckError = nullIfBlank(
         '${restored.metadata['update_check_error'] ?? ''}',
       );
@@ -266,18 +266,18 @@ class PluginServiceController extends ManagedChangeNotifier {
 
   /// 切换插件启用/禁用状态。
   void toggleEnabled(String pluginId, {required bool enabled}) {
-    _plugins = [
+    _setPlugins(<PluginInfo>[
       for (final p in _plugins)
         if (p.id == pluginId) p.copyWith(enabled: enabled) else p,
-    ];
+    ]);
     if (!enabled) {
-      _plugins = [
+      _setPlugins(<PluginInfo>[
         for (final p in _plugins)
           if (p.dependencies.contains(pluginId) && p.isInstalled)
             p.copyWith(enabled: false)
           else
             p,
-      ];
+      ]);
     }
     notifyListeners();
   }
@@ -720,7 +720,7 @@ class PluginServiceController extends ManagedChangeNotifier {
     if (plugin == null || plugin.errorMessage == null) return;
     final wasOperationFailure =
         _errorMessage != null && _errorMessage == plugin.errorMessage;
-    _plugins = [
+    _setPlugins(<PluginInfo>[
       for (final p in _plugins)
         if (p.id == pluginId)
           p.copyWith(
@@ -731,7 +731,7 @@ class PluginServiceController extends ManagedChangeNotifier {
           )
         else
           p,
-    ];
+    ]);
     if (wasOperationFailure) {
       _errorMessage = null;
     }
@@ -758,7 +758,7 @@ class PluginServiceController extends ManagedChangeNotifier {
     PluginStatus status, {
     String? errorMessage,
   }) {
-    _plugins = [
+    _setPlugins(<PluginInfo>[
       for (final p in _plugins)
         if (p.id == pluginId)
           p.copyWith(
@@ -768,7 +768,11 @@ class PluginServiceController extends ManagedChangeNotifier {
           )
         else
           p,
-    ];
+    ]);
+  }
+
+  void _setPlugins(Iterable<PluginInfo> plugins) {
+    _plugins = List<PluginInfo>.unmodifiable(plugins);
   }
 
   Future<T> _trackOperation<T>(Future<T> Function() operation) {

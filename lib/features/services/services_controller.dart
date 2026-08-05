@@ -160,8 +160,7 @@ class ServicesController extends ChangeNotifier {
   List<AiExposureQuota> get quotas => _quotas;
   AiExposureAiExtractorStatus? get aiExtractorStatus => _aiExtractorStatus;
   AiExposureDependencyStatus? get dependencyStatus => _dependencyStatus;
-  Map<String, Object?> get dependencyDataOverview =>
-      Map<String, Object?>.unmodifiable(_dependencyDataOverview);
+  Map<String, Object?> get dependencyDataOverview => _dependencyDataOverview;
   List<DependencyTelemetrySample> get dependencyTelemetryHistory =>
       _dependencyTelemetryHistory.samples;
   String? get dependencyDataOverviewError => _dependencyDataOverviewError;
@@ -274,8 +273,8 @@ class ServicesController extends ChangeNotifier {
   });
 
   void _setHistory(List<AiExposureHistoryEntry> history) {
-    _history = history;
-    final activeIds = history.map((entry) => entry.id).toSet();
+    _history = List<AiExposureHistoryEntry>.unmodifiable(history);
+    final activeIds = _history.map((entry) => entry.id).toSet();
     _historyLogs.removeWhere((id, _) => !activeIds.contains(id));
   }
 
@@ -509,9 +508,15 @@ class ServicesController extends ChangeNotifier {
       if (!_isCurrentClient(client)) return;
       _health = values[0] as AiExposureHealth;
       _setHistory(values[1] as List<AiExposureHistoryEntry>);
-      _results = values[2] as List<AiExposureResult>;
-      _rules = values[3] as List<AiExposureScanRule>;
-      _sourceStatus = values[4] as Map<String, bool>;
+      _results = List<AiExposureResult>.unmodifiable(
+        values[2] as List<AiExposureResult>,
+      );
+      _rules = List<AiExposureScanRule>.unmodifiable(
+        values[3] as List<AiExposureScanRule>,
+      );
+      _sourceStatus = Map<String, bool>.unmodifiable(
+        values[4] as Map<String, bool>,
+      );
       _aiExtractorStatus = values[5] as AiExposureAiExtractorStatus;
       _dependencyStatus = values[6] as AiExposureDependencyStatus;
       _proxyStatus = proxyStatus;
@@ -541,8 +546,12 @@ class ServicesController extends ChangeNotifier {
         await _mergeProxyStatistics(proxyStatus);
         if (!_isCurrentClient(client)) return;
         _health = values[0] as AiExposureHealth;
-        _quotas = values[1] as List<AiExposureQuota>;
-        _sourceStatus = values[2] as Map<String, bool>;
+        _quotas = List<AiExposureQuota>.unmodifiable(
+          values[1] as List<AiExposureQuota>,
+        );
+        _sourceStatus = Map<String, bool>.unmodifiable(
+          values[2] as Map<String, bool>,
+        );
         _dependencyStatus = values[3] as AiExposureDependencyStatus;
         _proxyStatus = proxyStatus;
         _errorMessage = null;
@@ -566,7 +575,7 @@ class ServicesController extends ChangeNotifier {
       requestClient = client;
       final overview = await client.dependencyDataOverview();
       if (!_isCurrentClient(client)) return false;
-      _dependencyDataOverview = overview;
+      _dependencyDataOverview = Map<String, Object?>.unmodifiable(overview);
       _dependencyTelemetryHistory.add(overview);
       _dependencyDataOverviewError = null;
       _notify();
@@ -590,7 +599,7 @@ class ServicesController extends ChangeNotifier {
     Map<String, Object?> overview, {
     DateTime? receivedAt,
   }) {
-    _dependencyDataOverview = overview;
+    _dependencyDataOverview = Map<String, Object?>.unmodifiable(overview);
     _dependencyTelemetryHistory.add(overview, receivedAt: receivedAt);
     _dependencyDataOverviewError = null;
   }
@@ -785,7 +794,9 @@ class ServicesController extends ChangeNotifier {
   Future<bool> saveRules(List<AiExposureScanRule> rules) async {
     try {
       await _requireClient().saveRules(rules);
-      _rules = await _requireClient().rules();
+      _rules = List<AiExposureScanRule>.unmodifiable(
+        await _requireClient().rules(),
+      );
       _errorMessage = null;
       return true;
     } catch (error, stack) {
@@ -814,7 +825,9 @@ class ServicesController extends ChangeNotifier {
         fofaKey: fofaKey,
         shodanKey: shodanKey,
       );
-      _sourceStatus = await client.sourceStatus();
+      _sourceStatus = Map<String, bool>.unmodifiable(
+        await client.sourceStatus(),
+      );
       _errorMessage = null;
       return true;
     } catch (error, stack) {
@@ -1532,10 +1545,10 @@ class ServicesController extends ChangeNotifier {
         final result = AiExposureResult.fromJson(
           aiExposureJsonMap(event['result']),
         );
-        _results = <AiExposureResult>[
+        _results = List<AiExposureResult>.unmodifiable(<AiExposureResult>[
           result,
           ..._results.where((item) => item.id != result.id),
-        ];
+        ]);
       case 'log':
         _appendLog(
           AiExposureLogEntry(
@@ -1618,7 +1631,9 @@ class ServicesController extends ChangeNotifier {
     ]);
     if (!_isCurrentClient(client)) return;
     _setHistory(values[0] as List<AiExposureHistoryEntry>);
-    _results = values[1] as List<AiExposureResult>;
+    _results = List<AiExposureResult>.unmodifiable(
+      values[1] as List<AiExposureResult>,
+    );
   }
 
   Future<void> _refreshHistoryAndResultsSafely() async {

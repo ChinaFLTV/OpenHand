@@ -182,7 +182,7 @@ class KnowledgeBaseController extends ChangeNotifier {
       try {
         final sources = await _store.loadSources(query: query);
         if (_isStopping || generation != _sourceLoadGeneration) return;
-        _sources = sources;
+        _sources = List<KnowledgeSource>.unmodifiable(sources);
         notifyListeners();
       } catch (error, stack) {
         if (_isStopping || generation != _sourceLoadGeneration) return;
@@ -566,7 +566,7 @@ class KnowledgeBaseController extends ChangeNotifier {
     final generation = ++_sourceLoadGeneration;
     final sources = await _store.loadSources(query: _query);
     if (_isStopping || generation != _sourceLoadGeneration) return;
-    _sources = sources;
+    _sources = List<KnowledgeSource>.unmodifiable(sources);
   }
 
   Future<QdrantMonitoringSnapshot> loadMonitoringSnapshot() {
