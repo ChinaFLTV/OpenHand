@@ -1000,7 +1000,9 @@ class AiExposureHistoryEntry {
   final DateTime? finishedAt;
   final String? errorMessage;
 
+  bool get isCompleted => stage == 'completed';
   bool get isResumable => stage != 'completed';
+  bool get isRestartable => id.isNotEmpty;
 }
 
 class AiExposureResult {

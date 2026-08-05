@@ -1718,18 +1718,14 @@ impl HuntEngine {
         {
             return Err(EngineError::JobRunning);
         }
-        let (mut request, stage) = self
+        let (request, stage) = self
             .store
             .load_request(id)
             .await
             .map_err(anyhow::Error::from)?
             .ok_or(EngineError::JobNotFound)?;
-        if !is_resumable(stage) {
-            return Err(EngineError::JobFinished);
-        }
-        request.mode = hunt_core::ScanMode::Incremental;
-        request.name = format!("{}（恢复）", request.name);
-        self.start_job_locked(request).await
+        self.start_job_locked(prepare_resumed_request(request, stage))
+            .await
     }
 
     pub async fn results(
@@ -2976,8 +2972,20 @@ fn scalar_text(value: &serde_json::Value) -> Option<String> {
     }
 }
 
-fn is_resumable(stage: ScanStage) -> bool {
-    stage != ScanStage::Completed
+fn prepare_resumed_request(mut request: ScanRequest, stage: ScanStage) -> ScanRequest {
+    let action = if stage == ScanStage::Completed {
+        "重跑"
+    } else {
+        request.mode = ScanMode::Incremental;
+        "恢复"
+    };
+    let name = request
+        .name
+        .strip_suffix("（恢复）")
+        .or_else(|| request.name.strip_suffix("（重跑）"))
+        .unwrap_or(&request.name);
+    request.name = format!("{name}（{action}）");
+    request
 }
 
 fn resolve_authorized_scope(request: &ScanRequest) -> anyhow::Result<AuthorizedScope> {
@@ -3063,11 +3071,32 @@ mod tests {
     }
 
     #[test]
-    fn resumes_only_interrupted_jobs() {
-        assert!(!is_resumable(ScanStage::Completed));
-        assert!(is_resumable(ScanStage::Cancelled));
-        assert!(is_resumable(ScanStage::Failed));
-        assert!(is_resumable(ScanStage::Fingerprinting));
+    fn reruns_completed_jobs_and_resumes_interrupted_jobs() {
+        let request = ScanRequest {
+            name: "历史任务".to_owned(),
+            sources: vec![SourceKind::Github],
+            mode: ScanMode::Full,
+            authorized_scope: Vec::new(),
+            authorization_confirmed: true,
+            targets: Vec::new(),
+            vendors: Vec::new(),
+            source_queries: BTreeMap::new(),
+            forum_fetch_mode: Default::default(),
+            validation_mode: ValidationMode::Passive,
+            concurrency: 1,
+            gpt_assisted: false,
+        };
+
+        let rerun = prepare_resumed_request(request.clone(), ScanStage::Completed);
+        assert_eq!(rerun.mode, ScanMode::Full);
+        assert_eq!(rerun.name, "历史任务（重跑）");
+
+        let resumed = prepare_resumed_request(request, ScanStage::Failed);
+        assert_eq!(resumed.mode, ScanMode::Incremental);
+        assert_eq!(resumed.name, "历史任务（恢复）");
+
+        let repeated = prepare_resumed_request(resumed, ScanStage::Completed);
+        assert_eq!(repeated.name, "历史任务（重跑）");
     }
 
     #[test]

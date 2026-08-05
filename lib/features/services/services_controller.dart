@@ -735,8 +735,17 @@ class ServicesController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> resumeHistory(String jobId) async {
-    if (_scanBusy || hasActiveScan) return;
+  Future<bool> resumeHistory(String jobId) async {
+    if (_scanBusy) {
+      _errorMessage = '正在处理扫描任务，请稍候。';
+      _notify();
+      return false;
+    }
+    if (hasActiveScan) {
+      _errorMessage = '已有扫描任务正在运行。';
+      _notify();
+      return false;
+    }
     _scanBusy = true;
     _errorMessage = null;
     _notify();
@@ -745,8 +754,11 @@ class ServicesController extends ChangeNotifier {
       _progress = await _requireClient().progress(resumedId);
       _logs.clear();
       await _watchJob(resumedId);
+      unawaited(_refreshHistoryAndResultsSafely());
+      return true;
     } catch (error, stack) {
       _errorMessage = _reportServicesFailure('恢复扫描任务', error, stack);
+      return false;
     } finally {
       _scanBusy = false;
       _notify();

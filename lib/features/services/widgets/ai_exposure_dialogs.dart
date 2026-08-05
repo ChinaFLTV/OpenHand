@@ -10,6 +10,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
@@ -701,6 +702,7 @@ class _ScanWorkspaceDialog extends StatefulWidget {
 class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
   _ScanWorkspaceView _view = _ScanWorkspaceView.live;
   AiExposureResultCategory? _category;
+  String? _resumingJobId;
 
   @override
   Widget build(BuildContext context) {
@@ -867,10 +869,42 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
 
   Future<void> _resumeHistory(
     ServicesController controller,
-    String jobId,
+    AiExposureHistoryEntry entry,
   ) async {
-    setState(() => _view = _ScanWorkspaceView.live);
-    await controller.resumeHistory(jobId);
+    if (_resumingJobId != null) return;
+    setState(() => _resumingJobId = entry.id);
+    final resumed = await controller.resumeHistory(entry.id);
+    if (!mounted) return;
+    setState(() {
+      _resumingJobId = null;
+      if (resumed) _view = _ScanWorkspaceView.live;
+    });
+    if (resumed) {
+      showOpenHandSuccessSnack(
+        context,
+        entry.isCompleted
+            ? openHandLocalizedText(
+                context,
+                zh: '已按原配置重新运行任务。',
+                en: 'The job is running again with its saved configuration.',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '已恢复扫描任务。',
+                en: 'The scan job has resumed.',
+              ),
+      );
+    } else {
+      showOpenHandErrorSnack(
+        context,
+        controller.errorMessage ??
+            openHandLocalizedText(
+              context,
+              zh: '恢复扫描任务失败。',
+              en: 'Failed to resume the scan job.',
+            ),
+      );
+    }
   }
 
   Widget _buildLiveView(BuildContext context, ServicesController controller) {
@@ -1025,12 +1059,9 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
         final entry = controller.history[index];
         return _HistoryTile(
           entry: entry,
-          onResume:
-              entry.isResumable &&
-                  controller.isRunning &&
-                  !controller.scanBusy &&
-                  !controller.hasActiveScan
-              ? () => _resumeHistory(controller, entry.id)
+          isResuming: _resumingJobId == entry.id,
+          onResume: entry.isRestartable && _resumingJobId == null
+              ? () => _resumeHistory(controller, entry)
               : null,
           onDelete: () => _confirmDeleteHistory(context, controller, entry),
           onLogs: () => _showHistoryLogs(context, entry),
@@ -2881,12 +2912,14 @@ class _ResultTile extends StatelessWidget {
 class _HistoryTile extends StatelessWidget {
   const _HistoryTile({
     required this.entry,
+    required this.isResuming,
     required this.onResume,
     required this.onDelete,
     required this.onLogs,
     required this.onExport,
   });
   final AiExposureHistoryEntry entry;
+  final bool isResuming;
   final VoidCallback? onResume;
   final VoidCallback onDelete;
   final VoidCallback onLogs;
@@ -2936,12 +2969,18 @@ class _HistoryTile extends StatelessWidget {
               Tooltip(
                 message: openHandLocalizedText(
                   context,
-                  zh: '恢复任务',
-                  en: 'Resume',
+                  zh: entry.isCompleted ? '重新运行任务' : '恢复任务',
+                  en: entry.isCompleted ? 'Run again' : 'Resume',
                 ),
                 child: IconButton(
                   onPressed: onResume,
-                  icon: const Icon(Icons.restore_rounded),
+                  icon: OpenHandBusyStatusIcon(
+                    busy: isResuming,
+                    icon: entry.isCompleted
+                        ? Icons.replay_rounded
+                        : Icons.restore_rounded,
+                    size: 22,
+                  ),
                 ),
               ),
               Tooltip(

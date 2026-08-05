@@ -34,6 +34,7 @@ const GIT_REPOSITORY_CONCURRENCY: usize = 3;
 const GIT_CONTENT_CONCURRENCY: usize = 4;
 const MAX_FORUM_TOPICS: usize = 5;
 const FORUM_TOPIC_CONCURRENCY: usize = 3;
+const JINA_READER_TIMEOUT: Duration = Duration::from_secs(45);
 const MAX_BROWSER_CONCURRENCY: usize = 2;
 const BROWSER_PROCESS_TIMEOUT: Duration = Duration::from_secs(25);
 const MAX_BROWSER_OUTPUT_BYTES: usize = 2 * 1024 * 1024;
@@ -270,6 +271,13 @@ impl ObservedRequestBuilder {
     pub fn json<T: Serialize + ?Sized>(self, value: &T) -> Self {
         Self {
             request: self.request.json(value),
+            ..self
+        }
+    }
+
+    pub fn timeout(self, duration: Duration) -> Self {
+        Self {
+            request: self.request.timeout(duration),
             ..self
         }
     }
@@ -704,6 +712,8 @@ impl ForumSource {
             .client
             .get(reader_url)
             .header("Accept", "text/plain")
+            .header("X-Return-Format", "markdown")
+            .timeout(JINA_READER_TIMEOUT)
             .send()
             .await
             .map_err(|error| {
