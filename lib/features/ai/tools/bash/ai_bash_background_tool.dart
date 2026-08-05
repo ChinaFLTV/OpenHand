@@ -845,10 +845,9 @@ class AiBashBackgroundTool extends AiTool {
     required int timeoutMs,
     Future<void>? cancelSignal,
   }) async {
-    final startedAtMs = DateTime.now().millisecondsSinceEpoch;
+    final stopwatch = Stopwatch()..start();
     while (session.alive) {
-      final elapsedMs = DateTime.now().millisecondsSinceEpoch - startedAtMs;
-      final remainingMs = timeoutMs - elapsedMs;
+      final remainingMs = timeoutMs - stopwatch.elapsedMilliseconds;
       if (remainingMs <= 0) return false;
       final waitMs = remainingMs < _taskOutputPollMs
           ? remainingMs

@@ -1921,7 +1921,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   String? _lastParseKey;
   bool _deferredParseScheduled = false;
   Timer? _deferredParseThrottleTimer;
-  int _lastMarkdownParseAtMs = 0;
+  final Stopwatch _markdownParseStopwatch = Stopwatch()..start();
+  int _lastMarkdownParseAtMs = -1;
   TranscriptScrollActivity? _scrollActivity;
   bool _deferredParsePendingAfterScroll = false;
 
@@ -1958,6 +1959,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   @override
   void dispose() {
     _cancelDeferredParseThrottle();
+    _markdownParseStopwatch.stop();
     _scrollActivity?.removeListener(_handleScrollActivityChanged);
     _scrollActivity = null;
     _disposeRecognizers();
@@ -2067,8 +2069,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     } else if (_deferredParseThrottleTimer != null) {
       return;
     } else {
-      final nowMs = DateTime.now().millisecondsSinceEpoch;
-      final elapsedMs = _lastMarkdownParseAtMs <= 0
+      final nowMs = _markdownParseStopwatch.elapsedMilliseconds;
+      final elapsedMs = _lastMarkdownParseAtMs < 0
           ? _markdownStreamingParseMinIntervalMs
           : nowMs - _lastMarkdownParseAtMs;
       final remainingMs = _markdownStreamingParseMinIntervalMs - elapsedMs;
@@ -2150,7 +2152,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     try {
       _parseMarkdownInner();
     } finally {
-      _lastMarkdownParseAtMs = DateTime.now().millisecondsSinceEpoch;
+      _lastMarkdownParseAtMs = _markdownParseStopwatch.elapsedMilliseconds;
       developer.Timeline.finishSync();
     }
   }

@@ -6077,6 +6077,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _fetchInterceptEnabled; // 请求 ID -> 暂存的元信息（method / url），等用户决策。
   final Map<String, Map<String, Object?>> _pendingFetchRequests =
       <String, Map<String, Object?>>{};
+  final Stopwatch _pendingFetchStopwatch = Stopwatch()..start();
   Timer? _pendingFetchSweepTimer;
   List<({String requestId, String method, String url})>
   get pendingFetchRequests => _pendingFetchRequests.entries
@@ -6119,7 +6120,7 @@ class WebReverseSessionController extends ChangeNotifier {
           return;
         }
         final cutoff =
-            DateTime.now().millisecondsSinceEpoch -
+            _pendingFetchStopwatch.elapsedMilliseconds -
             fetchInterceptPendingTimeoutSeconds * 1000;
         final expired = _pendingFetchRequests.entries
             .where(
@@ -6375,7 +6376,7 @@ class WebReverseSessionController extends ChangeNotifier {
         maxRuleMethodChars,
       ),
       'url': _capPlainWebReverseText(url, maxBreakpointTextChars),
-      'createdAtMs': DateTime.now().millisecondsSinceEpoch,
+      'createdAtMs': _pendingFetchStopwatch.elapsedMilliseconds,
       'sessionId': _pageSessionId,
     };
     _ensurePendingFetchSweepTimer();
@@ -8524,6 +8525,7 @@ class WebReverseSessionController extends ChangeNotifier {
     if (active != null) return active;
     _disposed = true;
     _stopped = true;
+    _pendingFetchStopwatch.stop();
     _pauseCronTimers();
     final shutdown =
         () async {
