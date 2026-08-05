@@ -40,6 +40,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
+import '../../../shared/util/user_failure_message.dart';
 import '../../ai/index.dart'
     show
         AiAgentBuiltinToolGroup,
@@ -10189,14 +10190,18 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           en: 'Capabilities refreshed.',
         ),
       );
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('agents', '刷新能力配置', error, stack);
       if (!mounted) return;
       _showAgentErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '刷新能力配置失败：$error',
-          en: 'Failed to refresh capabilities: $error',
+        userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '能力配置刷新失败，请稍后重试。',
+            en: 'Failed to refresh capabilities. Try again later.',
+          ),
         ),
       );
     } finally {

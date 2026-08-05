@@ -4,9 +4,11 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_normalization.dart';
+import '../../shared/util/user_failure_message.dart';
 import 'data/agents_store.dart';
 import 'model/agent_models.dart';
 import 'service/agent_ordering.dart';
@@ -125,7 +127,6 @@ class AgentsController extends ManagedChangeNotifier {
       final now = DateTime.now().toUtc();
       final runtime = runtimeAvailability;
       final canSaveEnabled = !draft.enabled || runtime.canRun;
-      if (!canSaveEnabled) _errorMessage = runtime.blockingReason;
       final normalized = _normalizeAgent(
         (canSaveEnabled
                 ? draft
@@ -1026,10 +1027,11 @@ class AgentsController extends ManagedChangeNotifier {
         if (changed) _saveSuccessPulse.emit();
         notifyListeners();
         return changed;
-      } catch (error) {
+      } catch (error, stack) {
+        silentLog('agents_controller', '保存智能体配置', error, stack);
         _setAgents(previous);
-        _hasTrustedSnapshot = false;
-        _errorMessage = '$error';
+        _hasTrustedSnapshot = true;
+        _errorMessage = userFailureMessage(error, fallback: '智能体配置保存失败，请稍后重试。');
         notifyListeners();
         return false;
       }
@@ -1037,6 +1039,7 @@ class AgentsController extends ManagedChangeNotifier {
   }
 
   Future<void> _loadLocked() async {
+    final hadTrustedSnapshot = _hasTrustedSnapshot;
     _isLoading = true;
     _hasTrustedSnapshot = false;
     _errorMessage = null;
@@ -1044,9 +1047,10 @@ class AgentsController extends ManagedChangeNotifier {
     try {
       _setAgents(await _store.load());
       _hasTrustedSnapshot = true;
-    } catch (error) {
-      _hasTrustedSnapshot = false;
-      _errorMessage = '$error';
+    } catch (error, stack) {
+      silentLog('agents_controller', '加载智能体配置', error, stack);
+      _hasTrustedSnapshot = hadTrustedSnapshot;
+      _errorMessage = userFailureMessage(error, fallback: '智能体配置加载失败，请稍后重试。');
     } finally {
       _isLoading = false;
       notifyListeners();

@@ -14,6 +14,7 @@ import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/serial_task_queue.dart';
 import '../../shared/util/timer_safety.dart';
+import '../../shared/util/user_failure_message.dart';
 import '../mcp/index.dart';
 import 'data/crons_store.dart';
 import 'model/cron_parser.dart';
@@ -60,6 +61,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
   }
 
   Future<void> _loadConfigurationLocked() async {
+    final hadTrustedSnapshot = _hasTrustedSnapshot;
     _isLoading = true;
     _hasTrustedSnapshot = false;
     _errorMessage = null;
@@ -166,9 +168,10 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       }
       _startScheduler();
     } catch (error, stack) {
-      _hasTrustedSnapshot = false;
-      _errorMessage = '$error';
       silentLog('crons_controller', '加载定时任务配置', error, stack);
+      _hasTrustedSnapshot = hadTrustedSnapshot;
+      _errorMessage = userFailureMessage(error, fallback: '定时任务配置加载失败，请稍后重试。');
+      if (_hasTrustedSnapshot) _restartScheduler();
     } finally {
       _isLoading = false;
       if (!_isDisposed) {
@@ -632,9 +635,10 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
       }
     } on TimeoutException {
       // 超时后仅在后台观察原任务，当前执行立即结束。
-    } catch (error) {
+    } catch (error, stack) {
       status = 'failed';
-      errorMessage = '$error';
+      errorMessage = userFailureMessage(error, fallback: '智能体定时任务执行失败，请稍后重试。');
+      silentLog('crons_controller', '执行智能体定时任务', error, stack);
     }
 
     final record = CronExecutionRecord(
@@ -1530,9 +1534,10 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         return result;
       } catch (error, stack) {
         _setEntries(previousEntries);
-        _hasTrustedSnapshot = false;
-        _errorMessage = '$error';
+        _hasTrustedSnapshot = true;
+        _errorMessage = userFailureMessage(error, fallback: '定时任务保存失败，请稍后重试。');
         silentLog('crons_controller', '提交定时任务变更', error, stack);
+        _restartScheduler();
         notifyListeners();
         return false;
       }

@@ -13,6 +13,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/exponential_backoff.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/user_failure_message.dart';
 
 const int _maxCronOutputCharacters = 8000;
 const int _maxCronOutputBytes = _maxCronOutputCharacters * 4;
@@ -216,9 +217,10 @@ class CronExecutor {
           exitCode: lastExitCode,
           pid: lastPid,
         );
-      } catch (e) {
-        lastError = '$e';
+      } catch (error, stack) {
+        lastError = userFailureMessage(error, fallback: '定时任务执行失败，请稍后重试。');
         if (attempt < maxRetries) continue;
+        silentLog('cron_executor', '执行定时任务', error, stack);
         return buildRecord(
           status: 'failed',
           stdout: lastStdout,
