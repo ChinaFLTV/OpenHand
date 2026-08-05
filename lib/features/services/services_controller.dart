@@ -147,6 +147,7 @@ class ServicesController extends ChangeNotifier {
   bool _scanBusy = false;
   bool _logRefreshBusy = false;
   bool _disposed = false;
+  bool _notifierDisposed = false;
   bool _systemProxySyncRunning = false;
   bool _systemProxySyncPending = false;
 
@@ -302,11 +303,13 @@ class ServicesController extends ChangeNotifier {
   }
 
   void attachSelectedAiModelProvider(AiModelConfig? Function() provider) {
+    if (_disposed || _notifierDisposed) return;
     _selectedAiModelProvider = provider;
   }
 
   /// 让服务依赖与插件中心共用同一个状态源和生命周期结果。
   void attachPluginServiceController(PluginServiceController controller) {
+    if (_disposed || _notifierDisposed) return;
     if (identical(_pluginServiceController, controller)) return;
     final previous = _pluginServiceController;
     final listener = _pluginStateListener;
@@ -1800,6 +1803,22 @@ class ServicesController extends ChangeNotifier {
 
   Future<void> shutdown() => _shutdownOnce.run(_shutdown);
 
+  @override
+  void dispose() {
+    if (_notifierDisposed) return;
+    if (!_disposed) {
+      unawaited(
+        shutdown().then<void>(
+          (_) {},
+          onError: (Object error, StackTrace stack) =>
+              silentLog('services_controller', '释放扫描服务控制器', error, stack),
+        ),
+      );
+    }
+    _notifierDisposed = true;
+    super.dispose();
+  }
+
   Future<void> _shutdown() async {
     if (_disposed) return;
     _busy = true;
@@ -1811,35 +1830,38 @@ class ServicesController extends ChangeNotifier {
     _lifecycle = AiExposureServiceLifecycle.stopping;
     await _drainRuntimeOperations();
     _disposed = true;
-    final pluginController = _pluginServiceController;
-    final pluginListener = _pluginStateListener;
-    if (pluginController != null && pluginListener != null) {
-      pluginController.removeListener(pluginListener);
+    try {
+      final pluginController = _pluginServiceController;
+      final pluginListener = _pluginStateListener;
+      if (pluginController != null && pluginListener != null) {
+        pluginController.removeListener(pluginListener);
+      }
+      SystemProxyResolver.instance.revision.removeListener(
+        _handleSystemProxyRevision,
+      );
+      _pluginStateListener = null;
+      _pluginServiceController = null;
+      await Future.wait<bool>(<Future<bool>>[
+        cancelStreamSubscriptionBounded<String>(
+          _runtimeLogSubscription,
+          onError: (error, stack) =>
+              silentLog('services_controller', '取消扫描运行日志订阅', error, stack),
+        ),
+        cancelStreamSubscriptionBounded<int>(
+          _runtimeExitSubscription,
+          onError: (error, stack) =>
+              silentLog('services_controller', '取消扫描退出事件订阅', error, stack),
+        ),
+      ]);
+      _runtimeLogSubscription = null;
+      _runtimeExitSubscription = null;
+      await _runtime.dispose();
+    } finally {
+      dispose();
     }
-    SystemProxyResolver.instance.revision.removeListener(
-      _handleSystemProxyRevision,
-    );
-    _pluginStateListener = null;
-    _pluginServiceController = null;
-    await Future.wait<bool>(<Future<bool>>[
-      cancelStreamSubscriptionBounded<String>(
-        _runtimeLogSubscription,
-        onError: (error, stack) =>
-            silentLog('services_controller', '取消扫描运行日志订阅', error, stack),
-      ),
-      cancelStreamSubscriptionBounded<int>(
-        _runtimeExitSubscription,
-        onError: (error, stack) =>
-            silentLog('services_controller', '取消扫描退出事件订阅', error, stack),
-      ),
-    ]);
-    _runtimeLogSubscription = null;
-    _runtimeExitSubscription = null;
-    await _runtime.dispose();
-    super.dispose();
   }
 
   void _notify() {
-    if (!_disposed) notifyListeners();
+    if (!_disposed && !_notifierDisposed) notifyListeners();
   }
 }
