@@ -38,6 +38,7 @@ class AiSandboxProxyLease {
   final Map<String, Object?> metadata;
   final Future<void> Function() _close;
   Future<void>? _closeFuture;
+  Future<void>? _boundedCloseFuture;
 
   List<int> get loopbackPorts => <int>[
     httpPort,
@@ -45,6 +46,21 @@ class AiSandboxProxyLease {
   ];
 
   Future<void> close() => _closeFuture ??= _close();
+
+  /// 单次化有界关闭；超时或异常仅记录，不阻断调用方后续清理。
+  Future<void> closeBounded({
+    required String logTag,
+    required String logWhere,
+    Duration timeout = kOpenHandDefaultAsyncCleanupTimeout,
+  }) {
+    final active = _boundedCloseFuture;
+    if (active != null) return active;
+    return _boundedCloseFuture = runAsyncCleanupBounded(
+      close,
+      timeout: timeout,
+      onError: (error, stack) => silentLog(logTag, logWhere, error, stack),
+    ).then<void>((_) {});
+  }
 }
 
 class AiSandboxProxyService {

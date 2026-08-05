@@ -693,8 +693,13 @@ class AiBashToolService {
       workingDirectory: displayedWorkingDirectory,
       dangerouslyDisableSandbox: dangerouslyDisableSandbox,
     );
-    Future<void> closeLaunchProxy() async {
-      await launchSpec.proxyLease?.close();
+    Future<void> closeLaunchProxy() {
+      final lease = launchSpec.proxyLease;
+      if (lease == null) return Future<void>.value();
+      return lease.closeBounded(
+        logTag: 'ai_bash_tool_service',
+        logWhere: '关闭 Bash 启动代理',
+      );
     }
 
     var launchProxyTransferred = false;

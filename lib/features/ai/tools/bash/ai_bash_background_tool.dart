@@ -61,7 +61,6 @@ class AiBashBackgroundTool extends AiTool {
   static const int _taskOutputPollMs = 100;
   static const Duration _processStartTimeout = Duration(seconds: 10);
   static const Duration _stdinFlushTimeout = Duration(seconds: 2);
-  static const Duration _proxyCleanupTimeout = Duration(seconds: 2);
   static const String _disposedError = 'BashBackground 已关闭。';
 
   final Map<String, _BgSession> _sessions = <String, _BgSession>{};
@@ -234,6 +233,15 @@ class AiBashBackgroundTool extends AiTool {
       dangerouslyDisableSandbox:
           AiToolUtils.readBool(args['dangerouslyDisableSandbox']) == true,
     );
+    Future<void> closeLaunchProxy(String reason) {
+      final lease = launchSpec.proxyLease;
+      if (lease == null) return Future<void>.value();
+      return lease.closeBounded(
+        logTag: 'ai_bash_background',
+        logWhere: '关闭启动代理（$reason）',
+      );
+    }
+
     var launchProxyTransferred = false;
     Future<T> runBeforeLaunchProxyTransfer<T>(
       String cleanupReason,
@@ -246,7 +254,7 @@ class AiBashBackgroundTool extends AiTool {
         return result;
       } finally {
         if (!completed && !launchProxyTransferred) {
-          await _closeLaunchProxy(launchSpec.proxyLease, cleanupReason);
+          await closeLaunchProxy(cleanupReason);
         }
       }
     }
@@ -294,7 +302,7 @@ class AiBashBackgroundTool extends AiTool {
         ),
       );
       if (confirmationResult != null) {
-        await _closeLaunchProxy(launchSpec.proxyLease, '写命令确认被拒绝');
+        await closeLaunchProxy('写命令确认被拒绝');
         return AiToolUtils.withMergedMetadata(confirmationResult, <
           String,
           Object?
@@ -310,7 +318,7 @@ class AiBashBackgroundTool extends AiTool {
     }
     final reservationGeneration = _reserveStart();
     if (reservationGeneration == null) {
-      await _closeLaunchProxy(launchSpec.proxyLease, '启动预留被拒绝');
+      await closeLaunchProxy('启动预留被拒绝');
       return AiToolUtils.invalidResult(
         'BashBackground',
         _disposed
@@ -342,12 +350,12 @@ class AiBashBackgroundTool extends AiTool {
         );
       });
     } on TimeoutException catch (error) {
-      await _closeLaunchProxy(launchSpec.proxyLease, '启动超时');
+      await closeLaunchProxy('启动超时');
       releaseStartReservation();
       return AiToolUtils.invalidResult('BashBackground', '进程启动超时：$error');
     } catch (error, stack) {
       releaseStartReservation();
-      await _closeLaunchProxy(launchSpec.proxyLease, '创建进程失败');
+      await closeLaunchProxy('创建进程失败');
       silentLog('ai_bash_background', '启动进程 $cmd', error, stack);
       return AiToolUtils.invalidResult('BashBackground', '创建进程失败：$error');
     }
@@ -359,7 +367,7 @@ class AiBashBackgroundTool extends AiTool {
           onError: (error, stack) =>
               silentLog('ai_bash_background', '清理迟到后台进程', error, stack),
         ).then<void>((_) {}),
-        _closeLaunchProxy(launchSpec.proxyLease, '迟到进程'),
+        closeLaunchProxy('迟到进程'),
       ]);
       return AiToolUtils.invalidResult(
         'BashBackground',
@@ -528,18 +536,6 @@ class AiBashBackgroundTool extends AiTool {
       workingDirectory: cwd,
       dangerouslyDisableSandbox: dangerouslyDisableSandbox,
     );
-  }
-
-  Future<void> _closeLaunchProxy(
-    AiSandboxProxyLease? lease,
-    String reason,
-  ) async {
-    if (lease == null) return;
-    try {
-      await lease.close().timeout(_proxyCleanupTimeout);
-    } catch (error, stack) {
-      silentLog('ai_bash_background', '关闭启动代理（$reason）', error, stack);
-    }
   }
 
   Future<AiToolExecutionResult> _write(
@@ -1053,11 +1049,10 @@ class _BgSession {
     if (existing != null) return existing;
     final lease = proxyLease;
     if (lease == null) return _proxyCloseFuture = Future<void>.value();
-    return _proxyCloseFuture = runAsyncCleanupBounded(
-      lease.close,
-      onError: (error, stack) =>
-          silentLog('ai_bash_background', '关闭后台代理', error, stack),
-    ).then<void>((_) {});
+    return _proxyCloseFuture = lease.closeBounded(
+      logTag: 'ai_bash_background',
+      logWhere: '关闭后台代理',
+    );
   }
 
   void appendStdout(String chunk, int maxBytes) {

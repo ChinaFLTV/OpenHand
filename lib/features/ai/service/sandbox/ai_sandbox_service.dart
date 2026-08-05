@@ -7,7 +7,6 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
-import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../model/ai_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
@@ -480,10 +479,9 @@ class AiSandboxService {
     Future<void> closeProxyAfterLaunchFailure(String reason) async {
       final lease = proxyLease;
       if (lease == null) return;
-      await runAsyncCleanupBounded(
-        lease.close,
-        onError: (error, stack) =>
-            silentLog('ai_sandbox_service', '关闭沙箱启动代理（$reason）', error, stack),
+      await lease.closeBounded(
+        logTag: 'ai_sandbox_service',
+        logWhere: '关闭沙箱启动代理（$reason）',
       );
     }
 
