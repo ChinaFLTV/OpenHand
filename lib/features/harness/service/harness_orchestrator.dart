@@ -35,6 +35,7 @@ const int _kMaxHarnessStoredPathCharacters = 4096;
 const int _kMaxHarnessStorageValueCharacters = 64;
 const String _kHarnessLogTruncationMarker = '… 较早的阶段输出已截断 …';
 const Duration _kHarnessProcessStartTimeout = Duration(seconds: 10);
+const Duration _kHarnessProcessStopTimeout = Duration(seconds: 3);
 const Duration _kHarnessArtifactIoTimeout = Duration(seconds: 3);
 const BoundedDeletePolicy _kHarnessPromptDeletePolicy = BoundedDeletePolicy(
   maxEntries: 1,
@@ -845,7 +846,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     unawaited(
       terminateTrackedProcessTree(
         process,
-        gracefulTimeout: const Duration(seconds: 3),
+        gracefulTimeout: _kHarnessProcessStopTimeout,
       ).catchError((Object error, StackTrace stack) {
         silentLog('harness_orchestrator', '终止活动中的 CLI 进程', error, stack);
       }),
@@ -1290,6 +1291,7 @@ class HarnessOrchestrator extends ChangeNotifier {
 
   @override
   void dispose() {
+    if (_isDisposed) return;
     _isDisposed = true;
     _stopRequested = true;
     _completePendingApproval(approved: false);
@@ -2153,7 +2155,7 @@ class HarnessOrchestrator extends ChangeNotifier {
             unawaited(
               terminateTrackedProcessTree(
                 process,
-                gracefulTimeout: const Duration(seconds: 3),
+                gracefulTimeout: _kHarnessProcessStopTimeout,
               ).catchError((Object error, StackTrace stack) {
                 silentLog(
                   'harness_orchestrator',
