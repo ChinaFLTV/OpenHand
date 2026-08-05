@@ -507,6 +507,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
 (async () => {
   const started = performance.now();
   const maxBytes = $_kMaxResponseBytes;
+  const probeMaxBytes = maxBytes + 1;
   const controller = new AbortController();
   window[${jsonEncode(abortKey)}] = controller;
   const timer = setTimeout(() => controller.abort('timeout'), ${_kRequestTimeout.inMilliseconds});
@@ -532,7 +533,6 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
     const response = await fetch(${jsonEncode(url)}, init);
     const chunks = [];
     let total = 0;
-    let truncated = false;
     const reader = response.body && response.body.getReader ? response.body.getReader() : null;
     if (response.body && !reader) {
       throw new Error('无法流式读取响应体');
@@ -543,18 +543,16 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
           const part = await reader.read();
           if (part.done) break;
           const value = part.value || new Uint8Array();
-          const remaining = maxBytes - total;
+          const remaining = probeMaxBytes - total;
           if (value.length > remaining) {
             chunks.push(value.slice(0, Math.max(remaining, 0)));
             total += Math.max(remaining, 0);
-            truncated = true;
             try { await reader.cancel(); } catch (_) {}
             break;
           }
           chunks.push(value);
           total += value.length;
-          if (total >= maxBytes) {
-            truncated = true;
+          if (total >= probeMaxBytes) {
             try { await reader.cancel(); } catch (_) {}
             break;
           }
@@ -563,11 +561,16 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
         try { reader.releaseLock(); } catch (_) {}
       }
     }
-    const bytes = new Uint8Array(total);
+    const truncated = total > maxBytes;
+    const retainedBytes = Math.min(total, maxBytes);
+    const bytes = new Uint8Array(retainedBytes);
     let offset = 0;
     for (const chunk of chunks) {
-      bytes.set(chunk, offset);
-      offset += chunk.length;
+      const remaining = retainedBytes - offset;
+      if (remaining <= 0) break;
+      const part = chunk.length > remaining ? chunk.subarray(0, remaining) : chunk;
+      bytes.set(part, offset);
+      offset += part.length;
     }
     let responseBody = '';
     let bodyIsBase64 = false;
@@ -584,7 +587,7 @@ class _ResendRequestDialogState extends State<_ResendRequestDialog> {
       headers: Object.fromEntries(response.headers.entries()),
       body: responseBody,
       bodyIsBase64,
-      byteSize: total,
+      byteSize: retainedBytes,
       elapsedMs: Math.round(performance.now() - started),
       truncated,
     });
