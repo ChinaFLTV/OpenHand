@@ -289,8 +289,20 @@ class AiJunglerRuntime {
             silentLog('ai_jungler_runtime', '清理迟到的扫描引擎', error, stack),
       );
     }
-    await _logs.close();
-    await _exits.close();
+    await Future.wait<bool>(<Future<bool>>[
+      runAsyncCleanupBounded(
+        _logs.close,
+        timeout: _kAiJunglerCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('ai_jungler_runtime', '关闭扫描引擎日志流', error, stack),
+      ),
+      runAsyncCleanupBounded(
+        _exits.close,
+        timeout: _kAiJunglerCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('ai_jungler_runtime', '关闭扫描引擎退出流', error, stack),
+      ),
+    ]);
   }
 
   Future<void> _watchExit(Process process) async {

@@ -2520,6 +2520,11 @@ class AiChatService implements AiChatClient {
       cancelSignal,
     ])!;
     var cancelled = false;
+    Future<void>? controllerCloseFuture;
+
+    void closeEvents() {
+      controllerCloseFuture ??= controller.close();
+    }
 
     void completeCancelled() {
       if (cancelled) {
@@ -2626,7 +2631,8 @@ class AiChatService implements AiChatClient {
           completer.completeError(error, stackTrace);
         }
       } finally {
-        await controller.close();
+        // 单订阅流可能尚未被监听，关闭 Future 此时不会完成。
+        closeEvents();
       }
     }());
     return AiChatStreamingResponse(
@@ -2634,9 +2640,7 @@ class AiChatService implements AiChatClient {
       result: completer.future,
       cancel: () async {
         completeCancelled();
-        if (!controller.isClosed) {
-          await controller.close();
-        }
+        closeEvents();
       },
     );
   }
