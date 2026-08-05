@@ -808,9 +808,10 @@ final class AiToolUsagePromotionStore {
   Future<void> shutdown() {
     _shuttingDown = true;
     _persistDebouncer.dispose();
-    return _shutdownOnce.run(
-      () => _finishShutdown().timeout(runtimeCleanupTimeout),
-    );
+    return _shutdownOnce.run(() async {
+      await _finishShutdown().timeout(runtimeCleanupTimeout);
+      _revision.dispose();
+    });
   }
 
   Future<void> _finishShutdown() async {

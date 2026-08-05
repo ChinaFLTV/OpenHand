@@ -207,7 +207,10 @@ class AiUsageTracker {
 
   Future<void> shutdown() {
     _shuttingDown = true;
-    return _shutdownOnce.run(() => flush().timeout(runtimeCleanupTimeout));
+    return _shutdownOnce.run(() async {
+      await flush().timeout(runtimeCleanupTimeout);
+      changes.dispose();
+    });
   }
 
   void _record({
