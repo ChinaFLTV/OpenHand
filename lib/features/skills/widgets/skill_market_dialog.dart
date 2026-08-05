@@ -22,6 +22,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
+import '../../../shared/util/user_failure_message.dart';
 import '../data/skill_market_client.dart';
 import '../model/skill_market.dart';
 import '../skills_controller.dart';
@@ -721,7 +722,18 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
       }
       setState(() {
         _isSearching = false;
-        _searchError = '$error';
+        _searchError = userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '技能市场搜索失败，请稍后重试。',
+            zhHant: '技能市場搜尋失敗，請稍後再試。',
+            en: 'Skill marketplace search failed. Try again later.',
+            fr: 'La recherche a échoué. Réessayez plus tard.',
+            de: 'Marktplatzsuche fehlgeschlagen. Versuchen Sie es später erneut.',
+            ja: 'スキルマーケットの検索に失敗しました。後でもう一度お試しください。',
+          ),
+        );
         if (_searchResult == null) {
           _selectedSkill = null;
           _selectedBundleFuture = null;

@@ -13,6 +13,7 @@ import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_clip.dart';
+import '../../../shared/util/user_failure_message.dart';
 import '../hooks_controller.dart';
 
 /// 钩子脚本以该退出码表示“拦截本次操作”，沿用 Claude Code 钩子约定。
@@ -246,11 +247,16 @@ class HooksExecutor {
         }
         successCount++;
         record(kHookStatusSuccess, result: result);
-      } catch (error) {
+      } catch (error, stack) {
         stopwatch.stop();
         failedCount++;
-        errors.add('Hook“${hook.label}”启动失败：$error');
-        record(kHookStatusFailed, error: '$error');
+        silentLog('hooks_executor', '启动 Hook', error, stack);
+        final message = userFailureMessage(
+          error,
+          fallback: 'Hook 启动失败，请检查脚本与运行环境。',
+        );
+        errors.add('Hook“${hook.label}”启动失败：$message');
+        record(kHookStatusFailed, error: message);
       }
     }
 

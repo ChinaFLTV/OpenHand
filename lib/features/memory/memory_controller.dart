@@ -1,7 +1,9 @@
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/user_failure_message.dart';
 import 'data/memory_store.dart';
 import 'model/user_memory_entry.dart';
 
@@ -236,7 +238,8 @@ class MemoryController extends ManagedChangeNotifier {
           ]);
         }
         return entry;
-      } catch (_) {
+      } catch (error, stack) {
+        silentLog('memory_controller', '保存用户画像', error, stack);
         _publishSaveFailure();
         rethrow;
       }
@@ -263,7 +266,8 @@ class MemoryController extends ManagedChangeNotifier {
         await _store.clearAll();
         _publishSuccessfulMutation(const <UserMemoryEntry>[]);
         return true;
-      } catch (_) {
+      } catch (error, stack) {
+        silentLog('memory_controller', '清空记忆', error, stack);
         _publishSaveFailure();
         return false;
       }
@@ -285,10 +289,11 @@ class MemoryController extends ManagedChangeNotifier {
       _setEntries(loadResult.entries);
       _hasTrustedSnapshot = true;
       _isQuotaRecoveryMode = loadResult.isOverQuota;
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('memory_controller', '加载记忆', error, stack);
       _hasTrustedSnapshot = false;
       _isQuotaRecoveryMode = false;
-      _errorMessage = '$error';
+      _errorMessage = userFailureMessage(error, fallback: '记忆加载失败，请稍后重试。');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -302,7 +307,8 @@ class MemoryController extends ManagedChangeNotifier {
     if (!_hasTrustedSnapshot) return false;
     try {
       await persist();
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('memory_controller', '保存记忆', error, stack);
       _publishSaveFailure();
       return false;
     }
@@ -321,10 +327,11 @@ class MemoryController extends ManagedChangeNotifier {
         loadResult.entries,
         isQuotaRecoveryMode: loadResult.isOverQuota,
       );
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('memory_controller', '重新加载记忆', error, stack);
       _hasTrustedSnapshot = false;
       _isQuotaRecoveryMode = false;
-      _errorMessage = '$error';
+      _errorMessage = userFailureMessage(error, fallback: '记忆重新加载失败，请稍后重试。');
       _persistenceIssue = null;
       _saveSuccessPulse.emit();
       notifyListeners();

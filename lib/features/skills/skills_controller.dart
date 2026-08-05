@@ -1,6 +1,8 @@
 import 'package:flutter/foundation.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/user_failure_message.dart';
 import 'data/skills_repository.dart';
 import 'model/local_skill.dart';
 
@@ -175,8 +177,9 @@ class SkillsController extends ManagedChangeNotifier {
 
     try {
       _setSkills(await _repository.loadInstalledSkills(_storagePath));
-    } catch (error) {
-      _errorMessage = '$error';
+    } catch (error, stack) {
+      silentLog('skills_controller', '加载技能', error, stack);
+      _errorMessage = userFailureMessage(error, fallback: '技能加载失败，请稍后重试。');
     } finally {
       _isLoading = false;
       notifyListeners();

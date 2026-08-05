@@ -2,7 +2,9 @@ import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
 import '../../app/model/hook_config.dart';
+import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/user_failure_message.dart';
 import 'data/hooks_store.dart';
 
 /// Hook 配置控制器。
@@ -149,10 +151,14 @@ class HooksController extends ManagedChangeNotifier {
         }
         notifyListeners();
         return result;
-      } catch (error) {
+      } catch (error, stack) {
+        silentLog('hooks_controller', '保存 Hook 配置', error, stack);
         _setEntries(previousEntries);
         _hasTrustedSnapshot = true;
-        _errorMessage = '$error';
+        _errorMessage = userFailureMessage(
+          error,
+          fallback: 'Hook 配置保存失败，请稍后重试。',
+        );
         notifyListeners();
         return false;
       }
@@ -168,9 +174,10 @@ class HooksController extends ManagedChangeNotifier {
       await _store.ensureTable();
       _setEntries(await _store.loadAll());
       _hasTrustedSnapshot = true;
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('hooks_controller', '加载 Hook 配置', error, stack);
       _hasTrustedSnapshot = hadTrustedSnapshot;
-      _errorMessage = '$error';
+      _errorMessage = userFailureMessage(error, fallback: 'Hook 配置加载失败，请稍后重试。');
     } finally {
       _isLoading = false;
       notifyListeners();

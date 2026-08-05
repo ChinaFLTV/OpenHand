@@ -4,7 +4,9 @@ library;
 import 'package:flutter/foundation.dart';
 import 'package:uuid/uuid.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../shared/core/managed_change_notifier.dart';
+import '../../shared/util/user_failure_message.dart';
 import 'data/instructions_store.dart';
 import 'model/user_instruction_entry.dart';
 
@@ -271,9 +273,10 @@ class InstructionsController extends ManagedChangeNotifier {
       final loaded = await _store.loadAll();
       _setEntries(loaded);
       _hasTrustedSnapshot = true;
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('instructions_controller', '加载用户指令', error, stack);
       _hasTrustedSnapshot = false;
-      _errorMessage = '$error';
+      _errorMessage = userFailureMessage(error, fallback: '用户指令加载失败，请稍后重试。');
     } finally {
       _isLoading = false;
       notifyListeners();
@@ -298,17 +301,19 @@ class InstructionsController extends ManagedChangeNotifier {
       _hasTrustedSnapshot = true;
       _saveSuccessPulse.emit();
       return true;
-    } catch (error) {
-      // 落盘失败后内存快照与磁盘可能已不一致，_hasTrustedSnapshot 保持 false
-      // 是对的；但若就此停下，enabledEntries 会一直返回空列表——Composer 的
-      // 指令条会凭空消失，直到用户下一次改动才由 _ensureTrustedSnapshotLocked
-      // 触发重载。这里立刻回读磁盘做一次自愈，把「不可信」窗口压到最短。
-      final saveError = '$error';
+    } catch (error, stack) {
+      silentLog('instructions_controller', '保存用户指令', error, stack);
+      final saveError = userFailureMessage(error, fallback: '用户指令保存失败，请稍后重试。');
+      // 保存失败后立即回读磁盘，尽快恢复可信快照。
       await _loadLocked();
       final reloadError = _hasTrustedSnapshot ? null : _errorMessage;
-      _errorMessage = reloadError == null
+      final message = reloadError == null
           ? saveError
           : '$saveError；重新加载指令失败：$reloadError';
+      _errorMessage = userFailureMessage(
+        StateError(message),
+        fallback: '用户指令保存失败，请稍后重试。',
+      );
       notifyListeners();
       return false;
     }
