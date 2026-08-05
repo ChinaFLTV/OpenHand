@@ -25,6 +25,7 @@ class _WebGatewayAuthSession {
     required this.timezone,
     required this.screenClass,
     required this.loginAt,
+    required this.issuedAt,
     required this.remoteAddress,
     required this.userAgent,
   });
@@ -44,6 +45,7 @@ class _WebGatewayAuthSession {
   final String timezone;
   final String screenClass;
   final DateTime loginAt;
+  final Duration issuedAt;
   final String remoteAddress;
   final String userAgent;
 

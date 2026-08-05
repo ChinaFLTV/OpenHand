@@ -265,12 +265,12 @@ class WebMessagePlatformService {
       <WebGatewayCleanupResult>[];
   final Map<String, _WebGatewayAuthSession> _authSessions =
       <String, _WebGatewayAuthSession>{};
-  final Map<String, List<DateTime>> _loginAttemptsByRemoteAddress =
-      <String, List<DateTime>>{};
+  final Map<String, List<Duration>> _loginAttemptsByRemoteAddress =
+      <String, List<Duration>>{};
   final Map<String, _WebWriteApprovalRequest> _pendingWriteApprovals =
       <String, _WebWriteApprovalRequest>{};
-  final Map<String, Map<String, DateTime>> _queuedGoalYieldLeasesBySessionId =
-      <String, Map<String, DateTime>>{};
+  final Map<String, Map<String, Duration>> _queuedGoalYieldLeasesBySessionId =
+      <String, Map<String, Duration>>{};
   int _nextWriteApprovalId = 1;
 
   HttpServer? _server;
@@ -283,6 +283,7 @@ class WebMessagePlatformService {
   WebMessagePlatformConfig _config = const WebMessagePlatformConfig();
   WebGatewayThemeSnapshot _theme = const WebGatewayThemeSnapshot();
   final Stopwatch _runtimeStopwatch = Stopwatch();
+  final Stopwatch _monotonicStopwatch = Stopwatch()..start();
   DateTime? _startedAt;
   int _inFlightRequests = 0;
   int _activeRequests = 0;
@@ -402,7 +403,8 @@ class WebMessagePlatformService {
   int _slowestRecentStatus = 0;
   DateTime? _slowestRecentAt;
   _ProcessDiagnostics _processDiagnostics = const _ProcessDiagnostics();
-  DateTime? _processDiagnosticsAt;
+  Duration? _processDiagnosticsRefreshedAt;
+  Future<void>? _processDiagnosticsRefreshFuture;
   _LinuxCpuSample? _previousLinuxCpuSample;
   late final OpenHandDebouncer _opsPersistDebouncer = OpenHandDebouncer(
     delay: const Duration(milliseconds: 900),
@@ -435,7 +437,6 @@ class WebMessagePlatformService {
   /// 监听 `0.0.0.0` / `::` 时枚举局域网 URL 的数据源。`start()` 后填充，
   /// 消息网关页面与运维快照按 30s TTL 刷新。
   List<String> _localAddressesCache = const <String>[];
-  final Stopwatch _localAddressesStopwatch = Stopwatch()..start();
   int? _localAddressesRefreshedAtMs;
   Future<bool>? _localAddressesRefreshFuture;
 
@@ -873,7 +874,7 @@ class WebMessagePlatformService {
   }
 
   bool _hasQueuedGoalInterruption(String sessionId) {
-    _pruneQueuedGoalYieldLeases(DateTime.now().toUtc());
+    _pruneQueuedGoalYieldLeases(_monotonicStopwatch.elapsed);
     final leases = _queuedGoalYieldLeasesBySessionId[sessionId];
     return leases != null && leases.isNotEmpty;
   }
@@ -884,7 +885,7 @@ class WebMessagePlatformService {
     required bool hasPendingQueue,
   }) {
     final authKey = auth.token.trim().isEmpty ? 'anonymous' : auth.token.trim();
-    final now = DateTime.now().toUtc();
+    final now = _monotonicStopwatch.elapsed;
     _pruneQueuedGoalYieldLeases(now);
     if (!hasPendingQueue) {
       final leases = _queuedGoalYieldLeasesBySessionId[sessionId];
@@ -898,13 +899,12 @@ class WebMessagePlatformService {
         _queuedGoalYieldLeasesBySessionId.length >=
             _maxQueuedGoalYieldLeaseSessions) {
       String? oldestSessionId;
-      DateTime? oldestUpdatedAt;
+      Duration? oldestUpdatedAt;
       for (final entry in _queuedGoalYieldLeasesBySessionId.entries) {
         final latestUpdatedAt = entry.value.values.reduce(
-          (left, right) => left.isAfter(right) ? left : right,
+          (left, right) => left > right ? left : right,
         );
-        if (oldestUpdatedAt == null ||
-            latestUpdatedAt.isBefore(oldestUpdatedAt)) {
+        if (oldestUpdatedAt == null || latestUpdatedAt < oldestUpdatedAt) {
           oldestSessionId = entry.key;
           oldestUpdatedAt = latestUpdatedAt;
         }
@@ -915,24 +915,22 @@ class WebMessagePlatformService {
     }
     final leases = _queuedGoalYieldLeasesBySessionId.putIfAbsent(
       sessionId,
-      () => <String, DateTime>{},
+      () => <String, Duration>{},
     );
     if (!leases.containsKey(authKey) &&
         leases.length >= _maxQueuedGoalYieldLeasesPerSession) {
       final oldestKey = leases.entries
-          .reduce(
-            (left, right) => left.value.isBefore(right.value) ? left : right,
-          )
+          .reduce((left, right) => left.value < right.value ? left : right)
           .key;
       leases.remove(oldestKey);
     }
     leases[authKey] = now;
   }
 
-  void _pruneQueuedGoalYieldLeases(DateTime now) {
-    final cutoff = now.subtract(_queuedGoalYieldLeaseDuration);
+  void _pruneQueuedGoalYieldLeases(Duration now) {
+    final cutoff = now - _queuedGoalYieldLeaseDuration;
     _queuedGoalYieldLeasesBySessionId.removeWhere((_, leases) {
-      leases.removeWhere((_, updatedAt) => updatedAt.isBefore(cutoff));
+      leases.removeWhere((_, updatedAt) => updatedAt < cutoff);
       return leases.isEmpty;
     });
   }
@@ -951,10 +949,10 @@ class WebMessagePlatformService {
     );
   }
 
-  bool _admitLoginAttempt(String remoteAddress, DateTime now) {
-    final cutoff = now.subtract(_loginRateLimitWindow);
+  bool _admitLoginAttempt(String remoteAddress, Duration now) {
+    final cutoff = now - _loginRateLimitWindow;
     _loginAttemptsByRemoteAddress.removeWhere((_, attempts) {
-      attempts.removeWhere((attempt) => attempt.isBefore(cutoff));
+      attempts.removeWhere((attempt) => attempt < cutoff);
       return attempts.isEmpty;
     });
     if (!_loginAttemptsByRemoteAddress.containsKey(remoteAddress) &&
@@ -965,7 +963,7 @@ class WebMessagePlatformService {
     }
     final attempts = _loginAttemptsByRemoteAddress.putIfAbsent(
       remoteAddress,
-      () => <DateTime>[],
+      () => <Duration>[],
     );
     if (attempts.length >= _maxLoginAttemptsPerWindow) return false;
     attempts.add(now);
@@ -980,10 +978,10 @@ class WebMessagePlatformService {
     });
   }
 
-  void _pruneAuthSessions(DateTime now) {
-    final cutoff = now.subtract(_authSessionTtl);
+  void _pruneAuthSessions(Duration now) {
+    final cutoff = now - _authSessionTtl;
     final expiredTokens = _authSessions.entries
-        .where((entry) => entry.value.loginAt.isBefore(cutoff))
+        .where((entry) => entry.value.issuedAt < cutoff)
         .map((entry) => entry.key)
         .toList(growable: false);
     for (final token in expiredTokens) {
@@ -995,7 +993,7 @@ class WebMessagePlatformService {
   }
 
   _WebGatewayAuthSession? _authSessionForToken(String token) {
-    _pruneAuthSessions(DateTime.now().toUtc());
+    _pruneAuthSessions(_monotonicStopwatch.elapsed);
     final session = _authSessions.remove(token);
     if (session == null) return null;
     _authSessions[token] = session;
@@ -1003,7 +1001,7 @@ class WebMessagePlatformService {
   }
 
   void _storeAuthSession(_WebGatewayAuthSession session) {
-    _pruneAuthSessions(DateTime.now().toUtc());
+    _pruneAuthSessions(_monotonicStopwatch.elapsed);
     final replacedTokens = _authSessions.entries
         .where(
           (entry) =>
@@ -1824,7 +1822,7 @@ class WebMessagePlatformService {
   Future<bool> _refreshLocalAddressesIfStale({required Duration ttl}) {
     final refreshedAtMs = _localAddressesRefreshedAtMs;
     if (refreshedAtMs != null &&
-        _localAddressesStopwatch.elapsedMilliseconds - refreshedAtMs <
+        _monotonicStopwatch.elapsedMilliseconds - refreshedAtMs <
             ttl.inMilliseconds) {
       return Future<bool>.value(false);
     }
@@ -1858,8 +1856,7 @@ class WebMessagePlatformService {
       final next = addrs.toList(growable: false)..sort();
       final changed = !listEquals(_localAddressesCache, next);
       if (changed) _localAddressesCache = List<String>.unmodifiable(next);
-      _localAddressesRefreshedAtMs =
-          _localAddressesStopwatch.elapsedMilliseconds;
+      _localAddressesRefreshedAtMs = _monotonicStopwatch.elapsedMilliseconds;
       return changed;
     } catch (error, stack) {
       silentLog('web_message_platform_service', '刷新本地地址', error, stack);
@@ -1887,16 +1884,20 @@ class WebMessagePlatformService {
     );
     final stopwatch = Stopwatch()..start();
     final timeout = Duration(milliseconds: health.timeoutMs);
+    final deadline = MonotonicDeadline(timeout, timeoutMessage: 'Web 健康检查超时。');
     final client = HttpClient()..connectionTimeout = timeout;
     try {
-      final request = await client.openUrl(health.method, uri).timeout(timeout);
+      final request = await client
+          .openUrl(health.method, uri)
+          .timeout(deadline.remaining());
       request.followRedirects = health.followRedirects;
-      final response = await request.close().timeout(timeout);
+      final response = await request.close().timeout(deadline.remaining());
+      final remaining = deadline.remaining();
       final body = await readBoundedHttpResponseText(
         response,
         maxBytes: _maxHealthCheckResponseBytes,
-        idleTimeout: timeout,
-        totalTimeout: timeout,
+        idleTimeout: remaining,
+        totalTimeout: remaining,
         allowMalformed: true,
       );
       stopwatch.stop();
@@ -1933,6 +1934,7 @@ class WebMessagePlatformService {
       _log(WebGatewayLogLevel.error, 'HEALTH', result.summary);
       return result;
     } finally {
+      deadline.stop();
       client.close(force: true);
     }
   }
@@ -1995,17 +1997,24 @@ class WebMessagePlatformService {
           continue;
         }
         final endpoint = baseUri.replace(path: '/api/health');
+        final deadline = MonotonicDeadline(
+          timeout,
+          timeoutMessage: 'Web 连通性探测超时。',
+        );
 
         addLog('开始探测 ${endpoint.host}:${endpoint.port} -> $endpoint');
         try {
-          final request = await client.getUrl(endpoint).timeout(timeout);
+          final request = await client
+              .getUrl(endpoint)
+              .timeout(deadline.remaining());
           request.followRedirects = false;
-          final response = await request.close().timeout(timeout);
+          final response = await request.close().timeout(deadline.remaining());
+          final remaining = deadline.remaining();
           final body = await readBoundedHttpResponseText(
             response,
             maxBytes: _maxHealthCheckResponseBytes,
-            idleTimeout: timeout,
-            totalTimeout: timeout,
+            idleTimeout: remaining,
+            totalTimeout: remaining,
             allowMalformed: true,
           );
           probeStarted.stop();
@@ -2053,6 +2062,8 @@ class WebMessagePlatformService {
               errorMessage: errorMessage,
             ),
           );
+        } finally {
+          deadline.stop();
         }
       }
     } finally {
@@ -3782,7 +3793,7 @@ class WebMessagePlatformService {
   Future<shelf.Response> _login(shelf.Request request) async {
     final now = DateTime.now().toUtc();
     final remoteAddress = _requestRemoteAddress(request);
-    if (!_admitLoginAttempt(remoteAddress, now)) {
+    if (!_admitLoginAttempt(remoteAddress, _monotonicStopwatch.elapsed)) {
       _log(WebGatewayLogLevel.warn, 'AUTH', '登录请求触发频率限制', <String, Object?>{
         'remote_ip': remoteAddress,
         'limit': _maxLoginAttemptsPerWindow,
@@ -3874,6 +3885,7 @@ class WebMessagePlatformService {
         _maxAuthMetadataCharacters,
       ),
       loginAt: now,
+      issuedAt: _monotonicStopwatch.elapsed,
       remoteAddress: remoteAddress,
       userAgent: _boundedAuthText(
         request.headers[HttpHeaders.userAgentHeader],
@@ -6519,6 +6531,7 @@ class WebMessagePlatformService {
         timezone: pick('timezone', 'x-openhand-timezone', ''),
         screenClass: pick('screen_class', 'x-openhand-screen-class', ''),
         loginAt: DateTime.now().toUtc(),
+        issuedAt: _monotonicStopwatch.elapsed,
         remoteAddress: _requestRemoteAddress(request),
         userAgent: _boundedAuthText(
           request.headers[HttpHeaders.userAgentHeader],
@@ -6916,6 +6929,7 @@ class WebMessagePlatformService {
         timezone: header('x-openhand-timezone'),
         screenClass: header('x-openhand-screen-class'),
         loginAt: DateTime.now().toUtc(),
+        issuedAt: _monotonicStopwatch.elapsed,
         remoteAddress: _requestRemoteAddress(request),
         userAgent: header(
           HttpHeaders.userAgentHeader,
@@ -9242,20 +9256,34 @@ class WebMessagePlatformService {
     return false;
   }
 
-  Future<void> _refreshProcessDiagnosticsIfStale() async {
-    final now = DateTime.now();
-    final previous = _processDiagnosticsAt;
-    if (previous != null && now.difference(previous).inSeconds < 2) return;
-    _processDiagnosticsAt = now;
-    try {
-      if (Platform.isMacOS) {
-        _processDiagnostics = await _sampleMacProcessDiagnostics();
-      } else if (Platform.isLinux) {
-        _processDiagnostics = await _sampleLinuxProcessDiagnostics();
-      }
-    } catch (error, stack) {
-      silentLog('web_message_platform_service', '采集进程诊断信息', error, stack);
+  Future<void> _refreshProcessDiagnosticsIfStale() {
+    final pending = _processDiagnosticsRefreshFuture;
+    if (pending != null) return pending;
+    final now = _monotonicStopwatch.elapsed;
+    final previous = _processDiagnosticsRefreshedAt;
+    if (previous != null && now - previous < const Duration(seconds: 2)) {
+      return Future<void>.value();
     }
+    _processDiagnosticsRefreshedAt = now;
+    late final Future<void> refresh;
+    refresh =
+        () async {
+          try {
+            if (Platform.isMacOS) {
+              _processDiagnostics = await _sampleMacProcessDiagnostics();
+            } else if (Platform.isLinux) {
+              _processDiagnostics = await _sampleLinuxProcessDiagnostics();
+            }
+          } catch (error, stack) {
+            silentLog('web_message_platform_service', '采集进程诊断信息', error, stack);
+          }
+        }().whenComplete(() {
+          if (identical(_processDiagnosticsRefreshFuture, refresh)) {
+            _processDiagnosticsRefreshFuture = null;
+          }
+        });
+    _processDiagnosticsRefreshFuture = refresh;
+    return refresh;
   }
 
   Future<_ProcessDiagnostics> _sampleMacProcessDiagnostics() async {

@@ -263,7 +263,7 @@ class McpServerOpsRuntime {
   ///
   /// 响应流只有被 listen 后才会触发取消回调；客户端若在订阅响应体之前
   /// 断开（或响应头写失败），仍需通过宽限期回收槽位。
-  final Map<Object, DateTime> _reservedSseTokens = <Object, DateTime>{};
+  final Map<Object, Duration> _reservedSseTokens = <Object, Duration>{};
   int _requestTotal = 0;
   int _blockedTotal = 0;
   int _failedTotal = 0;
@@ -531,9 +531,13 @@ class McpServerOpsRuntime {
     final host = mcpOpsClientHost(_snapshot.boundHost ?? _config.listenHost);
     // 通过 initialize 握手探测真实流式端点，而非仅检查健康接口。
     final uri = Uri(scheme: 'http', host: host, port: port, path: '/mcp');
+    final deadline = MonotonicDeadline(
+      _connectivityTimeout,
+      timeoutMessage: 'MCP 运维连通性测试超时。',
+    );
     final client = HttpClient()..connectionTimeout = _connectivityTimeout;
     try {
-      final request = await client.postUrl(uri).timeout(_connectivityTimeout);
+      final request = await client.postUrl(uri).timeout(deadline.remaining());
       request.headers
         ..set(HttpHeaders.contentTypeHeader, 'application/json')
         ..set(HttpHeaders.acceptHeader, 'application/json, text/event-stream')
@@ -544,12 +548,13 @@ class McpServerOpsRuntime {
         request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $token');
       }
       request.add(utf8.encode(jsonEncode(_initializeProbePayload)));
-      final response = await request.close().timeout(_connectivityTimeout);
+      final response = await request.close().timeout(deadline.remaining());
+      final remaining = deadline.remaining();
       final body = await readBoundedHttpResponseText(
         response,
         maxBytes: _maxConnectivityResponseBytes,
-        idleTimeout: _connectivityTimeout,
-        totalTimeout: _connectivityTimeout,
+        idleTimeout: remaining,
+        totalTimeout: remaining,
       );
       final ok = response.statusCode == HttpStatus.ok && _isInitializeAck(body);
       final result = McpOpsConnectivityResult(
@@ -571,6 +576,7 @@ class McpServerOpsRuntime {
       _applyConnectivityResult(result);
       return result;
     } finally {
+      deadline.stop();
       client.close(force: true);
     }
   }
@@ -742,7 +748,7 @@ class McpServerOpsRuntime {
     _recordLifecycle(
       request,
       method: method,
-      started: DateTime.now().toUtc(),
+      started: Stopwatch()..start(),
       inboundBytes: 0,
       outboundBytes: 0,
     );
@@ -768,7 +774,7 @@ class McpServerOpsRuntime {
 
   shelf.Response _sseStream(shelf.Request request) {
     const method = 'stream/get';
-    final started = DateTime.now().toUtc();
+    final started = Stopwatch()..start();
     if (!_requestAllowed(request, method, 0)) {
       return shelf.Response(
         HttpStatus.forbidden,
@@ -800,7 +806,7 @@ class McpServerOpsRuntime {
     );
     final streamToken = Object();
     _activeSseTokens.add(streamToken);
-    _reservedSseTokens[streamToken] = DateTime.now().toUtc();
+    _reservedSseTokens[streamToken] = _runtimeStopwatch.elapsed;
     _publishConnectionSnapshot();
     return shelf.Response.ok(
       _sseKeepAliveStream(streamToken),
@@ -888,10 +894,10 @@ class McpServerOpsRuntime {
   /// 回收占位后迟迟没有开始推流的 SSE 槽位。
   void _reapStaleSseReservations() {
     if (_reservedSseTokens.isEmpty) return;
-    final cutoff = DateTime.now().toUtc().subtract(_sseReservationGrace);
+    final cutoff = _runtimeStopwatch.elapsed - _sseReservationGrace;
     var reaped = false;
     _reservedSseTokens.removeWhere((token, reservedAt) {
-      if (reservedAt.isAfter(cutoff)) return false;
+      if (reservedAt > cutoff) return false;
       _activeSseTokens.remove(token);
       reaped = true;
       return true;
@@ -1069,7 +1075,7 @@ class McpServerOpsRuntime {
       );
       return _jsonRpcError(id, -32600, 'Invalid Request');
     }
-    final started = DateTime.now().toUtc();
+    final started = Stopwatch()..start();
     final isNotification = !message.containsKey('id');
     if (!_requestAllowed(request, method, inboundBytes)) {
       if (isNotification) return null;
@@ -1762,7 +1768,7 @@ class McpServerOpsRuntime {
   void _recordLifecycle(
     shelf.Request request, {
     required String method,
-    required DateTime started,
+    required Stopwatch started,
     required int inboundBytes,
     required int outboundBytes,
     String status = 'success',
@@ -1775,7 +1781,7 @@ class McpServerOpsRuntime {
       endpoint: method,
       kind: _auditKindForMethod(method),
       status: status,
-      durationMs: _elapsedMs(started),
+      durationMs: started.elapsedMilliseconds,
       inboundBytes: inboundBytes,
       outboundBytes: outboundBytes,
     );
@@ -1802,9 +1808,6 @@ class McpServerOpsRuntime {
             : McpOpsAuditKind.other;
     }
   }
-
-  int _elapsedMs(DateTime started) =>
-      DateTime.now().toUtc().difference(started).inMilliseconds;
 
   int _messageBytes(Object? message) => utf8.encode(jsonEncode(message)).length;
 
