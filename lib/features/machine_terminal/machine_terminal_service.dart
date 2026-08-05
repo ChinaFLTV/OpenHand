@@ -1436,6 +1436,10 @@ class MachineTerminalService extends ChangeNotifier {
       _historyPersistDebounce,
       () {
         _historyPersistTimers.remove(normalizedSessionId);
+        if (_isDisposed ||
+            _workspaceDisposals.containsKey(normalizedSessionId)) {
+          return;
+        }
         final previous =
             _historyPersistChains[normalizedSessionId] ?? Future<void>.value();
         late final Future<void> tracked;
@@ -1571,6 +1575,10 @@ class MachineTerminalService extends ChangeNotifier {
       _metadataPersistDebounce,
       () {
         _metadataPersistTimers.remove(normalizedSessionId);
+        if (_isDisposed ||
+            _workspaceDisposals.containsKey(normalizedSessionId)) {
+          return;
+        }
         final previous =
             _metadataPersistChains[normalizedSessionId] ?? Future<void>.value();
         late final Future<void> tracked;

@@ -235,7 +235,9 @@ class _AtomicProcessLockLease {
   Future<void> release() async {
     if (_released) return;
     _released = true;
-    final unlockFuture = _file.unlock();
+    final unlockFuture = Future<void>.sync(() async {
+      await _file.unlock();
+    });
     try {
       await unlockFuture.timeout(_atomicCleanupTimeout);
     } catch (_) {
@@ -345,7 +347,9 @@ Future<File> _atomicProcessLockFile(File targetFile) async {
 }
 
 Future<void> _closeAtomicProcessLockFile(RandomAccessFile file) async {
-  final closeFuture = file.close();
+  final closeFuture = Future<void>.sync(() async {
+    await file.close();
+  });
   try {
     await closeFuture.timeout(_atomicCleanupTimeout);
   } catch (_) {

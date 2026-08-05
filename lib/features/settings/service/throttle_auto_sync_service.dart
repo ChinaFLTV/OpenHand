@@ -121,9 +121,6 @@ class ThrottleAutoSyncService {
       onError: (error, stack) =>
           silentLog('throttle_auto_sync', '取消云端变更订阅', error, stack),
     );
-    if (_ownsService) {
-      await _cloudSyncService.dispose();
-    }
     final syncLoop = _syncLoop;
     if (syncLoop != null) {
       await runAsyncCleanupBounded(
@@ -132,6 +129,9 @@ class ThrottleAutoSyncService {
         onError: (error, stack) =>
             silentLog('throttle_auto_sync', '等待同步循环结束', error, stack),
       );
+    }
+    if (_ownsService) {
+      await _cloudSyncService.dispose();
     }
   }
 
