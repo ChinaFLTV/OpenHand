@@ -2,7 +2,10 @@ import 'dart:async';
 import 'dart:convert';
 
 import '../../../../app/support/silent_log.dart';
+import '../../../../shared/util/async_concurrency.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../model/ai_builtin_tool_config.dart'
     show kAiReadOnlyBuiltinToolKinds;
@@ -24,6 +27,14 @@ class AiTaskTool extends AiTool {
        _hookService = hookService;
 
   static const int _maxToolRounds = 6;
+  static const int _maxToolCallsPerRound = 8;
+  static const int _maxTotalToolCalls = 32;
+  static const int _maxToolArgumentCharacters = 256 * kBytesPerKiB;
+  static const int _maxToolOutputCharacters = 64 * kBytesPerKiB;
+  static const int _maxTotalToolOutputCharacters = 256 * kBytesPerKiB;
+  static const int _maxResultCharacters = 24000;
+  static const Duration _maxExecutionDuration = Duration(minutes: 10);
+  static const Duration _chatTurnTimeout = Duration(seconds: 75);
   static const String _toolName = 'Task';
   static const String _subagentStartEvent = 'SubagentStart';
   static const String _subagentStopEvent = 'SubagentStop';
@@ -107,21 +118,33 @@ class AiTaskTool extends AiTool {
     if (unsupportedClaudeAgentParameters.isNotEmpty) {
       return AiToolUtils.invalidResult(
         _displayToolName(context),
-        'Unsupported Claude Agent parameter(s): ${unsupportedClaudeAgentParameters.join(', ')}. '
-        'OpenHand Task currently runs isolated foreground sub-agents only; omit these fields or use the supported subagent_type profiles.',
+        '不支持以下 Claude Agent 参数：${unsupportedClaudeAgentParameters.join(', ')}。'
+        'Task 仅运行隔离的前台子智能体，请移除这些字段或使用受支持的 subagent_type。',
       );
     }
     if (description.isEmpty || prompt.isEmpty) {
       return AiToolUtils.invalidResult(
         _displayToolName(context),
-        '${_displayToolName(context)} requires non-empty description and prompt.',
+        '${_displayToolName(context)} 需要非空的 description 和 prompt。',
+      );
+    }
+    if (description.length > kAiTaskDescriptionMaxCharacters) {
+      return AiToolUtils.invalidResult(
+        _displayToolName(context),
+        'description 不能超过 $kAiTaskDescriptionMaxCharacters 个字符。',
+      );
+    }
+    if (prompt.length > kAiTaskPromptMaxCharacters) {
+      return AiToolUtils.invalidResult(
+        _displayToolName(context),
+        'prompt 不能超过 $kAiTaskPromptMaxCharacters 个字符。',
       );
     }
     final canonicalSubagentType = resolveSubagentTypeFromArguments(args);
     if (canonicalSubagentType == null) {
       return AiToolUtils.invalidResult(
         _displayToolName(context),
-        'Unsupported subagent_type "$subagentType". Available types: ${subagentDescriptions.keys.join(', ')}',
+        '不支持 subagent_type“$subagentType”，可用类型：${subagentDescriptions.keys.join(', ')}。',
       );
     }
     if (_isBlockedPlanModeSubagent(
@@ -131,8 +154,8 @@ class AiTaskTool extends AiTool {
       return AiToolUtils.withMergedMetadata(
         AiToolUtils.invalidResult(
           _toolName,
-          'Plan mode before execution approval allows Task only with read-only subagent_type values: ${readOnlyParallelSubagentTypes.join(', ')}. '
-          'Use a read-only subagent now, or run "$canonicalSubagentType" after the plan is approved.',
+          '计划执行获批前，Task 仅允许只读 subagent_type：${readOnlyParallelSubagentTypes.join(', ')}。'
+          '请改用只读子智能体，或在计划获批后运行“$canonicalSubagentType”。',
         ),
         <String, Object?>{
           'task_blocked_plan_mode_subagent': true,
@@ -179,8 +202,7 @@ class AiTaskTool extends AiTool {
       ),
     ];
     final readFiles = <String>{};
-    // Track cancellation without awaiting the signal so we can bail early
-    // between sub-tool calls. Any uncaught error on cancelSignal is ignored.
+    // 异步记录取消状态，确保一批子工具执行期间也能及时停止后续调用。
     var cancelled = false;
     context.cancelSignal?.then<void>(
       (_) => cancelled = true,
@@ -190,29 +212,87 @@ class AiTaskTool extends AiTool {
     );
     final subagentSessionId =
         '${context.sessionId}/task/${_normalizeToken(context.toolCall.id.trim().isEmpty ? canonicalSubagentType : context.toolCall.id)}';
-    final subagentStartHookResult = await _runAuxiliaryHook(
-      eventName: _subagentStartEvent,
-      sessionId: subagentSessionId,
-      matcherValue: canonicalSubagentType,
-      cwd: AiToolUtils.defaultWorkingDirectory(),
-      payload: <String, Object?>{
-        'subagent_type': canonicalSubagentType,
-        'subagentType': canonicalSubagentType,
-        'description': description,
-        'stateless': true,
-      },
+    final subagentStartHookResult = await AiToolUtils.awaitWithCancellation(
+      _runAuxiliaryHook(
+        eventName: _subagentStartEvent,
+        sessionId: subagentSessionId,
+        matcherValue: canonicalSubagentType,
+        cwd: AiToolUtils.defaultWorkingDirectory(),
+        payload: <String, Object?>{
+          'subagent_type': canonicalSubagentType,
+          'subagentType': canonicalSubagentType,
+          'description': description,
+          'stateless': true,
+        },
+      ),
+      cancelSignal: context.cancelSignal,
     );
+    if (subagentStartHookResult == null) {
+      return AiToolUtils.cancelledResult(
+        command: '$_toolName $description',
+        durationMs: startedAt.elapsedMilliseconds,
+        metadata: _subagentMetadata(
+          subagentType: canonicalSubagentType,
+          toolCount: subagentCatalog.definitions.length,
+          rounds: 0,
+          terminalStatus: 'cancelled',
+        ),
+      );
+    }
+    Future<AiToolExecutionResult> cancelledResult(int rounds) {
+      return _cancelledTaskResult(
+        startedAt: startedAt,
+        description: description,
+        sessionId: subagentSessionId,
+        subagentType: canonicalSubagentType,
+        toolCount: subagentCatalog.definitions.length,
+        rounds: rounds,
+        startHookResult: subagentStartHookResult,
+      );
+    }
+    Future<AiToolExecutionResult> failedResult(
+      String error, {
+      required int rounds,
+      String? hookError,
+      Map<String, Object?> extraMetadata = const <String, Object?>{},
+    }) async {
+      final stopHookResult = await _runSubagentStopHook(
+        sessionId: subagentSessionId,
+        subagentType: canonicalSubagentType,
+        description: description,
+        status: 'failed',
+        error: hookError ?? error,
+      );
+      return _failedTaskResult(
+        description: description,
+        error: error,
+        durationMs: startedAt.elapsedMilliseconds,
+        subagentType: canonicalSubagentType,
+        toolCount: subagentCatalog.definitions.length,
+        rounds: rounds,
+        systemReminders: _hookSystemReminders(
+          subagentStartHookResult,
+          stopHookResult,
+        ),
+        extraMetadata: extraMetadata,
+      );
+    }
+
+    if (cancelled || await isCancelSignalCompleted(context.cancelSignal)) {
+      return cancelledResult(0);
+    }
     if (subagentStartHookResult.blocked) {
+      final blockReason =
+          subagentStartHookResult.blockReason ?? '子智能体钩子已阻止任务执行。';
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: '$_toolName $description',
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr:
-            subagentStartHookResult.blockReason ?? 'Blocked by subagent hook.',
+        stderr: blockReason,
         durationMs: startedAt.elapsedMilliseconds,
         resultText:
-            'status: failed\nerror: ${subagentStartHookResult.blockReason ?? 'Blocked by subagent hook.'}',
+            'status: failed\nerror: $blockReason',
         metadata: _subagentMetadata(
           subagentType: canonicalSubagentType,
           toolCount: subagentCatalog.definitions.length,
@@ -225,7 +305,35 @@ class AiTaskTool extends AiTool {
         ),
       );
     }
+    var totalToolCalls = 0;
+    var totalToolOutputCharacters = 0;
+    String boundedToolOutput(String value) {
+      final remaining =
+          _maxTotalToolOutputCharacters - totalToolOutputCharacters;
+      if (remaining <= 0) return '[工具输出已省略：累计输出达到上限]';
+      final limit = remaining < _maxToolOutputCharacters
+          ? remaining
+          : _maxToolOutputCharacters;
+      final bounded = clipTextByCodeUnits(
+        value,
+        limit,
+        suffix: '\n\n[工具输出已截断]',
+      );
+      totalToolOutputCharacters += bounded.length;
+      return bounded;
+    }
+
     for (var round = 0; round < _maxToolRounds; round++) {
+      final remaining = _maxExecutionDuration - startedAt.elapsed;
+      if (remaining <= Duration.zero) {
+        return failedResult(
+          '后台任务超过 ${_maxExecutionDuration.inMinutes} 分钟时限。',
+          rounds: round,
+        );
+      }
+      final turnTimeout = remaining < _chatTurnTimeout
+          ? remaining
+          : _chatTurnTimeout;
       final AiChatCompletion? completion;
       try {
         completion = await AiToolUtils.awaitWithCancellation<AiChatCompletion>(
@@ -240,49 +348,31 @@ class AiTaskTool extends AiTool {
               model: context.model,
               messages: turns,
               tools: subagentCatalog.definitions,
+              timeout: turnTimeout,
               cancelSignal: context.cancelSignal,
-            ),
+            ).timeout(turnTimeout),
           ),
           cancelSignal: context.cancelSignal,
         );
       } catch (error, stack) {
-        silentLog('ai_task_tool', '发送子智能体完成通知', error, stack);
-        final subagentStopHookResult = await _runSubagentStopHook(
-          sessionId: subagentSessionId,
-          subagentType: canonicalSubagentType,
-          description: description,
-          status: 'failed',
-          error: '$error',
-        );
-        return _failedTaskResult(
-          description: description,
-          error: 'Background sub-agent failed: $error',
-          durationMs: startedAt.elapsedMilliseconds,
-          subagentType: canonicalSubagentType,
-          toolCount: subagentCatalog.definitions.length,
-          rounds: round,
-          systemReminders: _hookSystemReminders(
-            subagentStartHookResult,
-            subagentStopHookResult,
-          ),
-        );
+        if (cancelled ||
+            await isCancelSignalCompleted(context.cancelSignal)) {
+          return cancelledResult(round);
+        }
+        silentLog('ai_task_tool', '请求子智能体模型', error, stack);
+        final failureMessage = error is TimeoutException
+            ? '子智能体模型请求超时。'
+            : '子智能体执行失败。';
+        return failedResult(failureMessage, rounds: round);
       }
       if (completion == null) {
-        return _cancelledTaskResult(
-          startedAt: startedAt,
-          description: description,
-          sessionId: subagentSessionId,
-          subagentType: canonicalSubagentType,
-          toolCount: subagentCatalog.definitions.length,
-          rounds: round,
-          startHookResult: subagentStartHookResult,
-        );
+        return cancelledResult(round);
       }
       final reply = completion.reply.trim();
       if (completion.toolCalls.isEmpty) {
         final output = reply.isEmpty
-            ? 'The background task completed without additional output.'
-            : reply;
+            ? '后台任务已完成，但未返回额外内容。'
+            : _boundedSubagentResult(reply);
         final subagentStopHookResult = await _runSubagentStopHook(
           sessionId: subagentSessionId,
           subagentType: canonicalSubagentType,
@@ -305,30 +395,43 @@ class AiTaskTool extends AiTool {
           ),
         );
       }
+      if (completion.toolCalls.length > _maxToolCallsPerRound ||
+          totalToolCalls + completion.toolCalls.length > _maxTotalToolCalls) {
+        return failedResult(
+          '子智能体工具调用次数超过安全上限。',
+          rounds: round + 1,
+        );
+      }
+      if (completion.toolCalls.any(
+        (call) => call.arguments.length > _maxToolArgumentCharacters,
+      )) {
+        return failedResult(
+          '子智能体工具参数超过安全上限。',
+          rounds: round + 1,
+        );
+      }
+      totalToolCalls += completion.toolCalls.length;
       turns.add(
         AiChatTurn(
           role: AiChatRole.assistant,
-          content: reply,
+          content: _boundedSubagentResult(reply),
           toolCalls: completion.toolCalls,
         ),
       );
-      // Delegate sub-tool calls via a re-assembled context
+      // 通过重建的上下文调用子工具，并在每次分发前检查取消状态。
       for (var index = 0; index < completion.toolCalls.length; index++) {
-        // Honor cancellation between sub-tool calls so that a user cancel
-        // after the first tool in a batch does not keep dispatching the
-        // remaining tools.
-        if (cancelled) {
-          return _cancelledTaskResult(
-            startedAt: startedAt,
-            description: description,
-            sessionId: subagentSessionId,
-            subagentType: canonicalSubagentType,
-            toolCount: subagentCatalog.definitions.length,
-            rounds: round,
-            startHookResult: subagentStartHookResult,
-          );
+        if (cancelled ||
+            await isCancelSignalCompleted(context.cancelSignal)) {
+          return cancelledResult(round);
         }
         final toolCall = completion.toolCalls[index];
+        final toolTimeout = _maxExecutionDuration - startedAt.elapsed;
+        if (toolTimeout <= Duration.zero) {
+          return failedResult(
+            '后台任务超过 ${_maxExecutionDuration.inMinutes} 分钟时限。',
+            rounds: round + 1,
+          );
+        }
         final decodedArguments = _decodeArguments(toolCall.arguments);
         final writeViolation = _subagentWriteViolation(
           catalog: subagentCatalog,
@@ -336,29 +439,13 @@ class AiTaskTool extends AiTool {
           decodedArguments: decodedArguments,
         );
         if (writeViolation != null) {
-          final subagentStopHookResult = await _runSubagentStopHook(
-            sessionId: subagentSessionId,
-            subagentType: canonicalSubagentType,
-            description: description,
-            status: 'failed',
-            error: writeViolation.reason,
-          );
-          return _failedTaskResult(
-            description: description,
-            error:
-                'Sub-agent attempted a write-like Bash command. '
-                'Task sub-agents are read-only; the parent agent must run '
-                'write commands itself when appropriate.\n'
-                'command: ${writeViolation.command}\n'
-                'reason: ${writeViolation.reason}',
-            durationMs: startedAt.elapsedMilliseconds,
-            subagentType: canonicalSubagentType,
-            toolCount: subagentCatalog.definitions.length,
+          return failedResult(
+            '子智能体尝试执行写入型 Bash 命令。Task 子智能体只读，'
+            '需要写入时应由父智能体执行。\n'
+            '命令：${writeViolation.command}\n'
+            '原因：${writeViolation.reason}',
             rounds: round + 1,
-            systemReminders: _hookSystemReminders(
-              subagentStartHookResult,
-              subagentStopHookResult,
-            ),
+            hookError: writeViolation.reason,
             extraMetadata: <String, Object?>{
               'subagent_write_blocked': true,
               'subagent_blocked_command': writeViolation.command,
@@ -366,6 +453,7 @@ class AiTaskTool extends AiTool {
             },
           );
         }
+        final timeoutCancellation = Completer<void>();
         final subContext = AiToolExecutionContext(
           sessionId: subagentSessionId,
           catalog: subagentCatalog,
@@ -377,34 +465,42 @@ class AiTaskTool extends AiTool {
           requireWriteCommandConfirmation:
               context.requireWriteCommandConfirmation,
           confirmWriteCommand: context.confirmWriteCommand,
-          cancelSignal: context.cancelSignal,
+          cancelSignal: combineCancelSignals(<Future<void>?>[
+            context.cancelSignal,
+            timeoutCancellation.future,
+          ]),
+          onBashUpdate: context.onBashUpdate,
           metadata: context.metadata,
         );
         // 通过注册时注入的回调执行子代理工具，避免运行时服务循环依赖。
         final AiToolExecutionResult toolResult;
         try {
-          toolResult = await _executeSubTool(context, subContext);
-        } catch (error, stack) {
-          silentLog('ai_task_tool', '执行子智能体工具', error, stack);
-          final subagentStopHookResult = await _runSubagentStopHook(
-            sessionId: subagentSessionId,
-            subagentType: canonicalSubagentType,
-            description: description,
-            status: 'failed',
-            error: '$error',
-          );
-          return _failedTaskResult(
-            description: description,
-            error: 'Sub-agent tool "${toolCall.name}" failed: $error',
-            durationMs: startedAt.elapsedMilliseconds,
-            subagentType: canonicalSubagentType,
-            toolCount: subagentCatalog.definitions.length,
-            rounds: round + 1,
-            systemReminders: _hookSystemReminders(
-              subagentStartHookResult,
-              subagentStopHookResult,
+          final result = await AiToolUtils.awaitWithCancellation(
+            _executeSubTool(context, subContext).timeout(
+              toolTimeout,
+              onTimeout: () {
+                if (!timeoutCancellation.isCompleted) {
+                  timeoutCancellation.complete();
+                }
+                throw TimeoutException('子智能体工具执行超时。', toolTimeout);
+              },
             ),
+            cancelSignal: context.cancelSignal,
           );
+          if (result == null) {
+            return cancelledResult(round);
+          }
+          toolResult = result;
+        } catch (error, stack) {
+          if (cancelled ||
+              await isCancelSignalCompleted(context.cancelSignal)) {
+            return cancelledResult(round);
+          }
+          silentLog('ai_task_tool', '执行子智能体工具', error, stack);
+          final failureMessage = error is TimeoutException
+              ? '子智能体工具“${toolCall.name}”执行超时。'
+              : '子智能体工具“${toolCall.name}”执行失败。';
+          return failedResult(failureMessage, rounds: round + 1);
         }
         final readFilePath = '${toolResult.metadata['read_file_path'] ?? ''}'
             .trim();
@@ -413,53 +509,37 @@ class AiTaskTool extends AiTool {
           AiChatTurn(
             role: AiChatRole.tool,
             toolCallId: toolCall.id,
-            content: toolResult.toToolOutput(),
+            content: boundedToolOutput(toolResult.toToolOutput()),
           ),
         );
       }
     }
-    final subagentStopHookResult = await _runSubagentStopHook(
-      sessionId: subagentSessionId,
-      subagentType: canonicalSubagentType,
-      description: description,
-      status: 'failed',
-      error: 'Exceeded the maximum tool rounds.',
-    );
-    return _failedTaskResult(
-      description: description,
-      error: 'The background task exceeded the maximum tool rounds.',
-      durationMs: startedAt.elapsedMilliseconds,
-      subagentType: canonicalSubagentType,
-      toolCount: subagentCatalog.definitions.length,
+    return failedResult(
+      '后台任务超过最大工具轮次。',
       rounds: _maxToolRounds,
-      systemReminders: _hookSystemReminders(
-        subagentStartHookResult,
-        subagentStopHookResult,
-      ),
+      hookError: '子智能体工具轮次超过上限。',
       extraMetadata: const <String, Object?>{
         'task_tool_round_limit': _maxToolRounds,
       },
     );
   }
 
-  // Sub-tool execution delegates back to the parent execute loop.
-  // This is satisfied by a callback injected in AiTaskTool.withExecutor().
+  // 子工具通过注入的回调交回父执行循环，避免运行时服务循环依赖。
   Future<AiToolExecutionResult> _executeSubTool(
     AiToolExecutionContext parentContext,
     AiToolExecutionContext subContext,
   ) async {
     final executor = _subToolExecutor;
     if (executor != null) return executor(parentContext, subContext);
-    // Fallback: only works for non-recursive tools; Task subtasks are rare edge case.
     return AiToolUtils.invalidResult(
       subContext.toolCall.name,
-      'Sub-tool executor not configured for Task tool.',
+      'Task 工具未配置子工具执行器。',
     );
   }
 
   AiSubToolExecutor? _subToolExecutor;
 
-  /// Factory-style setExecutor for AiToolRegistry injection.
+  /// 注入工具注册表提供的子工具执行器。
   AiTaskTool withExecutor(AiSubToolExecutor executor) {
     _subToolExecutor = executor;
     return this;
@@ -533,7 +613,7 @@ class AiTaskTool extends AiTool {
     if (!analysis.isWrite) {
       return null;
     }
-    return (command: command, reason: analysis.reason);
+    return (command: command, reason: 'Bash 命令被识别为写操作。');
   }
 
   String _subagentSystemPrompt({
@@ -550,6 +630,14 @@ class AiTaskTool extends AiTool {
         'parent todos, open UI dialogs, call Task, or request plan approval. '
         'Complete the assigned subtask directly. Use tools only when they '
         'materially help. Return only the useful result for the parent agent.';
+  }
+
+  String _boundedSubagentResult(String value) {
+    return clipTextByCodeUnits(
+      value.trim(),
+      _maxResultCharacters,
+      suffix: '\n\n[结果已截断]',
+    );
   }
 
   AiToolExecutionResult _failedTaskResult({
@@ -696,9 +784,10 @@ class AiTaskTool extends AiTool {
         cwd: cwd,
         payload: payload,
       );
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('ai_task_tool', '执行 $eventName 钩子', error, stack);
       return AiClaudeHookInvocationResult(
-        systemReminders: <String>['Hook event $eventName failed: $error'],
+        systemReminders: <String>['子智能体钩子“$eventName”执行失败。'],
       );
     }
   }

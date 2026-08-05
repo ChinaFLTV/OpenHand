@@ -59,6 +59,8 @@ const int _maxConcurrentToolExecutions = kOpenHandMaxAsyncConcurrency;
 const int _maxQueuedToolExecutions = 256;
 const Duration _toolExecutionQueueTimeout = Duration(seconds: 30);
 const int _minToolOutputTruncationPayloadChars = 40;
+const int kAiTaskDescriptionMaxCharacters = 512;
+const int kAiTaskPromptMaxCharacters = 120000;
 const int kAiToolSearchMaxQueryCharacters = 4096;
 const int kAiKnowledgeSearchMaxQueryCharacters = 2000;
 const int kAiKnowledgeSearchMaxSourceIds = 32;
@@ -2855,11 +2857,13 @@ class AiToolRuntimeService {
         'properties': <String, Object?>{
           'description': <String, Object?>{
             'type': 'string',
+            'maxLength': kAiTaskDescriptionMaxCharacters,
             'description':
                 'Short task title for hook logs and parent transcript.',
           },
           'prompt': <String, Object?>{
             'type': 'string',
+            'maxLength': kAiTaskPromptMaxCharacters,
             'description':
                 'Complete subtask instructions, including scope, paths, constraints, and expected output.',
           },

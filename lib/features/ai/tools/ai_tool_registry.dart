@@ -155,9 +155,9 @@ class AiToolRegistry {
             subContext,
             observer: subToolExecutionObserver,
             unsupportedError:
-                'Unsupported agent worker tool: ${subContext.toolCall.name}',
+                '不支持的数字员工工具：${subContext.toolCall.name}',
             unavailableError:
-                'Agent worker tool unavailable: ${subContext.toolCall.name}',
+                '数字员工工具不可用：${subContext.toolCall.name}',
           ),
         );
         registry.register(tool);
@@ -200,9 +200,9 @@ class AiToolRegistry {
         parentContext,
         subContext,
         observer: subToolExecutionObserver,
-        unsupportedError: 'Unsupported sub-tool: ${subContext.toolCall.name}',
+        unsupportedError: '不支持的子工具：${subContext.toolCall.name}',
         unavailableError:
-            'Sub-tool not available in subagent context: ${subContext.toolCall.name}',
+            '子智能体上下文中不可用的工具：${subContext.toolCall.name}',
       ),
     );
     registry.register(taskTool);
