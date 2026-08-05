@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../../../shared/net/http_response_utils.dart';
 import '../model/ai_exposure_models.dart';
 
 const Duration _kProxyProbeAttemptTimeout = Duration(seconds: 4);
@@ -230,9 +231,15 @@ Future<Uint8List> _loadIdentityThroughHttpProxy(Uri proxy) async {
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw FormatException('出口身份服务返回 HTTP ${response.statusCode}');
     }
-    return await _readBoundedBody(
+    final remaining = _remaining(_kProxyIdentityTimeout, stopwatch);
+    return await readBoundedByteStream(
       response,
-    ).timeout(_remaining(_kProxyIdentityTimeout, stopwatch));
+      maxBytes: _kMaxProxyIdentityResponseBytes,
+      idleTimeout: remaining,
+      totalTimeout: remaining,
+    );
+  } on ByteStreamSizeLimitException {
+    throw const FormatException('代理身份响应过大');
   } on HttpException catch (error) {
     final status = int.tryParse(
       RegExp(r'tunnel \((\d{3})\b').firstMatch(error.message)?.group(1) ?? '',
@@ -302,17 +309,6 @@ Future<Uint8List> _loadIdentityThroughSecureProxy(Uri proxy) async {
     stopwatch.stop();
     socket?.destroy();
   }
-}
-
-Future<Uint8List> _readBoundedBody(Stream<List<int>> stream) async {
-  final buffer = BytesBuilder(copy: false);
-  await for (final chunk in stream) {
-    if (buffer.length + chunk.length > _kMaxProxyIdentityResponseBytes) {
-      throw const FormatException('代理身份响应过大');
-    }
-    buffer.add(chunk);
-  }
-  return buffer.takeBytes();
 }
 
 Future<Uint8List> _readRawIdentityResponse(Socket socket) async {

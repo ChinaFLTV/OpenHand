@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../model/ai_exposure_models.dart';
 
 const Duration _kAiJunglerRequestTimeout = Duration(seconds: 15);
@@ -272,11 +273,27 @@ class AiJunglerClient {
       true;
 
   Stream<Map<String, Object?>> events(String jobId) async* {
-    final request = await _open('GET', _jobPath(jobId, suffix: '/events'));
-    request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
-    final response = await request.close().timeout(_kAiJunglerRequestTimeout);
-    if (response.statusCode < 200 || response.statusCode >= 300) {
-      throw await _responseError(response);
+    final handshakeDeadline = MonotonicDeadline(
+      _kAiJunglerRequestTimeout,
+      timeoutMessage: '连接扫描引擎实时事件超时。',
+    );
+    late final HttpClientResponse response;
+    try {
+      final request = await _open(
+        'GET',
+        _jobPath(jobId, suffix: '/events'),
+        deadline: handshakeDeadline,
+      );
+      request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
+      response = await _closeWithinDeadline(request, handshakeDeadline);
+      if (response.statusCode < 200 || response.statusCode >= 300) {
+        throw await _responseError(
+          response,
+          totalTimeout: handshakeDeadline.remaining(),
+        );
+      }
+    } finally {
+      handshakeDeadline.stop();
     }
     try {
       await for (final line in _boundedUtf8Lines(
@@ -315,44 +332,72 @@ class AiJunglerClient {
   }
 
   Future<Object?> _request(String method, String path, {Object? body}) async {
-    final request = await _open(method, path);
-    if (body != null) {
-      final payload = utf8.encode(jsonEncode(body));
-      if (payload.length > _kAiJunglerMaxRequestBytes) {
-        throw const AiJunglerApiException('提交内容超过 2 MB，请减少配置项后重试。');
-      }
-      request.headers.contentType = ContentType.json;
-      request.add(payload);
+    final payload = body == null ? null : utf8.encode(jsonEncode(body));
+    if (payload != null && payload.length > _kAiJunglerMaxRequestBytes) {
+      throw const AiJunglerApiException('提交内容超过 2 MB，请减少配置项后重试。');
     }
-    final response = await request.close().timeout(_kAiJunglerRequestTimeout);
-    final success = response.statusCode >= 200 && response.statusCode < 300;
-    final text = await _readUtf8Response(
-      response,
-      maxBytes: success
-          ? _kAiJunglerMaxJsonResponseBytes
-          : _kAiJunglerMaxErrorResponseBytes,
+    final deadline = MonotonicDeadline(
+      _kAiJunglerRequestTimeout,
+      timeoutMessage: '扫描引擎请求超过总时限。',
     );
-    if (!success) {
-      throw _textError(response.statusCode, text);
-    }
-    if (text.trim().isEmpty) return null;
     try {
-      return jsonDecode(text);
-    } on FormatException {
-      throw AiJunglerApiException(
-        '扫描引擎返回了无法解析的数据。',
-        statusCode: response.statusCode,
+      final request = await _open(method, path, deadline: deadline);
+      if (payload != null) {
+        request.headers.contentType = ContentType.json;
+        request.add(payload);
+      }
+      final response = await _closeWithinDeadline(request, deadline);
+      final success = response.statusCode >= 200 && response.statusCode < 300;
+      final text = await _readUtf8Response(
+        response,
+        maxBytes: success
+            ? _kAiJunglerMaxJsonResponseBytes
+            : _kAiJunglerMaxErrorResponseBytes,
+        totalTimeout: deadline.remaining(),
       );
+      if (!success) {
+        throw _textError(response.statusCode, text);
+      }
+      if (text.trim().isEmpty) return null;
+      try {
+        return jsonDecode(text);
+      } on FormatException {
+        throw AiJunglerApiException(
+          '扫描引擎返回了无法解析的数据。',
+          statusCode: response.statusCode,
+        );
+      }
+    } finally {
+      deadline.stop();
     }
   }
 
-  Future<HttpClientRequest> _open(String method, String path) async {
+  Future<HttpClientRequest> _open(
+    String method,
+    String path, {
+    required MonotonicDeadline deadline,
+  }) async {
     final uri = baseUri.resolve(path);
     final request = await _httpClient
         .openUrl(method, uri)
-        .timeout(_kAiJunglerRequestTimeout);
+        .timeout(deadline.remaining());
     request.headers.set(HttpHeaders.authorizationHeader, 'Bearer $accessToken');
     return request;
+  }
+
+  Future<HttpClientResponse> _closeWithinDeadline(
+    HttpClientRequest request,
+    MonotonicDeadline deadline,
+  ) {
+    final timeout = deadline.remaining();
+    return request.close().timeout(
+      timeout,
+      onTimeout: () {
+        final error = deadline.timeoutException();
+        request.abort(error);
+        throw error;
+      },
+    );
   }
 
   String _jobPath(
@@ -368,12 +413,14 @@ class AiJunglerClient {
   }
 
   Future<AiJunglerApiException> _responseError(
-    HttpClientResponse response,
-  ) async => _textError(
+    HttpClientResponse response, {
+    required Duration totalTimeout,
+  }) async => _textError(
     response.statusCode,
     await _readUtf8Response(
       response,
       maxBytes: _kAiJunglerMaxErrorResponseBytes,
+      totalTimeout: totalTimeout,
     ),
   );
 
@@ -401,13 +448,14 @@ class AiJunglerClient {
 Future<String> _readUtf8Response(
   HttpClientResponse response, {
   required int maxBytes,
+  required Duration totalTimeout,
 }) async {
   try {
     return await readBoundedHttpResponseText(
       response,
       maxBytes: maxBytes,
-      idleTimeout: _kAiJunglerRequestTimeout,
-      totalTimeout: _kAiJunglerRequestTimeout,
+      idleTimeout: totalTimeout,
+      totalTimeout: totalTimeout,
     );
   } on ByteStreamSizeLimitException {
     throw AiJunglerApiException(
