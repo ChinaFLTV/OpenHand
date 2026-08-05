@@ -192,13 +192,8 @@ class _TranscriptScrollDispatcher {
     String messageId, {
     bool highlight = false,
   }) async {
-    // 等待目标会话的 transcript state 注册（最多 1 帧 + 250 ms）：
-    // 防御性兜底，避免在 session 切换瞬间触发跳转时拿到 null state。
+    // 最多等待 250 ms，避免帧调度暂停时 endOfFrame 永久不完成。
     var state = _statesBySession[sessionId];
-    if (state == null) {
-      await WidgetsBinding.instance.endOfFrame;
-      state = _statesBySession[sessionId];
-    }
     if (state == null) {
       final completer = Completer<void>();
       Timer? timeout;
