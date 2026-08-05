@@ -452,6 +452,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   Duration? _recentSeekTarget;
   DateTime? _recentSeekAt;
 
+  bool get _isActive => !_disposed && mounted;
   bool get _isPlaying => _playerState == _NativeAudioPlaybackState.playing;
   bool get _canScrub => _sourceReady && _duration > Duration.zero;
   bool get _hasMeaningfulAlbumLabel {
@@ -635,7 +636,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   bool _isBootstrapActive(int serial) {
-    return !_disposed && mounted && serial == _bootstrapSerial;
+    return _isActive && serial == _bootstrapSerial;
   }
 
   Future<Duration> _resolveDuration(int serial) async {
@@ -707,6 +708,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   void _restartProgressPolling() {
+    if (!_isActive) return;
     _progressPollTimer?.cancel();
     _progressPollTimer = startNonOverlappingPeriodicTimer(
       _kNativeAudioPollInterval,
@@ -875,7 +877,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Future<void> _handleComplete() async {
-    if (_handlingComplete || !_sourceReady) return;
+    if (!_isActive || _handlingComplete || !_sourceReady) return;
     _handlingComplete = true;
     try {
       switch (_playMode) {
@@ -903,7 +905,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Future<void> _togglePlayPause() async {
-    if (_operationInFlight || _seeking) return;
+    if (!_isActive || _operationInFlight || _seeking) return;
     if (!_sourceReady) {
       if (_loadError != null) unawaited(_bootstrap());
       return;
@@ -917,7 +919,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
       }
     } catch (error, stack) {
       silentLog('native_audio_preview', '切换播放状态失败', error, stack);
-      if (mounted) {
+      if (_isActive) {
         setState(() {
           _loadError = AppLocalizations.of(context)!.nativeAudioPlaybackFailed;
         });
@@ -929,7 +931,8 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   Future<void> _play({int? bootstrapSerial}) async {
     bool isActive() =>
-        bootstrapSerial == null || _isBootstrapActive(bootstrapSerial);
+        _isActive &&
+        (bootstrapSerial == null || bootstrapSerial == _bootstrapSerial);
 
     if (!_sourceReady || !isActive()) return;
     if (_playerState == _NativeAudioPlaybackState.completed &&
@@ -948,7 +951,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Future<bool> _seekTo(Duration target) async {
-    if (!_sourceReady) return false;
+    if (!_isActive || !_sourceReady) return false;
     final seekSerial = ++_seekSerial;
     final shouldResumeAfterSeek = _isPlaying;
     final upperBound = _duration > Duration.zero
@@ -1006,7 +1009,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     } catch (error, stack) {
       silentLog('native_audio_preview', '定位播放位置失败', error, stack);
     } finally {
-      if (!seekCommandCompleted && mounted && seekSerial == _seekSerial) {
+      if (!seekCommandCompleted && _isCurrentSeek(seekSerial)) {
         setState(() {
           _seeking = false;
           _position = _clampDuration(clamped, _duration);
@@ -1052,7 +1055,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   bool _isCurrentSeek(int seekSerial) {
-    return !_disposed && mounted && seekSerial == _seekSerial;
+    return _isActive && seekSerial == _seekSerial;
   }
 
   Future<void> _setVolume(double value) async {
@@ -1085,7 +1088,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   }
 
   Future<void> _setEffect(_NativeAudioEffect effect) async {
-    if (!mounted || _disposed) return;
+    if (!_isActive) return;
     setState(() => _effect = effect);
     try {
       await _applyEffectToPlayer().timeout(kNativeAudioControlTimeout);
@@ -2121,7 +2124,7 @@ String lastNativeAudioPathOrUrlSegment(String value) {
       ? null
       : segments.last;
   if (lastSegment != null && lastSegment.trim().isNotEmpty) {
-    return Uri.decodeComponent(lastSegment);
+    return lastSegment;
   }
   return p.basename(value.replaceAll('\\', '/'));
 }
