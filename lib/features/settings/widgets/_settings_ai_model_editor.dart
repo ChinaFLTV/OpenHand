@@ -2674,8 +2674,8 @@ class _ModelProfileEditorDialog extends StatefulWidget {
 }
 
 class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
-  static const double _reasoningEffortListMinHeight = 112;
-  static const double _reasoningEffortListMaxHeight = 360;
+  static const double _reasoningEffortListMinHeight = 240;
+  static const double _reasoningEffortListMaxHeight = 440;
   static const double _reasoningEffortCollapsedCardExtent = 86;
 
   late final TextEditingController _modelIdController;
