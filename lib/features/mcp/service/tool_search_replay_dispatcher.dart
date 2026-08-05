@@ -77,6 +77,8 @@ class ToolSearchReplayDispatcher {
       _timer = null;
       _deadlineNotifier.value = null;
       // 成功 fire 后不再保留 onFire—「已发出」不应该被「重发」。
+      _pendingCancel = null;
+      _pendingFire = null;
       _lastCancelledFire = null;
       _replayableNotifier.value = false;
       await onFire();
@@ -131,6 +133,7 @@ class ToolSearchReplayDispatcher {
 
   /// 释放：等同于不触发任何回调地丢弃 pending timer，并阻塞后续调度。
   void dispose() {
+    if (_disposed) return;
     _disposed = true;
     _timer?.cancel();
     _timer = null;

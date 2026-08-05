@@ -594,16 +594,6 @@ class ServicesController extends ChangeNotifier {
     }
   }
 
-  @visibleForTesting
-  void debugSetDependencyDataOverview(
-    Map<String, Object?> overview, {
-    DateTime? receivedAt,
-  }) {
-    _dependencyDataOverview = Map<String, Object?>.unmodifiable(overview);
-    _dependencyTelemetryHistory.add(overview, receivedAt: receivedAt);
-    _dependencyDataOverviewError = null;
-  }
-
   Future<Map<String, Object?>> loadPostgresqlRows(
     String table, {
     int limit = 50,
