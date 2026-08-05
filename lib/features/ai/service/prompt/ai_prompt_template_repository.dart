@@ -43,16 +43,24 @@ class AiPromptTemplateRepository {
 
   static final List<AiThreadTemplate> _templates =
       List<AiThreadTemplate>.unmodifiable(_templatesById.values);
+  static final Map<TargetPlatform, List<AiThreadTemplate>>
+  _templatesByPlatform =
+      Map<TargetPlatform, List<AiThreadTemplate>>.unmodifiable(
+        <TargetPlatform, List<AiThreadTemplate>>{
+          for (final platform in TargetPlatform.values)
+            platform: List<AiThreadTemplate>.unmodifiable(
+              _templates.where(
+                (template) => template.isSupportedOnPlatform(platform),
+              ),
+            ),
+        },
+      );
 
   List<AiThreadTemplate> get templates => _templates;
 
   List<AiThreadTemplate> templatesForPlatform([TargetPlatform? platform]) {
     final effectivePlatform = platform ?? defaultTargetPlatform;
-    return List<AiThreadTemplate>.unmodifiable(
-      templates.where(
-        (template) => template.isSupportedOnPlatform(effectivePlatform),
-      ),
-    );
+    return _templatesByPlatform[effectivePlatform] ?? _templates;
   }
 
   AiThreadTemplate resolveTemplate(String templateId) {
@@ -163,14 +171,8 @@ class AiPromptTemplateRepository {
     return appendAiPromptSharedSectionsIfAbsent(instructions, loadedSections);
   }
 
-  /// Appends the shared v4 discipline block (Uncertainty Honesty + Atomic
-  /// Change Discipline; English variant additionally covers Session Bootstrap
-  /// / Diff-Thinking / Verification Loop) loaded from
-  /// `assets/prompts/common/v4_discipline_{en,zh}.md` when the target
-  /// instruction text does not already contain a structural discipline block.
-  /// Templates that ship their own specialised version (`programming_expert`,
-  /// `machine_expert`) are detected via heading/tag markers and left untouched.
-  /// Language is inferred from the instructions' CJK-character ratio.
+  /// 当目标指令尚未包含结构化纪律区块时，追加共享的 v4 纪律内容。
+  /// 已内置专用版本的模板通过标题或标签识别并保持不变；语言根据中日韩字符占比判断。
   Future<String> _appendV4DisciplineIfAbsent(
     String instructions,
     _PromptTemplateLoadState loadState,
@@ -212,13 +214,8 @@ class AiPromptTemplateRepository {
     }
   }
 
-  /// Loads the shared auto-title system prompt from
-  /// `assets/prompts/common/auto_title_system_prompt.md`. The
-  /// `{{MAX_TITLE_CHARACTERS}}` placeholder is substituted with
-  /// [maxTitleCharacters] so the prompt's hard length cap matches the
-  /// runtime constraint enforced after the model replies. Falls back to
-  /// [fallback] when the asset is missing or unreadable (debug builds, hot
-  /// reload before assets re-bundle, etc.).
+  /// 加载共享的自动标题系统提示词，并替换最大标题字符数占位符。
+  /// 资源缺失或不可读时使用 [fallback]。
   Future<String> loadAutoTitleSystemPrompt({
     required int maxTitleCharacters,
     required String fallback,

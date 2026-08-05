@@ -890,7 +890,7 @@ class CronsController extends ChangeNotifier with WidgetsBindingObserver {
         if (users.isNotEmpty) {
           // 保证 root 位于列表首位。
           users.remove('root');
-          _systemUsers = <String>['root', ...users];
+          _systemUsers = List<String>.unmodifiable(<String>['root', ...users]);
         }
       }
     } catch (error, stack) {
