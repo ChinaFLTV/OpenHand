@@ -6,12 +6,13 @@ import 'package:flutter/material.dart';
 import '../../app/model/app_info.dart';
 import '../../app/support/app_update_checker.dart';
 import '../../app/support/safe_subprocess.dart';
+import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/byte_size_format.dart';
 import '../util/date_time_format.dart';
 import '../util/input_value_parsing.dart';
 import '../util/localized_text.dart';
-import '../util/text_clip.dart';
+import '../util/user_failure_message.dart';
 import 'animated_dialog.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
@@ -38,7 +39,6 @@ const Duration _kAppUpdatePhaseSwitchDuration = Duration(milliseconds: 320);
 const Duration _kAppUpdateProgressAnimationDuration = Duration(
   milliseconds: 400,
 );
-const int _kAppUpdateErrorMaxCharacters = 4096;
 
 class _AppUpdateDialogContent extends StatefulWidget {
   const _AppUpdateDialogContent({
@@ -105,9 +105,22 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
     late final AppUpdateCheckResult result;
     try {
       result = await widget.dataSource.checkForUpdate(widget.appInfo.version);
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('app_update_dialog', '检查应用更新', error, stack);
+      if (!mounted) return;
       result = AppUpdateCheckError(
-        message: _boundedAppUpdateError('检查更新失败：$error'),
+        message: userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '检查更新失败，请稍后重试。',
+            zhHant: '檢查更新失敗，請稍後重試。',
+            en: 'Failed to check for updates. Please try again later.',
+            fr: 'Échec de la recherche de mises à jour. Réessayez plus tard.',
+            de: 'Die Update-Prüfung ist fehlgeschlagen. Bitte später erneut versuchen.',
+            ja: '更新を確認できませんでした。しばらくしてから再試行してください。',
+          ),
+        ),
       );
     }
     if (!mounted) return;
@@ -120,7 +133,10 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
           _phase = _UpdatePhase.notAvailable;
         case AppUpdateCheckError(:final message):
           _phase = _UpdatePhase.error;
-          _errorMessage = _boundedAppUpdateError(message);
+          _errorMessage = userFailureMessage(
+            StateError(message),
+            fallback: '检查更新失败，请稍后重试。',
+          );
       }
     });
   }
@@ -152,11 +168,23 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
       );
       if (!mounted) return;
       _animateProgressTo(1.0);
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('app_update_dialog', '下载应用更新', error, stack);
       if (!mounted) return;
       setState(() {
         _phase = _UpdatePhase.error;
-        _errorMessage = _boundedAppUpdateError('$error');
+        _errorMessage = userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '下载更新失败，请稍后重试。',
+            zhHant: '下載更新失敗，請稍後重試。',
+            en: 'Failed to download the update. Please try again later.',
+            fr: 'Échec du téléchargement de la mise à jour. Réessayez plus tard.',
+            de: 'Das Update konnte nicht heruntergeladen werden. Bitte später erneut versuchen.',
+            ja: '更新をダウンロードできませんでした。しばらくしてから再試行してください。',
+          ),
+        );
       });
     } finally {
       if (identical(_downloadCancellation, cancellation)) {
@@ -551,12 +579,4 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
       ],
     };
   }
-}
-
-String _boundedAppUpdateError(String message) {
-  return clipTextByCodeUnits(
-    message,
-    _kAppUpdateErrorMaxCharacters,
-    suffix: '…',
-  );
 }

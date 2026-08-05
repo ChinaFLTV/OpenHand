@@ -2770,13 +2770,13 @@ class SettingsController extends ChangeNotifier {
             _saveSuccessSignal.value = _saveSuccessSignal.value + 1;
           }
           return true;
-        } catch (error) {
+        } catch (error, stack) {
           _restoreSnapshot(previousSnapshot);
           _persistenceIssue = SettingsPersistenceIssue(
             kind: SettingsPersistenceIssueKind.saveFailed,
             filePath: _store.settingsFilePath,
-            detail: '$error',
           );
+          silentLog('settings_controller', '保存应用设置', error, stack);
           notifyListeners();
           return false;
         }

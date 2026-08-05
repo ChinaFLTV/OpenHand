@@ -30,6 +30,7 @@ import 'features/instructions/index.dart';
 import 'features/knowledge_base/index.dart';
 import 'features/machine_terminal/index.dart';
 import 'features/mcp/index.dart';
+import 'features/mcp/mcp_errors.dart';
 import 'features/memory/index.dart';
 import 'features/message_gateway/index.dart';
 import 'features/plugin_service/index.dart';
@@ -40,6 +41,7 @@ import 'features/thread_template_runtime/index.dart';
 import 'shared/db/database_service.dart';
 import 'shared/fps/openhand_fps_monitor.dart';
 import 'shared/ui/structured_error_text.dart';
+import 'shared/util/user_failure_message.dart';
 
 const Duration _mcpRuntimeCleanupTimeout = Duration(seconds: 10);
 const Duration _runtimeCleanupTotalTimeout = Duration(seconds: 60);
@@ -129,6 +131,13 @@ Future<void> _bootstrap() async {
     await DatabaseService.initialize();
   } catch (error, stackTrace) {
     debugPrint('致命错误：数据库初始化失败：$error\n$stackTrace');
+    final reason = userFailureMessage(
+      error,
+      fallback: StructuredErrorText.pick(
+        zh: '无法初始化应用数据库，请检查目录权限和磁盘空间。',
+        en: 'Unable to initialize the application database. Check directory permissions and free disk space.',
+      ),
+    );
     runApp(
       Directionality(
         textDirection: TextDirection.ltr,
@@ -143,7 +152,7 @@ Future<void> _bootstrap() async {
                     zh: '数据库初始化失败',
                     en: 'Database initialization failed',
                   ),
-                  reason: '$error',
+                  reason: reason,
                   try_: StructuredErrorText.pick(
                     zh:
                         '· 检查 Application Support 目录是否可写，以及是否被其他实例占用\n'
@@ -311,7 +320,9 @@ Future<void> _bootstrap() async {
         );
       } catch (error, stack) {
         silentLog('main', '重建 MCP 关键词索引', error, stack);
-        return AgentHandlerResult(stdout: '错误：$error');
+        return AgentHandlerResult(
+          stdout: '错误：${mcpFailureMessage(error, fallback: '重建 MCP 关键词索引失败。')}',
+        );
       }
     }
     return AgentHandlerResult(stdout: '未处理：未知智能体标签（${entry.tags.join(",")}）');

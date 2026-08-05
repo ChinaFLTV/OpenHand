@@ -18,6 +18,8 @@ import '../util/async_concurrency.dart';
 import '../util/bounded_directory_io.dart';
 import '../util/bounded_file_io.dart';
 import '../util/byte_size_format.dart';
+import '../util/localized_text.dart';
+import '../util/user_failure_message.dart';
 import 'animated_dialog.dart';
 import 'dialog_motion_css.dart';
 import 'interactive_image_preview.dart';
@@ -468,7 +470,8 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         return;
       }
       throw const FileSystemException('媒体源不可用。');
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('media_preview_dialog', '复制媒体内容', error, stack);
       final url = widget.networkUrl ?? widget.sourceUrl;
       if (url != null) {
         try {
@@ -479,14 +482,31 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
             message: l10n.mediaPreviewDataCopyFailedUrlCopied,
           );
           return;
-        } catch (_) {
-          // Fall through to the error snackbar below.
+        } catch (fallbackError, fallbackStack) {
+          silentLog(
+            'media_preview_dialog',
+            '复制媒体来源地址',
+            fallbackError,
+            fallbackStack,
+          );
         }
       }
       if (!context.mounted) return;
+      final detail = userFailureMessage(
+        error,
+        fallback: openHandLocalizedText(
+          context,
+          zh: '无法复制媒体内容，请稍后重试。',
+          zhHant: '無法複製媒體內容，請稍後重試。',
+          en: 'Unable to copy the media. Please try again later.',
+          fr: 'Impossible de copier le média. Réessayez plus tard.',
+          de: 'Das Medium konnte nicht kopiert werden. Bitte später erneut versuchen.',
+          ja: 'メディアをコピーできませんでした。しばらくしてから再試行してください。',
+        ),
+      );
       _showCopySnack(
         context,
-        message: l10n.mediaPreviewCopyFailed('$error'),
+        message: l10n.mediaPreviewCopyFailed(detail),
         isError: true,
       );
     } finally {
@@ -831,7 +851,20 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
       await _cleanupTempFiles();
       silentLog('media_preview_dialog', '初始化视频预览 WebView', error, stack);
       if (!mounted) return;
-      setState(() => _error = '$error');
+      setState(
+        () => _error = userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '视频预览初始化失败，请重试。',
+            zhHant: '影片預覽初始化失敗，請重試。',
+            en: 'Failed to initialize the video preview. Please try again.',
+            fr: 'Échec de l’initialisation de l’aperçu vidéo. Réessayez.',
+            de: 'Die Videovorschau konnte nicht initialisiert werden. Bitte erneut versuchen.',
+            ja: '動画プレビューを初期化できませんでした。再試行してください。',
+          ),
+        ),
+      );
     } finally {
       deadline.stop();
     }

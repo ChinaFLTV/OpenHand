@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/user_failure_message.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
 
@@ -307,7 +308,7 @@ class InputRepairService {
           InputRepairStepReport(
             stage: InputRepairStage.clearTextInputClient,
             status: InputRepairStepStatus.warning,
-            message: '$error',
+            message: userFailureMessage(error, fallback: '清理文本输入客户端失败。'),
           ),
         );
       }
@@ -326,7 +327,7 @@ class InputRepairService {
           InputRepairStepReport(
             stage: InputRepairStage.hideTextInput,
             status: InputRepairStepStatus.warning,
-            message: '$error',
+            message: userFailureMessage(error, fallback: '隐藏文本输入失败。'),
           ),
         );
       }
@@ -348,7 +349,7 @@ class InputRepairService {
           InputRepairStepReport(
             stage: InputRepairStage.finishAutofillContext,
             status: InputRepairStepStatus.warning,
-            message: '$error',
+            message: userFailureMessage(error, fallback: '结束自动填充失败。'),
           ),
         );
       }
@@ -369,7 +370,7 @@ class InputRepairService {
           InputRepairStepReport(
             stage: InputRepairStage.requestExistingInputState,
             status: InputRepairStepStatus.warning,
-            message: '$error',
+            message: userFailureMessage(error, fallback: '恢复文本输入状态失败。'),
           ),
         );
       }
@@ -414,7 +415,7 @@ class InputRepairService {
         InputRepairStepReport(
           stage: InputRepairStage.restoreSafeFocus,
           status: InputRepairStepStatus.failure,
-          message: '$error',
+          message: userFailureMessage(error, fallback: '输入修复流程执行失败。'),
         ),
       );
     }

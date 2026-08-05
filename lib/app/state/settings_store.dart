@@ -35,15 +35,10 @@ import '../theme/openhand_theme_preset.dart';
 enum SettingsPersistenceIssueKind { loadFailed, invalidContent, saveFailed }
 
 class SettingsPersistenceIssue {
-  const SettingsPersistenceIssue({
-    required this.kind,
-    required this.filePath,
-    this.detail,
-  });
+  const SettingsPersistenceIssue({required this.kind, required this.filePath});
 
   final SettingsPersistenceIssueKind kind;
   final String filePath;
-  final String? detail;
 }
 
 class SettingsLoadResult {
@@ -107,21 +102,20 @@ class SettingsStore {
             issue: SettingsPersistenceIssue(
               kind: SettingsPersistenceIssueKind.invalidContent,
               filePath: settingsFilePath,
-              detail: '$error',
             ),
           );
         }
       }
 
       return _initializeMissingSettings();
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('settings_store', '加载数据库设置', error, stack);
       return SettingsLoadResult(
         snapshot: AppSettingsSnapshot.defaults(),
         canPersist: false,
         issue: SettingsPersistenceIssue(
           kind: SettingsPersistenceIssueKind.loadFailed,
           filePath: settingsFilePath,
-          detail: '$error',
         ),
       );
     }
@@ -225,24 +219,24 @@ class SettingsStore {
         snapshot: _snapshotFromJson(stringKeyedMapFromValue(decoded)),
         canPersist: true,
       );
-    } on FormatException catch (error) {
+    } on FormatException catch (error, stack) {
+      silentLog('settings_store', '初始化旧版设置', error, stack);
       return SettingsLoadResult(
         snapshot: AppSettingsSnapshot.defaults(),
         canPersist: false,
         issue: SettingsPersistenceIssue(
           kind: SettingsPersistenceIssueKind.invalidContent,
           filePath: issuePath,
-          detail: '$error',
         ),
       );
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('settings_store', '初始化应用设置', error, stack);
       return SettingsLoadResult(
         snapshot: AppSettingsSnapshot.defaults(),
         canPersist: false,
         issue: SettingsPersistenceIssue(
           kind: SettingsPersistenceIssueKind.loadFailed,
           filePath: issuePath,
-          detail: '$error',
         ),
       );
     }

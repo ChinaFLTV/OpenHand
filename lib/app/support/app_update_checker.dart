@@ -15,6 +15,7 @@ import '../../shared/util/duration_bounds.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/path_safety.dart';
 import '../../shared/util/text_clip.dart';
+import '../../shared/util/user_failure_message.dart';
 import '../../shared/util/version_compare.dart';
 import 'silent_log.dart';
 import 'system_proxy.dart';
@@ -34,7 +35,6 @@ const int _kUpdateAssetNameMaxCharacters = 512;
 const int _kUpdateReleaseNameMaxCharacters = 256;
 const int _kUpdateReleaseNotesMaxCharacters = 64 * 1024;
 const int _kUpdateDownloadUrlMaxCharacters = 8192;
-const int _kUpdateErrorPreviewMaxCharacters = 4096;
 const int _kUpdateMaxRedirects = 5;
 const Duration _kUpdateRedirectDrainTimeout = Duration(seconds: 2);
 const String _kGitHubReleaseAcceptHeader = 'application/vnd.github.v3+json';
@@ -156,7 +156,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       );
       if (response.statusCode != 200) {
         return AppUpdateCheckError(
-          message: _boundedUpdateError('HTTP ${response.statusCode}: $body'),
+          message: '更新服务返回 HTTP ${response.statusCode}。',
         );
       }
       final release = _parseGitHubReleaseInfo(
@@ -172,7 +172,9 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       return AppUpdateNotAvailable();
     } catch (error, stack) {
       silentLog('app_update_checker', '检查应用更新', error, stack);
-      return AppUpdateCheckError(message: _boundedUpdateError('$error'));
+      return AppUpdateCheckError(
+        message: userFailureMessage(error, fallback: '检查更新失败，请稍后重试。'),
+      );
     } finally {
       deadline.stop();
       client.close(force: true);
@@ -230,7 +232,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
       final response = result.response;
       final downloadUri = result.uri;
       if (response.statusCode != 200) {
-        final body = await readBoundedHttpResponseText(
+        await readBoundedHttpResponseText(
           response,
           maxBytes: _kUpdateMetadataMaxBytes,
           idleTimeout: _kUpdateResponseIdleTimeout,
@@ -238,7 +240,7 @@ class GitHubReleaseDataSource implements AppUpdateDataSource {
           allowMalformed: true,
         );
         throw HttpException(
-          _boundedUpdateError('更新包下载失败：HTTP ${response.statusCode}：$body'),
+          '更新包下载失败：HTTP ${response.statusCode}。',
           uri: downloadUri,
         );
       }
@@ -532,12 +534,4 @@ String _secureUpdateDownloadUrl(Object? raw) {
   } on FormatException {
     return '';
   }
-}
-
-String _boundedUpdateError(String message) {
-  return clipTextByCodeUnits(
-    message,
-    _kUpdateErrorPreviewMaxCharacters,
-    suffix: '…',
-  );
 }

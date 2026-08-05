@@ -9,6 +9,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -27,6 +28,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/text_search.dart';
 import '../knowledge_base_controller.dart';
+import '../knowledge_base_errors.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
 import 'knowledge_dialog_widgets.dart';
@@ -75,7 +77,7 @@ class _KnowledgeSourceContentDialogState
   bool _replaceVisible = false;
   bool _findCaseSensitive = false;
   int _currentMatchIndex = -1;
-  Object? _loadError;
+  String? _loadError;
   _KnowledgeSourceContentSnapshot? _snapshot;
   String _savedText = '';
 
@@ -133,10 +135,22 @@ class _KnowledgeSourceContentDialogState
         _loading = false;
         _loadError = null;
       });
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('knowledge_source_content_dialog', '加载知识库文档内容', error, stack);
       if (mounted) {
         setState(() {
-          _loadError = error;
+          _loadError = knowledgeBaseFailureMessage(
+            error,
+            fallback: openHandLocalizedText(
+              context,
+              zh: '无法读取文档内容，请稍后重试。',
+              zhHant: '無法讀取文件內容，請稍後重試。',
+              en: 'Unable to load the document. Please try again later.',
+              fr: 'Impossible de charger le document. Réessayez plus tard.',
+              de: 'Das Dokument konnte nicht geladen werden. Bitte später erneut versuchen.',
+              ja: 'ドキュメントを読み込めませんでした。しばらくしてから再試行してください。',
+            ),
+          );
           _loading = false;
         });
       }
@@ -215,18 +229,31 @@ class _KnowledgeSourceContentDialogState
           ja: 'ファイルを保存しました。',
         ),
       );
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('knowledge_source_content_dialog', '保存知识库文档内容', error, stack);
       if (!mounted) return;
+      final detail = knowledgeBaseFailureMessage(
+        error,
+        fallback: openHandLocalizedText(
+          context,
+          zh: '无法保存文档，请稍后重试。',
+          zhHant: '無法儲存文件，請稍後重試。',
+          en: 'Unable to save the document. Please try again later.',
+          fr: 'Impossible d’enregistrer le document. Réessayez plus tard.',
+          de: 'Das Dokument konnte nicht gespeichert werden. Bitte später erneut versuchen.',
+          ja: 'ドキュメントを保存できませんでした。しばらくしてから再試行してください。',
+        ),
+      );
       showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '文件保存失败：$error',
-          zhHant: '檔案儲存失敗：$error',
-          en: 'Failed to save file: $error',
-          fr: 'Échec de l’enregistrement : $error',
-          de: 'Datei konnte nicht gespeichert werden: $error',
-          ja: 'ファイルの保存に失敗しました: $error',
+          zh: '文件保存失败：$detail',
+          zhHant: '檔案儲存失敗：$detail',
+          en: 'Failed to save file: $detail',
+          fr: 'Échec de l’enregistrement : $detail',
+          de: 'Datei konnte nicht gespeichert werden: $detail',
+          ja: 'ファイルの保存に失敗しました: $detail',
         ),
       );
     } finally {
