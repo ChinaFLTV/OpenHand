@@ -65,6 +65,12 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   bool _maximized = false;
   static const int _slowSectionThresholdMs = 50;
   static const int _maxHttpBodyProbeBytes = 64 * 1024;
+  static const Duration _networkInterfaceTimeout = Duration(seconds: 2);
+  static const Duration _dnsLookupTimeout = Duration(seconds: 5);
+  static const Duration _reverseDnsLookupTimeout = Duration(seconds: 3);
+  static const Duration _tcpConnectTimeout = Duration(seconds: 6);
+  static const Duration _tlsHandshakeTimeout = Duration(seconds: 8);
+  static const Duration _httpConnectionTimeout = Duration(seconds: 8);
   static const Duration _httpRequestTimeout = Duration(seconds: 12);
 
   @override
@@ -224,7 +230,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       _log(_ProxyTestLogLevel.head, '网卡', '────────  本地网卡  ────────');
       try {
         final ifaces = await NetworkInterface.list().timeout(
-          const Duration(seconds: 2),
+          _networkInterfaceTimeout,
         );
         if (!mounted || generation != _diagnosticGeneration) return;
         if (ifaces.isEmpty) {
@@ -269,7 +275,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           final addrs = await InternetAddress.lookup(
             hopHost,
             type: family,
-          ).timeout(const Duration(seconds: 5));
+          ).timeout(_dnsLookupTimeout);
           if (!mounted || generation != _diagnosticGeneration) return;
           final dnsMs = _totalStopwatch.elapsedMilliseconds - dnsStart;
           if (addrs.isEmpty) {
@@ -297,7 +303,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           }
         } on TimeoutException {
           if (!mounted || generation != _diagnosticGeneration) return;
-          _log(_ProxyTestLogLevel.warn, 'DNS', '$famName 解析超时（5000ms）');
+          _log(
+            _ProxyTestLogLevel.warn,
+            'DNS',
+            '$famName 解析超时（${_dnsLookupTimeout.inMilliseconds}ms）',
+          );
         } catch (error, stack) {
           silentLog(
             'settings_proxy_test_dialog',
@@ -321,7 +331,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         // 对首选地址执行反向 DNS（PTR）解析。
         try {
           final ptr = await selectedAddr.reverse().timeout(
-            const Duration(seconds: 3),
+            _reverseDnsLookupTimeout,
           );
           if (!mounted || generation != _diagnosticGeneration) return;
           _log(
@@ -334,7 +344,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           _log(
             _ProxyTestLogLevel.debug,
             'PTR',
-            '${selectedAddr.address} <- <3000ms 超时>',
+            '${selectedAddr.address} <- <${_reverseDnsLookupTimeout.inMilliseconds}ms 超时>',
           );
         } catch (error, stack) {
           silentLog('settings_proxy_test_dialog', '执行反向 DNS 解析', error, stack);
@@ -356,7 +366,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         final connected = await Socket.connect(
           hopHost,
           hopPort,
-          timeout: const Duration(seconds: 6),
+          timeout: _tcpConnectTimeout,
         );
         socket = connected;
         if (!mounted || generation != _diagnosticGeneration) {
@@ -378,7 +388,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         rethrow;
       } on TimeoutException {
         if (!mounted || generation != _diagnosticGeneration) return;
-        _log(_ProxyTestLogLevel.err, 'TCP', '连接超时（6000ms）');
+        _log(
+          _ProxyTestLogLevel.err,
+          'TCP',
+          '连接超时（${_tcpConnectTimeout.inMilliseconds}ms）',
+        );
         rethrow;
       } finally {
         socket?.destroy();
@@ -394,7 +408,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           final connected = await SecureSocket.connect(
             hopHost,
             hopPort,
-            timeout: const Duration(seconds: 8),
+            timeout: _tlsHandshakeTimeout,
             supportedProtocols: const <String>['h2', 'http/1.1'],
           );
           secure = connected;
@@ -433,7 +447,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           rethrow;
         } on TimeoutException {
           if (!mounted || generation != _diagnosticGeneration) return;
-          _log(_ProxyTestLogLevel.err, 'TLS', '握手超时（8000ms）');
+          _log(
+            _ProxyTestLogLevel.err,
+            'TLS',
+            '握手超时（${_tlsHandshakeTimeout.inMilliseconds}ms）',
+          );
           rethrow;
         } finally {
           secure?.destroy();
@@ -449,7 +467,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       // 使用 HttpClient 验证 TLS、CONNECT 与正向代理语义。
       _log(_ProxyTestLogLevel.head, 'HTTP', '────────  请求  ────────');
       httpClient = resolver.createRawHttpClient(
-        connectionTimeout: const Duration(seconds: 8),
+        connectionTimeout: _httpConnectionTimeout,
       );
       _activeHttpClient = httpClient;
       _log(
