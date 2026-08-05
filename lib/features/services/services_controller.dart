@@ -6,6 +6,8 @@ import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/serial_task_queue.dart';
+import '../../shared/util/text_clip.dart';
+import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../plugin_service/index.dart';
@@ -19,6 +21,7 @@ import 'service/ai_jungler_runtime.dart';
 const int _kAiExposureMaxLogs = 5000;
 const int _kAiExposureMaxCachedHistoryJobs = 20;
 const int _kAiExposureMaxCachedLogsPerJob = 2000;
+const int _kAiExposureMaxErrorMessageCharacters = 400;
 const int _kMaxProxyInspectionConcurrency = 32;
 const int _kProxyInspectionCheckpointSize = 512;
 const int _kEventStreamReconnectLimit = 3;
@@ -34,6 +37,28 @@ typedef AiExposureProxyInspectionResultCallback =
       int completed,
       int total,
     );
+
+String _reportServicesFailure(
+  String action,
+  Object error,
+  StackTrace stack, {
+  String? fallback,
+}) {
+  silentLog('services_controller', action, error, stack);
+  final detail = switch (error) {
+    AiJunglerApiException(:final message, :final statusCode)
+        when statusCode == null || statusCode < 500 =>
+      message,
+    FormatException(:final message) => message,
+    StateError(:final message) => message,
+    UnsupportedError(:final message) => '$message',
+    _ => '',
+  };
+  final normalized = collapseInlineWhitespace(detail);
+  return normalized.isEmpty
+      ? fallback ?? '$action失败，请稍后重试。'
+      : clipTextWithEllipsis(normalized, _kAiExposureMaxErrorMessageCharacters);
+}
 
 class ServicesController extends ChangeNotifier {
   ServicesController({
@@ -377,8 +402,12 @@ class ServicesController extends ChangeNotifier {
       _lifecycle = _runtime.client == null
           ? AiExposureServiceLifecycle.error
           : AiExposureServiceLifecycle.running;
-      _errorMessage = '$error';
-      silentLog('services_controller', '启动扫描服务', error, stack);
+      _errorMessage = _reportServicesFailure(
+        '启动扫描服务',
+        error,
+        stack,
+        fallback: '启动扫描服务失败，请检查运行环境后重试。',
+      );
     } finally {
       _busy = false;
       _notify();
@@ -395,7 +424,8 @@ class ServicesController extends ChangeNotifier {
     _errorMessage = null;
     _notify();
     try {
-      final uri = Uri.parse(address.trim());
+      final uri = Uri.tryParse(address.trim());
+      if (uri == null) throw const FormatException('服务地址格式无效。');
       final client = await _runtime.connectExternal(
         address: uri,
         accessToken: accessToken,
@@ -411,8 +441,12 @@ class ServicesController extends ChangeNotifier {
       _lifecycle = _runtime.client == null
           ? AiExposureServiceLifecycle.error
           : AiExposureServiceLifecycle.running;
-      _errorMessage = '$error';
-      silentLog('services_controller', '连接外部扫描服务', error, stack);
+      _errorMessage = _reportServicesFailure(
+        '连接外部扫描服务',
+        error,
+        stack,
+        fallback: '连接外部扫描服务失败，请检查地址、令牌和网络后重试。',
+      );
       return false;
     } finally {
       _busy = false;
@@ -453,8 +487,7 @@ class ServicesController extends ChangeNotifier {
       );
     } catch (error, stack) {
       _lifecycle = AiExposureServiceLifecycle.error;
-      _errorMessage = '$error';
-      silentLog('services_controller', '停止扫描服务', error, stack);
+      _errorMessage = _reportServicesFailure('停止扫描服务', error, stack);
     } finally {
       _busy = false;
       _notify();
@@ -491,8 +524,7 @@ class ServicesController extends ChangeNotifier {
       _errorMessage = null;
     } catch (error, stack) {
       if (requestClient != null && !_isCurrentClient(requestClient)) return;
-      _errorMessage = '$error';
-      silentLog('services_controller', '刷新扫描服务数据', error, stack);
+      _errorMessage = _reportServicesFailure('刷新扫描服务数据', error, stack);
     }
     _notify();
   }
@@ -522,8 +554,7 @@ class ServicesController extends ChangeNotifier {
         _errorMessage = null;
       } catch (error, stack) {
         if (requestClient != null && !_isCurrentClient(requestClient)) return;
-        _errorMessage = '$error';
-        silentLog('services_controller', '刷新扫描服务状态', error, stack);
+        _errorMessage = _reportServicesFailure('刷新扫描服务状态', error, stack);
       }
       _notify();
     });
@@ -550,8 +581,11 @@ class ServicesController extends ChangeNotifier {
       if (requestClient != null && !_isCurrentClient(requestClient)) {
         return false;
       }
-      _dependencyDataOverviewError = '$error';
-      silentLog('services_controller', '刷新依赖数据遥测', error, stack);
+      _dependencyDataOverviewError = _reportServicesFailure(
+        '刷新依赖数据遥测',
+        error,
+        stack,
+      );
       _notify();
       return false;
     }
@@ -660,10 +694,10 @@ class ServicesController extends ChangeNotifier {
       _notify();
       return result;
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', action, error, stack);
+      final message = _reportServicesFailure(action, error, stack);
+      _errorMessage = message;
       _notify();
-      rethrow;
+      throw AiJunglerApiException(message);
     }
   }
 
@@ -691,8 +725,7 @@ class ServicesController extends ChangeNotifier {
       unawaited(_refreshHistoryAndResultsSafely());
       return true;
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '创建扫描任务', error, stack);
+      _errorMessage = _reportServicesFailure('创建扫描任务', error, stack);
       return false;
     } finally {
       _scanBusy = false;
@@ -706,8 +739,7 @@ class ServicesController extends ChangeNotifier {
     try {
       await _requireClient().stopJob(jobId);
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '停止扫描任务', error, stack);
+      _errorMessage = _reportServicesFailure('停止扫描任务', error, stack);
     }
     _notify();
   }
@@ -723,8 +755,7 @@ class ServicesController extends ChangeNotifier {
       _logs.clear();
       await _watchJob(resumedId);
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '恢复扫描任务', error, stack);
+      _errorMessage = _reportServicesFailure('恢复扫描任务', error, stack);
     } finally {
       _scanBusy = false;
       _notify();
@@ -740,8 +771,7 @@ class ServicesController extends ChangeNotifier {
       await _refreshHistoryAndResults();
       _historyLogs.remove(jobId);
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '删除扫描历史', error, stack);
+      _errorMessage = _reportServicesFailure('删除扫描历史', error, stack);
     }
     _notify();
   }
@@ -753,8 +783,7 @@ class ServicesController extends ChangeNotifier {
       _errorMessage = null;
       return true;
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '保存扫描规则', error, stack);
+      _errorMessage = _reportServicesFailure('保存扫描规则', error, stack);
       return false;
     } finally {
       _notify();
@@ -783,8 +812,7 @@ class ServicesController extends ChangeNotifier {
       _errorMessage = null;
       return true;
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '更新扫描数据源凭证', error, stack);
+      _errorMessage = _reportServicesFailure('更新扫描数据源凭证', error, stack);
       return false;
     } finally {
       _notify();
@@ -855,7 +883,9 @@ class ServicesController extends ChangeNotifier {
           updatedClient,
         );
         if (!restored) {
-          _errorMessage = '${_errorMessage ?? '保存代理设置失败。'}；运行时配置恢复失败，请重启扫描服务。';
+          _errorMessage =
+              '${_errorMessage ?? '保存代理设置失败。'} '
+              '运行时配置恢复失败，请重启扫描服务。';
         }
         _notify();
         return false;
@@ -878,8 +908,13 @@ class ServicesController extends ChangeNotifier {
         previousStatus,
         updatedClient,
       );
-      _errorMessage = restored ? '$error' : '$error；运行时配置恢复失败，请重启扫描服务。';
-      silentLog('services_controller', '更新扫描网络代理', error, stack);
+      final failure = _reportServicesFailure(
+        '更新扫描网络代理',
+        error,
+        stack,
+        fallback: '更新扫描网络代理失败，请检查配置后重试。',
+      );
+      _errorMessage = restored ? failure : '$failure 运行时配置恢复失败，请重启扫描服务。';
       _notify();
       return false;
     }
@@ -1038,8 +1073,7 @@ class ServicesController extends ChangeNotifier {
       );
       return true;
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '巡检代理节点', error, stack);
+      _errorMessage = _reportServicesFailure('巡检代理节点', error, stack);
       return false;
     } finally {
       _proxyInspectionRunning = false;
@@ -1250,8 +1284,7 @@ class ServicesController extends ChangeNotifier {
       _errorMessage = null;
     } catch (error, stack) {
       if (!_isCurrentClient(client)) return;
-      _errorMessage = '$error';
-      silentLog('services_controller', '刷新扫描服务日志', error, stack);
+      _errorMessage = _reportServicesFailure('刷新扫描服务日志', error, stack);
     } finally {
       _logRefreshBusy = false;
       _notify();
@@ -1278,8 +1311,7 @@ class ServicesController extends ChangeNotifier {
       _notify();
       return true;
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '更新扫描运行依赖', error, stack);
+      _errorMessage = _reportServicesFailure('更新扫描运行依赖', error, stack);
       _notify();
       return false;
     }
@@ -1304,7 +1336,7 @@ class ServicesController extends ChangeNotifier {
       _postgresqlEnabled = previousPostgresqlEnabled;
       _redisEnabled = previousRedisEnabled;
       final restored = await _syncManagedDependencies();
-      _errorMessage = restored ? failure : '$failure；运行依赖恢复失败，请重启扫描服务。';
+      _errorMessage = restored ? failure : '$failure 运行依赖恢复失败，请重启扫描服务。';
       _notify();
       return false;
     }
@@ -1320,7 +1352,7 @@ class ServicesController extends ChangeNotifier {
     _postgresqlEnabled = previousPostgresqlEnabled;
     _redisEnabled = previousRedisEnabled;
     final restored = await _syncManagedDependencies();
-    _errorMessage = restored ? failure : '$failure；运行依赖恢复失败，请重启扫描服务。';
+    _errorMessage = restored ? failure : '$failure 运行依赖恢复失败，请重启扫描服务。';
     _notify();
     return false;
   }
@@ -1360,8 +1392,7 @@ class ServicesController extends ChangeNotifier {
       return true;
     } catch (error, stack) {
       if (!_isCurrentClient(client)) return true;
-      _errorMessage = '$error';
-      silentLog('services_controller', '同步托管运行依赖', error, stack);
+      _errorMessage = _reportServicesFailure('同步托管运行依赖', error, stack);
       _notify();
       return false;
     }
@@ -1430,8 +1461,7 @@ class ServicesController extends ChangeNotifier {
       _notify();
       return cachedLogs;
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '读取扫描历史日志', error, stack);
+      _errorMessage = _reportServicesFailure('读取扫描历史日志', error, stack);
       _notify();
       return const <AiExposureLogEntry>[];
     }
@@ -1461,11 +1491,13 @@ class ServicesController extends ChangeNotifier {
           },
           onError: (Object error, StackTrace stack) {
             if (_disposed || generation != _eventSubscriptionGeneration) return;
-            _eventStreamErrorMessage = error is AiJunglerApiException
-                ? error.message
-                : '扫描实时事件连接异常。';
+            _eventStreamErrorMessage = _reportServicesFailure(
+              '接收扫描实时事件',
+              error,
+              stack,
+              fallback: '扫描实时事件连接异常。',
+            );
             _errorMessage = _eventStreamErrorMessage;
-            silentLog('services_controller', '接收扫描实时事件', error, stack);
             _notify();
           },
           onDone: () {
@@ -1588,8 +1620,7 @@ class ServicesController extends ChangeNotifier {
       await _refreshHistoryAndResults();
     } catch (error, stack) {
       if (_disposed) return;
-      _errorMessage = '$error';
-      silentLog('services_controller', '刷新扫描历史与结果', error, stack);
+      _errorMessage = _reportServicesFailure('刷新扫描历史与结果', error, stack);
     } finally {
       _notify();
     }
@@ -1694,8 +1725,7 @@ class ServicesController extends ChangeNotifier {
       );
       return true;
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '保存扫描服务设置', error, stack);
+      _errorMessage = _reportServicesFailure('保存扫描服务设置', error, stack);
       return false;
     }
   }
@@ -1731,8 +1761,7 @@ class ServicesController extends ChangeNotifier {
       await _preferencesStore.saveProxySamples(endpoints);
       return true;
     } catch (error, stack) {
-      _errorMessage = '$error';
-      silentLog('services_controller', '保存代理巡检样本', error, stack);
+      _errorMessage = _reportServicesFailure('保存代理巡检样本', error, stack);
       return false;
     }
   }
