@@ -2448,50 +2448,74 @@ class _MetricTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final tone = _serviceMetricTone(data.icon, cs);
-    return Container(
-      constraints: const BoxConstraints(minHeight: 106),
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: tone.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: tone.withValues(alpha: 0.28)),
+    return ServiceInteractiveSurface(
+      tooltip: openHandLocalizedText(
+        context,
+        zh: '查看指标详情',
+        en: 'View metric details',
       ),
-      child: Row(
-        children: [
-          Container(
-            width: 34,
-            height: 34,
-            decoration: BoxDecoration(
-              color: tone.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Icon(data.icon, size: 19, color: tone),
+      onTap: () => showServiceDetailsDialog(
+        context,
+        title: data.label,
+        subtitle: openHandLocalizedText(
+          context,
+          zh: '扫描工作台指标',
+          en: 'Scan workspace metric',
+        ),
+        icon: data.icon,
+        fields: [
+          ServiceDetailField(
+            label: openHandLocalizedText(context, zh: '指标', en: 'Metric'),
+            value: data.label,
           ),
-          const SizedBox(width: 10),
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisAlignment: MainAxisAlignment.center,
-              children: [
-                Text(
-                  data.label,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  data.value,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleMedium?.copyWith(
-                    fontWeight: FontWeight.w800,
-                  ),
-                ),
-              ],
-            ),
+          ServiceDetailField(
+            label: openHandLocalizedText(context, zh: '当前值', en: 'Value'),
+            value: data.value,
           ),
         ],
+      ),
+      padding: const EdgeInsets.all(12),
+      color: tone.withValues(alpha: 0.07),
+      borderColor: tone.withValues(alpha: 0.28),
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(minHeight: 82),
+        child: Row(
+          children: [
+            Container(
+              width: 34,
+              height: 34,
+              decoration: BoxDecoration(
+                color: tone.withValues(alpha: 0.12),
+                borderRadius: BorderRadius.circular(8),
+              ),
+              child: Icon(data.icon, size: 19, color: tone),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                mainAxisAlignment: MainAxisAlignment.center,
+                children: [
+                  Text(
+                    data.label,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    data.value,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -2775,8 +2799,33 @@ class _LogList extends StatelessWidget {
         itemCount: logs.length,
         itemBuilder: (context, index) {
           final log = logs[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 6),
+          return ServiceInteractiveSurface(
+            margin: const EdgeInsets.only(bottom: 3),
+            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
+            showDetailsIcon: false,
+            tooltip: openHandLocalizedText(
+              context,
+              zh: '查看日志详情',
+              en: 'View log details',
+            ),
+            onTap: () => showServiceDetailsDialog(
+              context,
+              title: openHandLocalizedText(
+                context,
+                zh: '扫描日志详情',
+                en: 'Scan log details',
+              ),
+              icon: Icons.terminal_rounded,
+              fields: [
+                ServiceDetailField(label: '时间', value: _dateTime(log.at)),
+                ServiceDetailField(label: '级别', value: log.level),
+                ServiceDetailField(
+                  label: '任务 ID',
+                  value: log.jobId.isEmpty ? '--' : log.jobId,
+                ),
+                ServiceDetailField(label: '完整消息', value: log.message),
+              ],
+            ),
             child: Text(
               '${_time(log.at)}  ${log.message}',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -2820,13 +2869,60 @@ class _ResultTile extends StatelessWidget {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     final color = _categoryColor(cs, result.category);
-    return Container(
-      padding: const EdgeInsets.all(12),
-      decoration: BoxDecoration(
-        color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: cs.outlineVariant),
+    return ServiceInteractiveSurface(
+      tooltip: openHandLocalizedText(
+        context,
+        zh: '查看扫描结果详情',
+        en: 'View scan result details',
       ),
+      onTap: () => showServiceDetailsDialog(
+        context,
+        title: result.product,
+        subtitle: _categoryLabel(context, result.category),
+        icon: _categoryIcon(result.category),
+        fields: [
+          ServiceDetailField(label: 'ID', value: result.id),
+          ServiceDetailField(label: '任务 ID', value: result.jobId),
+          ServiceDetailField(label: '产品', value: result.product),
+          ServiceDetailField(
+            label: '分类',
+            value: _categoryLabel(context, result.category),
+          ),
+          ServiceDetailField(
+            label: '数据源',
+            value: _sourceLabel(context, result.source),
+          ),
+          ServiceDetailField(label: 'URL', value: result.url),
+          ServiceDetailField(label: '主机', value: result.host),
+          ServiceDetailField(label: '凭证状态', value: result.credentialState),
+          ServiceDetailField(
+            label: '脱敏凭证',
+            value: result.maskedCredential ?? '--',
+          ),
+          ServiceDetailField(label: '模型数', value: '${result.modelCount}'),
+          ServiceDetailField(
+            label: '余额摘要',
+            value: result.balanceSummary ?? '--',
+          ),
+          ServiceDetailField(
+            label: '重复响应主机',
+            value: '${result.duplicateResponseHosts}',
+          ),
+          ServiceDetailField(
+            label: '重复凭证主机',
+            value: '${result.duplicateKeyHosts}',
+          ),
+          ServiceDetailField(label: '响应指纹', value: result.responseFingerprint),
+          ServiceDetailField(
+            label: '证据',
+            value: result.evidence.isEmpty ? '--' : result.evidence.join('\n'),
+          ),
+          ServiceDetailField(label: '创建时间', value: _dateTime(result.createdAt)),
+        ],
+      ),
+      padding: const EdgeInsets.all(12),
+      color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
+      borderColor: cs.outlineVariant,
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -2941,29 +3037,113 @@ class _HistoryTile extends StatelessWidget {
           Icon(Icons.history_rounded, color: cs.primary),
           const SizedBox(width: 12),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  entry.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w800,
+            child: ServiceInteractiveSurface(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              tooltip: openHandLocalizedText(
+                context,
+                zh: '查看任务详情',
+                en: 'View job details',
+              ),
+              onTap: () => showServiceDetailsDialog(
+                context,
+                title: entry.name,
+                subtitle: _stageLabel(context, entry.stage),
+                icon: Icons.history_rounded,
+                fields: [
+                  ServiceDetailField(label: '任务 ID', value: entry.id),
+                  ServiceDetailField(label: '名称', value: entry.name),
+                  ServiceDetailField(
+                    label: '阶段',
+                    value: _stageLabel(context, entry.stage),
                   ),
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '${_stageLabel(context, entry.stage)} · ${_dateTime(entry.createdAt)} · ${entry.progress.processed}/${entry.progress.total}',
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+                  ServiceDetailField(
+                    label: '扫描模式',
+                    value: entry.mode == AiExposureScanMode.full
+                        ? '全量扫描'
+                        : '增量扫描',
                   ),
-                ),
-              ],
+                  ServiceDetailField(
+                    label: '数据源',
+                    value: entry.sources
+                        .map((source) => _sourceLabel(context, source))
+                        .join('、'),
+                  ),
+                  ServiceDetailField(
+                    label: '授权范围',
+                    value: entry.authorizedScope.isEmpty
+                        ? '--'
+                        : entry.authorizedScope.join('\n'),
+                  ),
+                  ServiceDetailField(
+                    label: '处理进度',
+                    value:
+                        '${entry.progress.processed}/${entry.progress.total}',
+                  ),
+                  ServiceDetailField(
+                    label: '发现数',
+                    value: '${entry.progress.discovered}',
+                  ),
+                  ServiceDetailField(
+                    label: '候选数',
+                    value: '${entry.progress.candidates}',
+                  ),
+                  ServiceDetailField(
+                    label: '有效数',
+                    value: '${entry.progress.valid}',
+                  ),
+                  ServiceDetailField(
+                    label: '高价值数',
+                    value: '${entry.progress.highValue}',
+                  ),
+                  ServiceDetailField(
+                    label: '状态消息',
+                    value: entry.progress.message,
+                  ),
+                  ServiceDetailField(
+                    label: '错误信息',
+                    value: entry.errorMessage ?? '--',
+                  ),
+                  ServiceDetailField(
+                    label: '创建时间',
+                    value: _dateTime(entry.createdAt),
+                  ),
+                  ServiceDetailField(
+                    label: '更新时间',
+                    value: _dateTime(entry.progress.updatedAt),
+                  ),
+                  ServiceDetailField(
+                    label: '完成时间',
+                    value: entry.finishedAt == null
+                        ? '--'
+                        : _dateTime(entry.finishedAt!),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    entry.name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 4),
+                  Text(
+                    '${_stageLabel(context, entry.stage)} · ${_dateTime(entry.createdAt)} · ${entry.progress.processed}/${entry.progress.total}',
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
+          const SizedBox(width: 8),
           ServiceDialogIconActions(
             children: [
               Tooltip(
@@ -3133,19 +3313,60 @@ class _RuleTile extends StatelessWidget {
           Switch(value: rule.enabled, onChanged: onToggle),
           const SizedBox(width: 8),
           Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(rule.vendor, style: theme.textTheme.titleSmall),
-                Text(
-                  '${rule.protocol} · Regex ${rule.credentialPatterns.length} · 编码 ${rule.contentEncodings.length}',
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
+            child: ServiceInteractiveSurface(
+              padding: const EdgeInsets.symmetric(vertical: 4),
+              tooltip: '查看规则详情',
+              onTap: () => showServiceDetailsDialog(
+                context,
+                title: rule.vendor,
+                subtitle: '扫描规则详情',
+                icon: Icons.rule_rounded,
+                fields: [
+                  ServiceDetailField(label: '规则 ID', value: rule.id),
+                  ServiceDetailField(label: '产品', value: rule.vendor),
+                  ServiceDetailField(label: '协议', value: rule.protocol),
+                  ServiceDetailField(
+                    label: '状态',
+                    value: rule.enabled ? '已启用' : '已停用',
                   ),
-                ),
-              ],
+                  ServiceDetailField(
+                    label: '凭证规则',
+                    value: rule.credentialPatterns.join('\n'),
+                  ),
+                  ServiceDetailField(
+                    label: '上下文词',
+                    value: rule.contextTerms.join('\n'),
+                  ),
+                  ServiceDetailField(
+                    label: '内容编码',
+                    value: rule.contentEncodings
+                        .map((encoding) => encoding.id)
+                        .join('\n'),
+                  ),
+                  ServiceDetailField(
+                    label: '模型路径',
+                    value: rule.modelPaths.join('\n'),
+                  ),
+                  ServiceDetailField(
+                    label: '余额路径',
+                    value: rule.balancePaths.join('\n'),
+                  ),
+                ],
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(rule.vendor, style: theme.textTheme.titleSmall),
+                  Text(
+                    '${rule.protocol} · Regex ${rule.credentialPatterns.length} · 编码 ${rule.contentEncodings.length}',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: cs.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
           ServiceDialogIconActions(

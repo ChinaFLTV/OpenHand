@@ -1,10 +1,19 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
+import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
+import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
 
 const double kServiceDialogItemActionGap = 8;
+const BorderRadius kServiceInteractiveBorderRadius = BorderRadius.all(
+  Radius.circular(8),
+);
 
 enum ServiceDialogHeaderActionTone { neutral, primary }
 
@@ -200,7 +209,315 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
           ),
         ),
       ),
-      child: child,
+      child: SelectionArea(child: child),
+    );
+  }
+}
+
+class ServiceDetailField {
+  const ServiceDetailField({required this.label, required this.value});
+
+  final String label;
+  final String value;
+}
+
+String formatServiceDetailValue(Object? value) {
+  if (value == null) return '--';
+  if (value is String) return value.trim().isEmpty ? '--' : value;
+  if (value is DateTime) return value.toLocal().toIso8601String();
+  if (value is Map || value is Iterable) {
+    try {
+      return const JsonEncoder.withIndent('  ').convert(value);
+    } on JsonUnsupportedObjectError {
+      return '$value';
+    }
+  }
+  return '$value';
+}
+
+List<ServiceDetailField> serviceDetailFieldsFromMap(
+  Map<String, Object?> values, {
+  Map<String, String> labels = const <String, String>{},
+}) => values.entries
+    .map(
+      (entry) => ServiceDetailField(
+        label: labels[entry.key] ?? entry.key,
+        value: formatServiceDetailValue(entry.value),
+      ),
+    )
+    .toList(growable: false);
+
+Future<void> showServiceDetailsDialog(
+  BuildContext context, {
+  required String title,
+  required List<ServiceDetailField> fields,
+  String? subtitle,
+  IconData icon = Icons.manage_search_rounded,
+}) => showAnimatedDialog<void>(
+  context: context,
+  builder: (dialogContext) => buildOpenHandResponsiveDialogShell(
+    context: dialogContext,
+    maxWidth: kOpenHandDialogWidthStandard,
+    maxHeight: kOpenHandDialogHeightStandard,
+    minAvailableWidth: 300,
+    horizontalMargin: 28,
+    verticalMargin: 72,
+    expandToMax: true,
+    child: ServiceDialogInteractionTheme(
+      child: _ServiceDetailsDialog(
+        title: title,
+        subtitle: subtitle,
+        icon: icon,
+        fields: fields,
+      ),
+    ),
+  ),
+);
+
+class ServiceInteractiveSurface extends StatelessWidget {
+  const ServiceInteractiveSurface({
+    super.key,
+    required this.onTap,
+    required this.child,
+    this.tooltip,
+    this.padding = const EdgeInsets.all(10),
+    this.margin = EdgeInsets.zero,
+    this.color,
+    this.borderColor,
+    this.showDetailsIcon = true,
+  });
+
+  final VoidCallback onTap;
+  final Widget child;
+  final String? tooltip;
+  final EdgeInsetsGeometry padding;
+  final EdgeInsetsGeometry margin;
+  final Color? color;
+  final Color? borderColor;
+  final bool showDetailsIcon;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final label =
+        tooltip ??
+        openHandLocalizedText(context, zh: '查看完整详情', en: 'View full details');
+    final content = Row(
+      children: [
+        Expanded(child: child),
+        if (showDetailsIcon) ...[
+          const SizedBox(width: 8),
+          Icon(
+            Icons.chevron_right_rounded,
+            size: 20,
+            color: colors.onSurfaceVariant,
+          ),
+        ],
+      ],
+    );
+    final surface = Material(
+      color: Colors.transparent,
+      shape: RoundedRectangleBorder(
+        borderRadius: kServiceInteractiveBorderRadius,
+        side: borderColor == null
+            ? BorderSide.none
+            : BorderSide(color: borderColor!),
+      ),
+      clipBehavior: Clip.antiAlias,
+      child: Ink(
+        color: color ?? Colors.transparent,
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: kServiceInteractiveBorderRadius,
+          child: Padding(padding: padding, child: content),
+        ),
+      ),
+    );
+    return Padding(
+      padding: margin,
+      child: Tooltip(
+        message: label,
+        child: Semantics(
+          button: true,
+          label: label,
+          child: HoverLift(liftDistance: 1, child: surface),
+        ),
+      ),
+    );
+  }
+}
+
+class _ServiceDetailsDialog extends StatelessWidget {
+  const _ServiceDetailsDialog({
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+    required this.fields,
+  });
+
+  final String title;
+  final String? subtitle;
+  final IconData icon;
+  final List<ServiceDetailField> fields;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final text = openHandTextResolver(context);
+    final copyPayload = fields
+        .map((field) => '${field.label}: ${field.value}')
+        .join('\n');
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Padding(
+          padding: const EdgeInsets.fromLTRB(20, 18, 12, 14),
+          child: Row(
+            children: [
+              Container(
+                width: 44,
+                height: 44,
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: kServiceInteractiveBorderRadius,
+                ),
+                child: Icon(icon, color: colors.onPrimaryContainer),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    if (subtitle?.trim().isNotEmpty == true) ...[
+                      const SizedBox(height: 2),
+                      Text(
+                        subtitle!,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ],
+                ),
+              ),
+              ServiceDialogHeaderIconButton(
+                tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                icon: const Icon(Icons.close_rounded),
+                onPressed: () => Navigator.of(context).maybePop(),
+              ),
+            ],
+          ),
+        ),
+        Divider(height: 1, color: colors.outlineVariant),
+        Expanded(
+          child: fields.isEmpty
+              ? Center(
+                  child: Text(
+                    text(zh: '暂无可用详情。', en: 'No details available.'),
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                )
+              : ListView.separated(
+                  padding: const EdgeInsets.all(16),
+                  itemCount: fields.length,
+                  separatorBuilder: (_, _) => const SizedBox(height: 8),
+                  itemBuilder: (context, index) =>
+                      _ServiceDetailFieldTile(field: fields[index]),
+                ),
+        ),
+        Divider(height: 1, color: colors.outlineVariant),
+        buildOpenHandDialogActionsBar(
+          actions: [
+            OpenHandDialogActionButton.secondary(
+              label: text(zh: '关闭', en: 'Close'),
+              icon: Icons.close_rounded,
+              onPressed: () => Navigator.of(context).maybePop(),
+            ),
+            OpenHandDialogActionButton.primary(
+              label: text(zh: '复制全部', en: 'Copy all'),
+              icon: Icons.copy_all_rounded,
+              onPressed: fields.isEmpty
+                  ? null
+                  : () => copyOpenHandTextToClipboard(
+                      context: context,
+                      text: copyPayload,
+                      logTag: 'service_details',
+                      logAction: '复制全部详情',
+                    ),
+            ),
+          ],
+          padding: const EdgeInsets.all(14),
+        ),
+      ],
+    );
+  }
+}
+
+class _ServiceDetailFieldTile extends StatelessWidget {
+  const _ServiceDetailFieldTile({required this.field});
+
+  final ServiceDetailField field;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.fromLTRB(12, 9, 6, 11),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.32),
+        borderRadius: kServiceInteractiveBorderRadius,
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.72),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Row(
+            children: [
+              Expanded(
+                child: Text(
+                  field.label,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              ServiceDialogCompactIconButton(
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '复制此字段',
+                  en: 'Copy field',
+                ),
+                size: 34,
+                icon: const Icon(Icons.copy_rounded, size: 17),
+                onPressed: () => copyOpenHandTextToClipboard(
+                  context: context,
+                  text: field.value,
+                  logTag: 'service_details',
+                  logAction: '复制详情字段',
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 3),
+          SelectableText(
+            field.value,
+            style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
+          ),
+        ],
+      ),
     );
   }
 }

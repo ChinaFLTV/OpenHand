@@ -3851,8 +3851,24 @@ class _DistributionDetailRow extends StatelessWidget {
         ),
       ],
     );
-    return Padding(
+    return ServiceInteractiveSurface(
       padding: const EdgeInsets.symmetric(vertical: 7),
+      tooltip: '查看分布详情',
+      onTap: () => showServiceDetailsDialog(
+        context,
+        title: item.label,
+        subtitle: '分布指标详情',
+        icon: Icons.donut_small_rounded,
+        fields: [
+          ServiceDetailField(label: '项目', value: item.label),
+          ServiceDetailField(label: '数量', value: '${item.value}'),
+          ServiceDetailField(
+            label: '占比',
+            value: '${(share * 100).toStringAsFixed(1)}%',
+          ),
+          ServiceDetailField(label: '总量', value: '$total'),
+        ],
+      ),
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth < 440) {
@@ -3943,67 +3959,85 @@ class _InsightRecordRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Container(
-          width: 4,
-          height: 48,
-          margin: const EdgeInsets.only(top: 2, right: 10),
-          decoration: BoxDecoration(
-            color: record.color,
-            borderRadius: BorderRadius.circular(99),
+    return ServiceInteractiveSurface(
+      padding: const EdgeInsets.all(4),
+      tooltip: '查看记录详情',
+      onTap: () => showServiceDetailsDialog(
+        context,
+        title: record.title,
+        subtitle: '指标记录详情',
+        icon: record.icon,
+        fields: [
+          ServiceDetailField(label: '标题', value: record.title),
+          ServiceDetailField(label: '说明', value: record.subtitle),
+          ServiceDetailField(
+            label: '标签',
+            value: record.tags.isEmpty ? '--' : record.tags.join('\n'),
           ),
-        ),
-        Container(
-          width: 34,
-          height: 34,
-          alignment: Alignment.center,
-          decoration: BoxDecoration(
-            color: record.color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(8),
+        ],
+      ),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            width: 4,
+            height: 48,
+            margin: const EdgeInsets.only(top: 2, right: 10),
+            decoration: BoxDecoration(
+              color: record.color,
+              borderRadius: BorderRadius.circular(99),
+            ),
           ),
-          child: Icon(record.icon, size: 18, color: record.color),
-        ),
-        const SizedBox(width: 10),
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                record.title,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  fontWeight: FontWeight.w800,
-                ),
-              ),
-              if (record.tags.isNotEmpty) ...[
-                const SizedBox(height: 5),
-                Wrap(
-                  spacing: 6,
-                  runSpacing: 6,
-                  children: record.tags
-                      .where((tag) => tag.trim().isNotEmpty)
-                      .map((tag) => _InsightMiniTag(label: tag))
-                      .toList(growable: false),
-                ),
-              ],
-              if (record.subtitle.trim().isNotEmpty) ...[
-                const SizedBox(height: 5),
+          Container(
+            width: 34,
+            height: 34,
+            alignment: Alignment.center,
+            decoration: BoxDecoration(
+              color: record.color.withValues(alpha: 0.1),
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Icon(record.icon, size: 18, color: record.color),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
                 Text(
-                  record.subtitle,
-                  maxLines: 2,
+                  record.title,
+                  maxLines: 1,
                   overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colors.onSurfaceVariant,
+                  style: theme.textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w800,
                   ),
                 ),
+                if (record.tags.isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: record.tags
+                        .where((tag) => tag.trim().isNotEmpty)
+                        .map((tag) => _InsightMiniTag(label: tag))
+                        .toList(growable: false),
+                  ),
+                ],
+                if (record.subtitle.trim().isNotEmpty) ...[
+                  const SizedBox(height: 5),
+                  Text(
+                    record.subtitle,
+                    maxLines: 2,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ],
               ],
-            ],
+            ),
           ),
-        ),
-      ],
+        ],
+      ),
     );
   }
 }
@@ -4406,8 +4440,35 @@ class _InsightRankingSection extends StatelessWidget {
               children: sorted.indexed
                   .map((entry) {
                     final item = entry.$2;
-                    return Padding(
-                      padding: const EdgeInsets.symmetric(vertical: 7),
+                    return ServiceInteractiveSurface(
+                      margin: const EdgeInsets.symmetric(vertical: 2),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 4,
+                        vertical: 7,
+                      ),
+                      tooltip: '查看排行详情',
+                      onTap: () => showServiceDetailsDialog(
+                        context,
+                        title: item.label,
+                        subtitle: title,
+                        icon: icon,
+                        fields: [
+                          ServiceDetailField(
+                            label: '排名',
+                            value: '${entry.$1 + 1}',
+                          ),
+                          ServiceDetailField(label: '项目', value: item.label),
+                          ServiceDetailField(
+                            label: '显示值',
+                            value: item.valueLabel,
+                          ),
+                          ServiceDetailField(
+                            label: '原始值',
+                            value: '${item.value}',
+                          ),
+                          ServiceDetailField(label: '说明', value: item.helper),
+                        ],
+                      ),
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.stretch,
                         children: [
@@ -4530,67 +4591,97 @@ class _InsightMatrixSection extends StatelessWidget {
                             height: 18,
                             color: colors.outlineVariant.withValues(alpha: 0.5),
                           ),
-                        Row(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            Container(
-                              width: 38,
-                              height: 38,
-                              alignment: Alignment.center,
-                              decoration: BoxDecoration(
-                                color: entry.$2.color.withValues(alpha: 0.1),
-                                borderRadius: BorderRadius.circular(8),
+                        ServiceInteractiveSurface(
+                          padding: const EdgeInsets.all(4),
+                          tooltip: '查看矩阵记录详情',
+                          onTap: () => showServiceDetailsDialog(
+                            context,
+                            title: entry.$2.title,
+                            subtitle: title,
+                            icon: entry.$2.icon,
+                            fields: [
+                              ServiceDetailField(
+                                label: '标题',
+                                value: entry.$2.title,
                               ),
-                              child: Icon(
-                                entry.$2.icon,
-                                size: 19,
-                                color: entry.$2.color,
+                              ServiceDetailField(
+                                label: '说明',
+                                value: entry.$2.subtitle,
                               ),
-                            ),
-                            const SizedBox(width: 11),
-                            Expanded(
-                              child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
-                                children: [
-                                  Text(
-                                    entry.$2.title,
-                                    style: Theme.of(context)
-                                        .textTheme
-                                        .labelLarge
-                                        ?.copyWith(fontWeight: FontWeight.w800),
-                                  ),
-                                  if (entry.$2.subtitle.isNotEmpty) ...[
-                                    const SizedBox(height: 3),
+                              ServiceDetailField(
+                                label: '状态',
+                                value: entry.$2.cells.isEmpty
+                                    ? '--'
+                                    : entry.$2.cells
+                                          .map((cell) => cell.label)
+                                          .join('\n'),
+                              ),
+                            ],
+                          ),
+                          child: Row(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Container(
+                                width: 38,
+                                height: 38,
+                                alignment: Alignment.center,
+                                decoration: BoxDecoration(
+                                  color: entry.$2.color.withValues(alpha: 0.1),
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                                child: Icon(
+                                  entry.$2.icon,
+                                  size: 19,
+                                  color: entry.$2.color,
+                                ),
+                              ),
+                              const SizedBox(width: 11),
+                              Expanded(
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
                                     Text(
-                                      entry.$2.subtitle,
-                                      maxLines: 2,
-                                      overflow: TextOverflow.ellipsis,
+                                      entry.$2.title,
                                       style: Theme.of(context)
                                           .textTheme
-                                          .bodySmall
+                                          .labelLarge
                                           ?.copyWith(
-                                            color: colors.onSurfaceVariant,
+                                            fontWeight: FontWeight.w800,
                                           ),
                                     ),
+                                    if (entry.$2.subtitle.isNotEmpty) ...[
+                                      const SizedBox(height: 3),
+                                      Text(
+                                        entry.$2.subtitle,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: colors.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                    const SizedBox(height: 7),
+                                    Wrap(
+                                      spacing: 6,
+                                      runSpacing: 6,
+                                      children: entry.$2.cells
+                                          .map(
+                                            (cell) => _StatusPill(
+                                              icon: Icons.circle,
+                                              label: cell.label,
+                                              color: cell.color,
+                                            ),
+                                          )
+                                          .toList(growable: false),
+                                    ),
                                   ],
-                                  const SizedBox(height: 7),
-                                  Wrap(
-                                    spacing: 6,
-                                    runSpacing: 6,
-                                    children: entry.$2.cells
-                                        .map(
-                                          (cell) => _StatusPill(
-                                            icon: Icons.circle,
-                                            label: cell.label,
-                                            color: cell.color,
-                                          ),
-                                        )
-                                        .toList(growable: false),
-                                  ),
-                                ],
+                                ),
                               ),
-                            ),
-                          ],
+                            ],
+                          ),
                         ),
                       ],
                     ),
@@ -4643,88 +4734,108 @@ class _InsightTimelineSection extends StatelessWidget {
               children: shown.indexed
                   .map((entry) {
                     final item = entry.$2;
-                    return IntrinsicHeight(
-                      child: Row(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          SizedBox(
-                            width: 76,
-                            child: Text(
-                              _shortDateTime(item.at),
-                              maxLines: 2,
-                              style: Theme.of(context).textTheme.labelSmall
-                                  ?.copyWith(color: colors.onSurfaceVariant),
-                            ),
+                    return ServiceInteractiveSurface(
+                      padding: const EdgeInsets.all(4),
+                      margin: const EdgeInsets.only(bottom: 4),
+                      tooltip: '查看时间线详情',
+                      onTap: () => showServiceDetailsDialog(
+                        context,
+                        title: item.title,
+                        subtitle: title,
+                        icon: icon,
+                        fields: [
+                          ServiceDetailField(
+                            label: '时间',
+                            value: item.at.toLocal().toIso8601String(),
                           ),
-                          SizedBox(
-                            width: 18,
-                            child: Column(
-                              children: [
-                                Container(
-                                  width: 10,
-                                  height: 10,
-                                  decoration: BoxDecoration(
-                                    color: item.color,
-                                    shape: BoxShape.circle,
-                                  ),
-                                ),
-                                if (entry.$1 < shown.length - 1)
-                                  Expanded(
-                                    child: Container(
-                                      width: 2,
-                                      color: colors.outlineVariant,
-                                    ),
-                                  ),
-                              ],
+                          ServiceDetailField(label: '标题', value: item.title),
+                          ServiceDetailField(label: '说明', value: item.detail),
+                          ServiceDetailField(label: '标签', value: item.tag),
+                        ],
+                      ),
+                      child: IntrinsicHeight(
+                        child: Row(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            SizedBox(
+                              width: 76,
+                              child: Text(
+                                _shortDateTime(item.at),
+                                maxLines: 2,
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: colors.onSurfaceVariant),
+                              ),
                             ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
+                            SizedBox(
+                              width: 18,
                               child: Column(
-                                crossAxisAlignment: CrossAxisAlignment.start,
                                 children: [
-                                  Row(
-                                    children: [
-                                      Expanded(
-                                        child: Text(
-                                          item.title,
-                                          maxLines: 2,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .labelLarge
-                                              ?.copyWith(
-                                                fontWeight: FontWeight.w800,
-                                              ),
-                                        ),
-                                      ),
-                                      if (item.tag.isNotEmpty) ...[
-                                        const SizedBox(width: 8),
-                                        _InsightMiniTag(label: item.tag),
-                                      ],
-                                    ],
-                                  ),
-                                  if (item.detail.isNotEmpty) ...[
-                                    const SizedBox(height: 4),
-                                    Text(
-                                      item.detail,
-                                      maxLines: 3,
-                                      overflow: TextOverflow.ellipsis,
-                                      style: Theme.of(context)
-                                          .textTheme
-                                          .bodySmall
-                                          ?.copyWith(
-                                            color: colors.onSurfaceVariant,
-                                          ),
+                                  Container(
+                                    width: 10,
+                                    height: 10,
+                                    decoration: BoxDecoration(
+                                      color: item.color,
+                                      shape: BoxShape.circle,
                                     ),
-                                  ],
+                                  ),
+                                  if (entry.$1 < shown.length - 1)
+                                    Expanded(
+                                      child: Container(
+                                        width: 2,
+                                        color: colors.outlineVariant,
+                                      ),
+                                    ),
                                 ],
                               ),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 8),
+                            Expanded(
+                              child: Padding(
+                                padding: const EdgeInsets.only(bottom: 14),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    Row(
+                                      children: [
+                                        Expanded(
+                                          child: Text(
+                                            item.title,
+                                            maxLines: 2,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: Theme.of(context)
+                                                .textTheme
+                                                .labelLarge
+                                                ?.copyWith(
+                                                  fontWeight: FontWeight.w800,
+                                                ),
+                                          ),
+                                        ),
+                                        if (item.tag.isNotEmpty) ...[
+                                          const SizedBox(width: 8),
+                                          _InsightMiniTag(label: item.tag),
+                                        ],
+                                      ],
+                                    ),
+                                    if (item.detail.isNotEmpty) ...[
+                                      const SizedBox(height: 4),
+                                      Text(
+                                        item.detail,
+                                        maxLines: 3,
+                                        overflow: TextOverflow.ellipsis,
+                                        style: Theme.of(context)
+                                            .textTheme
+                                            .bodySmall
+                                            ?.copyWith(
+                                              color: colors.onSurfaceVariant,
+                                            ),
+                                      ),
+                                    ],
+                                  ],
+                                ),
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     );
                   })
@@ -6154,55 +6265,92 @@ class _SourceReadinessRow extends StatelessWidget {
             ),
           )
         : null;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        if (constraints.maxWidth < 720) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
+    return ServiceInteractiveSurface(
+      padding: const EdgeInsets.all(4),
+      tooltip: '查看来源依赖详情',
+      onTap: () => showServiceDetailsDialog(
+        context,
+        title: _sourceName(state.source),
+        subtitle: state.ready ? '来源已就绪' : '来源存在阻塞',
+        icon: _sourceIcon(state.source),
+        fields: [
+          ServiceDetailField(
+            label: '访问前置',
+            value: state.requiresCredential
+                ? state.configured
+                      ? '凭证已配置'
+                      : '凭证未配置'
+                : '免凭证',
+          ),
+          ServiceDetailField(
+            label: '任务状态',
+            value: state.enabled ? '已启用' : '已停用',
+          ),
+          ServiceDetailField(
+            label: '配额状态',
+            value: state.quota == null
+                ? '无需计量'
+                : state.quota!.available
+                ? '可用'
+                : state.quota!.message,
+          ),
+          ServiceDetailField(label: '任务数', value: '${state.taskCount}'),
+          ServiceDetailField(label: '结果数', value: '${state.resultCount}'),
+        ],
+      ),
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 720) {
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                identity,
+                const SizedBox(height: 9),
+                Wrap(spacing: 6, runSpacing: 6, children: checkpointWidgets),
+                if (blocker != null) ...[const SizedBox(height: 6), blocker],
+              ],
+            );
+          }
+          return Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              identity,
-              const SizedBox(height: 9),
-              Wrap(spacing: 6, runSpacing: 6, children: checkpointWidgets),
-              if (blocker != null) ...[const SizedBox(height: 6), blocker],
+              SizedBox(width: 190, child: identity),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Row(
+                      children: checkpointWidgets.indexed
+                          .expand(
+                            (entry) => [
+                              if (entry.$1 > 0)
+                                Padding(
+                                  padding: const EdgeInsets.symmetric(
+                                    horizontal: 5,
+                                  ),
+                                  child: Icon(
+                                    Icons.chevron_right_rounded,
+                                    size: 18,
+                                    color: colors.outline,
+                                  ),
+                                ),
+                              Expanded(child: entry.$2),
+                            ],
+                          )
+                          .toList(growable: false),
+                    ),
+                    if (blocker != null) ...[
+                      const SizedBox(height: 6),
+                      blocker,
+                    ],
+                  ],
+                ),
+              ),
             ],
           );
-        }
-        return Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            SizedBox(width: 190, child: identity),
-            const SizedBox(width: 12),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Row(
-                    children: checkpointWidgets.indexed
-                        .expand(
-                          (entry) => [
-                            if (entry.$1 > 0)
-                              Padding(
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 5,
-                                ),
-                                child: Icon(
-                                  Icons.chevron_right_rounded,
-                                  size: 18,
-                                  color: colors.outline,
-                                ),
-                              ),
-                            Expanded(child: entry.$2),
-                          ],
-                        )
-                        .toList(growable: false),
-                  ),
-                  if (blocker != null) ...[const SizedBox(height: 6), blocker],
-                ],
-              ),
-            ),
-          ],
-        );
-      },
+        },
+      ),
     );
   }
 }
@@ -11973,8 +12121,26 @@ class _RecentActivityPanel extends StatelessWidget {
                     'warning' => OpenHandStatusColors.warning,
                     _ => OpenHandStatusColors.info,
                   };
-                  return Padding(
+                  return ServiceInteractiveSurface(
                     padding: const EdgeInsets.symmetric(vertical: 5),
+                    tooltip: '查看运行事件详情',
+                    onTap: () => showServiceDetailsDialog(
+                      context,
+                      title: '运行事件详情',
+                      icon: Icons.receipt_long_outlined,
+                      fields: [
+                        ServiceDetailField(
+                          label: '时间',
+                          value: entry.at.toLocal().toIso8601String(),
+                        ),
+                        ServiceDetailField(label: '级别', value: entry.level),
+                        ServiceDetailField(
+                          label: '任务 ID',
+                          value: entry.jobId.isEmpty ? '--' : entry.jobId,
+                        ),
+                        ServiceDetailField(label: '完整消息', value: entry.message),
+                      ],
+                    ),
                     child: Row(
                       children: [
                         Container(
@@ -12123,6 +12289,24 @@ class _StageRow extends StatelessWidget {
     final color = completed || active ? cs.primary : cs.outline;
     return ListTile(
       contentPadding: EdgeInsets.zero,
+      onTap: () => showServiceDetailsDialog(
+        context,
+        title: _stageName(stage),
+        subtitle: '扫描阶段详情',
+        icon: Icons.route_rounded,
+        fields: [
+          ServiceDetailField(label: '阶段标识', value: stage),
+          ServiceDetailField(label: '阶段名称', value: _stageName(stage)),
+          ServiceDetailField(
+            label: '状态',
+            value: completed
+                ? '已完成'
+                : active
+                ? '进行中'
+                : '等待中',
+          ),
+        ],
+      ),
       leading: Icon(
         completed
             ? Icons.check_circle_rounded
@@ -12155,13 +12339,31 @@ class _DependencyLine extends StatelessWidget {
   @override
   Widget build(BuildContext context) => ListTile(
     contentPadding: EdgeInsets.zero,
+    onTap: () => showServiceDetailsDialog(
+      context,
+      title: name,
+      subtitle: '依赖状态详情',
+      icon: Icons.account_tree_outlined,
+      fields: [
+        ServiceDetailField(label: '依赖', value: name),
+        ServiceDetailField(label: '状态', value: ready ? '正常' : '未启用'),
+        ServiceDetailField(label: '说明', value: detail),
+      ],
+    ),
     leading: Icon(
       ready ? Icons.check_circle_outline_rounded : Icons.circle_outlined,
       color: ready ? Colors.green : Theme.of(context).colorScheme.outline,
     ),
     title: Text(name),
     subtitle: Text(detail, maxLines: 2, overflow: TextOverflow.ellipsis),
-    trailing: Text(ready ? '正常' : '未启用'),
+    trailing: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Text(ready ? '正常' : '未启用'),
+        const SizedBox(width: 4),
+        const Icon(Icons.chevron_right_rounded, size: 19),
+      ],
+    ),
   );
 }
 
@@ -12474,8 +12676,31 @@ class _LogRow extends StatelessWidget {
     final local = entry.at.toLocal();
     final time =
         '${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}:${local.second.toString().padLeft(2, '0')}';
-    return Padding(
+    return ServiceInteractiveSurface(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
+      showDetailsIcon: false,
+      tooltip: openHandLocalizedText(
+        context,
+        zh: '查看日志详情',
+        en: 'View log details',
+      ),
+      onTap: () => showServiceDetailsDialog(
+        context,
+        title: openHandLocalizedText(context, zh: '日志详情', en: 'Log details'),
+        icon: Icons.terminal_rounded,
+        fields: [
+          ServiceDetailField(label: '时间', value: local.toIso8601String()),
+          ServiceDetailField(
+            label: '级别',
+            value: _logLevelName(context, entry.level),
+          ),
+          ServiceDetailField(
+            label: '任务 ID',
+            value: entry.jobId.isEmpty ? '--' : entry.jobId,
+          ),
+          ServiceDetailField(label: '完整消息', value: entry.message),
+        ],
+      ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

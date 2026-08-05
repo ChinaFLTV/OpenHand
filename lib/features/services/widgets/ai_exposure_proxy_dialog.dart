@@ -1962,49 +1962,68 @@ class _ProxyPoolMetricTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Container(
+    return SizedBox(
       height: 82,
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
-      decoration: BoxDecoration(
+      child: ServiceInteractiveSurface(
+        tooltip: openHandLocalizedText(
+          context,
+          zh: '查看代理指标详情',
+          en: 'View proxy metric details',
+        ),
+        onTap: () => showServiceDetailsDialog(
+          context,
+          title: data.label,
+          subtitle: openHandLocalizedText(
+            context,
+            zh: '代理池指标',
+            en: 'Proxy pool metric',
+          ),
+          icon: data.icon,
+          fields: [
+            ServiceDetailField(label: '指标', value: data.label),
+            ServiceDetailField(label: '当前值', value: data.value),
+            ServiceDetailField(label: '说明', value: data.detail),
+          ],
+        ),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
         color: data.color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: data.color.withValues(alpha: 0.28)),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(data.icon, size: 16, color: data.color),
-              const SizedBox(width: 6),
-              Expanded(
-                child: Text(
-                  data.label,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: colors.onSurfaceVariant,
+        borderColor: data.color.withValues(alpha: 0.28),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(data.icon, size: 16, color: data.color),
+                const SizedBox(width: 6),
+                Expanded(
+                  child: Text(
+                    data.label,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
                   ),
                 ),
-              ),
-            ],
-          ),
-          const Spacer(),
-          Text(
-            data.value,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.titleMedium?.copyWith(
-              fontWeight: FontWeight.w900,
+              ],
             ),
-          ),
-          Text(
-            data.detail,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.labelSmall?.copyWith(color: data.color),
-          ),
-        ],
+            const Spacer(),
+            Text(
+              data.value,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w900,
+              ),
+            ),
+            Text(
+              data.detail,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(color: data.color),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -4216,6 +4235,14 @@ class _ProxyEndpointCard extends StatelessWidget {
       ],
     );
     final chart = _ProxyLatencyChart(endpoint: endpoint);
+    final interactiveDetails = selectionMode
+        ? details
+        : ServiceInteractiveSurface(
+            padding: EdgeInsets.zero,
+            tooltip: text(zh: '查看代理详情', en: 'View proxy details'),
+            onTap: onDetails,
+            child: details,
+          );
     final actionChildren = <Widget>[
       Tooltip(
         message: endpoint.enabled
@@ -4287,7 +4314,7 @@ class _ProxyEndpointCard extends StatelessWidget {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
-                details,
+                interactiveDetails,
                 const SizedBox(height: 10),
                 chart,
                 const SizedBox(height: 8),
@@ -4305,7 +4332,7 @@ class _ProxyEndpointCard extends StatelessWidget {
           }
           return Row(
             children: [
-              Expanded(child: details),
+              Expanded(child: interactiveDetails),
               const SizedBox(width: 14),
               SizedBox(width: 190, child: chart),
               const SizedBox(width: 12),

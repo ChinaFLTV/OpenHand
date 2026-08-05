@@ -465,6 +465,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                     (row) => _DataRecordTile(
                       title: _postgresRowTitle(row, primaryKeys),
                       subtitle: _postgresRowSubtitle(row, primaryKeys),
+                      record: row,
                       tags: row.entries
                           .where((entry) => !primaryKeys.contains(entry.key))
                           .take(4)
@@ -643,6 +644,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                       title: '${record['key'] ?? '--'}',
                       subtitle:
                           '${record['type'] ?? 'none'} · ${_ttlText(_integer(record['ttlSeconds']))} · ${formatByteSize(_integer(record['sizeBytes']))}',
+                      record: record,
                       tags: [
                         if (record['protected'] == true) '运行数据 · 只读',
                         _compactValue(record['value'], maxChars: 180),
@@ -1220,6 +1222,7 @@ class _DataRecordTile extends StatelessWidget {
   const _DataRecordTile({
     required this.title,
     required this.subtitle,
+    required this.record,
     required this.tags,
     required this.onEdit,
     required this.onDelete,
@@ -1227,6 +1230,7 @@ class _DataRecordTile extends StatelessWidget {
 
   final String title;
   final String subtitle;
+  final Map<String, Object?> record;
   final List<String> tags;
   final VoidCallback? onEdit;
   final VoidCallback? onDelete;
@@ -1244,54 +1248,65 @@ class _DataRecordTile extends StatelessWidget {
       ),
       child: Icon(Icons.data_object_rounded, size: 19, color: colors.primary),
     );
-    final details = Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        SelectableText(
-          title,
-          style: theme.textTheme.titleSmall?.copyWith(
-            fontWeight: FontWeight.w700,
+    final details = ServiceInteractiveSurface(
+      padding: EdgeInsets.zero,
+      tooltip: '查看完整数据',
+      onTap: () => showServiceDetailsDialog(
+        context,
+        title: title,
+        subtitle: '数据记录详情',
+        icon: Icons.data_object_rounded,
+        fields: serviceDetailFieldsFromMap(record),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SelectableText(
+            title,
+            style: theme.textTheme.titleSmall?.copyWith(
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-        const SizedBox(height: 2),
-        Text(
-          subtitle,
-          maxLines: 2,
-          overflow: TextOverflow.ellipsis,
-          style: theme.textTheme.bodySmall?.copyWith(
-            color: colors.onSurfaceVariant,
+          const SizedBox(height: 2),
+          Text(
+            subtitle,
+            maxLines: 2,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
+            ),
           ),
-        ),
-        if (tags.isNotEmpty) ...[
-          const SizedBox(height: 7),
-          Wrap(
-            spacing: 6,
-            runSpacing: 6,
-            children: tags
-                .where((tag) => tag.isNotEmpty)
-                .map(
-                  (tag) => Container(
-                    constraints: const BoxConstraints(maxWidth: 360),
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 8,
-                      vertical: 4,
+          if (tags.isNotEmpty) ...[
+            const SizedBox(height: 7),
+            Wrap(
+              spacing: 6,
+              runSpacing: 6,
+              children: tags
+                  .where((tag) => tag.isNotEmpty)
+                  .map(
+                    (tag) => Container(
+                      constraints: const BoxConstraints(maxWidth: 360),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 4,
+                      ),
+                      decoration: BoxDecoration(
+                        color: colors.surfaceContainerHighest,
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        tag,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelSmall,
+                      ),
                     ),
-                    decoration: BoxDecoration(
-                      color: colors.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(6),
-                    ),
-                    child: Text(
-                      tag,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall,
-                    ),
-                  ),
-                )
-                .toList(growable: false),
-          ),
+                  )
+                  .toList(growable: false),
+            ),
+          ],
         ],
-      ],
+      ),
     );
     final actions = ServiceDialogIconActions(
       spacing: 4,
