@@ -4,11 +4,13 @@ import 'dart:io';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../app/support/url_validation.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/user_failure_message.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
 
@@ -90,10 +92,12 @@ class McpStore {
           rootExtraFields: parsed.rootExtraFields,
         );
         return McpLoadResult(servers: parsed.servers, canPersist: true);
-      } catch (error) {
+      } catch (error, stack) {
+        silentLog('mcp_store', '解析 MCP 配置', error, stack);
         return _failedLoad(McpPersistenceIssueKind.invalidContent, error);
       }
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('mcp_store', '加载 MCP 配置', error, stack);
       return _failedLoad(McpPersistenceIssueKind.loadFailed, error);
     }
   }
@@ -399,13 +403,18 @@ class McpStore {
   }
 
   McpLoadResult _failedLoad(McpPersistenceIssueKind kind, Object error) {
+    final fallback = switch (kind) {
+      McpPersistenceIssueKind.invalidContent => 'MCP 配置内容无效。',
+      McpPersistenceIssueKind.loadFailed => 'MCP 配置加载失败，请稍后重试。',
+      McpPersistenceIssueKind.saveFailed => 'MCP 配置保存失败，请稍后重试。',
+    };
     return McpLoadResult(
       servers: const <McpServer>[],
       canPersist: false,
       issue: McpPersistenceIssue(
         kind: kind,
         filePath: _serversFilePath,
-        detail: '$error',
+        detail: userFailureMessage(error, fallback: fallback),
       ),
     );
   }

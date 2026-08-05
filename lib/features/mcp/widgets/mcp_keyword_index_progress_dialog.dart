@@ -3,11 +3,13 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../mcp_controller.dart';
+import '../mcp_errors.dart';
 import '../service/mcp_keyword_index.dart';
 
 /// 「构建关键词映射」按钮触发的进度弹窗。负责：
@@ -37,7 +39,7 @@ class _McpKeywordIndexProgressDialogState
     extends State<_McpKeywordIndexProgressDialog> {
   McpKeywordIndexProgress? _latest;
   McpKeywordIndexBuildResult? _result;
-  Object? _error;
+  String? _errorMessage;
 
   @override
   void initState() {
@@ -57,9 +59,20 @@ class _McpKeywordIndexProgressDialogState
       );
       if (!mounted) return;
       setState(() => _result = result);
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog(
+        'mcp_keyword_index_progress_dialog',
+        '构建 MCP 关键词索引',
+        error,
+        stack,
+      );
       if (!mounted) return;
-      setState(() => _error = e);
+      setState(() {
+        _errorMessage = mcpFailureMessage(
+          error,
+          fallback: AppLocalizations.of(context)!.mcpOperationFailed,
+        );
+      });
     }
   }
 
@@ -69,17 +82,17 @@ class _McpKeywordIndexProgressDialogState
     final theme = Theme.of(context);
     final progress = _latest;
     final result = _result;
-    final error = _error;
-    final isDone = result != null || error != null;
+    final errorMessage = _errorMessage;
+    final isDone = result != null || errorMessage != null;
     final ratio = (progress != null && progress.serverCount > 0)
         ? unitRatio(progress.serverIndex, progress.serverCount)
         : null;
 
     final body = <Widget>[];
-    if (error != null) {
+    if (errorMessage != null) {
       body.add(
         Text(
-          '${l10n.mcpKeywordIndexBuildFailed}\n$error',
+          '${l10n.mcpKeywordIndexBuildFailed}\n$errorMessage',
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.error,
           ),

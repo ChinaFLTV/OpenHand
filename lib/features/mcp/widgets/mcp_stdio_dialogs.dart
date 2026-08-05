@@ -18,6 +18,7 @@ import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
+import '../mcp_errors.dart';
 import '../model/mcp_server.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
@@ -965,9 +966,14 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
         _addLog(l10n.mcpStdioDialogOperationFailed(_ts(), action, exitCode));
         _error = l10n.mcpStdioDialogOperationFailedPlain(action, exitCode);
       }
-    } catch (e) {
-      _addLog(l10n.mcpStdioDialogOperationException(_ts(), '$e'));
-      _error = '$e';
+    } catch (error, stack) {
+      silentLog('mcp_stdio_dialogs', '执行软件包操作', error, stack);
+      final message = mcpFailureMessage(
+        error,
+        fallback: l10n.mcpOperationFailed,
+      );
+      _addLog(l10n.mcpStdioDialogOperationException(_ts(), message));
+      _error = message;
     }
     if (mounted) setState(() => _operating = false);
     return succeeded;
@@ -1001,8 +1007,14 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
           tag: 'mcp_stdio.npm_cache_add',
         );
         _addLog(l10n.mcpStdioDialogWarmCacheDone(_ts()));
-      } catch (e) {
-        _addLog(l10n.mcpStdioDialogWarmCacheSkipped(_ts(), '$e'));
+      } catch (error, stack) {
+        silentLog('mcp_stdio_dialogs', '预热 MCP 软件包缓存', error, stack);
+        _addLog(
+          l10n.mcpStdioDialogWarmCacheSkipped(
+            _ts(),
+            mcpFailureMessage(error, fallback: l10n.mcpOperationFailed),
+          ),
+        );
       } finally {
         if (mounted) setState(() => _operating = false);
       }

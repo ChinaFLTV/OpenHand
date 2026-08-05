@@ -25,6 +25,7 @@ import '../../../shared/util/sensitive_data.dart';
 import '../../../shared/util/serial_task_queue.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
+import '../mcp_errors.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server_ops.dart';
 import 'mcp_ops_endpoint.dart';
@@ -412,7 +413,10 @@ class McpServerOpsRuntime {
       _setSnapshot(
         _snapshot.copyWith(
           lifecycle: McpOpsLifecycleState.failed,
-          errorMessage: '$error',
+          errorMessage: mcpFailureMessage(
+            error,
+            fallback: 'MCP 运维服务启动失败，请稍后重试。',
+          ),
           clearBound: true,
           clearStartedAt: true,
         ),
@@ -556,10 +560,11 @@ class McpServerOpsRuntime {
       );
       _applyConnectivityResult(result);
       return result;
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('mcp_server_ops_runtime', '测试 MCP 运维连通性', error, stack);
       final result = McpOpsConnectivityResult(
         ok: false,
-        message: '$error',
+        message: mcpFailureMessage(error, fallback: 'MCP 运维连通性测试失败，请稍后重试。'),
         checkedAt: checkedAt,
       );
       _applyConnectivityResult(result);
@@ -954,11 +959,11 @@ class McpServerOpsRuntime {
     Object? decoded;
     try {
       decoded = jsonDecode(body);
-    } catch (error) {
+    } catch (_) {
       _recordBlocked(
         request,
         inboundBytes: inboundBytes,
-        reason: 'Invalid JSON: $error',
+        reason: '请求 JSON 无效。',
         method: 'invalid_json',
       );
       return _jsonResponse(
@@ -1350,11 +1355,13 @@ class McpServerOpsRuntime {
       _recordTrafficOutcome(result.isError ? 'failed' : 'success');
       _publishMetrics();
       return _jsonRpcResult(id, payload);
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('mcp_server_ops_runtime', '执行 MCP 运维工具', error, stack);
       final durationMs = DateTime.now()
           .toUtc()
           .difference(started)
           .inMilliseconds;
+      final message = mcpFailureMessage(error, fallback: 'MCP 工具执行失败，请稍后重试。');
       _failedTotal += 1;
       _recordAudit(
         request,
@@ -1365,11 +1372,11 @@ class McpServerOpsRuntime {
         inboundBytes: inboundBytes,
         outboundBytes: 0,
         arguments: arguments,
-        errorMessage: '$error',
+        errorMessage: message,
       );
       _recordTrafficOutcome('failed');
       _publishMetrics();
-      return _jsonRpcError(id, -32000, '$error');
+      return _jsonRpcError(id, -32000, message);
     }
   }
 

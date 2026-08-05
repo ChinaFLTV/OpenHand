@@ -14,6 +14,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
+import '../mcp_errors.dart';
 import '../model/mcp_server.dart';
 import 'mcp_stdio_cache.dart';
 import 'mcp_stdio_io_utils.dart';
@@ -259,9 +260,10 @@ class McpStdioProcessManager extends ChangeNotifier {
             },
             onError: (Object error, StackTrace stack) {
               responseRouter.rejectNewWrites(error, stack);
+              silentLog('mcp_stdio_process_manager', '监听标准输出', error, stack);
               _appendLog(
                 name,
-                '[标准输出异常] $error',
+                '[标准输出异常] ${mcpFailureMessage(error, fallback: '标准输出监听失败。')}',
                 isStderr: true,
                 expectedGeneration: generation,
               );
@@ -290,12 +292,15 @@ class McpStdioProcessManager extends ChangeNotifier {
               isStderr: true,
               expectedGeneration: generation,
             ),
-            onError: (e) => _appendLog(
-              name,
-              '[标准错误异常] $e',
-              isStderr: true,
-              expectedGeneration: generation,
-            ),
+            onError: (Object error, StackTrace stack) {
+              silentLog('mcp_stdio_process_manager', '监听标准错误', error, stack);
+              _appendLog(
+                name,
+                '[标准错误异常] ${mcpFailureMessage(error, fallback: '标准错误监听失败。')}',
+                isStderr: true,
+                expectedGeneration: generation,
+              );
+            },
             onDone: () => _appendLog(
               name,
               '[标准错误已关闭]',
@@ -313,11 +318,14 @@ class McpStdioProcessManager extends ChangeNotifier {
       // 监听进程退出
       void handleProcessExit({int? code, Object? error, StackTrace? stack}) {
         final exitError = error ?? StateError('进程已退出，退出码：$code。');
+        if (error != null) {
+          silentLog('mcp_stdio_process_manager', '监听进程退出', error, stack);
+        }
         _appendLog(
           name,
           error == null
               ? '\n[${_timestamp()}] 进程已退出（退出码：$code）'
-              : '\n[${_timestamp()}] 进程退出监听异常：$error',
+              : '\n[${_timestamp()}] 进程退出监听异常：${mcpFailureMessage(error, fallback: '进程退出监听失败。')}',
           isStderr: error != null,
           expectedGeneration: generation,
         );
@@ -370,7 +378,12 @@ class McpStdioProcessManager extends ChangeNotifier {
       unawaited(
         _initializeMcpProtocol(name, generation, process, responseRouter),
       );
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('mcp_stdio_process_manager', '启动 MCP stdio 进程', error, stack);
+      final message = mcpFailureMessage(
+        error,
+        fallback: 'MCP stdio 进程启动失败，请稍后重试。',
+      );
       if (process != null) {
         await _terminateUnmanagedProcess(
           process,
@@ -387,8 +400,8 @@ class McpStdioProcessManager extends ChangeNotifier {
           generation: generation,
           configFingerprint: fingerprint,
           info: StdioProcessInfo(
-            errorMessage: '$e',
-            logs: ['[${_timestamp()}] 启动失败: $e'],
+            errorMessage: message,
+            logs: ['[${_timestamp()}] 启动失败：$message'],
           ),
         );
         notifyListeners();
@@ -565,10 +578,11 @@ class McpStdioProcessManager extends ChangeNotifier {
             ? _shutdownGracefulStopTimeout
             : null,
       );
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('mcp_stdio_process_manager', '停止 MCP stdio 进程', error, stack);
       _appendLog(
         serverName,
-        '[${_timestamp()}] 停止异常: $e',
+        '[${_timestamp()}] 停止异常：${mcpFailureMessage(error, fallback: 'MCP stdio 进程停止失败，请稍后重试。')}',
         isStderr: true,
         expectedGeneration: generation,
       );
@@ -1049,10 +1063,11 @@ class McpStdioProcessManager extends ChangeNotifier {
         isStderr: false,
         expectedGeneration: generation,
       );
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('mcp_stdio_process_manager', '执行 MCP stdio 握手', error, stack);
       _appendLog(
         serverName,
-        '[${_timestamp()}] ⚠ 握手异常: $e',
+        '[${_timestamp()}] ⚠ 握手异常：${mcpFailureMessage(error, fallback: 'MCP stdio 握手失败，请稍后重试。')}',
         isStderr: false,
         expectedGeneration: generation,
       );
@@ -1236,7 +1251,7 @@ class ManagedStdioSession {
       if (!completer.isCompleted) {
         completer.completeError(e, stack);
       }
-      throw McpToolDiscoveryException('无法写入托管的 MCP stdio 进程：$e');
+      throw McpToolDiscoveryException('无法写入托管的 MCP stdio 进程：${e.message}');
     } catch (e, stack) {
       _responseRouter.unregister(requestIdText);
       if (!completer.isCompleted) {

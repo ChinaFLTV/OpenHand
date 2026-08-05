@@ -22,6 +22,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
+import '../mcp_errors.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
@@ -272,10 +273,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         }
         return McpToolCatalog(
           status: McpToolCatalogStatus.failed,
-          errorMessage: error.message,
+          errorMessage: mcpFailureMessage(
+            error,
+            fallback: 'MCP 工具目录刷新失败，请稍后重试。',
+          ),
           lastScannedAt: scannedAt,
         );
-      } catch (error) {
+      } catch (error, stack) {
+        silentLog('mcp_tool_discovery_service', '发现 MCP 工具', error, stack);
         return McpToolCatalog(
           status: McpToolCatalogStatus.failed,
           errorMessage: _friendlyMcpDiscoveryError(server, error),
@@ -324,10 +329,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         }
         return McpServerHealth(
           status: McpServerHealthStatus.unhealthy,
-          errorMessage: error.message,
+          errorMessage: mcpFailureMessage(
+            error,
+            fallback: 'MCP 服务健康检查失败，请稍后重试。',
+          ),
           lastCheckedAt: checkedAt,
         );
-      } catch (error) {
+      } catch (error, stack) {
+        silentLog('mcp_tool_discovery_service', '检查 MCP 服务健康状态', error, stack);
         return McpServerHealth(
           status: McpServerHealthStatus.unhealthy,
           errorMessage: _friendlyMcpDiscoveryError(server, error),
@@ -2682,7 +2691,7 @@ class _StdioSession {
       } on StateError catch (error, stack) {
         if (!isExpectedMcpStdioSinkStateError(error)) {
           silentLog('mcp_stdio', '写入进程标准输入', error, stack);
-          throw McpToolDiscoveryException('工具扫描失败：标准输入不可用：$error');
+          throw McpToolDiscoveryException('工具扫描失败：标准输入不可用：${error.message}');
         }
         throw _closingWriteException;
       }
@@ -3262,7 +3271,17 @@ String _friendlyMcpDiscoveryError(McpServer server, Object error) {
       raw: error.message.isEmpty ? null : error.message,
     );
   }
-  return '$error';
+  return mcpFailureMessage(
+    error,
+    fallback: openHandAmbientText(
+      zh: 'MCP 服务连接失败，请稍后重试。',
+      en: 'Failed to connect to the MCP server. Try again later.',
+      zhHant: 'MCP 服務連線失敗，請稍後重試。',
+      fr: 'Connexion au serveur MCP impossible. Réessayez plus tard.',
+      de: 'Verbindung zum MCP-Server fehlgeschlagen. Versuchen Sie es später erneut.',
+      ja: 'MCP サーバーへの接続に失敗しました。しばらくしてから再試行してください。',
+    ),
+  );
 }
 
 /// MCP 阶段超时单独成函，标题带上 server.name 帮助用户在多服务面板

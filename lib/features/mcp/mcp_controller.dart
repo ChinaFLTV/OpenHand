@@ -35,6 +35,7 @@ import '../memory/index.dart';
 import '../skills/index.dart';
 import 'data/mcp_server_ops_store.dart';
 import 'data/mcp_store.dart';
+import 'mcp_errors.dart';
 import 'model/mcp_server.dart';
 import 'model/mcp_server_health.dart';
 import 'model/mcp_server_ops.dart';
@@ -707,8 +708,7 @@ class McpController extends ChangeNotifier {
       await _ensureOpsPersistenceLoaded(force: true);
       if (!loadResult.canPersist) {
         _persistenceIssue = loadResult.issue;
-        _errorMessage =
-            loadResult.issue?.detail ?? 'MCP configuration is invalid.';
+        _errorMessage = loadResult.issue?.detail ?? 'MCP 配置内容无效。';
         return false;
       }
       final previousServers = List<McpServer>.from(_servers);
@@ -719,13 +719,15 @@ class McpController extends ChangeNotifier {
       _syncHealthStatusesWithServers(_servers);
       _hasTrustedSnapshot = true;
       return true;
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('mcp', '加载 MCP 配置', error, stack);
+      final message = mcpFailureMessage(error, fallback: 'MCP 配置加载失败，请稍后重试。');
       _hasTrustedSnapshot = false;
-      _errorMessage = '$error';
+      _errorMessage = message;
       _persistenceIssue = McpPersistenceIssue(
         kind: McpPersistenceIssueKind.loadFailed,
         filePath: _store.serversFilePath,
-        detail: '$error',
+        detail: message,
       );
       return false;
     } finally {
@@ -807,7 +809,7 @@ class McpController extends ChangeNotifier {
       silentLog('mcp', '测试运维连通性', error, stack);
       return McpOpsConnectivityResult(
         ok: false,
-        message: '$error',
+        message: mcpFailureMessage(error, fallback: 'MCP 运维连通性测试失败，请稍后重试。'),
         checkedAt: DateTime.now().toUtc(),
       );
     }
@@ -1295,7 +1297,7 @@ class McpController extends ChangeNotifier {
     } catch (error, stack) {
       silentLog('mcp', '调用运维内置工具', error, stack);
       return McpOpsToolInvocationResult(
-        text: 'Builtin tool execution failed: $error',
+        text: mcpFailureMessage(error, fallback: '内置工具执行失败，请稍后重试。'),
         isError: true,
       );
     }
@@ -1879,7 +1881,7 @@ class McpController extends ChangeNotifier {
           silentLog('mcp', '保存工具目录缓存', error, stack);
         }
       }
-    } catch (error) {
+    } catch (error, stack) {
       if (_isDisposed ||
           requirePageActive && !_isPageActive ||
           _toolRefreshGenerationByServerName[normalizedServerName] !=
@@ -1892,15 +1894,17 @@ class McpController extends ChangeNotifier {
         notifyListeners();
         return;
       }
+      silentLog('mcp', '刷新 MCP 工具目录', error, stack);
+      final message = mcpFailureMessage(error, fallback: 'MCP 工具目录刷新失败，请稍后重试。');
       _toolCatalogByServerName[normalizedServerName] = McpToolCatalog(
         status: McpToolCatalogStatus.failed,
-        errorMessage: '$error',
+        errorMessage: message,
         lastScannedAt: DateTime.now().toUtc(),
       );
       if (preserveDuringRefresh) {
         _toolCatalogByServerName[normalizedServerName] = previousCatalog
             .copyWith(
-              warningMessage: '$error',
+              warningMessage: message,
               lastScannedAt: DateTime.now().toUtc(),
             );
       }
@@ -2001,7 +2005,7 @@ class McpController extends ChangeNotifier {
         recentProbes: mergedRecent,
       );
       notifyListeners();
-    } catch (error) {
+    } catch (error, stack) {
       stopwatch.stop();
       if (_isDisposed ||
           !_isPageActive ||
@@ -2015,11 +2019,13 @@ class McpController extends ChangeNotifier {
         notifyListeners();
         return;
       }
+      silentLog('mcp', '检查 MCP 服务健康状态', error, stack);
+      final message = mcpFailureMessage(error, fallback: 'MCP 服务健康检查失败，请稍后重试。');
       final completedAt = DateTime.now().toUtc();
       final probeRecord = McpHealthProbeRecord(
         status: McpServerHealthStatus.unhealthy,
         timestamp: completedAt,
-        errorMessage: '$error',
+        errorMessage: message,
       );
       final mergedRecent = _appendProbeRecord(
         previousHealth.recentProbes,
@@ -2027,7 +2033,7 @@ class McpController extends ChangeNotifier {
       );
       _healthByServerName[normalizedServerName] = McpServerHealth(
         status: McpServerHealthStatus.unhealthy,
-        errorMessage: '$error',
+        errorMessage: message,
         lastCheckedAt: completedAt,
         consecutiveFailures: previousHealth.consecutiveFailures + 1,
         lastSuccessAt: previousHealth.lastSuccessAt,
@@ -2179,15 +2185,17 @@ class McpController extends ChangeNotifier {
         _runDetached(checkServerHealth(changedServerName), '检查变更服务器健康状态');
       }
       return true;
-    } catch (error) {
-      _hasTrustedSnapshot = false;
-      _errorMessage = '$error';
-      _persistenceIssue = McpPersistenceIssue(
+    } catch (error, stack) {
+      silentLog('mcp', '保存 MCP 配置', error, stack);
+      final issue = McpPersistenceIssue(
         kind: McpPersistenceIssueKind.saveFailed,
         filePath: _store.serversFilePath,
-        detail: '$error',
+        detail: mcpFailureMessage(error, fallback: 'MCP 配置保存失败，请稍后重试。'),
       );
-      notifyListeners();
+      if (await _loadServersLocked()) {
+        _persistenceIssue = issue;
+        notifyListeners();
+      }
       return false;
     }
   }

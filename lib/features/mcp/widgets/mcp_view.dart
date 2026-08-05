@@ -73,6 +73,7 @@ import '../../skills/index.dart';
 import '../../thread_template_runtime/index.dart';
 import '../data/mcp_store.dart';
 import '../mcp_controller.dart';
+import '../mcp_errors.dart';
 import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
@@ -876,11 +877,15 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
           kind: OpenHandSnackKind.error,
         );
       }
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('mcp', '清理 MCP 软件包依赖', error, stack);
       if (!context.mounted) return;
       flashOpenHandSnack(
         context,
-        l10n.mcpDependencyCleanupError(packageName, '$e'),
+        l10n.mcpDependencyCleanupError(
+          packageName,
+          mcpFailureMessage(error, fallback: l10n.mcpOperationFailed),
+        ),
         kind: OpenHandSnackKind.error,
       );
     }
@@ -2538,10 +2543,13 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       if (!mounted) return;
       setState(() {
         _hydratingConfig = false;
-        _configMessage = _localizedText(
-          context,
-          zh: '读取本地运维配置失败：$error',
-          en: 'Failed to load local ops config: $error',
+        _configMessage = mcpFailureMessage(
+          error,
+          fallback: _localizedText(
+            context,
+            zh: '读取本地运维配置失败，请稍后重试。',
+            en: 'Failed to load local ops config. Try again later.',
+          ),
         );
       });
     }
@@ -2815,7 +2823,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       }
       OpenHandSnackBar.flash(
         context,
-        '$failureLabel：$error',
+        mcpFailureMessage(error, fallback: failureLabel),
         kind: OpenHandSnackKind.error,
       );
     }
@@ -4179,10 +4187,13 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       if (!context.mounted || !mounted) return;
       setState(() {
         _saving = false;
-        _configMessage = _localizedText(
-          context,
-          zh: '运维数据清理失败：$error',
-          en: 'Ops data cleanup failed: $error',
+        _configMessage = mcpFailureMessage(
+          error,
+          fallback: _localizedText(
+            context,
+            zh: '运维数据清理失败，请稍后重试。',
+            en: 'Ops data cleanup failed. Try again later.',
+          ),
         );
       });
     }
@@ -13584,12 +13595,20 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
       setState(() {
         _result = result;
       });
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('mcp', '调试调用 MCP 工具', error, stack);
       if (!mounted) {
         return;
       }
       setState(() {
-        _errorMessage = '$error';
+        _errorMessage = mcpFailureMessage(
+          error,
+          fallback: _localizedText(
+            context,
+            zh: 'MCP 工具调用失败，请稍后重试。',
+            en: 'The MCP tool call failed. Try again later.',
+          ),
+        );
       });
     } finally {
       if (mounted) {

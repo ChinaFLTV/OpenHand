@@ -12,6 +12,7 @@ import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/serial_task_queue.dart';
+import '../mcp_errors.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_tool.dart';
 import 'mcp_keyword_tokenizer.dart';
@@ -366,7 +367,9 @@ class McpKeywordIndexService {
         tools = await resolveTools(server);
       } catch (e, s) {
         silentLog('mcp_keyword_index', '解析服务工具（${server.name}）', e, s);
-        errors.add('${server.name}: $e');
+        errors.add(
+          '${server.name}: ${mcpFailureMessage(e, fallback: '工具索引构建失败。')}',
+        );
         skipped++;
         onProgress(
           McpKeywordIndexProgress(

@@ -26,6 +26,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/lifecycle_cache.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
+import '../mcp_errors.dart';
 import '../service/tool_search_history_export_prefs.dart';
 import '../service/tool_search_history_serializer.dart';
 
@@ -320,7 +321,16 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       if (!mounted) return;
       flashOpenHandSnack(
         context,
-        l10n.snackToolSearchLoadedHistoryExportSaveFailedToast('$error'),
+        l10n.snackToolSearchLoadedHistoryExportSaveFailedToast(
+          mcpFailureMessage(
+            error,
+            fallback: openHandLocalizedText(
+              context,
+              zh: '无法选择导出位置。',
+              en: 'Could not choose an export location.',
+            ),
+          ),
+        ),
         kind: OpenHandSnackKind.error,
       );
       return;
@@ -333,7 +343,16 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       if (!mounted) return;
       flashOpenHandSnack(
         context,
-        l10n.snackToolSearchLoadedHistoryExportSaveFailedToast('$error'),
+        l10n.snackToolSearchLoadedHistoryExportSaveFailedToast(
+          mcpFailureMessage(
+            error,
+            fallback: openHandLocalizedText(
+              context,
+              zh: '无法写入导出文件。',
+              en: 'Could not write the export file.',
+            ),
+          ),
+        ),
         kind: OpenHandSnackKind.error,
       );
       return;
