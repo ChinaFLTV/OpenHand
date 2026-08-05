@@ -1114,6 +1114,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _activeHarnessOrchestrator?.removeListener(_onHarnessOrchestratorChanged);
     _activeHarnessOrchestrator?.cancel();
     _activeHarnessOrchestrator?.dispose();
+    // 关闭防抖前先写入逆向运行时的最后状态，避免快速退出丢失最新元数据。
+    _syncWebReverseRuntimeMetadata();
+    for (final entry in _androidReverseControllers.entries) {
+      unawaited(_persistAndroidReverseRuntimeMetadata(entry.key, entry.value));
+    }
     _webReverseCdpMcpBridge.dispose();
     for (final entry in _webReverseControllers.entries) {
       unawaited(_disposeWebReverseControllerAfterStop(entry.key, entry.value));
@@ -8501,7 +8506,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _generateTitleForSession(AiSession session) {
-    unawaited(_generateTitleForSessionAsync(session));
+    unawaited(
+      _generateTitleForSessionAsync(session).catchError((error, stack) {
+        silentLog('openhand_home_page', '生成线程标题', error, stack);
+      }),
+    );
   }
 
   Future<void> _generateTitleForSessionAsync(AiSession session) async {
@@ -8608,7 +8617,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         .sublist(startIdx, endIdx + 1)
         .map((m) => m.content.trim())
         .join('\n\n');
-    _executeGenerateTitle(
+    await _executeGenerateTitle(
       session: session,
       content: selectedContent,
       model: result.model,

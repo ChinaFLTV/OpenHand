@@ -8,6 +8,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
+import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
@@ -985,6 +986,10 @@ class _AndroidReverseDashboardDialogState
           _packageAnalysisOutput = null;
         }
       });
+    } catch (error, stack) {
+      if (mounted && !_packagesRefreshQueued && serial == _targetSerial) {
+        silentLog('android_reverse_dashboard', '刷新应用列表', error, stack);
+      }
     } finally {
       if (mounted) {
         final shouldRefreshAgain =
@@ -1222,6 +1227,10 @@ class _AndroidReverseDashboardDialogState
         return;
       }
       setState(() => _processes = procs);
+    } catch (error, stack) {
+      if (mounted && !_processesRefreshQueued && serial == _targetSerial) {
+        silentLog('android_reverse_dashboard', '刷新进程列表', error, stack);
+      }
     } finally {
       if (mounted) {
         final shouldRefreshAgain =
