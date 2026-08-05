@@ -62,6 +62,7 @@ class AiBashBackgroundTool extends AiTool {
   static const Duration _processStartTimeout = Duration(seconds: 10);
   static const Duration _stdinFlushTimeout = Duration(seconds: 2);
   static const Duration _proxyCleanupTimeout = Duration(seconds: 2);
+  static const String _disposedError = 'BashBackground 已关闭。';
 
   final Map<String, _BgSession> _sessions = <String, _BgSession>{};
   final AiBashToolService _bashToolService;
@@ -105,17 +106,14 @@ class AiBashBackgroundTool extends AiTool {
   @override
   Future<AiToolExecutionResult> execute(AiToolExecutionContext context) async {
     if (_disposed) {
-      return AiToolUtils.invalidResult(
-        'BashBackground',
-        'BashBackground is disposed.',
-      );
+      return AiToolUtils.invalidResult('BashBackground', _disposedError);
     }
     final args = context.decodedArguments;
     final action = _resolveAction(context, args);
     if (action.isEmpty) {
       return AiToolUtils.invalidResult(
         'BashBackground',
-        'BashBackground requires an action: start | write | read | stop | list.',
+        'BashBackground 缺少 action，可选值：start | write | read | stop | list。',
       );
     }
     switch (action) {
@@ -132,7 +130,7 @@ class AiBashBackgroundTool extends AiTool {
       default:
         return AiToolUtils.invalidResult(
           'BashBackground',
-          'Unsupported action "$action". Use: start | write | read | stop | list.',
+          '不支持 action“$action”，可选值：start | write | read | stop | list。',
         );
     }
   }
@@ -181,10 +179,7 @@ class AiBashBackgroundTool extends AiTool {
       'command',
     ]);
     if (cmd.isEmpty) {
-      return AiToolUtils.invalidResult(
-        'BashBackground',
-        'start requires non-empty cmd.',
-      );
+      return AiToolUtils.invalidResult('BashBackground', 'start 需要非空 cmd。');
     }
     final cwd = AiToolUtils.resolvePath(
       '${args['working_directory'] ?? args['cwd'] ?? ''}',
@@ -224,14 +219,13 @@ class AiBashBackgroundTool extends AiTool {
         command: cmd,
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: 'Command denied by deny rule: ${denyRule.pattern}',
+        stderr: '命令被拒绝规则阻止：${denyRule.pattern}',
         durationMs: 0,
         matchedRuleId: denyRule.id,
         matchedRulePattern: denyRule.pattern,
         isWriteCommand: writeAnalysis.isWrite,
         writeAnalysisReason: writeAnalysis.reason,
-        resultText:
-            'status: denied\nrule: ${denyRule.pattern}\nreason: matched deny rule',
+        resultText: 'status: denied\nrule: ${denyRule.pattern}\nreason: 匹配拒绝规则',
       );
     }
     final launchSpec = await _prepareLaunchSpec(
@@ -284,8 +278,8 @@ class AiBashBackgroundTool extends AiTool {
         () => AiToolUtils.requestWriteConfirmation(
           toolName: 'BashBackground',
           operationDescription:
-              'Start long-running shell process in $cwd\n'
-              'reason: ${writeAnalysis.reason}\n'
+              '在 $cwd 启动长时间运行的 Shell 进程\n'
+              '原因：${writeAnalysis.reason}\n'
               'cmd: $cmd',
           targetPath: _directoryConfirmationTarget(cwd),
           requireWriteConfirmation:
@@ -300,7 +294,7 @@ class AiBashBackgroundTool extends AiTool {
         ),
       );
       if (confirmationResult != null) {
-        await _closeLaunchProxy(launchSpec.proxyLease, 'confirmation rejected');
+        await _closeLaunchProxy(launchSpec.proxyLease, '写命令确认被拒绝');
         return AiToolUtils.withMergedMetadata(confirmationResult, <
           String,
           Object?
@@ -316,12 +310,12 @@ class AiBashBackgroundTool extends AiTool {
     }
     final reservationGeneration = _reserveStart();
     if (reservationGeneration == null) {
-      await _closeLaunchProxy(launchSpec.proxyLease, 'reservation rejected');
+      await _closeLaunchProxy(launchSpec.proxyLease, '启动预留被拒绝');
       return AiToolUtils.invalidResult(
         'BashBackground',
         _disposed
-            ? 'BashBackground is disposed.'
-            : 'Too many active background sessions ($_maxConcurrentSessions). Stop one first.',
+            ? _disposedError
+            : '活动后台会话过多，上限为 $_maxConcurrentSessions 个，请先停止一个会话。',
       );
     }
     var reservationHeld = true;
@@ -348,20 +342,14 @@ class AiBashBackgroundTool extends AiTool {
         );
       });
     } on TimeoutException catch (error) {
-      await _closeLaunchProxy(launchSpec.proxyLease, 'start timeout');
+      await _closeLaunchProxy(launchSpec.proxyLease, '启动超时');
       releaseStartReservation();
-      return AiToolUtils.invalidResult(
-        'BashBackground',
-        'Process start timed out: $error',
-      );
+      return AiToolUtils.invalidResult('BashBackground', '进程启动超时：$error');
     } catch (error, stack) {
       releaseStartReservation();
-      await _closeLaunchProxy(launchSpec.proxyLease, 'spawn failed');
+      await _closeLaunchProxy(launchSpec.proxyLease, '创建进程失败');
       silentLog('ai_bash_background', '启动进程 $cmd', error, stack);
-      return AiToolUtils.invalidResult(
-        'BashBackground',
-        'Failed to spawn process: $error',
-      );
+      return AiToolUtils.invalidResult('BashBackground', '创建进程失败：$error');
     }
     if (_disposed || reservationGeneration != _lifecycleGeneration) {
       releaseStartReservation();
@@ -371,11 +359,11 @@ class AiBashBackgroundTool extends AiTool {
           onError: (error, stack) =>
               silentLog('ai_bash_background', '清理迟到后台进程', error, stack),
         ).then<void>((_) {}),
-        _closeLaunchProxy(launchSpec.proxyLease, 'late process'),
+        _closeLaunchProxy(launchSpec.proxyLease, '迟到进程'),
       ]);
       return AiToolUtils.invalidResult(
         'BashBackground',
-        'BashBackground was disposed while starting the process.',
+        '进程启动期间 BashBackground 已关闭。',
       );
     }
     releaseStartReservation();
@@ -564,13 +552,13 @@ class AiBashBackgroundTool extends AiTool {
     if (session == null) {
       return AiToolUtils.invalidResult(
         'BashBackground',
-        'Unknown handle "$handle". Call start first or list to enumerate.',
+        '未知 handle“$handle”，请先调用 start，或调用 list 查看会话。',
       );
     }
     if (!session.alive) {
       return AiToolUtils.invalidResult(
         'BashBackground',
-        'Handle "$handle" already exited (code ${session.exitCode}).',
+        'handle“$handle”对应的进程已退出，退出码：${session.exitCode}。',
       );
     }
     final inputBytes = utf8.encode(input);
@@ -579,7 +567,7 @@ class AiBashBackgroundTool extends AiTool {
     if (bytesWritten > _maxStdinBytes) {
       return AiToolUtils.invalidResult(
         'BashBackground',
-        'stdin input exceeds the $_maxStdinBytes-byte limit.',
+        'stdin 输入超过 $_maxStdinBytes 字节上限。',
       );
     }
     final cdpFirstDecision = WebReverseCdpFirstGuard.evaluateCommand(
@@ -605,10 +593,7 @@ class AiBashBackgroundTool extends AiTool {
       silentLog('ai_bash_background', '写入标准输入 $handle', error, stack);
       final removed = _sessions.remove(handle);
       await (removed ?? session).close(kill: true);
-      return AiToolUtils.invalidResult(
-        'BashBackground',
-        'Failed to write stdin: $error',
-      );
+      return AiToolUtils.invalidResult('BashBackground', '写入 stdin 失败：$error');
     }
     return AiToolUtils.simpleSuccessResult(
       command: 'BashBackground write $handle',
@@ -631,7 +616,7 @@ class AiBashBackgroundTool extends AiTool {
         (rawMaxBytes < 0 || rawMaxBytes > _maxBufferBytes)) {
       return AiToolUtils.invalidResult(
         toolName,
-        'max_bytes must be between 0 and $_maxBufferBytes.',
+        'max_bytes 必须在 0 到 $_maxBufferBytes 之间。',
       );
     }
     final rawTimeoutMs =
@@ -641,7 +626,7 @@ class AiBashBackgroundTool extends AiTool {
         (rawTimeoutMs < 0 || rawTimeoutMs > _maxTaskOutputTimeoutMs)) {
       return AiToolUtils.invalidResult(
         toolName,
-        'timeout must be between 0 and $_maxTaskOutputTimeoutMs milliseconds.',
+        'timeout 必须在 0 到 $_maxTaskOutputTimeoutMs 毫秒之间。',
       );
     }
     final maxBytes = _normalizeReadBytes(rawMaxBytes);
@@ -651,8 +636,8 @@ class AiBashBackgroundTool extends AiTool {
       return AiToolUtils.invalidResult(
         toolName,
         handle.isEmpty
-            ? '$toolName requires task_id or handle.'
-            : 'Unknown handle "$handle".',
+            ? '$toolName 需要 task_id 或 handle。'
+            : '未知 handle“$handle”。',
       );
     }
     final isTaskOutputAlias = toolName == 'TaskOutput';
@@ -671,7 +656,7 @@ class AiBashBackgroundTool extends AiTool {
         command: '$toolName $handle',
         workingDirectory: session.workingDirectory,
         stdout: '',
-        stderr: 'TaskOutput wait cancelled.',
+        stderr: 'TaskOutput 等待已取消。',
         durationMs: startedAt.elapsedMilliseconds,
         resultText: 'status: cancelled\nhandle: $handle',
         metadata: <String, Object?>{
@@ -738,8 +723,8 @@ class AiBashBackgroundTool extends AiTool {
       return AiToolUtils.invalidResult(
         toolName,
         handle.isEmpty
-            ? '$toolName requires task_id, shell_id, or handle.'
-            : 'Unknown handle "$handle".',
+            ? '$toolName 需要 task_id、shell_id 或 handle。'
+            : '未知 handle“$handle”。',
       );
     }
     bool killed = false;
@@ -1012,7 +997,7 @@ class _BgSession {
     required Duration timeout,
   }) {
     return _stdinWrites.enqueue(() async {
-      if (!alive) throw StateError('Background process has exited.');
+      if (!alive) throw StateError('后台进程已退出。');
       process.stdin.add(bytes);
       if (appendNewline) process.stdin.add(const <int>[10]);
       await process.stdin.flush().timeout(timeout);
@@ -1092,7 +1077,7 @@ class _BgSession {
   static void _appendInto(StringBuffer buffer, String chunk, int maxBytes) {
     buffer.write(chunk);
     if (buffer.length > maxBytes * 2) {
-      // Trim oldest half to keep memory bounded.
+      // 丢弃最旧内容，限制内存占用。
       final retained = buffer.toString();
       final cut = retained.length - maxBytes;
       final trimmed = cut > 0
@@ -1109,7 +1094,7 @@ class _BgSession {
     final pending = buffer.toString();
     buffer.clear();
     if (pending.length <= maxBytes) return pending;
-    // Keep the tail (most recent output) when oversized.
+    // 超限时保留最新输出。
     return pending.substring(
       safeUtf16SuffixStart(pending, pending.length - maxBytes),
     );

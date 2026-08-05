@@ -279,12 +279,7 @@ class AiSessionController extends ChangeNotifier {
     'discarded_message_ids_due_to_context_limit',
     'retained_message_ids_after_checkpoint',
   };
-  // Inline fallback used when the bundled asset cannot be loaded
-  // (`assets/prompts/common/auto_title_system_prompt.md` — see
-  // [AiPromptTemplateRepository.loadAutoTitleSystemPrompt]). The asset is
-  // the source of truth and must stay in sync with this string; the
-  // fallback exists only so a missing-asset edge case still produces a
-  // usable title rather than a hard failure.
+  // 内置资源加载失败时使用的标题提示词兜底，内容必须与资源文件保持同步。
   static const String _autoTitleSystemPromptFallback =
       'You are coming up with a succinct title for an agent chat session '
       'based on the provided description. The title should be clear, '
@@ -333,10 +328,16 @@ class AiSessionController extends ChangeNotifier {
     'task',
     'issue',
   };
-  static const String _emptyPlanContinuationReplyError =
-      'The assistant returned an empty follow-up response after tool execution.';
+  static const String _emptyPlanContinuationReplyError = '工具执行后，助手返回了空的后续响应。';
   static const String _plainTextPlanApprovalRequestError =
-      'Plan approval in Plan mode must use ExitPlanMode. Do not ask for plan approval in plain chat or AskUserChoice; refresh TodoWrite if needed, then call ExitPlanMode.';
+      '计划模式审批必须使用 ExitPlanMode。禁止通过普通对话或 AskUserChoice 请求审批；必要时先刷新 TodoWrite，再调用 ExitPlanMode。';
+  static const String _sessionMessagesLoadingError = '会话消息仍在加载中。';
+  static const String _messageCannotRegenerateError = '无法重新生成该消息。';
+  static const String _noActiveSessionError = '未选择活动会话。';
+  static const String _goalModeUnavailableError = '当前线程模板不支持目标模式。';
+  static const String _persistUserMessageError = '保存用户消息失败。';
+  static const String _persistRunningToolCallError = '保存工具调用运行状态失败。';
+  static const String _persistToolExecutionResultError = '保存工具执行结果失败。';
 
   static Future<AiSessionController> create({
     AiSessionStore? store,
@@ -537,8 +538,7 @@ class AiSessionController extends ChangeNotifier {
     }
   }
 
-  // Group D — 标题相关字段已改为 mutable static 以便由 runtime context 在
-  // 启动 / 设置变更时下放。在单进程内仅由 _captureLatestRuntimeContext 写入。
+  // D 组：标题字段由运行时上下文在启动或设置变更时统一更新。
   static int _fallbackTitleMaxCharacters = 15;
   static int _generatedTitleMaxCharacters = 15;
   static int _minimumMeaningfulTitleCharacters = 4;
@@ -612,7 +612,7 @@ class AiSessionController extends ChangeNotifier {
   );
 
   /// ToolSearch 会话状态。键为 sessionId，记录已匹配且可经固定网关调用的
-  /// runtime tool 名称；同时承载向 UI 广播匹配事件的 [ValueListenable]。
+  /// 运行时工具名称；同时承载向 UI 广播匹配事件的 [ValueListenable]。
   /// 会话删除或控制器关闭时清理。
   final McpLoadedToolsTracker _loadedMcpToolsTracker = McpLoadedToolsTracker();
 
@@ -634,8 +634,8 @@ class AiSessionController extends ChangeNotifier {
   int clearLoadedMcpToolsForSession(String sessionId) =>
       _loadedMcpToolsTracker.clearSession(sessionId);
 
-  /// Group A 设置项缓存。每当方法接收到 [runtimeContext] 时
-  /// 写入本字段；helper 在自身没有 runtimeContext 入参的场景下从中读取
+  /// A 组设置项缓存。每当方法接收到 [runtimeContext] 时
+  /// 写入本字段；辅助逻辑在没有 runtimeContext 入参时从中读取
   /// 用户配置，缺省时回落到 [AppSettingsSnapshot] 默认值。
   AiSessionRuntimeContext? _latestRuntimeContext;
 
@@ -645,7 +645,7 @@ class AiSessionController extends ChangeNotifier {
 
   void _captureLatestRuntimeContext(AiSessionRuntimeContext runtimeContext) {
     _latestRuntimeContext = runtimeContext;
-    // Group B: 把工具调用类参数下放到底层服务实例。
+    // B 组：把工具调用参数下放到底层服务实例。
     _toolRuntimeService.maxToolOutputChars = runtimeContext.maxToolOutputChars;
     _bashToolService.writeConfirmationTimeoutMs =
         runtimeContext.writeConfirmationTimeoutMs;
@@ -659,7 +659,7 @@ class AiSessionController extends ChangeNotifier {
     safeSubprocessDefaultGracefulShutdownMs =
         runtimeContext.subprocessGracefulShutdownMs;
     _hookService.maxHookTextCharacters = runtimeContext.maxHookTextCharacters;
-    // Group C: 附件与流式缓冲参数。
+    // C 组：附件与流式缓冲参数。
     _attachmentService.maxInlineImageDimension =
         runtimeContext.attachmentMaxInlineImageDimension;
     _attachmentService.maxTextRawBytes =
@@ -677,22 +677,21 @@ class AiSessionController extends ChangeNotifier {
       bgChatClient.maxStreamLineBufferBytes =
           runtimeContext.chatMaxStreamLineBufferBytes;
     }
-    // Group D: 标题派生相关阈值（mutable static, 同一进程共享）。
+    // D 组：同一进程共享的标题派生阈值。
     _fallbackTitleMaxCharacters = runtimeContext.fallbackTitleMaxCharacters;
     _generatedTitleMaxCharacters = runtimeContext.generatedTitleMaxCharacters;
     _minimumMeaningfulTitleCharacters =
         runtimeContext.minimumMeaningfulTitleCharacters;
     _minimumMeaningfulLatinTitleWords =
         runtimeContext.minimumMeaningfulLatinTitleWords;
-    // Group E: 技能与工作区指令阈值。
+    // E 组：技能与工作区指令阈值。
     final skillTool = _toolRuntimeService.toolRegistry.getTool(
       AiBuiltinToolKind.skillManager,
     );
     if (skillTool is AiSkillManagerTool) {
       skillTool.maxSkillContentLength = runtimeContext.maxSkillContentLength;
     }
-    // Group F: ToolSearch 懒加载可见状态。详细过滤逻辑在 runtime lazy
-    // loading 中按会话完成，这里只是占位。
+    // F 组：ToolSearch 懒加载可见状态，详细过滤由运行时按会话完成。
     final toolSearchTool = _toolRuntimeService.toolRegistry.getTool(
       AiBuiltinToolKind.toolSearch,
     );
@@ -1524,31 +1523,27 @@ class AiSessionController extends ChangeNotifier {
     return stopSignal != null;
   }
 
-  /// Temporarily transitions a session into [AiSendPhase.awaitingApproval].
-  ///
-  /// Call this when showing a write-command confirmation dialog so the sidebar
-  /// badge reflects the "waiting for approval" state.  The previous phase is
-  /// stored so [clearSessionAwaitingApproval] can restore it.
+  /// 临时将会话切换为 [AiSendPhase.awaitingApproval]，并保存原阶段以便恢复。
   void setSessionAwaitingApproval(String sessionId) {
     final current = _sessionSendPhases[sessionId];
     if (current == AiSendPhase.awaitingApproval) {
-      return; // Already in the desired state.
+      return;
     }
     _approvalPreviousPhases[sessionId] = current ?? AiSendPhase.responding;
     _setSessionSendPhase(sessionId, AiSendPhase.awaitingApproval);
     notifyListeners();
   }
 
-  /// Restores the phase that was active before [setSessionAwaitingApproval].
+  /// 恢复调用 [setSessionAwaitingApproval] 前的会话阶段。
   void clearSessionAwaitingApproval(String sessionId) {
     final previous = _approvalPreviousPhases.remove(sessionId);
     if (_sessionSendPhases[sessionId] != AiSendPhase.awaitingApproval) {
-      return; // Phase was already changed by another code path.
+      return;
     }
     if (previous != null && previous != AiSendPhase.idle) {
       _setSessionSendPhase(sessionId, previous);
     } else {
-      // Fallback: restore to responding since the session is still processing.
+      // 会话仍在处理中，缺少原阶段时恢复为响应中。
       _setSessionSendPhase(sessionId, AiSendPhase.responding);
     }
     notifyListeners();
@@ -1732,11 +1727,7 @@ class AiSessionController extends ChangeNotifier {
         final headerMutationGenerations = Map<String, int>.from(
           _sessionHeaderMutationGenerations,
         );
-        // Keep refresh lightweight: session headers are enough for the
-        // sidebar, while the selected transcript hydrates its own messages on
-        // demand. This avoids a cold-start load of every historical message
-        // row and keeps existing hydrated sessions alive across header
-        // refreshes such as pin/archive reorder.
+        // 仅加载侧边栏所需的会话头，当前会话消息按需加载，避免冷启动全量解码。
         final headerLoad = await _store.loadAllHeaders();
         final preserveLiveHeaderSessionIds = <String>{
           ...pendingHeaderSessionIds,
@@ -2902,19 +2893,13 @@ class AiSessionController extends ChangeNotifier {
         return true;
       }
       if (session.hasActiveGoal) {
-        _setLastSendErrorMessage(
-          session.id,
-          'Goal execution is active. Finish or terminate the goal before changing modes.',
-        );
+        _setLastSendErrorMessage(session.id, '目标正在执行，请完成或终止目标后再切换模式。');
         notifyListeners();
         return false;
       }
       if (mode == AiSessionMode.goal &&
           !aiSessionGoalModeAllowedForTemplate(session.templateId)) {
-        _setLastSendErrorMessage(
-          session.id,
-          'Goal mode is not available for this thread template.',
-        );
+        _setLastSendErrorMessage(session.id, _goalModeUnavailableError);
         notifyListeners();
         return false;
       }
@@ -3006,11 +2991,8 @@ class AiSessionController extends ChangeNotifier {
     });
   }
 
-  /// Appends a [AiSessionMessageKind.selfLearning] message to the session and
-  /// persists it.
-  ///
-  /// Used by Hermes Talker's self-learning runner. Returns the inserted message
-  /// id, or null if the session could not be found.
+  /// 向会话追加并保存 [AiSessionMessageKind.selfLearning] 消息。
+  /// 成功时返回消息 ID；会话不存在或未加载完成时返回 null。
   Future<String?> appendSelfLearningMessage({
     required String sessionId,
     required String content,
@@ -3038,19 +3020,9 @@ class AiSessionController extends ChangeNotifier {
     return id;
   }
 
-  /// Updates an existing [AiSessionMessageKind.selfLearning] message's
-  /// content and/or metadata in place, persisting the result. Intended for
-  /// the Hermes Talker runner/dispatcher which creates a placeholder card
-  /// up front and then streams deltas / finalizes it.
-  ///
-  /// When [content] is provided it replaces the message content. When
-  /// [metadataPatch] is provided its entries are merged on top of the
-  /// existing metadata (passing an explicit `null` value erases the key).
-  /// When [replaceMetadata] is true, [metadataPatch] REPLACES the metadata
-  /// entirely instead of merging.
-  ///
-  /// Returns `false` if the session or message could not be found (or if
-  /// the target message is not a `selfLearning` kind).
+  /// 更新并保存已有的 [AiSessionMessageKind.selfLearning] 消息。
+  /// [content] 替换正文；[metadataPatch] 默认合并元数据，null 值删除对应键；
+  /// [replaceMetadata] 为 true 时整体替换元数据。目标不存在或类型不符时返回 false。
   Future<bool> updateSelfLearningMessage({
     required String sessionId,
     required String messageId,
@@ -3135,10 +3107,7 @@ class AiSessionController extends ChangeNotifier {
         if (!persisted) {
           _setLastSendErrorMessage(
             normalizedSessionId,
-            _friendlyAiSessionPersistenceError(
-              'Message not found.',
-              operation: 'save',
-            ),
+            _friendlyAiSessionPersistenceError('消息不存在。', operation: 'save'),
           );
           return false;
         }
@@ -3776,10 +3745,7 @@ class AiSessionController extends ChangeNotifier {
       if (hydratedSession == null ||
           _sessionNeedsMessageHydration(hydratedSession)) {
         _clearSessionExecutionState(sessionId);
-        _setLastSendErrorMessage(
-          sessionId,
-          'Session messages are still loading.',
-        );
+        _setLastSendErrorMessage(sessionId, _sessionMessagesLoadingError);
         notifyListeners();
         return false;
       }
@@ -3789,7 +3755,7 @@ class AiSessionController extends ChangeNotifier {
       );
       if (targetIndex <= 0) {
         _clearSessionExecutionState(session.id);
-        _setLastSendErrorMessage(session.id, 'Message cannot be regenerated.');
+        _setLastSendErrorMessage(session.id, _messageCannotRegenerateError);
         notifyListeners();
         return false;
       }
@@ -3798,7 +3764,7 @@ class AiSessionController extends ChangeNotifier {
           targetMessage.metadata[aiSessionMessageMetadataStreamingKey] ==
               true) {
         _clearSessionExecutionState(session.id);
-        _setLastSendErrorMessage(session.id, 'Message cannot be regenerated.');
+        _setLastSendErrorMessage(session.id, _messageCannotRegenerateError);
         notifyListeners();
         return false;
       }
@@ -3808,7 +3774,7 @@ class AiSessionController extends ChangeNotifier {
       );
       if (userIndex < 0) {
         _clearSessionExecutionState(session.id);
-        _setLastSendErrorMessage(session.id, 'No user message found to retry.');
+        _setLastSendErrorMessage(session.id, '找不到可重试的用户消息。');
         notifyListeners();
         return false;
       }
@@ -3934,10 +3900,7 @@ class AiSessionController extends ChangeNotifier {
         if (!identical(startedSession, session)) {
           final startCommitted = await _commitSessionLocked(startedSession);
           if (!startCommitted) {
-            _setLastSendErrorMessage(
-              session.id,
-              'Failed to prepare regeneration.',
-            );
+            _setLastSendErrorMessage(session.id, '准备重新生成失败。');
             notifyListeners();
             return false;
           }
@@ -3972,10 +3935,7 @@ class AiSessionController extends ChangeNotifier {
           await _commitSessionLocked(restored);
           final existingError = lastErrorMessageForSession(session.id);
           if (existingError == null || existingError.trim().isEmpty) {
-            _setLastSendErrorMessage(
-              session.id,
-              'Failed to regenerate response.',
-            );
+            _setLastSendErrorMessage(session.id, '重新生成响应失败。');
           }
           notifyListeners();
           return false;
@@ -4003,19 +3963,14 @@ class AiSessionController extends ChangeNotifier {
           );
           _setLastSendErrorMessage(
             session.id,
-            generatedToolActivity
-                ? 'Regeneration finished tool activity but did not produce a final assistant response.'
-                : 'Regenerated response is empty.',
+            generatedToolActivity ? '重新生成已完成工具调用，但未生成最终助手响应。' : '重新生成的响应为空。',
           );
           notifyListeners();
           return false;
         }
         final committed = await _commitSessionLocked(mergedSession);
         if (!committed) {
-          _setLastSendErrorMessage(
-            session.id,
-            'Failed to persist the regenerated response.',
-          );
+          _setLastSendErrorMessage(session.id, '保存重新生成的响应失败。');
           notifyListeners();
           return false;
         }
@@ -4179,8 +4134,7 @@ class AiSessionController extends ChangeNotifier {
         _publishDeletionNotice(deletionNotice);
         return true;
       } catch (error) {
-        // Guard the existence check so a secondary DB failure does not shadow
-        // the original delete error.
+        // 单独保护存在性检查，避免二次数据库异常覆盖原始删除错误。
         bool stillExists;
         try {
           stillExists = await _store.exists(sessionId);
@@ -4232,12 +4186,7 @@ class AiSessionController extends ChangeNotifier {
     });
   }
 
-  /// Persist a manual ordering of sessions. The first id in
-  /// [orderedSessionIds] becomes display_order=0, etc. The in-memory
-  /// `_sessions` list is reordered to match (with any unknown ids dropped
-  /// and any locally known ids missing from the input appended at the
-  /// tail in their existing relative order — mirroring the next
-  /// `loadAllHeaders()` result).
+  /// 持久化会话手动排序。重复或未知 ID 会被忽略，缺失的本地会话按原顺序追加。
   Future<bool> reorderSessions(List<String> orderedSessionIds) async {
     return _enqueueOperation(() async {
       final previousSessions = List<AiSession>.from(_sessions);
@@ -4252,17 +4201,12 @@ class AiSessionController extends ChangeNotifier {
         final session = byId.remove(id);
         if (session != null) reordered.add(session);
       }
-      // Append any sessions not in the supplied order at the tail in their
-      // pre-existing relative order. Without this, sessions that exist in
-      // memory but weren't enumerated by the dialog (e.g. created
-      // concurrently) would appear to vanish until the next refresh.
+      // 追加未列出的本地会话，避免并发创建的会话暂时消失。
       for (final session in previousSessions) {
         if (byId.containsKey(session.id)) reordered.add(session);
       }
       if (reordered.length != previousSessions.length) {
-        // Defensive: if anything went wrong (count mismatch), leave the
-        // in-memory list alone and fail the operation so the caller can
-        // surface a snackbar.
+        // 数量不一致时保留内存顺序并返回失败。
         return false;
       }
       _setSessions(reordered);
@@ -4274,8 +4218,7 @@ class AiSessionController extends ChangeNotifier {
         return true;
       } catch (error, stack) {
         silentLog('ai_session_controller', '持久化会话排序', error, stack);
-        // Roll back in-memory ordering on persistence failure so the UI
-        // matches the on-disk state.
+        // 持久化失败时回滚内存顺序，保持界面与磁盘一致。
         _setSessions(previousSessions);
         notifyListeners();
         return false;
@@ -4283,9 +4226,7 @@ class AiSessionController extends ChangeNotifier {
     });
   }
 
-  /// Toggles the `pinned` flag for a session. Pinned sessions sort to
-  /// the top of the sidebar regardless of any manual `display_order`.
-  /// Returns true if the database write succeeded.
+  /// 切换会话的 `pinned` 标记。置顶会话始终位于手动排序之前。
   Future<bool> setSessionPinned(String sessionId, bool pinned) async {
     return _enqueueOperation(() async {
       try {
@@ -4294,9 +4235,7 @@ class AiSessionController extends ChangeNotifier {
         silentLog('ai_session_controller', '设置会话置顶状态', error, stack);
         return false;
       }
-      // Refresh in-memory order so the sidebar picks up the new sort
-      // immediately. We re-load headers; messages stay cached per
-      // session and lazy-load on demand.
+      // 重新加载会话头以立即刷新侧边栏顺序，消息继续按会话缓存和按需加载。
       try {
         final result = await _store.loadAllHeaders();
         _setSessions(_mergeHeaderSessionsWithLiveMessages(result.sessions));
@@ -4308,9 +4247,7 @@ class AiSessionController extends ChangeNotifier {
     });
   }
 
-  /// Toggles the `archived` flag for a session. Archived sessions are
-  /// hidden from the sidebar by default but remain accessible via the
-  /// Thread Session Management dialog. Returns true on success.
+  /// 切换会话的 `archived` 标记。归档会话默认从侧边栏隐藏，但仍可在会话管理中访问。
   Future<bool> setSessionArchived(String sessionId, bool archived) async {
     return _enqueueOperation(() async {
       try {
@@ -4663,9 +4600,7 @@ class AiSessionController extends ChangeNotifier {
         return id;
       }
     }
-    throw StateError(
-      'Unable to allocate a unique session id for forked session.',
-    );
+    throw StateError('无法为分叉会话分配唯一会话 ID。');
   }
 
   String _generateUniqueForkMessageId(Set<String> usedIds) {
@@ -4675,9 +4610,7 @@ class AiSessionController extends ChangeNotifier {
         return id;
       }
     }
-    throw StateError(
-      'Unable to allocate a unique message id for forked session.',
-    );
+    throw StateError('无法为分叉会话分配唯一消息 ID。');
   }
 
   Future<List<AiSessionMessage>> _forkMessagesForSession({
@@ -5416,7 +5349,7 @@ class AiSessionController extends ChangeNotifier {
       pausedAt: now,
       clearCompletedAt: true,
       clearTerminatedAt: true,
-      statusReason: 'Paused by user.',
+      statusReason: '用户已暂停目标。',
     );
     final updatedSession = _applyGoalState(
       session,
@@ -5474,7 +5407,7 @@ class AiSessionController extends ChangeNotifier {
       terminatedAt: now,
       clearCompletedAt: true,
       clearPausedAt: true,
-      statusReason: 'Terminated by user.',
+      statusReason: '用户已终止目标。',
     );
     final updatedSession = _applyGoalState(
       session,
@@ -5621,7 +5554,7 @@ class AiSessionController extends ChangeNotifier {
       status: AiSessionGoalStatus.running,
       updatedAt: now,
       clearPausedAt: true,
-      statusReason: 'Resumed by goal runtime.',
+      statusReason: '目标运行时已恢复执行。',
     );
     final updatedSession = _applyGoalState(
       session.copyWith(mode: AiSessionMode.goal),
@@ -5792,7 +5725,7 @@ class AiSessionController extends ChangeNotifier {
         goal.copyWith(
           status: AiSessionGoalStatus.tokenBudgetReached,
           updatedAt: now,
-          statusReason: 'Token budget reached before evaluation.',
+          statusReason: '评估前已达到令牌预算。',
         ),
       );
       final committed = await _commitSessionLocked(_rebuildSession(limited));
@@ -5817,7 +5750,7 @@ class AiSessionController extends ChangeNotifier {
         goal.copyWith(
           status: AiSessionGoalStatus.failed,
           updatedAt: now,
-          statusReason: 'No evaluator model is configured.',
+          statusReason: '未配置目标评估模型。',
         ),
       );
       final committed = await _commitSessionLocked(_rebuildSession(failed));
@@ -5943,7 +5876,7 @@ class AiSessionController extends ChangeNotifier {
         createdAt: failedAt,
         roundIndex: goal.turnCount,
         passed: false,
-        summary: 'Evaluator failed.',
+        summary: '目标评估失败。',
         rawResponse: '$error',
         providerConfigId: evaluatorModel.id,
         modelId: evaluatorModel.modelId,
@@ -5955,7 +5888,7 @@ class AiSessionController extends ChangeNotifier {
         AiSessionMessage.assistant(
           id: _idGenerator(),
           content: _boundedGoalText(
-            'Evaluator failed.\n\n$error',
+            '目标评估失败。\n\n$error',
             _goalEvaluationMaxMessageChars,
           ),
           createdAt: failedAt,
@@ -6033,8 +5966,8 @@ class AiSessionController extends ChangeNotifier {
           status: limitStatus,
           updatedAt: limitedAt,
           statusReason: limitStatus == AiSessionGoalStatus.roundLimitReached
-              ? 'Round limit reached before evidence was sufficient.'
-              : 'Token budget reached before evidence was sufficient.',
+              ? '证据充分前已达到回合上限。'
+              : '证据充分前已达到令牌预算。',
         ),
       );
       final committed = await _commitSessionLocked(_rebuildSession(limited));
@@ -6187,7 +6120,7 @@ class AiSessionController extends ChangeNotifier {
         createdAt: createdAt,
         roundIndex: goal.turnCount,
         passed: false,
-        summary: 'Evaluator returned invalid JSON.',
+        summary: '目标评估模型返回了无效 JSON。',
         rawResponse: _boundedGoalText(
           rawReply,
           aiSessionGoalEvaluationRawResponseMaxCharacters,
@@ -6207,7 +6140,7 @@ class AiSessionController extends ChangeNotifier {
       roundIndex: goal.turnCount,
       passed: passed,
       summary: summary.isEmpty
-          ? (passed ? 'Goal is complete.' : 'Goal is not complete yet.')
+          ? (passed ? '目标已完成。' : '目标尚未完成。')
           : _boundedGoalText(
               summary,
               aiSessionGoalEvaluationSummaryMaxCharacters,
@@ -6430,7 +6363,7 @@ class AiSessionController extends ChangeNotifier {
     }
     final resolvedSessionId = sessionId ?? _currentSessionId;
     if (resolvedSessionId == null) {
-      _lastErrorMessage = 'No active session selected.';
+      _lastErrorMessage = _noActiveSessionError;
       notifyListeners();
       return false;
     }
@@ -6443,10 +6376,7 @@ class AiSessionController extends ChangeNotifier {
           _sessionById(resolvedSessionId);
       if (session == null) {
         _clearSessionExecutionState(resolvedSessionId);
-        _setLastSendErrorMessage(
-          resolvedSessionId,
-          'No active session selected.',
-        );
+        _setLastSendErrorMessage(resolvedSessionId, _noActiveSessionError);
         notifyListeners();
         return false;
       }
@@ -6454,7 +6384,7 @@ class AiSessionController extends ChangeNotifier {
         _clearSessionExecutionState(resolvedSessionId);
         _setLastSendErrorMessage(
           resolvedSessionId,
-          'Session messages are still loading.',
+          _sessionMessagesLoadingError,
         );
         notifyListeners();
         return false;
@@ -6474,10 +6404,7 @@ class AiSessionController extends ChangeNotifier {
       if (goalStartOptions != null &&
           !aiSessionGoalModeAllowedForTemplate(session.templateId)) {
         _clearSessionExecutionState(session.id);
-        _setLastSendErrorMessage(
-          session.id,
-          'Goal mode is not available for this thread template.',
-        );
+        _setLastSendErrorMessage(session.id, _goalModeUnavailableError);
         notifyListeners();
         return false;
       }
@@ -6487,17 +6414,14 @@ class AiSessionController extends ChangeNotifier {
         _clearSessionExecutionState(session.id);
         _setLastSendErrorMessage(
           session.id,
-          'Goal objective is too long. Keep it under $aiSessionGoalObjectiveMaxCharacters characters.',
+          '目标内容过长，请控制在 $aiSessionGoalObjectiveMaxCharacters 个字符以内。',
         );
         notifyListeners();
         return false;
       }
       if (goalStartOptions != null && session.hasActiveGoal) {
         _clearSessionExecutionState(session.id);
-        _setLastSendErrorMessage(
-          session.id,
-          'A goal is already running in this session.',
-        );
+        _setLastSendErrorMessage(session.id, '当前会话已有目标正在执行。');
         notifyListeners();
         return false;
       }
@@ -6511,10 +6435,7 @@ class AiSessionController extends ChangeNotifier {
           );
           if (!committed) {
             _clearSessionExecutionState(session.id);
-            _setLastSendErrorMessage(
-              session.id,
-              'Failed to prepare the queued message while a goal is active.',
-            );
+            _setLastSendErrorMessage(session.id, '目标执行期间准备排队消息失败。');
             notifyListeners();
             return false;
           }
@@ -6526,10 +6447,7 @@ class AiSessionController extends ChangeNotifier {
           goalStartOptions == null &&
           !isGoalContinuation) {
         _clearSessionExecutionState(session.id);
-        _setLastSendErrorMessage(
-          session.id,
-          'Goal mode requires goal options before the first message is sent.',
-        );
+        _setLastSendErrorMessage(session.id, '目标模式发送首条消息前必须提供目标选项。');
         notifyListeners();
         return false;
       }
@@ -6538,10 +6456,7 @@ class AiSessionController extends ChangeNotifier {
           !isGoalContinuation &&
           !isQueuedGoalInterruption) {
         _clearSessionExecutionState(session.id);
-        _setLastSendErrorMessage(
-          session.id,
-          'Goal execution is active. Pause or terminate the goal before sending a manual message.',
-        );
+        _setLastSendErrorMessage(session.id, '目标正在执行，请暂停或终止目标后再手动发送消息。');
         notifyListeners();
         return false;
       }
@@ -6610,22 +6525,19 @@ class AiSessionController extends ChangeNotifier {
         }
         sendPreflightTimingsMs['user_prompt_hooks'] =
             userPromptHooksStopwatch.elapsedMilliseconds;
-        // Re-read session since _safeRunUserHook may have committed hook messages.
+        // 用户 Hook 可能已保存消息，因此重新读取会话。
         session = _sessionById(session.id) ?? session;
         if (userHookResult.blocked) {
           final blockedSession = _appendError(
             session,
             stage: 'user_prompt_hook',
-            message:
-                userHookResult.blockReason ??
-                'The user prompt was blocked by a hook.',
+            message: userHookResult.blockReason ?? '用户提示词被 Hook 阻止。',
             detail: userHookResult.executedCommands.join('\n'),
           );
           await _commitSessionLocked(blockedSession);
           _setLastSendErrorMessage(
             session.id,
-            userHookResult.blockReason ??
-                'The user prompt was blocked by a hook.',
+            userHookResult.blockReason ?? '用户提示词被 Hook 阻止。',
           );
           return false;
         }
@@ -6642,12 +6554,8 @@ class AiSessionController extends ChangeNotifier {
           nextUserMessageMetadata[aiHookSystemRemindersMetadataKey] =
               userHookResult.systemReminders;
         }
-        // Merge any caller-provided system reminders (e.g. user-selected
-        // skill manifest) into the same metadata key consumed by the prompt
-        // builder.  These reminders are attached invisibly to the outgoing
-        // LLM user turn while the stored user message content remains
-        // exactly what the user typed, so the transcript bubble never shows
-        // internally-injected XML blocks.
+        // 调用方提供的系统提醒与 Hook 提醒共用元数据键，仅发送给模型，
+        // 不改变持久化的用户原文，也不会在会话气泡中显示内部 XML。
         final sanitizedExtraReminders = <String>[
           for (final reminder in additionalSystemReminders)
             if (reminder.trim().isNotEmpty) reminder.trim(),
@@ -6662,11 +6570,7 @@ class AiSessionController extends ChangeNotifier {
           existing.addAll(sanitizedExtraReminders);
           nextUserMessageMetadata[aiHookSystemRemindersMetadataKey] = existing;
         }
-        // Persist a display-only copy of the user's explicit skill
-        // selection (if any).  The transcript bubble reads this to render a
-        // skill capsule under the timestamp; it is NOT consumed by the LLM
-        // prompt builder (the LLM-facing manifest arrives via
-        // [aiHookSystemRemindersMetadataKey] above).
+        // 保存用户显式选择的技能，仅供会话气泡展示；模型使用上方提醒中的清单。
         if (selectedSkillMetadata != null && selectedSkillMetadata.isNotEmpty) {
           nextUserMessageMetadata[aiUserSkillSelectionMetadataKey] =
               Map<String, Object?>.from(selectedSkillMetadata);
@@ -6702,10 +6606,7 @@ class AiSessionController extends ChangeNotifier {
         } else if (isGoalContinuation) {
           final resumed = _resumeGoalForContinuation(session);
           if (resumed == null) {
-            _setLastSendErrorMessage(
-              session.id,
-              'No paused or running goal is available for continuation.',
-            );
+            _setLastSendErrorMessage(session.id, '没有可继续执行的暂停或运行中目标。');
             return false;
           }
           session = resumed.session;
@@ -6725,7 +6626,7 @@ class AiSessionController extends ChangeNotifier {
             _looksLikePlanApproval(normalizedContent)) {
           final statusMessage = AiSessionMessage.status(
             id: _idGenerator(),
-            content: 'Plan approved. Implementation may proceed.',
+            content: '计划已批准，可以开始实施。',
             createdAt: _clock().toUtc(),
             metadata: const <String, Object?>{'plan_mode_approved': true},
           );
@@ -6749,10 +6650,7 @@ class AiSessionController extends ChangeNotifier {
           );
           final approvedCommitted = await _commitSessionLocked(session);
           if (!approvedCommitted) {
-            _setLastSendErrorMessage(
-              session.id,
-              'Failed to persist the plan approval state.',
-            );
+            _setLastSendErrorMessage(session.id, '保存计划审批状态失败。');
             return false;
           }
           if (preflightStopped()) {
@@ -6790,10 +6688,7 @@ class AiSessionController extends ChangeNotifier {
                 messageId: preparedUserTurn.userMessage.id,
               );
             }
-            _setLastSendErrorMessage(
-              session.id,
-              'Failed to persist the user message.',
-            );
+            _setLastSendErrorMessage(session.id, _persistUserMessageError);
             return false;
           }
           userTurnAlreadyCommitted = true;
@@ -6903,10 +6798,7 @@ class AiSessionController extends ChangeNotifier {
               messageId: preparedUserTurnWithMetadata.userMessage.id,
             );
           }
-          _setLastSendErrorMessage(
-            session.id,
-            'Failed to persist the user message.',
-          );
+          _setLastSendErrorMessage(session.id, _persistUserMessageError);
           return false;
         }
         session = _upsertMessage(
@@ -7019,8 +6911,7 @@ class AiSessionController extends ChangeNotifier {
         if (current != null) {
           final failedToolSession = _markPendingToolCallsFailed(
             current,
-            detail:
-                'The assistant request failed before the pending tool call completed.',
+            detail: '待处理工具调用完成前，助手请求已失败。',
           );
           final updated = _appendError(
             failedToolSession,
@@ -7264,12 +7155,7 @@ class AiSessionController extends ChangeNotifier {
     );
     final adapter = AiProtocolRegistry.adapterForModel(model);
     final supportsNativeToolCalls = adapter.supportsToolCalls;
-    // Even when the protocol adapter cannot ferry tool definitions
-    // through the native function-calling channel, we still resolve the full
-    // catalog and surface it to the model via the system-prompt + DSML fallback
-    // (see `useDsmlToolCalls` below). This prevents weak models from inventing
-    // bogus envelopes (`##TOOL_CALL##`, `u_TodoWrite`, etc.) when they have no
-    // explicit guidance on how to call tools.
+    // 原生函数调用不可用时，仍通过系统提示词和 DSML 向模型提供完整工具目录。
     final bootstrapResults = await Future.wait<Object>(<Future<Object>>[
       templateBundleFuture,
       fullCatalogFuture,
@@ -7507,11 +7393,7 @@ class AiSessionController extends ChangeNotifier {
       );
       late final AiChatStreamingResponse streamResponse;
       try {
-        // Media generation (image/video/audio) intentionally bypasses
-        // `connectTimeoutSeconds` because Sora-style endpoints poll for
-        // minutes (grok-imagine-video can run 10+ min). The chat client
-        // forwards this `timeout` straight into the media-gen pipeline,
-        // and a 60s budget would expire mid-poll → TimeoutException.
+        // 媒体生成需要长时间轮询，因此使用独立总超时，不受连接超时限制。
         final streamOpenTimeoutSeconds = math.max(
           runtimeContext.connectTimeoutSeconds,
           runtimeContext.responseTimeoutSeconds,
@@ -7530,9 +7412,7 @@ class AiSessionController extends ChangeNotifier {
         streamResponse = await _chatClient.sendMessageStream(
           model: model,
           messages: promptResult.messages,
-          // Native protocol tools field is meaningless for adapters that
-          // do not support function calling — the model will receive the
-          // catalog via the system-prompt DSML section instead.
+          // 不支持函数调用时，工具目录由系统提示词中的 DSML 提供。
           tools: supportsNativeToolCalls
               ? toolsForRound
               : const <AiToolDefinition>[],
@@ -7608,11 +7488,7 @@ class AiSessionController extends ChangeNotifier {
       DateTime? reasoningStartedAt;
       AiTokenUsage? streamedUsage;
       final toolCallMessageIds = <int, String>{};
-      // Per-stream map from canonical DSML invoke ID (e.g.
-      // `dsml-tool-call-3`) to the synthetic message ID we minted for the
-      // gray "constructing" preview card. Lets follow-up text deltas update
-      // the same card instead of creating duplicates, AND lets the
-      // post-stream sync match preview ⇄ committed by ID.
+      // 记录 DSML 调用 ID 与预览消息 ID，避免流式增量创建重复卡片。
       final partialDsmlPreviewMessageIds = <String, String>{};
       final assistantRawBuffer = StringBuffer();
       final reasoningRawBuffer = StringBuffer();
@@ -8105,14 +7981,7 @@ class AiSessionController extends ChangeNotifier {
             }
             renderAssistantBuffered();
             sessionChanged = true;
-            // Progressive DSML "constructing" preview: scan the raw buffer
-            // for partial `<DSML:invoke>` blocks the model is text-streaming
-            // (i.e. no native toolCallDelta events). Each detected invoke
-            // becomes a gray-state tool-call card BEFORE stream-end
-            // extraction; `_syncToolCallMessagesFromResult` matches on
-            // `tool_call_id` so the same card transitions into running
-            // state when the executor picks it up. See
-            // [ai_dsml_partial_stream_scanner.dart].
+            // 扫描流式 DSML 片段并创建构造中卡片，流结束后按 tool_call_id 合并。
             final partialInvokes = scanPartialDsmlInvokes(
               assistantRawBuffer.toString(),
             );
@@ -8342,9 +8211,7 @@ class AiSessionController extends ChangeNotifier {
           flushPreview();
         }
       } catch (error) {
-        // Cancel the preview timer on any error path to prevent a stale timer
-        // from firing after the stream has already failed and the surrounding
-        // state has been torn down.
+        // 错误路径立即取消预览计时器，避免状态清理后继续回调。
         previewTimer?.cancel();
         previewTimer = null;
         throttleExpiryTimer?.cancel();
@@ -8408,8 +8275,7 @@ class AiSessionController extends ChangeNotifier {
         );
         final failedToolSession = _markPendingToolCallsFailed(
           streamedSession,
-          detail:
-              'The assistant stream failed before the pending tool call completed.',
+          detail: '待处理工具调用完成前，助手响应流已失败。',
         );
         final failedSession = _appendError(
           failedToolSession,
@@ -8558,13 +8424,7 @@ class AiSessionController extends ChangeNotifier {
       _activeAiThroughputSamplers.remove(workingSession.id);
       _notifySessionStreamThrottleChanged();
       materializePendingReasoningPreview();
-      // Always preserve the intermediate assistant narration if it has
-      // meaningful content after sanitization.  Previous versions removed this
-      // message when tool calls were present, which caused the AI's chain-of-
-      // thought reasoning and narration to be lost from the conversation
-      // transcript.  Users reported this as "messages being unexpectedly lost".
-      // The sanitizer already strips raw <tool_call>/<tool_result> XML markup,
-      // so what remains is the actual narration text that should be preserved.
+      // 清理工具 XML 后仍有正文时保留中间助手消息，避免工具调用伴随文本丢失。
       final effectiveReply = didCancelStream
           ? (visibleAssistantReplyWhenCancelled ?? '')
           : result.reply;
@@ -8573,9 +8433,7 @@ class AiSessionController extends ChangeNotifier {
       final shouldPersistIntermediateAssistantNarration =
           hasMeaningfulNarration || didCancelStream;
       if (shouldPersistIntermediateAssistantNarration) {
-        // Pull `<image_summary attachment_id="…">…</image_summary>` directives
-        // out of the assistant's reply, write the summaries back into the
-        // matching user-message attachments, and persist the cleaned text.
+        // 提取图片摘要并回写对应附件，再保存清理后的助手正文。
         final extraction = AiImageSummaryExtractor.extractAndStrip(
           effectiveReply,
         );
@@ -8592,8 +8450,7 @@ class AiSessionController extends ChangeNotifier {
               : extraction.strippedContent,
         );
       } else {
-        // Only remove the intermediate message if it's truly empty after
-        // sanitization (e.g., the AI only produced tool calls with no text).
+        // 仅删除清理后确实为空的中间消息。
         if (assistantMessageId != null) {
           streamedSession = _removeMessagesByIds(
             streamedSession,
@@ -8618,10 +8475,7 @@ class AiSessionController extends ChangeNotifier {
         );
       }
       flushPreview();
-      // Attach per-round telemetry (URL/method/headers/body/raw_response/
-      // timings/environment + composed prompt) to the user+assistant+reasoning
-      // messages produced this round so the audit dialog has real data to
-      // show. Gated by the telemetryDebugEnabled setting.
+      // 调试开关启用时，把本回合遥测附加到用户、助手和推理消息。
       streamedSession = _applyRoundTelemetryToMessages(
         session: streamedSession,
         result: result,
@@ -8663,8 +8517,7 @@ class AiSessionController extends ChangeNotifier {
                       runtimeContext.estimatedCharactersPerToken,
                 )
               : null);
-      // Stamp final usage onto both the assistant and triggering user message
-      // so either audit entry can show token data for this round.
+      // 同步记录助手消息和触发本回合的用户消息用量。
       if (effectiveUsage != null) {
         streamedSession = applyUsageToMessageIfPresent(
           streamedSession,
@@ -8720,10 +8573,7 @@ class AiSessionController extends ChangeNotifier {
       );
       final committed = await _commitSessionLocked(streamedSession);
       if (!committed) {
-        _setLastSendErrorMessage(
-          workingSession.id,
-          'Failed to persist the assistant reply.',
-        );
+        _setLastSendErrorMessage(workingSession.id, '保存助手回复失败。');
         return false;
       }
       workingSession = streamedSession;
@@ -8793,21 +8643,14 @@ class AiSessionController extends ChangeNotifier {
       }
 
       if (result.toolCalls.isEmpty) {
-        // ── Auto-continuation for truncated model output ──────────────────
-        // When the model hit its max output token limit (finish_reason ==
-        // "length" / "max_tokens") and produced no tool calls, it was likely
-        // cut off mid-thought.  Rather than silently stopping and forcing
-        // the user to manually type "继续", we automatically inject a
-        // continuation prompt and loop back.  A safety counter prevents
-        // infinite truncation loops.
+        // 模型输出因令牌上限截断且没有工具调用时自动续传，有界计数防止死循环。
         if (result.wasTruncated &&
             !didCancelStream &&
             !workingSession.awaitingPlanApproval) {
           truncationContinuationCount += 1;
           if (truncationContinuationCount <=
               _effectiveMaxTruncationContinuations) {
-            // Add a status message so the user can see that auto-
-            // continuation happened, then loop back to the stream.
+            // 添加可见状态消息后进入下一轮响应流。
             final statusMessage = AiSessionMessage.status(
               id: _idGenerator(),
               content:
@@ -8828,10 +8671,7 @@ class AiSessionController extends ChangeNotifier {
             );
             final truncCommitted = await _commitSessionLocked(workingSession);
             if (!truncCommitted) {
-              _setLastSendErrorMessage(
-                workingSession.id,
-                'Failed to persist the truncation continuation state.',
-              );
+              _setLastSendErrorMessage(workingSession.id, '保存截断续传状态失败。');
               return false;
             }
             toolRoundCount += 1;
@@ -8854,11 +8694,11 @@ class AiSessionController extends ChangeNotifier {
               result.finishReason!.isEmpty;
           if (treatAsError) {
             final errorDetail = result.finishReason == null
-                ? 'The model returned an empty response and the stream closed without a finish reason. '
-                      'This may indicate a network interruption, an API error, or a content filter.'
-                : 'The model returned an empty response '
+                ? '模型返回空响应，且响应流关闭时没有结束原因。'
+                      '可能由网络中断、API 错误或内容过滤导致。'
+                : '模型返回空响应'
                       '(finish_reason: ${result.finishReason}). '
-                      'This may indicate a content filter or an API-side issue.';
+                      '可能由内容过滤或 API 端异常导致。';
             await _emitStopFailureHook(
               sessionId: workingSession.id,
               stage: 'chat_stream',
@@ -8883,10 +8723,7 @@ class AiSessionController extends ChangeNotifier {
         if (!identical(settledPlanSession, workingSession)) {
           final committed = await _commitSessionLocked(settledPlanSession);
           if (!committed) {
-            _setLastSendErrorMessage(
-              workingSession.id,
-              'Failed to persist the completed plan state.',
-            );
+            _setLastSendErrorMessage(workingSession.id, '保存计划完成状态失败。');
             return false;
           }
           workingSession = settledPlanSession;
@@ -8947,15 +8784,13 @@ class AiSessionController extends ChangeNotifier {
         );
         return true;
       }
-      // Model produced tool calls — reset the truncation counter since
-      // the model is making normal progress.
+      // 模型已产生工具调用，说明流程正常推进，重置截断计数。
       truncationContinuationCount = 0;
       toolCallCount += result.toolCalls.length;
       if (toolCallCount > singleRoundToolCallLimit) {
         final limitedToolSession = _markPendingToolCallsFailed(
           workingSession,
-          detail:
-              'The tool call was stopped because the assistant exceeded the per-response tool call limit.',
+          detail: '助手超过单次响应工具调用上限，工具调用已停止。',
         );
         final warningMessage = AiSessionMessage.status(
           id: _idGenerator(),
@@ -8982,10 +8817,7 @@ class AiSessionController extends ChangeNotifier {
         );
         final committed = await _commitSessionLocked(limitedSession);
         if (!committed) {
-          _setLastSendErrorMessage(
-            workingSession.id,
-            'Failed to persist the tool-call limit warning.',
-          );
+          _setLastSendErrorMessage(workingSession.id, '保存工具调用上限警告失败。');
           return false;
         }
         await _emitStopHooks(
@@ -9005,22 +8837,17 @@ class AiSessionController extends ChangeNotifier {
         );
         final failedToolSession = _markPendingToolCallsFailed(
           workingSession,
-          detail:
-              'The tool call was stopped before execution because the assistant exceeded the configured sequential tool round safety limit of $sequentialToolRoundLimit rounds.',
+          detail: '助手超过连续工具调用安全上限（$sequentialToolRoundLimit 回合），工具调用已在执行前停止。',
         );
         final limitedSession = _appendError(
           failedToolSession,
           stage: 'tool_loop',
-          message:
-              'The assistant requested too many sequential tool rounds and was stopped for safety.',
+          message: '助手请求的连续工具调用回合过多，已安全停止。',
           detail:
               'tool_round_count=$toolRoundCount limit=$sequentialToolRoundLimit',
         );
         await _commitSessionLocked(_rebuildSession(limitedSession));
-        _setLastSendErrorMessage(
-          workingSession.id,
-          'The assistant requested too many sequential tool rounds and was stopped for safety.',
-        );
+        _setLastSendErrorMessage(workingSession.id, '助手请求的连续工具调用回合过多，已安全停止。');
         return false;
       }
 
@@ -9047,8 +8874,7 @@ class AiSessionController extends ChangeNotifier {
       }
       if (executedSession == null) {
         final executionError =
-            lastErrorMessageForSession(workingSession.id) ??
-            'Tool execution failed.';
+            lastErrorMessageForSession(workingSession.id) ?? '工具执行失败。';
         await _emitStopFailureHook(
           sessionId: workingSession.id,
           stage: 'tool_execution',
@@ -9150,7 +8976,7 @@ class AiSessionController extends ChangeNotifier {
       if (!runningCommitted) {
         _setLastSendErrorMessage(
           workingSession.id,
-          'Failed to persist the running tool-call state.',
+          _persistRunningToolCallError,
         );
         return null;
       }
@@ -9247,7 +9073,7 @@ class AiSessionController extends ChangeNotifier {
       if (!committed) {
         _setLastSendErrorMessage(
           workingSession.id,
-          'Failed to persist the tool execution result.',
+          _persistToolExecutionResultError,
         );
         return null;
       }
@@ -9317,10 +9143,7 @@ class AiSessionController extends ChangeNotifier {
     }
     final runningCommitted = await _commitSessionLocked(workingSession);
     if (!runningCommitted) {
-      _setLastSendErrorMessage(
-        workingSession.id,
-        'Failed to persist the running tool-call state.',
-      );
+      _setLastSendErrorMessage(workingSession.id, _persistRunningToolCallError);
       return null;
     }
     for (final state in runningStates) {
@@ -9434,7 +9257,7 @@ class AiSessionController extends ChangeNotifier {
     if (!committed) {
       _setLastSendErrorMessage(
         workingSession.id,
-        'Failed to persist the tool execution result.',
+        _persistToolExecutionResultError,
       );
       return null;
     }
@@ -9544,9 +9367,7 @@ class AiSessionController extends ChangeNotifier {
     return _sessionById(session.id) ?? session;
   }
 
-  /// When a `ToolSearch` invocation succeeds it stamps the
-  /// matched runtime tool names into `result.metadata['tool_search_loaded_names']`.
-  /// 记录匹配结果并通知 UI。工具仍通过固定 ToolSearch 网关执行，原生目录不变。
+  /// 吸收 `ToolSearch` 返回的运行时工具名称并通知 UI；工具仍由固定网关执行。
   List<String> _absorbToolSearchLoadedNames({
     required String sessionId,
     required AiToolExecutionResult result,
@@ -9800,12 +9621,11 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.deleteFile:
       // ToolSearch 网关可能代理有副作用的延迟工具，必须串行执行。
       case AiBuiltinToolKind.toolSearch:
-      // Interactive dialog tool must run serially so its modal UI is not
-      // interleaved with other tool invocations on the same turn.
+      // 交互弹窗工具必须串行执行，避免同一回合的弹窗相互穿插。
       case AiBuiltinToolKind.askUserChoice:
-      // Skill manager writes files on disk — must run serially.
+      // 技能管理器会写入磁盘，必须串行执行。
       case AiBuiltinToolKind.skillManager:
-      // Memory tool mutates shared MemoryController state — must run serially.
+      // 内存工具会修改共享状态，必须串行执行。
       case AiBuiltinToolKind.memory:
       case AiBuiltinToolKind.machineTerminalRead:
       case AiBuiltinToolKind.machineTerminalWrite:
@@ -11481,9 +11301,7 @@ $tail''';
       ),
     ];
     final requestModels = _autoTitleRequestModels(model);
-    Object? lastError = requestModels.isEmpty
-        ? 'No text-capable title generation model is configured.'
-        : null;
+    Object? lastError = requestModels.isEmpty ? '未配置支持文本的标题生成模型。' : null;
     for (
       var attemptIndex = 0;
       attemptIndex < requestModels.length;
@@ -11562,8 +11380,7 @@ $tail''';
         if (committed) {
           return;
         }
-        lastError =
-            _lastErrorMessage ?? 'Failed to persist the generated auto title.';
+        lastError = _lastErrorMessage ?? '保存自动生成的标题失败。';
         break;
       } catch (error) {
         lastError = error;
@@ -11596,7 +11413,7 @@ $tail''';
       return;
     }
     if (_isDisposed) return;
-    // All API attempts failed — derive a title from user content as fallback.
+    // 所有 API 请求失败后，从用户内容派生标题兜底。
     final fallbackTitle = _deriveReadableTitleFromContent(
       normalizedSourceContent,
       maxCharacters: _generatedTitleMaxCharacters,
@@ -11660,16 +11477,11 @@ $tail''';
     }());
   }
 
-  // Total attempts (preferred + retries) before falling back to a
-  // content-derived title. The user-facing contract is "retry 3 times".
+  // 从用户内容派生标题前最多请求三次。
   static const int _autoTitleMaxAttempts = 3;
 
-  /// Resolves the auto-title system prompt, loading the bundled asset on
-  /// first use and reusing the cached value thereafter. Reloads
-  /// transparently if the runtime `_generatedTitleMaxCharacters` cap
-  /// changed (settings can mutate it). Concurrent first-use callers share
-  /// a single in-flight load via [_pendingAutoTitleSystemPromptLoad] so we
-  /// never hit the bundle twice for the same value.
+  /// 加载并缓存自动标题系统提示词。标题长度上限变化时重新加载；
+  /// 并发调用共享 [_pendingAutoTitleSystemPromptLoad]。
   Future<String> _resolveAutoTitleSystemPrompt() async {
     final maxCharacters = _generatedTitleMaxCharacters;
     final cached = _cachedAutoTitleSystemPrompt;
@@ -11716,9 +11528,7 @@ $tail''';
     if (base.isEmpty) {
       return const <AiModelConfig>[];
     }
-    // Pad to _autoTitleMaxAttempts by repeating the last entry so the caller
-    // always performs at least 3 explicit network attempts before falling
-    // back to deriving the title from the user's content.
+    // 重复最后一个模型以保证最多三次显式请求。
     final result = <AiModelConfig>[...base];
     while (result.length < _autoTitleMaxAttempts) {
       result.add(result.last);
@@ -12108,7 +11918,7 @@ $tail''';
       );
       if (hydratedSession == null || hydratedSession.messages.isEmpty) {
         _lastErrorMessage = _friendlyAiSessionPersistenceError(
-          'Session messages are still loading.',
+          _sessionMessagesLoadingError,
           operation: 'save',
         );
         notifyListeners();
@@ -12424,7 +12234,7 @@ $tail''';
       return;
     }
     final content = <String>[
-      if (blockReason.isNotEmpty) 'Blocked by SessionStart hook: $blockReason',
+      if (blockReason.isNotEmpty) 'SessionStart Hook 已阻止操作：$blockReason',
       ...reminders,
     ].join('\n\n');
     final createdAt = _clock().toUtc();
@@ -12460,13 +12270,8 @@ $tail''';
     await _commitSessionLocked(updatedSession);
   }
 
-  /// Executes user-configured hooks for the given lifecycle event and
-  /// appends visible hook-result messages to the session so users can see
-  /// exactly which hooks ran, their status, and any output — just like
-  /// skill or MCP tool call cards.
-  ///
-  /// This runs independently from [_safeRunHook] which handles the
-  /// Claude-style JSON config hooks. Both systems coexist.
+  /// 执行指定生命周期事件的用户 Hook，并把执行状态和输出追加为可见消息。
+  /// 此流程与处理 Claude 风格 JSON 配置的 [_safeRunHook] 相互独立。
   Future<void> _safeRunUserHook({
     required HookEvent event,
     required String sessionId,
@@ -12476,7 +12281,7 @@ $tail''';
     if (executor == null) return;
     if (!executor.hasEnabledHooksForEvent(event)) return;
 
-    // Build rich context payload for the hook script.
+    // 为 Hook 脚本构建完整上下文。
     final session = _sessionById(sessionId);
     final enrichedPayload = _buildHookContextPayload(
       event: event,
@@ -12503,7 +12308,7 @@ $tail''';
     }
     if (result.hookResults.isEmpty) return;
 
-    // Create one visible message per hook that actually ran.
+    // 每个已执行 Hook 对应一条可见消息。
     final currentSession = _sessionById(sessionId);
     if (currentSession == null) return;
     final newMessages = <AiSessionMessage>[];
@@ -12524,8 +12329,8 @@ $tail''';
               : hookResult.stderr.isNotEmpty
               ? hookResult.stderr
               : hookResult.status == 'success'
-              ? 'Hook completed successfully.'
-              : 'Hook finished with status: ${hookResult.status}.',
+              ? 'Hook 执行成功。'
+              : 'Hook 已结束，状态：${hookResult.status}。',
           createdAt: createdAt,
           metadata: <String, Object?>{
             'tool_source': 'hook',
@@ -12553,11 +12358,7 @@ $tail''';
     await _commitSessionLocked(updatedSession);
   }
 
-  /// Assembles a comprehensive context payload for hook scripts.
-  ///
-  /// The resulting JSON is passed to hooks via the `OPENHAND_HOOK_CONTEXT`
-  /// environment variable and stdin. Scripts can parse it with `jq` or any
-  /// JSON parser.
+  /// 组装 Hook 脚本上下文，通过 `OPENHAND_HOOK_CONTEXT` 和 stdin 传入 JSON。
   Map<String, Object?> _buildHookContextPayload({
     required HookEvent event,
     required String sessionId,
@@ -12566,11 +12367,11 @@ $tail''';
   }) {
     final now = _clock().toUtc();
     final context = <String, Object?>{
-      // ── Event info ──
+      // 事件信息
       'hook_event': event.storageValue,
       'timestamp': now.toIso8601String(),
 
-      // ── Session info ──
+      // 会话信息
       'session_id': sessionId,
       'session_title': session?.title ?? '',
       'session_file_path': _store.sessionFilePath(sessionId),
@@ -12759,11 +12560,7 @@ $tail''';
     );
   }
 
-  /// Walks every user message in [session] looking for image attachments
-  /// whose ids appear in [summariesByAttachmentId]; for each match it
-  /// rewrites the attachment with the new [AiMessageAttachment.summaryText]
-  /// and returns the updated session. Non-image attachments and unmatched
-  /// ids are left alone.
+  /// 将 [summariesByAttachmentId] 中的摘要写回会话内匹配的图片附件。
   AiSession _applyImageSummariesToSession(
     AiSession session,
     Map<String, String> summariesByAttachmentId,
@@ -13628,7 +13425,7 @@ $tail''';
     if (!committed) {
       _setLastSendErrorMessage(
         session.id,
-        'Failed to persist the ${status.storageValue} tool-call state.',
+        '保存工具调用终态（${status.storageValue}）失败。',
       );
       return null;
     }
@@ -14113,9 +13910,7 @@ $tail''';
     );
   }
 
-  /// Renders the list of prompt turns (the final composed body sent to the
-  /// AI) into a human-readable, copy-friendly transcript for the audit
-  /// dialog. Each turn becomes a `# role` block followed by its content.
+  /// 将最终提示词回合渲染为便于阅读和复制的审计文本。
   String _renderComposedPromptForAudit(List<AiChatTurn> turns) {
     if (turns.isEmpty) return '';
     final buffer = StringBuffer();
@@ -14142,8 +13937,7 @@ $tail''';
     return buffer.toString();
   }
 
-  /// Serialises prompt turns into a JSON-friendly structure that is stored
-  /// on the user message's metadata for audit (stable, machine-parseable).
+  /// 将提示词回合序列化为稳定、可解析的审计元数据。
   List<Map<String, Object?>> _composedPromptTurnsForAudit(
     List<AiChatTurn> turns,
   ) {
@@ -14180,9 +13974,8 @@ $tail''';
         .toList(growable: false);
   }
 
-  /// Snapshots the live process/OS environment for audit. Gated by the
-  /// `telemetryCaptureEnvironment` setting because `Platform.environment`
-  /// can contain secrets (API tokens, CI credentials, …).
+  /// 为审计快照运行环境；仅在 `telemetryCaptureEnvironment` 开启时调用，
+  /// 并对可能包含密钥的环境变量脱敏。
   Map<String, Object?> _captureRuntimeEnvironmentSnapshot(
     AiSessionRuntimeContext runtimeContext,
   ) {
@@ -14241,9 +14034,7 @@ $tail''';
     };
   }
 
-  /// Builds the telemetry metadata map that gets merged into a message's
-  /// metadata after a round completes. Honours the three telemetry toggles
-  /// (debug / captureRaw / captureEnvironment).
+  /// 构建回合结束后合并到消息中的遥测元数据，并遵循全部遥测开关。
   Map<String, Object?> _buildRoundTelemetryMetadata({
     required AiChatStreamResult result,
     required AiSessionRuntimeContext runtimeContext,
@@ -14373,8 +14164,7 @@ $tail''';
     return payload;
   }
 
-  /// Writes telemetry metadata onto the user / assistant / reasoning messages
-  /// produced during a round without overwriting existing metadata keys.
+  /// 将遥测写入本回合的用户、助手和推理消息，不覆盖已有元数据。
   AiSession _applyRoundTelemetryToMessages({
     required AiSession session,
     required AiChatStreamResult result,
@@ -14408,10 +14198,7 @@ $tail''';
     if (targetIds.isEmpty) {
       return session;
     }
-    // Composed prompt data has already been applied by the pre-stream phase.
-    // Here we only apply
-    // response-dependent data (timing, request/response payload, etc.) to
-    // ALL target messages without duplicating the prompt fields.
+    // 提示词数据已在流开始前写入，此处只补充响应相关数据。
     final updatedMessages = <AiSessionMessage>[];
     var changed = false;
     for (final message in session.messages) {
@@ -14798,7 +14585,7 @@ $tail''';
     try {
       collectFromDecoded(jsonDecode(raw));
     } catch (_) {
-      // Streaming traces are usually newline-delimited JSON/SSE fragments.
+      // 流式记录通常是按行分隔的 JSON 或 SSE 片段。
     }
     if (maps.isNotEmpty) return maps;
 
@@ -14932,9 +14719,7 @@ $tail''';
     final lcp = _longestCommonPrefixLength(previousJson, currentJson);
     final previousLength = previousJson.length;
     final ratio = unitRatio(lcp, previousLength);
-    // When a chat request is prefix-extending, the previous JSON usually only
-    // differs at its final closing `]}` because new assistant/user turns are
-    // inserted before those delimiters. Allow a small delimiter margin.
+    // 前缀扩展请求通常只在 JSON 末尾闭合符前插入新回合，允许少量闭合符差异。
     final continuityThreshold = math.max(0, previousLength - 4);
     return <String, Object?>{
       'request_payload_json_length': currentJson.length,
@@ -15128,10 +14913,7 @@ $tail''';
     return true;
   }
 
-  /// Phase-1 (pre-stream) telemetry: attaches the composed prompt, prompt
-  /// metadata and environment snapshot to the user message immediately so that
-  /// the audit dialog already has meaningful data while the AI is still
-  /// streaming its response.
+  /// 流开始前将提示词、元数据和环境快照写入用户消息，供审计界面即时展示。
   AiSession _applyPreStreamTelemetryToMessage({
     required AiSession session,
     required AiModelConfig model,
@@ -15188,7 +14970,7 @@ $tail''';
       if (preRequestTimingsMs['assistant_pre_request_elapsed'] != null)
         'pre_request_elapsed_ms':
             preRequestTimingsMs['assistant_pre_request_elapsed'],
-      // Mark a timestamp so the audit dialog knows data was captured.
+      // 标记遥测采集时间。
       'telemetry_captured_at': _clock().toUtc().toIso8601String(),
     };
     if (runtimeContext.telemetryCaptureEnvironment) {
