@@ -208,6 +208,8 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   static const Duration _operationQueueTimeout = Duration(seconds: 30);
   static const int _maxStdoutMessagesPerDrain = 256;
   static const int _maxStdioStdoutBufferBytes = 4 * kBytesPerMiB;
+  static const int _maxStdioHeaderBytes = 16 * kBytesPerKiB;
+  static const int _maxStdioContentLengthDigits = 7;
   static const int _maxRedirects = 4;
   static const int _maxToolPages = 8;
   static const String _streamableHttpProtocolVersion = '2025-11-25';
@@ -247,7 +249,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             server,
             cancelSignal: operationCancelSignal,
           ),
-          McpServerType.stdio => _discoverOverStdio(server),
+          McpServerType.stdio => _discoverOverStdio(
+            server,
+            cancelSignal: operationCancelSignal,
+          ),
         }.timeout(scanTimeout);
         return McpToolCatalog(
           status: McpToolCatalogStatus.ready,
@@ -307,7 +312,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             server,
             cancelSignal: operationCancelSignal,
           ),
-          McpServerType.stdio => _checkStdioHealth(server),
+          McpServerType.stdio => _checkStdioHealth(
+            server,
+            cancelSignal: operationCancelSignal,
+          ),
         }.timeout(healthTimeout);
         return McpServerHealth(
           status: McpServerHealthStatus.healthy,
@@ -467,7 +475,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     );
   }
 
-  Future<_DiscoveredTools> _discoverOverStdio(McpServer server) async {
+  Future<_DiscoveredTools> _discoverOverStdio(
+    McpServer server, {
+    Future<void>? cancelSignal,
+  }) async {
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw kMcpStdioRequestCancelledException;
+    }
     // 通过 process manager 的长驻进程发送 tools/list。
     // Playwright 等 stdio MCP 服务在 macOS GUI 应用环境中，discovery service
     // 启动的短命进程会在 tools/list 阶段异常退出（原因未明，可能与 GUI 应用
@@ -480,7 +494,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     final managedSession = await McpStdioProcessManager.instance
-        .borrowSessionForDiscovery(server.name);
+        .borrowSessionForDiscovery(server.name, cancelSignal: cancelSignal);
     if (managedSession != null) {
       try {
         return await _listTools(
@@ -492,6 +506,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
                   ? null
                   : <String, Object?>{'cursor': cursor},
             ),
+            cancelSignal: cancelSignal,
           ),
           serverInstructions: managedSession.instructions,
         );
@@ -500,8 +515,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       }
     }
 
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw kMcpStdioRequestCancelledException;
+    }
     // 兜底：borrowSession 失败（进程启动失败/握手超时），回退到独立进程。
-    final session = await _initializeStdioSession(server);
+    final session = await _initializeStdioSession(
+      server,
+      cancelSignal: cancelSignal,
+    );
     try {
       return await _listTools(
         (cursor) => session.sendRequest(
@@ -510,6 +531,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             method: 'tools/list',
             params: cursor == null ? null : <String, Object?>{'cursor': cursor},
           ),
+          cancelSignal: cancelSignal,
         ),
         serverInstructions: session.instructions,
       );
@@ -630,7 +652,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       guard.throwIfExpired();
     }
     final managedSession = await McpStdioProcessManager.instance
-        .borrowSessionForDiscovery(server.name);
+        .borrowSessionForDiscovery(
+          server.name,
+          cancelSignal: guard.cancelSignal,
+        );
     if (managedSession != null) {
       final requestId = _nextId();
       if (toolCallId != null && toolCallId.isNotEmpty) {
@@ -656,6 +681,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
               },
             ),
             timeout: guard.remaining,
+            cancelSignal: guard.cancelSignal,
           ),
         );
       } finally {
@@ -664,7 +690,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     // 兜底：启动独立进程
-    final session = await _initializeStdioSession(server);
+    guard.throwIfExpired();
+    final session = await _initializeStdioSession(
+      server,
+      cancelSignal: guard.cancelSignal,
+    );
     final registeredToolCallId = toolCallId;
     if (registeredToolCallId != null && registeredToolCallId.isNotEmpty) {
       AiToolExecutionRegistry.instance.attachPid(
@@ -686,6 +716,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
             params: <String, Object?>{'name': toolName, 'arguments': arguments},
           ),
           timeout: guard.remaining,
+          cancelSignal: guard.cancelSignal,
         ),
       );
     } finally {
@@ -731,7 +762,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     );
   }
 
-  Future<void> _checkStdioHealth(McpServer server) async {
+  Future<void> _checkStdioHealth(
+    McpServer server, {
+    Future<void>? cancelSignal,
+  }) async {
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw kMcpStdioRequestCancelledException;
+    }
     // 快速路径：如果进程管理器中已有该服务的运行中进程，直接视为健康。
     // 避免每次健康检查都重新启动一个完整的 MCP 进程（冷启动可能需要数分钟）。
     final processInfo = McpStdioProcessManager.instance.infoFor(server.name);
@@ -746,8 +783,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           timeout: const Duration(seconds: 2),
           tag: 'mcp_tool_discovery.kill0',
         );
-        if (checkResult.exitCode == 0) return; // 进程存活，健康
+        if (checkResult.exitCode == 0) {
+          if (await isCancelSignalCompleted(cancelSignal)) {
+            throw kMcpStdioRequestCancelledException;
+          }
+          return;
+        }
       } catch (error, stack) {
+        if (isExpectedMcpToolDiscoveryLifecycleError(error)) rethrow;
         silentLog(
           'mcp_tool_discovery_service',
           '检查运行中进程 ${processInfo.pid}',
@@ -758,7 +801,10 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
 
     // 常规路径：启动新进程进行完整 MCP 握手验证
-    final session = await _initializeStdioSession(server);
+    final session = await _initializeStdioSession(
+      server,
+      cancelSignal: cancelSignal,
+    );
     await session.close();
   }
 
@@ -893,8 +939,17 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     }
   }
 
-  Future<_StdioSession> _initializeStdioSession(McpServer server) async {
+  Future<_StdioSession> _initializeStdioSession(
+    McpServer server, {
+    Future<void>? cancelSignal,
+  }) async {
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw kMcpStdioRequestCancelledException;
+    }
     final resolved = await resolveMcpStdioLaunch(server);
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw kMcpStdioRequestCancelledException;
+    }
     final session = _StdioSession(
       process: await startTrackedProcessBounded(
         resolved.executable,
@@ -920,6 +975,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       },
     );
     try {
+      if (await isCancelSignalCompleted(cancelSignal)) {
+        throw kMcpStdioRequestCancelledException;
+      }
       final initializeResult = _extractResult(
         await session.sendRequest(
           _jsonRpcInitializeRequest(
@@ -928,11 +986,13 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           ),
           // 冷启动可能需要 npx/uvx 拉包或下载浏览器，初始化使用独立时限。
           timeout: _stdioInitializeTimeout,
+          cancelSignal: cancelSignal,
         ),
       );
       session.instructions = _readText(initializeResult['instructions']);
       await session.sendNotification(
         _jsonRpcNotification('notifications/initialized'),
+        cancelSignal: cancelSignal,
       );
       // initialize 已成功，bootstrap 阶段结束，清掉进度行避免 UI 残留。
       mcpStdioBootstrapStatus.clear(server.name);
@@ -2359,8 +2419,12 @@ class _StdioSession {
   Future<Map<String, Object?>?> sendRequest(
     Map<String, Object?> payload, {
     Duration? timeout,
+    Future<void>? cancelSignal,
   }) async {
     final requestIdText = '${payload['id']}';
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw kMcpStdioRequestCancelledException;
+    }
     if (_pendingResponses.containsKey(requestIdText)) {
       throw McpToolDiscoveryException('MCP stdio 请求编号重复：$requestIdText。');
     }
@@ -2382,6 +2446,21 @@ class _StdioSession {
       }
       rethrow;
     }
+    var settled = false;
+    final signal = cancelSignal;
+    if (signal != null) {
+      void cancelPendingRequest() {
+        if (settled || completer.isCompleted) return;
+        completer.completeError(kMcpStdioRequestCancelledException);
+      }
+
+      unawaited(
+        signal.then<void>(
+          (_) => cancelPendingRequest(),
+          onError: (Object _, StackTrace _) => cancelPendingRequest(),
+        ),
+      );
+    }
     try {
       return await completer.future.timeout(timeout ?? _requestTimeout);
     } on TimeoutException catch (error, stack) {
@@ -2390,11 +2469,18 @@ class _StdioSession {
       }
       rethrow;
     } finally {
+      settled = true;
       _pendingResponses.remove(requestIdText);
     }
   }
 
-  Future<void> sendNotification(Map<String, Object?> payload) async {
+  Future<void> sendNotification(
+    Map<String, Object?> payload, {
+    Future<void>? cancelSignal,
+  }) async {
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw kMcpStdioRequestCancelledException;
+    }
     await _write(payload);
   }
 
@@ -2502,6 +2588,11 @@ class _StdioSession {
   String? _tryTakeFramedMessage() {
     final headerEnd = _findHeaderEnd(_stdoutBuffer);
     if (headerEnd == -1) {
+      if (_stdoutBuffer.length >
+              DefaultMcpToolDiscoveryService._maxStdioHeaderBytes &&
+          _looksLikeFramedMessagePrefix()) {
+        throw const McpToolDiscoveryException('工具扫描失败：stdio MCP 消息头超过安全上限。');
+      }
       return null;
     }
     final separatorLength = _headerSeparatorLength(_stdoutBuffer, headerEnd);
@@ -2509,10 +2600,20 @@ class _StdioSession {
       _stdoutBuffer.sublist(0, headerEnd),
       allowInvalid: true,
     );
-    final contentLength = _parseContentLength(headerText);
-    if (contentLength == null) {
+    final parsedContentLength = _parseContentLength(headerText);
+    if (!parsedContentLength.found) {
       _stdoutBuffer.removeRange(0, headerEnd + separatorLength);
       return '';
+    }
+    final contentLength = parsedContentLength.value;
+    if (headerEnd > DefaultMcpToolDiscoveryService._maxStdioHeaderBytes ||
+        contentLength == null ||
+        contentLength <= 0 ||
+        contentLength >
+            DefaultMcpToolDiscoveryService._maxStdioStdoutBufferBytes) {
+      throw const McpToolDiscoveryException(
+        '工具扫描失败：stdio MCP Content-Length 消息头无效。',
+      );
     }
     final bodyStart = headerEnd + separatorLength;
     final bodyEnd = bodyStart + contentLength;
@@ -2632,8 +2733,10 @@ class _StdioSession {
             prefix.startsWith('content-length'));
   }
 
-  int? _parseContentLength(String headers) {
+  ({bool found, int? value}) _parseContentLength(String headers) {
     final normalized = headers.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+    int? contentLength;
+    var found = false;
     for (final line in normalized.split('\n')) {
       final separatorIndex = line.indexOf(':');
       if (separatorIndex == -1) {
@@ -2643,9 +2746,18 @@ class _StdioSession {
       if (name != 'content-length') {
         continue;
       }
-      return optionalIntFromValue(line.substring(separatorIndex + 1));
+      if (found) return (found: true, value: null);
+      found = true;
+      final value = line.substring(separatorIndex + 1).trim();
+      if (value.isEmpty ||
+          value.length >
+              DefaultMcpToolDiscoveryService._maxStdioContentLengthDigits ||
+          value.codeUnits.any((unit) => unit < 48 || unit > 57)) {
+        return (found: true, value: null);
+      }
+      contentLength = int.tryParse(value);
     }
-    return null;
+    return (found: found, value: contentLength);
   }
 
   int _findHeaderEnd(List<int> buffer) {

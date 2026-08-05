@@ -674,9 +674,22 @@ class McpStdioProcessManager extends ChangeNotifier {
   static const Duration _handshakeWaitTimeout = Duration(minutes: 2);
 
   Future<ManagedStdioSession?> borrowSessionForDiscovery(
-    String serverName,
-  ) async {
-    if (_isDisposed || _isShuttingDown) return null;
+    String serverName, {
+    Future<void>? cancelSignal,
+  }) async {
+    var cancellationRequested = await isCancelSignalCompleted(cancelSignal);
+    if (_isDisposed || _isShuttingDown || cancellationRequested) {
+      return null;
+    }
+    final signal = cancelSignal;
+    if (signal != null) {
+      unawaited(
+        signal.then<void>(
+          (_) => cancellationRequested = true,
+          onError: (Object _, StackTrace _) => cancellationRequested = true,
+        ),
+      );
+    }
     _ManagedProcess? managed = _processes[serverName];
     // 完全不存在条目时，调用方应先触发 startServer。
     if (managed == null) {
@@ -700,7 +713,8 @@ class McpStdioProcessManager extends ChangeNotifier {
           _handshakePollInterval,
           () {
             final current = _processes[serverName];
-            return !_isDisposed &&
+            return !cancellationRequested &&
+                !_isDisposed &&
                 !_isShuttingDown &&
                 !deadline.isExpired &&
                 current != null &&
@@ -722,7 +736,11 @@ class McpStdioProcessManager extends ChangeNotifier {
       deadline.stop();
     }
 
-    if (managed.info.state != StdioProcessState.running ||
+    if (_isDisposed ||
+        _isShuttingDown ||
+        cancellationRequested ||
+        await isCancelSignalCompleted(cancelSignal) ||
+        managed.info.state != StdioProcessState.running ||
         managed.responseRouter == null ||
         managed.responseRouter!.isClosed) {
       return null;
@@ -1236,13 +1254,14 @@ class ManagedStdioSession {
   Future<Map<String, Object?>?> sendRequest(
     Map<String, Object?> payload, {
     Duration? timeout,
+    Future<void>? cancelSignal,
   }) async {
     final requestIdText = '${payload['id']}';
+    if (await isCancelSignalCompleted(cancelSignal)) {
+      throw kMcpStdioRequestCancelledException;
+    }
     if (_cancelledRequestIds.remove(requestIdText)) {
-      throw const McpToolDiscoveryException(
-        'MCP stdio 请求已取消。',
-        isExpectedLifecycleCancellation: true,
-      );
+      throw kMcpStdioRequestCancelledException;
     }
     final completer = Completer<Map<String, Object?>?>();
     observeMcpPendingFuture(completer.future);
@@ -1254,6 +1273,7 @@ class ManagedStdioSession {
       }
       rethrow;
     }
+    var settled = false;
     try {
       await _responseRouter.writeMessage(_process.stdin, payload);
     } on StateError catch (e, stack) {
@@ -1269,15 +1289,44 @@ class ManagedStdioSession {
       }
       rethrow;
     }
+    Future<void> cancelPendingRequest() async {
+      if (settled) return;
+      try {
+        await _responseRouter.cancelRequest(
+          _process.stdin,
+          requestId: payload['id'],
+          requestIdText: requestIdText,
+        );
+      } catch (error, stack) {
+        silentLog(
+          'mcp_stdio_process_manager',
+          '取消托管 MCP stdio 请求',
+          error,
+          stack,
+        );
+      }
+    }
+
+    final signal = cancelSignal;
+    if (signal != null) {
+      unawaited(
+        signal.then<void>(
+          (_) => cancelPendingRequest(),
+          onError: (Object _, StackTrace _) => cancelPendingRequest(),
+        ),
+      );
+    }
     try {
       return await completer.future.timeout(timeout ?? _requestTimeout);
     } on TimeoutException catch (_, stack) {
       const error = McpToolDiscoveryException('等待托管 MCP stdio 进程响应超时。');
+      unawaited(cancelPendingRequest());
       if (!completer.isCompleted) {
         completer.completeError(error, stack);
       }
       throw error;
     } finally {
+      settled = true;
       _cancelledRequestIds.remove(requestIdText);
       _responseRouter.unregister(requestIdText);
     }
@@ -1342,12 +1391,7 @@ class _ManagedResponseRouter {
     if (completer == null) return;
     if (_pending.isEmpty) _lineBuffer.clear();
     if (!completer.isCompleted) {
-      completer.completeError(
-        const McpToolDiscoveryException(
-          'MCP stdio 请求已取消。',
-          isExpectedLifecycleCancellation: true,
-        ),
-      );
+      completer.completeError(kMcpStdioRequestCancelledException);
     }
     await writeMessage(stdin, <String, Object?>{
       'jsonrpc': '2.0',
