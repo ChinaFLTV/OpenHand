@@ -241,6 +241,22 @@ class AiReasoningEffortOption {
     ),
   ];
 
+  static List<AiReasoningEffortOption> standardValues(Iterable<String> values) {
+    final supported = values.toSet();
+    const options = <AiReasoningEffortOption>[
+      _none,
+      _minimal,
+      _low,
+      _medium,
+      _high,
+      _xHigh,
+      _max,
+    ];
+    return List<AiReasoningEffortOption>.unmodifiable(
+      options.where((option) => supported.contains(option.value)),
+    );
+  }
+
   final String value;
   final String label;
   final bool enabled;
@@ -1897,7 +1913,12 @@ class AiModelConfig {
     }
     if (normalizedModelId.contains('grok-4-5') ||
         normalizedModelId.contains('grok-build-latest')) {
-      return AiReasoningEffortOption.lowMediumHigh;
+      return AiReasoningEffortOption.standardValues(const <String>[
+        'low',
+        'medium',
+        'high',
+        'xhigh',
+      ]);
     }
     if (protocolType == AiProtocolType.grok ||
         normalizedModelId.startsWith('grok')) {
@@ -1970,7 +1991,8 @@ class AiModelConfig {
   }
 
   static bool _looksLikeClaudeOutputEffortModel(String normalizedModelId) {
-    return normalizedModelId.contains('sonnet-5') ||
+    return normalizedModelId.contains('opus-5') ||
+        normalizedModelId.contains('sonnet-5') ||
         normalizedModelId.contains('fable-5') ||
         normalizedModelId.contains('mythos-5') ||
         normalizedModelId.contains('mythos-preview') ||
@@ -1987,7 +2009,8 @@ class AiModelConfig {
   }
 
   static bool _looksLikeClaudeXHighEffortModel(String normalizedModelId) {
-    return normalizedModelId.contains('sonnet-5') ||
+    return normalizedModelId.contains('opus-5') ||
+        normalizedModelId.contains('sonnet-5') ||
         normalizedModelId.contains('fable-5') ||
         normalizedModelId.contains('mythos-5') ||
         normalizedModelId.contains('mythos-preview') ||

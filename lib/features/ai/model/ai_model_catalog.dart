@@ -2,6 +2,7 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
 import 'ai_model_config.dart';
 import 'openrouter_exact_model_catalog.dart';
+import 'openrouter_latest_model_catalog.dart';
 
 /// 主流 AI 模型规格目录。按协议匹配模型 ID，具体规则必须位于通用规则之前。
 class AiModelCatalog {
@@ -403,7 +404,10 @@ class AiModelCatalog {
   ];
 
   static final Map<String, AiModelProfile> _exactModelProfiles =
-      openRouterExactModelProfiles;
+      <String, AiModelProfile>{
+        ...openRouterExactModelProfiles,
+        ...openRouterLatestModelProfiles,
+      };
 
   /// 模型目录条目的简写构造器。
   static AiModelProfile _p({
@@ -962,8 +966,9 @@ class AiModelCatalog {
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
         reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
-        inputUsdPer1M: 1.00,
-        outputUsdPer1M: 6.00,
+        inputUsdPer1M: 0.20,
+        outputUsdPer1M: 1.20,
+        cacheReadUsdPer1M: 0.02,
       );
     }
     if (id.startsWith('gpt-5.6-terra')) {
@@ -979,8 +984,9 @@ class AiModelCatalog {
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'medium',
         reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
-        inputUsdPer1M: 2.50,
-        outputUsdPer1M: 15.00,
+        inputUsdPer1M: 2.00,
+        outputUsdPer1M: 12.00,
+        cacheReadUsdPer1M: 0.20,
       );
     }
     if (id.startsWith('gpt-5.6-sol') || id.startsWith('gpt-5.6')) {
@@ -998,6 +1004,7 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.openAiGpt56,
         inputUsdPer1M: 5.00,
         outputUsdPer1M: 30.00,
+        cacheReadUsdPer1M: 0.50,
       );
     }
 
@@ -1184,6 +1191,24 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
         inputUsdPer1M: 10.00,
         outputUsdPer1M: 50.00,
+      );
+    }
+    if (id.contains('opus-5')) {
+      return _p(
+        name: 'Claude Opus 5',
+        desc: '面向复杂编程、企业任务与长时程智能体工作的 Claude 旗舰模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
+        inputUsdPer1M: 5.00,
+        outputUsdPer1M: 25.00,
       );
     }
     if (id.contains('mythos-5')) {
@@ -1677,6 +1702,26 @@ class AiModelCatalog {
 
   static AiModelProfile? _deepseek(String id) {
     // ── V4 系列 ──────────────────────────────────────────────────────────
+    if (id.startsWith('deepseek-v4-flash-0731')) {
+      return _p(
+        name: 'DeepSeek V4 Flash 0731',
+        desc: '面向编程、推理与智能体任务的 DeepSeek V4 Flash 正式版。',
+        supportsAttachments: false,
+        requiresReasoningEcho: false,
+        context: 1048576,
+        output: 65536,
+        thinking: 65536,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
+          const <String>['low', 'high', 'max'],
+        ),
+        inputUsdPer1M: 0.09,
+        outputUsdPer1M: 0.18,
+        cacheReadUsdPer1M: 0.018,
+      );
+    }
     if (id.startsWith('deepseek-v4-flash')) {
       return _p(
         name: 'DeepSeek V4 Flash',
@@ -2127,6 +2172,58 @@ class AiModelCatalog {
       );
     }
 
+    // ── Qwen3.7 / 3.8 ──────────────────────────────────────────────────
+    if (id.startsWith('qwen3.8-max')) {
+      return _p(
+        name: 'Qwen3.8-Max',
+        desc: '通义千问新一代旗舰多模态推理模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        context: 1000000,
+        output: 131072,
+        thinking: 131072,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'xhigh',
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
+          const <String>['minimal', 'low', 'medium', 'high', 'xhigh'],
+        ),
+      );
+    }
+    if (id.startsWith('qwen3.7-plus')) {
+      return _p(
+        name: 'Qwen3.7-Plus',
+        desc: '通义千问高性价比多模态推理模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 131072,
+        thinking: 131072,
+      );
+    }
+    if (id.startsWith('qwen3.7-flash')) {
+      return _p(
+        name: 'Qwen3.7-Flash',
+        desc: '面向视觉智能体与低延迟任务的通义千问多模态模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        context: 1000000,
+        output: 65536,
+        thinking: 65536,
+      );
+    }
+    if (id.startsWith('qwen3.7-max')) {
+      return _p(
+        name: 'Qwen3.7-Max',
+        desc: '面向智能体、编程与知识工作的通义千问旗舰模型。',
+        context: 1000000,
+        output: 65536,
+        thinking: 65536,
+      );
+    }
+
     // ── Max（旗舰文本）──────────────────────────────────────────────────
     if (id.startsWith('qwen3-max')) {
       return _p(
@@ -2410,6 +2507,19 @@ class AiModelCatalog {
     }
 
     // ── 文本模型（新版本优先）──────────────────────────────────────────
+    if (id.startsWith('glm-5.2') || id.startsWith('glm-5-2')) {
+      return _p(
+        name: 'GLM-5.2',
+        desc: '面向项目级软件工程与长时程智能体任务的智谱旗舰模型。',
+        supportsAttachments: false,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
+      );
+    }
     if (id.startsWith('glm-5.1') || id.startsWith('glm-5-1')) {
       return _p(
         name: 'GLM-5.1',
@@ -2517,6 +2627,63 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _kimi(String id) {
+    if (id.contains('kimi-k3') || id == 'k3') {
+      return _p(
+        name: 'Kimi K3',
+        desc: '支持视觉、长程编程与知识工作的 Kimi 旗舰推理模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1048576,
+        output: 131072,
+        thinking: 131072,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'max',
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
+          const <String>['low', 'high', 'max'],
+        ),
+        supportedParameters: const <String>[
+          'reasoning_effort',
+          'stream',
+          'max_tokens',
+          'response_format',
+          'tool_choice',
+          'tools',
+        ],
+        defaultParameters: const <String, Object?>{
+          'temperature': 1.0,
+          'top_p': 0.95,
+        },
+      );
+    }
+    if (id.contains('kimi-k2.7-code') || id.contains('kimi-k2-7-code')) {
+      return _p(
+        name: id.contains('highspeed')
+            ? 'Kimi K2.7 Code HighSpeed'
+            : 'Kimi K2.7 Code',
+        desc: '面向长上下文代码任务的 Kimi 多模态编程模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        context: 262144,
+        output: 262144,
+        thinking: 262144,
+        thinkingEnabled: true,
+        supportedParameters: const <String>[
+          'thinking',
+          'stream',
+          'max_tokens',
+          'response_format',
+          'tool_choice',
+          'tools',
+        ],
+        defaultParameters: const <String, Object?>{
+          'temperature': 1.0,
+          'top_p': 0.95,
+        },
+      );
+    }
     if (id.contains('kimi-k2.6') || id.contains('kimi-k2-6')) {
       return _p(
         name: 'Kimi K2.6',
@@ -4031,7 +4198,9 @@ class AiModelCatalog {
         requiresReasoningEcho: true,
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
-        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
+          const <String>['low', 'medium', 'high', 'xhigh'],
+        ),
         inputUsdPer1M: 2.00,
         outputUsdPer1M: 6.00,
         cacheReadUsdPer1M: 0.50,
@@ -4393,27 +4562,44 @@ class AiModelCatalog {
         ],
       );
     }
-    if (id.contains('video') ||
+    if (id == 'minimax-h3' ||
+        id.contains('video') ||
         id.contains('hailuo') ||
         id.startsWith('t2v-') ||
         id.startsWith('i2v-') ||
         id.startsWith('s2v-')) {
       return _p(
-        name: 'MiniMax Video',
-        desc: 'Video generation model',
+        name: id == 'minimax-h3' ? 'MiniMax H3' : 'MiniMax Video',
+        desc: id == 'minimax-h3'
+            ? '支持文本、图片、视频与音频参考输入的 2K 视频生成模型。'
+            : 'Video generation model',
+        multimodal: id == 'minimax-h3',
+        supportsAttachments: id == 'minimax-h3',
+        modalities: id == 'minimax-h3'
+            ? _allModalities
+            : const <AiModelModality>{AiModelModality.text},
         capabilities: _videoGen,
-        supportedParameters: const <String>[
-          'prompt',
-          'first_frame_image',
-          'last_frame_image',
-          'subject_reference',
-          'prompt_optimizer',
-          'fast_pretreatment',
-          'duration',
-          'resolution',
-          'callback_url',
-          'aigc_watermark',
-        ],
+        supportedParameters: id == 'minimax-h3'
+            ? const <String>[
+                'content',
+                'resolution',
+                'duration',
+                'ratio',
+                'callback_url',
+                'aigc_watermark',
+              ]
+            : const <String>[
+                'prompt',
+                'first_frame_image',
+                'last_frame_image',
+                'subject_reference',
+                'prompt_optimizer',
+                'fast_pretreatment',
+                'duration',
+                'resolution',
+                'callback_url',
+                'aigc_watermark',
+              ],
       );
     }
     if (id.contains('music')) {
