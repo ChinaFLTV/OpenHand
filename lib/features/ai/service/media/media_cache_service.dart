@@ -15,6 +15,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_delete.dart';
@@ -489,6 +490,10 @@ class MediaCacheService {
   }) async {
     final normalizedUrl = uri.toString();
     final cacheKind = kind ?? _kindFromUrl(normalizedUrl);
+    final deadline = MonotonicDeadline(
+      _deadlineForKind(cacheKind),
+      timeoutMessage: '媒体缓存下载超过总时限。',
+    );
     File? tempFile;
     HttpClient? client;
     try {
@@ -498,8 +503,12 @@ class MediaCacheService {
       tempFile = _uniqueTempFile(destPath, generation);
       client = _createHttpClient(_requestOpenTimeout);
       _activeClients.add(client);
-      final request = await client.getUrl(uri).timeout(_requestOpenTimeout);
-      final response = await request.close().timeout(_responseHeaderTimeout);
+      final request = await client
+          .getUrl(uri)
+          .timeout(deadline.limit(_requestOpenTimeout));
+      final response = await request.close().timeout(
+        deadline.limit(_responseHeaderTimeout),
+      );
       if (isHttpFailureStatus(response.statusCode)) {
         return null;
       }
@@ -513,11 +522,18 @@ class MediaCacheService {
         return null;
       }
 
+      final remainingBodyTime = deadline.remaining();
+      final boundedResponse = limitByteStream(
+        response,
+        maxBytes: maxBytes,
+        idleTimeout: deadline.limit(_responseChunkTimeout),
+        totalTimeout: remainingBodyTime,
+      );
       final written = await _writeMediaStream(
-        response.timeout(_responseChunkTimeout),
+        boundedResponse,
         tempFile: tempFile,
         maxBytes: maxBytes,
-        totalTimeout: _deadlineForKind(cacheKind),
+        totalTimeout: deadline.remaining(),
         generation: generation,
       );
       if (written <= 0) {
@@ -551,6 +567,7 @@ class MediaCacheService {
       }
       return null;
     } finally {
+      deadline.stop();
       if (client != null) _activeClients.remove(client);
       try {
         client?.close(force: true);

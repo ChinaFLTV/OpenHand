@@ -40,6 +40,7 @@ const String kCdpPageAddScriptToEvaluateOnNewDocument =
 
 /// 初始化脚本注入的等待上限：脚本本身很短，超时多半意味着页面已卡死。
 const Duration _kInitScriptInstallTimeout = Duration(seconds: 5);
+const Duration _kAliveProbeTimeout = Duration(seconds: 1);
 
 /// 单个 Web 逆向会话的运行时编排：浏览器进程、CDP 通道、
 /// dashboard 实时数据缓冲。
@@ -3392,16 +3393,20 @@ class WebReverseSessionController extends ChangeNotifier {
         if (port == null) return;
         final cdp = _browserCdp;
         if (cdp == null || cdp.isClosed) return;
+        final deadline = MonotonicDeadline(
+          _kAliveProbeTimeout,
+          timeoutMessage: '浏览器存活探测超时。',
+        );
         try {
           await withWebReverseCdpHttpClient<void>(
-            connectionTimeout: const Duration(seconds: 1),
-            idleTimeout: const Duration(seconds: 1),
+            connectionTimeout: _kAliveProbeTimeout,
+            idleTimeout: _kAliveProbeTimeout,
             action: (client) async {
               final req = await client
                   .getUrl(webReverseCdpHttpUri(port, '/json/version'))
-                  .timeout(const Duration(seconds: 1));
-              final res = await req.close().timeout(const Duration(seconds: 1));
-              await res.drain<void>().timeout(const Duration(seconds: 1));
+                  .timeout(deadline.remaining());
+              final res = await req.close().timeout(deadline.remaining());
+              await res.drain<void>().timeout(deadline.remaining());
             },
           );
           if (!identical(_aliveWatchdog, timer) ||
@@ -3440,6 +3445,8 @@ class WebReverseSessionController extends ChangeNotifier {
           _resetScreencastRuntimeState(resetRefCount: false);
           _errorMessage = '浏览器已断开（进程异常退出），可点击「重启浏览器」恢复。';
           _safeNotify();
+        } finally {
+          deadline.stop();
         }
       },
       onError: (error, stack) => silentLog(

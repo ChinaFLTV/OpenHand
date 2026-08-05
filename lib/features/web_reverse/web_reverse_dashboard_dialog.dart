@@ -1838,6 +1838,10 @@ Future<void> _openOfficialDevToolsForController(
   final port = ctrl.cdpPort;
   if (port == null) return;
   String? frontendUrl;
+  final deadline = MonotonicDeadline(
+    _kDevToolsDiscoveryTimeout,
+    timeoutMessage: '读取 DevTools 目标列表超时。',
+  );
   try {
     frontendUrl = await withWebReverseCdpHttpClient<String?>(
       connectionTimeout: _kDevToolsDiscoveryTimeout,
@@ -1845,13 +1849,14 @@ Future<void> _openOfficialDevToolsForController(
       action: (client) async {
         final req = await client
             .getUrl(webReverseCdpHttpUri(port, '/json/list'))
-            .timeout(_kDevToolsDiscoveryTimeout);
-        final res = await req.close().timeout(_kDevToolsDiscoveryTimeout);
+            .timeout(deadline.remaining());
+        final res = await req.close().timeout(deadline.remaining());
+        final remainingReadTime = deadline.remaining();
         final body = await readBoundedHttpResponseText(
           res,
           maxBytes: _kDevToolsDiscoveryMaxResponseBytes,
-          idleTimeout: _kDevToolsDiscoveryTimeout,
-          totalTimeout: _kDevToolsDiscoveryTimeout,
+          idleTimeout: remainingReadTime,
+          totalTimeout: remainingReadTime,
         );
         final list = jsonDecode(body);
         if (list is List) {
@@ -1877,6 +1882,8 @@ Future<void> _openOfficialDevToolsForController(
     );
   } catch (error, stack) {
     silentLog('web_reverse_dashboard_dialog', '读取 DevTools 目标列表', error, stack);
+  } finally {
+    deadline.stop();
   }
   final url =
       frontendUrl ?? webReverseCdpHttpUri(port, '/json/list').toString();

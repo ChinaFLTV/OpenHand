@@ -142,6 +142,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     final resolver = SystemProxyResolver.instance;
 
     HttpClient? httpClient;
+    MonotonicDeadline? httpDeadline;
     var ok = false;
     String summary;
     try {
@@ -469,11 +470,17 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       _log(_ProxyTestLogLevel.info, 'HTTP', '> Accept: */*');
 
       final httpStart = _totalStopwatch.elapsedMilliseconds;
-      final request = await httpClient.getUrl(uri).timeout(_httpRequestTimeout);
+      httpDeadline = MonotonicDeadline(
+        _httpRequestTimeout,
+        timeoutMessage: 'HTTP 探测超过总时限。',
+      );
+      final request = await httpClient
+          .getUrl(uri)
+          .timeout(httpDeadline.remaining());
       if (!mounted || generation != _diagnosticGeneration) return;
       request.headers.set('User-Agent', 'OpenHand-ProxyDiag/1.0');
       request.headers.set('Accept', '*/*');
-      final response = await request.close().timeout(_httpRequestTimeout);
+      final response = await request.close().timeout(httpDeadline.remaining());
       if (!mounted || generation != _diagnosticGeneration) return;
       final ttfb = _totalStopwatch.elapsedMilliseconds - httpStart;
       _log(
@@ -486,11 +493,12 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           _log(_ProxyTestLogLevel.debug, 'HTTP', '< $name: $v');
         }
       });
+      final remainingHttpBudget = httpDeadline.remaining();
       final bodyResult = await readBoundedByteStreamPrefix(
         response,
         maxBytes: _maxHttpBodyProbeBytes,
-        idleTimeout: _httpRequestTimeout,
-        totalTimeout: _httpRequestTimeout,
+        idleTimeout: remainingHttpBudget,
+        totalTimeout: remainingHttpBudget,
       );
       if (!mounted || generation != _diagnosticGeneration) return;
       final bodyBytes = bodyResult.bytes.length;
@@ -512,6 +520,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       summary = l10n.proxyTestFailure(detail);
       _log(_ProxyTestLogLevel.err, '错误', detail);
     } finally {
+      httpDeadline?.stop();
       if (identical(_activeHttpClient, httpClient)) {
         _activeHttpClient = null;
       }

@@ -1980,6 +1980,7 @@ const Duration _mediaClipboardOperationTimeout = Duration(seconds: 15);
 const Duration _mediaClipboardNetworkTimeout = Duration(seconds: 25);
 const Duration _remoteMediaOpenTimeout = Duration(seconds: 20);
 const Duration _remoteMediaHeaderTimeout = Duration(seconds: 30);
+const Duration _remoteMediaChunkTimeout = Duration(seconds: 30);
 const Duration _remoteMediaFileIoTimeout = Duration(seconds: 30);
 const BoundedDeletePolicy _mediaPreviewTempDeletePolicy = BoundedDeletePolicy(
   maxEntries: 1,
@@ -2101,8 +2102,12 @@ Future<void> _downloadRemoteUriToFile({
     throw FileSystemException('不支持的媒体地址协议：${uri.scheme}', uri.toString());
   }
 
+  final deadline = MonotonicDeadline(
+    totalTimeout,
+    timeoutMessage: '远程媒体下载超过总时限。',
+  );
   final client = SystemProxyResolver.instance.createRawHttpClient(
-    connectionTimeout: _remoteMediaOpenTimeout,
+    connectionTimeout: deadline.limit(_remoteMediaOpenTimeout),
   );
   var cancelled = false;
   if (cancelSignal != null) {
@@ -2122,11 +2127,15 @@ Future<void> _downloadRemoteUriToFile({
   }
 
   try {
-    final request = await client.getUrl(uri).timeout(_remoteMediaOpenTimeout);
+    final request = await client
+        .getUrl(uri)
+        .timeout(deadline.limit(_remoteMediaOpenTimeout));
     if (cancelled) {
       throw const _MediaDownloadCancelled();
     }
-    final response = await request.close().timeout(_remoteMediaHeaderTimeout);
+    final response = await request.close().timeout(
+      deadline.limit(_remoteMediaHeaderTimeout),
+    );
     if (isHttpFailureStatus(response.statusCode)) {
       throw HttpException('媒体下载失败：HTTP ${response.statusCode}。', uri: uri);
     }
@@ -2154,11 +2163,19 @@ Future<void> _downloadRemoteUriToFile({
       }
     }
 
-    await writeByteStreamFileAtomically(
-      File(destination),
+    final remainingBodyTime = deadline.remaining();
+    final boundedResponse = limitByteStream(
       responseChunks(),
       maxBytes: maxBytes,
-      totalTimeout: totalTimeout,
+      idleTimeout: deadline.limit(_remoteMediaChunkTimeout),
+      totalTimeout: remainingBodyTime,
+    );
+    await writeByteStreamFileAtomically(
+      File(destination),
+      boundedResponse,
+      maxBytes: maxBytes,
+      idleTimeout: deadline.limit(_remoteMediaChunkTimeout),
+      totalTimeout: deadline.remaining(),
     );
   } catch (error, stack) {
     if (cancelled && error is! _MediaDownloadCancelled) {
@@ -2166,6 +2183,7 @@ Future<void> _downloadRemoteUriToFile({
     }
     rethrow;
   } finally {
+    deadline.stop();
     client.close(force: true);
   }
 }
