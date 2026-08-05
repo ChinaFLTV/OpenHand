@@ -1,6 +1,7 @@
 part of 'settings_view.dart';
 
 const int _aiModelChipPreviewLimit = 8;
+const double _aiModelSearchClearActionSize = 36;
 const String _settingsZeroDurationLabel = '0s';
 const double _aiProviderInfoChipMinHeight = 40;
 const double _aiProviderInfoChipIconSize = 18;
@@ -65,6 +66,138 @@ List<String> _filterAiModelIds(Iterable<String> modelIds, String query) {
   return values
       .where((modelId) => modelId.toLowerCase().contains(normalizedQuery))
       .toList(growable: false);
+}
+
+class _AiModelSearchField extends StatelessWidget {
+  const _AiModelSearchField({
+    required this.controller,
+    required this.focusNode,
+    required this.enabled,
+    required this.onChanged,
+    this.helperText,
+  });
+
+  final TextEditingController controller;
+  final FocusNode focusNode;
+  final bool enabled;
+  final ValueChanged<String> onChanged;
+  final String? helperText;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return TextField(
+      controller: controller,
+      focusNode: focusNode,
+      enabled: enabled,
+      textInputAction: TextInputAction.search,
+      decoration: InputDecoration(
+        prefixIcon: const Icon(Icons.search_rounded),
+        hintText: openHandLocalizedText(
+          context,
+          zh: '搜索模型 ID',
+          zhHant: '搜尋模型 ID',
+          en: 'Search model IDs',
+          fr: 'Rechercher un ID de modèle',
+          de: 'Modell-ID suchen',
+          ja: 'モデル ID を検索',
+        ),
+        helperText: helperText,
+        suffixIconConstraints: const BoxConstraints(
+          minWidth: 52,
+          minHeight: 40,
+        ),
+        suffixIcon: controller.text.isEmpty
+            ? null
+            : Padding(
+                padding: const EdgeInsetsDirectional.only(end: 8),
+                child: MicroPressFeedback(
+                  scale: 0.92,
+                  child: IconButton(
+                    tooltip: openHandClearSearchLabel(context),
+                    onPressed: () {
+                      controller.clear();
+                      onChanged('');
+                      focusNode.requestFocus();
+                    },
+                    style: IconButton.styleFrom(
+                      backgroundColor: Colors.transparent,
+                      foregroundColor: colorScheme.onSurfaceVariant,
+                      minimumSize: const Size.square(
+                        _aiModelSearchClearActionSize,
+                      ),
+                      maximumSize: const Size.square(
+                        _aiModelSearchClearActionSize,
+                      ),
+                      padding: EdgeInsets.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      visualDensity: VisualDensity.compact,
+                    ),
+                    icon: const Icon(Icons.clear_rounded, size: 20),
+                  ),
+                ),
+              ),
+        isDense: true,
+      ),
+      onChanged: onChanged,
+    );
+  }
+}
+
+class _AiModelSearchToggleButton extends StatelessWidget {
+  const _AiModelSearchToggleButton({
+    required this.visible,
+    required this.enabled,
+    required this.onPressed,
+  });
+
+  final bool visible;
+  final bool enabled;
+  final VoidCallback onPressed;
+
+  @override
+  Widget build(BuildContext context) {
+    return MicroPressFeedback(
+      scale: 0.92,
+      enabled: enabled,
+      child: IconButton(
+        onPressed: enabled ? onPressed : null,
+        tooltip: visible
+            ? openHandLocalizedText(
+                context,
+                zh: '关闭模型搜索',
+                zhHant: '關閉模型搜尋',
+                en: 'Close model search',
+                fr: 'Fermer la recherche de modèles',
+                de: 'Modellsuche schließen',
+                ja: 'モデル検索を閉じる',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '搜索模型',
+                zhHant: '搜尋模型',
+                en: 'Search models',
+                fr: 'Rechercher des modèles',
+                de: 'Modelle suchen',
+                ja: 'モデルを検索',
+              ),
+        icon: AnimatedSwitcher(
+          duration: _settingsMotionDuration(
+            context,
+            const Duration(milliseconds: 180),
+          ),
+          transitionBuilder: (child, animation) => FadeTransition(
+            opacity: animation,
+            child: ScaleTransition(scale: animation, child: child),
+          ),
+          child: Icon(
+            visible ? Icons.search_off_rounded : Icons.search_rounded,
+            key: ValueKey<bool>(visible),
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 class _SettingsGroupCard extends StatelessWidget {
@@ -5225,7 +5358,9 @@ class _AiModelTile extends StatefulWidget {
 
 class _AiModelTileState extends State<_AiModelTile> {
   bool _modelChipsExpanded = false;
+  bool _modelSearchVisible = false;
   final TextEditingController _modelSearchController = TextEditingController();
+  final FocusNode _modelSearchFocusNode = FocusNode();
 
   /// APP 运行期间稳定的胶囊排序。冷启动后第一次构建本卡片
   /// 时按"活跃模型优先"排好；之后用户切换活跃模型，胶囊位置不再动 —
@@ -5259,16 +5394,21 @@ class _AiModelTileState extends State<_AiModelTile> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.model.id != widget.model.id) {
       _modelChipsExpanded = false;
+      _modelSearchVisible = false;
       _modelSearchController.clear();
+      _modelSearchFocusNode.unfocus();
     } else if (widget.model.allModelIds.length <= _aiModelChipPreviewLimit) {
       _modelChipsExpanded = false;
+      _modelSearchVisible = false;
       _modelSearchController.clear();
+      _modelSearchFocusNode.unfocus();
     }
   }
 
   @override
   void dispose() {
     _modelSearchController.dispose();
+    _modelSearchFocusNode.dispose();
     super.dispose();
   }
 
@@ -5276,6 +5416,26 @@ class _AiModelTileState extends State<_AiModelTile> {
     HapticFeedback.selectionClick();
     setState(() {
       _modelChipsExpanded = !_modelChipsExpanded;
+    });
+  }
+
+  void _toggleModelSearch() {
+    HapticFeedback.selectionClick();
+    final nextVisible = !_modelSearchVisible;
+    setState(() {
+      _modelSearchVisible = nextVisible;
+      if (!nextVisible) {
+        _modelSearchController.clear();
+      }
+    });
+    if (!nextVisible) {
+      _modelSearchFocusNode.unfocus();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _modelSearchVisible) {
+        _modelSearchFocusNode.requestFocus();
+      }
     });
   }
 
@@ -5346,7 +5506,9 @@ class _AiModelTileState extends State<_AiModelTile> {
         ? l10n.aiModelCount(allModels.length)
         : openHandLocalizedText(context, zh: '无模型', en: 'No models');
     final canExpandModels = allModels.length > _aiModelChipPreviewLimit;
-    final modelSearchQuery = _modelSearchController.text.trim().toLowerCase();
+    final modelSearchQuery = _modelSearchVisible
+        ? _modelSearchController.text.trim().toLowerCase()
+        : '';
     final isSearchingModels = modelSearchQuery.isNotEmpty;
     final matchedModels = _filterAiModelIds(allModels, modelSearchQuery);
     final matchedModelIds = matchedModels.toSet();
@@ -5420,6 +5582,12 @@ class _AiModelTileState extends State<_AiModelTile> {
                     Wrap(
                       spacing: 4,
                       children: [
+                        if (canExpandModels)
+                          _AiModelSearchToggleButton(
+                            visible: _modelSearchVisible,
+                            enabled: widget.actionsEnabled,
+                            onPressed: _toggleModelSearch,
+                          ),
                         if (canExpandModels && !isSearchingModels)
                           IconButton(
                             onPressed: widget.actionsEnabled
@@ -5573,53 +5741,31 @@ class _AiModelTileState extends State<_AiModelTile> {
                 // 限制模型胶囊数量，避免卡片过高和滚动时重复构建过多控件。
                 if (allModels.isNotEmpty) ...[
                   const SizedBox(height: 10),
-                  if (canExpandModels) ...[
-                    TextField(
-                      controller: _modelSearchController,
-                      enabled: widget.actionsEnabled,
-                      decoration: InputDecoration(
-                        prefixIcon: const Icon(Icons.search_rounded),
-                        hintText: openHandLocalizedText(
-                          context,
-                          zh: '搜索模型 ID',
-                          zhHant: '搜尋模型 ID',
-                          en: 'Search model IDs',
-                          fr: 'Rechercher un ID de modèle',
-                          de: 'Modell-ID suchen',
-                          ja: 'モデル ID を検索',
+                  if (canExpandModels)
+                    _AnimatedSettingReveal(
+                      visible: _modelSearchVisible,
+                      child: Padding(
+                        padding: const EdgeInsets.only(bottom: 10),
+                        child: _AiModelSearchField(
+                          controller: _modelSearchController,
+                          focusNode: _modelSearchFocusNode,
+                          enabled: widget.actionsEnabled,
+                          helperText: isSearchingModels
+                              ? openHandLocalizedText(
+                                  context,
+                                  zh: '找到 $matchedModelCount / ${allModels.length} 个模型',
+                                  zhHant:
+                                      '找到 $matchedModelCount / ${allModels.length} 個模型',
+                                  en: '$matchedModelCount of ${allModels.length} models',
+                                  fr: '$matchedModelCount modèles sur ${allModels.length}',
+                                  de: '$matchedModelCount von ${allModels.length} Modellen',
+                                  ja: '${allModels.length} 件中 $matchedModelCount 件',
+                                )
+                              : null,
+                          onChanged: (_) => setState(() {}),
                         ),
-                        suffixIcon: _modelSearchController.text.isEmpty
-                            ? null
-                            : IconButton(
-                                tooltip: openHandClearSearchLabel(context),
-                                onPressed: () =>
-                                    setState(_modelSearchController.clear),
-                                icon: const Icon(Icons.clear_rounded),
-                              ),
-                        isDense: true,
                       ),
-                      onChanged: (_) => setState(() {}),
                     ),
-                    if (isSearchingModels) ...[
-                      const SizedBox(height: 6),
-                      Text(
-                        openHandLocalizedText(
-                          context,
-                          zh: '找到 $matchedModelCount / ${allModels.length} 个模型',
-                          zhHant:
-                              '找到 $matchedModelCount / ${allModels.length} 個模型',
-                          en: '$matchedModelCount of ${allModels.length} models',
-                          fr: '$matchedModelCount modèles sur ${allModels.length}',
-                          de: '$matchedModelCount von ${allModels.length} Modellen',
-                          ja: '${allModels.length} 件中 $matchedModelCount 件',
-                        ),
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                    const SizedBox(height: 10),
-                  ],
                   RepaintBoundary(
                     child: Builder(
                       builder: (ctx) {

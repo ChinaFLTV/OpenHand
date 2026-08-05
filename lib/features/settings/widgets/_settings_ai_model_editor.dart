@@ -17,6 +17,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late final TextEditingController _tokenController;
   late final TextEditingController _modelIdController;
   late final TextEditingController _modelSearchController;
+  late final FocusNode _modelSearchFocusNode;
   late final TextEditingController _maxContextTokensController;
   late final TextEditingController _manualModelIdController;
   late final TextEditingController _maxTokensController;
@@ -49,6 +50,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late String _filesCapabilityStatus;
   late String _fineTunesCapabilityStatus;
   bool _obscureToken = true;
+  bool _modelSearchVisible = false;
   bool _isSaving = false;
   bool _isScanning = false;
   String? _errorMessage;
@@ -95,6 +97,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       text: widget.initialModel?.modelId ?? '',
     );
     _modelSearchController = TextEditingController();
+    _modelSearchFocusNode = FocusNode();
     _maxContextTokensController = TextEditingController(
       text: widget.initialModel?.maxContextTokens?.toString() ?? '',
     );
@@ -233,6 +236,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _tokenController.dispose();
     _modelIdController.dispose();
     _modelSearchController.dispose();
+    _modelSearchFocusNode.dispose();
     _maxContextTokensController.dispose();
     _manualModelIdController.dispose();
     _maxTokensController.dispose();
@@ -259,6 +263,26 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _chipScrollController.dispose();
     _errorPulse.dispose();
     super.dispose();
+  }
+
+  void _toggleModelSearch() {
+    HapticFeedback.selectionClick();
+    final nextVisible = !_modelSearchVisible;
+    setState(() {
+      _modelSearchVisible = nextVisible;
+      if (!nextVisible) {
+        _modelSearchController.clear();
+      }
+    });
+    if (!nextVisible) {
+      _modelSearchFocusNode.unfocus();
+      return;
+    }
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _modelSearchVisible) {
+        _modelSearchFocusNode.requestFocus();
+      }
+    });
   }
 
   Future<void> _scanModels() async {
@@ -316,7 +340,14 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
               !sorted.contains(_defaultTitleModelId)) {
             _defaultTitleModelId = null;
           }
+          if (_visibleModelIds.length <= 1) {
+            _modelSearchVisible = false;
+            _modelSearchController.clear();
+          }
         });
+        if (!_modelSearchVisible) {
+          _modelSearchFocusNode.unfocus();
+        }
       } else {
         setState(() {
           _isScanning = false;
@@ -373,7 +404,14 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       if (_defaultTitleModelId == modelId) {
         _defaultTitleModelId = null;
       }
+      if (_visibleModelIds.length <= 1) {
+        _modelSearchVisible = false;
+        _modelSearchController.clear();
+      }
     });
+    if (!_modelSearchVisible) {
+      _modelSearchFocusNode.unfocus();
+    }
   }
 
   void _selectModelId(String modelId) {
@@ -1372,6 +1410,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         ),
                                   ),
                                 ],
+                                const Spacer(),
+                                if (_visibleModelIds.length > 1)
+                                  _AiModelSearchToggleButton(
+                                    visible: _modelSearchVisible,
+                                    enabled: !_isSaving,
+                                    onPressed: _toggleModelSearch,
+                                  ),
                               ],
                             ),
                             if (_scanError != null) ...[
@@ -1382,22 +1427,16 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     ?.copyWith(color: colorScheme.error),
                               ),
                             ],
-                            const SizedBox(height: 12),
-                            if (_visibleModelIds.length > 1) ...[
-                              TextField(
-                                controller: _modelSearchController,
-                                enabled: !_isSaving,
-                                decoration: InputDecoration(
-                                  prefixIcon: const Icon(Icons.search_rounded),
-                                  hintText: openHandLocalizedText(
-                                    context,
-                                    zh: '搜索模型 ID',
-                                    zhHant: '搜尋模型 ID',
-                                    en: 'Search model IDs',
-                                    fr: 'Rechercher un ID de modèle',
-                                    de: 'Modell-ID suchen',
-                                    ja: 'モデル ID を検索',
-                                  ),
+                            _AnimatedSettingReveal(
+                              visible:
+                                  _modelSearchVisible &&
+                                  _visibleModelIds.length > 1,
+                              child: Padding(
+                                padding: const EdgeInsets.only(top: 12),
+                                child: _AiModelSearchField(
+                                  controller: _modelSearchController,
+                                  focusNode: _modelSearchFocusNode,
+                                  enabled: !_isSaving,
                                   helperText:
                                       _modelSearchController.text.trim().isEmpty
                                       ? null
@@ -1411,24 +1450,11 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                           de: '${_filteredVisibleModelIds.length} von ${_visibleModelIds.length} Modellen',
                                           ja: '${_visibleModelIds.length} 件中 ${_filteredVisibleModelIds.length} 件',
                                         ),
-                                  suffixIcon:
-                                      _modelSearchController.text.isEmpty
-                                      ? null
-                                      : IconButton(
-                                          tooltip: openHandClearSearchLabel(
-                                            context,
-                                          ),
-                                          onPressed: () => setState(
-                                            _modelSearchController.clear,
-                                          ),
-                                          icon: const Icon(Icons.clear_rounded),
-                                        ),
-                                  isDense: true,
+                                  onChanged: (_) => setState(() {}),
                                 ),
-                                onChanged: (_) => setState(() {}),
                               ),
-                              const SizedBox(height: 12),
-                            ],
+                            ),
+                            const SizedBox(height: 12),
                             // Available models chip list
                             if (_filteredVisibleModelIds.isNotEmpty)
                               ConstrainedBox(
