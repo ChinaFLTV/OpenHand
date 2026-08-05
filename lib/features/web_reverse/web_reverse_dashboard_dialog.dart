@@ -1048,16 +1048,28 @@ class _WebReverseDashboardDialogState
     setState(mutate);
   }
 
+  Future<void> _persistSessionMetadata(
+    Map<String, Object?> metadata, {
+    required String action,
+  }) async {
+    if (!mounted) return;
+    final session = context.read<AiSessionController>();
+    try {
+      await session.updateSessionMetadata(widget.sessionId, metadata);
+    } catch (error, stack) {
+      silentLog('web_reverse_dashboard_dialog', action, error, stack);
+    }
+  }
+
   /// 切换 tab 并把选择持久化到 session metadata，下次打开 dashboard 自动恢复。
   void _setTab(_Tab next) {
     if (next == _tab) return;
     setState(() => _tab = next);
     // 异步写回 metadata，失败不阻塞 UI；merge 写入避免覆盖其它键。
-    final ctrl = context.read<AiSessionController>();
     unawaited(
-      ctrl.updateSessionMetadata(widget.sessionId, <String, Object?>{
+      _persistSessionMetadata(<String, Object?>{
         _kLastTabMetaKey: next.name,
-      }),
+      }, action: '保存 Dashboard 标签页'),
     );
   }
 
@@ -1140,11 +1152,10 @@ class _WebReverseDashboardDialogState
   /// 都会调用一次。fire-and-forget 不阻塞 UI。
   void persistConsoleReplHistory() {
     if (!mounted) return;
-    final session = context.read<AiSessionController>();
     unawaited(
-      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+      _persistSessionMetadata(<String, Object?>{
         _kReplHistoryMetaKey: widget.controller.replHistory,
-      }),
+      }, action: '保存控制台历史'),
     );
   }
 
@@ -1155,7 +1166,6 @@ class _WebReverseDashboardDialogState
   /// share 导出）。
   void persistBreakpoints() {
     if (!mounted) return;
-    final session = context.read<AiSessionController>();
     final c = widget.controller;
     final bps = c.userBreakpoints
         .map((b) {
@@ -1171,7 +1181,7 @@ class _WebReverseDashboardDialogState
         .map((b) => <String, Object?>{'selector': b.selector, 'type': b.type})
         .toList(growable: false);
     unawaited(
-      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+      _persistSessionMetadata(<String, Object?>{
         _kBreakpointsMetaKey: bps,
         _kXhrBreakpointsMetaKey: c.xhrBreakpoints.toList(growable: false),
         _kEventListenerBreakpointsMetaKey: c.eventListenerBreakpoints.toList(
@@ -1182,63 +1192,59 @@ class _WebReverseDashboardDialogState
           growable: false,
         ),
         _kPauseExceptionsMetaKey: c.pauseOnExceptions,
-      }),
+      }, action: '保存 Sources 断点'),
     );
   }
 
   /// 持久化脚本注入库。snippet 增删改后立即调一次，写回 session metadata。
   void persistSnippets() {
     if (!mounted) return;
-    final session = context.read<AiSessionController>();
     final items = widget.controller.snippets
         .map((s) => s.toJson())
         .toList(growable: false);
     unawaited(
-      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+      _persistSessionMetadata(<String, Object?>{
         _kSnippetsMetaKey: items,
-      }),
+      }, action: '保存脚本注入库'),
     );
   }
 
   /// 持久化 JS Hook 库。hook 新增 / 启用 / 编辑 / 删除后立即调一次。
   void persistHooks() {
     if (!mounted) return;
-    final session = context.read<AiSessionController>();
     final items = widget.controller.hooks
         .map((h) => h.toJson())
         .toList(growable: false);
     unawaited(
-      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+      _persistSessionMetadata(<String, Object?>{
         _kHooksMetaKey: items,
-      }),
+      }, action: '保存 JavaScript Hook'),
     );
   }
 
   /// 持久化定时任务。cron 增删改 / 启禁后立即调一次。
   void persistCrons() {
     if (!mounted) return;
-    final session = context.read<AiSessionController>();
     final items = widget.controller.crons
         .map((c) => c.toJson())
         .toList(growable: false);
     unawaited(
-      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+      _persistSessionMetadata(<String, Object?>{
         _kCronsMetaKey: items,
-      }),
+      }, action: '保存定时任务'),
     );
   }
 
   /// 持久化网络拦截规则。规则编辑 dialog 保存时调一次。
   void persistInterceptRules() {
     if (!mounted) return;
-    final session = context.read<AiSessionController>();
     final rules = widget.controller.interceptRules
         .map((r) => r.toJson())
         .toList(growable: false);
     unawaited(
-      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+      _persistSessionMetadata(<String, Object?>{
         _kInterceptRulesMetaKey: rules,
-      }),
+      }, action: '保存网络拦截规则'),
     );
   }
 
@@ -1257,12 +1263,11 @@ class _WebReverseDashboardDialogState
   /// 持久化 LSP 配置，立即落盘 session metadata。
   void persistLspConfig({required String command, required List<String> args}) {
     if (!mounted) return;
-    final session = context.read<AiSessionController>();
     unawaited(
-      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+      _persistSessionMetadata(<String, Object?>{
         _kLspCommandMetaKey: command.trim(),
         _kLspArgsMetaKey: args,
-      }),
+      }, action: '保存 LSP 配置'),
     );
   }
 
@@ -1274,7 +1279,6 @@ class _WebReverseDashboardDialogState
     required ({String json, int bytes, DateTime ts})? snapB,
   }) {
     if (!mounted) return;
-    final session = context.read<AiSessionController>();
     Map<String, Object?>? toJson(({String json, int bytes, DateTime ts})? s) {
       if (s == null) return null;
       return <String, Object?>{
@@ -1285,10 +1289,10 @@ class _WebReverseDashboardDialogState
     }
 
     unawaited(
-      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+      _persistSessionMetadata(<String, Object?>{
         _kHeapSnapAMetaKey: toJson(snapA),
         _kHeapSnapBMetaKey: toJson(snapB),
-      }),
+      }, action: '保存堆快照'),
     );
   }
 
@@ -1462,9 +1466,8 @@ class _WebReverseDashboardDialogState
       urls[t.id] = t.url;
       if (t.id == currentId) currentTarget = t;
     }
-    final session = context.read<AiSessionController>();
     unawaited(
-      session.updateSessionMetadata(widget.sessionId, <String, Object?>{
+      _persistSessionMetadata(<String, Object?>{
         _kBrowserTabOrderMetaKey: order,
         _kBrowserTabUrlsMetaKey: urls,
         _kBrowserCurrentTargetMetaKey: currentTarget == null
@@ -1474,7 +1477,7 @@ class _WebReverseDashboardDialogState
                 'url': currentTarget.url,
                 'title': currentTarget.title,
               },
-      }),
+      }, action: '保存浏览器标签页'),
     );
   }
 
