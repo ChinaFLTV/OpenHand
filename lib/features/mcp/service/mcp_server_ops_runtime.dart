@@ -253,7 +253,8 @@ class McpServerOpsRuntime {
   McpOpsConfig _config = const McpOpsConfig();
   McpOpsRuntimeSnapshot _snapshot = const McpOpsRuntimeSnapshot();
   final SerialTaskQueue _lifecycleQueue = SerialTaskQueue();
-  final List<DateTime> _requestTimes = <DateTime>[];
+  final Stopwatch _runtimeStopwatch = Stopwatch()..start();
+  final List<Duration> _requestTimes = <Duration>[];
   final List<int> _latencies = <int>[];
   final Set<Object> _activeRequestTokens = <Object>{};
   final Set<Object> _activeSseTokens = <Object>{};
@@ -953,9 +954,7 @@ class McpServerOpsRuntime {
     }
     final inboundBytes = utf8.encode(body).length;
     _inboundBytes += inboundBytes;
-    final processingDeadline = DateTime.now().toUtc().add(
-      _mcpOpsRequestProcessingTimeout,
-    );
+    final processingStopwatch = Stopwatch()..start();
     Object? decoded;
     try {
       decoded = jsonDecode(body);
@@ -991,7 +990,7 @@ class McpServerOpsRuntime {
       }
       final responses = <Object?>[];
       for (final item in decoded) {
-        if (!DateTime.now().toUtc().isBefore(processingDeadline)) {
+        if (processingStopwatch.elapsed >= _mcpOpsRequestProcessingTimeout) {
           responses.add(
             _jsonRpcError(null, -32008, 'MCP request processing timed out'),
           );
@@ -1001,7 +1000,7 @@ class McpServerOpsRuntime {
           request,
           item,
           inboundBytes: inboundBytes,
-          processingDeadline: processingDeadline,
+          processingStopwatch: processingStopwatch,
         );
         if (response != null) responses.add(response);
       }
@@ -1021,7 +1020,7 @@ class McpServerOpsRuntime {
       request,
       decoded,
       inboundBytes: inboundBytes,
-      processingDeadline: processingDeadline,
+      processingStopwatch: processingStopwatch,
     );
     if (response == null) {
       return shelf.Response(
@@ -1050,7 +1049,7 @@ class McpServerOpsRuntime {
     shelf.Request request,
     Object? raw, {
     required int inboundBytes,
-    required DateTime processingDeadline,
+    required Stopwatch processingStopwatch,
   }) async {
     final message = raw is Map ? stringKeyedMapFromValue(raw) : null;
     if (message == null) {
@@ -1154,7 +1153,7 @@ class McpServerOpsRuntime {
           id,
           message,
           inboundBytes: inboundBytes,
-          processingDeadline: processingDeadline,
+          processingStopwatch: processingStopwatch,
         );
       default:
         _recordBlocked(
@@ -1174,9 +1173,10 @@ class McpServerOpsRuntime {
     Object? id,
     Map<String, Object?> message, {
     required int inboundBytes,
-    required DateTime processingDeadline,
+    required Stopwatch processingStopwatch,
   }) async {
     final started = DateTime.now().toUtc();
+    final invocationStopwatch = Stopwatch()..start();
     final params = message['params'] is Map
         ? stringKeyedMapFromValue(message['params'])
         : const <String, Object?>{};
@@ -1223,9 +1223,9 @@ class McpServerOpsRuntime {
       );
       return _jsonRpcError(id, -32004, 'Write tools are disabled');
     }
-    if (!await _argumentsWithinWorkspaceBeforeDeadline(
+    if (!await _argumentsWithinWorkspaceWithinBudget(
       arguments,
-      processingDeadline,
+      processingStopwatch,
     )) {
       return _workspaceScopeBlockedResponse(
         request,
@@ -1238,7 +1238,7 @@ class McpServerOpsRuntime {
     if (tool.isWrite && _config.writeMode == McpOpsWriteMode.approvalRequired) {
       final approvalTimeout = shorterDuration(
         _config.approvalTimeout,
-        remainingUntil(processingDeadline),
+        _remainingProcessingTime(processingStopwatch),
       );
       if (approvalTimeout <= Duration.zero) {
         _recordBlocked(
@@ -1274,9 +1274,9 @@ class McpServerOpsRuntime {
         return _jsonRpcError(id, -32005, 'Write call requires approval');
       }
       // 审批期间目录可能被替换为符号链接，调用前重新解析物理路径。
-      if (!await _argumentsWithinWorkspaceBeforeDeadline(
+      if (!await _argumentsWithinWorkspaceWithinBudget(
         arguments,
-        processingDeadline,
+        processingStopwatch,
       )) {
         return _workspaceScopeBlockedResponse(
           request,
@@ -1290,7 +1290,7 @@ class McpServerOpsRuntime {
 
     final invocationTimeout = shorterDuration(
       _config.timeout,
-      remainingUntil(processingDeadline),
+      _remainingProcessingTime(processingStopwatch),
     );
     if (invocationTimeout <= Duration.zero) {
       _recordBlocked(
@@ -1323,10 +1323,7 @@ class McpServerOpsRuntime {
               );
             },
           );
-      final durationMs = DateTime.now()
-          .toUtc()
-          .difference(started)
-          .inMilliseconds;
+      final durationMs = invocationStopwatch.elapsedMilliseconds;
       final payload = <String, Object?>{
         'content': <Object?>[
           <String, Object?>{'type': 'text', 'text': result.text},
@@ -1357,10 +1354,7 @@ class McpServerOpsRuntime {
       return _jsonRpcResult(id, payload);
     } catch (error, stack) {
       silentLog('mcp_server_ops_runtime', '执行 MCP 运维工具', error, stack);
-      final durationMs = DateTime.now()
-          .toUtc()
-          .difference(started)
-          .inMilliseconds;
+      final durationMs = invocationStopwatch.elapsedMilliseconds;
       final message = mcpFailureMessage(error, fallback: 'MCP 工具执行失败，请稍后重试。');
       _failedTotal += 1;
       _recordAudit(
@@ -1381,9 +1375,9 @@ class McpServerOpsRuntime {
   }
 
   bool _requestAllowed(shelf.Request request, String method, int inboundBytes) {
-    final now = DateTime.now().toUtc();
+    final now = _runtimeStopwatch.elapsed;
     _requestTimes.removeWhere(
-      (item) => now.difference(item).inSeconds >= _rateWindowSeconds,
+      (item) => now - item >= const Duration(seconds: _rateWindowSeconds),
     );
     if (_config.rpmLimit > 0 && _requestTimes.length >= _config.rpmLimit) {
       _recordBlocked(
@@ -1403,7 +1397,7 @@ class McpServerOpsRuntime {
       );
       return false;
     }
-    if (!_requestTransportAllowed(request, method, inboundBytes, now: now)) {
+    if (!_requestTransportAllowed(request, method, inboundBytes)) {
       return false;
     }
     _requestTimes.add(now);
@@ -1607,13 +1601,19 @@ class McpServerOpsRuntime {
     return normalize(arguments, '')! as Map<String, Object?>;
   }
 
-  Future<bool> _argumentsWithinWorkspaceBeforeDeadline(
+  Duration _remainingProcessingTime(Stopwatch processingStopwatch) {
+    return nonNegativeDuration(
+      _mcpOpsRequestProcessingTimeout - processingStopwatch.elapsed,
+    );
+  }
+
+  Future<bool> _argumentsWithinWorkspaceWithinBudget(
     Map<String, Object?> arguments,
-    DateTime processingDeadline,
+    Stopwatch processingStopwatch,
   ) {
     final timeout = shorterDuration(
       _mcpOpsWorkspacePathCheckTimeout,
-      remainingUntil(processingDeadline),
+      _remainingProcessingTime(processingStopwatch),
     );
     if (timeout <= Duration.zero) return Future<bool>.value(false);
     return _argumentsWithinWorkspace(
