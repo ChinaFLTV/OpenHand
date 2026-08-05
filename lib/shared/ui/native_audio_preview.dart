@@ -1577,7 +1577,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   Future<void> _disposePlayerAndTemp() async {
     try {
-      await _player.dispose().timeout(kNativeAudioControlTimeout);
+      await _player.dispose();
     } catch (error, stack) {
       silentLog('native_audio_preview', '释放播放器失败', error, stack);
     } finally {
