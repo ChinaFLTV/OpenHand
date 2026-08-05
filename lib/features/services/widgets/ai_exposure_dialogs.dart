@@ -3301,6 +3301,31 @@ class _RuleTile extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
+    void showDetails() => showServiceDetailsDialog(
+      context,
+      title: rule.vendor,
+      subtitle: '扫描规则详情',
+      icon: Icons.rule_rounded,
+      fields: [
+        ServiceDetailField(label: '规则 ID', value: rule.id),
+        ServiceDetailField(label: '产品', value: rule.vendor),
+        ServiceDetailField(label: '协议', value: rule.protocol),
+        ServiceDetailField(label: '状态', value: rule.enabled ? '已启用' : '已停用'),
+        ServiceDetailField(
+          label: '凭证规则',
+          value: rule.credentialPatterns.join('\n'),
+        ),
+        ServiceDetailField(label: '上下文词', value: rule.contextTerms.join('\n')),
+        ServiceDetailField(
+          label: '内容编码',
+          value: rule.contentEncodings
+              .map((encoding) => encoding.id)
+              .join('\n'),
+        ),
+        ServiceDetailField(label: '模型路径', value: rule.modelPaths.join('\n')),
+        ServiceDetailField(label: '余额路径', value: rule.balancePaths.join('\n')),
+      ],
+    );
     return Container(
       padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
       decoration: BoxDecoration(
@@ -3316,43 +3341,8 @@ class _RuleTile extends StatelessWidget {
             child: ServiceInteractiveSurface(
               padding: const EdgeInsets.symmetric(vertical: 4),
               tooltip: '查看规则详情',
-              onTap: () => showServiceDetailsDialog(
-                context,
-                title: rule.vendor,
-                subtitle: '扫描规则详情',
-                icon: Icons.rule_rounded,
-                fields: [
-                  ServiceDetailField(label: '规则 ID', value: rule.id),
-                  ServiceDetailField(label: '产品', value: rule.vendor),
-                  ServiceDetailField(label: '协议', value: rule.protocol),
-                  ServiceDetailField(
-                    label: '状态',
-                    value: rule.enabled ? '已启用' : '已停用',
-                  ),
-                  ServiceDetailField(
-                    label: '凭证规则',
-                    value: rule.credentialPatterns.join('\n'),
-                  ),
-                  ServiceDetailField(
-                    label: '上下文词',
-                    value: rule.contextTerms.join('\n'),
-                  ),
-                  ServiceDetailField(
-                    label: '内容编码',
-                    value: rule.contentEncodings
-                        .map((encoding) => encoding.id)
-                        .join('\n'),
-                  ),
-                  ServiceDetailField(
-                    label: '模型路径',
-                    value: rule.modelPaths.join('\n'),
-                  ),
-                  ServiceDetailField(
-                    label: '余额路径',
-                    value: rule.balancePaths.join('\n'),
-                  ),
-                ],
-              ),
+              showDetailsIcon: false,
+              onTap: showDetails,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -3381,6 +3371,15 @@ class _RuleTile extends StatelessWidget {
                 tooltip: openHandDeleteLabel(context),
                 onPressed: onDelete,
                 icon: const Icon(Icons.delete_outline_rounded),
+              ),
+              IconButton(
+                tooltip: openHandLocalizedText(
+                  context,
+                  zh: '查看规则详情',
+                  en: 'View rule details',
+                ),
+                onPressed: showDetails,
+                icon: const Icon(Icons.chevron_right_rounded),
               ),
             ],
           ),
