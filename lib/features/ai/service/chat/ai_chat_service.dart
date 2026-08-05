@@ -352,10 +352,11 @@ class AiChatService implements AiChatClient {
   static const AiEndpointRouter _endpointRouter = AiEndpointRouter();
   static const Duration _responsesCompatibilityCacheTtl = Duration(minutes: 10);
   static const int _responsesCompatibilityCacheMaxEntries = 64;
-  final Map<String, DateTime> _unsupportedResponsesEndpoints =
-      <String, DateTime>{};
-  final Map<String, DateTime> _unsupportedResponsesRequestShapes =
-      <String, DateTime>{};
+  final Stopwatch _responsesCompatibilityStopwatch = Stopwatch()..start();
+  final Map<String, Duration> _unsupportedResponsesEndpoints =
+      <String, Duration>{};
+  final Map<String, Duration> _unsupportedResponsesRequestShapes =
+      <String, Duration>{};
 
   bool _canUseResponsesFamily({
     required AiModelConfig model,
@@ -405,24 +406,24 @@ class AiChatService implements AiChatClient {
   }
 
   bool _hasFreshResponsesCompatibilityEntry(
-    Map<String, DateTime> cache,
+    Map<String, Duration> cache,
     String key,
   ) {
     final expiresAt = cache[key];
     if (expiresAt == null) return false;
-    if (expiresAt.isAfter(DateTime.now().toUtc())) return true;
+    if (expiresAt > _responsesCompatibilityStopwatch.elapsed) return true;
     cache.remove(key);
     return false;
   }
 
-  void _cacheResponsesIncompatibility(Map<String, DateTime> cache, String key) {
-    final now = DateTime.now().toUtc();
-    cache.removeWhere((_, expiresAt) => !expiresAt.isAfter(now));
+  void _cacheResponsesIncompatibility(Map<String, Duration> cache, String key) {
+    final now = _responsesCompatibilityStopwatch.elapsed;
+    cache.removeWhere((_, expiresAt) => expiresAt <= now);
     cache.remove(key);
     while (cache.length >= _responsesCompatibilityCacheMaxEntries) {
       cache.remove(cache.keys.first);
     }
-    cache[key] = now.add(_responsesCompatibilityCacheTtl);
+    cache[key] = now + _responsesCompatibilityCacheTtl;
   }
 
   String _responsesEndpointKey(AiModelConfig model) {
@@ -2905,6 +2906,7 @@ class AiChatService implements AiChatClient {
       if (!abort.isCompleted) abort.complete();
     }
     _activeRequestAborts.clear();
+    _responsesCompatibilityStopwatch.stop();
     _unsupportedResponsesEndpoints.clear();
     _unsupportedResponsesRequestShapes.clear();
     _responsesService?.dispose();

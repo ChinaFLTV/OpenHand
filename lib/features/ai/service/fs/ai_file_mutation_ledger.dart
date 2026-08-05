@@ -435,11 +435,12 @@ class AiFileMutationLedger {
 
   final Random _rand = Random.secure();
   final String _rootDirectory;
+  final Stopwatch _retryStopwatch = Stopwatch()..start();
   Future<void>? _initializationFuture;
   bool _initialized = false;
   Object? _initializationError;
   StackTrace? _initializationErrorStack;
-  DateTime? _nextInitializationRetryAt;
+  Duration? _nextInitializationRetryAt;
   int _initializationFailureCount = 0;
   Map<String, String>? _legacyBlobPathIndex;
   final Set<String> _legacyBlobRecoveryMisses = <String>{};
@@ -454,7 +455,7 @@ class AiFileMutationLedger {
   Completer<void>? _maintenanceGate;
   final SerialTaskQueue _configQueue = SerialTaskQueue();
   ({Object error, StackTrace stack})? _configLoadFailure;
-  DateTime? _nextConfigLoadRetryAt;
+  Duration? _nextConfigLoadRetryAt;
 
   // 按会话缓存记录和撤销集合；本类写入后统一失效，避免恢复会话时重复扫描磁盘。
   final LifecycleLruCache<List<FileMutationRecord>> _recordsCache =
@@ -683,7 +684,7 @@ class AiFileMutationLedger {
     final retryAt = _nextConfigLoadRetryAt;
     if (failure != null &&
         retryAt != null &&
-        DateTime.now().toUtc().isBefore(retryAt)) {
+        _retryStopwatch.elapsed < retryAt) {
       Error.throwWithStackTrace(failure.error, failure.stack);
     }
     try {
@@ -701,9 +702,7 @@ class AiFileMutationLedger {
       );
     } catch (error, stack) {
       _configLoadFailure = (error: error, stack: stack);
-      _nextConfigLoadRetryAt = DateTime.now().toUtc().add(
-        _configLoadRetryDelay,
-      );
+      _nextConfigLoadRetryAt = _retryStopwatch.elapsed + _configLoadRetryDelay;
       _logFileErrorUnlessMissing('加载账本配置', error, stack);
       Error.throwWithStackTrace(error, stack);
     }
@@ -741,7 +740,7 @@ class AiFileMutationLedger {
     final previousError = _initializationError;
     if (retryAt != null &&
         previousError != null &&
-        DateTime.now().toUtc().isBefore(retryAt)) {
+        _retryStopwatch.elapsed < retryAt) {
       Error.throwWithStackTrace(
         previousError,
         _initializationErrorStack ?? StackTrace.current,
@@ -770,15 +769,15 @@ class AiFileMutationLedger {
       _initializationFailureCount++;
       _initializationError = error;
       _initializationErrorStack = stack;
-      _nextInitializationRetryAt = DateTime.now().toUtc().add(
-        Duration(
-          milliseconds: exponentialBackoffMs(
-            attempt: _initializationFailureCount,
-            baseMs: _initializationRetryBaseMs,
-            capMs: _initializationRetryCapMs,
-          ),
-        ),
-      );
+      _nextInitializationRetryAt =
+          _retryStopwatch.elapsed +
+          Duration(
+            milliseconds: exponentialBackoffMs(
+              attempt: _initializationFailureCount,
+              baseMs: _initializationRetryBaseMs,
+              capMs: _initializationRetryCapMs,
+            ),
+          );
       silentLog('ai_file_mutation_ledger', '初始化账本', error, stack);
       Error.throwWithStackTrace(error, stack);
     }
