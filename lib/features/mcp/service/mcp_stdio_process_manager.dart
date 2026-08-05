@@ -258,15 +258,18 @@ class McpStdioProcessManager extends ChangeNotifier {
           .listen(
             (data) {
               // 优先尝试路由到工具发现会话的待处理请求。
-              final routed = responseRouter.tryRoute(data);
+              final routerWasClosed = responseRouter.isClosed;
+              responseRouter.tryRoute(data);
               _appendLog(
                 name,
                 data,
                 isStderr: false,
                 expectedGeneration: generation,
               );
-              // 如果路由成功但日志已记录，不影响功能
-              if (routed) return;
+              if (!routerWasClosed && responseRouter.isClosed) {
+                unawaited(_terminateProcessTreeBounded(process!));
+                return;
+              }
             },
             onError: (Object error, StackTrace stack) {
               responseRouter.rejectNewWrites(error, stack);
@@ -1426,26 +1429,24 @@ class _ManagedResponseRouter {
 
   /// 将标准输出数据送入路由器。数据可能跨多个分块到达，
   /// 内部按换行符分割并尝试解析完整的 JSON-RPC 响应。
-  /// 返回 true 表示成功路由了至少一个响应。
-  bool tryRoute(String data) {
-    if (_pending.isEmpty) return false;
+  void tryRoute(String data) {
+    if (_pending.isEmpty) return;
     if (data.length > _maxBufferedChars - _lineBuffer.length) {
       rejectNewWrites(
         StateError('MCP stdio 响应超过 $_maxBufferedChars 字符缓冲上限，且未形成完整行。'),
       );
-      return false;
+      return;
     }
     _lineBuffer.write(data);
     final buffer = _lineBuffer.toString();
     // 查找最后一个换行符，之前的部分可以尝试解析
     final lastNewline = buffer.lastIndexOf('\n');
-    if (lastNewline < 0) return false;
+    if (lastNewline < 0) return;
     final complete = buffer.substring(0, lastNewline);
     final remainder = buffer.substring(lastNewline + 1);
     _lineBuffer
       ..clear()
       ..write(remainder);
-    bool routed = false;
     for (final line in complete.split('\n')) {
       final trimmed = line.trim();
       if (trimmed.isEmpty || !trimmed.startsWith('{')) continue;
@@ -1458,14 +1459,12 @@ class _ManagedResponseRouter {
         final completer = _pending.remove(idText);
         if (completer != null && !completer.isCompleted) {
           completer.complete(decoded);
-          routed = true;
         }
       } catch (_) {
         // JSON 解析失败——可能是非 JSON 输出（如 npm 进度信息），跳过
       }
     }
     if (_pending.isEmpty) _lineBuffer.clear();
-    return routed;
   }
 
   void failAll(Object error, [StackTrace? stackTrace]) {
