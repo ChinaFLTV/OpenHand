@@ -1466,7 +1466,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       setState(() => _composerCollapsed = collapsed);
       // 补偿 scroll offset：当 composer 展开/折叠时，feed 区域高度变化会
       // 导致滚动位置跳动。在下一帧测量高度差并反向补偿，保持可视内容稳定。
-      WidgetsBinding.instance.endOfFrame.then((_) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
         if (!mounted || !_feedController.hasClients) return;
         // 用户正在拖动 feed 时跳过补偿，避免与触摸 / 滚轮事件抢占
         // ScrollPosition.pixels（同样的"鬼畜"问题）。

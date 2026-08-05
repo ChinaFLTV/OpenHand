@@ -729,7 +729,8 @@ class WebFetchScraplingBridge {
           controller.addError(error, stack);
         }
       } finally {
-        if (!controller.isClosed) await controller.close();
+        // 暂停的监听者可能延迟接收 done，不能反向阻塞生产任务结束。
+        if (!controller.isClosed) unawaited(controller.close());
       }
     }
 
