@@ -1478,9 +1478,13 @@ class ServicesController extends ChangeNotifier {
 
   Future<void> _watchJob(String jobId, {bool reconnecting = false}) async {
     await _cancelEventSubscription();
+    if (_disposed || _lifecycle == AiExposureServiceLifecycle.stopping) {
+      throw StateError('扫描服务正在停止。');
+    }
+    final client = _requireClient();
     if (!reconnecting) _eventStreamReconnectAttempts = 0;
     final generation = ++_eventSubscriptionGeneration;
-    _eventSubscription = _requireClient()
+    final subscription = client
         .events(jobId)
         .listen(
           (event) {
@@ -1516,6 +1520,13 @@ class ServicesController extends ChangeNotifier {
           },
           cancelOnError: false,
         );
+    _eventSubscription = subscription;
+    if (_disposed ||
+        _lifecycle == AiExposureServiceLifecycle.stopping ||
+        !_isCurrentClient(client)) {
+      await _cancelEventSubscription();
+      throw StateError('扫描服务正在停止。');
+    }
   }
 
   void _handleEvent(
