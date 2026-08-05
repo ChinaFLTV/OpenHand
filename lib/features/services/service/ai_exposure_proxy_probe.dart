@@ -9,6 +9,7 @@ import '../model/ai_exposure_models.dart';
 const Duration _kProxyProbeAttemptTimeout = Duration(seconds: 4);
 const Duration _kProxyIdentityTimeout = Duration(seconds: 8);
 const int _kMaxProxyResponseLineBytes = 2048;
+const int _kMaxProxyResponseHeaderBytes = 16 * 1024;
 const int _kMaxProxyIdentityResponseBytes = 64 * 1024;
 const List<({String host, int port})> _kProxyProbeTargets = [
   (host: 'cp.cloudflare.com', port: 443),
@@ -295,16 +296,15 @@ Future<Uint8List> _loadIdentityThroughSecureProxy(Uri proxy) async {
       response,
       headerEnd + _kHttpHeaderBreak.length,
     );
-    final contentLength = _contentLength(header);
+    final chunked = _hasChunkedTransferEncoding(header);
+    final contentLength = chunked ? null : _contentLength(header);
     if (contentLength != null && encodedBody.length < contentLength) {
       throw const FormatException('代理身份响应不完整');
     }
     final boundedBody = contentLength == null
         ? encodedBody
         : Uint8List.sublistView(encodedBody, 0, contentLength);
-    return header.toLowerCase().contains('transfer-encoding: chunked')
-        ? _decodeChunkedBody(encodedBody)
-        : boundedBody;
+    return chunked ? _decodeChunkedBody(encodedBody) : boundedBody;
   } finally {
     stopwatch.stop();
     socket?.destroy();
@@ -318,20 +318,29 @@ Future<Uint8List> _readRawIdentityResponse(Socket socket) async {
   var chunked = false;
   await for (final chunk in socket) {
     if (buffer.length + chunk.length >
-        _kMaxProxyIdentityResponseBytes + 16 * 1024) {
+        _kMaxProxyIdentityResponseBytes + _kMaxProxyResponseHeaderBytes) {
       throw const FormatException('代理身份响应过大');
     }
     buffer.add(chunk);
     final raw = buffer.toBytes();
     if (headerEnd < 0) {
       headerEnd = _indexOfBytes(raw, _kHttpHeaderBreak);
-      if (headerEnd < 0) continue;
+      if (headerEnd < 0) {
+        if (raw.length > _kMaxProxyResponseHeaderBytes) {
+          throw const FormatException('代理身份响应头过大');
+        }
+        continue;
+      }
       final header = ascii.decode(
         Uint8List.sublistView(raw, 0, headerEnd),
         allowInvalid: true,
       );
-      contentLength = _contentLength(header);
-      chunked = header.toLowerCase().contains('transfer-encoding: chunked');
+      chunked = _hasChunkedTransferEncoding(header);
+      contentLength = chunked ? null : _contentLength(header);
+      if (contentLength != null &&
+          contentLength > _kMaxProxyIdentityResponseBytes) {
+        throw const FormatException('代理身份响应过大');
+      }
     }
     final body = Uint8List.sublistView(
       raw,
@@ -486,6 +495,22 @@ int? _contentLength(String header) {
     return value;
   }
   return null;
+}
+
+bool _hasChunkedTransferEncoding(String header) {
+  for (final line in header.split('\r\n').skip(1)) {
+    final separator = line.indexOf(':');
+    if (separator <= 0 ||
+        line.substring(0, separator).trim().toLowerCase() !=
+            HttpHeaders.transferEncodingHeader) {
+      continue;
+    }
+    return line
+        .substring(separator + 1)
+        .split(',')
+        .any((value) => value.trim().toLowerCase() == 'chunked');
+  }
+  return false;
 }
 
 Uint8List _decodeChunkedBody(Uint8List source) {
