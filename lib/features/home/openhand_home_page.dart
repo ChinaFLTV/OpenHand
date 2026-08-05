@@ -323,7 +323,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   int _scrollToBottomSettleFramesRemaining = 0;
   int _scrollToBottomStableFrames = 0;
   bool _composerScrollCompensationInProgress = false;
-  DateTime? _lastPointerSignalScrollAt;
+  final Stopwatch _scrollActivityStopwatch = Stopwatch()..start();
+  Duration? _lastPointerSignalScrollAt;
   // Pointer-signal scrolling emits a complete start/update/end sequence per
   // tick. Keep a grace window between slow ticks so layout updates cannot
   // re-arm auto-follow while the user is still reading history.
@@ -365,7 +366,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   // 桌面端 WebView 平台视图可能吞掉 PointerScrollEvent，
   // 导致 _userScrollInProgress 未被置位。用 _lastScrollActivityAt 兜底记录
   // 外层 ListView 的 ScrollUpdateNotification，作为独立的后备检测源。
-  DateTime? _lastScrollActivityAt;
+  Duration? _lastScrollActivityAt;
   double? _lastMessageDistanceToBottom;
   static const Duration _scrollActivityWindow = Duration(milliseconds: 1800);
   String? _lastAutoScrollSignature;
@@ -1271,7 +1272,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       return;
     }
     _messageProgrammaticScrollWindow.cancel();
-    _lastPointerSignalScrollAt = DateTime.now();
+    _lastPointerSignalScrollAt = _scrollActivityStopwatch.elapsed;
     _markUserScrollInProgress();
     _scheduleUserScrollEndGrace();
   }
@@ -1281,7 +1282,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (last == null) {
       return false;
     }
-    return DateTime.now().difference(last) <=
+    return _scrollActivityStopwatch.elapsed - last <=
         _pointerSignalScrollActivityWindow;
   }
 
@@ -1293,7 +1294,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (last == null) {
       return false;
     }
-    return DateTime.now().difference(last) < _scrollActivityWindow;
+    return _scrollActivityStopwatch.elapsed - last < _scrollActivityWindow;
   }
 
   bool _messageScrollPositionIsActivelyScrolling() {
@@ -2665,7 +2666,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         implicitPointerSignalScroll ||
         implicitActivePositionMovedTowardHistory;
     if (userScrollActivity) {
-      _lastScrollActivityAt = DateTime.now();
+      _lastScrollActivityAt = _scrollActivityStopwatch.elapsed;
       _markUserScrollInProgress();
       _scheduleUserScrollEndGrace();
       if (explicitUserScrollStart) {

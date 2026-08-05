@@ -938,7 +938,8 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
   final AutoFollowProgrammaticScrollWindow _feedProgrammaticScrollWindow =
       AutoFollowProgrammaticScrollWindow();
   bool _userFeedScrollInProgress = false;
-  DateTime? _lastFeedPointerSignalScrollAt;
+  final Stopwatch _feedScrollActivityStopwatch = Stopwatch()..start();
+  Duration? _lastFeedPointerSignalScrollAt;
   // 慢速滚动期间每个 pointer-signal tick 都包成 start→update→end，
   // 中途 _userFeedScrollInProgress=false 会让 layout-change / 流式 feed
   // 触发的 jumpTo 抢到一帧，造成视口抽搐。给 scroll-end 加 220 ms 宽限，
@@ -1747,7 +1748,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
       return;
     }
     _feedProgrammaticScrollWindow.cancel();
-    _lastFeedPointerSignalScrollAt = DateTime.now();
+    _lastFeedPointerSignalScrollAt = _feedScrollActivityStopwatch.elapsed;
     _markUserFeedScrollInProgress();
     _scheduleUserFeedScrollEndGrace();
   }
@@ -1757,7 +1758,7 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
     if (last == null) {
       return false;
     }
-    return DateTime.now().difference(last) <=
+    return _feedScrollActivityStopwatch.elapsed - last <=
         kAutoFollowPointerSignalActivityWindow;
   }
 

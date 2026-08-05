@@ -449,8 +449,9 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
   bool _handlingComplete = false;
   final LatestTaskQueue _bootstrapQueue = LatestTaskQueue();
   final LatestTaskQueue _seekCommandQueue = LatestTaskQueue();
+  final Stopwatch _seekGuardStopwatch = Stopwatch()..start();
   Duration? _recentSeekTarget;
-  DateTime? _recentSeekAt;
+  Duration? _recentSeekAt;
 
   bool get _isActive => !_disposed && mounted;
   bool get _isPlaying => _playerState == _NativeAudioPlaybackState.playing;
@@ -783,7 +784,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
     final target = _recentSeekTarget;
     final committedAt = _recentSeekAt;
     if (target == null || committedAt == null) return false;
-    final elapsed = DateTime.now().difference(committedAt);
+    final elapsed = _seekGuardStopwatch.elapsed - committedAt;
     if (elapsed > _kNativeAudioPostSeekReportGuard) {
       _recentSeekTarget = null;
       _recentSeekAt = null;
@@ -1051,7 +1052,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
 
   void _rememberRecentSeek(Duration target) {
     _recentSeekTarget = target;
-    _recentSeekAt = DateTime.now();
+    _recentSeekAt = _seekGuardStopwatch.elapsed;
   }
 
   bool _isCurrentSeek(int seekSerial) {

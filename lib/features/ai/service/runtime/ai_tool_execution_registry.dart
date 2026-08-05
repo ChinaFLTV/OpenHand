@@ -6,6 +6,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
 
 final Object _registrationZoneKey = Object();
+final Stopwatch _toolExecutionStopwatch = Stopwatch()..start();
 
 /// 工具调用执行登记中心 —— 全应用单例。
 ///
@@ -37,7 +38,7 @@ class AiToolExecutionRegistry with ChangeNotifier {
   List<AiToolExecutionRecord> get activeRecords {
     final list =
         _entries.values.map((entry) => entry.record).toList(growable: false)
-          ..sort((a, b) => a.startedAt.compareTo(b.startedAt));
+          ..sort((a, b) => a._startedAtElapsed.compareTo(b._startedAtElapsed));
     return List<AiToolExecutionRecord>.unmodifiable(list);
   }
 
@@ -236,25 +237,27 @@ enum AiToolExecutionKind { builtin, mcp, skill }
 /// 单条工具调用执行记录（不可变）。
 @immutable
 class AiToolExecutionRecord {
-  const AiToolExecutionRecord({
+  AiToolExecutionRecord({
     required this.toolCallId,
     required this.sessionId,
     required this.kind,
     required this.displayName,
     required this.startedAt,
     this.pid,
-  });
+    Duration? startedAtElapsed,
+  }) : _startedAtElapsed = startedAtElapsed ?? _toolExecutionStopwatch.elapsed;
 
   final String toolCallId;
   final String sessionId;
   final AiToolExecutionKind kind;
   final String displayName;
   final DateTime startedAt;
+  final Duration _startedAtElapsed;
 
   /// 已派生子进程时的进程 ID；HTTP/纯 Dart 工具为 null。
   final int? pid;
 
-  Duration get elapsed => DateTime.now().difference(startedAt);
+  Duration get elapsed => _toolExecutionStopwatch.elapsed - _startedAtElapsed;
 
   AiToolExecutionRecord copyWith({int? pid}) => AiToolExecutionRecord(
     toolCallId: toolCallId,
@@ -263,6 +266,7 @@ class AiToolExecutionRecord {
     displayName: displayName,
     startedAt: startedAt,
     pid: pid ?? this.pid,
+    startedAtElapsed: _startedAtElapsed,
   );
 }
 

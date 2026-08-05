@@ -45,7 +45,7 @@ extension AiSessionControllerManualCompaction on AiSessionController {
     }
     final lastAt = _lastManualCompactionAt[normalizedId];
     if (lastAt != null) {
-      final elapsed = DateTime.now().difference(lastAt);
+      final elapsed = _monotonicStopwatch.elapsed - lastAt;
       if (elapsed < AiSessionController._manualCompactionDebounce) {
         return AiManualCompactionResult(
           status: AiManualCompactionStatus.cooldown,
@@ -115,7 +115,7 @@ extension AiSessionControllerManualCompaction on AiSessionController {
               message: 'no_change',
             );
           }
-          _lastManualCompactionAt[normalizedId] = DateTime.now();
+          _lastManualCompactionAt[normalizedId] = _monotonicStopwatch.elapsed;
           return const AiManualCompactionResult(
             status: AiManualCompactionStatus.success,
           );

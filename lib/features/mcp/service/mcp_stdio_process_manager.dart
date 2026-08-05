@@ -26,6 +26,7 @@ const int _jsonRpcCompactLinePreviewChars = 120;
 const int _jsonRpcToolDescriptionPreviewChars = 60;
 const int _stopAllConcurrency = 8;
 const int _shutdownStopAllConcurrency = 16;
+final Stopwatch _mcpStdioProcessStopwatch = Stopwatch()..start();
 
 Map<String, Object?>? _parseMcpStdioJsonRpcLine(String line) {
   final trimmed = nullIfBlank(line);
@@ -48,14 +49,16 @@ class StdioProcessInfo {
     this.state = StdioProcessState.stopped,
     this.pid,
     this.startedAt,
+    Duration? startedAtElapsed,
     this.memoryBytes,
     this.logs = const <String>[],
     this.errorMessage,
-  });
+  }) : _startedAtElapsed = startedAtElapsed;
 
   final StdioProcessState state;
   final int? pid;
   final DateTime? startedAt;
+  final Duration? _startedAtElapsed;
   final int? memoryBytes;
   final List<String> logs;
   final String? errorMessage;
@@ -68,7 +71,12 @@ class StdioProcessInfo {
 
   Duration? get uptime {
     if (startedAt == null || !isRunning) return null;
-    return DateTime.now().toUtc().difference(startedAt!);
+    final startedAtElapsed = _startedAtElapsed;
+    if (startedAtElapsed != null) {
+      return _mcpStdioProcessStopwatch.elapsed - startedAtElapsed;
+    }
+    final elapsed = DateTime.now().toUtc().difference(startedAt!);
+    return elapsed.isNegative ? Duration.zero : elapsed;
   }
 
   StdioProcessInfo copyWith({
@@ -87,6 +95,7 @@ class StdioProcessInfo {
       state: state ?? this.state,
       pid: clearPid ? null : pid ?? this.pid,
       startedAt: clearStartedAt ? null : startedAt ?? this.startedAt,
+      startedAtElapsed: clearStartedAt ? null : _startedAtElapsed,
       memoryBytes: clearMemoryBytes ? null : memoryBytes ?? this.memoryBytes,
       logs: logs ?? this.logs,
       errorMessage: clearErrorMessage
@@ -234,6 +243,7 @@ class McpStdioProcessManager extends ChangeNotifier {
           state: StdioProcessState.running,
           pid: process.pid,
           startedAt: DateTime.now().toUtc(),
+          startedAtElapsed: _mcpStdioProcessStopwatch.elapsed,
           logs: List.unmodifiable(logs),
         ),
         process: process,

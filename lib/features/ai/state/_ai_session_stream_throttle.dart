@@ -12,6 +12,12 @@
 ///   - dispose 时不会泄漏待执行回调。
 part of '../ai_session_controller.dart';
 
+final Stopwatch _streamThroughputStopwatch = Stopwatch()..start();
+
+int _streamThroughputSecond() =>
+    _streamThroughputStopwatch.elapsedMicroseconds ~/
+    Duration.microsecondsPerSecond;
+
 bool _runStreamThrottleCallback(void Function() callback, String where) {
   try {
     callback();
@@ -42,33 +48,30 @@ class _StreamThroughputSampler {
   }
 
   void recordGraphemes(int graphemes) {
-    final nowSec = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final nowSec = _streamThroughputSecond();
     recordGraphemesAt(graphemes, nowSec);
   }
 
-  void recordGraphemesAt(int graphemes, int epochSecond) {
+  void recordGraphemesAt(int graphemes, int second) {
     if (graphemes <= 0) return;
     final bucketSecond = _bucketSecond;
     if (bucketSecond == null) {
-      _bucketSecond = epochSecond;
+      _bucketSecond = second;
       _addToCurrentBucket(graphemes);
       return;
     }
-    final delta = epochSecond - bucketSecond;
+    final delta = second - bucketSecond;
     if (delta <= 0) {
       _addToCurrentBucket(graphemes);
       return;
     }
     _advanceBy(delta);
-    _bucketSecond = epochSecond;
+    _bucketSecond = second;
     _addToCurrentBucket(graphemes);
   }
 
-  List<int> snapshot({
-    int windowSeconds = defaultWindowSeconds,
-    int? epochSecond,
-  }) {
-    _advanceTo(epochSecond ?? DateTime.now().millisecondsSinceEpoch ~/ 1000);
+  List<int> snapshot({int windowSeconds = defaultWindowSeconds, int? second}) {
+    _advanceTo(second ?? _streamThroughputSecond());
     final window = windowSeconds.clamp(1, retentionSeconds).toInt();
     return List<int>.unmodifiable(
       Iterable<int>.generate(
@@ -80,13 +83,13 @@ class _StreamThroughputSampler {
     );
   }
 
-  void _advanceTo(int epochSecond) {
+  void _advanceTo(int second) {
     final bucketSecond = _bucketSecond;
     if (bucketSecond == null) return;
-    final delta = epochSecond - bucketSecond;
+    final delta = second - bucketSecond;
     if (delta <= 0) return;
     _advanceBy(delta);
-    _bucketSecond = epochSecond;
+    _bucketSecond = second;
   }
 
   void _advanceBy(int delta) {
@@ -125,8 +128,8 @@ class _StreamCharThrottleBudget {
   double _budget;
   final Stopwatch _clock;
   int _lastTickMicroseconds = 0;
-  int _wallSecond = 0;
-  int _emittedThisWallSecond = 0;
+  int _bucketSecond = 0;
+  int _emittedThisSecond = 0;
 
   int get maxCharsPerSecond => _maxCharsPerSecond;
 
@@ -135,26 +138,28 @@ class _StreamCharThrottleBudget {
     _maxCharsPerSecond = next;
     if (next <= 0) {
       _budget = 0;
-      _emittedThisWallSecond = 0;
+      _emittedThisSecond = 0;
       return;
     }
     if (_budget > next) _budget = next.toDouble();
-    if (_emittedThisWallSecond > next) _emittedThisWallSecond = next;
+    if (_emittedThisSecond > next) _emittedThisSecond = next;
   }
 
-  ({int count, int wallSecond}) grant(int pendingGraphemes) {
+  ({int count, int bucketSecond}) grant(int pendingGraphemes) {
     if (pendingGraphemes <= 0 || _maxCharsPerSecond <= 0) {
-      return (count: 0, wallSecond: _wallSecond);
+      return (count: 0, bucketSecond: _bucketSecond);
     }
     _refill();
-    final remainingThisSecond = _maxCharsPerSecond - _emittedThisWallSecond;
-    if (remainingThisSecond <= 0) return (count: 0, wallSecond: _wallSecond);
+    final remainingThisSecond = _maxCharsPerSecond - _emittedThisSecond;
+    if (remainingThisSecond <= 0) {
+      return (count: 0, bucketSecond: _bucketSecond);
+    }
     final allowance = math.min(_budget.floor(), remainingThisSecond);
-    if (allowance <= 0) return (count: 0, wallSecond: _wallSecond);
+    if (allowance <= 0) return (count: 0, bucketSecond: _bucketSecond);
     final granted = math.min(allowance, pendingGraphemes);
     _budget -= granted;
-    _emittedThisWallSecond += granted;
-    return (count: granted, wallSecond: _wallSecond);
+    _emittedThisSecond += granted;
+    return (count: granted, bucketSecond: _bucketSecond);
   }
 
   double get partialCharProgress {
@@ -163,11 +168,10 @@ class _StreamCharThrottleBudget {
   }
 
   void _refill() {
-    final now = DateTime.now();
-    final nowSec = now.millisecondsSinceEpoch ~/ 1000;
-    if (_wallSecond != nowSec) {
-      _wallSecond = nowSec;
-      _emittedThisWallSecond = 0;
+    final nowSec = _streamThroughputSecond();
+    if (_bucketSecond != nowSec) {
+      _bucketSecond = nowSec;
+      _emittedThisSecond = 0;
     }
     final nowMicroseconds = _clock.elapsedMicroseconds;
     final elapsedMicros = nowMicroseconds - _lastTickMicroseconds;
@@ -297,7 +301,7 @@ class _StreamCharThrottle {
     final grant = _budget.grant(pending);
     if (grant.count > 0) {
       _emittedGraphemes += grant.count;
-      _recordEmission(grant.count, epochSecond: grant.wallSecond);
+      _recordEmission(grant.count, second: grant.bucketSecond);
     }
     if (_emittedGraphemes < totalSanitizedGraphemeCount) {
       _scheduleDrain();
@@ -308,20 +312,20 @@ class _StreamCharThrottle {
   // ── 显示侧吞吐采样：最长保留一小时，默认读取最近 30 秒。
   final _displayThroughput = _StreamThroughputSampler();
 
-  void _recordEmission(int graphemes, {int? epochSecond}) {
-    if (epochSecond == null) {
+  void _recordEmission(int graphemes, {int? second}) {
+    if (second == null) {
       _displayThroughput.recordGraphemes(graphemes);
       return;
     }
-    _displayThroughput.recordGraphemesAt(graphemes, epochSecond);
+    _displayThroughput.recordGraphemesAt(graphemes, second);
   }
 
   /// 每秒 grapheme 放出快照，默认最近 30 秒，桶 0 = 当前秒，越往后越旧。
   /// 返回不可变副本，UI 可直接喂给 painter。
-  List<int> throughputSnapshot({int windowSeconds = 30, int? epochSecond}) {
+  List<int> throughputSnapshot({int windowSeconds = 30, int? second}) {
     return _displayThroughput.snapshot(
       windowSeconds: windowSeconds,
-      epochSecond: epochSecond,
+      second: second,
     );
   }
 

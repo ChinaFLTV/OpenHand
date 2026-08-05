@@ -403,8 +403,9 @@ class AiLspClientService {
   final Set<_AiLspSession> _trackedSessions = HashSet<_AiLspSession>.identity();
   final Set<_AiLspSession> _startingSessions =
       HashSet<_AiLspSession>.identity();
-  final Map<String, ({String? path, DateTime resolvedAt})> _commandPathCache =
-      <String, ({String? path, DateTime resolvedAt})>{};
+  final Stopwatch _commandPathCacheStopwatch = Stopwatch()..start();
+  final Map<String, ({String? path, Duration resolvedAt})> _commandPathCache =
+      <String, ({String? path, Duration resolvedAt})>{};
 
   /// 「未找到」的负缓存有效期。命中路径可以长期缓存（可执行文件不会自己消失），
   /// 但未找到必须过期：用户很可能刚在内置终端里 `npm i -g pyright`，或刚走完
@@ -1141,7 +1142,7 @@ class AiLspClientService {
     final cached = _commandPathCache[normalizedExecutable];
     if (cached != null) {
       if (cached.path != null) return cached.path;
-      if (DateTime.now().difference(cached.resolvedAt) <
+      if (_commandPathCacheStopwatch.elapsed - cached.resolvedAt <
           _negativeCommandPathTtl) {
         return null;
       }
@@ -1185,7 +1186,10 @@ class AiLspClientService {
     if (_commandPathCache.length >= _commandPathCacheLimit) {
       _commandPathCache.remove(_commandPathCache.keys.first);
     }
-    _commandPathCache[executable] = (path: path, resolvedAt: DateTime.now());
+    _commandPathCache[executable] = (
+      path: path,
+      resolvedAt: _commandPathCacheStopwatch.elapsed,
+    );
   }
 
   static String? _languageFromPath(String filePath) {

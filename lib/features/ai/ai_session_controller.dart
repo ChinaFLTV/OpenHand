@@ -128,13 +128,12 @@ class AiStreamThroughputSnapshot {
 }
 
 class _CachedStreamThroughputSnapshot {
-  _CachedStreamThroughputSnapshot(List<int> samples, {int? capturedEpochSecond})
+  _CachedStreamThroughputSnapshot(List<int> samples, {int? capturedSecond})
     : samples = List<int>.unmodifiable(_trimTrailingZeros(samples)),
-      capturedEpochSecond =
-          capturedEpochSecond ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
+      capturedSecond = capturedSecond ?? _streamThroughputSecond();
 
   final List<int> samples;
-  final int capturedEpochSecond;
+  final int capturedSecond;
 
   static List<int> _trimTrailingZeros(List<int> source) {
     var end = source.length;
@@ -148,8 +147,8 @@ class _CachedStreamThroughputSnapshot {
     final window = windowSeconds
         .clamp(1, _StreamThroughputSampler.retentionSeconds)
         .toInt();
-    final nowEpochSecond = DateTime.now().millisecondsSinceEpoch ~/ 1000;
-    final elapsedSeconds = math.max(0, nowEpochSecond - capturedEpochSecond);
+    final nowSecond = _streamThroughputSecond();
+    final elapsedSeconds = math.max(0, nowSecond - capturedSecond);
     if (elapsedSeconds >= window) {
       return List<int>.unmodifiable(List<int>.filled(window, 0));
     }
@@ -1050,7 +1049,8 @@ class AiSessionController extends ChangeNotifier {
 
   /// 手动压缩防抖 — 记录同一会话上次手动压缩的时刻。
   /// 间隔不足 [_manualCompactionDebounce] 时以「Cooldown」结果拒绝。
-  final Map<String, DateTime> _lastManualCompactionAt = <String, DateTime>{};
+  final Stopwatch _monotonicStopwatch = Stopwatch()..start();
+  final Map<String, Duration> _lastManualCompactionAt = <String, Duration>{};
 
   /// 同一会话上是否有手动压缩正在进行（避免重复并发触发）。
   final Set<String> _manualCompactionInflight = <String>{};
@@ -1059,7 +1059,7 @@ class AiSessionController extends ChangeNotifier {
   // 切换后的元数据准确性。刷新失败时不更新时间戳，后续创建可继续重试。
   Future<String>? _deviceIdFuture;
   _LocalNetworkSnapshot? _networkSnapshot;
-  DateTime? _networkSnapshotAt;
+  Duration? _networkSnapshotAt;
   Future<_LocalNetworkSnapshot>? _networkSnapshotRefreshFuture;
   String? _currentSessionId;
   AiSessionDeletionNotice? _lastDeletionNotice;
@@ -1176,7 +1176,7 @@ class AiSessionController extends ChangeNotifier {
     String sessionId, {
     int windowSeconds = _StreamThroughputSampler.retentionSeconds,
   }) {
-    final snapshotEpochSecond = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final snapshotSecond = _streamThroughputSecond();
     final window = windowSeconds
         .clamp(1, _StreamThroughputSampler.retentionSeconds)
         .toInt();
@@ -1184,14 +1184,14 @@ class AiSessionController extends ChangeNotifier {
         _sessionDisplayThroughputSnapshot(
           sessionId,
           windowSeconds: window,
-          epochSecond: snapshotEpochSecond,
+          second: snapshotSecond,
         ) ??
         (_lastCharThroughputSnapshot[sessionId]?.window(window) ??
             _zeroThroughputWindow(window));
     final rawSamples =
         _activeAiThroughputSamplers[sessionId]?.snapshot(
           windowSeconds: window,
-          epochSecond: snapshotEpochSecond,
+          second: snapshotSecond,
         ) ??
         (_lastRawCharThroughputSnapshot[sessionId]?.window(window) ??
             _zeroThroughputWindow(window));
@@ -1204,20 +1204,19 @@ class AiSessionController extends ChangeNotifier {
   List<int>? _sessionDisplayThroughputSnapshot(
     String sessionId, {
     required int windowSeconds,
-    int? epochSecond,
+    int? second,
   }) {
     final assistant = _activeCharThrottles[sessionId];
     final reasoning = _activeReasoningCharThrottles[sessionId];
     if (assistant == null && reasoning == null) return null;
-    final snapshotEpochSecond =
-        epochSecond ?? DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final snapshotSecond = second ?? _streamThroughputSecond();
     final assistantSamples = assistant?.throughputSnapshot(
       windowSeconds: windowSeconds,
-      epochSecond: snapshotEpochSecond,
+      second: snapshotSecond,
     );
     final reasoningSamples = reasoning?.throughputSnapshot(
       windowSeconds: windowSeconds,
-      epochSecond: snapshotEpochSecond,
+      second: snapshotSecond,
     );
     return _sumThroughputWindows(
       assistantSamples,
@@ -1268,26 +1267,26 @@ class AiSessionController extends ChangeNotifier {
     String sessionId,
     _StreamThroughputSampler rawSampler,
   ) {
-    final snapshotEpochSecond = DateTime.now().millisecondsSinceEpoch ~/ 1000;
+    final snapshotSecond = _streamThroughputSecond();
     final displaySamples = _sessionDisplayThroughputSnapshot(
       sessionId,
       windowSeconds: _StreamThroughputSampler.retentionSeconds,
-      epochSecond: snapshotEpochSecond,
+      second: snapshotSecond,
     );
     _storeStreamThroughputSnapshot(
       _lastCharThroughputSnapshot,
       sessionId,
       displaySamples ?? const <int>[],
-      capturedEpochSecond: snapshotEpochSecond,
+      capturedSecond: snapshotSecond,
     );
     _storeStreamThroughputSnapshot(
       _lastRawCharThroughputSnapshot,
       sessionId,
       rawSampler.snapshot(
         windowSeconds: _StreamThroughputSampler.retentionSeconds,
-        epochSecond: snapshotEpochSecond,
+        second: snapshotSecond,
       ),
-      capturedEpochSecond: snapshotEpochSecond,
+      capturedSecond: snapshotSecond,
     );
   }
 
@@ -1295,12 +1294,12 @@ class AiSessionController extends ChangeNotifier {
     Map<String, _CachedStreamThroughputSnapshot> cache,
     String sessionId,
     List<int> samples, {
-    required int capturedEpochSecond,
+    required int capturedSecond,
   }) {
     cache.remove(sessionId);
     cache[sessionId] = _CachedStreamThroughputSnapshot(
       samples,
-      capturedEpochSecond: capturedEpochSecond,
+      capturedSecond: capturedSecond,
     );
     while (cache.length > _maxCachedStreamThroughputSessions) {
       cache.remove(cache.keys.first);
@@ -2825,7 +2824,7 @@ class AiSessionController extends ChangeNotifier {
     final cachedAt = _networkSnapshotAt;
     final cacheAge = cachedAt == null
         ? null
-        : _clock().toUtc().difference(cachedAt);
+        : _monotonicStopwatch.elapsed - cachedAt;
     if (cached != null &&
         cacheAge != null &&
         cacheAge >= Duration.zero &&
@@ -2871,7 +2870,7 @@ class AiSessionController extends ChangeNotifier {
         interfaces: List<Map<String, Object?>>.unmodifiable(interfaceRows),
       );
       _networkSnapshot = snapshot;
-      _networkSnapshotAt = _clock().toUtc();
+      _networkSnapshotAt = _monotonicStopwatch.elapsed;
       return snapshot;
     } catch (error, stack) {
       silentLog('ai_session_controller', '获取本地网络快照', error, stack);
