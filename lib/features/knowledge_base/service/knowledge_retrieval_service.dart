@@ -5,6 +5,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import '../data/knowledge_base_store.dart';
+import '../knowledge_base_errors.dart';
 import '../model/knowledge_base_settings.dart';
 import '../model/knowledge_retrieval_result.dart';
 import 'knowledge_embedding_service.dart';
@@ -437,7 +438,10 @@ class KnowledgeRetrievalService {
           durationMs: stopwatch.elapsedMilliseconds,
           providerConfigId: settings.rerankProviderConfigId,
           modelId: settings.rerankModelId,
-          error: '$error',
+          error: knowledgeBaseFailureMessage(
+            error,
+            fallback: '模型重排序失败，已回退到本地排序。',
+          ),
         ),
       );
     }

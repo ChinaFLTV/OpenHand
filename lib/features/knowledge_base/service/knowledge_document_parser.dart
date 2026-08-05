@@ -8,6 +8,7 @@ import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/bounded_zip_archive.dart';
@@ -795,8 +796,16 @@ BoundedZipArchive _zip(Uint8List bytes, String path) {
       }
     }
     return archive;
-  } catch (error) {
-    throw FormatException('无法解析压缩文档：${p.basename(path)}。$error');
+  } catch (error, stack) {
+    silentLog('knowledge_document_parser', '解析压缩文档', error, stack);
+    final detail = error is FormatException
+        ? collapseInlineWhitespace(error.message)
+        : '';
+    throw FormatException(
+      detail.isEmpty
+          ? '无法解析压缩文档：${p.basename(path)}。'
+          : '无法解析压缩文档：${p.basename(path)}。$detail',
+    );
   }
 }
 

@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
+import '../knowledge_base_errors.dart';
 import '../model/knowledge_chunk.dart';
 import '../model/knowledge_source.dart';
 import 'knowledge_chunk_detail_dialog.dart';
@@ -27,15 +29,24 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
 
   final String sourceId;
 
+  Future<(KnowledgeSource?, List<KnowledgeChunk>)> _load(
+    KnowledgeBaseController controller,
+  ) async {
+    try {
+      final source = await controller.loadSource(sourceId);
+      final chunks = await controller.loadChunksForSource(sourceId);
+      return (source, chunks);
+    } catch (error, stack) {
+      silentLog('knowledge_source_detail_dialog', '加载知识源详情', error, stack);
+      Error.throwWithStackTrace(error, stack);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final controller = context.read<KnowledgeBaseController>();
     return FutureBuilder<(KnowledgeSource?, List<KnowledgeChunk>)>(
-      future: () async {
-        final source = await controller.loadSource(sourceId);
-        final chunks = await controller.loadChunksForSource(sourceId);
-        return (source, chunks);
-      }(),
+      future: _load(controller),
       builder: (context, snapshot) {
         final source = snapshot.data?.$1;
         final chunks = snapshot.data?.$2 ?? const <KnowledgeChunk>[];
@@ -58,6 +69,15 @@ class KnowledgeSourceDetailDialog extends StatelessWidget {
                 ? const SizedBox(
                     height: 240,
                     child: Center(child: CircularProgressIndicator()),
+                  )
+                : snapshot.hasError
+                ? KnowledgeDialogNotice(
+                    icon: Icons.error_outline_rounded,
+                    message: knowledgeBaseFailureMessage(
+                      snapshot.error!,
+                      fallback: '加载知识源详情失败，请稍后重试。',
+                    ),
+                    tone: KnowledgeDialogNoticeTone.error,
                   )
                 : source == null
                 ? KnowledgeDialogNotice(

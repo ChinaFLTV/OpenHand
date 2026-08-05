@@ -7,6 +7,7 @@ import 'package:markdown/markdown.dart' as md;
 import 'package:provider/provider.dart';
 
 import '../../../app/state/settings_controller.dart';
+import '../../../app/support/silent_log.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -14,6 +15,7 @@ import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
+import '../knowledge_base_errors.dart';
 import '../model/knowledge_source.dart';
 import '../service/knowledge_indexing_control.dart';
 import '../service/knowledge_ingestion_service.dart';
@@ -279,7 +281,7 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
           ja: 'ノートをインポートしてインデックス化しました。',
         ),
       );
-    } catch (error) {
+    } catch (error, stack) {
       if (!mounted) return;
       if (error is KnowledgeIndexingCancelledException ||
           cancelToken.isCancelled) {
@@ -289,7 +291,11 @@ class _KnowledgeImportDialogState extends State<KnowledgeImportDialog> {
         );
         return;
       }
-      showOpenHandErrorSnack(context, '$error');
+      silentLog('knowledge_import_dialog', '导入知识库笔记', error, stack);
+      showOpenHandErrorSnack(
+        context,
+        knowledgeBaseFailureMessage(error, fallback: '导入知识库笔记失败，请稍后重试。'),
+      );
     } finally {
       if (mounted) setState(() => _saving = false);
     }

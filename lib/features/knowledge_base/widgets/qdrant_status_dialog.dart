@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -17,6 +18,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../knowledge_base_controller.dart';
+import '../knowledge_base_errors.dart';
 import '../service/qdrant_monitoring_service.dart';
 import 'knowledge_dialog_widgets.dart';
 
@@ -154,10 +156,16 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
           }
           _error = null;
         });
-      } catch (error) {
+      } catch (error, stack) {
         if (!mounted) return;
         if (_refreshPending) continue;
-        setState(() => _error = '$error');
+        silentLog('qdrant_status_dialog', '刷新 Qdrant 状态', error, stack);
+        setState(
+          () => _error = knowledgeBaseFailureMessage(
+            error,
+            fallback: '刷新 Qdrant 状态失败，请稍后重试。',
+          ),
+        );
       }
     }
   }
@@ -225,20 +233,29 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
   }
 
   Future<bool> _runOperation(
+    String operationName,
     Future<Map<String, Object?>> Function(KnowledgeBaseController controller)
-    action,
+    operation,
   ) async {
     setState(() {
       _operating = true;
       _error = null;
     });
     try {
-      final result = await action(context.read<KnowledgeBaseController>());
+      final result = await operation(context.read<KnowledgeBaseController>());
       if (!mounted) return false;
       setState(() => _operationResult = result);
       return true;
-    } catch (error) {
-      if (mounted) setState(() => _error = '$error');
+    } catch (error, stack) {
+      silentLog('qdrant_status_dialog', operationName, error, stack);
+      if (mounted) {
+        setState(
+          () => _error = knowledgeBaseFailureMessage(
+            error,
+            fallback: '$operationName失败，请稍后重试。',
+          ),
+        );
+      }
       return false;
     } finally {
       if (mounted) setState(() => _operating = false);
@@ -251,11 +268,15 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       showOpenHandErrorSnack(context, _l10n.qdrantStatusPointIdsEmpty);
       return;
     }
-    await _runOperation((controller) => controller.loadQdrantPointsByIds(ids));
+    await _runOperation(
+      '查询 Qdrant Points',
+      (controller) => controller.loadQdrantPointsByIds(ids),
+    );
   }
 
   Future<void> _scrollPoints() async {
     await _runOperation(
+      '滚动读取 Qdrant Points',
       (controller) => controller.scrollQdrantPoints(
         limit: _limitValue(),
         filter: _filter(),
@@ -267,6 +288,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
     final vector = _parseVector(context);
     if (vector == null) return;
     await _runOperation(
+      '搜索 Qdrant 向量',
       (controller) => controller.searchQdrantRawVector(
         vector: vector,
         limit: _limitValue(),
@@ -277,6 +299,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
 
   Future<void> _createPayloadIndexes() async {
     final succeeded = await _runOperation(
+      '重建 Qdrant Payload 索引',
       (controller) => controller.createDefaultQdrantPayloadIndexes(),
     );
     if (!succeeded || !mounted) return;
@@ -316,8 +339,16 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       if (!mounted) return;
       showOpenHandSuccessSnack(context, l10n.qdrantStatusPointsDeleted);
       await _refresh(silent: true);
-    } catch (error) {
-      if (mounted) setState(() => _error = '$error');
+    } catch (error, stack) {
+      silentLog('qdrant_status_dialog', '删除 Qdrant Points', error, stack);
+      if (mounted) {
+        setState(
+          () => _error = knowledgeBaseFailureMessage(
+            error,
+            fallback: '删除 Qdrant Points 失败，请稍后重试。',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _operating = false);
     }
@@ -325,6 +356,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
 
   Future<void> _loadCollectionInfo(String collection) async {
     await _runOperation(
+      '读取 Qdrant Collection',
       (controller) => controller.loadQdrantCollectionInfo(collection),
     );
   }
@@ -353,8 +385,16 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
       if (!mounted) return;
       showOpenHandSuccessSnack(context, l10n.qdrantStatusCollectionDeleted);
       await _refresh(silent: true);
-    } catch (error) {
-      if (mounted) setState(() => _error = '$error');
+    } catch (error, stack) {
+      silentLog('qdrant_status_dialog', '删除 Qdrant Collection', error, stack);
+      if (mounted) {
+        setState(
+          () => _error = knowledgeBaseFailureMessage(
+            error,
+            fallback: '删除 Qdrant Collection 失败，请稍后重试。',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _operating = false);
     }

@@ -15,6 +15,7 @@ import '../ai/index.dart';
 import '../plugin_service/index.dart';
 import 'data/knowledge_base_settings_store.dart';
 import 'data/knowledge_base_store.dart';
+import 'knowledge_base_errors.dart';
 import 'model/knowledge_base_settings.dart';
 import 'model/knowledge_chunk.dart';
 import 'model/knowledge_retrieval_result.dart';
@@ -37,6 +38,19 @@ const Duration _knowledgeSourceSearchDelay = Duration(milliseconds: 180);
 const Duration _knowledgeControllerShutdownTimeout = Duration(seconds: 3);
 const int _knowledgeNoteFileStemMaxCharacters = 64;
 const String _knowledgeMutationUnavailableMessage = '知识库正在加载或执行其他操作，请稍后重试。';
+
+String _reportKnowledgeBaseFailure(
+  String action,
+  Object error,
+  StackTrace stack, {
+  String? fallback,
+}) {
+  silentLog('knowledge_base_controller', action, error, stack);
+  return knowledgeBaseFailureMessage(
+    error,
+    fallback: fallback ?? '$action失败，请稍后重试。',
+  );
+}
 
 class KnowledgeBaseController extends ChangeNotifier {
   KnowledgeBaseController({
@@ -110,10 +124,15 @@ class KnowledgeBaseController extends ChangeNotifier {
       _settings = settings;
       _hasTrustedSettings = true;
       _error = null;
-    } catch (error) {
+    } catch (error, stack) {
       if (_isStopping) return;
       _hasTrustedSettings = false;
-      _error = '$error';
+      _error = _reportKnowledgeBaseFailure(
+        '读取知识库配置',
+        error,
+        stack,
+        fallback: '读取知识库配置失败，已保留现有数据。',
+      );
     }
     try {
       await _reloadSources();
@@ -122,8 +141,11 @@ class KnowledgeBaseController extends ChangeNotifier {
         sourceExists: (sourceId) async =>
             await _store.loadSource(sourceId) != null,
       );
-    } catch (error) {
-      if (!_isStopping) _error ??= '$error';
+    } catch (error, stack) {
+      if (!_isStopping) {
+        final failure = _reportKnowledgeBaseFailure('加载知识源', error, stack);
+        _error ??= failure;
+      }
     } finally {
       if (!_isDisposed) {
         _loading = false;
@@ -162,9 +184,9 @@ class KnowledgeBaseController extends ChangeNotifier {
         if (_isStopping || generation != _sourceLoadGeneration) return;
         _sources = sources;
         notifyListeners();
-      } catch (error) {
+      } catch (error, stack) {
         if (_isStopping || generation != _sourceLoadGeneration) return;
-        _error = '$error';
+        _error = _reportKnowledgeBaseFailure('搜索知识源', error, stack);
         notifyListeners();
       }
     });
@@ -229,8 +251,15 @@ class KnowledgeBaseController extends ChangeNotifier {
       if (!_isStopping) _error = null;
       await _reloadSources();
       return null;
-    } catch (error) {
-      if (!_isStopping) _error = '$error';
+    } catch (error, stack) {
+      if (!_isStopping) {
+        _error = _reportKnowledgeBaseFailure(
+          '导入知识源',
+          error,
+          stack,
+          fallback: '导入知识源失败，请检查文件、模型与向量服务配置。',
+        );
+      }
       return null;
     }
   }
@@ -482,8 +511,11 @@ class KnowledgeBaseController extends ChangeNotifier {
           );
         }
       }
-      silentLog('knowledge_base_controller', '删除知识源', error, stack);
-      if (!_isStopping) _error = '$error';
+      if (!_isStopping) {
+        _error = _reportKnowledgeBaseFailure('删除知识源', error, stack);
+      } else {
+        silentLog('knowledge_base_controller', '删除知识源', error, stack);
+      }
       return false;
     }
   }

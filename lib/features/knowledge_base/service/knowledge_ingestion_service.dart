@@ -14,6 +14,7 @@ import '../../../shared/util/stable_hash.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../data/knowledge_base_store.dart';
+import '../knowledge_base_errors.dart';
 import '../model/knowledge_base_settings.dart';
 import '../model/knowledge_source.dart';
 import 'knowledge_chunker.dart';
@@ -312,18 +313,30 @@ class KnowledgeIngestionService {
         ),
       );
       rethrow;
-    } catch (error) {
+    } catch (error, stack) {
       await _discardPartialIndex(
         sourceId: source.id,
         collectionName: settings.effectiveCollectionName,
       );
       source = source.copyWith(
         status: 'failed',
-        errorMessage: '$error',
+        errorMessage: knowledgeBaseFailureMessage(
+          error,
+          fallback: '知识源索引失败，请检查模型与向量服务配置。',
+        ),
         updatedAt: DateTime.now().toUtc(),
       );
-      await _store.upsertSource(source);
-      rethrow;
+      try {
+        await _store.upsertSource(source);
+      } catch (persistError, persistStack) {
+        silentLog(
+          'knowledge_ingestion_service',
+          '保存知识源失败状态',
+          persistError,
+          persistStack,
+        );
+      }
+      Error.throwWithStackTrace(error, stack);
     }
   }
 
@@ -441,11 +454,12 @@ class KnowledgeIngestionService {
       );
     } on KnowledgeIndexingCancelledException {
       rethrow;
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('knowledge_ingestion_service', '模型解析知识源', error, stack);
       return _fallbackLocalParse(
         request,
         reason: 'reader_conversion_failed',
-        error: '$error',
+        error: knowledgeBaseFailureMessage(error, fallback: '模型文档解析失败。'),
         failClosed:
             request.settings.failureStrategy ==
             KnowledgeFailureStrategy.failClosed,

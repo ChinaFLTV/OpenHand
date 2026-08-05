@@ -1,10 +1,12 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../knowledge_base_controller.dart';
+import '../knowledge_base_errors.dart';
 import '../model/knowledge_vector_distribution.dart';
 import 'knowledge_dialog_widgets.dart';
 import 'knowledge_vector_distribution_view.dart';
@@ -28,8 +30,20 @@ class _KnowledgeVectorDistributionDialogState
     extends State<KnowledgeVectorDistributionDialog> {
   late Future<KnowledgeVectorDistribution> _future = _load();
 
-  Future<KnowledgeVectorDistribution> _load() {
-    return context.read<KnowledgeBaseController>().loadVectorDistribution();
+  Future<KnowledgeVectorDistribution> _load() async {
+    try {
+      return await context
+          .read<KnowledgeBaseController>()
+          .loadVectorDistribution();
+    } catch (error, stack) {
+      silentLog(
+        'knowledge_vector_distribution_dialog',
+        '加载知识向量分布',
+        error,
+        stack,
+      );
+      rethrow;
+    }
   }
 
   @override
@@ -61,7 +75,10 @@ class _KnowledgeVectorDistributionDialogState
             if (snapshot.hasError) {
               return KnowledgeDialogNotice(
                 icon: Icons.error_outline_rounded,
-                message: '${snapshot.error}',
+                message: knowledgeBaseFailureMessage(
+                  snapshot.error!,
+                  fallback: '加载知识向量分布失败，请稍后重试。',
+                ),
                 tone: KnowledgeDialogNoticeTone.error,
               );
             }

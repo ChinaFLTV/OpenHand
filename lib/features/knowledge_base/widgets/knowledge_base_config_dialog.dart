@@ -21,6 +21,7 @@ import '../../../shared/util/reader_file_type.dart';
 import '../../ai/index.dart';
 import '../../plugin_service/index.dart';
 import '../knowledge_base_controller.dart';
+import '../knowledge_base_errors.dart';
 import '../model/knowledge_base_settings.dart';
 import '../service/knowledge_dependency_service.dart';
 import '../service/knowledge_document_parser.dart';
@@ -603,12 +604,15 @@ class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
         ),
       );
     } catch (error, stack) {
-      var errorMessage = '$error';
+      var errorMessage = knowledgeBaseFailureMessage(
+        error,
+        fallback: '保存知识库配置失败，请稍后重试。',
+      );
       if (knowledgeSettingsSaved) {
         try {
           await knowledgeController.updateSettings(previousSettings);
         } catch (rollbackError, rollbackStack) {
-          errorMessage = '$errorMessage\n知识库配置回滚失败：$rollbackError';
+          errorMessage = '$errorMessage\n知识库配置回滚失败，请重启应用后重试。';
           silentLog(
             'knowledge_base_config_dialog',
             '回滚设置',

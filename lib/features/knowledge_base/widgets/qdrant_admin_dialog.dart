@@ -1,12 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/support/silent_log.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
+import '../knowledge_base_errors.dart';
 import 'knowledge_dialog_widgets.dart';
 
 Future<void> showQdrantAdminDialog(BuildContext context) {
@@ -33,17 +35,24 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
   @override
   void initState() {
     super.initState();
-    _collectionsFuture = context
-        .read<KnowledgeBaseController>()
-        .listQdrantCollections();
+    _collectionsFuture = _loadCollections();
+  }
+
+  Future<List<Map<String, Object?>>> _loadCollections() async {
+    try {
+      return await context
+          .read<KnowledgeBaseController>()
+          .listQdrantCollections();
+    } catch (error, stack) {
+      silentLog('qdrant_admin_dialog', '加载 Qdrant 集合', error, stack);
+      Error.throwWithStackTrace(error, stack);
+    }
   }
 
   void _refresh() {
     setState(() {
       _error = null;
-      _collectionsFuture = context
-          .read<KnowledgeBaseController>()
-          .listQdrantCollections();
+      _collectionsFuture = _loadCollections();
     });
   }
 
@@ -57,8 +66,16 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
           .read<KnowledgeBaseController>()
           .loadQdrantCollectionInfo(collection);
       if (mounted) setState(() => _collectionInfo = info);
-    } catch (error) {
-      if (mounted) setState(() => _error = '$error');
+    } catch (error, stack) {
+      silentLog('qdrant_admin_dialog', '读取 Qdrant 集合信息', error, stack);
+      if (mounted) {
+        setState(
+          () => _error = knowledgeBaseFailureMessage(
+            error,
+            fallback: '读取 Qdrant 集合信息失败，请稍后重试。',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -74,8 +91,16 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
           .read<KnowledgeBaseController>()
           .scrollQdrantPoints();
       if (mounted) setState(() => _scrollResult = result);
-    } catch (error) {
-      if (mounted) setState(() => _error = '$error');
+    } catch (error, stack) {
+      silentLog('qdrant_admin_dialog', '滚动读取 Qdrant Points', error, stack);
+      if (mounted) {
+        setState(
+          () => _error = knowledgeBaseFailureMessage(
+            error,
+            fallback: '滚动读取 Qdrant Points 失败，请稍后重试。',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -147,8 +172,16 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
         ),
       );
       _refresh();
-    } catch (error) {
-      if (mounted) setState(() => _error = '$error');
+    } catch (error, stack) {
+      silentLog('qdrant_admin_dialog', '删除 Qdrant Collection', error, stack);
+      if (mounted) {
+        setState(
+          () => _error = knowledgeBaseFailureMessage(
+            error,
+            fallback: '删除 Qdrant Collection 失败，请稍后重试。',
+          ),
+        );
+      }
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -192,7 +225,10 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                     if (snapshot.hasError) {
                       return KnowledgeDialogNotice(
                         icon: Icons.error_outline_rounded,
-                        message: '${snapshot.error}',
+                        message: knowledgeBaseFailureMessage(
+                          snapshot.error!,
+                          fallback: '加载 Qdrant 集合失败，请稍后重试。',
+                        ),
                         tone: KnowledgeDialogNoticeTone.error,
                       );
                     }
