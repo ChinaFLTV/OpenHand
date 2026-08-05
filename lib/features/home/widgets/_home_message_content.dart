@@ -5276,7 +5276,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   // the one-shot timer, guaranteeing that continuous reflow eventually lands.
   double? _pendingHeight;
   // 限制高度应用间隔，阻断 WebView resize → setState → 再次 resize 闭环振荡。
-  DateTime? _lastHeightApplyTime;
+  final Stopwatch _heightApplyStopwatch = Stopwatch()..start();
+  int? _lastHeightApplyAtMs;
   // 用于让外层气泡 pointer 监听在命中 WebView 区域时跳过
   // "选中卡片"切换，从而让 HTML 内部的按钮/超链接/表单能被点击。
   final GlobalKey _webViewRegionKey = GlobalKey();
@@ -5405,6 +5406,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     _heightDebounceTimer?.cancel();
     _initialRevealFallbackTimer?.cancel();
     _postScrollHeightApplyTimer?.cancel();
+    _heightApplyStopwatch.stop();
     _scrollActivity?.removeListener(_onScrollActivityChanged);
     _scrollActivity = null;
     _bubbleStateForRegion?.unregisterHtmlInteractiveRegion(_webViewRegionKey);
@@ -5568,9 +5570,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       final changeRatio = (next - _height!).abs() / _height!;
       // 大幅变化优先立即应用，但 250ms 内最多一次，阻断 resize 闭环振荡。
       if (changeRatio >= _kLargeChangeRatio) {
-        final lastApply = _lastHeightApplyTime;
-        if (lastApply != null &&
-            DateTime.now().difference(lastApply) < _kMinHeightApplyInterval) {
+        final lastApplyAtMs = _lastHeightApplyAtMs;
+        if (lastApplyAtMs != null &&
+            _heightApplyStopwatch.elapsedMilliseconds - lastApplyAtMs <
+                _kMinHeightApplyInterval.inMilliseconds) {
           _pendingHeight = next;
           final timer = _heightDebounceTimer;
           if (timer == null || !timer.isActive) {
@@ -5645,7 +5648,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     _writeBoundedHeightCache(_heightCache, _heightCacheKey, next);
     _writeBoundedHeightCache(_heightFloorCache, _heightCacheKey, next);
     _writeBoundedHeightCache(_revealedHeightCache, _heightCacheKey, next);
-    _lastHeightApplyTime = DateTime.now();
+    _lastHeightApplyAtMs = _heightApplyStopwatch.elapsedMilliseconds;
     _safeSetState(() {
       _height = next;
       _heightFromFallback = false;

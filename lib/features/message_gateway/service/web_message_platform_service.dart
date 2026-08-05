@@ -282,6 +282,7 @@ class WebMessagePlatformService {
   WebGatewayRuntimeState _state = WebGatewayRuntimeState.stopped;
   WebMessagePlatformConfig _config = const WebMessagePlatformConfig();
   WebGatewayThemeSnapshot _theme = const WebGatewayThemeSnapshot();
+  final Stopwatch _runtimeStopwatch = Stopwatch();
   DateTime? _startedAt;
   int _inFlightRequests = 0;
   int _activeRequests = 0;
@@ -434,7 +435,8 @@ class WebMessagePlatformService {
   /// 监听 `0.0.0.0` / `::` 时枚举局域网 URL 的数据源。`start()` 后填充，
   /// 消息网关页面与运维快照按 30s TTL 刷新。
   List<String> _localAddressesCache = const <String>[];
-  DateTime? _localAddressesAt;
+  final Stopwatch _localAddressesStopwatch = Stopwatch()..start();
+  int? _localAddressesRefreshedAtMs;
   Future<bool>? _localAddressesRefreshFuture;
 
   Stream<WebGatewayLogEntry> get logStream => _logStreamController.stream;
@@ -1080,6 +1082,9 @@ class WebMessagePlatformService {
         throw _disposedError;
       }
       _startedAt = DateTime.now().toUtc();
+      _runtimeStopwatch
+        ..reset()
+        ..start();
       _lastError = '';
       _lastErrorAt = null;
       _lastErrorPath = '';
@@ -1340,6 +1345,9 @@ class WebMessagePlatformService {
 
   void _clearStoppedRuntimeState() {
     _startedAt = null;
+    _runtimeStopwatch
+      ..stop()
+      ..reset();
     _authSessions.clear();
     _loginAttemptsByRemoteAddress.clear();
     _queuedGoalYieldLeasesBySessionId.clear();
@@ -1349,7 +1357,7 @@ class WebMessagePlatformService {
     final startedAt = _startedAt;
     final uptimeMs = startedAt == null
         ? 0
-        : DateTime.now().toUtc().difference(startedAt).inMilliseconds;
+        : _runtimeStopwatch.elapsedMilliseconds;
     return WebGatewayRuntimeSnapshot(
       state: _state,
       startedAt: startedAt,
@@ -1814,8 +1822,10 @@ class WebMessagePlatformService {
   }
 
   Future<bool> _refreshLocalAddressesIfStale({required Duration ttl}) {
-    final stamp = _localAddressesAt;
-    if (stamp != null && DateTime.now().toUtc().difference(stamp) < ttl) {
+    final refreshedAtMs = _localAddressesRefreshedAtMs;
+    if (refreshedAtMs != null &&
+        _localAddressesStopwatch.elapsedMilliseconds - refreshedAtMs <
+            ttl.inMilliseconds) {
       return Future<bool>.value(false);
     }
     final pending = _localAddressesRefreshFuture;
@@ -1848,7 +1858,8 @@ class WebMessagePlatformService {
       final next = addrs.toList(growable: false)..sort();
       final changed = !listEquals(_localAddressesCache, next);
       if (changed) _localAddressesCache = List<String>.unmodifiable(next);
-      _localAddressesAt = DateTime.now().toUtc();
+      _localAddressesRefreshedAtMs =
+          _localAddressesStopwatch.elapsedMilliseconds;
       return changed;
     } catch (error, stack) {
       silentLog('web_message_platform_service', '刷新本地地址', error, stack);
@@ -5844,7 +5855,8 @@ class WebMessagePlatformService {
     }
 
     String? lastSnapshotHash;
-    DateTime? lastSnapshotStartedAt;
+    final snapshotStopwatch = Stopwatch()..start();
+    int? lastSnapshotStartedAtMs;
     Timer? throttleTimer;
     Timer? keepaliveTimer;
     var disposed = false;
@@ -5969,7 +5981,7 @@ class WebMessagePlatformService {
         return;
       }
       snapshotInFlight = true;
-      lastSnapshotStartedAt = DateTime.now();
+      lastSnapshotStartedAtMs = snapshotStopwatch.elapsedMilliseconds;
       try {
         if (!authStillValid()) {
           closeUnauthorizedStream();
@@ -6036,10 +6048,12 @@ class WebMessagePlatformService {
       // 已经排好下一次触发就直接合并进去——不要 cancel 后重排，那是防抖语义，
       // 会在高频通知（流式追加）下把下发无限推迟。
       if (throttleTimer != null) return;
-      final startedAt = lastSnapshotStartedAt;
-      final elapsed = startedAt == null
+      final startedAtMs = lastSnapshotStartedAtMs;
+      final elapsed = startedAtMs == null
           ? null
-          : DateTime.now().difference(startedAt);
+          : Duration(
+              milliseconds: snapshotStopwatch.elapsedMilliseconds - startedAtMs,
+            );
       if (elapsed == null || elapsed >= _sseSnapshotMinInterval) {
         unawaited(runSnapshot());
         return;
@@ -6072,6 +6086,7 @@ class WebMessagePlatformService {
       disposed = true;
       throttleTimer?.cancel();
       keepaliveTimer?.cancel();
+      snapshotStopwatch.stop();
       _sessionController.removeListener(controllerListener);
       _sessionController.streamThrottleOverrideSignal.removeListener(
         controllerListener,

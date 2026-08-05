@@ -627,7 +627,7 @@ class McpServerOpsRuntime {
           );
         }
         final requestToken = Object();
-        final startedAt = DateTime.now().toUtc();
+        final requestStopwatch = Stopwatch()..start();
         _activeRequestTokens.add(requestToken);
         _setSnapshot(
           _snapshot.copyWith(
@@ -639,10 +639,7 @@ class McpServerOpsRuntime {
         try {
           return await innerHandler(request);
         } finally {
-          final durationMs = DateTime.now()
-              .toUtc()
-              .difference(startedAt)
-              .inMilliseconds;
+          final durationMs = requestStopwatch.elapsedMilliseconds;
           _latencies.add(durationMs);
           if (_latencies.length > _latencyWindow) {
             _latencies.removeRange(0, _latencies.length - _latencyWindow);
