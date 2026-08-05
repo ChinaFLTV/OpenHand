@@ -4220,18 +4220,26 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final selectedValue = options.any((item) => item.value == _reasoningEffort)
         ? _reasoningEffort
         : (options.isNotEmpty ? options.first.value : null);
-    final reasoningEffortActionStyle = TextButton.styleFrom(
-      foregroundColor: colorScheme.onSecondaryContainer,
-      backgroundColor: colorScheme.secondaryContainer,
-      disabledForegroundColor: colorScheme.onSurface.withValues(alpha: 0.38),
-      disabledBackgroundColor: colorScheme.onSurface.withValues(alpha: 0.12),
-      minimumSize: const Size(104, 40),
-      padding: const EdgeInsets.symmetric(horizontal: 12),
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-      textStyle: theme.textTheme.labelLarge?.copyWith(
-        fontWeight: FontWeight.w600,
-      ),
-    );
+    final reasoningEffortActionStyle =
+        (theme.filledButtonTheme.style ??
+                FilledButton.styleFrom(
+                  backgroundColor: colorScheme.primary,
+                  foregroundColor: colorScheme.onPrimary,
+                ))
+            .copyWith(
+              minimumSize: const WidgetStatePropertyAll(Size(104, 40)),
+              padding: const WidgetStatePropertyAll(
+                EdgeInsets.symmetric(horizontal: 12),
+              ),
+              shape: WidgetStatePropertyAll(
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+              ),
+              textStyle: WidgetStatePropertyAll(
+                theme.textTheme.labelLarge?.copyWith(
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
