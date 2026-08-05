@@ -4012,7 +4012,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return _disposeReverseRuntimeController(
       sessionId: sessionId,
       operation: '释放 Web 逆向控制器 $sessionId',
-      stop: controller.stop,
+      shutdown: controller.shutdown,
       dispose: controller.dispose,
     );
   }
@@ -4020,9 +4020,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _disposeReverseRuntimeController({
     required String sessionId,
     required String operation,
-    required Future<void> Function() stop,
+    required Future<void> Function() shutdown,
     required void Function() dispose,
-    void Function()? afterStop,
+    void Function()? afterShutdown,
   }) {
     final active = _reverseControllerDisposalTasks[sessionId];
     if (active != null) {
@@ -4030,9 +4030,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (_) => _disposeReverseRuntimeController(
           sessionId: sessionId,
           operation: operation,
-          stop: stop,
+          shutdown: shutdown,
           dispose: dispose,
-          afterStop: afterStop,
+          afterShutdown: afterShutdown,
         ),
       );
     }
@@ -4042,13 +4042,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (() async {
           _beginReverseRuntimeOperation(sessionId);
           try {
-            await stop();
+            await shutdown();
           } catch (error, stack) {
             silentLog('openhand_home_page', operation, error, stack);
           } finally {
             _finishReverseRuntimeOperation(sessionId);
             try {
-              afterStop?.call();
+              afterShutdown?.call();
               dispose();
             } catch (error, stack) {
               silentLog('openhand_home_page', '$operation：释放对象', error, stack);
@@ -4311,9 +4311,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     return _disposeReverseRuntimeController(
       sessionId: sessionId,
       operation: '释放 Android 逆向控制器 $sessionId',
-      stop: controller.stop,
+      shutdown: controller.shutdown,
       dispose: controller.dispose,
-      afterStop: () =>
+      afterShutdown: () =>
           _androidReverseRuntimeMetadataSignatures.remove(sessionId),
     );
   }
@@ -7622,7 +7622,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       _stopReverseRuntimeController(
         sessionId: sessionId,
         operation: '停止 Web 逆向运行时',
-        stop: webReverseController.stop,
+        stop: webReverseController.stopBrowser,
         isActive: () => webReverseController.hasManagedBrowserProcess,
       );
     }
