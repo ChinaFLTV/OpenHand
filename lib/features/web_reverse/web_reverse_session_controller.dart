@@ -18,6 +18,7 @@ import '../../shared/util/lifecycle_cache.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/text_clip.dart';
 import '../../shared/util/timer_safety.dart';
+import '../../shared/util/user_failure_message.dart';
 import 'web_reverse_browser_launcher.dart';
 import 'web_reverse_cdp_client.dart';
 import 'web_reverse_cdp_http.dart';
@@ -405,12 +406,13 @@ class WebReverseSessionController extends ChangeNotifier {
   /// 触发 Initiator 跳转到 Sources。`line` / `col` 都使用 CDP 的 0-based
   /// 行列号；UI 渲染时再 +1。
   void requestSourceJump({required String url, int line = 0, int col = 0}) {
-    if (url.isEmpty) return;
+    if (_disposed || url.isEmpty) return;
     sourceJumpRequest.value = (url: url, line: line, col: col);
   }
 
   /// dashboard 完成跳转后调用以避免重复响应。
   void clearSourceJumpRequest() {
+    if (_disposed) return;
     sourceJumpRequest.value = null;
   }
 
@@ -504,7 +506,10 @@ class WebReverseSessionController extends ChangeNotifier {
       _safeNotify();
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '启动会话', error, stack);
-      _errorMessage = error.toString();
+      _errorMessage = userFailureMessage(
+        error,
+        fallback: 'Web 逆向会话启动失败，请检查浏览器配置后重试。',
+      );
       _started = false;
       await _safeStop();
       rethrow;
@@ -1085,13 +1090,10 @@ class WebReverseSessionController extends ChangeNotifier {
   }
 
   void _onCdpEvent(CdpEvent ev) {
-    // 先广播给外部订阅者，再走内置 dispatch；广播失败不影响内部处理。
+    if (_disposed || _stopped) return;
+    // 先广播给外部订阅者，再走内置分发。
     if (!_rawCdpEventBus.isClosed) {
-      try {
-        _rawCdpEventBus.add(ev);
-      } catch (e, st) {
-        silentLog('web_reverse_session_controller', '广播原始调试协议事件', e, st);
-      }
+      _rawCdpEventBus.add(ev);
     }
     switch (ev.method) {
       case '__cdp_reconnected__':
@@ -4670,7 +4672,10 @@ class WebReverseSessionController extends ChangeNotifier {
       }
     } catch (error, stack) {
       silentLog('web_reverse_session_controller', '重启浏览器后启动会话', error, stack);
-      _errorMessage = '浏览器重启失败：$error';
+      _errorMessage = userFailureMessage(
+        error,
+        fallback: '浏览器重启失败，请检查浏览器配置后重试。',
+      );
       _safeNotify();
       rethrow;
     }
@@ -8549,6 +8554,7 @@ class WebReverseSessionController extends ChangeNotifier {
     _notifierDisposed = true;
     unawaited(shutdown());
     screencastFrameNotifier.dispose();
+    sourceJumpRequest.dispose();
     super.dispose();
   }
 

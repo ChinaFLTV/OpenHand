@@ -134,6 +134,7 @@ import '../../shared/util/tool_name_normalization.dart';
 import '../../shared/util/transcript_list_windowing.dart';
 import '../../shared/util/unified_diff.dart'
     show unifiedDiffLines, unifiedDiffLinesFromText;
+import '../../shared/util/user_failure_message.dart';
 import '../../shared/util/workspace_root_resolver.dart';
 import '../agents/index.dart';
 import '../ai/index.dart';
@@ -3673,7 +3674,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (mounted) {
         showFriendlyErrorSnackBar(
           context,
-          message: '$error',
+          message: userFailureMessage(error, fallback: '$runtimeLabel 会话配置失败'),
           fallback: '$runtimeLabel 会话配置失败',
         );
       }
@@ -3913,7 +3914,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (mounted) {
         showFriendlyErrorSnackBar(
           context,
-          message: '$error',
+          message: userFailureMessage(error, fallback: 'Web 逆向会话启动失败'),
           fallback: 'Web 逆向会话启动失败',
         );
       }
@@ -4150,7 +4151,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (dialogContext.mounted) {
         showFriendlyErrorSnackBar(
           dialogContext,
-          message: '$error',
+          message: userFailureMessage(error, fallback: 'Android 逆向运行时启动失败'),
           fallback: 'Android 逆向运行时启动失败',
         );
       }
@@ -4247,7 +4248,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (mounted) {
         showFriendlyErrorSnackBar(
           context,
-          message: '$error',
+          message: userFailureMessage(error, fallback: 'Android 逆向会话启动失败'),
           fallback: 'Android 逆向会话启动失败',
         );
       }
@@ -5270,7 +5271,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (mounted) {
         showFriendlyErrorSnackBar(
           context,
-          message: '$error',
+          message: userFailureMessage(error, fallback: '浏览器恢复启动失败'),
           fallback: '浏览器恢复启动失败',
         );
       }
