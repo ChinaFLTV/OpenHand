@@ -920,7 +920,7 @@ class AiToolUtils {
     required int durationMs,
     Map<String, Object?> metadata = const <String, Object?>{},
   }) {
-    const detail = 'The tool execution was cancelled by the user.';
+    const detail = '用户已取消工具执行。';
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.cancelled,
       command: command,

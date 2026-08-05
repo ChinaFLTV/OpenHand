@@ -15,16 +15,15 @@ class AiToolSearchTool extends AiTool {
   static const int _defaultMaxResults = 5;
   static const int _minMaxResults = 1;
   static const int _maxMaxResults = 50;
+  static const int _maxQueryTerms = 32;
 
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.toolSearch;
 
-  /// Names of MCP tools currently deferred — set by [AiSessionController]
-  /// before catalog resolution every turn. Empty ⇒ tool should be hidden.
+  /// 当前延迟加载的 MCP 工具名；空列表表示应隐藏本工具。
   List<String> deferredToolNames = const <String>[];
 
-  /// Full definitions of deferred runtime tools, keyed by name. Used to
-  /// assemble the structured JSON payload returned to the model.
+  /// 按名称索引的延迟工具完整定义，用于组装结构化结果。
   Map<String, AiToolDefinition> deferredToolDefinitions =
       const <String, AiToolDefinition>{};
 
@@ -66,6 +65,24 @@ class AiToolSearchTool extends AiTool {
             : 'ToolSearch 网关调用未被运行时分发，请重试。',
       );
     }
+    if (query.length > kAiToolSearchMaxQueryCharacters) {
+      return AiToolUtils.invalidResult(
+        'ToolSearch',
+        'query 超过 $kAiToolSearchMaxQueryCharacters 个字符上限。',
+      );
+    }
+    if (!query.toLowerCase().startsWith('select:') &&
+        query
+                .split(kInlineWhitespacePattern)
+                .where((term) => term.isNotEmpty)
+                .take(_maxQueryTerms + 1)
+                .length >
+            _maxQueryTerms) {
+      return AiToolUtils.invalidResult(
+        'ToolSearch',
+        'query 超过 $_maxQueryTerms 个词项上限。',
+      );
+    }
     final catalogTool = context.catalog.find('ToolSearch');
     final definitionsByName = catalogTool == null
         ? deferredToolDefinitions
@@ -82,8 +99,7 @@ class AiToolSearchTool extends AiTool {
         matches: const <String>[],
         deferredTotal: 0,
         functions: const <Map<String, Object?>>[],
-        message:
-            'No deferred runtime tools are available. Every callable tool is already loaded.',
+        message: '没有延迟加载的运行时工具，所有可调用工具均已加载。',
       );
       return AiToolUtils.simpleSuccessResult(
         command: 'ToolSearch query=$query',
@@ -108,8 +124,8 @@ class AiToolSearchTool extends AiTool {
       deferredTotal: deferred.length,
       functions: functions,
       message: matches.isEmpty
-          ? 'No deferred tool matched. Try different keywords or select exact names.'
-          : 'Call ToolSearch again with `tool_name` set to an exact matched name and `arguments` matching its schema.',
+          ? '没有匹配的延迟工具，请更换关键词或使用精确名称。'
+          : '请再次调用 ToolSearch，将 tool_name 设为精确匹配名，并按其 Schema 提供 arguments。',
     );
     return AiToolUtils.simpleSuccessResult(
       command: 'ToolSearch query=$query',
@@ -123,10 +139,6 @@ class AiToolSearchTool extends AiTool {
     );
   }
 
-  // ──────────────────────────────────────────────────────────────────────
-  // Search core (parallels Claude Code src/tools/ToolSearchTool/...)
-  // ──────────────────────────────────────────────────────────────────────
-
   List<String> _runSearch({
     required String query,
     required int maxResults,
@@ -135,7 +147,7 @@ class AiToolSearchTool extends AiTool {
   }) {
     final lower = query.toLowerCase();
 
-    // 1) `select:NAME[,NAME...]` direct multi-select.
+    // 1. `select:NAME[,NAME...]` 精确多选。
     if (lower.startsWith('select:')) {
       final requested = splitTrimmedNonEmpty(query.substring('select:'.length));
       final byLower = <String, String>{
@@ -151,12 +163,12 @@ class AiToolSearchTool extends AiTool {
       return found;
     }
 
-    // 2) Exact bare-name fast path.
+    // 2. 裸名称精确匹配。
     for (final n in deferred) {
       if (n.toLowerCase() == lower) return <String>[n];
     }
 
-    // 3) `mcp__server` prefix shortcut.
+    // 3. `mcp__server` 前缀匹配。
     if (lower.startsWith('mcp__') && lower.length > 5) {
       final hits = deferred
           .where((n) => n.toLowerCase().startsWith(lower))
@@ -165,10 +177,10 @@ class AiToolSearchTool extends AiTool {
       if (hits.isNotEmpty) return hits;
     }
 
-    // 4) Keyword ranking with `+required` term support.
+    // 4. 关键词排序，支持 `+必含词`。
     final terms = lower
         .split(kInlineWhitespacePattern)
-        .where((t) => t.isNotEmpty);
+        .where((term) => term.isNotEmpty);
     final required = <String>[];
     final optional = <String>[];
     for (final t in terms) {
@@ -178,23 +190,30 @@ class AiToolSearchTool extends AiTool {
         optional.add(t);
       }
     }
-    final allTerms = required.isEmpty
-        ? optional
-        : <String>[...required, ...optional];
+    final allTerms =
+        (required.isEmpty ? optional : <String>[...required, ...optional])
+          ..retainWhere(<String>{}.add);
     if (allTerms.isEmpty) return const <String>[];
+    final descriptionPatterns = <String, RegExp>{
+      for (final term in allTerms)
+        term: RegExp(
+          _asciiWordTermPattern.hasMatch(term)
+              ? '\\b${RegExp.escape(term)}\\b'
+              : RegExp.escape(term),
+        ),
+    };
 
     final scored = <_ScoredToolMatch>[];
     for (final name in deferred) {
       final parsed = _parseToolName(name);
       final descLower = (deferredDefinitions[name]?.description ?? '')
           .toLowerCase();
-      // Required-term gate.
       var passesRequired = true;
       for (final r in required) {
         final hit =
             parsed.parts.contains(r) ||
             parsed.parts.any((p) => p.contains(r)) ||
-            _matchesWord(descLower, r);
+            descriptionPatterns[r]!.hasMatch(descLower);
         if (!hit) {
           passesRequired = false;
           break;
@@ -211,7 +230,7 @@ class AiToolSearchTool extends AiTool {
         } else if (parsed.full.contains(term) && score == 0) {
           score += 3;
         }
-        if (_matchesWord(descLower, term)) score += 2;
+        if (descriptionPatterns[term]!.hasMatch(descLower)) score += 2;
       }
       if (score > 0) scored.add(_ScoredToolMatch(name, score));
     }
@@ -225,12 +244,6 @@ class AiToolSearchTool extends AiTool {
 
   static int _compareToolNames(String left, String right) {
     return compareToolNamesForAiRequest(left, right);
-  }
-
-  static bool _matchesWord(String haystack, String term) {
-    if (haystack.isEmpty || term.isEmpty) return false;
-    final escaped = RegExp.escape(term);
-    return RegExp('\\b$escaped\\b').hasMatch(haystack);
   }
 
   static _ParsedToolName _parseToolName(String name) {
@@ -302,6 +315,8 @@ class AiToolSearchTool extends AiTool {
     return functions;
   }
 }
+
+final RegExp _asciiWordTermPattern = RegExp(r'^[a-z0-9_]+$');
 
 class _ScoredToolMatch {
   const _ScoredToolMatch(this.name, this.score);

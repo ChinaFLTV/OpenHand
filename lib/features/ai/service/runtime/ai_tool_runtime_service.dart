@@ -59,6 +59,12 @@ const int _maxConcurrentToolExecutions = kOpenHandMaxAsyncConcurrency;
 const int _maxQueuedToolExecutions = 256;
 const Duration _toolExecutionQueueTimeout = Duration(seconds: 30);
 const int _minToolOutputTruncationPayloadChars = 40;
+const int kAiToolSearchMaxQueryCharacters = 4096;
+const int kAiKnowledgeSearchMaxQueryCharacters = 2000;
+const int kAiKnowledgeSearchMaxSourceIds = 32;
+const int kAiKnowledgeSearchMaxTags = 32;
+const int kAiKnowledgeTagMaxCharacters = 128;
+const int kAiKnowledgeIdMaxCharacters = 256;
 const String _toolResultsSubdirectoryName = 'tool-results';
 const String _toolOutputTruncationStrategyHeadTail = 'head_tail';
 const String _toolOutputRecoveryHintRerunNarrower = 'rerun_with_narrower_query';
@@ -4123,6 +4129,7 @@ class AiToolRuntimeService {
         'properties': <String, Object?>{
           'query': <String, Object?>{
             'type': 'string',
+            'maxLength': kAiToolSearchMaxQueryCharacters,
             'description':
                 'Either `select:NAME[,NAME...]` for direct selection or one '
                 'or more keywords. Prefix a term with `+` to require it.',
@@ -4170,13 +4177,18 @@ class AiToolRuntimeService {
         'properties': <String, Object?>{
           'query': <String, Object?>{
             'type': 'string',
+            'maxLength': kAiKnowledgeSearchMaxQueryCharacters,
             'description': 'Natural language or exact text query.',
           },
           'tags': <String, Object?>{
             'type': 'array',
-            'items': <String, Object?>{'type': 'string'},
+            'maxItems': kAiKnowledgeSearchMaxTags,
+            'items': <String, Object?>{
+              'type': 'string',
+              'maxLength': kAiKnowledgeTagMaxCharacters,
+            },
             'description':
-                'Optional tag filter, reserved for indexed payloads.',
+                'Optional exact tag filters. Every provided tag must match.',
           },
           'date_from': <String, Object?>{
             'type': 'string',
@@ -4188,7 +4200,11 @@ class AiToolRuntimeService {
           },
           'source_ids': <String, Object?>{
             'type': 'array',
-            'items': <String, Object?>{'type': 'string'},
+            'maxItems': kAiKnowledgeSearchMaxSourceIds,
+            'items': <String, Object?>{
+              'type': 'string',
+              'maxLength': kAiKnowledgeIdMaxCharacters,
+            },
           },
           'top_k': <String, Object?>{
             'type': 'integer',
@@ -4213,15 +4229,18 @@ class AiToolRuntimeService {
         'properties': <String, Object?>{
           'chunk_id': <String, Object?>{
             'type': 'string',
+            'maxLength': kAiKnowledgeIdMaxCharacters,
             'description': 'A concrete knowledge chunk id to read.',
           },
           'source_id': <String, Object?>{
             'type': 'string',
+            'maxLength': kAiKnowledgeIdMaxCharacters,
             'description':
                 'Optional source id. Without chunk_id/around_chunk_id, returns only a small source preview.',
           },
           'around_chunk_id': <String, Object?>{
             'type': 'string',
+            'maxLength': kAiKnowledgeIdMaxCharacters,
             'description':
                 'Read a small ordered window around a concrete chunk id.',
           },

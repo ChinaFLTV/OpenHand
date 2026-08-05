@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 
 import 'package:sqflite_common/sqlite_api.dart';
@@ -9,6 +10,7 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../knowledge_base/index.dart';
 import '../../model/ai_model_config.dart';
+import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
@@ -26,6 +28,7 @@ const int _maxKnowledgeReadLimit = 8;
 const int _sourcePreviewMaxChunks = 4;
 const int _knowledgeToolPreviewMaxChars = 420;
 const int _knowledgeReadContentMaxChars = 4000;
+const Duration _knowledgeDatabaseQueryTimeout = Duration(seconds: 10);
 
 class AiKnowledgeSearchTool extends AiTool {
   AiKnowledgeSearchTool({
@@ -56,36 +59,125 @@ class AiKnowledgeSearchTool extends AiTool {
     if (query.isEmpty) {
       return AiToolUtils.invalidResult(
         'KnowledgeSearch',
-        'KnowledgeSearch requires non-empty query.',
+        'KnowledgeSearch 需要非空 query。',
       );
     }
+    if (query.length > kAiKnowledgeSearchMaxQueryCharacters) {
+      return AiToolUtils.invalidResult(
+        'KnowledgeSearch',
+        'query 超过 $kAiKnowledgeSearchMaxQueryCharacters 个字符上限。',
+      );
+    }
+    final sourceIds = _stringList(
+      args['source_ids'],
+      maxItems: kAiKnowledgeSearchMaxSourceIds + 1,
+    );
+    if (sourceIds.length > kAiKnowledgeSearchMaxSourceIds) {
+      return AiToolUtils.invalidResult(
+        'KnowledgeSearch',
+        'source_ids 超过 $kAiKnowledgeSearchMaxSourceIds 项上限。',
+      );
+    }
+    if (sourceIds.any((id) => id.length > kAiKnowledgeIdMaxCharacters)) {
+      return AiToolUtils.invalidResult(
+        'KnowledgeSearch',
+        '存在 source_id 超过 $kAiKnowledgeIdMaxCharacters 个字符上限。',
+      );
+    }
+    final tags = _stringList(
+      args['tags'],
+      maxItems: kAiKnowledgeSearchMaxTags + 1,
+    );
+    if (tags.length > kAiKnowledgeSearchMaxTags) {
+      return AiToolUtils.invalidResult(
+        'KnowledgeSearch',
+        'tags 超过 $kAiKnowledgeSearchMaxTags 项上限。',
+      );
+    }
+    if (tags.any((tag) => tag.length > kAiKnowledgeTagMaxCharacters)) {
+      return AiToolUtils.invalidResult(
+        'KnowledgeSearch',
+        '存在 tag 超过 $kAiKnowledgeTagMaxCharacters 个字符上限。',
+      );
+    }
+    final dateFrom = AiToolUtils.readString(args['date_from']);
+    final dateTo = AiToolUtils.readString(args['date_to']);
+    final parsedDateFrom = _parseKnowledgeDateFilter(dateFrom);
+    final parsedDateTo = _parseKnowledgeDateFilter(dateTo, endOfDay: true);
+    if ((dateFrom.isNotEmpty && parsedDateFrom == null) ||
+        (dateTo.isNotEmpty && parsedDateTo == null)) {
+      return AiToolUtils.invalidResult(
+        'KnowledgeSearch',
+        'date_from 和 date_to 必须为有效 ISO 8601 日期或时间。',
+      );
+    }
+    if (parsedDateFrom != null &&
+        parsedDateTo != null &&
+        parsedDateFrom.isAfter(parsedDateTo)) {
+      return AiToolUtils.invalidResult(
+        'KnowledgeSearch',
+        'date_from 不能晚于 date_to。',
+      );
+    }
+    final effectiveDateFrom = parsedDateFrom?.toIso8601String() ?? '';
+    final effectiveDateTo = parsedDateTo?.toIso8601String() ?? '';
     final topK = AiToolUtils.readClampedInt(
       args['top_k'],
       fallback: _defaultKnowledgeSearchTopK,
       min: _minKnowledgeSearchTopK,
       max: _maxKnowledgeSearchTopK,
     );
-    final vectorResult = await _executeVectorSearch(
-      query: query,
-      topK: topK,
-      stopwatch: sw,
-      cancelSignal: context.cancelSignal,
-    );
-    if (vectorResult != null) return vectorResult;
+    if (await isCancelSignalCompleted(context.cancelSignal)) {
+      return cancelledResult();
+    }
+    final hasExplicitFilters =
+        sourceIds.isNotEmpty ||
+        tags.isNotEmpty ||
+        effectiveDateFrom.isNotEmpty ||
+        effectiveDateTo.isNotEmpty;
+    if (!hasExplicitFilters) {
+      final vectorResult = await _executeVectorSearch(
+        query: query,
+        topK: topK,
+        stopwatch: sw,
+        cancelSignal: context.cancelSignal,
+      );
+      if (vectorResult != null) return vectorResult;
+    }
     if (await isCancelSignalCompleted(context.cancelSignal)) {
       return cancelledResult();
     }
     final terms = _knowledgeQueryTerms(query);
     final db = DatabaseService.instance.database;
-    final rows = await _loadSearchCandidates(
-      db,
-      query: query,
-      terms: terms,
-      sourceIds: _stringList(args['source_ids']),
-      dateFrom: AiToolUtils.readString(args['date_from']),
-      dateTo: AiToolUtils.readString(args['date_to']),
-      limit: _candidateLimitFor(topK),
-    );
+    final List<Map<String, Object?>>? rows;
+    try {
+      rows = await _awaitKnowledgeRows(
+        _loadSearchCandidates(
+          db,
+          query: query,
+          terms: terms,
+          sourceIds: sourceIds,
+          tags: tags,
+          dateFrom: effectiveDateFrom,
+          dateTo: effectiveDateTo,
+          limit: _candidateLimitFor(topK),
+        ),
+        cancelSignal: context.cancelSignal,
+      );
+    } on TimeoutException catch (error, stack) {
+      if (await isCancelSignalCompleted(context.cancelSignal)) {
+        return cancelledResult();
+      }
+      silentLog('ai_knowledge_base_tool', '本地知识库检索超时', error, stack);
+      return _knowledgeTimedOutResult('KnowledgeSearch', sw);
+    } catch (error, stack) {
+      if (await isCancelSignalCompleted(context.cancelSignal)) {
+        return cancelledResult();
+      }
+      silentLog('ai_knowledge_base_tool', '本地知识库检索失败', error, stack);
+      return _knowledgeFailedResult('KnowledgeSearch', sw);
+    }
+    if (rows == null) return cancelledResult();
     if (await isCancelSignalCompleted(context.cancelSignal)) {
       return cancelledResult();
     }
@@ -95,7 +187,7 @@ class AiKnowledgeSearchTool extends AiTool {
         .map((row) => _searchHitJson(row, query: query, terms: terms))
         .toList(growable: false);
     final output = hits.isEmpty
-        ? 'No Knowledge Base chunks matched query="$query".'
+        ? '知识库中没有匹配 query=“$query”的内容。'
         : prettyPrintJson(<String, Object?>{'query': query, 'results': hits});
     final metadata = _knowledgeToolMetadata(
       status: hits.isEmpty ? 'skipped' : 'success',
@@ -109,9 +201,10 @@ class AiKnowledgeSearchTool extends AiTool {
         'candidate_count': rows.length,
         'matched_count': rankedRows.length,
         'filters': <String, Object?>{
-          'source_ids': _stringList(args['source_ids']),
-          'date_from': AiToolUtils.readString(args['date_from']),
-          'date_to': AiToolUtils.readString(args['date_to']),
+          'source_ids': sourceIds,
+          'tags': tags,
+          'date_from': effectiveDateFrom,
+          'date_to': effectiveDateTo,
         },
       },
       rerank: <String, Object?>{
@@ -153,7 +246,7 @@ class AiKnowledgeSearchTool extends AiTool {
       final result = retrieval.result;
       final hits = result.hits.map(_retrievalHitJson).toList(growable: false);
       final output = hits.isEmpty
-          ? 'No Knowledge Base chunks matched query="$query".'
+          ? '知识库中没有匹配 query=“$query”的内容。'
           : prettyPrintJson(<String, Object?>{'query': query, 'results': hits});
       final knowledgeBase = <String, Object?>{
         ...KnowledgeMessageMetadata.success(
@@ -202,8 +295,32 @@ class AiKnowledgeReadTool extends AiTool {
     if (chunkId.isEmpty && sourceId.isEmpty && aroundChunkId.isEmpty) {
       return AiToolUtils.invalidResult(
         'KnowledgeRead',
-        'KnowledgeRead requires chunk_id, around_chunk_id, or source_id.',
+        'KnowledgeRead 需要 chunk_id、around_chunk_id 或 source_id。',
       );
+    }
+    if (chunkId.isNotEmpty &&
+        (sourceId.isNotEmpty || aroundChunkId.isNotEmpty)) {
+      return AiToolUtils.invalidResult(
+        'KnowledgeRead',
+        'chunk_id 不能与 around_chunk_id 或 source_id 同时使用。',
+      );
+    }
+    if (<String>[
+      chunkId,
+      sourceId,
+      aroundChunkId,
+    ].any((id) => id.length > kAiKnowledgeIdMaxCharacters)) {
+      return AiToolUtils.invalidResult(
+        'KnowledgeRead',
+        '知识库 ID 超过 $kAiKnowledgeIdMaxCharacters 个字符上限。',
+      );
+    }
+    AiToolExecutionResult cancelledResult() => AiToolUtils.cancelledResult(
+      command: 'KnowledgeRead',
+      durationMs: sw.elapsedMilliseconds,
+    );
+    if (await isCancelSignalCompleted(context.cancelSignal)) {
+      return cancelledResult();
     }
     final requestedLimit = AiToolUtils.readClampedInt(
       args['limit'],
@@ -212,31 +329,50 @@ class AiKnowledgeReadTool extends AiTool {
       max: _maxKnowledgeReadLimit,
     );
     final db = DatabaseService.instance.database;
-    final rows = chunkId.isNotEmpty
-        ? await _readChunk(db, chunkId)
-        : aroundChunkId.isNotEmpty
-        ? await _readAroundChunk(
-            db,
-            aroundChunkId: aroundChunkId,
-            sourceId: sourceId,
-            limit: requestedLimit,
-          )
-        : await _readSourcePreview(
-            db,
-            sourceId,
-            math.min(requestedLimit, _sourcePreviewMaxChunks),
-          );
+    final List<Map<String, Object?>>? rows;
+    try {
+      rows = await _awaitKnowledgeRows(
+        chunkId.isNotEmpty
+            ? _readChunk(db, chunkId)
+            : aroundChunkId.isNotEmpty
+            ? _readAroundChunk(
+                db,
+                aroundChunkId: aroundChunkId,
+                sourceId: sourceId,
+                limit: requestedLimit,
+              )
+            : _readSourcePreview(
+                db,
+                sourceId,
+                math.min(requestedLimit, _sourcePreviewMaxChunks),
+              ),
+        cancelSignal: context.cancelSignal,
+      );
+    } on TimeoutException catch (error, stack) {
+      if (await isCancelSignalCompleted(context.cancelSignal)) {
+        return cancelledResult();
+      }
+      silentLog('ai_knowledge_base_tool', '读取本地知识库超时', error, stack);
+      return _knowledgeTimedOutResult('KnowledgeRead', sw);
+    } catch (error, stack) {
+      if (await isCancelSignalCompleted(context.cancelSignal)) {
+        return cancelledResult();
+      }
+      silentLog('ai_knowledge_base_tool', '读取本地知识库失败', error, stack);
+      return _knowledgeFailedResult('KnowledgeRead', sw);
+    }
+    if (rows == null) return cancelledResult();
     final includeContent = chunkId.isNotEmpty || aroundChunkId.isNotEmpty;
     final hits = rows
         .map((row) => _readHitJson(row, includeContent: includeContent))
         .toList(growable: false);
     final output = hits.isEmpty
-        ? 'No Knowledge Base content found.'
+        ? '未找到知识库内容。'
         : prettyPrintJson(<String, Object?>{
             'results': hits,
             if (!includeContent)
               'note':
-                  'source_id reads return a small preview only. Use KnowledgeSearch, then KnowledgeRead with chunk_id for exact chunk content.',
+                  'source_id 仅返回少量预览；如需精确内容，请先用 KnowledgeSearch，再用 chunk_id 调用 KnowledgeRead。',
           });
     final readMode = chunkId.isNotEmpty
         ? 'chunk'
@@ -286,6 +422,7 @@ Future<List<Map<String, Object?>>> _loadSearchCandidates(
   required String query,
   required List<String> terms,
   required List<String> sourceIds,
+  required List<String> tags,
   required String dateFrom,
   required String dateTo,
   required int limit,
@@ -313,6 +450,19 @@ Future<List<Map<String, Object?>>> _loadSearchCandidates(
     );
     args.addAll(sourceIds);
   }
+  for (final tag in tags) {
+    where.add('''
+EXISTS (
+  SELECT 1
+  FROM json_each(
+    CASE WHEN json_valid(s.metadata_json) THEN s.metadata_json ELSE '{"tags":[]}' END,
+    '\$.tags'
+  ) AS source_tag
+  WHERE LOWER(CAST(source_tag.value AS TEXT)) = LOWER(?)
+)
+''');
+    args.add(tag);
+  }
   if (dateFrom.isNotEmpty) {
     where.add('(c.document_time >= ? OR s.document_time >= ?)');
     args.addAll(<Object?>[dateFrom, dateFrom]);
@@ -327,7 +477,8 @@ SELECT c.id AS chunk_id, c.source_id, c.chunk_index,
        c.title AS chunk_title, c.heading_path, c.content,
        c.token_estimate, c.document_time, c.updated_at AS chunk_updated_at,
        s.title AS source_title, s.kind, s.document_time AS source_document_time,
-       s.updated_at AS source_updated_at
+       s.updated_at AS source_updated_at,
+       s.metadata_json AS source_metadata_json
 FROM knowledge_chunks c
 JOIN knowledge_sources s ON s.id = c.source_id
 WHERE ${where.isEmpty ? '1 = 1' : where.join(' AND ')}
@@ -448,6 +599,7 @@ Map<String, Object?> _searchHitJson(
   final row = ranked.row;
   final content = _stringValue(row['content']);
   final preview = _contentPreview(content, query: query, terms: terms);
+  final tags = _sourceTagsFromRow(row);
   return <String, Object?>{
     'chunk_id': row['chunk_id'],
     'source_id': row['source_id'],
@@ -458,6 +610,7 @@ Map<String, Object?> _searchHitJson(
     'score': ranked.score.normalizedScore,
     'token_estimate': row['token_estimate'],
     'heading_path': row['heading_path'],
+    if (tags.isNotEmpty) 'tags': tags,
     'preview': preview,
     'matched_terms': ranked.score.matchedTerms,
   };
@@ -482,6 +635,7 @@ Map<String, Object?> _readHitJson(
       ? clipText(content, _knowledgeReadContentMaxChars)
       : '';
   final contentTruncated = contentView.length < content.length;
+  final tags = _sourceTagsFromRow(row);
   return <String, Object?>{
     'chunk_id': row['chunk_id'] ?? row['id'],
     'source_id': row['source_id'],
@@ -493,6 +647,7 @@ Map<String, Object?> _readHitJson(
     'updated_at': row['updated_at'],
     'token_estimate': row['token_estimate'],
     'heading_path': row['heading_path'],
+    if (tags.isNotEmpty) 'tags': tags,
     if (!includeContent)
       'preview': clipText(content, _knowledgeToolPreviewMaxChars),
     if (includeContent) ...<String, Object?>{
@@ -509,7 +664,8 @@ Future<List<Map<String, Object?>>> _readChunk(Database db, String id) {
     '''
 SELECT c.id AS chunk_id, c.source_id, c.title, c.heading_path, c.content,
        c.token_estimate, c.document_time, c.updated_at,
-       s.title AS source_title, s.kind
+       s.title AS source_title, s.kind,
+       s.metadata_json AS source_metadata_json
 FROM knowledge_chunks c
 JOIN knowledge_sources s ON s.id = c.source_id
 WHERE c.id = ?
@@ -543,7 +699,8 @@ LIMIT 1
     '''
 SELECT c.id AS chunk_id, c.source_id, c.title, c.heading_path, c.content,
        c.token_estimate, c.document_time, c.updated_at,
-       s.title AS source_title, s.kind
+       s.title AS source_title, s.kind,
+       s.metadata_json AS source_metadata_json
 FROM knowledge_chunks c
 JOIN knowledge_sources s ON s.id = c.source_id
 WHERE c.source_id = ? AND c.chunk_index >= ?
@@ -563,7 +720,8 @@ Future<List<Map<String, Object?>>> _readSourcePreview(
     '''
 SELECT c.id AS chunk_id, c.source_id, c.title, c.heading_path, c.content,
        c.token_estimate, c.document_time, c.updated_at,
-       s.title AS source_title, s.kind
+       s.title AS source_title, s.kind,
+       s.metadata_json AS source_metadata_json
 FROM knowledge_chunks c
 JOIN knowledge_sources s ON s.id = c.source_id
 WHERE c.source_id = ?
@@ -592,7 +750,7 @@ Map<String, Object?> _knowledgeToolMetadata({
     'query': query,
     'embedding': const <String, Object?>{
       'strategy': 'not_invoked',
-      'reason': 'tool_context_has_no_embedding_model',
+      'reason': 'local_database_path',
     },
     'retrieval': retrieval,
     'rerank': rerank,
@@ -663,17 +821,42 @@ String _contentPreview(
       .map(_normalizeForMatch)
       .where((term) => term.isNotEmpty)
       .toList(growable: false);
-  final normalizedContent = _normalizeForMatch(content);
+  final indexedContent = _normalizedTextWithOriginalOffsets(content);
   var index = -1;
   for (final probe in probes) {
-    index = normalizedContent.indexOf(probe);
+    index = indexedContent.text.indexOf(probe);
     if (index >= 0) break;
   }
-  final start = index < 0 ? 0 : math.max(0, index - 120);
-  final end = index < 0
-      ? math.min(content.length, 260)
-      : math.min(content.length, index + 260);
+  if (index < 0 || indexedContent.originalOffsets.isEmpty) {
+    return clipText(content, _knowledgeToolPreviewMaxChars).trim();
+  }
+  final originalIndex = indexedContent.originalOffsets[index];
+  final start = safeUtf16SuffixStart(content, math.max(0, originalIndex - 120));
+  final end = safeUtf16PrefixCodeUnits(
+    content,
+    math.min(content.length, originalIndex + 300),
+  );
   return content.substring(start, end).trim();
+}
+
+({String text, List<int> originalOffsets}) _normalizedTextWithOriginalOffsets(
+  String value,
+) {
+  final text = StringBuffer();
+  final originalOffsets = <int>[];
+  var originalOffset = 0;
+  for (final rune in value.runes) {
+    final character = String.fromCharCode(rune);
+    if (!_whitespaceRunPattern.hasMatch(character)) {
+      final normalized = character.toLowerCase();
+      text.write(normalized);
+      originalOffsets.addAll(
+        List<int>.filled(normalized.length, originalOffset),
+      );
+    }
+    originalOffset += character.length;
+  }
+  return (text: text.toString(), originalOffsets: originalOffsets);
 }
 
 int _candidateLimitFor(int topK) {
@@ -706,10 +889,77 @@ int _intValue(Object? value) {
   return nonNegativeIntFromValue(value, fallback: 0);
 }
 
-List<String> _stringList(Object? value) {
-  return stringListFromValueOrJsonText(
-    value,
-  ).where((item) => item.isNotEmpty).toSet().take(32).toList(growable: false);
+List<String> _stringList(Object? value, {int maxItems = 32}) {
+  return stringListFromValueOrJsonText(value)
+      .where((item) => item.isNotEmpty)
+      .toSet()
+      .take(maxItems)
+      .toList(growable: false);
+}
+
+List<String> _sourceTagsFromRow(Map<String, Object?> row) {
+  final metadata = stringKeyedMapFromJsonText(
+    _stringValue(row['source_metadata_json']),
+  );
+  return _stringList(metadata['tags']);
+}
+
+final RegExp _knowledgeDateOnlyPattern = RegExp(r'^(\d{4})-(\d{2})-(\d{2})$');
+
+DateTime? _parseKnowledgeDateFilter(String value, {bool endOfDay = false}) {
+  if (value.isEmpty || value.length > 64) return null;
+  final dateOnly = _knowledgeDateOnlyPattern.firstMatch(value);
+  if (dateOnly != null) {
+    final year = int.parse(dateOnly.group(1)!);
+    final month = int.parse(dateOnly.group(2)!);
+    final day = int.parse(dateOnly.group(3)!);
+    final parsed = DateTime.utc(year, month, day);
+    if (parsed.year != year || parsed.month != month || parsed.day != day) {
+      return null;
+    }
+    return endOfDay
+        ? parsed
+              .add(const Duration(days: 1))
+              .subtract(const Duration(microseconds: 1))
+        : parsed;
+  }
+  return DateTime.tryParse(value)?.toUtc();
+}
+
+Future<List<Map<String, Object?>>?> _awaitKnowledgeRows(
+  Future<List<Map<String, Object?>>> rows, {
+  required Future<void>? cancelSignal,
+}) {
+  return awaitWithCancelSignal(
+    rows.timeout(_knowledgeDatabaseQueryTimeout),
+    cancelSignal: cancelSignal,
+  );
+}
+
+AiToolExecutionResult _knowledgeTimedOutResult(String command, Stopwatch sw) {
+  const message = '知识库查询超时。';
+  return AiToolExecutionResult(
+    status: BashToolExecutionStatus.timedOut,
+    command: command,
+    workingDirectory: AiToolUtils.defaultWorkingDirectory(),
+    stdout: '',
+    stderr: message,
+    durationMs: sw.elapsedMilliseconds,
+    resultText: 'status: timed_out\nerror: $message',
+  );
+}
+
+AiToolExecutionResult _knowledgeFailedResult(String command, Stopwatch sw) {
+  const message = '知识库查询失败。';
+  return AiToolExecutionResult(
+    status: BashToolExecutionStatus.failed,
+    command: command,
+    workingDirectory: AiToolUtils.defaultWorkingDirectory(),
+    stdout: '',
+    stderr: message,
+    durationMs: sw.elapsedMilliseconds,
+    resultText: 'status: failed\nerror: $message',
+  );
 }
 
 class _KnowledgeRankedRow {
