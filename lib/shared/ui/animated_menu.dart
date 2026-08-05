@@ -1360,6 +1360,7 @@ class AnimatedPopupMenuButton<T> extends StatefulWidget {
     this.padding = const EdgeInsets.all(8.0),
     this.splashRadius,
     this.child,
+    this.style,
     this.enabled = true,
     this.constraints,
     this.buttonConstraints,
@@ -1382,6 +1383,7 @@ class AnimatedPopupMenuButton<T> extends StatefulWidget {
   final EdgeInsetsGeometry padding;
   final double? splashRadius;
   final Widget? child;
+  final ButtonStyle? style;
   final bool enabled;
   final BoxConstraints? constraints;
   final BoxConstraints? buttonConstraints;
@@ -1431,11 +1433,17 @@ class _AnimatedPopupMenuButtonState<T>
   @override
   Widget build(BuildContext context) {
     if (widget.child != null) {
-      final button = InkWell(
-        onTap: widget.enabled ? _showMenu : null,
-        borderRadius: BorderRadius.circular(4),
-        child: widget.child,
-      );
+      final button = widget.style == null
+          ? InkWell(
+              onTap: widget.enabled ? _showMenu : null,
+              borderRadius: BorderRadius.circular(4),
+              child: widget.child,
+            )
+          : TextButton(
+              onPressed: widget.enabled ? _showMenu : null,
+              style: widget.style,
+              child: widget.child!,
+            );
       final pressed = MicroPressFeedback(
         enabled: widget.enabled,
         scale: 0.94,

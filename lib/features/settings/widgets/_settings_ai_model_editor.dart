@@ -4194,6 +4194,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     final selectedValue = options.any((item) => item.value == _reasoningEffort)
         ? _reasoningEffort
         : (options.isNotEmpty ? options.first.value : null);
+    final reasoningEffortActionStyle = TextButton.styleFrom(
+      foregroundColor: colorScheme.onSecondaryContainer,
+      backgroundColor: colorScheme.secondaryContainer,
+      disabledForegroundColor: colorScheme.onSurface.withValues(alpha: 0.38),
+      disabledBackgroundColor: colorScheme.onSurface.withValues(alpha: 0.12),
+      minimumSize: const Size(104, 40),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      textStyle: theme.textTheme.labelLarge?.copyWith(
+        fontWeight: FontWeight.w600,
+      ),
+    );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -4259,8 +4271,8 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             ),
             const SizedBox(width: 12),
             Wrap(
-              spacing: 4,
-              runSpacing: 4,
+              spacing: 8,
+              runSpacing: 8,
               alignment: WrapAlignment.end,
               children: [
                 AnimatedPopupMenuButton<AiReasoningEffortPreset>(
@@ -4314,45 +4326,45 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         ),
                       ),
                   ],
-                  child: Padding(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 10,
-                      vertical: 8,
-                    ),
-                    child: Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        const Icon(Icons.auto_awesome_rounded, size: 18),
-                        const SizedBox(width: 6),
-                        Text(
-                          openHandLocalizedText(
-                            context,
-                            zh: '模板',
-                            zhHant: '範本',
-                            en: 'Presets',
-                            fr: 'Préréglages',
-                            de: 'Vorlagen',
-                            ja: 'プリセット',
-                          ),
+                  style: reasoningEffortActionStyle,
+                  child: Row(
+                    mainAxisSize: MainAxisSize.min,
+                    mainAxisAlignment: MainAxisAlignment.center,
+                    children: [
+                      const Icon(Icons.auto_awesome_rounded, size: 18),
+                      const SizedBox(width: 6),
+                      Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '模板',
+                          zhHant: '範本',
+                          en: 'Presets',
+                          fr: 'Préréglages',
+                          de: 'Vorlagen',
+                          ja: 'プリセット',
                         ),
-                        const SizedBox(width: 2),
-                        const Icon(Icons.arrow_drop_down_rounded, size: 18),
-                      ],
-                    ),
+                      ),
+                      const SizedBox(width: 2),
+                      const Icon(Icons.arrow_drop_down_rounded, size: 18),
+                    ],
                   ),
                 ),
-                TextButton.icon(
-                  onPressed: _addReasoningEffortOptionDraft,
-                  icon: const Icon(Icons.add_rounded),
-                  label: Text(
-                    openHandLocalizedText(
-                      context,
-                      zh: '新增',
-                      zhHant: '新增',
-                      en: 'Add',
-                      fr: 'Ajouter',
-                      de: 'Hinzufügen',
-                      ja: '追加',
+                MicroPressFeedback(
+                  scale: 0.94,
+                  child: TextButton.icon(
+                    onPressed: _addReasoningEffortOptionDraft,
+                    style: reasoningEffortActionStyle,
+                    icon: const Icon(Icons.add_rounded, size: 18),
+                    label: Text(
+                      openHandLocalizedText(
+                        context,
+                        zh: '新增',
+                        zhHant: '新增',
+                        en: 'Add',
+                        fr: 'Ajouter',
+                        de: 'Hinzufügen',
+                        ja: '追加',
+                      ),
                     ),
                   ),
                 ),
