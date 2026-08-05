@@ -17,5 +17,5 @@ String messageGatewayFailureMessage(Object error, {required String fallback}) {
   final normalized = collapseInlineWhitespace(detail);
   return normalized.isEmpty
       ? fallback
-      : clipTextWithEllipsis(normalized, _messageGatewayErrorMaxCharacters);
+      : clipTextWithEllipsis(normalized, _messageGatewayErrorMaxCharacters - 1);
 }

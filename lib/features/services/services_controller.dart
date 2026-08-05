@@ -6,8 +6,6 @@ import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/serial_task_queue.dart';
-import '../../shared/util/text_clip.dart';
-import '../../shared/util/text_normalization.dart';
 import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../plugin_service/index.dart';
@@ -17,11 +15,11 @@ import 'model/dependency_telemetry.dart';
 import 'service/ai_exposure_proxy_probe.dart';
 import 'service/ai_jungler_client.dart';
 import 'service/ai_jungler_runtime.dart';
+import 'services_errors.dart';
 
 const int _kAiExposureMaxLogs = 5000;
 const int _kAiExposureMaxCachedHistoryJobs = 20;
 const int _kAiExposureMaxCachedLogsPerJob = 2000;
-const int _kAiExposureMaxErrorMessageCharacters = 400;
 const int _kMaxProxyInspectionConcurrency = 32;
 const int _kProxyInspectionCheckpointSize = 512;
 const int _kEventStreamReconnectLimit = 3;
@@ -44,20 +42,13 @@ String _reportServicesFailure(
   StackTrace stack, {
   String? fallback,
 }) {
-  silentLog('services_controller', action, error, stack);
-  final detail = switch (error) {
-    AiJunglerApiException(:final message, :final statusCode)
-        when statusCode == null || statusCode < 500 =>
-      message,
-    FormatException(:final message) => message,
-    StateError(:final message) => message,
-    UnsupportedError(:final message) => '$message',
-    _ => '',
-  };
-  final normalized = collapseInlineWhitespace(detail);
-  return normalized.isEmpty
-      ? fallback ?? '$action失败，请稍后重试。'
-      : clipTextWithEllipsis(normalized, _kAiExposureMaxErrorMessageCharacters);
+  return reportServicesFailure(
+    'services_controller',
+    action,
+    error,
+    stack,
+    fallback: fallback,
+  );
 }
 
 class ServicesController extends ChangeNotifier {

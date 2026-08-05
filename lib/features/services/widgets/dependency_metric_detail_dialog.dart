@@ -10,6 +10,7 @@ import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../model/dependency_telemetry.dart';
 import '../services_controller.dart';
+import '../services_errors.dart';
 import 'service_dialog_controls.dart';
 
 const double _kMetricDialogWidth = 1120;
@@ -177,8 +178,15 @@ class _DependencyMetricDetailDialogState
       if (controller.dependencyDataOverviewError != null) {
         setState(() => _reloadError = controller.dependencyDataOverviewError);
       }
-    } catch (error) {
-      if (mounted) setState(() => _reloadError = '$error');
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'dependency_metric_detail_dialog',
+        '刷新依赖指标',
+        error,
+        stack,
+        fallback: '依赖指标刷新失败，请稍后重试。',
+      );
+      if (mounted) setState(() => _reloadError = message);
     } finally {
       if (mounted) setState(() => _reloading = false);
     }

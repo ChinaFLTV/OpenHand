@@ -26,6 +26,7 @@ import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
 import '../service/ai_exposure_proxy_probe.dart';
 import '../services_controller.dart';
+import '../services_errors.dart';
 import 'service_dialog_controls.dart';
 
 const int _kMaxProxyImportBytes = 4 * 1024 * 1024;
@@ -1272,10 +1273,17 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       if (updated) {
         showOpenHandSuccessSnack(context, '代理节点已添加并保存。');
       }
-    } catch (error) {
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'ai_exposure_proxy_dialog',
+        '新增代理节点',
+        error,
+        stack,
+        fallback: '新增代理节点失败，请稍后重试。',
+      );
       if (mounted) {
         setState(() => _busy = false);
-        showOpenHandErrorSnack(context, '$error');
+        showOpenHandErrorSnack(context, message);
       }
     }
   }
@@ -1498,8 +1506,15 @@ class _ProxyDialogState extends State<_ProxyDialog> {
             ? '已新增并保存 $accepted 个代理。'
             : '已新增并保存 $accepted 个代理，忽略 ${imported.invalid} 条无效记录。',
       );
-    } catch (error) {
-      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'ai_exposure_proxy_dialog',
+        '导入代理节点',
+        error,
+        stack,
+        fallback: '导入代理节点失败，请检查文件格式。',
+      );
+      if (mounted) showOpenHandErrorSnack(context, message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -1520,8 +1535,15 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       if (location == null) return;
       await writeFileAtomically(File(location.path), payload);
       if (mounted) showOpenHandSuccessSnack(context, successMessage);
-    } catch (error) {
-      if (mounted) showOpenHandErrorSnack(context, '导出代理配置失败：$error');
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'ai_exposure_proxy_dialog',
+        '导出代理配置',
+        error,
+        stack,
+        fallback: '导出代理配置失败，请稍后重试。',
+      );
+      if (mounted) showOpenHandErrorSnack(context, message);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

@@ -15,6 +15,7 @@ import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../services_controller.dart';
+import '../services_errors.dart';
 import 'dependency_metric_detail_dialog.dart';
 import 'redis_record_editor.dart';
 import 'service_dialog_controls.dart';
@@ -146,8 +147,15 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
           );
         }
       }
-    } catch (error) {
-      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'dependency_data_dialog',
+        '刷新运行依赖数据',
+        error,
+        stack,
+        fallback: '运行依赖数据刷新失败，请稍后重试。',
+      );
+      if (mounted) showOpenHandErrorSnack(context, message);
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -702,8 +710,15 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
       }
       if (mounted) showOpenHandSuccessSnack(context, 'PostgreSQL 记录已保存');
       await _refresh(includeData: true);
-    } catch (error) {
-      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'dependency_data_dialog',
+        '保存 PostgreSQL 记录',
+        error,
+        stack,
+        fallback: 'PostgreSQL 记录保存失败，请稍后重试。',
+      );
+      if (mounted) showOpenHandErrorSnack(context, message);
     } finally {
       if (mounted) setState(() => _operating = false);
     }
@@ -734,8 +749,15 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
       );
       if (mounted) showOpenHandSuccessSnack(context, 'PostgreSQL 记录已删除');
       await _refresh(includeData: true);
-    } catch (error) {
-      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'dependency_data_dialog',
+        '删除 PostgreSQL 记录',
+        error,
+        stack,
+        fallback: 'PostgreSQL 记录删除失败，请稍后重试。',
+      );
+      if (mounted) showOpenHandErrorSnack(context, message);
     } finally {
       if (mounted) setState(() => _operating = false);
     }
@@ -752,8 +774,15 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
         setState(() => _queryRows = _list(result['rows']));
         showOpenHandSuccessSnack(context, '查询完成 · ${_queryRows.length} 行');
       }
-    } catch (error) {
-      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'dependency_data_dialog',
+        '执行 PostgreSQL 查询',
+        error,
+        stack,
+        fallback: 'PostgreSQL 查询失败，请检查查询语句。',
+      );
+      if (mounted) showOpenHandErrorSnack(context, message);
     } finally {
       if (mounted) setState(() => _operating = false);
     }
@@ -789,8 +818,15 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
       );
       if (mounted) showOpenHandSuccessSnack(context, 'Redis 键已保存');
       await _refresh(includeData: true);
-    } catch (error) {
-      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'dependency_data_dialog',
+        '保存 Redis 键',
+        error,
+        stack,
+        fallback: 'Redis 键保存失败，请稍后重试。',
+      );
+      if (mounted) showOpenHandErrorSnack(context, message);
     } finally {
       if (mounted) setState(() => _operating = false);
     }
@@ -810,8 +846,15 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
       await context.read<ServicesController>().deleteRedisRecord(key);
       if (mounted) showOpenHandSuccessSnack(context, 'Redis 键已删除');
       await _refresh(includeData: true);
-    } catch (error) {
-      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'dependency_data_dialog',
+        '删除 Redis 键',
+        error,
+        stack,
+        fallback: 'Redis 键删除失败，请稍后重试。',
+      );
+      if (mounted) showOpenHandErrorSnack(context, message);
     } finally {
       if (mounted) setState(() => _operating = false);
     }

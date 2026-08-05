@@ -18,6 +18,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../plugin_service/index.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
+import '../services_errors.dart';
 import 'service_dialog_controls.dart';
 
 const EdgeInsets _kDialogPadding = EdgeInsets.all(22);
@@ -1786,8 +1787,15 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       }
       if (!mounted) return;
       Navigator.of(context).maybePop();
-    } catch (error) {
-      if (mounted) showOpenHandErrorSnack(context, '$error');
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'ai_exposure_dialogs',
+        '应用扫描服务配置',
+        error,
+        stack,
+        fallback: '扫描服务配置应用失败，请稍后重试。',
+      );
+      if (mounted) showOpenHandErrorSnack(context, message);
     } finally {
       if (mounted) setState(() => _applying = false);
     }
@@ -1855,9 +1863,16 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             : pluginController.errorMessage ?? 'Playwright 浏览器通道准备失败',
         kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
       );
-    } catch (error) {
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'ai_exposure_dialogs',
+        '准备 Playwright 浏览器通道',
+        error,
+        stack,
+        fallback: 'Playwright 浏览器通道准备失败，请稍后重试。',
+      );
       if (mounted) {
-        showOpenHandErrorSnack(context, '准备 Playwright 浏览器通道失败：$error');
+        showOpenHandErrorSnack(context, message);
       }
     } finally {
       if (mounted) setState(() => _dependencyOperationId = null);
@@ -1940,12 +1955,16 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                   '${action.label} ${plugin.name}失败',
         kind: success ? OpenHandSnackKind.success : OpenHandSnackKind.error,
       );
-    } catch (error) {
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'ai_exposure_dialogs',
+        '${action.label}运行依赖',
+        error,
+        stack,
+        fallback: '${action.label} ${plugin.name}失败，请稍后重试。',
+      );
       if (mounted) {
-        showOpenHandErrorSnack(
-          context,
-          '${action.label} ${plugin.name}失败：$error',
-        );
+        showOpenHandErrorSnack(context, message);
       }
     } finally {
       if (mounted) setState(() => _dependencyOperationId = null);
@@ -3448,6 +3467,11 @@ Future<void> _exportResults(
     ),
   );
   if (format == null || !context.mounted) return;
+  final failureFallback = openHandLocalizedText(
+    context,
+    zh: '导出扫描结果失败，请稍后重试。',
+    en: 'Failed to export scan results. Try again later.',
+  );
   try {
     final extension = format == _ExposureExportFormat.json ? 'json' : 'csv';
     final location = await getSaveLocation(
@@ -3476,16 +3500,15 @@ Future<void> _exportResults(
         en: 'Exported ${results.length} masked results.',
       ),
     );
-  } catch (error) {
-    if (!context.mounted) return;
-    showOpenHandErrorSnack(
-      context,
-      openHandLocalizedText(
-        context,
-        zh: '导出失败：$error',
-        en: 'Export failed: $error',
-      ),
+  } catch (error, stack) {
+    final message = reportServicesFailure(
+      'ai_exposure_dialogs',
+      '导出扫描结果',
+      error,
+      stack,
+      fallback: failureFallback,
     );
+    if (context.mounted) showOpenHandErrorSnack(context, message);
   }
 }
 
