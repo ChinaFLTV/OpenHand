@@ -23,11 +23,9 @@ abstract class AiMachineTerminalToolBase extends AiTool {
       command: toolName,
       workingDirectory: AiToolUtils.defaultWorkingDirectory(),
       stdout: '',
-      stderr:
-          'Machine terminal service is not available for this session. Use this tool only inside the machine_expert template.',
+      stderr: '当前会话不可用机器终端服务，请仅在 machine_expert 模板中使用此工具。',
       durationMs: 0,
-      resultText:
-          'status: failed\nerror: Machine terminal service is unavailable for this session.',
+      resultText: 'status: failed\nerror: 当前会话不可用机器终端服务。',
     );
   }
 
@@ -68,7 +66,7 @@ class AiMachineTerminalReadTool extends AiMachineTerminalToolBase {
     if (active == null) {
       return AiToolUtils.invalidResult(
         'MachineTerminalRead',
-        'Terminal not found: ${terminalId ?? snapshot.activeTerminalId}',
+        '找不到终端：${terminalId ?? snapshot.activeTerminalId}',
       );
     }
     final terminalMetadata = service.sessionMetadata(
@@ -118,10 +116,7 @@ class AiMachineTerminalWriteTool extends AiMachineTerminalToolBase {
       'input',
     ]);
     if (data.isEmpty) {
-      return AiToolUtils.invalidResult(
-        'MachineTerminalWrite',
-        'data must not be empty.',
-      );
+      return AiToolUtils.invalidResult('MachineTerminalWrite', 'data 不能为空。');
     }
     final stopwatch = Stopwatch()..start();
     try {
@@ -140,9 +135,9 @@ class AiMachineTerminalWriteTool extends AiMachineTerminalToolBase {
         command: 'MachineTerminalWrite',
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: 'Machine terminal write failed.',
+        stderr: '写入机器终端失败。',
         durationMs: stopwatch.elapsedMilliseconds,
-        resultText: 'status: failed\nerror: Machine terminal write failed.',
+        resultText: 'status: failed\nerror: 写入机器终端失败。',
       );
     }
     final snapshot = service.snapshot(context.sessionId)?.activeTerminal;
@@ -191,10 +186,7 @@ class AiMachineTerminalExecTool extends AiMachineTerminalToolBase {
       'cmd',
     ]);
     if (command.trim().isEmpty) {
-      return AiToolUtils.invalidResult(
-        'MachineTerminalExec',
-        'command must not be empty.',
-      );
+      return AiToolUtils.invalidResult('MachineTerminalExec', 'command 不能为空。');
     }
     final timeoutMs = _clampedTimeoutMs(args);
     final result = await service.executeCommand(
@@ -259,7 +251,7 @@ class AiMachineTerminalControlTool extends AiMachineTerminalToolBase {
     if (action.isEmpty) {
       return AiToolUtils.invalidResult(
         'MachineTerminalControl',
-        'action is required.',
+        '必须提供 action。',
       );
     }
     final stopwatch = Stopwatch()..start();
@@ -277,10 +269,7 @@ class AiMachineTerminalControlTool extends AiMachineTerminalToolBase {
         rows: AiToolUtils.readInt(args['rows']),
       );
     } on ArgumentError {
-      return AiToolUtils.invalidResult(
-        'MachineTerminalControl',
-        'Invalid terminal control arguments.',
-      );
+      return AiToolUtils.invalidResult('MachineTerminalControl', '终端控制参数无效。');
     } catch (error, stack) {
       silentLog('ai_machine_terminal_tools', '控制机器终端', error, stack);
       return AiToolExecutionResult(
@@ -288,9 +277,9 @@ class AiMachineTerminalControlTool extends AiMachineTerminalToolBase {
         command: 'MachineTerminalControl',
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: 'Machine terminal control failed.',
+        stderr: '控制机器终端失败。',
         durationMs: stopwatch.elapsedMilliseconds,
-        resultText: 'status: failed\nerror: Machine terminal control failed.',
+        resultText: 'status: failed\nerror: 控制机器终端失败。',
       );
     }
     final active = snapshot.activeTerminal;

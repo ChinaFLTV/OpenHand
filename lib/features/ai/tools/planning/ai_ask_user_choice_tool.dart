@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_plan_approval_detector.dart';
@@ -8,7 +9,7 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
-/// Request object passed from the [AiAskUserChoiceTool] to the UI presenter.
+/// [AiAskUserChoiceTool] 传给 UI 呈现器的请求。
 class AskUserChoiceRequest {
   const AskUserChoiceRequest({
     required this.title,
@@ -45,9 +46,7 @@ class AskUserChoiceOption {
   final String? description;
 }
 
-/// Response returned from the UI presenter to the tool.
-///
-/// A `null` response is treated as user dismissal / cancellation.
+/// UI 呈现器返回的响应；null 表示用户关闭或取消。
 class AskUserChoiceResponse {
   const AskUserChoiceResponse({required this.value, required this.isCustom});
 
@@ -55,24 +54,12 @@ class AskUserChoiceResponse {
   final bool isCustom;
 }
 
-/// UI-side presenter contract used by [AiAskUserChoiceTool].
-///
-/// The UI layer registers an implementation via
-/// [AiAskUserChoiceTool.registerPresenter]. The tool calls this presenter
-/// whenever the model invokes the `AskUserChoice` tool, and awaits the
-/// user's choice (or cancellation).
+/// [AiAskUserChoiceTool] 使用的 UI 呈现器契约。
 typedef AskUserChoicePresenter =
     Future<AskUserChoiceResponse?> Function(AskUserChoiceRequest request);
 
-/// A built-in AI tool that lets the model ask the user to pick one answer
-/// from a small, well-defined list of options — plus an optional free-form
-/// "custom input" radio, rendered as a modal dialog that honors the global
-/// dialog animation settings.
-///
-/// The UI layer must register a presenter via [registerPresenter] during app
-/// startup. When no presenter is registered, the tool returns a structured
-/// failure describing the missing UI bridge so the model can recover
-/// gracefully (e.g. fall back to asking the question in chat text).
+/// 通过遵循全局动画设置的弹窗，让用户从有限选项中选择或输入自定义内容。
+/// UI 层须在启动时通过 [registerPresenter] 注册呈现器。
 class AiAskUserChoiceTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.askUserChoice;
@@ -82,8 +69,7 @@ class AiAskUserChoiceTool extends AiTool {
 
   static AskUserChoicePresenter? _presenter;
 
-  /// Registers the UI-side presenter. Returns a disposer that unregisters
-  /// the presenter (useful when the hosting widget is disposed).
+  /// 注册 UI 呈现器，并返回对应的注销回调。
   static void Function() registerPresenter(AskUserChoicePresenter presenter) {
     _presenter = presenter;
     return () {
@@ -108,10 +94,7 @@ class AiAskUserChoiceTool extends AiTool {
     final args = normalizedValue.arguments;
     final title = AiToolUtils.readString(args['title']);
     if (title.isEmpty) {
-      return AiToolUtils.invalidResult(
-        commandName,
-        '$commandName requires a non-empty "title".',
-      );
+      return AiToolUtils.invalidResult(commandName, '$commandName 需要非空 title。');
     }
     final description = args['description'] is String
         ? AiToolUtils.readString(args['description'])
@@ -120,7 +103,7 @@ class AiAskUserChoiceTool extends AiTool {
     if (optionsRaw == null || optionsRaw.isEmpty) {
       return AiToolUtils.invalidResult(
         commandName,
-        '$commandName requires a non-empty "options" array.',
+        '$commandName 需要非空 options 数组。',
       );
     }
     final parsedOptions = <AskUserChoiceOption>[];
@@ -130,7 +113,7 @@ class AiAskUserChoiceTool extends AiTool {
       if (entry is! Map) {
         return AiToolUtils.invalidResult(
           commandName,
-          '$commandName option #$i must be an object with {value, label}.',
+          '$commandName 的第 $i 个选项必须为包含 value 和 label 的对象。',
         );
       }
       final entryMap = stringKeyedMapFromValue(entry);
@@ -139,13 +122,13 @@ class AiAskUserChoiceTool extends AiTool {
       if (value.isEmpty || label.isEmpty) {
         return AiToolUtils.invalidResult(
           commandName,
-          '$commandName option #$i is missing a non-empty "value" or "label".',
+          '$commandName 的第 $i 个选项缺少非空 value 或 label。',
         );
       }
       if (!seenValues.add(value)) {
         return AiToolUtils.invalidResult(
           commandName,
-          '$commandName option values must be unique; duplicate: "$value".',
+          '$commandName 的选项 value 必须唯一，重复值：“$value”。',
         );
       }
       final optDescription = entryMap['description'] is String
@@ -171,9 +154,8 @@ class AiAskUserChoiceTool extends AiTool {
       return AiToolUtils.withMergedMetadata(
         AiToolUtils.invalidResult(
           commandName,
-          'Do not use $commandName to request plan approval in Plan mode. '
-          'Clarify requirements with $commandName before finalizing the plan; '
-          'when the plan is ready, use ExitPlanMode instead.',
+          '计划模式中禁止使用 $commandName 请求计划审批。'
+          '计划定稿前可用 $commandName 澄清需求；计划就绪后请使用 ExitPlanMode。',
         ),
         <String, Object?>{
           'ask_user_choice_blocked_plan_approval': true,
@@ -196,11 +178,9 @@ class AiAskUserChoiceTool extends AiTool {
         command: commandName,
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr:
-            '$commandName UI presenter is not registered. Fall back to asking the user in plain chat.',
+        stderr: '$commandName 的 UI 呈现器未注册，请改用普通对话询问用户。',
         durationMs: stopwatch.elapsedMilliseconds,
-        resultText:
-            'status: failed\nerror: $commandName UI presenter is not registered.',
+        resultText: 'status: failed\nerror: $commandName 的 UI 呈现器未注册。',
       );
     }
 
@@ -238,17 +218,18 @@ class AiAskUserChoiceTool extends AiTool {
         command: commandName,
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: '$commandName timed out: $error',
+        stderr: '$commandName 超时：$error',
         durationMs: stopwatch.elapsedMilliseconds,
         resultText: 'status: timed_out\nerror: $error',
       );
     } catch (error, stackTrace) {
+      silentLog('ai_ask_user_choice_tool', '执行用户选择弹窗', error, stackTrace);
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: commandName,
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: '$commandName failed: $error\n$stackTrace',
+        stderr: '$commandName 执行失败：$error',
         durationMs: stopwatch.elapsedMilliseconds,
         resultText: 'status: failed\nerror: $error',
       );
@@ -269,10 +250,9 @@ class AiAskUserChoiceTool extends AiTool {
         command: commandName,
         workingDirectory: AiToolUtils.defaultWorkingDirectory(),
         stdout: '',
-        stderr: 'The user dismissed the $commandName dialog.',
+        stderr: '用户关闭了 $commandName 弹窗。',
         durationMs: stopwatch.elapsedMilliseconds,
-        resultText:
-            'status: cancelled\ndetail: user dismissed the choice dialog',
+        resultText: 'status: cancelled\ndetail: 用户关闭了选择弹窗',
       );
     }
 
@@ -329,7 +309,7 @@ class AiAskUserChoiceTool extends AiTool {
         return _AskUserChoiceArgumentNormalization.error(
           AiToolUtils.invalidResult(
             commandName,
-            'OpenHand supports AskUserQuestion only for new single-question prompts; "$key" is not supported.',
+            'OpenHand 仅支持新的单问题 AskUserQuestion，不支持字段“$key”。',
           ),
         );
       }
@@ -340,7 +320,7 @@ class AiAskUserChoiceTool extends AiTool {
       return _AskUserChoiceArgumentNormalization.error(
         AiToolUtils.invalidResult(
           commandName,
-          'AskUserQuestion requires "questions" to be an array.',
+          'AskUserQuestion 的 questions 必须为数组。',
         ),
       );
     }
@@ -348,7 +328,7 @@ class AiAskUserChoiceTool extends AiTool {
       return _AskUserChoiceArgumentNormalization.error(
         AiToolUtils.invalidResult(
           commandName,
-          'OpenHand supports AskUserQuestion only with exactly one question. Split multi-question prompts into separate AskUserChoice calls.',
+          'OpenHand 的 AskUserQuestion 仅支持一个问题，请将多个问题拆为独立 AskUserChoice 调用。',
         ),
       );
     }
@@ -358,7 +338,7 @@ class AiAskUserChoiceTool extends AiTool {
       return _AskUserChoiceArgumentNormalization.error(
         AiToolUtils.invalidResult(
           commandName,
-          'AskUserQuestion question #0 must be an object.',
+          'AskUserQuestion 的第 0 个问题必须为对象。',
         ),
       );
     }
@@ -368,7 +348,7 @@ class AiAskUserChoiceTool extends AiTool {
       return _AskUserChoiceArgumentNormalization.error(
         AiToolUtils.invalidResult(
           commandName,
-          'OpenHand AskUserQuestion compatibility does not support multiSelect. Ask separate single-choice questions instead.',
+          'OpenHand 的 AskUserQuestion 兼容模式不支持 multiSelect，请拆为多个单选问题。',
         ),
       );
     }
@@ -376,7 +356,7 @@ class AiAskUserChoiceTool extends AiTool {
       return _AskUserChoiceArgumentNormalization.error(
         AiToolUtils.invalidResult(
           commandName,
-          'AskUserQuestion "multiSelect" must be a boolean when provided.',
+          'AskUserQuestion 的 multiSelect 必须为布尔值。',
         ),
       );
     }
@@ -384,10 +364,7 @@ class AiAskUserChoiceTool extends AiTool {
     final questionText = _optionalString(questionMap['question']);
     if (questionText == null) {
       return _AskUserChoiceArgumentNormalization.error(
-        AiToolUtils.invalidResult(
-          commandName,
-          'AskUserQuestion requires a non-empty question text.',
-        ),
+        AiToolUtils.invalidResult(commandName, 'AskUserQuestion 需要非空问题文本。'),
       );
     }
     final optionsRaw = AiToolUtils.readList(questionMap['options']);
@@ -395,7 +372,7 @@ class AiAskUserChoiceTool extends AiTool {
       return _AskUserChoiceArgumentNormalization.error(
         AiToolUtils.invalidResult(
           commandName,
-          'AskUserQuestion requires 2-4 options for the single supported question.',
+          'AskUserQuestion 的单个问题需要 2 到 4 个选项。',
         ),
       );
     }
@@ -408,7 +385,7 @@ class AiAskUserChoiceTool extends AiTool {
         return _AskUserChoiceArgumentNormalization.error(
           AiToolUtils.invalidResult(
             commandName,
-            'AskUserQuestion option #$i must be an object.',
+            'AskUserQuestion 的第 $i 个选项必须为对象。',
           ),
         );
       }
@@ -417,7 +394,7 @@ class AiAskUserChoiceTool extends AiTool {
         return _AskUserChoiceArgumentNormalization.error(
           AiToolUtils.invalidResult(
             commandName,
-            'OpenHand AskUserQuestion compatibility does not support option preview. Ask without preview or use plain chat for the preview content.',
+            'OpenHand 的 AskUserQuestion 兼容模式不支持选项 preview，请移除 preview 或改用普通对话展示。',
           ),
         );
       }
@@ -426,7 +403,7 @@ class AiAskUserChoiceTool extends AiTool {
         return _AskUserChoiceArgumentNormalization.error(
           AiToolUtils.invalidResult(
             commandName,
-            'AskUserQuestion option #$i requires a non-empty label.',
+            'AskUserQuestion 的第 $i 个选项需要非空 label。',
           ),
         );
       }

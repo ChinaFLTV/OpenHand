@@ -34,7 +34,7 @@ class AiGrepTool extends AiTool {
     // 参数解析
     final pattern = AiToolUtils.readString(args['pattern']);
     if (pattern.isEmpty) {
-      return AiToolUtils.invalidResult('Grep', 'Grep requires pattern.');
+      return AiToolUtils.invalidResult('Grep', 'Grep 需要 pattern。');
     }
 
     // 路径解析和验证
@@ -50,7 +50,7 @@ class AiGrepTool extends AiTool {
     // 验证路径存在性
     final pathType = await probeFileSystemEntityType(path, followLinks: true);
     if (pathType == FileSystemEntityType.notFound) {
-      return AiToolUtils.invalidResult('Grep', 'Path does not exist: $path');
+      return AiToolUtils.invalidResult('Grep', '路径不存在：$path');
     }
 
     final glob = AiToolUtils.readString(args['glob']);
@@ -61,7 +61,7 @@ class AiGrepTool extends AiTool {
     if (!_supportedOutputModes.contains(outputMode)) {
       return AiToolUtils.invalidResult(
         'Grep',
-        'Grep output_mode must be content, files_with_matches, or count.',
+        'Grep 的 output_mode 必须为 content、files_with_matches 或 count。',
       );
     }
     final before = AiToolUtils.readInt(args['-B']);
@@ -71,7 +71,7 @@ class AiGrepTool extends AiTool {
     if (_hasNegativeContextLineOption(before, after, contextLines)) {
       return AiToolUtils.invalidResult(
         'Grep',
-        'Grep context line options (-B, -A, -C/context) must be non-negative integers.',
+        'Grep 上下文行参数（-B、-A、-C/context）必须为非负整数。',
       );
     }
     final showLineNumbers = AiToolUtils.readBool(args['-n']) ?? true;
@@ -79,17 +79,11 @@ class AiGrepTool extends AiTool {
     final type = AiToolUtils.readString(args['type']);
     final headLimit = AiToolUtils.readInt(args['head_limit']);
     if (headLimit != null && headLimit < 0) {
-      return AiToolUtils.invalidResult(
-        'Grep',
-        'Grep head_limit must be a non-negative integer.',
-      );
+      return AiToolUtils.invalidResult('Grep', 'Grep 的 head_limit 必须为非负整数。');
     }
     final offset = AiToolUtils.readInt(args['offset']) ?? 0;
     if (offset < 0) {
-      return AiToolUtils.invalidResult(
-        'Grep',
-        'Grep offset must be a non-negative integer.',
-      );
+      return AiToolUtils.invalidResult('Grep', 'Grep 的 offset 必须为非负整数。');
     }
     final multiline = AiToolUtils.readBool(args['multiline']) == true;
 
@@ -98,11 +92,9 @@ class AiGrepTool extends AiTool {
     final rgPath = await AiToolUtils.resolveRipgrepPath();
     if (rgPath == null) {
       const message =
-          'ripgrep (rg) binary unavailable. The application bundles rg under '
-          'vendor/ripgrep/{arch}-{os}/rg, so this normally never happens — '
-          'reinstall the app or ensure the vendor directory was shipped. '
-          'As a last resort install ripgrep system-wide (e.g. `brew install '
-          'ripgrep` on macOS).';
+          'ripgrep（rg）不可用。应用通常内置 vendor/ripgrep/{arch}-{os}/rg；'
+          '请重新安装应用或确认 vendor 目录完整。也可在系统中安装 ripgrep，'
+          '例如在 macOS 上执行 `brew install ripgrep`。';
       return AiToolExecutionResult(
         status: BashToolExecutionStatus.failed,
         command: 'Grep $pattern',
@@ -208,7 +200,7 @@ class AiGrepTool extends AiTool {
         appliedLimit: null,
       );
       if (output.isEmpty) {
-        output = outputMode == 'count' ? '(zero matches)' : '(no matches)';
+        output = outputMode == 'count' ? '（匹配数为 0）' : '（无匹配项）';
       } else {
         pagination = _applyPagination(
           output,
@@ -217,15 +209,14 @@ class AiGrepTool extends AiTool {
         );
         output = pagination.output;
         if (output.isEmpty) {
-          output = '(no matches after offset)';
+          output = '（offset 之后无匹配项）';
         }
         final paginationInfo = _formatPaginationInfo(
           appliedLimit: pagination.appliedLimit,
           offset: offset,
         );
         if (paginationInfo.isNotEmpty) {
-          output =
-              '$output\n\n[Showing results with pagination = $paginationInfo]';
+          output = '$output\n\n[分页参数：$paginationInfo]';
         }
       }
       output = AiToolUtils.truncateContent(
@@ -356,9 +347,7 @@ class AiGrepTool extends AiTool {
     if (exitCode == 2) {
       buffer
         ..writeln()
-        ..write(
-          'hint: Exit code 2 typically indicates a syntax error in the regex pattern.',
-        );
+        ..write('hint: 退出码 2 通常表示正则表达式语法错误。');
     }
     return buffer.toString().trim();
   }

@@ -95,10 +95,14 @@ class AiToolUtils {
     required String subject,
     required String path,
   }) async {
-    final base = '$subject does not exist: $path';
+    final subjectLabel = switch (subject) {
+      'Notebook' => 'Notebook 文件',
+      _ => '文件',
+    };
+    final base = '$subjectLabel 不存在：$path';
     final suggestion = await suggestSiblingPath(path);
     if (suggestion == null) return base;
-    return '$base Did you mean $suggestion?';
+    return '$base 是否要查找 $suggestion？';
   }
 
   static Future<String?> suggestSiblingPath(String missingPath) async {
@@ -593,13 +597,11 @@ class AiToolUtils {
     required bool replaceAll,
   }) {
     if (oldString.isEmpty) {
-      return const ReplacementResult.failure('old_string must not be empty.');
+      return const ReplacementResult.failure('old_string 不能为空。');
     }
     final actualOldString = findActualString(content, oldString);
     if (actualOldString == null) {
-      return const ReplacementResult.failure(
-        'old_string was not found in the file.',
-      );
+      return const ReplacementResult.failure('文件中找不到 old_string。');
     }
     final actualNewString = preserveQuoteStyle(
       oldString,
@@ -610,13 +612,11 @@ class AiToolUtils {
       RegExp.escape(actualOldString),
     ).allMatches(content).length;
     if (matchCount == 0) {
-      return const ReplacementResult.failure(
-        'old_string was not found in the file.',
-      );
+      return const ReplacementResult.failure('文件中找不到 old_string。');
     }
     if (!replaceAll && matchCount > 1) {
       return const ReplacementResult.failure(
-        'old_string matched multiple locations. Provide more context or set replace_all.',
+        'old_string 匹配到多处，请提供更多上下文或启用 replace_all。',
       );
     }
     return ReplacementResult.success(
@@ -641,13 +641,12 @@ class AiToolUtils {
     if (normalizedOldString.isEmpty) {
       if (!allowCreationFromEmptyOldString && content.trim().isNotEmpty) {
         return const ReplacementResult.failure(
-          'old_string must not be empty. Empty old_string is only allowed when '
-          'creating a new file or replacing an empty file.',
+          'old_string 不能为空；仅创建新文件或替换空文件时允许留空。',
         );
       }
       if (replaceAll) {
         return const ReplacementResult.failure(
-          'replace_all is not valid when old_string is empty.',
+          'old_string 为空时不能启用 replace_all。',
         );
       }
       return ReplacementResult.success(
@@ -656,9 +655,7 @@ class AiToolUtils {
       );
     }
     if (normalizedOldString == normalizedNewString) {
-      return const ReplacementResult.failure(
-        'old_string and new_string must differ.',
-      );
+      return const ReplacementResult.failure('old_string 和 new_string 必须不同。');
     }
     return replaceOnceOrAll(
       content: content,
@@ -680,8 +677,7 @@ class AiToolUtils {
       if (normalizeTextLineEndings(
         previousNewString,
       ).contains(oldStringToCheck)) {
-        return 'Cannot edit file: old_string is a substring of a new_string '
-            'from a previous edit.';
+        return '无法编辑文件：old_string 是此前编辑中 new_string 的子串。';
       }
     }
     return null;

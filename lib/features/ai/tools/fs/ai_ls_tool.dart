@@ -24,10 +24,10 @@ class AiLsTool extends AiTool {
     final path = AiToolUtils.resolvePath(rawPath);
     final pathType = await probeFileSystemEntityType(path, followLinks: true);
     if (pathType == FileSystemEntityType.notFound) {
-      return AiToolUtils.invalidResult('LS', 'Directory does not exist: $path');
+      return AiToolUtils.invalidResult('LS', '目录不存在：$path');
     }
     if (pathType != FileSystemEntityType.directory) {
-      return AiToolUtils.invalidResult('LS', 'Path is not a directory: $path');
+      return AiToolUtils.invalidResult('LS', '路径不是目录：$path');
     }
     final directory = Directory(path);
     final ignorePatterns = stringListFromValueOrJsonText(args['ignore']);
@@ -53,10 +53,9 @@ class AiLsTool extends AiTool {
           : 'file';
       lines.add('$type\t$name');
     }
-    var output = lines.isEmpty ? '(empty)' : lines.join('\n');
+    var output = lines.isEmpty ? '（空目录）' : lines.join('\n');
     if (listing.truncated) {
-      output +=
-          '\n(Directory listing truncated at $_maxDirectoryEntries entries.)';
+      output += '\n（目录列表已在 $_maxDirectoryEntries 项处截断。）';
     }
     output = AiToolUtils.truncateContent(
       output,

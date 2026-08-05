@@ -23,7 +23,7 @@ class AiReadTool extends AiTool {
   );
 
   static const String _unchangedSinceLastReadMessage =
-      'File unchanged since last read. The content from the earlier Read tool result in this conversation is still current; refer to that result instead of re-reading.';
+      '文件自上次读取后未变化，请直接参考本会话中此前的 Read 结果。';
 
   static const Set<String> _blockedDeviceReadPaths = <String>{
     '/dev/zero',
@@ -51,16 +51,13 @@ class AiReadTool extends AiTool {
     final startedAt = Stopwatch()..start();
     final rawFilePath = AiToolUtils.readString(args['file_path']);
     if (rawFilePath.isEmpty) {
-      return AiToolUtils.invalidResult(
-        'Read',
-        'Read requires a non-empty file_path.',
-      );
+      return AiToolUtils.invalidResult('Read', 'Read 需要非空 file_path。');
     }
     final filePath = AiToolUtils.resolvePath(rawFilePath);
     if (_isBlockedDeviceReadPath(filePath)) {
       return AiToolUtils.invalidResult(
         'Read',
-        'Refused to read special device path that may block, never reach EOF, or produce infinite output: $filePath',
+        '拒绝读取可能阻塞、无法到达 EOF 或无限输出的特殊设备路径：$filePath',
       );
     }
     final resolvedFile = await _resolveExistingReadFile(filePath);
@@ -88,15 +85,12 @@ class AiReadTool extends AiTool {
     final limit =
         AiToolUtils.readInt(args['limit']) ?? AiToolUtils.defaultReadLimit;
     if (limit <= 0) {
-      return AiToolUtils.invalidResult(
-        'Read',
-        'Read limit must be a positive integer.',
-      );
+      return AiToolUtils.invalidResult('Read', 'Read 的 limit 必须为正整数。');
     }
     if (limit > AiToolUtils.maxReadLimit) {
       return AiToolUtils.invalidResult(
         'Read',
-        'Read limit must be at most ${AiToolUtils.maxReadLimit} lines.',
+        'Read 的 limit 最多为 ${AiToolUtils.maxReadLimit} 行。',
       );
     }
     final effectiveOffset = offset == null || offset <= 1 ? 1 : offset;
@@ -145,7 +139,7 @@ class AiReadTool extends AiTool {
     if (rawContent.isEmpty && renderedRead.fileEmpty) {
       return AiToolUtils.simpleSuccessResult(
         command: 'Read $actualFilePath',
-        output: 'File is empty: $actualFilePath',
+        output: '文件为空：$actualFilePath',
         durationMs: startedAt.elapsedMilliseconds,
         metadata: <String, Object?>{
           ..._pathMetadata(resolvedFile),
@@ -154,7 +148,7 @@ class AiReadTool extends AiTool {
           'read_file_offset': effectiveOffset,
           'read_file_limit': limit,
           aiHookSystemRemindersMetadataKey: <String>[
-            'Read opened an empty file: $actualFilePath',
+            'Read 打开了空文件：$actualFilePath',
           ],
         },
       );
@@ -189,7 +183,7 @@ class AiReadTool extends AiTool {
         ? 4
         : lastLineNumber.toString().length;
     final output = visibleLines.isEmpty
-        ? 'No lines available in the requested range.'
+        ? '请求范围内没有可用行。'
         : visibleLines
               .asMap()
               .entries
@@ -217,8 +211,8 @@ class AiReadTool extends AiTool {
         if (renderedRead.truncated)
           aiHookSystemRemindersMetadataKey: <String>[
             renderedRead.lineRangeApplied
-                ? 'Read returned a bounded file range: $actualFilePath'
-                : 'Read truncated a large file preview: $actualFilePath',
+                ? 'Read 返回了有界文件范围：$actualFilePath'
+                : 'Read 已截断大文件预览：$actualFilePath',
           ],
       },
     );
@@ -297,10 +291,7 @@ class AiReadTool extends AiTool {
     }
     if (p.extension(filePath).toLowerCase() != '.pdf') {
       return _PdfPagesParseResult(
-        error: AiToolUtils.invalidResult(
-          'Read',
-          'Read pages is only supported for PDF files.',
-        ),
+        error: AiToolUtils.invalidResult('Read', 'Read 的 pages 仅支持 PDF 文件。'),
       );
     }
 
@@ -325,7 +316,7 @@ class AiReadTool extends AiTool {
           return _PdfPagesParseResult(
             error: AiToolUtils.invalidResult(
               'Read',
-              'Read pages supports at most $_maxPdfPageRangeCount PDF pages per request.',
+              'Read 的 pages 每次最多支持 $_maxPdfPageRangeCount 页 PDF。',
             ),
           );
         }
@@ -386,7 +377,7 @@ class AiReadTool extends AiTool {
     return _PdfPagesParseResult(
       error: AiToolUtils.invalidResult(
         'Read',
-        'Invalid PDF pages range "$raw". Use "1", "1-5", or comma-separated ranges up to $_maxPdfPageRangeCount pages.',
+        '无效 PDF 页码范围“$raw”。请使用“1”“1-5”或逗号分隔的范围，最多 $_maxPdfPageRangeCount 页。',
       ),
     );
   }
@@ -420,7 +411,7 @@ class _PdfPagesParseResult {
   final AiToolExecutionResult? error;
 }
 
-/// Value object returned by file render operations.
+/// 文件渲染结果值对象。
 class RenderedReadContent {
   const RenderedReadContent({
     required this.content,

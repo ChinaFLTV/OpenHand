@@ -49,7 +49,7 @@ class AiCodebaseSearchTool extends AiTool {
 
     final query = AiToolUtils.readString(args['query']);
     if (query.isEmpty) {
-      return AiToolUtils.invalidResult('CodebaseSearch', 'query is required.');
+      return AiToolUtils.invalidResult('CodebaseSearch', '必须提供 query。');
     }
 
     final searchRoot = _resolveSearchRoot(args);
@@ -57,15 +57,12 @@ class AiCodebaseSearchTool extends AiTool {
     final explanation = AiToolUtils.readString(args['explanation']);
     final rootType = await probeFileSystemEntityType(searchRoot);
     if (rootType == FileSystemEntityType.notFound) {
-      return AiToolUtils.invalidResult(
-        'CodebaseSearch',
-        'Search path does not exist: $searchRoot',
-      );
+      return AiToolUtils.invalidResult('CodebaseSearch', '搜索路径不存在：$searchRoot');
     }
     if (rootType != FileSystemEntityType.directory) {
       return AiToolUtils.invalidResult(
         'CodebaseSearch',
-        'Search path is not a directory: $searchRoot',
+        '搜索路径不是目录：$searchRoot',
       );
     }
 
@@ -79,19 +76,19 @@ class AiCodebaseSearchTool extends AiTool {
       if (results.isEmpty) {
         return AiToolUtils.simpleSuccessResult(
           command: 'CodebaseSearch',
-          output: '(no results for: $query)',
+          output: '（未找到与“$query”相关的结果）',
           durationMs: startedAt.elapsedMilliseconds,
           workingDirectory: searchRoot,
         );
       }
 
       final buffer = StringBuffer();
-      buffer.writeln('CodebaseSearch results for: "$query"');
-      if (explanation.isNotEmpty) buffer.writeln('Purpose: $explanation');
+      buffer.writeln('CodebaseSearch 查询：“$query”');
+      if (explanation.isNotEmpty) buffer.writeln('目的：$explanation');
       if (filePattern.isNotEmpty) {
-        buffer.writeln('File pattern: $filePattern');
+        buffer.writeln('文件 pattern：$filePattern');
       }
-      buffer.writeln('Found ${results.length} relevant chunk(s):\n');
+      buffer.writeln('找到 ${results.length} 个相关片段：\n');
 
       for (final result in results) {
         buffer.writeln('--- ${result.filePath}:${result.lineNumber} ---');
@@ -120,7 +117,7 @@ class AiCodebaseSearchTool extends AiTool {
         stdout: '',
         stderr: '$error',
         durationMs: startedAt.elapsedMilliseconds,
-        resultText: 'status: failed\nerror: CodebaseSearch failed: $error',
+        resultText: 'status: failed\nerror: CodebaseSearch 执行失败：$error',
       );
     }
   }

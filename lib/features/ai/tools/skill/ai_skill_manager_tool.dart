@@ -16,20 +16,8 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
-/// SkillManager tool — manages AI skills on disk.
-///
-/// Supports the following actions (specified via `args['action']`):
-/// - `create`      : create a new skill directory with SKILL.md
-/// - `edit`        : rewrite SKILL.md of an existing skill
-/// - `delete`      : remove a skill directory (and its empty category parent)
-/// - `patch`       : substring replace inside SKILL.md (or a sub-file);
-///                   unique match required unless `replace_all == true`.
-/// - `write_file`  : create/overwrite a file in a whitelisted sub-directory
-///                   (references/templates/scripts/assets) of a skill.
-/// - `remove_file` : remove a file under a skill, cleaning empty parent dirs
-///                   without deleting the skill root itself.
-///
-/// Layout: `<skillsDir>/[<category>/]<name>/SKILL.md`.
+/// 管理磁盘上的 AI 技能，支持创建、编辑、删除、补丁和旁路文件操作。
+/// 目录结构：`<skillsDir>/[<category>/]<name>/SKILL.md`。
 class AiSkillManagerTool extends AiTool {
   AiSkillManagerTool({required this.skillsDirProvider});
 
@@ -67,7 +55,7 @@ class AiSkillManagerTool extends AiTool {
   @override
   AiBuiltinToolKind get kind => AiBuiltinToolKind.skillManager;
 
-  /// This tool performs deletions, so it is destructive.
+  /// 此工具支持删除操作。
   @override
   bool get isDestructive => true;
 
@@ -76,26 +64,23 @@ class AiSkillManagerTool extends AiTool {
     return run(context.decodedArguments);
   }
 
-  /// Direct entry point for callers that already have decoded arguments.
+  /// 供已解析参数的调用方直接执行。
   Future<AiToolExecutionResult> run(Map<String, Object?> args) async {
     final startedAt = Stopwatch()..start();
     final action = AiToolUtils.readString(args['action']);
     if (action.isEmpty) {
       return AiToolUtils.invalidResult(
         _toolName,
-        'action is required (one of: ${_supportedActions.join(', ')}).',
+        '必须提供 action，可选值：${_supportedActions.join(', ')}。',
       );
     }
 
     final skillsRoot = _resolveSkillsRoot();
     if (skillsRoot == null) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'skills directory is not configured.',
-      );
+      return AiToolUtils.invalidResult(_toolName, '未配置技能目录。');
     }
     if (!_supportedActions.contains(action)) {
-      return AiToolUtils.invalidResult(_toolName, 'Unknown action: $action.');
+      return AiToolUtils.invalidResult(_toolName, '未知 action：$action。');
     }
 
     final name = AiToolUtils.readString(args['name']);
@@ -119,19 +104,15 @@ class AiSkillManagerTool extends AiTool {
         case 'remove_file':
           return await _removeFile(args, skillsRoot, name, startedAt);
         default:
-          throw StateError('Unsupported validated action: $action');
+          throw StateError('不支持已校验的 action：$action');
       }
     } catch (error, stack) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        '$action failed: $error\n$stack',
-      );
+      silentLog('ai_skill_manager_tool', '执行技能操作 $action', error, stack);
+      return AiToolUtils.invalidResult(_toolName, '$action 执行失败：$error');
     }
   }
 
-  // ──────────────────────────────────────────────────────────────
-  // Actions
-  // ──────────────────────────────────────────────────────────────
+  // 操作实现
 
   Future<AiToolExecutionResult> _create(
     Map<String, Object?> args,
@@ -165,10 +146,7 @@ class AiSkillManagerTool extends AiTool {
     final skillDir = _skillDir(skillsRoot, category, name);
     final skillFile = File(p.join(skillDir, 'SKILL.md'));
     if (await AiToolUtils.fileExistsBounded(skillFile)) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'Skill already exists at $skillDir.',
-      );
+      return AiToolUtils.invalidResult(_toolName, '技能已存在：$skillDir。');
     }
     await Directory(
       skillsRoot,
@@ -177,17 +155,14 @@ class AiSkillManagerTool extends AiTool {
       skillsRoot,
       skillFile.path,
     ).timeout(_skillScanIdleTimeout, onTimeout: () => false)) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'Skill path resolves outside the configured skills directory.',
-      );
+      return AiToolUtils.invalidResult(_toolName, '技能路径解析到已配置技能目录之外。');
     }
 
     await writeFileAtomically(skillFile, content);
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager create $name',
-      output: 'Created skill $name at ${skillFile.path}',
+      output: '已在 ${skillFile.path} 创建技能 $name。',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: skillDir,
       isWriteCommand: true,
@@ -228,7 +203,7 @@ class AiSkillManagerTool extends AiTool {
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager edit $name',
-      output: 'Rewrote SKILL.md at ${skillContext.skillFile.path}',
+      output: '已重写 ${skillContext.skillFile.path}。',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: skillContext.skillDir.path,
       isWriteCommand: true,
@@ -257,7 +232,7 @@ class AiSkillManagerTool extends AiTool {
         p.equals(skillDir.path, skillsRoot)) {
       return AiToolUtils.invalidResult(
         _toolName,
-        'Refusing to delete path outside skills directory: ${skillDir.path}.',
+        '拒绝删除技能目录之外的路径：${skillDir.path}。',
       );
     }
 
@@ -275,7 +250,7 @@ class AiSkillManagerTool extends AiTool {
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager delete $name',
-      output: 'Deleted skill $name at ${skillDir.path}',
+      output: '已删除 ${skillDir.path} 中的技能 $name。',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: skillsRoot,
       isWriteCommand: true,
@@ -300,15 +275,12 @@ class AiSkillManagerTool extends AiTool {
     final filePathArg = AiToolUtils.readString(args['file_path']);
 
     if (oldString.isEmpty) {
-      return AiToolUtils.invalidResult(
-        _toolName,
-        'old_string must not be empty.',
-      );
+      return AiToolUtils.invalidResult(_toolName, 'old_string 不能为空。');
     }
     if (oldString == newString) {
       return AiToolUtils.invalidResult(
         _toolName,
-        'old_string and new_string must differ.',
+        'old_string 和 new_string 必须不同。',
       );
     }
 
@@ -333,7 +305,7 @@ class AiSkillManagerTool extends AiTool {
       if (!await AiToolUtils.fileExistsBounded(targetFile)) {
         return AiToolUtils.invalidResult(
           _toolName,
-          'file_path "$filePathArg" does not exist in skill "$name".',
+          '技能“$name”中不存在 file_path“$filePathArg”。',
         );
       }
     }
@@ -370,7 +342,7 @@ class AiSkillManagerTool extends AiTool {
       if (frontmatterError != null) {
         return AiToolUtils.invalidResult(
           _toolName,
-          'patch would break frontmatter: $frontmatterError',
+          '补丁会破坏 frontmatter：$frontmatterError',
         );
       }
     }
@@ -379,9 +351,7 @@ class AiSkillManagerTool extends AiTool {
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager patch $name',
-      output:
-          'Patched ${targetFile.path} (${replacement.replacementCount} '
-          'replacement${replacement.replacementCount == 1 ? '' : 's'}).',
+      output: '已补丁 ${targetFile.path}，替换 ${replacement.replacementCount} 处。',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: skillContext.skillDir.path,
       isWriteCommand: true,
@@ -422,7 +392,7 @@ class AiSkillManagerTool extends AiTool {
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager write_file $name',
-      output: 'Wrote ${target.path}',
+      output: '已写入 ${target.path}。',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: skillContext.skillDir.path,
       isWriteCommand: true,
@@ -455,7 +425,7 @@ class AiSkillManagerTool extends AiTool {
     if (!await AiToolUtils.fileExistsBounded(target)) {
       return AiToolUtils.invalidResult(
         _toolName,
-        'file_path "${targetResult.relativePath}" does not exist in skill "$name".',
+        '技能“$name”中不存在 file_path“${targetResult.relativePath}”。',
       );
     }
     await deleteFileAtomically(target);
@@ -468,7 +438,7 @@ class AiSkillManagerTool extends AiTool {
 
     return AiToolUtils.simpleSuccessResult(
       command: 'SkillManager remove_file $name',
-      output: 'Removed ${target.path}',
+      output: '已删除 ${target.path}。',
       durationMs: startedAt.elapsedMilliseconds,
       workingDirectory: skillContext.skillDir.path,
       isWriteCommand: true,
@@ -499,7 +469,7 @@ class AiSkillManagerTool extends AiTool {
     if (searchResult.error != null) return searchResult.error;
     final file = searchResult.file;
     if (file == null) return null;
-    return 'A skill named "$name" already exists at ${file.path}.';
+    return '名为“$name”的技能已存在：${file.path}。';
   }
 
   Future<_SkillContextResult> _locateSkillContext(
@@ -512,16 +482,12 @@ class AiSkillManagerTool extends AiTool {
     }
     final skillFile = searchResult.file;
     if (skillFile == null) {
-      return _SkillContextResult(
-        error: 'Skill "$name" not found under $skillsRoot.',
-      );
+      return _SkillContextResult(error: '在 $skillsRoot 下找不到技能“$name”。');
     }
     final skillDir = skillFile.parent;
     if (!isPathWithinOrEqual(skillsRoot, skillDir.path) ||
         p.equals(p.normalize(skillsRoot), p.normalize(skillDir.path))) {
-      return _SkillContextResult(
-        error: 'Skill "$name" resolves outside skills directory.',
-      );
+      return _SkillContextResult(error: '技能“$name”的路径解析到技能目录之外。');
     }
     return _SkillContextResult(
       context: _SkillFileContext(skillFile: skillFile, skillDir: skillDir),
@@ -545,15 +511,12 @@ class AiSkillManagerTool extends AiTool {
               .list(recursive: true, followLinks: false)
               .timeout(_skillScanIdleTimeout)) {
         if (stopwatch.elapsed >= _skillScanTotalTimeout) {
-          return _SkillFileSearchResult(
-            error: 'Skill scan timed out under $skillsRoot.',
-          );
+          return _SkillFileSearchResult(error: '扫描技能目录超时：$skillsRoot。');
         }
         scanned += 1;
         if (scanned > _maxSkillScanEntities) {
           return _SkillFileSearchResult(
-            error:
-                'Skill scan exceeded $_maxSkillScanEntities entries under $skillsRoot.',
+            error: '扫描 $skillsRoot 时超过 $_maxSkillScanEntities 项上限。',
           );
         }
         if (entity is! File) continue;
@@ -562,12 +525,10 @@ class AiSkillManagerTool extends AiTool {
         if (dirName == name) return _SkillFileSearchResult(file: entity);
       }
     } on TimeoutException {
-      return _SkillFileSearchResult(
-        error: 'Skill scan timed out under $skillsRoot.',
-      );
+      return _SkillFileSearchResult(error: '扫描技能目录超时：$skillsRoot。');
     } on FileSystemException catch (error) {
       return _SkillFileSearchResult(
-        error: 'Unable to scan skills directory $skillsRoot: ${error.message}',
+        error: '无法扫描技能目录 $skillsRoot：${error.message}',
       );
     } finally {
       stopwatch.stop();
@@ -588,22 +549,18 @@ class AiSkillManagerTool extends AiTool {
     );
     if (!isPathWithinOrEqual(skillContext.skillDir.path, resolved) ||
         p.equals(skillContext.skillDir.path, resolved)) {
-      return const _SkillSubFileResolution(
-        error: 'file_path must resolve within the skill directory.',
-      );
+      return const _SkillSubFileResolution(error: 'file_path 必须解析到技能目录内。');
     }
     if (p.equals(resolved, skillContext.skillFile.path)) {
       return const _SkillSubFileResolution(
-        error: 'Use edit/patch/delete for SKILL.md.',
+        error: '请使用 edit、patch 或 delete 操作 SKILL.md。',
       );
     }
     if (!await isPhysicalPathWithinOrEqual(
       skillContext.skillDir.path,
       resolved,
     ).timeout(_skillScanIdleTimeout, onTimeout: () => false)) {
-      return const _SkillSubFileResolution(
-        error: 'file_path resolves outside the skill directory.',
-      );
+      return const _SkillSubFileResolution(error: 'file_path 解析到技能目录之外。');
     }
     return _SkillSubFileResolution(file: File(resolved));
   }
@@ -615,7 +572,7 @@ class AiSkillManagerTool extends AiTool {
   ) async {
     final relativePath = AiToolUtils.readString(args['file_path']);
     if (relativePath.isEmpty) {
-      return const _SkillSubFileTargetResult(error: 'file_path is required.');
+      return const _SkillSubFileTargetResult(error: '必须提供 file_path。');
     }
     final contextResult = await _locateSkillContext(skillsRoot, name);
     if (contextResult.error != null) {
@@ -639,23 +596,20 @@ class AiSkillManagerTool extends AiTool {
     );
   }
 
-  /// Validates a sub-path relative to a skill directory. Allowed values are
-  /// within `{references, templates, scripts, assets}/...` and must not
-  /// traverse outside via `..`.
+  /// 校验技能目录内的相对路径，仅允许写入白名单子目录且禁止向上遍历。
   String? _validateSkillSubPath(String relativePath) {
     final pathError = safeRelativePathError(relativePath);
     if (pathError != null) {
-      return 'file_path $pathError';
+      return 'file_path：$pathError';
     }
     final normalized = p.normalize(relativePath.trim());
     final segments = p.split(normalized);
     final head = segments.first;
     if (!_allowedWriteSubdirs.contains(head)) {
-      return 'file_path first segment must be one of '
-          '${_allowedWriteSubdirs.join(', ')}; got "$head".';
+      return 'file_path 首段必须为 ${_allowedWriteSubdirs.join(', ')} 之一，实际为“$head”。';
     }
     if (segments.length < 2) {
-      return 'file_path must point to a file inside $head/, not the directory itself.';
+      return 'file_path 必须指向 $head/ 内的文件，不能指向目录本身。';
     }
     return null;
   }
@@ -667,16 +621,14 @@ class AiSkillManagerTool extends AiTool {
     final stat = await AiToolUtils.fileStatBounded(file);
     if (stat.type != FileSystemEntityType.file &&
         stat.type != FileSystemEntityType.link) {
-      return _TextFileReadResult(error: 'Target is not a file: ${file.path}');
+      return _TextFileReadResult(error: '目标不是文件：${file.path}');
     }
     final maxBytes = isSkillManifest
         ? maxSkillContentLength * 4
         : _maxSidecarContentLength;
     if (stat.size > maxBytes) {
       return _TextFileReadResult(
-        error:
-            'Target file is too large to patch safely '
-            '(${stat.size} bytes, limit $maxBytes).',
+        error: '目标文件过大，无法安全应用补丁（${stat.size} 字节，上限 $maxBytes）。',
       );
     }
     try {
@@ -684,11 +636,9 @@ class AiSkillManagerTool extends AiTool {
         content: await readBoundedFileString(file, maxBytes: maxBytes),
       );
     } on IOException catch (error) {
-      return _TextFileReadResult(error: 'Unable to read ${file.path}: $error');
+      return _TextFileReadResult(error: '无法读取 ${file.path}：$error');
     } on FormatException catch (error) {
-      return _TextFileReadResult(
-        error: 'Unable to decode ${file.path}: $error',
-      );
+      return _TextFileReadResult(error: '无法解码 ${file.path}：$error');
     }
   }
 
@@ -708,80 +658,77 @@ class AiSkillManagerTool extends AiTool {
   }
 
   String? _validateName(String name) {
-    if (name.isEmpty) return 'name is required.';
+    if (name.isEmpty) return '必须提供 name。';
     if (name.length > _maxNameLength) {
-      return 'name must be at most $_maxNameLength characters.';
+      return 'name 最多为 $_maxNameLength 个字符。';
     }
     if (!_nameRegex.hasMatch(name)) {
-      return 'name must match ${_nameRegex.pattern} (lowercase alphanumerics, dot, underscore, hyphen).';
+      return 'name 必须匹配 ${_nameRegex.pattern}，仅允许小写字母、数字、点、下划线和连字符。';
     }
     return null;
   }
 
   String? _validateCategory(String category) {
     if (category.length > _maxNameLength) {
-      return 'category must be at most $_maxNameLength characters.';
+      return 'category 最多为 $_maxNameLength 个字符。';
     }
     final segments = p.split(category);
     if (segments.length != 1 || segments.first != category) {
-      return 'category must be a single path segment.';
+      return 'category 必须为单个路径段。';
     }
     if (!_nameRegex.hasMatch(category)) {
-      return 'category must match ${_nameRegex.pattern}.';
+      return 'category 必须匹配 ${_nameRegex.pattern}。';
     }
     return null;
   }
 
   String? _validateContentSize(String content) {
     if (content.length > maxSkillContentLength) {
-      return 'SKILL.md content exceeds the maximum allowed size '
-          '(${content.length} chars, limit $maxSkillContentLength).';
+      return 'SKILL.md 内容超过允许上限（${content.length} 个字符，上限 $maxSkillContentLength）。';
     }
     return null;
   }
 
   String? _validateSidecarContentSize(String content) {
     if (content.length > _maxSidecarContentLength) {
-      return 'file content exceeds the maximum allowed size '
-          '(${content.length} chars, limit $_maxSidecarContentLength).';
+      return '文件内容超过允许上限（${content.length} 个字符，上限 $_maxSidecarContentLength）。';
     }
     return null;
   }
 
-  /// Returns `null` when the content has valid frontmatter; otherwise returns
-  /// an error message.
+  /// frontmatter 有效时返回 null，否则返回错误文案。
   String? _validateFrontmatter(String content) {
     if (!content.startsWith('---\n')) {
-      return 'content must begin with a YAML frontmatter block delimited by "---".';
+      return 'content 必须以“---”分隔的 YAML frontmatter 开头。';
     }
     final closingIndex = content.indexOf('\n---\n', 4);
     if (closingIndex < 0) {
-      return 'frontmatter closing "---" line not found.';
+      return '找不到 frontmatter 结束行“---”。';
     }
     final frontmatterText = content.substring(4, closingIndex);
     final body = content.substring(closingIndex + 5);
     if (body.trim().isEmpty) {
-      return 'skill body (content after frontmatter) must not be empty.';
+      return '技能正文（frontmatter 之后的内容）不能为空。';
     }
     final dynamic parsed;
     try {
       parsed = loadYaml(frontmatterText);
     } catch (error) {
-      return 'frontmatter is not valid YAML: $error';
+      return 'frontmatter 不是有效 YAML：$error';
     }
     if (parsed is! Map) {
-      return 'frontmatter must be a YAML mapping.';
+      return 'frontmatter 必须为 YAML 映射。';
     }
     final nameValue = parsed['name'];
     if (nameValue == null || '$nameValue'.trim().isEmpty) {
-      return 'frontmatter must include a non-empty "name" field.';
+      return 'frontmatter 必须包含非空 name 字段。';
     }
     final descriptionValue = parsed['description'];
     if (descriptionValue == null || '$descriptionValue'.trim().isEmpty) {
-      return 'frontmatter must include a non-empty "description" field.';
+      return 'frontmatter 必须包含非空 description 字段。';
     }
     if ('$descriptionValue'.length > _maxDescriptionLength) {
-      return 'frontmatter "description" must be at most $_maxDescriptionLength characters.';
+      return 'frontmatter 的 description 最多为 $_maxDescriptionLength 个字符。';
     }
     return null;
   }

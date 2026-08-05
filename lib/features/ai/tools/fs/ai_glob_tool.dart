@@ -20,7 +20,7 @@ class AiGlobTool extends AiTool {
     final startedAt = Stopwatch()..start();
     final pattern = AiToolUtils.readString(args['pattern']);
     if (pattern.isEmpty) {
-      return AiToolUtils.invalidResult('Glob', 'Glob requires pattern.');
+      return AiToolUtils.invalidResult('Glob', 'Glob 需要 pattern。');
     }
     final rootPath = AiToolUtils.resolvePath(
       AiToolUtils.readString(args['path']),
@@ -32,22 +32,13 @@ class AiGlobTool extends AiTool {
         followLinks: false,
       ).timeout(AiToolUtils.fileTreeScanIdleTimeout);
     } on TimeoutException {
-      return AiToolUtils.invalidResult(
-        'Glob',
-        'Directory metadata lookup timed out: $rootPath',
-      );
+      return AiToolUtils.invalidResult('Glob', '查询目录元数据超时：$rootPath');
     }
     if (rootEntity == FileSystemEntityType.notFound) {
-      return AiToolUtils.invalidResult(
-        'Glob',
-        'Directory does not exist: $rootPath',
-      );
+      return AiToolUtils.invalidResult('Glob', '目录不存在：$rootPath');
     }
     if (rootEntity != FileSystemEntityType.directory) {
-      return AiToolUtils.invalidResult(
-        'Glob',
-        'Path is not a directory: $rootPath',
-      );
+      return AiToolUtils.invalidResult('Glob', '路径不是目录：$rootPath');
     }
     var hitLimit = false;
     var hitScanLimit = false;
@@ -112,14 +103,12 @@ class AiGlobTool extends AiTool {
         .map((match) => p.relative(match.path, from: workingDirectory))
         .map((match) => match.replaceAll('\\', '/'))
         .toList(growable: false);
-    var output = outputPaths.isEmpty ? '(no matches)' : outputPaths.join('\n');
+    var output = outputPaths.isEmpty ? '（无匹配项）' : outputPaths.join('\n');
     if (hitLimit) {
-      output +=
-          '\n(Results are truncated. Consider using a more specific path or pattern.)';
+      output += '\n（结果已截断，请使用更精确的路径或 pattern。）';
     }
     if (hitScanLimit) {
-      output +=
-          '\n(Directory scan reached its safety limit. Use a narrower path.)';
+      output += '\n（目录扫描已达到安全上限，请缩小路径范围。）';
     }
     output = AiToolUtils.truncateContent(
       output,
