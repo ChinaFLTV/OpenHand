@@ -171,13 +171,27 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
 
   void _handleRuntimeError(Object error, StackTrace stack) {
     if (!mounted) return;
+    silentLog(
+      'settings_web_fetch_runtime_dialog',
+      '执行 Scrapling 运行时操作',
+      error,
+      stack,
+    );
+    final message = userFailureMessage(
+      error,
+      fallback: openHandLocalizedText(
+        context,
+        zh: 'Scrapling 运行时操作失败。',
+        en: 'The Scrapling runtime operation failed.',
+      ),
+    );
     _runtimeSubscription = null;
     setState(() {
       _running = false;
       _success = false;
-      _errorMessage = '$error';
+      _errorMessage = message;
     });
-    _append('✗ $error', level: _ScraplingRuntimeLogLevel.error);
+    _append('✗ $message', level: _ScraplingRuntimeLogLevel.error);
     _scheduleOutcomePulse();
   }
 

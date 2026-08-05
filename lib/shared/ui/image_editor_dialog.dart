@@ -18,6 +18,7 @@ import '../util/bounded_file_io.dart';
 import '../util/bounded_xfile_io.dart';
 import '../util/byte_size_format.dart';
 import '../util/input_value_parsing.dart';
+import '../util/user_failure_message.dart';
 import 'animated_dialog.dart';
 import 'highlight_pulse.dart';
 import 'oh_pill.dart';
@@ -2077,17 +2078,18 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _errorMessage = null;
       });
       _showSnackBar(l10n.imageEditorSavedTo(location.path));
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('image_editor_dialog', '另存编辑图片', error, stack);
       if (!mounted) {
         return;
       }
-      setState(() {
-        _errorMessage = l10n.imageEditorSaveFailed(error.toString());
-      });
-      _showSnackBar(
-        l10n.imageEditorSaveFailed(error.toString()),
-        isError: true,
+      final message = l10n.imageEditorSaveFailed(
+        userFailureMessage(error, fallback: l10n.imageEditorProcessFailed),
       );
+      setState(() {
+        _errorMessage = message;
+      });
+      _showSnackBar(message, isError: true);
     }
   }
 
@@ -2130,17 +2132,16 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
         _errorMessage = null;
       });
       _showSnackBar(clipMsg);
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('image_editor_dialog', '复制编辑图片', error, stack);
       if (!mounted) {
         return;
       }
+      final message = openHandClipboardCopyErrorMessage(context, error);
       setState(() {
-        _errorMessage = l10n.imageEditorClipboardFailed(error.toString());
+        _errorMessage = message;
       });
-      _showSnackBar(
-        l10n.imageEditorClipboardFailed(error.toString()),
-        isError: true,
-      );
+      _showSnackBar(message, isError: true);
     }
   }
 

@@ -150,7 +150,7 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
         probe = WebFetchScraplingProbeStatus(
           ready: false,
           code: 'probe_failed',
-          detail: '$e',
+          detail: userFailureMessage(e, fallback: 'Scrapling 运行时探测失败。'),
           updatedAt: DateTime.now().toUtc(),
         );
       }
@@ -198,9 +198,14 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
     } catch (e, st) {
       silentLog('settings_web_fetch_editor', '安装 Scrapling 运行时', e, st);
       if (!mounted) return;
+      final detail = userFailureMessage(e, fallback: '无法安装 Scrapling 运行时。');
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(context, zh: '安装失败：$e', en: 'Install failed: $e'),
+        openHandLocalizedText(
+          context,
+          zh: '安装失败：$detail',
+          en: 'Install failed: $detail',
+        ),
       );
     } finally {
       if (mounted) setState(() => _scraplingRuntimeBusy = false);
@@ -251,12 +256,13 @@ class _WebFetchSettingsEditorState extends State<_WebFetchSettingsEditor>
     } catch (e, st) {
       silentLog('settings_web_fetch_editor', '卸载 Scrapling 运行时', e, st);
       if (!mounted) return;
+      final detail = userFailureMessage(e, fallback: '无法卸载 Scrapling 运行时。');
       showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '卸载失败：$e',
-          en: 'Uninstall failed: $e',
+          zh: '卸载失败：$detail',
+          en: 'Uninstall failed: $detail',
         ),
       );
     } finally {

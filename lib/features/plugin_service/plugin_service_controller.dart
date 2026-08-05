@@ -8,6 +8,7 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_log_buffer.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/user_failure_message.dart';
 import '../../shared/util/version_compare.dart';
 import 'model/plugin_info.dart';
 import 'service/plugin_lifecycle_service.dart';
@@ -113,9 +114,20 @@ class PluginServiceController extends ManagedChangeNotifier {
       final scanned = await _scanner.scanAll();
       if (isDisposed) return;
       _plugins = _mergeScannedPlugins(scanned);
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('plugin_service', '扫描插件状态', error, stack);
       if (isDisposed) return;
-      _errorMessage = '$e';
+      _errorMessage = userFailureMessage(
+        error,
+        fallback: _pluginServiceText(
+          zh: '扫描插件状态失败，请稍后重试。',
+          zhHant: '掃描外掛狀態失敗，請稍後重試。',
+          en: 'Failed to scan plugin status. Please try again later.',
+          fr: 'Échec de l’analyse des plugins. Réessayez plus tard.',
+          de: 'Der Plugin-Status konnte nicht geprüft werden. Bitte später erneut versuchen.',
+          ja: 'プラグインの状態を確認できませんでした。しばらくしてから再試行してください。',
+        ),
+      );
       if (_plugins.isEmpty) {
         _plugins = _mergeScannedPlugins(
           PluginScannerService.knownPluginPlaceholders(),
@@ -230,9 +242,20 @@ class PluginServiceController extends ManagedChangeNotifier {
       }
       notifyListeners();
       return restored;
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('plugin_service', '检查插件更新', error, stack);
       if (isDisposed) return null;
-      _errorMessage = '$e';
+      _errorMessage = userFailureMessage(
+        error,
+        fallback: _pluginServiceText(
+          zh: '检查插件更新失败，请稍后重试。',
+          zhHant: '檢查外掛更新失敗，請稍後重試。',
+          en: 'Failed to check for plugin updates. Please try again later.',
+          fr: 'Échec de la recherche de mises à jour du plugin. Réessayez plus tard.',
+          de: 'Die Plugin-Update-Prüfung ist fehlgeschlagen. Bitte später erneut versuchen.',
+          ja: 'プラグインの更新を確認できませんでした。しばらくしてから再試行してください。',
+        ),
+      );
       notifyListeners();
       return null;
     } finally {
@@ -572,9 +595,23 @@ class PluginServiceController extends ManagedChangeNotifier {
             ),
       );
       return false;
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('plugin_service', '执行插件生命周期操作', error, stack);
       if (isDisposed) return false;
-      _setPluginOperationFailure(pluginId, '$e');
+      _setPluginOperationFailure(
+        pluginId,
+        userFailureMessage(
+          error,
+          fallback: _pluginServiceText(
+            zh: '插件操作失败，请稍后重试。',
+            zhHant: '外掛操作失敗，請稍後重試。',
+            en: 'The plugin operation failed. Please try again later.',
+            fr: 'L’opération sur le plugin a échoué. Réessayez plus tard.',
+            de: 'Der Plugin-Vorgang ist fehlgeschlagen. Bitte später erneut versuchen.',
+            ja: 'プラグイン操作に失敗しました。しばらくしてから再試行してください。',
+          ),
+        ),
+      );
       return false;
     } finally {
       _isOperating = false;

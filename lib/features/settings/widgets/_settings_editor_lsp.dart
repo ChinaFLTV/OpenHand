@@ -568,16 +568,25 @@ extension on _SettingsViewState {
           backend: installBackend,
           version: settings.normalizedVersion,
         );
-      } catch (error) {
+      } catch (error, stack) {
+        silentLog('settings_editor_lsp', '写入 LSP 卸载元数据', error, stack);
         if (!context.mounted) {
           return;
         }
+        final detail = userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '无法写入卸载元数据。',
+            en: 'Unable to record cleanup metadata.',
+          ),
+        );
         flashOpenHandSnack(
           context,
           openHandLocalizedText(
             context,
-            zh: 'LSP 已安装，但写入卸载元数据失败：$error',
-            en: 'Installed the LSP, but failed to record cleanup metadata: $error',
+            zh: 'LSP 已安装，但写入卸载元数据失败：$detail',
+            en: 'Installed the LSP, but failed to record cleanup metadata: $detail',
           ),
           kind: OpenHandSnackKind.error,
         );
@@ -689,16 +698,18 @@ extension on _SettingsViewState {
 
     try {
       await AiLspManagedInstallService.deleteManagedInstall(normalizedRoot);
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('settings_editor_lsp', '卸载托管 LSP', error, stack);
       if (!context.mounted) {
         return;
       }
+      final detail = userFailureMessage(error, fallback: '无法卸载托管 LSP。');
       flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '卸载失败：$error',
-          en: 'Uninstall failed: $error',
+          zh: '卸载失败：$detail',
+          en: 'Uninstall failed: $detail',
         ),
         kind: OpenHandSnackKind.error,
       );
@@ -2307,14 +2318,15 @@ class _EditorLspInstallRunnerDialogState
           ),
         );
       }
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('settings_editor_lsp', '运行 LSP 安装命令', error, stack);
       if (!_isRunActive(generation)) return;
       setState(() {
         _running = false;
         _success = false;
       });
       _appendLine('');
-      _appendLine('✗ $error');
+      _appendLine('✗ ${userFailureMessage(error, fallback: 'LSP 安装命令执行失败。')}');
     } finally {
       _processSlot.release(startedProcess);
     }

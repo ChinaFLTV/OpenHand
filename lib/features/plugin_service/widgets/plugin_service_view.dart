@@ -22,6 +22,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/user_failure_message.dart';
 import '../../ai/index.dart' show AiPromptTemplatePolicies;
 import '../../mcp/index.dart';
 import '../../thread_template_runtime/index.dart';
@@ -1790,9 +1791,24 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
         _addLog(message);
         _error = message;
       }
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('plugin_service_view', '执行 Playwright MCP 操作', error, stack);
+      if (!mounted) return;
       _addLog('');
-      final message = l10n.pluginServiceMcpOperationError('$e');
+      final message = l10n.pluginServiceMcpOperationError(
+        userFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: 'MCP 操作失败，请稍后重试。',
+            zhHant: 'MCP 操作失敗，請稍後重試。',
+            en: 'The MCP operation failed. Please try again later.',
+            fr: 'L’opération MCP a échoué. Réessayez plus tard.',
+            de: 'Der MCP-Vorgang ist fehlgeschlagen. Bitte später erneut versuchen.',
+            ja: 'MCP 操作に失敗しました。しばらくしてから再試行してください。',
+          ),
+        ),
+      );
       _addLog(message);
       _error = message;
     }

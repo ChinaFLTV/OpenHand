@@ -83,6 +83,7 @@ import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
+import '../../../shared/util/user_failure_message.dart';
 import '../../ai/index.dart';
 import '../../crons/crons_controller.dart';
 import '../../harness/index.dart';
@@ -252,12 +253,13 @@ Future<void> _exportToolTelemetry<T>({
   } catch (error, stack) {
     silentLog(logTag, '导出遥测数据', error, stack);
     if (!context.mounted) return;
+    final detail = userFailureMessage(error, fallback: '无法导出遥测数据。');
     showOpenHandErrorSnack(
       context,
       openHandLocalizedText(
         context,
-        zh: '导出失败：$error',
-        en: 'Export failed: $error',
+        zh: '导出失败：$detail',
+        en: 'Export failed: $detail',
       ),
     );
   }
@@ -5785,16 +5787,17 @@ class _SettingsViewState extends State<SettingsView> {
     } catch (error, stack) {
       silentLog('settings', '应用节流配置', error, stack);
       if (!context.mounted) return;
+      final detail = userFailureMessage(error, fallback: '无法应用节流配置。');
       flashOpenHandSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '应用失败：${error.toString()}',
-          zhHant: '套用失敗：${error.toString()}',
-          en: 'Apply failed: $error',
-          fr: 'Échec de l’application : $error',
-          de: 'Anwenden fehlgeschlagen: $error',
-          ja: '適用に失敗しました: $error',
+          zh: '应用失败：$detail',
+          zhHant: '套用失敗：$detail',
+          en: 'Apply failed: $detail',
+          fr: 'Échec de l’application : $detail',
+          de: 'Anwenden fehlgeschlagen: $detail',
+          ja: '適用に失敗しました: $detail',
         ),
         kind: OpenHandSnackKind.error,
       );

@@ -5,6 +5,7 @@ import 'package:flutter/services.dart';
 
 import '../../app/support/silent_log.dart';
 import '../util/localized_text.dart';
+import '../util/user_failure_message.dart';
 import 'openhand_snack_bar.dart';
 
 const Duration kOpenHandClipboardCopyTimeout = Duration(seconds: 10);
@@ -17,7 +18,7 @@ typedef OpenHandClipboardSnackPresenter =
       required Duration duration,
     });
 
-/// Clamps clipboard operation timeouts into a safe range.
+/// 将剪贴板操作超时限制在安全范围内。
 Duration clampOpenHandClipboardTimeout(Duration timeout) {
   if (timeout <= Duration.zero) return kOpenHandClipboardCopyTimeout;
   if (timeout > _kOpenHandClipboardMaxCopyTimeout) {
@@ -35,10 +36,7 @@ Future<void> setOpenHandClipboardText(
   ).timeout(clampOpenHandClipboardTimeout(timeout));
 }
 
-/// Reads plain text from the system clipboard with a bounded timeout.
-///
-/// Returns `null` when the clipboard is empty, unavailable, or the read
-/// times out / fails. Callers should treat `null` as a soft failure.
+/// 限时读取剪贴板文本；内容为空或读取失败时返回 `null`。
 Future<String?> getOpenHandClipboardText({
   Duration timeout = kOpenHandClipboardCopyTimeout,
 }) async {
@@ -105,14 +103,26 @@ String openHandClipboardCopySuccessMessage(BuildContext context) {
 }
 
 String openHandClipboardCopyErrorMessage(BuildContext context, Object error) {
+  final detail = userFailureMessage(
+    error,
+    fallback: openHandLocalizedText(
+      context,
+      zh: '剪贴板暂不可用，请稍后重试。',
+      zhHant: '剪貼簿暫時無法使用，請稍後重試。',
+      en: 'The clipboard is unavailable. Please try again later.',
+      fr: 'Le presse-papiers est indisponible. Réessayez plus tard.',
+      de: 'Die Zwischenablage ist nicht verfügbar. Bitte später erneut versuchen.',
+      ja: 'クリップボードを利用できません。しばらくしてから再試行してください。',
+    ),
+  );
   return openHandLocalizedText(
     context,
-    zh: '复制失败：$error',
-    zhHant: '複製失敗：$error',
-    en: 'Copy failed: $error',
-    fr: 'Échec de la copie : $error',
-    de: 'Kopieren fehlgeschlagen: $error',
-    ja: 'コピーに失敗しました: $error',
+    zh: '复制失败：$detail',
+    zhHant: '複製失敗：$detail',
+    en: 'Copy failed: $detail',
+    fr: 'Échec de la copie : $detail',
+    de: 'Kopieren fehlgeschlagen: $detail',
+    ja: 'コピーに失敗しました: $detail',
   );
 }
 

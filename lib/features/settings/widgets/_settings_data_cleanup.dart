@@ -894,6 +894,9 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     delay: const Duration(milliseconds: 350),
   );
   LedgerConfig? _config;
+  LedgerConfig? _persistedConfig;
+  LedgerConfig? _pendingConfig;
+  int _configSaveRevision = 0;
   LedgerStatsSnapshot? _stats;
   bool _pruneNowBusy = false;
   ({int removed, int bytesFreed})? _lastGcStats;
@@ -902,10 +905,18 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   @override
   void initState() {
     super.initState();
-    _ledger.loadConfig().then((c) {
-      if (!mounted) return;
-      setState(() => _config = c);
-    });
+    _ledger.loadConfig().then(
+      (config) {
+        if (!mounted) return;
+        setState(() {
+          _config = config;
+          _persistedConfig = config;
+        });
+      },
+      onError: (Object error, StackTrace stack) {
+        silentLog('ledger_config', '加载账本配置', error, stack);
+      },
+    );
     _refreshStats();
   }
 
@@ -951,12 +962,13 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     } catch (error, stack) {
       silentLog('ledger_prune', '裁剪账本', error, stack);
       if (mounted) {
+        final detail = userFailureMessage(error, fallback: '无法清理文件历史。');
         showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
             context,
-            zh: '文件历史清理失败：$error',
-            en: 'Failed to prune file history: $error',
+            zh: '文件历史清理失败：$detail',
+            en: 'Failed to prune file history: $detail',
           ),
         );
       }
@@ -967,7 +979,21 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
 
   @override
   void dispose() {
+    final pendingConfig = _pendingConfig;
+    _pendingConfig = null;
     _saveDebounce.dispose();
+    if (pendingConfig != null) {
+      unawaited(
+        _ledger
+            .saveConfig(pendingConfig)
+            .then<void>(
+              (_) {},
+              onError: (Object error, StackTrace stack) {
+                silentLog('ledger_config', '退出设置页时保存账本配置', error, stack);
+              },
+            ),
+      );
+    }
     _cleanupPulse.dispose();
     super.dispose();
   }
@@ -1008,12 +1034,13 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     } catch (error, stack) {
       silentLog('ledger_export', '导出账本', error, stack);
       if (!mounted) return;
+      final detail = userFailureMessage(error, fallback: '无法导出文件历史。');
       showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '导出失败：$error',
-          en: 'Export failed: $error',
+          zh: '导出失败：$detail',
+          en: 'Export failed: $detail',
         ),
       );
     }
@@ -1072,12 +1099,13 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
     } catch (error, stack) {
       silentLog('ledger_import', '导入账本', error, stack);
       if (!mounted) return;
+      final detail = userFailureMessage(error, fallback: '无法导入文件历史。');
       showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '导入失败：$error',
-          en: 'Import failed: $error',
+          zh: '导入失败：$detail',
+          en: 'Import failed: $detail',
         ),
       );
     }
@@ -1091,23 +1119,29 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
   }
 
   void _scheduleSave(LedgerConfig next) {
+    final revision = ++_configSaveRevision;
+    _pendingConfig = next;
     setState(() => _config = next);
     _saveDebounce.schedule(() async {
+      if (revision == _configSaveRevision) {
+        _pendingConfig = null;
+      }
       try {
         await _ledger.saveConfig(next);
         if (!mounted) return;
+        _persistedConfig = next;
         await _refreshStats();
       } catch (error, stack) {
         silentLog('ledger_config', '保存账本配置', error, stack);
-        final persisted = await _ledger.loadConfig();
-        if (!mounted) return;
-        setState(() => _config = persisted);
+        if (!mounted || revision != _configSaveRevision) return;
+        setState(() => _config = _persistedConfig);
+        final detail = userFailureMessage(error, fallback: '无法保存文件历史设置。');
         showOpenHandErrorSnack(
           context,
           openHandLocalizedText(
             context,
-            zh: '文件历史设置保存失败：$error',
-            en: 'Failed to save file-history settings: $error',
+            zh: '文件历史设置保存失败：$detail',
+            en: 'Failed to save file-history settings: $detail',
           ),
         );
       }
@@ -1521,12 +1555,13 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
     } catch (error, stack) {
       silentLog('ledger_search_dialog', '导出筛选后的账本数据包', error, stack);
       if (!mounted) return;
+      final detail = userFailureMessage(error, fallback: '无法导出筛选结果。');
       showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
           context,
-          zh: '导出失败：$error',
-          en: 'Export failed: $error',
+          zh: '导出失败：$detail',
+          en: 'Export failed: $detail',
         ),
       );
     } finally {
