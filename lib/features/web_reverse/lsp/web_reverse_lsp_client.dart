@@ -17,6 +17,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
+import '../../../shared/util/user_failure_message.dart';
 import '../../../shared/util/version_compare.dart';
 
 /// 当前 LSP 子进程状态。
@@ -53,7 +54,7 @@ class WebReverseLspClient {
   // 每个服务端会话独立维护文档版本；新会话必须重新发送 didOpen。
   final LinkedHashMap<String, int> _documentVersions =
       LinkedHashMap<String, int>();
-  // initialize 完成 future，避免任何请求在 server 还没握手前就发。
+  // initialize 完成信号，避免在服务端握手前发送请求。
   Completer<bool>? _initDone;
   int _lifecycleGeneration = 0;
 
@@ -107,11 +108,14 @@ class WebReverseLspClient {
       }
       _completeInitialization(initDone, false);
       return false;
-    } catch (e, st) {
+    } catch (error, stack) {
       if (generation == _lifecycleGeneration) {
-        silentLog('web_reverse_lsp_client', '启动进程', e, st);
+        silentLog('web_reverse_lsp_client', '启动进程', error, stack);
         status = WebReverseLspStatus.notInstalled;
-        lastError = '$e';
+        lastError = userFailureMessage(
+          error,
+          fallback: '无法启动 LSP 进程，请检查命令与安装状态。',
+        );
       }
       _completeInitialization(initDone, false);
       return false;
@@ -149,7 +153,7 @@ class WebReverseLspClient {
               generation != _lifecycleGeneration) {
             return;
           }
-          _failProtocol('LSP 标准输入异常：$error', stack: stack);
+          _failProtocol('LSP 标准输入异常。', cause: error, stack: stack);
         },
       ),
     );
@@ -164,7 +168,7 @@ class WebReverseLspClient {
         if (!identical(_proc, process) || generation != _lifecycleGeneration) {
           return;
         }
-        _failProtocol('LSP 标准输出异常：$error', stack: stack);
+        _failProtocol('LSP 标准输出异常。', cause: error, stack: stack);
       },
       onDone: () {
         if (!identical(_proc, process) || generation != _lifecycleGeneration) {
@@ -609,7 +613,7 @@ class WebReverseLspClient {
       p.stdin.add(body);
       return true;
     } catch (error, stack) {
-      _failProtocol('LSP 标准输入写入失败：$error', stack: stack);
+      _failProtocol('LSP 标准输入写入失败。', cause: error, stack: stack);
       return false;
     }
   }
@@ -661,7 +665,7 @@ class WebReverseLspClient {
         }
         // notification（无 id）暂不处理。
       } catch (error, stack) {
-        _failProtocol('无效的 JSON-RPC 载荷：$error', stack: stack);
+        _failProtocol('收到无效的 JSON-RPC 载荷。', cause: error, stack: stack);
         return;
       }
       processedMessages += 1;
@@ -686,12 +690,12 @@ class WebReverseLspClient {
       onError: (error, stack) {
         if (generation != _lifecycleGeneration) return;
         _bufferDrainScheduled = false;
-        _failProtocol('处理 LSP 输出失败：$error', stack: stack);
+        _failProtocol('处理 LSP 输出失败。', cause: error, stack: stack);
       },
     );
   }
 
-  void _failProtocol(String message, {StackTrace? stack}) {
+  void _failProtocol(String message, {Object? cause, StackTrace? stack}) {
     final process = _proc;
     final stdoutSub = _stdoutSub;
     final stderrSub = _stderrSub;
@@ -721,7 +725,7 @@ class WebReverseLspClient {
     silentLog(
       'web_reverse_lsp_client',
       '处理协议消息',
-      message,
+      cause ?? message,
       stack ?? StackTrace.current,
     );
   }

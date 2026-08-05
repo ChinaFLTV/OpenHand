@@ -173,7 +173,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     _sourceScroll.dispose();
     _sourceLineScroll.dispose();
     _sourceHorizontalScroll.dispose();
-    _lsp.stop();
+    unawaited(_lsp.stop());
     super.dispose();
   }
 
@@ -283,7 +283,19 @@ class _SourcesPanelState extends State<_SourcesPanel> {
       silentLog('web_reverse_sources_panel', '启动 LSP', error, stack);
       if (!mounted) return;
       setState(() => _lspEnabled = false);
-      final detail = clipTextWithEllipsis('$error', _kLspSnackErrorMaxChars);
+      final detail = userFailureMessage(
+        error,
+        fallback: openHandLocalizedText(
+          context,
+          zh: '无法启动 LSP，请检查命令与安装状态。',
+          zhHant: '無法啟動 LSP，請檢查命令與安裝狀態。',
+          en: 'Unable to start LSP. Check the command and installation.',
+          fr: 'Impossible de démarrer le LSP. Vérifiez la commande et l’installation.',
+          de: 'LSP konnte nicht gestartet werden. Prüfen Sie Befehl und Installation.',
+          ja: 'LSP を起動できません。コマンドとインストール状態を確認してください。',
+        ),
+        maxCharacters: _kLspSnackErrorMaxChars,
+      );
       showOpenHandErrorSnack(
         context,
         openHandLocalizedText(
@@ -302,17 +314,11 @@ class _SourcesPanelState extends State<_SourcesPanel> {
     if (!mounted) return;
     if (!ok) {
       setState(() => _lspEnabled = false);
-      // exit 127 = "command not found"。识别到这个码就主动给一段安装提示，
-      // 让用户不用再回 README 找。
       final raw = clipTextWithEllipsis(
         _lsp.lastError ?? '',
         _kLspSnackErrorMaxChars,
       );
-      final isMissing =
-          raw.contains('exit 127') ||
-          raw.contains('Cannot run program') ||
-          raw.toLowerCase().contains('not found') ||
-          raw.toLowerCase().contains('no such file');
+      final isMissing = _lsp.status == WebReverseLspStatus.notInstalled;
       final friendly = isMissing
           ? openHandLocalizedText(
               context,

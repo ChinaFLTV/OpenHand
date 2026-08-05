@@ -317,7 +317,8 @@ class HooksExecutor {
           truncated: true,
         );
       }
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('hooks_executor', '序列化 Hook 上下文', error, stack);
       contextJson = '{}';
     }
     final contextBytes = utf8.encode(contextJson);
@@ -347,7 +348,8 @@ class HooksExecutor {
         onSecondaryError: (error, stack) =>
             silentLog('hooks_executor', '清理临时上下文文件', error, stack),
       );
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('hooks_executor', '创建 Hook 临时上下文文件', error, stack);
       // 文件创建失败时，脚本仍可从标准输入读取上下文。
       contextFile = null;
     }
@@ -519,11 +521,9 @@ class HooksExecutor {
     if (preview == normalized && !captureReachedLimit) {
       return _CollectedOutput(text: normalized);
     }
-    final displayText = preview.isEmpty
-        ? '...[truncated]'
-        : '$preview\n...[truncated]';
+    final displayText = preview.isEmpty ? '…[已截断]' : '$preview\n…[已截断]';
     final persistedText = captureReachedLimit
-        ? '$normalized\n...[capture capped at $_maxHookCapturedOutputBytes bytes]'
+        ? '$normalized\n…[捕获内容已限制为 $_maxHookCapturedOutputBytes 字节]'
         : normalized;
     return _CollectedOutput(
       text: displayText,
@@ -562,7 +562,8 @@ class HooksExecutor {
             silentLog('hooks_executor', '清理 Hook 输出文件', error, stack),
       );
       return file.path;
-    } catch (_) {
+    } catch (error, stack) {
+      silentLog('hooks_executor', '保存 Hook 捕获输出', error, stack);
       return null;
     }
   }

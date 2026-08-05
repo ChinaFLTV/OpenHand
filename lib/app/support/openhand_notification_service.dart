@@ -17,7 +17,7 @@ abstract final class OpenHandNotificationService {
   static const Duration _soundCommandTimeout = Duration(seconds: 6);
   static const Duration _windowsNotificationTimeout = Duration(seconds: 8);
 
-  static bool get supportsVibration => Platform.isAndroid || Platform.isIOS;
+  static bool get supportsVibration => false;
 
   static Future<void> showInApp({
     required String title,
@@ -122,10 +122,12 @@ abstract final class OpenHandNotificationService {
   }) async {
     final safeTitle = _escapeAppleScript(title);
     final safeBody = _escapeAppleScript(body);
-    final result = await runProcessWithTimeout('osascript', [
-      '-e',
-      'display notification "$safeBody" with title "$safeTitle"',
-    ], tag: _subprocessTag);
+    final result = await runProcessWithTimeout(
+      'osascript',
+      ['-e', 'display notification "$safeBody" with title "$safeTitle"'],
+      timeout: _notificationCommandTimeout,
+      tag: _subprocessTag,
+    );
     return result?.exitCode == 0;
   }
 
@@ -134,24 +136,20 @@ abstract final class OpenHandNotificationService {
     required String body,
     required OpenHandNotificationLevel level,
   }) async {
-    try {
-      if (!await _commandExists('notify-send')) return false;
-      final urgency = switch (level) {
-        OpenHandNotificationLevel.critical => 'critical',
-        OpenHandNotificationLevel.error => 'critical',
-        OpenHandNotificationLevel.warning => 'normal',
-        _ => 'low',
-      };
-      final result = await runProcessWithTimeout(
-        'notify-send',
-        <String>['-u', urgency, title, body],
-        timeout: _notificationCommandTimeout,
-        tag: _subprocessTag,
-      );
-      return result?.exitCode == 0;
-    } catch (_) {
-      return false;
-    }
+    if (!await _commandExists('notify-send')) return false;
+    final urgency = switch (level) {
+      OpenHandNotificationLevel.critical => 'critical',
+      OpenHandNotificationLevel.error => 'critical',
+      OpenHandNotificationLevel.warning => 'normal',
+      _ => 'low',
+    };
+    final result = await runProcessWithTimeout(
+      'notify-send',
+      <String>['-u', urgency, title, body],
+      timeout: _notificationCommandTimeout,
+      tag: _subprocessTag,
+    );
+    return result?.exitCode == 0;
   }
 
   static Future<bool> _showWindows({
@@ -186,23 +184,13 @@ $notifier.Show($toast)
             .replaceAll('TITLE_VALUE', safeTitle)
             .replaceAll('BODY_VALUE', safeBody);
 
-    try {
-      final result = await runProcessWithTimeout(
-        'powershell',
-        <String>[
-          '-NoProfile',
-          '-ExecutionPolicy',
-          'Bypass',
-          '-Command',
-          script,
-        ],
-        timeout: _windowsNotificationTimeout,
-        tag: _subprocessTag,
-      );
-      return result?.exitCode == 0;
-    } catch (_) {
-      return false;
-    }
+    final result = await runProcessWithTimeout(
+      'powershell',
+      <String>['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', script],
+      timeout: _windowsNotificationTimeout,
+      tag: _subprocessTag,
+    );
+    return result?.exitCode == 0;
   }
 
   static String _escapeAppleScript(String input) {
@@ -220,27 +208,15 @@ $notifier.Show($toast)
   static Future<bool> _playSoundBestEffort(
     OpenHandNotificationLevel level,
   ) async {
-    try {
-      if (Platform.isMacOS) {
-        return _playSoundMacOs(level);
-      }
-      if (Platform.isLinux) {
-        return _playSoundLinux(level);
-      }
-      if (Platform.isWindows) {
-        return _playSoundWindows(level);
-      }
-    } catch (_) {
-      return false;
+    if (Platform.isMacOS) {
+      return _playSoundMacOs(level);
     }
+    if (Platform.isLinux) return _playSoundLinux(level);
+    if (Platform.isWindows) return _playSoundWindows(level);
     return false;
   }
 
-  static Future<bool> _vibrateBestEffort() async {
-    // Desktop platforms generally do not expose a stable vibration API.
-    if (!supportsVibration) return false;
-    return false;
-  }
+  static Future<bool> _vibrateBestEffort() => Future<bool>.value(false);
 
   static Future<bool> _playSoundMacOs(OpenHandNotificationLevel level) async {
     final soundName = switch (level) {
@@ -260,42 +236,40 @@ $notifier.Show($toast)
       );
       if (result?.exitCode == 0) return true;
     }
-    final fallback = await runProcessWithTimeout('osascript', [
-      '-e',
-      'beep',
-    ], tag: _subprocessTag);
+    final fallback = await runProcessWithTimeout(
+      'osascript',
+      ['-e', 'beep'],
+      timeout: _soundCommandTimeout,
+      tag: _subprocessTag,
+    );
     return fallback?.exitCode == 0;
   }
 
   static Future<bool> _playSoundLinux(OpenHandNotificationLevel level) async {
-    try {
-      if (await _commandExists('canberra-gtk-play')) {
-        final id = switch (level) {
-          OpenHandNotificationLevel.success => 'complete',
-          OpenHandNotificationLevel.warning => 'dialog-warning',
-          OpenHandNotificationLevel.error => 'dialog-error',
-          OpenHandNotificationLevel.critical => 'dialog-error',
-          OpenHandNotificationLevel.info => 'message-new-instant',
-        };
-        final result = await runProcessWithTimeout(
-          'canberra-gtk-play',
-          <String>['-i', id],
-          timeout: _notificationCommandTimeout,
-          tag: _subprocessTag,
-        );
-        if (result?.exitCode == 0) return true;
-      }
-      if (await _commandExists('paplay')) {
-        final result = await runProcessWithTimeout(
-          'paplay',
-          const <String>['/usr/share/sounds/freedesktop/stereo/message.oga'],
-          timeout: _notificationCommandTimeout,
-          tag: _subprocessTag,
-        );
-        if (result?.exitCode == 0) return true;
-      }
-    } catch (_) {
-      return false;
+    if (await _commandExists('canberra-gtk-play')) {
+      final id = switch (level) {
+        OpenHandNotificationLevel.success => 'complete',
+        OpenHandNotificationLevel.warning => 'dialog-warning',
+        OpenHandNotificationLevel.error => 'dialog-error',
+        OpenHandNotificationLevel.critical => 'dialog-error',
+        OpenHandNotificationLevel.info => 'message-new-instant',
+      };
+      final result = await runProcessWithTimeout(
+        'canberra-gtk-play',
+        <String>['-i', id],
+        timeout: _notificationCommandTimeout,
+        tag: _subprocessTag,
+      );
+      if (result?.exitCode == 0) return true;
+    }
+    if (await _commandExists('paplay')) {
+      final result = await runProcessWithTimeout(
+        'paplay',
+        const <String>['/usr/share/sounds/freedesktop/stereo/message.oga'],
+        timeout: _notificationCommandTimeout,
+        tag: _subprocessTag,
+      );
+      if (result?.exitCode == 0) return true;
     }
     return false;
   }
@@ -313,37 +287,23 @@ $notifier.Show($toast)
       OpenHandNotificationLevel.info =>
         '[System.Media.SystemSounds]::Beep.Play()',
     };
-    try {
-      final result = await runProcessWithTimeout(
-        'powershell',
-        <String>[
-          '-NoProfile',
-          '-ExecutionPolicy',
-          'Bypass',
-          '-Command',
-          command,
-        ],
-        timeout: _soundCommandTimeout,
-        tag: _subprocessTag,
-      );
-      return result?.exitCode == 0;
-    } catch (_) {
-      return false;
-    }
+    final result = await runProcessWithTimeout(
+      'powershell',
+      <String>['-NoProfile', '-ExecutionPolicy', 'Bypass', '-Command', command],
+      timeout: _soundCommandTimeout,
+      tag: _subprocessTag,
+    );
+    return result?.exitCode == 0;
   }
 
   static Future<bool> _commandExists(String command) async {
-    try {
-      final result = await runProcessWithTimeout(
-        'which',
-        <String>[command],
-        timeout: _commandLookupTimeout,
-        tag: _subprocessTag,
-      );
-      return result?.exitCode == 0;
-    } catch (_) {
-      return false;
-    }
+    final result = await runProcessWithTimeout(
+      'which',
+      <String>[command],
+      timeout: _commandLookupTimeout,
+      tag: _subprocessTag,
+    );
+    return result?.exitCode == 0;
   }
 
   static String? _inAppMessage({required String title, required String body}) {
