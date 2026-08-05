@@ -594,6 +594,8 @@ class OpenHandDialogSession<T extends Object?> {
   void _completeClosed() {
     _closed = true;
     _clearDeferredDismissListener();
+    _route = null;
+    _dismissResult = null;
     _signalRouteAttached();
     if (!_closedSignal.isCompleted) _closedSignal.complete();
   }
@@ -849,6 +851,13 @@ OpenHandDialogSession<T> _trackAnimatedDialogPresentation<T extends Object?>({
   });
   final session = OpenHandDialogSession<T>._(future);
   sessionHolder[0] = session;
+  unawaited(
+    session.closed.whenComplete(() {
+      if (identical(sessionHolder[0], session)) {
+        sessionHolder[0] = null;
+      }
+    }),
+  );
   return session;
 }
 
