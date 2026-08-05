@@ -42,6 +42,10 @@ final class SerialTaskQueue {
 final class LatestTaskQueue {
   bool _running = false;
   _LatestTask? _pending;
+  Future<void> _idle = Future<void>.value();
+
+  /// 当前运行任务及其后续最新任务全部结束时完成。
+  Future<void> get idle => _idle;
 
   Future<bool> enqueue(Future<void> Function() task) {
     final next = _LatestTask(task);
@@ -50,7 +54,8 @@ final class LatestTaskQueue {
       _pending = next;
     } else {
       _running = true;
-      unawaited(_drain(next));
+      _idle = _drain(next);
+      unawaited(_idle);
     }
     return next.done;
   }

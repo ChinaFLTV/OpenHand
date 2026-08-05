@@ -13463,7 +13463,7 @@ class _HighlightingTextController extends TextEditingController {
   List<_FoldableRegion> _foldedLineRanges = const <_FoldableRegion>[];
 
   set foldedLineRanges(List<_FoldableRegion> value) {
-    _foldedLineRanges = value;
+    _foldedLineRanges = List<_FoldableRegion>.unmodifiable(value);
     invalidateHighlightCache();
     notifyListeners();
   }

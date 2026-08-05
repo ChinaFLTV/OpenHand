@@ -1797,6 +1797,7 @@ class ServicesController extends ChangeNotifier {
     await runAsyncCleanupBounded(
       () => Future.wait<void>(<Future<void>>[
         _syncProxyStatistics(),
+        _managedDependencyListenerSyncQueue.idle,
         _managedDependencyUpdateQueue.idle,
         _proxyRuntimeUpdateQueue.idle,
       ]),

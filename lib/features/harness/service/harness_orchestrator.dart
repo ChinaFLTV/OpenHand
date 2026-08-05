@@ -357,7 +357,7 @@ class HarnessOrchestrator extends ChangeNotifier {
   HarnessOrchestratorStatus get status => _status;
   final OpenHandSingleFlight<void> _startFlight = OpenHandSingleFlight<void>();
 
-  List<HarnessPhaseLog> _phaseLogs = <HarnessPhaseLog>[];
+  List<HarnessPhaseLog> _phaseLogs = const <HarnessPhaseLog>[];
   List<HarnessPhaseLog> get phaseLogs => _phaseLogs;
   List<HarnessPhaseLogSnapshot> get phaseLogSnapshots =>
       _phaseLogs.map((log) => log.toSnapshot()).toList(growable: false);
@@ -665,7 +665,9 @@ class HarnessOrchestrator extends ChangeNotifier {
               HarnessPhase.reviewing,
             ];
 
-      _phaseLogs = List<HarnessPhaseLog>.from(phases.map(HarnessPhaseLog.new));
+      _phaseLogs = List<HarnessPhaseLog>.unmodifiable(
+        phases.map(HarnessPhaseLog.new),
+      );
       await _executePipeline(
         startIndex: 0,
         skipApprovalForStartIndex: !firstRun,
@@ -903,7 +905,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     _stopRequested = false;
     _activeProcess = null;
     _status = status;
-    _phaseLogs = List<HarnessPhaseLog>.from(
+    _phaseLogs = List<HarnessPhaseLog>.unmodifiable(
       phaseLogs.map(HarnessPhaseLog.fromSnapshot),
     );
     _currentPhase = currentPhase;
@@ -989,7 +991,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     for (var index = startIndex; index < nextLogs.length; index += 1) {
       nextLogs[index] = HarnessPhaseLog(nextLogs[index].phase);
     }
-    _phaseLogs = nextLogs;
+    _phaseLogs = List<HarnessPhaseLog>.unmodifiable(nextLogs);
     _currentPhase = null;
     _errorMessage = null;
   }
@@ -1001,8 +1003,9 @@ class HarnessOrchestrator extends ChangeNotifier {
 
     final oldLog = _phaseLogs[phaseIndex];
     final freshLog = HarnessPhaseLog(oldLog.phase);
-    _phaseLogs = List<HarnessPhaseLog>.from(_phaseLogs);
-    _phaseLogs[phaseIndex] = freshLog;
+    final nextLogs = List<HarnessPhaseLog>.from(_phaseLogs);
+    nextLogs[phaseIndex] = freshLog;
+    _phaseLogs = List<HarnessPhaseLog>.unmodifiable(nextLogs);
 
     _status = HarnessOrchestratorStatus.running;
     _errorMessage = null;
@@ -1078,7 +1081,9 @@ class HarnessOrchestrator extends ChangeNotifier {
     if (phaseIndex < 0 || phaseIndex >= _phaseLogs.length) return;
     if (_status == HarnessOrchestratorStatus.running) return;
 
-    _phaseLogs = List<HarnessPhaseLog>.from(_phaseLogs)..removeAt(phaseIndex);
+    final nextLogs = List<HarnessPhaseLog>.from(_phaseLogs)
+      ..removeAt(phaseIndex);
+    _phaseLogs = List<HarnessPhaseLog>.unmodifiable(nextLogs);
 
     _status = _computeOverallStatus();
     _reviewRetryCount = _inferReviewRetryCount();
@@ -1143,7 +1148,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     }
     final nextLogs = List<HarnessPhaseLog>.from(_phaseLogs);
     nextLogs.insertAll(phaseIndex + 1, _buildReviewRetryPhaseLogs());
-    _phaseLogs = nextLogs;
+    _phaseLogs = List<HarnessPhaseLog>.unmodifiable(nextLogs);
   }
 
   void _recordUnhandledPhaseError(HarnessPhaseLog? log, Object error) {
