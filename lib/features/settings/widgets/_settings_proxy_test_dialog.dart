@@ -245,9 +245,14 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             );
           }
         }
-      } catch (e) {
+      } catch (error, stack) {
+        silentLog('settings_proxy_test_dialog', '枚举本地网卡', error, stack);
         if (!mounted || generation != _diagnosticGeneration) return;
-        _log(_ProxyTestLogLevel.warn, '网卡', '枚举失败：$e');
+        _log(
+          _ProxyTestLogLevel.warn,
+          '网卡',
+          userFailureMessage(error, fallback: '枚举失败。'),
+        );
       }
 
       // 分别解析 DNS A 与 AAAA 记录。
@@ -292,9 +297,19 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         } on TimeoutException {
           if (!mounted || generation != _diagnosticGeneration) return;
           _log(_ProxyTestLogLevel.warn, 'DNS', '$famName 解析超时（5000ms）');
-        } catch (e) {
+        } catch (error, stack) {
+          silentLog(
+            'settings_proxy_test_dialog',
+            '解析 DNS $famName 记录',
+            error,
+            stack,
+          );
           if (!mounted || generation != _diagnosticGeneration) return;
-          _log(_ProxyTestLogLevel.warn, 'DNS', '$famName 解析失败：$e');
+          _log(
+            _ProxyTestLogLevel.warn,
+            'DNS',
+            userFailureMessage(error, fallback: '$famName 解析失败。'),
+          );
         }
       }
       if (selectedAddr != null) {
@@ -320,12 +335,13 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             'PTR',
             '${selectedAddr.address} <- <3000ms 超时>',
           );
-        } catch (e) {
+        } catch (error, stack) {
+          silentLog('settings_proxy_test_dialog', '执行反向 DNS 解析', error, stack);
           if (!mounted || generation != _diagnosticGeneration) return;
           _log(
             _ProxyTestLogLevel.debug,
             'PTR',
-            '${selectedAddr.address} <- <不可用：$e>',
+            '${selectedAddr.address} <- <不可用>',
           );
         }
       } else {
@@ -492,14 +508,9 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       if (!mounted || generation != _diagnosticGeneration) return;
       silentLog('settings_proxy_test_dialog', '执行连通性测试', error, stack);
       ok = false;
-      if (mounted) {
-        summary = AppLocalizations.of(
-          context,
-        )!.proxyTestFailure(error.toString());
-      } else {
-        summary = error.toString();
-      }
-      _log(_ProxyTestLogLevel.err, '错误', error.toString());
+      final detail = userFailureMessage(error, fallback: '连通性测试失败。');
+      summary = l10n.proxyTestFailure(detail);
+      _log(_ProxyTestLogLevel.err, '错误', detail);
     } finally {
       if (identical(_activeHttpClient, httpClient)) {
         _activeHttpClient = null;

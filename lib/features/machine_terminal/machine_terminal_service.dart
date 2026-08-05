@@ -73,6 +73,10 @@ const String _machineTerminalSurface = 'openhand_machine_terminal';
 const String _machineTerminalWorkflow = 'builtin_terminal_panel';
 const String _machineTerminalWorkspacePrefix = 'machine-terminal';
 const String _machineTerminalHistoryFileName = 'machine-terminal-history.json';
+const String _terminalOutputFailureMessage = '终端输出通道异常，请重新启动终端。';
+const String _terminalExitFailureMessage = '无法读取终端退出状态，请重新启动终端。';
+const String _terminalStartFailureMessage = '终端启动失败，请检查 Shell 路径和工作目录。';
+const String _terminalRestoredFailureMessage = '上次终端运行异常，请重新启动终端。';
 const int _machineTerminalHistoryStorageSchemaVersion = 2;
 const int _machineTerminalHistoryMaxBytes = 32 * 1024 * 1024;
 const int _machineTerminalHistoryPayloadReserveBytes = 64 * 1024;
@@ -1637,6 +1641,7 @@ class MachineTerminalSession {
   Pty? _stoppingPty;
   Future<void>? _startFuture;
   Future<void>? _stopFuture;
+  Future<void>? _failedPtyCleanupFuture;
   StreamSubscription<String>? _outputSubscription;
   DateTime _startedAt = DateTime.now();
   DateTime _updatedAt = DateTime.now();
@@ -1758,7 +1763,9 @@ class MachineTerminalSession {
     }
     _pid = null;
     _exitCode = optionalIntFromValue(raw['exit_code']);
-    _errorMessage = nullIfBlank('${raw['error_message'] ?? ''}');
+    _errorMessage = nullIfBlank('${raw['error_message'] ?? ''}') == null
+        ? null
+        : _terminalRestoredFailureMessage;
     final visibleOutput = _output.text.trim().isEmpty
         ? _clipString(_historyOutput.text, _maxToolOutputCharacters)
         : _output.text;
@@ -1820,6 +1827,8 @@ class MachineTerminalSession {
   }
 
   Future<void> _startPty(int generation) async {
+    final failedPtyCleanup = _failedPtyCleanupFuture;
+    if (failedPtyCleanup != null) await failedPtyCleanup;
     if (generation != _startGeneration) return;
     if (_status == MachineTerminalStatus.running && _pty != null) return;
     _status = MachineTerminalStatus.starting;
@@ -1855,11 +1864,13 @@ class MachineTerminalSession {
           .listen(
             _handleOutput,
             onError: (Object error, StackTrace stack) {
-              if (!identical(_pty, pty)) return;
-              _status = MachineTerminalStatus.failed;
-              _errorMessage = '$error';
-              silentLog('machine_terminal', '读取 PTY 输出', error, stack);
-              _touch();
+              _handlePtyChannelFailure(
+                pty,
+                message: _terminalOutputFailureMessage,
+                action: '读取 PTY 输出',
+                error: error,
+                stack: stack,
+              );
             },
           );
       unawaited(
@@ -1881,18 +1892,31 @@ class MachineTerminalSession {
               _touch();
             })
             .catchError((Object error, StackTrace stack) {
-              if (!identical(_pty, pty)) return;
-              _status = MachineTerminalStatus.failed;
-              _errorMessage = '$error';
-              silentLog('machine_terminal', '读取 PTY 退出码', error, stack);
-              _touch();
+              _handlePtyChannelFailure(
+                pty,
+                message: _terminalExitFailureMessage,
+                action: '读取 PTY 退出码',
+                error: error,
+                stack: stack,
+              );
             }),
       );
     } catch (error, stack) {
-      _status = MachineTerminalStatus.failed;
-      _errorMessage = '$error';
-      _appendPlain('\r\n[OpenHand 终端启动失败：$error]\r\n');
-      silentLog('machine_terminal', '启动 PTY', error, stack);
+      final pty = _pty;
+      if (pty == null) {
+        _status = MachineTerminalStatus.failed;
+        _errorMessage = _terminalStartFailureMessage;
+        _appendPlain('\r\n[OpenHand $_terminalStartFailureMessage]\r\n');
+        silentLog('machine_terminal', '启动 PTY', error, stack);
+      } else {
+        _handlePtyChannelFailure(
+          pty,
+          message: _terminalStartFailureMessage,
+          action: '完成 PTY 启动',
+          error: error,
+          stack: stack,
+        );
+      }
     } finally {
       _touch();
     }
@@ -1938,6 +1962,8 @@ class MachineTerminalSession {
     if (pendingStart != null) {
       await pendingStart;
     }
+    final failedPtyCleanup = _failedPtyCleanupFuture;
+    if (failedPtyCleanup != null) await failedPtyCleanup;
     final pty = _pty;
     if (pty == null) {
       _status = MachineTerminalStatus.stopped;
@@ -1989,6 +2015,54 @@ class MachineTerminalSession {
       onError: (error, stack) =>
           silentLog('machine_terminal', '取消 PTY 输出订阅', error, stack),
     );
+  }
+
+  void _handlePtyChannelFailure(
+    Pty pty, {
+    required String message,
+    required String action,
+    required Object error,
+    required StackTrace stack,
+  }) {
+    if (!identical(_pty, pty)) return;
+    final outputSubscription = _outputSubscription;
+    _pty = null;
+    _outputSubscription = null;
+    _pid = null;
+    _status = MachineTerminalStatus.failed;
+    _errorMessage = message;
+    _appendPlain('\r\n[OpenHand $message]\r\n');
+    silentLog('machine_terminal', action, error, stack);
+    _touch();
+
+    late final Future<void> cleanup;
+    cleanup = _cleanupFailedPty(pty, outputSubscription).whenComplete(() {
+      if (identical(_failedPtyCleanupFuture, cleanup)) {
+        _failedPtyCleanupFuture = null;
+      }
+    });
+    _failedPtyCleanupFuture = cleanup;
+  }
+
+  Future<void> _cleanupFailedPty(
+    Pty pty,
+    StreamSubscription<String>? outputSubscription,
+  ) async {
+    _stoppingPty = pty;
+    try {
+      pty.kill();
+      try {
+        _exitCode = await pty.exitCode.timeout(_terminalStopGraceDuration);
+      } on TimeoutException {
+        pty.kill(ProcessSignal.sigkill);
+        _exitCode = await pty.exitCode.timeout(_terminalForceStopWaitDuration);
+      }
+    } catch (error, stack) {
+      silentLog('machine_terminal', '清理异常 PTY', error, stack);
+    } finally {
+      if (identical(_stoppingPty, pty)) _stoppingPty = null;
+      await _cancelOutputSubscription(outputSubscription);
+    }
   }
 
   Future<void> restart() async {

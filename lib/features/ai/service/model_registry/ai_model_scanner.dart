@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../app/support/silent_log.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 import '../../../../shared/util/localized_text.dart';
 import '../../model/ai_api_family.dart';
@@ -100,10 +101,11 @@ class AiModelScanner {
         modelIds: const <String>[],
         error: _ScanErrorMessages.formatError(e.message),
       );
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('ai_model_scanner', '扫描模型列表', error, stack);
       return AiModelScanResult(
         modelIds: const <String>[],
-        error: _ScanErrorMessages.unexpected(e),
+        error: _ScanErrorMessages.unexpected(),
       );
     }
   }
@@ -1003,17 +1005,19 @@ class _ScanErrorMessages {
     ),
   );
 
-  static String unexpected(Object error) =>
-      AiTransportDiagnosticMessages.format(
-        title: StructuredErrorText.pick(zh: '未识别错误', en: 'Unexpected error'),
-        reason: '$error',
-        try_: StructuredErrorText.pick(
-          zh: '· 重试或更换网络环境\n· 在「手动添加模型 ID」处直接录入模型名以绕过扫描',
-          en:
-              '· Retry or switch to another network environment\n'
-              '· Enter the model ID manually to bypass scanning',
-        ),
-      );
+  static String unexpected() => AiTransportDiagnosticMessages.format(
+    title: StructuredErrorText.pick(zh: '未识别错误', en: 'Unexpected error'),
+    reason: StructuredErrorText.pick(
+      zh: '扫描模型列表时发生未预期错误。',
+      en: 'An unexpected error occurred while scanning the model list.',
+    ),
+    try_: StructuredErrorText.pick(
+      zh: '· 重试或更换网络环境\n· 在「手动添加模型 ID」处直接录入模型名以绕过扫描',
+      en:
+          '· Retry or switch to another network environment\n'
+          '· Enter the model ID manually to bypass scanning',
+    ),
+  );
 
   static String _format({
     required String title,

@@ -284,8 +284,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       if (!mounted) return;
 
       if (result.isSuccess) {
-        // A manual scan replaces cached IDs with the provider's current
-        // authoritative list; missing active selections are dropped below.
+        // 手动扫描以服务商当前列表替换缓存，并在下方修正失效选择。
         final sorted = AiModelConfig.normalizeModelIds(result.modelIds);
         setState(() {
           _availableModelIds = sorted;
@@ -293,18 +292,16 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
           _scanError = result.modelIds.isEmpty
               ? AppLocalizations.of(context)!.mdlEdNoModelsFoundFromThisProvider
               : null;
-          // Reconcile active selection against the freshly scanned list:
-          // - If the previously active model is still present, keep it.
-          // - Otherwise, fall back to the first scanned model (or null).
+          // 保留仍存在的当前模型，否则回退到首个扫描结果。
           final previousActive = _activeModelId;
-          if (previousActive != null && sorted.contains(previousActive)) {
-            // Keep selection.
-          } else if (sorted.isNotEmpty) {
-            _activeModelId = sorted.first;
-            _modelIdController.text = sorted.first;
-          } else {
-            _activeModelId = null;
-            _modelIdController.text = '';
+          if (previousActive == null || !sorted.contains(previousActive)) {
+            if (sorted.isNotEmpty) {
+              _activeModelId = sorted.first;
+              _modelIdController.text = sorted.first;
+            } else {
+              _activeModelId = null;
+              _modelIdController.text = '';
+            }
           }
           if (_defaultTitleModelId != null &&
               !sorted.contains(_defaultTitleModelId)) {
@@ -318,11 +315,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
         });
         _errorPulse.value++;
       }
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('settings_ai_model_editor', '扫描 AI 模型', error, stack);
       if (!mounted) return;
       setState(() {
         _isScanning = false;
-        _scanError = '$e';
+        _scanError = userFailureMessage(error, fallback: '扫描模型失败，请稍后重试。');
       });
       _errorPulse.value++;
     } finally {
