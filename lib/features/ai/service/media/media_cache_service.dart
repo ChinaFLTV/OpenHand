@@ -356,8 +356,9 @@ class MediaCacheService {
     } on StateError {
       return null;
     }
-    if (!acquired || _disposed || _clearing) return null;
+    if (!acquired) return null;
     try {
+      if (_disposed || _clearing) return null;
       return await operation();
     } finally {
       _downloadSemaphore.release();
