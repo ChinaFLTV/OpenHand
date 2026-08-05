@@ -16,6 +16,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   late final TextEditingController _baseUrlController;
   late final TextEditingController _tokenController;
   late final TextEditingController _modelIdController;
+  late final TextEditingController _modelSearchController;
   late final TextEditingController _maxContextTokensController;
   late final TextEditingController _manualModelIdController;
   late final TextEditingController _maxTokensController;
@@ -69,6 +70,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
       _defaultTitleModelId!.trim(),
   ]);
 
+  List<String> get _filteredVisibleModelIds {
+    final modelIds = _visibleModelIds;
+    if (modelIds.length <= 1) return modelIds;
+    return _filterAiModelIds(modelIds, _modelSearchController.text);
+  }
+
   @override
   void initState() {
     super.initState();
@@ -87,6 +94,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _modelIdController = TextEditingController(
       text: widget.initialModel?.modelId ?? '',
     );
+    _modelSearchController = TextEditingController();
     _maxContextTokensController = TextEditingController(
       text: widget.initialModel?.maxContextTokens?.toString() ?? '',
     );
@@ -224,6 +232,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
     _baseUrlController.dispose();
     _tokenController.dispose();
     _modelIdController.dispose();
+    _modelSearchController.dispose();
     _maxContextTokensController.dispose();
     _manualModelIdController.dispose();
     _maxTokensController.dispose();
@@ -1374,8 +1383,54 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               ),
                             ],
                             const SizedBox(height: 12),
+                            if (_visibleModelIds.length > 1) ...[
+                              TextField(
+                                controller: _modelSearchController,
+                                enabled: !_isSaving,
+                                decoration: InputDecoration(
+                                  prefixIcon: const Icon(Icons.search_rounded),
+                                  hintText: openHandLocalizedText(
+                                    context,
+                                    zh: '搜索模型 ID',
+                                    zhHant: '搜尋模型 ID',
+                                    en: 'Search model IDs',
+                                    fr: 'Rechercher un ID de modèle',
+                                    de: 'Modell-ID suchen',
+                                    ja: 'モデル ID を検索',
+                                  ),
+                                  helperText:
+                                      _modelSearchController.text.trim().isEmpty
+                                      ? null
+                                      : openHandLocalizedText(
+                                          context,
+                                          zh: '找到 ${_filteredVisibleModelIds.length} / ${_visibleModelIds.length} 个模型',
+                                          zhHant:
+                                              '找到 ${_filteredVisibleModelIds.length} / ${_visibleModelIds.length} 個模型',
+                                          en: '${_filteredVisibleModelIds.length} of ${_visibleModelIds.length} models',
+                                          fr: '${_filteredVisibleModelIds.length} modèles sur ${_visibleModelIds.length}',
+                                          de: '${_filteredVisibleModelIds.length} von ${_visibleModelIds.length} Modellen',
+                                          ja: '${_visibleModelIds.length} 件中 ${_filteredVisibleModelIds.length} 件',
+                                        ),
+                                  suffixIcon:
+                                      _modelSearchController.text.isEmpty
+                                      ? null
+                                      : IconButton(
+                                          tooltip: openHandClearSearchLabel(
+                                            context,
+                                          ),
+                                          onPressed: () => setState(
+                                            _modelSearchController.clear,
+                                          ),
+                                          icon: const Icon(Icons.clear_rounded),
+                                        ),
+                                  isDense: true,
+                                ),
+                                onChanged: (_) => setState(() {}),
+                              ),
+                              const SizedBox(height: 12),
+                            ],
                             // Available models chip list
-                            if (_visibleModelIds.isNotEmpty)
+                            if (_filteredVisibleModelIds.isNotEmpty)
                               ConstrainedBox(
                                 constraints: const BoxConstraints(
                                   maxHeight: 200,
@@ -1396,7 +1451,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         child: Wrap(
                                           spacing: 8,
                                           runSpacing: 6,
-                                          children: _visibleModelIds
+                                          children: _filteredVisibleModelIds
                                               .map((id) {
                                                 final isActive =
                                                     id == _activeModelId;
@@ -1430,7 +1485,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   ),
                                 ),
                               )
-                            else
+                            else if (_visibleModelIds.isEmpty)
                               Text(
                                 AppLocalizations.of(
                                   context,
@@ -1439,6 +1494,19 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     ?.copyWith(
                                       color: colorScheme.onSurfaceVariant,
                                     ),
+                              )
+                            else
+                              OpenHandInlineEmptyState(
+                                message: openHandLocalizedText(
+                                  context,
+                                  zh: '没有匹配的模型 ID。',
+                                  zhHant: '沒有符合的模型 ID。',
+                                  en: 'No matching model IDs.',
+                                  fr: 'Aucun ID de modèle correspondant.',
+                                  de: 'Keine passende Modell-ID.',
+                                  ja: '一致するモデル ID はありません。',
+                                ),
+                                dense: true,
                               ),
                             const SizedBox(height: 12),
                             // Manual model ID input
@@ -3252,6 +3320,32 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     });
   }
 
+  void _applyReasoningEffortPreset(AiReasoningEffortPreset preset) {
+    for (final draft in _reasoningEffortOptionDrafts) {
+      draft.dispose();
+    }
+    setState(() {
+      _reasoningEffortOptionDrafts
+        ..clear()
+        ..addAll(preset.options.map(_ReasoningEffortOptionDraft.fromOption));
+      _reasoningEffort = preset.defaultValue;
+      _syncReasoningEffortSelection();
+    });
+    showOpenHandSuccessSnack(
+      context,
+      openHandLocalizedText(
+        context,
+        zh: '已应用 ${preset.label} 推理档位模板',
+        zhHant: '已套用 ${preset.label} 推理檔位範本',
+        en: '${preset.label} reasoning preset applied',
+        fr: 'Préréglage de raisonnement ${preset.label} appliqué',
+        de: '${preset.label}-Denkvoreinstellung angewendet',
+        ja: '${preset.label} 推論プリセットを適用しました',
+      ),
+      duration: kOpenHandMotion1800,
+    );
+  }
+
   void _removeReasoningEffortOptionDraft(_ReasoningEffortOptionDraft draft) {
     setState(() {
       _reasoningEffortOptionDrafts.remove(draft);
@@ -4164,20 +4258,105 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               ),
             ),
             const SizedBox(width: 12),
-            TextButton.icon(
-              onPressed: _addReasoningEffortOptionDraft,
-              icon: const Icon(Icons.add_rounded),
-              label: Text(
-                openHandLocalizedText(
-                  context,
-                  zh: '新增',
-                  zhHant: '新增',
-                  en: 'Add',
-                  fr: 'Ajouter',
-                  de: 'Hinzufügen',
-                  ja: '追加',
+            Wrap(
+              spacing: 4,
+              runSpacing: 4,
+              alignment: WrapAlignment.end,
+              children: [
+                AnimatedPopupMenuButton<AiReasoningEffortPreset>(
+                  tooltip: openHandLocalizedText(
+                    context,
+                    zh: '应用推理档位模板',
+                    zhHant: '套用推理檔位範本',
+                    en: 'Apply reasoning preset',
+                    fr: 'Appliquer un préréglage',
+                    de: 'Denkvoreinstellung anwenden',
+                    ja: '推論プリセットを適用',
+                  ),
+                  onSelected: _applyReasoningEffortPreset,
+                  constraints: const BoxConstraints(
+                    minWidth: 220,
+                    maxWidth: 300,
+                  ),
+                  itemBuilder: (context) => [
+                    for (final preset in AiReasoningEffortPreset.all)
+                      PopupMenuItem<AiReasoningEffortPreset>(
+                        value: preset,
+                        child: Row(
+                          children: [
+                            const Icon(Icons.auto_awesome_rounded, size: 18),
+                            const SizedBox(width: 10),
+                            Expanded(
+                              child: Column(
+                                mainAxisSize: MainAxisSize.min,
+                                crossAxisAlignment: CrossAxisAlignment.start,
+                                children: [
+                                  Text(
+                                    preset.label,
+                                    style: theme.textTheme.bodyMedium?.copyWith(
+                                      fontWeight: FontWeight.w700,
+                                    ),
+                                  ),
+                                  Text(
+                                    preset.options
+                                        .map((option) => option.value)
+                                        .join(' · '),
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
+                                    ),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
+                      ),
+                  ],
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 10,
+                      vertical: 8,
+                    ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        const Icon(Icons.auto_awesome_rounded, size: 18),
+                        const SizedBox(width: 6),
+                        Text(
+                          openHandLocalizedText(
+                            context,
+                            zh: '模板',
+                            zhHant: '範本',
+                            en: 'Presets',
+                            fr: 'Préréglages',
+                            de: 'Vorlagen',
+                            ja: 'プリセット',
+                          ),
+                        ),
+                        const SizedBox(width: 2),
+                        const Icon(Icons.arrow_drop_down_rounded, size: 18),
+                      ],
+                    ),
+                  ),
                 ),
-              ),
+                TextButton.icon(
+                  onPressed: _addReasoningEffortOptionDraft,
+                  icon: const Icon(Icons.add_rounded),
+                  label: Text(
+                    openHandLocalizedText(
+                      context,
+                      zh: '新增',
+                      zhHant: '新增',
+                      en: 'Add',
+                      fr: 'Ajouter',
+                      de: 'Hinzufügen',
+                      ja: '追加',
+                    ),
+                  ),
+                ),
+              ],
             ),
           ],
         ),

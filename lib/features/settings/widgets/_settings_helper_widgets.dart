@@ -58,6 +58,15 @@ const List<AiTtsCatalogOption> _miniMaxSoundEffectOptions =
       AiTtsCatalogOption('robotic', '电音', 'Robotic'),
     ];
 
+List<String> _filterAiModelIds(Iterable<String> modelIds, String query) {
+  final normalizedQuery = query.trim().toLowerCase();
+  final values = modelIds.toList(growable: false);
+  if (normalizedQuery.isEmpty) return values;
+  return values
+      .where((modelId) => modelId.toLowerCase().contains(normalizedQuery))
+      .toList(growable: false);
+}
+
 class _SettingsGroupCard extends StatelessWidget {
   const _SettingsGroupCard({
     required this.title,
@@ -5216,6 +5225,7 @@ class _AiModelTile extends StatefulWidget {
 
 class _AiModelTileState extends State<_AiModelTile> {
   bool _modelChipsExpanded = false;
+  final TextEditingController _modelSearchController = TextEditingController();
 
   /// APP 运行期间稳定的胶囊排序。冷启动后第一次构建本卡片
   /// 时按"活跃模型优先"排好；之后用户切换活跃模型，胶囊位置不再动 —
@@ -5249,10 +5259,17 @@ class _AiModelTileState extends State<_AiModelTile> {
     super.didUpdateWidget(oldWidget);
     if (oldWidget.model.id != widget.model.id) {
       _modelChipsExpanded = false;
-    } else if (_modelChipsExpanded &&
-        widget.model.allModelIds.length <= _aiModelChipPreviewLimit) {
+      _modelSearchController.clear();
+    } else if (widget.model.allModelIds.length <= _aiModelChipPreviewLimit) {
       _modelChipsExpanded = false;
+      _modelSearchController.clear();
     }
+  }
+
+  @override
+  void dispose() {
+    _modelSearchController.dispose();
+    super.dispose();
   }
 
   void _toggleModelChipsExpanded() {
@@ -5329,6 +5346,11 @@ class _AiModelTileState extends State<_AiModelTile> {
         ? l10n.aiModelCount(allModels.length)
         : openHandLocalizedText(context, zh: '无模型', en: 'No models');
     final canExpandModels = allModels.length > _aiModelChipPreviewLimit;
+    final modelSearchQuery = _modelSearchController.text.trim().toLowerCase();
+    final isSearchingModels = modelSearchQuery.isNotEmpty;
+    final matchedModels = _filterAiModelIds(allModels, modelSearchQuery);
+    final matchedModelIds = matchedModels.toSet();
+    final matchedModelCount = matchedModels.length;
     final animationDuration = _settingsMotionDuration(
       context,
       const Duration(milliseconds: 260),
@@ -5398,7 +5420,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                     Wrap(
                       spacing: 4,
                       children: [
-                        if (canExpandModels)
+                        if (canExpandModels && !isSearchingModels)
                           IconButton(
                             onPressed: widget.actionsEnabled
                                 ? _toggleModelChipsExpanded
@@ -5551,6 +5573,53 @@ class _AiModelTileState extends State<_AiModelTile> {
                 // 限制模型胶囊数量，避免卡片过高和滚动时重复构建过多控件。
                 if (allModels.isNotEmpty) ...[
                   const SizedBox(height: 10),
+                  if (canExpandModels) ...[
+                    TextField(
+                      controller: _modelSearchController,
+                      enabled: widget.actionsEnabled,
+                      decoration: InputDecoration(
+                        prefixIcon: const Icon(Icons.search_rounded),
+                        hintText: openHandLocalizedText(
+                          context,
+                          zh: '搜索模型 ID',
+                          zhHant: '搜尋模型 ID',
+                          en: 'Search model IDs',
+                          fr: 'Rechercher un ID de modèle',
+                          de: 'Modell-ID suchen',
+                          ja: 'モデル ID を検索',
+                        ),
+                        suffixIcon: _modelSearchController.text.isEmpty
+                            ? null
+                            : IconButton(
+                                tooltip: openHandClearSearchLabel(context),
+                                onPressed: () =>
+                                    setState(_modelSearchController.clear),
+                                icon: const Icon(Icons.clear_rounded),
+                              ),
+                        isDense: true,
+                      ),
+                      onChanged: (_) => setState(() {}),
+                    ),
+                    if (isSearchingModels) ...[
+                      const SizedBox(height: 6),
+                      Text(
+                        openHandLocalizedText(
+                          context,
+                          zh: '找到 $matchedModelCount / ${allModels.length} 个模型',
+                          zhHant:
+                              '找到 $matchedModelCount / ${allModels.length} 個模型',
+                          en: '$matchedModelCount of ${allModels.length} models',
+                          fr: '$matchedModelCount modèles sur ${allModels.length}',
+                          de: '$matchedModelCount von ${allModels.length} Modellen',
+                          ja: '${allModels.length} 件中 $matchedModelCount 件',
+                        ),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                    const SizedBox(height: 10),
+                  ],
                   RepaintBoundary(
                     child: Builder(
                       builder: (ctx) {
@@ -5561,11 +5630,17 @@ class _AiModelTileState extends State<_AiModelTile> {
                           allModels,
                           activeId,
                         );
-                        final visible =
-                            _modelChipsExpanded ||
-                                ordered.length <= _aiModelChipPreviewLimit
+                        final filtered = isSearchingModels
                             ? ordered
-                            : ordered.sublist(0, _aiModelChipPreviewLimit);
+                                  .where(matchedModelIds.contains)
+                                  .toList(growable: false)
+                            : ordered;
+                        final visible =
+                            isSearchingModels ||
+                                _modelChipsExpanded ||
+                                filtered.length <= _aiModelChipPreviewLimit
+                            ? filtered
+                            : filtered.sublist(0, _aiModelChipPreviewLimit);
                         final hiddenCount = ordered.length - visible.length;
                         return AnimatedSize(
                           alignment: Alignment.topLeft,
@@ -5606,7 +5681,9 @@ class _AiModelTileState extends State<_AiModelTile> {
                                   ),
                                 ),
                             child: Wrap(
-                              key: ValueKey<bool>(_modelChipsExpanded),
+                              key: ValueKey<String>(
+                                '$isSearchingModels-$_modelChipsExpanded-$modelSearchQuery',
+                              ),
                               spacing: 8,
                               runSpacing: 6,
                               children: [
@@ -5630,7 +5707,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                                         ? () {}
                                         : () => widget.onActiveModelChanged(id),
                                   ),
-                                if (hiddenCount > 0)
+                                if (!isSearchingModels && hiddenCount > 0)
                                   _AiProviderOverflowChip(
                                     hiddenCount: hiddenCount,
                                     onPressed: _toggleModelChipsExpanded,
@@ -5638,6 +5715,21 @@ class _AiModelTileState extends State<_AiModelTile> {
                                       ctx,
                                       zh: '展开剩余 $hiddenCount 个模型',
                                       en: 'Show $hiddenCount more models',
+                                    ),
+                                  ),
+                                if (visible.isEmpty)
+                                  Text(
+                                    openHandLocalizedText(
+                                      ctx,
+                                      zh: '没有匹配的模型 ID。',
+                                      zhHant: '沒有符合的模型 ID。',
+                                      en: 'No matching model IDs.',
+                                      fr: 'Aucun ID de modèle correspondant.',
+                                      de: 'Keine passende Modell-ID.',
+                                      ja: '一致するモデル ID はありません。',
+                                    ),
+                                    style: theme.textTheme.bodySmall?.copyWith(
+                                      color: colorScheme.onSurfaceVariant,
                                     ),
                                   ),
                               ],

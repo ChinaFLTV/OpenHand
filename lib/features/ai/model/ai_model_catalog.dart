@@ -15,24 +15,52 @@ class AiModelCatalog {
   static AiModelProfile? lookup(String modelId, AiProtocolType protocolType) {
     final id = optionalLowercaseStringFromValue(modelId);
     if (id == null) return null;
+    final candidates = _modelIdSuffixCandidates(id);
     if (protocolType == AiProtocolType.mimo &&
         id.contains('mimo-v2') &&
         !id.contains('mimo-v2.5')) {
       return null;
     }
 
-    final exact = _exactModelProfiles[id];
-    if (exact != null) {
-      final operationProfile = _gatewayOperationProfile(id);
-      if (operationProfile != null &&
-          _shouldPreferOperationProfile(exact, operationProfile)) {
-        return operationProfile;
+    for (final candidate in candidates) {
+      final exact = _exactModelProfiles[candidate];
+      if (exact != null) {
+        final operationProfile = _gatewayOperationProfile(candidate);
+        if (operationProfile != null &&
+            _shouldPreferOperationProfile(exact, operationProfile)) {
+          return operationProfile;
+        }
+        return exact;
       }
-      return exact;
     }
 
-    // 优先按协议匹配。
-    final result = switch (protocolType) {
+    for (final candidate in candidates) {
+      final result = _lookupByProtocol(candidate, protocolType);
+      if (result != null) return result;
+
+      final gatewayOperationProfile = _gatewayOperationProfile(candidate);
+      if (gatewayOperationProfile != null) return gatewayOperationProfile;
+
+      final crossProtocol = _lookupAcrossProtocols(candidate);
+      if (crossProtocol != null) return crossProtocol;
+    }
+    return null;
+  }
+
+  static List<String> _modelIdSuffixCandidates(String id) {
+    final segments = id.split('/').where((part) => part.isNotEmpty).toList();
+    if (segments.length <= 1) return <String>[id];
+    return <String>[
+      for (var index = 0; index < segments.length; index++)
+        segments.sublist(index).join('/'),
+    ];
+  }
+
+  static AiModelProfile? _lookupByProtocol(
+    String id,
+    AiProtocolType protocolType,
+  ) {
+    return switch (protocolType) {
       AiProtocolType.openai => _openai(id),
       AiProtocolType.claude => _claude(id),
       AiProtocolType.gemini => _gemini(id),
@@ -56,15 +84,10 @@ class AiModelCatalog {
       AiProtocolType.vllm ||
       AiProtocolType.sglang => null,
     };
-    if (result != null) return result;
+  }
 
-    final gatewayOperationProfile = _gatewayOperationProfile(id);
-    if (gatewayOperationProfile != null) return gatewayOperationProfile;
-
-    // 跨协议匹配已知模型 ID，兼容通过其他服务商网关接入的模型。
-    // 顺序敏感：先匹配者胜出，因此必须把 ID 前缀更专一的匹配器排在前面。
-    // 上面的协议 switch 由编译器保证枚举穷尽，本链条不会；新增协议匹配器时
-    // 两处都要补，否则该协议的模型经网关接入时会静默丢失全部档案。
+  static AiModelProfile? _lookupAcrossProtocols(String id) {
+    // 顺序敏感：先匹配者胜出，更专一的匹配器必须排在前面。
     return _openai(id) ??
         _gemini(id) ??
         _mistral(id) ??

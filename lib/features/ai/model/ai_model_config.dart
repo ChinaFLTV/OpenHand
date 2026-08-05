@@ -203,6 +203,44 @@ class AiReasoningEffortOption {
     ...lowMediumHighXHighMax,
   ];
 
+  static const noneLowMediumHigh = <AiReasoningEffortOption>[
+    _none,
+    ...lowMediumHigh,
+  ];
+
+  static const thinkingBudgets = <AiReasoningEffortOption>[
+    AiReasoningEffortOption(
+      value: '1024',
+      label: '轻量',
+      labelZhHans: '轻量',
+      labelZhHant: '輕量',
+      labelEn: 'Light',
+      labelFr: 'Léger',
+      labelDe: 'Leicht',
+      labelJa: '軽量',
+    ),
+    AiReasoningEffortOption(
+      value: '8192',
+      label: '均衡',
+      labelZhHans: '均衡',
+      labelZhHant: '均衡',
+      labelEn: 'Balanced',
+      labelFr: 'Équilibré',
+      labelDe: 'Ausgewogen',
+      labelJa: 'バランス',
+    ),
+    AiReasoningEffortOption(
+      value: '32768',
+      label: '深度',
+      labelZhHans: '深度',
+      labelZhHant: '深度',
+      labelEn: 'Deep',
+      labelFr: 'Approfondi',
+      labelDe: 'Tief',
+      labelJa: '深い',
+    ),
+  ];
+
   final String value;
   final String label;
   final bool enabled;
@@ -269,6 +307,77 @@ class AiReasoningEffortOption {
     }
     return stringFromValue(json['value']).trim();
   }
+}
+
+class AiReasoningEffortPreset {
+  const AiReasoningEffortPreset({
+    required this.id,
+    required this.label,
+    required this.defaultValue,
+    required this.options,
+  });
+
+  static const all = <AiReasoningEffortPreset>[
+    AiReasoningEffortPreset(
+      id: 'gemini',
+      label: 'Gemini',
+      defaultValue: 'medium',
+      options: AiReasoningEffortOption.lowMediumHigh,
+    ),
+    AiReasoningEffortPreset(
+      id: 'openai',
+      label: 'OpenAI',
+      defaultValue: 'medium',
+      options: AiReasoningEffortOption.openAiGpt5,
+    ),
+    AiReasoningEffortPreset(
+      id: 'anthropic',
+      label: 'Anthropic',
+      defaultValue: 'medium',
+      options: AiReasoningEffortOption.lowMediumHighMax,
+    ),
+    AiReasoningEffortPreset(
+      id: 'kimi',
+      label: 'Kimi',
+      defaultValue: 'medium',
+      options: AiReasoningEffortOption.lowMediumHigh,
+    ),
+    AiReasoningEffortPreset(
+      id: 'qwen',
+      label: 'Qwen',
+      defaultValue: '8192',
+      options: AiReasoningEffortOption.thinkingBudgets,
+    ),
+    AiReasoningEffortPreset(
+      id: 'glm',
+      label: 'GLM',
+      defaultValue: 'medium',
+      options: AiReasoningEffortOption.lowMediumHigh,
+    ),
+    AiReasoningEffortPreset(
+      id: 'seed',
+      label: 'Seed',
+      defaultValue: 'medium',
+      options: AiReasoningEffortOption.lowMediumHigh,
+    ),
+    AiReasoningEffortPreset(
+      id: 'grok',
+      label: 'Grok',
+      defaultValue: 'low',
+      options: AiReasoningEffortOption.noneLowMediumHigh,
+    ),
+    AiReasoningEffortPreset(
+      id: 'mistral',
+      label: 'Mistral',
+      defaultValue: 'medium',
+      options: AiReasoningEffortOption.lowMediumHigh,
+    ),
+  ];
+
+  final String id;
+  final String label;
+  final String defaultValue;
+  final List<AiReasoningEffortOption> options;
 }
 
 // 枚举
@@ -1492,83 +1601,6 @@ class AiModelConfig {
   static const Set<String> _deepSeekPlainChatModelIds = <String>{
     'deepseek-chat',
   };
-  static const List<AiReasoningEffortOption>
-  _defaultGrokReasoningEffortOptions = <AiReasoningEffortOption>[
-    AiReasoningEffortOption(
-      value: 'none',
-      label: '无',
-      labelZhHans: '无',
-      labelZhHant: '無',
-      labelEn: 'None',
-      labelFr: 'Aucun',
-      labelDe: 'Keine',
-      labelJa: 'なし',
-    ),
-    AiReasoningEffortOption(
-      value: 'low',
-      label: '低',
-      labelZhHans: '低',
-      labelZhHant: '低',
-      labelEn: 'Low',
-      labelFr: 'Faible',
-      labelDe: 'Niedrig',
-      labelJa: '低',
-    ),
-    AiReasoningEffortOption(
-      value: 'medium',
-      label: '中',
-      labelZhHans: '中',
-      labelZhHant: '中',
-      labelEn: 'Medium',
-      labelFr: 'Moyen',
-      labelDe: 'Mittel',
-      labelJa: '中',
-    ),
-    AiReasoningEffortOption(
-      value: 'high',
-      label: '高',
-      labelZhHans: '高',
-      labelZhHant: '高',
-      labelEn: 'High',
-      labelFr: 'Élevé',
-      labelDe: 'Hoch',
-      labelJa: '高',
-    ),
-  ];
-  static const List<AiReasoningEffortOption> _defaultThinkingBudgetOptions =
-      <AiReasoningEffortOption>[
-        AiReasoningEffortOption(
-          value: '1024',
-          label: '轻量',
-          labelZhHans: '轻量',
-          labelZhHant: '輕量',
-          labelEn: 'Light',
-          labelFr: 'Léger',
-          labelDe: 'Leicht',
-          labelJa: '軽量',
-        ),
-        AiReasoningEffortOption(
-          value: '8192',
-          label: '均衡',
-          labelZhHans: '均衡',
-          labelZhHant: '均衡',
-          labelEn: 'Balanced',
-          labelFr: 'Équilibré',
-          labelDe: 'Ausgewogen',
-          labelJa: 'バランス',
-        ),
-        AiReasoningEffortOption(
-          value: '32768',
-          label: '深度',
-          labelZhHans: '深度',
-          labelZhHant: '深度',
-          labelEn: 'Deep',
-          labelFr: 'Approfondi',
-          labelDe: 'Tief',
-          labelJa: '深い',
-        ),
-      ];
-
   static const String _explicitPromptCacheEnabledJsonKey =
       'explicit_prompt_cache_enabled';
   static const String _autoCompleteBaseUrlJsonKey = 'auto_complete_base_url';
@@ -1869,13 +1901,13 @@ class AiModelConfig {
     }
     if (protocolType == AiProtocolType.grok ||
         normalizedModelId.startsWith('grok')) {
-      return _defaultGrokReasoningEffortOptions;
+      return AiReasoningEffortOption.noneLowMediumHigh;
     }
     if (protocolType == AiProtocolType.qwen ||
         normalizedModelId.startsWith('qwen') ||
         normalizedModelId.startsWith('qwq') ||
         normalizedModelId.startsWith('qvq')) {
-      return _defaultThinkingBudgetOptions;
+      return AiReasoningEffortOption.thinkingBudgets;
     }
     if (protocolType == AiProtocolType.gemini ||
         normalizedModelId.startsWith('gemini')) {
