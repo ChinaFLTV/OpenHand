@@ -45,7 +45,7 @@ enum _GeneratedMediaKind {
 const Duration _pollMinimumRequestBudget = Duration(seconds: 1);
 const Duration _pollRequestTimeoutCap = Duration(seconds: 15);
 const Duration _retryAfterDelayCap = Duration(seconds: 30);
-const Duration _soraContentMinDownloadTimeout = Duration(seconds: 30);
+const Duration _soraContentDownloadTimeoutCap = Duration(seconds: 30);
 const Duration _remoteMediaDownloadTimeout = Duration(seconds: 60);
 const int _mediaJsonResponseMaxBytes = 64 * kBytesPerMiB;
 const int _imageResponseMaxBytes = 128 * kBytesPerMiB;
@@ -602,6 +602,7 @@ class AiImageGenerationService {
       modelId: modelId,
     );
     final startedAt = DateTime.now().toUtc();
+    final operationStopwatch = Stopwatch()..start();
     final http.Response response;
     try {
       if (useMultipart) {
@@ -716,6 +717,12 @@ class AiImageGenerationService {
       );
     }
 
+    final pollingTimeout = timeout - operationStopwatch.elapsed;
+    if (pollingTimeout <= Duration.zero) {
+      throw AiMediaGenerationException(
+        _MediaErrorMessages.timeout(kind, timeout),
+      );
+    }
     final polled = await _pollMediaOperation(
       initialUrl: uri.toString(),
       initialPayload: decoded,
@@ -724,8 +731,7 @@ class AiImageGenerationService {
       protocol: model.protocolType,
       modelId: modelId,
       requestHeaders: headers,
-      timeout: timeout,
-      startedAt: startedAt,
+      timeout: pollingTimeout,
       cancelSignal: cancelSignal,
       initialUsage: initialUsage,
     );
@@ -2036,7 +2042,6 @@ class AiImageGenerationService {
     required String modelId,
     required Map<String, String> requestHeaders,
     required Duration timeout,
-    required DateTime startedAt,
     AiTokenUsage? initialUsage,
     Future<void>? cancelSignal,
   }) async {
@@ -2050,162 +2055,162 @@ class AiImageGenerationService {
     if (operationUrl == null) {
       return const _PolledMediaResult.empty();
     }
-    final deadline = startedAt.add(timeout);
+    final deadline = MonotonicDeadline(
+      timeout,
+      timeoutMessage: '${kind.displayName} 生成轮询超时。',
+    );
     var lastBody = jsonEncode(initialPayload);
     var attempt = 0;
     var transientFailures = 0;
     var usage = initialUsage;
-    while (DateTime.now().toUtc().isBefore(deadline)) {
-      attempt += 1;
-      final remaining = deadline.difference(DateTime.now().toUtc());
-      if (remaining <= Duration.zero) break;
-      // Add bounded jitter to spread parallel pollers and avoid synchronized
-      // hammering against rate-limited async-task endpoints. Long-running
-      // video tasks (e.g. grok-imagine-video) routinely exceed several
-      // minutes, so cap the per-iteration backoff at 5s after a warm-up
-      // window rather than imposing a hard attempt cap that would expire
-      // well before the deadline.
-      final wait = _pollDelayForAttempt(attempt);
-      if (wait < remaining) {
-        await _delayOrThrowCancelled(wait, cancelSignal);
-      }
-      final requestRemaining = deadline.difference(DateTime.now().toUtc());
-      // Guard against `.timeout(near-zero)` which would instantly throw
-      // TimeoutException after sub-millisecond delays. If we have less
-      // than a second of budget left there is no point firing another
-      // request — exit and let the caller surface the deadline.
-      if (requestRemaining < _pollMinimumRequestBudget) break;
-      final effectiveTimeout = requestRemaining < _pollRequestTimeoutCap
-          ? requestRemaining
-          : _pollRequestTimeoutCap;
-      final pollingHeaders = Map<String, String>.from(requestHeaders)
-        ..['accept'] = 'application/json';
-      final response = await _transport.get(
-        uri: Uri.parse(operationUrl),
-        headers: pollingHeaders,
-        timeout: effectiveTimeout,
-        maxResponseBytes: _mediaJsonResponseMaxBytes,
-        cancelSignal: cancelSignal,
-      );
-      lastBody = response.body;
-      if (isHttpFailureStatus(response.statusCode)) {
-        if (_isTransientPollStatus(response.statusCode) &&
-            transientFailures < _transientPollMaxFailures) {
-          transientFailures += 1;
-          final retryAfter = _parseRetryAfter(response.headers['retry-after']);
-          final backoff =
-              retryAfter ?? _transientPollBackoffDelay(transientFailures);
-          final budget = deadline.difference(DateTime.now().toUtc());
-          if (backoff < budget) {
-            await _delayOrThrowCancelled(backoff, cancelSignal);
-            continue;
-          }
+    try {
+      while (!deadline.isExpired) {
+        attempt += 1;
+        final remaining = deadline.remainingOrNull();
+        if (remaining == null) break;
+        // 并行轮询加入有界抖动，避免同时冲击受限端点；长任务在预热后
+        // 将单次退避封顶为 5 秒，由统一总时限决定最终退出时刻。
+        final wait = _pollDelayForAttempt(attempt);
+        if (wait < remaining) {
+          await _delayOrThrowCancelled(wait, cancelSignal);
         }
-        throw AiMediaGenerationException(
-          _MediaErrorMessages.httpStatus(
-            kind,
-            response.statusCode,
-            serverMessage: _extractError(response.body),
-          ),
+        final requestRemaining = deadline.remainingOrNull();
+        // 剩余不足一秒时不再发起必然立即超时的请求。
+        if (requestRemaining == null ||
+            requestRemaining < _pollMinimumRequestBudget) {
+          break;
+        }
+        final effectiveTimeout = requestRemaining < _pollRequestTimeoutCap
+            ? requestRemaining
+            : _pollRequestTimeoutCap;
+        final pollingHeaders = Map<String, String>.from(requestHeaders)
+          ..['accept'] = 'application/json';
+        final response = await _transport.get(
+          uri: Uri.parse(operationUrl),
+          headers: pollingHeaders,
+          timeout: effectiveTimeout,
+          maxResponseBytes: _mediaJsonResponseMaxBytes,
+          cancelSignal: cancelSignal,
+        );
+        lastBody = response.body;
+        if (isHttpFailureStatus(response.statusCode)) {
+          if (_isTransientPollStatus(response.statusCode) &&
+              transientFailures < _transientPollMaxFailures) {
+            transientFailures += 1;
+            final retryAfter = _parseRetryAfter(
+              response.headers['retry-after'],
+            );
+            final backoff =
+                retryAfter ?? _transientPollBackoffDelay(transientFailures);
+            final budget = deadline.remainingOrNull();
+            if (budget != null && backoff < budget) {
+              await _delayOrThrowCancelled(backoff, cancelSignal);
+              continue;
+            }
+          }
+          throw AiMediaGenerationException(
+            _MediaErrorMessages.httpStatus(
+              kind,
+              response.statusCode,
+              serverMessage: _extractError(response.body),
+            ),
+            rawResponseBody: response.body,
+          );
+        }
+        transientFailures = 0;
+        final decoded = _decodeJsonForKind(response.body, kind);
+        final parsedUsage = AiTokenUsageParser.parseResponsePayload(decoded);
+        if (parsedUsage != null) {
+          usage = AiTokenUsageParser.carryForward(usage, parsedUsage);
+        }
+        _throwIfMiniMaxProviderFailed(
+          decoded,
+          kind: kind,
+          protocol: protocol,
           rawResponseBody: response.body,
         );
-      }
-      transientFailures = 0;
-      final decoded = _decodeJsonForKind(response.body, kind);
-      final parsedUsage = AiTokenUsageParser.parseResponsePayload(decoded);
-      if (parsedUsage != null) {
-        usage = AiTokenUsageParser.carryForward(usage, parsedUsage);
-      }
-      _throwIfMiniMaxProviderFailed(
-        decoded,
-        kind: kind,
-        protocol: protocol,
-        rawResponseBody: response.body,
-      );
-      // MiniMax video task: status==Success carries `file_id` instead of a
-      // direct URL. Resolve via /files/retrieve before returning.
-      if (protocol == AiProtocolType.minimax && kind.isVideo) {
-        final status = _operationStatus(decoded);
-        if (status == 'success') {
-          final fileId = _findFirstString(decoded, const <String>[
-            'file_id',
-            'fileId',
-          ]);
-          if (fileId != null) {
-            final downloadUrl = await _resolveMiniMaxFileUrl(
-              initialUrl: initialUrl,
-              fileId: fileId,
-              requestHeaders: requestHeaders,
-              effectiveTimeout: effectiveTimeout,
-              cancelSignal: cancelSignal,
-            );
-            if (downloadUrl != null) {
-              final safeLabel = sanitizeMarkdownAltText(label);
-              return _PolledMediaResult(
-                markdown: '[$safeLabel]($downloadUrl)',
-                rawResponseBody: response.body,
-                usage: usage,
+        // MiniMax 视频完成后返回 file_id，需要继续查询实际下载地址。
+        if (protocol == AiProtocolType.minimax && kind.isVideo) {
+          final status = _operationStatus(decoded);
+          if (status == 'success') {
+            final fileId = _findFirstString(decoded, const <String>[
+              'file_id',
+              'fileId',
+            ]);
+            final lookupTimeout = deadline.remainingOrNull();
+            if (fileId != null && lookupTimeout != null) {
+              final downloadUrl = await _resolveMiniMaxFileUrl(
+                initialUrl: initialUrl,
+                fileId: fileId,
+                requestHeaders: requestHeaders,
+                effectiveTimeout: lookupTimeout,
+                cancelSignal: cancelSignal,
               );
+              if (downloadUrl != null) {
+                final safeLabel = sanitizeMarkdownAltText(label);
+                return _PolledMediaResult(
+                  markdown: '[$safeLabel]($downloadUrl)',
+                  rawResponseBody: response.body,
+                  usage: usage,
+                );
+              }
             }
           }
         }
-      }
-      final markdown = await _buildMarkdownFromMediaResponse(
-        decoded: decoded,
-        kind: kind,
-        label: label,
-        cancelSignal: cancelSignal,
-      );
-      if (markdown.isNotEmpty) {
-        return _PolledMediaResult(
-          markdown: markdown,
-          rawResponseBody: response.body,
-          usage: usage,
-        );
-      }
-      final status = _operationStatus(decoded);
-      // OpenAI Sora 2 and grok2api expose the finished mp4 only through
-      // `GET /v1/videos/{id}/content` (binary) — the polling JSON has no
-      // url/b64 field. When the task reports completion, fetch the content
-      // with the provider's auth headers and persist it locally.
-      if (kind.isVideo &&
-          (protocol == AiProtocolType.openai ||
-              protocol == AiProtocolType.grok) &&
-          !_usesAgnesMediaApi(protocol, modelId) &&
-          _isTerminalSuccessStatus(status)) {
-        final contentMarkdown = await _downloadSoraStyleVideoContent(
-          operationUrl: operationUrl,
-          requestHeaders: requestHeaders,
-          effectiveTimeout: effectiveTimeout,
+        final markdown = await _buildMarkdownFromMediaResponse(
+          decoded: decoded,
+          kind: kind,
           label: label,
           cancelSignal: cancelSignal,
         );
-        if (contentMarkdown.isNotEmpty) {
+        if (markdown.isNotEmpty) {
           return _PolledMediaResult(
-            markdown: contentMarkdown,
+            markdown: markdown,
             rawResponseBody: response.body,
             usage: usage,
           );
         }
+        final status = _operationStatus(decoded);
+        // Sora 2 和 grok2api 仅通过二进制 content 端点提供最终视频。
+        if (kind.isVideo &&
+            (protocol == AiProtocolType.openai ||
+                protocol == AiProtocolType.grok) &&
+            !_usesAgnesMediaApi(protocol, modelId) &&
+            _isTerminalSuccessStatus(status)) {
+          final downloadTimeout = deadline.remainingOrNull();
+          if (downloadTimeout == null) break;
+          final contentMarkdown = await _downloadSoraStyleVideoContent(
+            operationUrl: operationUrl,
+            requestHeaders: requestHeaders,
+            effectiveTimeout: downloadTimeout,
+            label: label,
+            cancelSignal: cancelSignal,
+          );
+          if (contentMarkdown.isNotEmpty) {
+            return _PolledMediaResult(
+              markdown: contentMarkdown,
+              rawResponseBody: response.body,
+              usage: usage,
+            );
+          }
+        }
+        if (_isTerminalFailureStatus(status)) {
+          throw AiMediaGenerationException(
+            '${kind.displayName} generation failed: ${_extractError(response.body)}',
+            rawResponseBody: response.body,
+          );
+        }
       }
-      if (_isTerminalFailureStatus(status)) {
-        throw AiMediaGenerationException(
-          '${kind.displayName} generation failed: ${_extractError(response.body)}',
-          rawResponseBody: response.body,
-        );
-      }
+    } finally {
+      deadline.stop();
     }
-    return _PolledMediaResult(
-      markdown: '',
+    throw AiMediaGenerationException(
+      _MediaErrorMessages.timeout(kind, timeout),
       rawResponseBody: lastBody,
-      usage: usage,
     );
   }
 
-  /// Sora 2 / grok2api expose the rendered mp4 only as a binary stream at
-  /// `{operationUrl}/content`. Fetches it with the provider's auth headers
-  /// and saves it locally so the downstream UI can play it via a `file://`
-  /// link without the user re-authenticating.
+  /// 从 Sora 2 / grok2api 的二进制 content 端点下载最终视频并保存到本地。
   Future<String> _downloadSoraStyleVideoContent({
     required String operationUrl,
     required Map<String, String> requestHeaders,
@@ -2223,11 +2228,9 @@ class AiImageGenerationService {
     );
     final downloadHeaders = Map<String, String>.from(requestHeaders)
       ..['accept'] = 'video/*, application/octet-stream;q=0.9';
-    // Allow a slightly larger budget for the binary download since the
-    // polling timeout is intentionally short.
-    final downloadTimeout = effectiveTimeout < _soraContentMinDownloadTimeout
-        ? _soraContentMinDownloadTimeout
-        : effectiveTimeout;
+    final downloadTimeout = effectiveTimeout < _soraContentDownloadTimeoutCap
+        ? effectiveTimeout
+        : _soraContentDownloadTimeoutCap;
     final destination = await createInlineMediaOutputFile(
       mimeType: 'video/mp4',
     );
@@ -2282,8 +2285,7 @@ class AiImageGenerationService {
     );
   }
 
-  /// MiniMax video pipeline emits a `file_id` once the task completes; the
-  /// playable mp4 lives behind a separate `/v1/files/retrieve` lookup.
+  /// MiniMax 视频完成后通过独立的 `/v1/files/retrieve` 查询下载地址。
   Future<String?> _resolveMiniMaxFileUrl({
     required String initialUrl,
     required String fileId,
@@ -2307,27 +2309,40 @@ class AiImageGenerationService {
     );
     final pollingHeaders = Map<String, String>.from(requestHeaders)
       ..['accept'] = 'application/json';
+    final deadline = MonotonicDeadline(
+      effectiveTimeout,
+      timeoutMessage: 'MiniMax 视频文件查询超时。',
+    );
     http.Response? response;
-    for (var i = 0; i < _miniMaxFileRetrieveAttempts; i++) {
-      response = await _transport.get(
-        uri: retrieveUri,
-        headers: pollingHeaders,
-        timeout: effectiveTimeout,
-        maxResponseBytes: _mediaJsonResponseMaxBytes,
-        cancelSignal: cancelSignal,
-      );
-      if (isHttpSuccessStatus(response.statusCode)) break;
-      if (!_isTransientPollStatus(response.statusCode) ||
-          i == _miniMaxFileRetrieveAttempts - 1) {
-        return null;
+    try {
+      for (var i = 0; i < _miniMaxFileRetrieveAttempts; i++) {
+        final requestBudget = deadline.remainingOrNull();
+        if (requestBudget == null ||
+            requestBudget < _pollMinimumRequestBudget) {
+          return null;
+        }
+        response = await _transport.get(
+          uri: retrieveUri,
+          headers: pollingHeaders,
+          timeout: requestBudget < _pollRequestTimeoutCap
+              ? requestBudget
+              : _pollRequestTimeoutCap,
+          maxResponseBytes: _mediaJsonResponseMaxBytes,
+          cancelSignal: cancelSignal,
+        );
+        if (isHttpSuccessStatus(response.statusCode)) break;
+        if (!_isTransientPollStatus(response.statusCode) ||
+            i == _miniMaxFileRetrieveAttempts - 1) {
+          return null;
+        }
+        final retryAfter = _parseRetryAfter(response.headers['retry-after']);
+        final backoff = retryAfter ?? _miniMaxFileRetrieveBackoffDelay();
+        final retryBudget = deadline.remainingOrNull();
+        if (retryBudget == null || backoff >= retryBudget) return null;
+        await _delayOrThrowCancelled(backoff, cancelSignal);
       }
-      // Single retry with jitter to absorb a brief 5xx/429 without
-      // dropping a successful video task on the floor.
-      final retryAfter = _parseRetryAfter(response.headers['retry-after']);
-      await _delayOrThrowCancelled(
-        retryAfter ?? _miniMaxFileRetrieveBackoffDelay(),
-        cancelSignal,
-      );
+    } finally {
+      deadline.stop();
     }
     if (response == null || isHttpFailureStatus(response.statusCode)) {
       return null;
