@@ -26,6 +26,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
+import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -39,8 +40,19 @@ import '../../../shared/util/rolling_hash.dart';
 import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../message_gateway_controller.dart';
+import '../message_gateway_errors.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
+
+String _reportMessageGatewayUiFailure(
+  String action,
+  Object error,
+  StackTrace stack, {
+  required String fallback,
+}) {
+  silentLog('message_gateway', action, error, stack);
+  return messageGatewayFailureMessage(error, fallback: fallback);
+}
 
 String _gatewayEmptyMeansAllLabel(BuildContext context, String label) {
   final suffix = openHandLocalizedText(
@@ -193,6 +205,15 @@ class _MessageGatewayViewState extends State<MessageGatewayView>
       actions: const SizedBox.shrink(),
       successSignal: controller.saveSuccessSignal,
       body: _buildBody(context, controller),
+      notices: [
+        if (controller.errorMessage != null && controller.hasTrustedSnapshot)
+          OpenHandInlineNoticeFactory.error(
+            context,
+            controller.errorMessage!,
+            copyText: controller.errorMessage,
+            onDismiss: controller.clearError,
+          ),
+      ],
       headerSpacing: 16,
     );
   }
@@ -201,7 +222,7 @@ class _MessageGatewayViewState extends State<MessageGatewayView>
     if (controller.isLoading) {
       return const Center(child: CircularProgressIndicator());
     }
-    if (controller.errorMessage != null) {
+    if (controller.errorMessage != null && !controller.hasTrustedSnapshot) {
       return FeatureStateCard.centered(
         icon: Icons.error_outline_rounded,
         tone: FeatureStateTone.error,
@@ -421,9 +442,11 @@ class _WebPlatformServiceCard extends StatelessWidget {
                           : openHandStartLabel(context),
                       onPressed: controller.isOperating
                           ? null
-                          : () => isRunning
-                                ? controller.stopService()
-                                : controller.startService(),
+                          : () => _runServiceAction(
+                              context,
+                              controller,
+                              stop: isRunning,
+                            ),
                       icon: Icon(
                         isRunning
                             ? Icons.stop_rounded
@@ -799,13 +822,73 @@ class _WebPlatformServiceCard extends StatelessWidget {
     BuildContext context,
     MessageGatewayController controller,
   ) async {
-    final result = await controller.runHealthCheck();
-    if (!context.mounted) return;
-    OpenHandSnackBar.flash(
+    final failureFallback = openHandLocalizedText(
       context,
-      '${result.summary} (${result.durationMs}ms)',
-      kind: result.ok ? OpenHandSnackKind.success : OpenHandSnackKind.error,
+      zh: '健康检查失败，请稍后重试。',
+      zhHant: '健康檢查失敗，請稍後再試。',
+      en: 'Health check failed. Try again later.',
+      fr: 'Le contrôle de santé a échoué. Réessayez plus tard.',
+      de: 'Integritätsprüfung fehlgeschlagen. Versuchen Sie es später erneut.',
+      ja: 'ヘルスチェックに失敗しました。後でもう一度お試しください。',
     );
+    try {
+      final result = await controller.runHealthCheck();
+      if (!context.mounted) return;
+      OpenHandSnackBar.flash(
+        context,
+        '${result.summary} (${result.durationMs}ms)',
+        kind: result.ok ? OpenHandSnackKind.success : OpenHandSnackKind.error,
+      );
+    } catch (error, stack) {
+      final message = _reportMessageGatewayUiFailure(
+        '执行消息网关健康检查',
+        error,
+        stack,
+        fallback: failureFallback,
+      );
+      if (context.mounted) showOpenHandErrorSnack(context, message);
+    }
+  }
+
+  Future<void> _runServiceAction(
+    BuildContext context,
+    MessageGatewayController controller, {
+    required bool stop,
+  }) async {
+    final failureFallback = openHandLocalizedText(
+      context,
+      zh: stop ? '消息网关停止失败，请稍后重试。' : '消息网关启动失败，请检查监听地址与端口。',
+      zhHant: stop ? '訊息閘道停止失敗，請稍後再試。' : '訊息閘道啟動失敗，請檢查監聽位址與連接埠。',
+      en: stop
+          ? 'Message gateway failed to stop. Try again later.'
+          : 'Message gateway failed to start. Check the listen address and port.',
+      fr: stop
+          ? 'L’arrêt de la passerelle a échoué. Réessayez plus tard.'
+          : 'Le démarrage de la passerelle a échoué. Vérifiez l’adresse et le port d’écoute.',
+      de: stop
+          ? 'Das Gateway konnte nicht gestoppt werden. Versuchen Sie es später erneut.'
+          : 'Das Gateway konnte nicht gestartet werden. Prüfen Sie Adresse und Port.',
+      ja: stop
+          ? 'メッセージゲートウェイを停止できませんでした。後でもう一度お試しください。'
+          : 'メッセージゲートウェイを起動できませんでした。待受アドレスとポートを確認してください。',
+    );
+    try {
+      if (stop) {
+        await controller.stopService();
+      } else {
+        await controller.startService();
+      }
+    } catch (error, stack) {
+      final message = _reportMessageGatewayUiFailure(
+        stop ? '停止消息网关' : '启动消息网关',
+        error,
+        stack,
+        fallback: failureFallback,
+      );
+      if (context.mounted) {
+        showOpenHandErrorSnack(context, message, maxLines: 2);
+      }
+    }
   }
 
   Future<void> _showLogs(
@@ -2226,22 +2309,24 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       await widget.controller.saveConfig(config);
       if (!mounted) return;
       Navigator.of(context).pop();
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('message_gateway', '保存消息网关配置', error, stack);
       if (!mounted) return;
-      showOpenHandErrorSnack(
-        context,
-        openHandLocalizedText(
+      final message = messageGatewayFailureMessage(
+        error,
+        fallback: openHandLocalizedText(
           context,
-          zh: '保存失败: $error',
-          zhHant: '儲存失敗: $error',
-          en: 'Save failed: $error',
-          fr: 'Échec de l’enregistrement : $error',
-          de: 'Speichern fehlgeschlagen: $error',
-          ja: '保存に失敗しました: $error',
+          zh: '消息网关配置保存失败，请稍后重试。',
+          zhHant: '訊息閘道設定儲存失敗，請稍後再試。',
+          en: 'Failed to save the message gateway configuration. Try again later.',
+          fr: 'Échec de l’enregistrement de la configuration. Réessayez plus tard.',
+          de: 'Gateway-Konfiguration konnte nicht gespeichert werden. Versuchen Sie es später erneut.',
+          ja: 'メッセージゲートウェイ設定を保存できませんでした。後でもう一度お試しください。',
         ),
       );
+      showOpenHandErrorSnack(context, message);
       setState(() {
-        _saveError = '$error';
+        _saveError = message;
         _saving = false;
       });
     }
@@ -2611,7 +2696,7 @@ class _WebGatewayConnectivityDialog extends StatefulWidget {
 class _WebGatewayConnectivityDialogState
     extends State<_WebGatewayConnectivityDialog> {
   WebGatewayConnectivityTestResult? _result;
-  Object? _error;
+  String? _error;
   bool _running = false;
 
   @override
@@ -2630,9 +2715,23 @@ class _WebGatewayConnectivityDialogState
       final result = await widget.controller.runConnectivityTest();
       if (!mounted) return;
       setState(() => _result = result);
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('message_gateway', '执行端口连通性测试', error, stack);
       if (!mounted) return;
-      setState(() => _error = error);
+      setState(
+        () => _error = messageGatewayFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '端口连通性测试失败，请稍后重试。',
+            zhHant: '連接埠連通性測試失敗，請稍後再試。',
+            en: 'Port connectivity test failed. Try again later.',
+            fr: 'Le test de connectivité des ports a échoué. Réessayez plus tard.',
+            de: 'Portverbindungstest fehlgeschlagen. Versuchen Sie es später erneut.',
+            ja: 'ポート接続テストに失敗しました。後でもう一度お試しください。',
+          ),
+        ),
+      );
     } finally {
       if (mounted) setState(() => _running = false);
     }
@@ -2826,7 +2925,7 @@ class _ConnectivityLoadingView extends StatelessWidget {
 class _ConnectivityErrorView extends StatelessWidget {
   const _ConnectivityErrorView({required this.error});
 
-  final Object error;
+  final String error;
 
   @override
   Widget build(BuildContext context) {
@@ -2835,15 +2934,7 @@ class _ConnectivityErrorView extends StatelessWidget {
       child: Padding(
         padding: const EdgeInsets.all(24),
         child: Text(
-          openHandLocalizedText(
-            context,
-            zh: '测试启动失败: $error',
-            zhHant: '測試啟動失敗: $error',
-            en: 'Test failed to start: $error',
-            fr: 'Échec du démarrage du test : $error',
-            de: 'Test konnte nicht gestartet werden: $error',
-            ja: 'テストを開始できませんでした: $error',
-          ),
+          error,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: theme.colorScheme.error,
           ),
@@ -3731,18 +3822,22 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog>
         ),
         maxLines: 2,
       );
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('message_gateway', '导出当前消息网关日志', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '当前日志导出失败: $error',
-          zhHant: '目前日誌匯出失敗: $error',
-          en: 'Current log export failed: $error',
-          fr: 'Échec de l’export des journaux : $error',
-          de: 'Export der aktuellen Protokolle fehlgeschlagen: $error',
-          ja: '現在のログのエクスポートに失敗しました: $error',
+        messageGatewayFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '当前日志导出失败，请稍后重试。',
+            zhHant: '目前日誌匯出失敗，請稍後再試。',
+            en: 'Current log export failed. Try again later.',
+            fr: 'L’export des journaux a échoué. Réessayez plus tard.',
+            de: 'Protokollexport fehlgeschlagen. Versuchen Sie es später erneut.',
+            ja: '現在のログをエクスポートできませんでした。後でもう一度お試しください。',
+          ),
         ),
         maxLines: 2,
       );
@@ -5116,18 +5211,22 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
           ..addAll(persisted.skip(math.max(0, persisted.length - _trendLimit)));
       });
       await _tick();
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('message_gateway', '清理消息网关缓存', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '缓存清理失败: $error',
-          zhHant: '快取清理失敗: $error',
-          en: 'Cache cleanup failed: $error',
-          fr: 'Échec du nettoyage du cache : $error',
-          de: 'Cache-Bereinigung fehlgeschlagen: $error',
-          ja: 'キャッシュのクリーンアップに失敗しました: $error',
+        messageGatewayFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '消息网关缓存清理失败，请稍后重试。',
+            zhHant: '訊息閘道快取清理失敗，請稍後再試。',
+            en: 'Message gateway cache cleanup failed. Try again later.',
+            fr: 'Le nettoyage du cache a échoué. Réessayez plus tard.',
+            de: 'Gateway-Cache konnte nicht bereinigt werden. Versuchen Sie es später erneut.',
+            ja: 'メッセージゲートウェイのキャッシュを消去できませんでした。後でもう一度お試しください。',
+          ),
         ),
         maxLines: 2,
       );
@@ -5192,18 +5291,22 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
           ..addAll(persisted.skip(math.max(0, persisted.length - _trendLimit)));
       });
       await _tick();
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('message_gateway', '清理消息网关过期资源', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '过期资源清理失败: $error',
-          zhHant: '過期資源清理失敗: $error',
-          en: 'Expired resource cleanup failed: $error',
-          fr: 'Échec du nettoyage des ressources expirées : $error',
-          de: 'Bereinigung abgelaufener Ressourcen fehlgeschlagen: $error',
-          ja: '期限切れリソースのクリーンアップに失敗しました: $error',
+        messageGatewayFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '消息网关过期资源清理失败，请稍后重试。',
+            zhHant: '訊息閘道過期資源清理失敗，請稍後再試。',
+            en: 'Expired message gateway resource cleanup failed. Try again later.',
+            fr: 'Le nettoyage des ressources expirées a échoué. Réessayez plus tard.',
+            de: 'Abgelaufene Gateway-Ressourcen konnten nicht bereinigt werden. Versuchen Sie es später erneut.',
+            ja: '期限切れのメッセージゲートウェイリソースを消去できませんでした。後でもう一度お試しください。',
+          ),
         ),
         maxLines: 2,
       );
@@ -5235,18 +5338,22 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         ),
         duration: kOpenHandMotion1600,
       );
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('message_gateway', '执行消息网关运维服务操作', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '$label 失败: $error',
-          zhHant: '$label 失敗: $error',
-          en: '$label failed: $error',
-          fr: 'Échec de $label : $error',
-          de: '$label fehlgeschlagen: $error',
-          ja: '$label に失敗しました: $error',
+        messageGatewayFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '$label 失败，请稍后重试。',
+            zhHant: '$label 失敗，請稍後再試。',
+            en: '$label failed. Try again later.',
+            fr: 'Échec de $label. Réessayez plus tard.',
+            de: '$label fehlgeschlagen. Versuchen Sie es später erneut.',
+            ja: '$label に失敗しました。後でもう一度お試しください。',
+          ),
         ),
         maxLines: 2,
       );
@@ -5268,18 +5375,22 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         kind: result.ok ? OpenHandSnackKind.success : OpenHandSnackKind.error,
         duration: kOpenHandMotion1800,
       );
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('message_gateway', '执行消息网关健康诊断', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '健康诊断失败: $error',
-          zhHant: '健康診斷失敗: $error',
-          en: 'Health diagnosis failed: $error',
-          fr: 'Échec du diagnostic de santé : $error',
-          de: 'Integritätsdiagnose fehlgeschlagen: $error',
-          ja: 'ヘルス診断に失敗しました: $error',
+        messageGatewayFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '消息网关健康诊断失败，请稍后重试。',
+            zhHant: '訊息閘道健康診斷失敗，請稍後再試。',
+            en: 'Message gateway health diagnosis failed. Try again later.',
+            fr: 'Le diagnostic de santé a échoué. Réessayez plus tard.',
+            de: 'Gateway-Integritätsdiagnose fehlgeschlagen. Versuchen Sie es später erneut.',
+            ja: 'メッセージゲートウェイのヘルス診断に失敗しました。後でもう一度お試しください。',
+          ),
         ),
         maxLines: 2,
       );
@@ -5311,18 +5422,22 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
         ),
       );
       await _tick();
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('message_gateway', '清理消息网关运维资源', error, stack);
       if (!mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '$label清理失败: $error',
-          zhHant: '$label 清理失敗: $error',
-          en: '$label cleanup failed: $error',
-          fr: 'Échec du nettoyage $label : $error',
-          de: '$label-Bereinigung fehlgeschlagen: $error',
-          ja: '$label のクリーンアップに失敗しました: $error',
+        messageGatewayFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '$label 清理失败，请稍后重试。',
+            zhHant: '$label 清理失敗，請稍後再試。',
+            en: '$label cleanup failed. Try again later.',
+            fr: 'Échec du nettoyage $label. Réessayez plus tard.',
+            de: '$label-Bereinigung fehlgeschlagen. Versuchen Sie es später erneut.',
+            ja: '$label のクリーンアップに失敗しました。後でもう一度お試しください。',
+          ),
         ),
       );
     } finally {
@@ -7706,14 +7821,17 @@ class _AccessibleUrlsBar extends StatelessWidget {
       if (!context.mounted) return;
       showOpenHandErrorSnack(
         context,
-        openHandLocalizedText(
-          context,
-          zh: '打开失败: $error',
-          zhHant: '開啟失敗: $error',
-          en: 'Failed to open: $error',
-          fr: 'Échec de l’ouverture : $error',
-          de: 'Öffnen fehlgeschlagen: $error',
-          ja: '開けませんでした: $error',
+        messageGatewayFailureMessage(
+          error,
+          fallback: openHandLocalizedText(
+            context,
+            zh: '打开地址失败，请稍后重试。',
+            zhHant: '開啟位址失敗，請稍後再試。',
+            en: 'Failed to open the address. Try again later.',
+            fr: 'Impossible d’ouvrir l’adresse. Réessayez plus tard.',
+            de: 'Adresse konnte nicht geöffnet werden. Versuchen Sie es später erneut.',
+            ja: 'アドレスを開けませんでした。後でもう一度お試しください。',
+          ),
         ),
       );
     }

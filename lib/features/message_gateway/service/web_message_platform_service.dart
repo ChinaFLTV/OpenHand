@@ -57,6 +57,7 @@ import '../../skills/index.dart';
 import '../../thread_template_runtime/index.dart';
 import '../data/web_gateway_ops_store.dart';
 import '../message_gateway_dependencies.dart';
+import '../message_gateway_errors.dart';
 import '../model/web_gateway_runtime.dart';
 import '../model/web_gateway_session_metadata.dart';
 import '../model/web_message_platform_config.dart';
@@ -1235,8 +1236,14 @@ class WebMessagePlatformService {
     }
     _state = WebGatewayRuntimeState.crashed;
     _crashCount++;
-    _lastError = '${closeError ?? 'HTTP 服务关闭超时'}';
-    _log(WebGatewayLogLevel.error, 'OPS', '停止 Web 服务失败: $_lastError');
+    _lastError = closeError == null
+        ? 'HTTP 服务关闭超时。'
+        : messageGatewayFailureMessage(
+            closeError!,
+            fallback: 'HTTP 服务停止失败，请稍后重试。',
+          );
+    _log(WebGatewayLogLevel.error, 'OPS', '停止 Web 服务失败：$_lastError');
+    throw StateError(_lastError);
   }
 
   Future<void> restart(WebMessagePlatformConfig config) =>
@@ -1907,7 +1914,10 @@ class WebMessagePlatformService {
         ok: false,
         statusCode: 0,
         durationMs: stopwatch.elapsedMilliseconds,
-        summary: '健康检查失败: $error',
+        summary: messageGatewayFailureMessage(
+          error,
+          fallback: '健康检查失败，请检查服务状态与健康检查配置。',
+        ),
       );
       _log(WebGatewayLogLevel.error, 'HEALTH', result.summary);
       return result;
@@ -1951,13 +1961,14 @@ class WebMessagePlatformService {
     try {
       for (final baseUrl in targets) {
         final probeStarted = Stopwatch()..start();
-        Uri endpoint;
-        try {
-          final baseUri = Uri.parse(baseUrl);
-          endpoint = baseUri.replace(path: '/api/health');
-        } catch (error) {
+        final baseUri = Uri.tryParse(baseUrl);
+        if (baseUri == null ||
+            !baseUri.hasScheme ||
+            baseUri.host.isEmpty ||
+            baseUri.scheme != 'http') {
           probeStarted.stop();
-          addLog('URL 解析失败: $baseUrl · $error');
+          const errorMessage = 'URL 格式无效。';
+          addLog('URL 解析失败：$baseUrl');
           results.add(
             WebGatewayConnectivityProbeResult(
               baseUrl: baseUrl,
@@ -1967,11 +1978,12 @@ class WebMessagePlatformService {
               ok: false,
               statusCode: 0,
               durationMs: probeStarted.elapsedMilliseconds,
-              errorMessage: '$error',
+              errorMessage: errorMessage,
             ),
           );
           continue;
         }
+        final endpoint = baseUri.replace(path: '/api/health');
 
         addLog('开始探测 ${endpoint.host}:${endpoint.port} -> $endpoint');
         try {
@@ -2011,8 +2023,12 @@ class WebMessagePlatformService {
           if (error is! TimeoutException) {
             silentLog('web_message_platform_service', '执行连通性探测', error, stack);
           }
+          final errorMessage = messageGatewayFailureMessage(
+            error,
+            fallback: error is TimeoutException ? '探测超时。' : '探测失败。',
+          );
           addLog(
-            '探测失败 ${endpoint.host}:${endpoint.port} · ${probeStarted.elapsedMilliseconds}ms · $error',
+            '探测失败 ${endpoint.host}:${endpoint.port} · ${probeStarted.elapsedMilliseconds}ms · $errorMessage',
           );
           results.add(
             WebGatewayConnectivityProbeResult(
@@ -2023,7 +2039,7 @@ class WebMessagePlatformService {
               ok: false,
               statusCode: 0,
               durationMs: probeStarted.elapsedMilliseconds,
-              errorMessage: '$error',
+              errorMessage: errorMessage,
             ),
           );
         }
@@ -2737,11 +2753,7 @@ class WebMessagePlatformService {
           return rejected;
         } catch (error, stack) {
           statusCode = HttpStatus.internalServerError;
-          errorText = clipText(
-            '$error',
-            _maxOpsPersistenceErrorCharacters,
-            suffix: '',
-          );
+          errorText = messageGatewayFailureMessage(error, fallback: '请求处理失败。');
           _lastError = errorText;
           silentLog('web_message_platform_service', '处理请求', error, stack);
           final fallback = _json(
@@ -3185,7 +3197,7 @@ class WebMessagePlatformService {
       silentLog('web_message_platform_service', '读取知识向量分布', error, stack);
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'error': 'knowledge_vector_distribution_failed',
-        'message': '$error',
+        'message': messageGatewayFailureMessage(error, fallback: '知识向量分布读取失败。'),
       });
     }
   }
@@ -3238,7 +3250,7 @@ class WebMessagePlatformService {
       silentLog('web_message_platform_service', '读取知识命中详情', error, stack);
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'error': 'knowledge_hit_detail_failed',
-        'message': '$error',
+        'message': messageGatewayFailureMessage(error, fallback: '知识命中详情读取失败。'),
       });
     }
   }
@@ -3301,7 +3313,7 @@ class WebMessagePlatformService {
       silentLog('web_message_platform_service', '加载 Harness 会话', e, st);
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'error': 'harness_load_failed',
-        'message': e.toString(),
+        'message': messageGatewayFailureMessage(e, fallback: 'Harness 会话加载失败。'),
       });
     }
   }
@@ -3477,10 +3489,11 @@ class WebMessagePlatformService {
           .map(_pluginPayload)
           .toList(growable: false);
       return _json(HttpStatus.ok, <String, Object?>{'items': items});
-    } catch (e) {
+    } catch (error, stack) {
+      silentLog('web_message_platform_service', '读取插件列表', error, stack);
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'error': 'plugin_list_failed',
-        'message': '$e',
+        'message': messageGatewayFailureMessage(error, fallback: '插件列表读取失败。'),
       });
     }
   }
@@ -4043,13 +4056,18 @@ class WebMessagePlatformService {
           (item) => item.id == session.id,
           orElse: () => session,
         );
-      } catch (error) {
+      } catch (error, stack) {
         warnings.add('machine_terminal_initialization_failed');
+        silentLog('web_message_platform_service', '初始化机器终端', error, stack);
+        final errorMessage = messageGatewayFailureMessage(
+          error,
+          fallback: '机器终端初始化失败。',
+        );
         _log(
           WebGatewayLogLevel.warn,
           'SESSION',
           '机器终端初始化失败，会话已保留',
-          <String, Object?>{'session_id': session.id, 'error': '$error'},
+          <String, Object?>{'session_id': session.id, 'error': errorMessage},
         );
       }
     }
@@ -4258,10 +4276,11 @@ class WebMessagePlatformService {
           'ok': true,
           'terminal': snapshot.toJson(includeHistory: includeHistory),
         });
-      } catch (error) {
+      } catch (error, stack) {
+        silentLog('web_message_platform_service', '控制机器终端', error, stack);
         return _json(HttpStatus.badRequest, <String, Object?>{
           'error': 'terminal_control_failed',
-          'message': '$error',
+          'message': messageGatewayFailureMessage(error, fallback: '机器终端操作失败。'),
         });
       }
     });
@@ -4509,19 +4528,20 @@ class WebMessagePlatformService {
         'total': userMessages.length,
       });
     } catch (error, stackTrace) {
+      silentLog('web_message_platform_service', '读取标题摘要消息源', error, stackTrace);
+      final errorMessage = messageGatewayFailureMessage(
+        error,
+        fallback: '标题摘要消息读取失败。',
+      );
       _log(
         WebGatewayLogLevel.warn,
         'SESSION',
         'Web 获取标题摘要消息源失败',
-        <String, Object?>{
-          'session_id': session.id,
-          'error': '$error',
-          'stack': '$stackTrace',
-        },
+        <String, Object?>{'session_id': session.id, 'error': errorMessage},
       );
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'error': 'title_source_messages_failed',
-        'message': '$error',
+        'message': errorMessage,
       });
     }
   }
@@ -5085,7 +5105,7 @@ class WebMessagePlatformService {
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'ok': false,
         'error': 'message_translation_failed',
-        'message': '$error',
+        'message': messageGatewayFailureMessage(error, fallback: '消息翻译失败。'),
       });
     }
   }
@@ -5498,10 +5518,11 @@ class WebMessagePlatformService {
         return _json(HttpStatus.ok, <String, Object?>{'title': session.title});
       }
       return _json(HttpStatus.ok, <String, Object?>{'title': title});
-    } catch (error) {
+    } catch (error, stack) {
+      silentLog('web_message_platform_service', '生成会话标题', error, stack);
       return _json(HttpStatus.internalServerError, <String, Object?>{
         'error': 'title_generation_failed',
-        'detail': '$error',
+        'detail': messageGatewayFailureMessage(error, fallback: '会话标题生成失败。'),
       });
     }
   }
@@ -9091,7 +9112,10 @@ class WebMessagePlatformService {
     if (_isAddressAlreadyInUse(error)) {
       return 'Web 服务启动失败：${config.listenHost}:${config.listenPort} 已被占用，请关闭占用进程或修改监听端口';
     }
-    return 'Web 服务启动失败: $error';
+    return messageGatewayFailureMessage(
+      error,
+      fallback: 'Web 服务启动失败，请检查监听地址与端口。',
+    );
   }
 
   void _logPublicAccessWarningIfNeeded(

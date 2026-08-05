@@ -19,10 +19,24 @@ import '../skills/index.dart';
 import 'data/message_gateway_store.dart';
 import 'data/web_gateway_ops_store.dart';
 import 'message_gateway_dependencies.dart';
+import 'message_gateway_errors.dart';
 import 'model/web_message_platform_config.dart';
 import 'service/web_message_platform_service.dart';
 
 export 'service/web_message_platform_service.dart' show WebWriteApprovalRequest;
+
+String _reportMessageGatewayFailure(
+  String action,
+  Object error,
+  StackTrace stack, {
+  String? fallback,
+}) {
+  silentLog('message_gateway', action, error, stack);
+  return messageGatewayFailureMessage(
+    error,
+    fallback: fallback ?? '$action失败，请稍后重试。',
+  );
+}
 
 class WebGatewayModelOption {
   const WebGatewayModelOption({
@@ -127,9 +141,17 @@ class MessageGatewayController extends ManagedChangeNotifier {
       _service.state == WebGatewayRuntimeState.starting ||
       _service.state == WebGatewayRuntimeState.stopping;
   bool get hasPendingRuntimeConfig => _hasPendingRuntimeConfig;
+  bool get hasTrustedSnapshot => _hasTrustedSnapshot;
   String? get errorMessage => _errorMessage;
   WebGatewayRuntimeState get runtimeState => _service.state;
   bool get isRunning => _service.isRunning;
+
+  void clearError() {
+    if (_errorMessage == null) return;
+    _errorMessage = null;
+    notifyListeners();
+  }
+
   String get webUrl => _service.boundUrl;
   Stream<List<WebWriteApprovalRequest>> get pendingWriteApprovalsStream =>
       _service.pendingWriteApprovalsStream;
@@ -270,9 +292,9 @@ class MessageGatewayController extends ManagedChangeNotifier {
         _config = _normalizeAgainstRuntimeOptions(loaded);
         _hasTrustedSnapshot = true;
         _hasPendingRuntimeConfig = false;
-      } catch (error) {
+      } catch (error, stack) {
         _hasTrustedSnapshot = false;
-        _errorMessage = '$error';
+        _errorMessage = _reportMessageGatewayFailure('加载消息网关配置', error, stack);
         return;
       }
       if (_config.autoStartOnLaunch && !_service.isRunning) {
@@ -280,9 +302,14 @@ class MessageGatewayController extends ManagedChangeNotifier {
         try {
           await _service.start(startupConfig);
           _config = startupConfig;
-        } catch (error) {
+        } catch (error, stack) {
           _hasPendingRuntimeConfig = true;
-          _errorMessage = '$error';
+          _errorMessage = _reportMessageGatewayFailure(
+            '自动启动消息网关',
+            error,
+            stack,
+            fallback: '消息网关自动启动失败，请检查监听地址与端口。',
+          );
         }
       }
     } finally {
@@ -314,9 +341,9 @@ class MessageGatewayController extends ManagedChangeNotifier {
     try {
       try {
         await _store.save(normalized);
-      } catch (error) {
+      } catch (error, stack) {
         _hasTrustedSnapshot = false;
-        _errorMessage = '$error';
+        _errorMessage = _reportMessageGatewayFailure('保存消息网关配置', error, stack);
         rethrow;
       }
       final previous = _config;
@@ -326,9 +353,14 @@ class MessageGatewayController extends ManagedChangeNotifier {
         try {
           await _applyRuntimeConfig(previous, normalized);
           _hasPendingRuntimeConfig = false;
-        } catch (error) {
+        } catch (error, stack) {
           _hasPendingRuntimeConfig = true;
-          _errorMessage = '$error';
+          _errorMessage = _reportMessageGatewayFailure(
+            '应用消息网关运行配置',
+            error,
+            stack,
+            fallback: '消息网关运行配置应用失败，请检查监听地址与端口。',
+          );
           rethrow;
         }
       } else {
@@ -348,9 +380,9 @@ class MessageGatewayController extends ManagedChangeNotifier {
       _hasTrustedSnapshot = true;
       _errorMessage = null;
       return true;
-    } catch (error) {
+    } catch (error, stack) {
       _hasTrustedSnapshot = false;
-      _errorMessage = '$error';
+      _errorMessage = _reportMessageGatewayFailure('重新加载消息网关配置', error, stack);
       notifyListeners();
       return false;
     }
