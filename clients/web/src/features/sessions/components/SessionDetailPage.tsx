@@ -3629,7 +3629,7 @@ export function SessionDetailPage() {
   // 跨客户端协同: 自动跟随到底 + 远端发送冲突警告
   // ---------------------------------------------------------------------
   // 1) 自动跟随: 用户离底 ≤64px 视为「贴底」, 新消息追加时直接 scrollTo bottom;
-  //    否则把 Composer 控制区切到「回到底部」状态, 点击回到底部并清零。
+  //    用户主动上滑后暂停跟随，手动滚回底部时恢复。
   // 2) 冲突警告: 本地 handleSend 触发会写 lastLocalSendAtRef. 当 sendPhase 转入
   //    运行态且距离最近一次本地 send > 4s, 视为「另一处客户端在生成」,
   //    若此时 composerText 非空 → 顶部黄色 banner 提示, 防止用户误以为自己刚发了。
@@ -3659,7 +3659,6 @@ export function SessionDetailPage() {
   const cacheHitHighlightTimerRef = useRef<number | null>(null);
   const cacheStatisticsHydratingSessionIdRef = useRef<string | null>(null);
   const lastLocalSendAtRef = useRef<number>(0);
-  const [unreadCount, setUnreadCount] = useState<number>(0);
   const [remoteRunning, setRemoteRunning] = useState<boolean>(false);
 
   // 消息操作栏：审计弹窗 + 删除确认。
@@ -3973,10 +3972,6 @@ export function SessionDetailPage() {
     setOlderRenderSettling((current) => (current === value ? current : value));
   };
 
-  const clearUnreadCount = () => {
-    setUnreadCount((count) => (count === 0 ? count : 0));
-  };
-
   function extendProgrammaticScrollWindow(durationMs: number): void {
     programmaticScrollUntilRef.current = Math.max(
       programmaticScrollUntilRef.current,
@@ -4054,7 +4049,6 @@ export function SessionDetailPage() {
     pinMessagesToBottom();
     isNearBottomRef.current = true;
     setAutoFollowPausedValue(false);
-    clearUnreadCount();
     return true;
   };
 
@@ -4121,7 +4115,6 @@ export function SessionDetailPage() {
     scrollMessagesToBottom(behavior);
     isNearBottomRef.current = true;
     setAutoFollowPausedValue(false);
-    clearUnreadCount();
     if (followFrameRef.current != null) {
       window.cancelAnimationFrame(followFrameRef.current);
     }
@@ -4635,16 +4628,15 @@ export function SessionDetailPage() {
         }
         return;
       }
-      // 一律读 ref：autoFollow / autoFollowPaused / unreadCount 在流式期间高频
-      // 变化，若进依赖数组，这整套 wheel/touch/pointer/scroll/resize/keydown
-      // 监听器每来一条消息就拆装一次，并在拆装时同步跑一次 recalc 强制回流。
+      // 一律读 ref：autoFollow / autoFollowPaused 在流式期间高频变化，若进依赖
+      // 数组，这整套监听器每来一条消息就拆装一次，并同步跑 recalc 强制回流。
       if (!autoFollowRef.current) {
         cancelFollowSettle();
         if (autoFollowPausedRef.current) setAutoFollowPausedValue(false);
+        if (isNearBottomRef.current) setAutoFollowEnabled(true);
         return;
       }
       if (isNearBottomRef.current) {
-        clearUnreadCount();
         if (autoFollowPausedRef.current) setAutoFollowPausedValue(false);
       } else if (!autoFollowPausedRef.current && scrolledUp && hasRecentUserScrollIntent()) {
         // 仅在用户近期有明确滚动意图且 scrollTop 确实向上时暂停跟随。
@@ -4892,7 +4884,6 @@ export function SessionDetailPage() {
       scheduleAutoFollowToBottom(behavior);
     } else {
       if (autoFollow) setAutoFollowPausedValue(true);
-      setUnreadCount((n) => (tailChanged ? n + 1 : Math.max(1, n)));
     }
   }, [
     messageWindowView.tail?.id,
@@ -5403,7 +5394,6 @@ export function SessionDetailPage() {
       }
 
       setAutoFollowEnabled(false);
-      clearUnreadCount();
       extendProgrammaticScrollWindow(CACHE_HIT_REVEAL_SCROLL_GUARD_MS);
       setTranscriptRevealTarget({ messageId: targetMessageId, generation });
       setHighlightedMessageId(targetMessageId);
@@ -7414,21 +7404,8 @@ export function SessionDetailPage() {
   const returnToLatest = async () => {
     setAutoFollowEnabled(true);
     setAutoFollowPausedValue(false);
-    clearUnreadCount();
     isNearBottomRef.current = true;
     await refresh({ replaceWithLatest: true });
-  };
-
-  const resumeToLatest = () => {
-    if (remainingNewer > 0) {
-      void returnToLatest();
-      return;
-    }
-    setAutoFollowEnabled(true);
-    setAutoFollowPausedValue(false);
-    clearUnreadCount();
-    isNearBottomRef.current = true;
-    scheduleFollowToBottom(reduceMotion ? 'auto' : 'smooth');
   };
 
   const responseRunning = isRunningPhase(sendPhase);
@@ -7815,26 +7792,6 @@ export function SessionDetailPage() {
                     <ComposerIcon name="permission" />
                   </span>
                   <span>{session?.full_access_permission === true ? t('topbar.perm.full', '完全访问权限') : t('topbar.perm.default', '默认权限')}</span>
-                </button>
-
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!autoFollow || autoFollowPaused || unreadCount > 0) {
-                      resumeToLatest();
-                    } else {
-                      setAutoFollowEnabled(false);
-                      setAutoFollowPausedValue(false);
-                    }
-                  }}
-                  class={`oh-composer-control oh-composer-follow-control oh-tap-press ${autoFollow || autoFollowPaused || unreadCount > 0 ? 'is-tonal' : 'is-muted'}`}
-                  aria-label={autoFollowPaused || unreadCount > 0 ? t('detail.resumeToLatest', '回到底部') : t('composer.autoFollow', '自动跟随到底部')}
-                  title={autoFollowPaused || unreadCount > 0 ? t('detail.resumeToLatest', '回到底部') : t('composer.autoFollow', '自动跟随到底部')}
-                >
-                  <span class="oh-composer-control-icon">
-                    <ComposerIcon name="follow" />
-                  </span>
-                  <span>{autoFollowPaused || unreadCount > 0 ? t('detail.resumeToLatest', '回到底部') : autoFollow ? t('common.on', '开启') : t('common.off', '关闭')}</span>
                 </button>
               </>
             ) : null}
