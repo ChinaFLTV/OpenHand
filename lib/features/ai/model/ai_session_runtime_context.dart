@@ -387,7 +387,7 @@ class AiSessionRuntimeContext {
   /// Anthropic cache breakpoint 最大数量 (1..4)。
   final int aiInputCacheBreakpointCount;
 
-  /// 用户自定义的前 N-1 个静态缓存点位置（百分比 0..1，升序）。
+  /// 用户自定义的历史消息候选点位置（百分比 0..1，升序）。
   /// 空列表 = 沿用 mode-based 自动布点。
   final List<double> aiInputCacheBreakpointPositions;
   final bool memoryEnabled;

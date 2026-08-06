@@ -5712,11 +5712,11 @@ class AppLocalizationsZh extends AppLocalizations {
       '默认开启。关闭后不会注入协议层缓存提示，也不会执行模型锁定等输入缓存保护。若要最大化命中率，请避免在会话中途频繁修改工具、技能、MCP、记忆或指令。';
 
   @override
-  String get settingsCacheBreakpointUpdateMode => '缓存断点更新模式';
+  String get settingsCacheBreakpointUpdateMode => '历史候选点更新模式';
 
   @override
   String get settingsChooseTheSlidingUnitForThe =>
-      '决定动态缓存断点的滑动单位：按全部消息条数（user+assistant）/ 仅按用户消息条数 / 按累计 tokens 阈值。后两者更适合配合较小的更新间隔，前者更直观。';
+      '稳定锚、上一请求尾锚和当前尾锚会自动优先保留；此设置仅决定剩余预算如何选择历史候选点。';
 
   @override
   String get settingsByMessageCountUserAssistant => '按消息条数 (user+assistant)';
@@ -5728,11 +5728,11 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsByAccumulatedTokens => '按累计 tokens';
 
   @override
-  String get settingsCacheBreakpointUpdateInterval => '缓存断点更新间隔';
+  String get settingsCacheBreakpointUpdateInterval => '历史候选点更新间隔';
 
   @override
   String get settingsDefault10MeaningDependsOnThe =>
-      '默认 10。含义随上方模式变化：消息条数 (1-50 推荐) / 用户消息条数 (1-30 推荐) / tokens 阈值 (建议 ≥1000)。';
+      '默认 10，仅用于自动选择历史候选点。含义随上方模式变化：消息条数 / 用户消息条数 / tokens 阈值。';
 
   @override
   String get settingsSave => '保存';
@@ -5742,7 +5742,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      '默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。OpenAI-compatible 服务商仅将该设置作为缓存亲和强度参考，不会向消息内容注入不兼容的 cache_control 标记。';
+      '默认 4，范围 1-4。Anthropic 协议按稳定系统/工具锚、上一请求尾锚、当前尾锚、历史候选点的顺序使用预算，且每个请求最多支持 4 个 cache_control 断点。OpenAI-compatible 服务商不会注入该标记。';
 
   @override
   String get settingsCommandSafety => '命令安全';
@@ -5904,20 +5904,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settingsStreamIdleTimeoutSaved => '等待超时时间已保存。';
 
   @override
-  String get settingsCacheBreakpointUpdateIntervalSaved => '缓存断点更新间隔已保存';
+  String get settingsCacheBreakpointUpdateIntervalSaved => '历史候选点更新间隔已保存';
 
   @override
   String get settingsCacheBreakpointCountSaved => '缓存断点数量已保存';
 
   @override
-  String get settingsCacheBreakpointPositions => '缓存断点位置';
+  String get settingsCacheBreakpointPositions => '历史缓存候选点';
 
   @override
-  String get settingsCacheBreakpointPositionsSaved => '缓存断点位置已保存';
+  String get settingsCacheBreakpointPositionsSaved => '历史缓存候选点已保存';
 
   @override
   String get cacheBarTopDescription =>
-      '彩色段对应实际 prompt 各部分。拖动 P 插桩定位静态缓存断点；最右侧虚线插桩为动态断点（跟随更新间隔自动落点）。各段宽度仅作示意，并非真实 token 占比。';
+      '彩色段仅用于说明 prompt 结构。P 插桩表示历史消息流中的候选位置；最右侧虚线插桩表示当前请求尾锚。协议层会先保留稳定锚和连续尾锚，剩余预算再采用候选点。';
 
   @override
   String get cacheBarSectionSysLabel => '[0] 系统指令';
@@ -6003,13 +6003,14 @@ class AppLocalizationsZh extends AppLocalizations {
       '靠近 prompt 尾部的最新轮次载荷，包含当前用户轮次与按轮变化的 reminder 内容。';
 
   @override
-  String get cacheBarSectionLatestCacheHint => '始终变化：这是最热的尾部区域，也是动态断点重点照顾的位置。';
+  String get cacheBarSectionLatestCacheHint =>
+      '始终变化：当前请求尾锚覆盖此区域，上一请求尾锚负责延续缓存命中。';
 
   @override
-  String get cacheBarDynamicTooltip => '动态断点：跟随缓存更新间隔自动落点。';
+  String get cacheBarDynamicTooltip => '当前请求尾锚：始终跟随最新消息。';
 
   @override
-  String get cacheBarDynamicSuffix => '（动态）';
+  String get cacheBarDynamicSuffix => '（当前尾锚）';
 
   @override
   String get cacheBarResetEven => '重置为均匀分布';
@@ -6381,7 +6382,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
-    return '拖动 $thumbCount 个圆点自定义前 N-1 个静态断点在消息流中的位置（百分比 0%-100%）。最后一个断点固定在末尾消息（带锁图标的圆点），不可拖动。点击「重置」恢复均匀分布。';
+    return '拖动 $thumbCount 个圆点设置历史消息候选位置（0%-100%）。稳定锚与连续尾锚优先占用断点预算；最右侧圆点固定为当前请求尾锚。';
   }
 
   @override
@@ -16405,11 +16406,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
       '預設開啟。關閉後不會注入協議層快取提示，也不會執行模型鎖定等輸入快取保護。若要最大化命中率，請避免在會話中途頻繁修改工具、技能、MCP、記憶或指令。';
 
   @override
-  String get settingsCacheBreakpointUpdateMode => '缓存断点更新模式';
+  String get settingsCacheBreakpointUpdateMode => '歷史候選點更新模式';
 
   @override
   String get settingsChooseTheSlidingUnitForThe =>
-      '决定动态缓存断点的滑动单位：按全部消息条数（user+assistant）/ 仅按用户消息条数 / 按累计 tokens 阈值。后两者更适合配合较小的更新间隔，前者更直观。';
+      '穩定錨點、上一請求尾錨和目前尾錨會自動優先保留；此設定僅決定剩餘預算如何選擇歷史候選點。';
 
   @override
   String get settingsByMessageCountUserAssistant => '按消息条数 (user+assistant)';
@@ -16421,11 +16422,11 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsByAccumulatedTokens => '按累计 tokens';
 
   @override
-  String get settingsCacheBreakpointUpdateInterval => '缓存断点更新间隔';
+  String get settingsCacheBreakpointUpdateInterval => '歷史候選點更新間隔';
 
   @override
   String get settingsDefault10MeaningDependsOnThe =>
-      '默认 10。含义随上方模式变化：消息条数 (1-50 推荐) / 用户消息条数 (1-30 推荐) / tokens 阈值 (建议 ≥1000)。';
+      '預設 10，僅用於自動選擇歷史候選點。含義隨上方模式變化：訊息數 / 使用者訊息數 / tokens 閾值。';
 
   @override
   String get settingsSave => '保存';
@@ -16435,7 +16436,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      '預設 4，範圍 1-4。Anthropic 協議每個請求最多支援 4 個 cache_control 斷點。OpenAI-compatible 服務商僅將此設定作為快取親和強度參考，不會向訊息內容注入不相容的 cache_control 標記。';
+      '預設 4，範圍 1-4。Anthropic 協議依穩定系統/工具錨點、上一請求尾錨、目前尾錨、歷史候選點的順序使用預算，每個請求最多支援 4 個 cache_control 斷點。OpenAI-compatible 服務商不會注入此標記。';
 
   @override
   String get settingsCommandSafety => '命令安全';
@@ -16597,20 +16598,20 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get settingsStreamIdleTimeoutSaved => '等待超时时间已保存。';
 
   @override
-  String get settingsCacheBreakpointUpdateIntervalSaved => '缓存断点更新间隔已保存';
+  String get settingsCacheBreakpointUpdateIntervalSaved => '歷史候選點更新間隔已儲存';
 
   @override
   String get settingsCacheBreakpointCountSaved => '缓存断点数量已保存';
 
   @override
-  String get settingsCacheBreakpointPositions => '缓存断点位置';
+  String get settingsCacheBreakpointPositions => '歷史快取候選點';
 
   @override
-  String get settingsCacheBreakpointPositionsSaved => '缓存断点位置已保存';
+  String get settingsCacheBreakpointPositionsSaved => '歷史快取候選點已儲存';
 
   @override
   String get cacheBarTopDescription =>
-      '彩色段對應實際 prompt 各部分。拖動 P 插樁定位靜態快取斷點；最右側虛線插樁為動態斷點（跟隨更新間隔自動落點）。各段寬度僅作示意，並非真實 token 佔比。';
+      '彩色段僅用於說明 prompt 結構。P 插樁表示歷史訊息流中的候選位置；最右側虛線插樁表示目前請求尾錨。協議層會先保留穩定錨點和連續尾錨，剩餘預算再採用候選點。';
 
   @override
   String get cacheBarSectionSysLabel => '[0] 系統指令';
@@ -16693,13 +16694,14 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get cacheBarSectionLatestSummary => '當前正在回答的使用者訊息（含附件元資料）。';
 
   @override
-  String get cacheBarSectionLatestCacheHint => '每輪變化：動態斷點正是為命中此段而設。';
+  String get cacheBarSectionLatestCacheHint =>
+      '每輪變化：目前請求尾錨覆蓋此區域，上一請求尾錨負責延續快取命中。';
 
   @override
-  String get cacheBarDynamicTooltip => '動態斷點：跟隨快取更新間隔自動落點。';
+  String get cacheBarDynamicTooltip => '目前請求尾錨：始終跟隨最新訊息。';
 
   @override
-  String get cacheBarDynamicSuffix => '（動態）';
+  String get cacheBarDynamicSuffix => '（目前尾錨）';
 
   @override
   String get cacheBarResetEven => '重設為均勻分佈';
@@ -17071,7 +17073,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
-    return '拖动 $thumbCount 个圆点自定义前 N-1 个静态断点在消息流中的位置（百分比 0%-100%）。最后一个断点固定在末尾消息（带锁图标的圆点），不可拖动。点击「重置」恢复均匀分布。';
+    return '拖動 $thumbCount 個圓點設定歷史訊息候選位置（0%-100%）。穩定錨點與連續尾錨優先占用斷點預算；最右側圓點固定為目前請求尾錨。';
   }
 
   @override

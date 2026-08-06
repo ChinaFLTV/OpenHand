@@ -10569,13 +10569,13 @@ abstract class AppLocalizations {
   /// No description provided for @settingsCacheBreakpointUpdateMode.
   ///
   /// In zh, this message translates to:
-  /// **'缓存断点更新模式'**
+  /// **'历史候选点更新模式'**
   String get settingsCacheBreakpointUpdateMode;
 
   /// No description provided for @settingsChooseTheSlidingUnitForThe.
   ///
   /// In zh, this message translates to:
-  /// **'决定动态缓存断点的滑动单位：按全部消息条数（user+assistant）/ 仅按用户消息条数 / 按累计 tokens 阈值。后两者更适合配合较小的更新间隔，前者更直观。'**
+  /// **'稳定锚、上一请求尾锚和当前尾锚会自动优先保留；此设置仅决定剩余预算如何选择历史候选点。'**
   String get settingsChooseTheSlidingUnitForThe;
 
   /// No description provided for @settingsByMessageCountUserAssistant.
@@ -10599,13 +10599,13 @@ abstract class AppLocalizations {
   /// No description provided for @settingsCacheBreakpointUpdateInterval.
   ///
   /// In zh, this message translates to:
-  /// **'缓存断点更新间隔'**
+  /// **'历史候选点更新间隔'**
   String get settingsCacheBreakpointUpdateInterval;
 
   /// No description provided for @settingsDefault10MeaningDependsOnThe.
   ///
   /// In zh, this message translates to:
-  /// **'默认 10。含义随上方模式变化：消息条数 (1-50 推荐) / 用户消息条数 (1-30 推荐) / tokens 阈值 (建议 ≥1000)。'**
+  /// **'默认 10，仅用于自动选择历史候选点。含义随上方模式变化：消息条数 / 用户消息条数 / tokens 阈值。'**
   String get settingsDefault10MeaningDependsOnThe;
 
   /// No description provided for @settingsSave.
@@ -10623,7 +10623,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsDefault4Range14Anthropic.
   ///
   /// In zh, this message translates to:
-  /// **'默认 4，范围 1-4。Anthropic 协议每个请求最多支持 4 个 cache_control 断点。OpenAI-compatible 服务商仅将该设置作为缓存亲和强度参考，不会向消息内容注入不兼容的 cache_control 标记。'**
+  /// **'默认 4，范围 1-4。Anthropic 协议按稳定系统/工具锚、上一请求尾锚、当前尾锚、历史候选点的顺序使用预算，且每个请求最多支持 4 个 cache_control 断点。OpenAI-compatible 服务商不会注入该标记。'**
   String get settingsDefault4Range14Anthropic;
 
   /// No description provided for @settingsCommandSafety.
@@ -10923,7 +10923,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsCacheBreakpointUpdateIntervalSaved.
   ///
   /// In zh, this message translates to:
-  /// **'缓存断点更新间隔已保存'**
+  /// **'历史候选点更新间隔已保存'**
   String get settingsCacheBreakpointUpdateIntervalSaved;
 
   /// No description provided for @settingsCacheBreakpointCountSaved.
@@ -10935,19 +10935,19 @@ abstract class AppLocalizations {
   /// No description provided for @settingsCacheBreakpointPositions.
   ///
   /// In zh, this message translates to:
-  /// **'缓存断点位置'**
+  /// **'历史缓存候选点'**
   String get settingsCacheBreakpointPositions;
 
   /// No description provided for @settingsCacheBreakpointPositionsSaved.
   ///
   /// In zh, this message translates to:
-  /// **'缓存断点位置已保存'**
+  /// **'历史缓存候选点已保存'**
   String get settingsCacheBreakpointPositionsSaved;
 
   /// No description provided for @cacheBarTopDescription.
   ///
   /// In zh, this message translates to:
-  /// **'彩色段对应实际 prompt 各部分。拖动 P 插桩定位静态缓存断点；最右侧虚线插桩为动态断点（跟随更新间隔自动落点）。各段宽度仅作示意，并非真实 token 占比。'**
+  /// **'彩色段仅用于说明 prompt 结构。P 插桩表示历史消息流中的候选位置；最右侧虚线插桩表示当前请求尾锚。协议层会先保留稳定锚和连续尾锚，剩余预算再采用候选点。'**
   String get cacheBarTopDescription;
 
   /// No description provided for @cacheBarSectionSysLabel.
@@ -11109,19 +11109,19 @@ abstract class AppLocalizations {
   /// No description provided for @cacheBarSectionLatestCacheHint.
   ///
   /// In zh, this message translates to:
-  /// **'始终变化：这是最热的尾部区域，也是动态断点重点照顾的位置。'**
+  /// **'始终变化：当前请求尾锚覆盖此区域，上一请求尾锚负责延续缓存命中。'**
   String get cacheBarSectionLatestCacheHint;
 
   /// No description provided for @cacheBarDynamicTooltip.
   ///
   /// In zh, this message translates to:
-  /// **'动态断点：跟随缓存更新间隔自动落点。'**
+  /// **'当前请求尾锚：始终跟随最新消息。'**
   String get cacheBarDynamicTooltip;
 
   /// No description provided for @cacheBarDynamicSuffix.
   ///
   /// In zh, this message translates to:
-  /// **'（动态）'**
+  /// **'（当前尾锚）'**
   String get cacheBarDynamicSuffix;
 
   /// No description provided for @cacheBarResetEven.
@@ -11722,7 +11722,7 @@ abstract class AppLocalizations {
   /// No description provided for @settingsDragTheThumbcountThumbsToPosition.
   ///
   /// In zh, this message translates to:
-  /// **'拖动 {thumbCount} 个圆点自定义前 N-1 个静态断点在消息流中的位置（百分比 0%-100%）。最后一个断点固定在末尾消息（带锁图标的圆点），不可拖动。点击「重置」恢复均匀分布。'**
+  /// **'拖动 {thumbCount} 个圆点设置历史消息候选位置（0%-100%）。稳定锚与连续尾锚优先占用断点预算；最右侧圆点固定为当前请求尾锚。'**
   String settingsDragTheThumbcountThumbsToPosition(Object thumbCount);
 
   /// No description provided for @settingsTheDenyCommandRuleHasBeen2.

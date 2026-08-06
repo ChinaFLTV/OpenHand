@@ -5794,11 +5794,11 @@ class AppLocalizationsJa extends AppLocalizations {
       '既定で有効です。無効にすると、プロトコルレベルのキャッシュヒント注入やモデルロックなどの入力キャッシュ保護は行われません。ヒット率を最大化するには、会話中にツール、スキル、MCP、メモリ、指示を頻繁に変更しないでください。';
 
   @override
-  String get settingsCacheBreakpointUpdateMode => 'キャッシュブレークポイント更新モード';
+  String get settingsCacheBreakpointUpdateMode => '履歴候補の更新モード';
 
   @override
   String get settingsChooseTheSlidingUnitForThe =>
-      '動的キャッシュブレークポイントのスライディング単位を選択：合計メッセージ数（ユーザー＋アシスタント）、ユーザーメッセージのみのカウント、または累積トークンの閾値。';
+      '安定アンカー、前回リクエスト末尾、現在末尾が優先されます。この設定は残りの履歴候補の選択方法のみを制御します。';
 
   @override
   String get settingsByMessageCountUserAssistant => 'メッセージ数（ユーザー＋アシスタント）';
@@ -5810,11 +5810,11 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsByAccumulatedTokens => '累積トークン';
 
   @override
-  String get settingsCacheBreakpointUpdateInterval => 'キャッシュブレークポイント更新間隔';
+  String get settingsCacheBreakpointUpdateInterval => '履歴候補の更新間隔';
 
   @override
   String get settingsDefault10MeaningDependsOnThe =>
-      '既定値 10。意味は上記モードに依存します：メッセージ数（推奨 1-50）/ ユーザーメッセージ数（推奨 1-30）/ トークン閾値（推奨 ≥1000）。';
+      '既定値 10。自動履歴候補にのみ使用され、単位は上記モードに従います。';
 
   @override
   String get settingsSave => '保存';
@@ -5824,7 +5824,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      '既定値 4、範囲 1-4。Anthropic はリクエストごとに最大 4 つの cache_control ブレークポイントをサポートします。OpenAI 互換プロバイダーでは、この設定はキャッシュアフィニティの強さとしてのみ扱われ、互換性のない cache_control マーカーはメッセージに追加されません。';
+      '既定値 4、範囲 1-4。Anthropic は安定したシステム/ツールアンカー、前回リクエスト末尾、現在末尾、履歴候補の順に予算を使い、1 リクエストあたり最大 4 個の cache_control マーカーを設定します。OpenAI 互換プロバイダーにはこれらのマーカーを追加しません。';
 
   @override
   String get settingsCommandSafety => 'コマンドセーフティ';
@@ -5991,21 +5991,20 @@ class AppLocalizationsJa extends AppLocalizations {
   String get settingsStreamIdleTimeoutSaved => 'ストリームアイドルタイムアウトを保存しました。';
 
   @override
-  String get settingsCacheBreakpointUpdateIntervalSaved =>
-      'キャッシュブレークポイント更新間隔を保存しました';
+  String get settingsCacheBreakpointUpdateIntervalSaved => '履歴候補の更新間隔を保存しました';
 
   @override
   String get settingsCacheBreakpointCountSaved => 'キャッシュブレークポイント数を保存しました';
 
   @override
-  String get settingsCacheBreakpointPositions => 'キャッシュブレークポイント位置';
+  String get settingsCacheBreakpointPositions => '履歴キャッシュ候補';
 
   @override
-  String get settingsCacheBreakpointPositionsSaved => 'キャッシュブレークポイント位置を保存しました';
+  String get settingsCacheBreakpointPositionsSaved => '履歴キャッシュ候補を保存しました';
 
   @override
   String get cacheBarTopDescription =>
-      '各バンドはプロンプトの各セクションに対応します。P ピンをドラッグして静的キャッシュブレークポイントを配置します。右端の破線ピンは更新間隔に追従する動的ブレークポイントです。バンドの幅はあくまで概念的な表示であり、実際のトークン使用量を反映するものではありません。';
+      '色付きバンドはプロンプト構造の参考表示です。P ピンはメッセージ履歴内の候補位置、右端の破線ピンは現在リクエストの末尾アンカーを示します。安定アンカーと連続末尾アンカーが優先されます。';
 
   @override
   String get cacheBarSectionSysLabel => '[0] システム';
@@ -6097,13 +6096,14 @@ class AppLocalizationsJa extends AppLocalizations {
   String get cacheBarSectionLatestSummary => '現在回答中のユーザーメッセージ（添付メタデータを含む）。';
 
   @override
-  String get cacheBarSectionLatestCacheHint => '毎ターン変化：動的ブレークポイントはこのために存在する。';
+  String get cacheBarSectionLatestCacheHint =>
+      '毎ターン変化します。現在末尾アンカーがこの領域を覆い、前回末尾アンカーが連続性を維持します。';
 
   @override
-  String get cacheBarDynamicTooltip => '動的ブレークポイント — キャッシュ更新間隔に追従します。';
+  String get cacheBarDynamicTooltip => '現在リクエストの末尾アンカー — 常に最新メッセージに追従します。';
 
   @override
-  String get cacheBarDynamicSuffix => '（動的）';
+  String get cacheBarDynamicSuffix => '（現在末尾）';
 
   @override
   String get cacheBarResetEven => '均等にリセット';
@@ -6480,7 +6480,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
-    return '$thumbCount 個のつまみをドラッグして、メッセージストリームに沿った最初の N-1 個の静的キャッシュブレークポイントを配置します。';
+    return '$thumbCount 個の点をドラッグして履歴候補を設定します（0%-100%）。安定アンカーと連続末尾アンカーが先に予算を使い、右端の点は現在リクエスト末尾に固定されます。';
   }
 
   @override

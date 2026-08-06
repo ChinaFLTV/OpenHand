@@ -5944,11 +5944,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsCacheBreakpointUpdateMode =>
-      'Cache Breakpoint Update Mode';
+      'History Candidate Update Mode';
 
   @override
   String get settingsChooseTheSlidingUnitForThe =>
-      'Choose the sliding unit for the dynamic cache breakpoint: total message count (user+assistant), user-message-only count, or accumulated tokens threshold.';
+      'Stable, previous-request-tail, and current-tail anchors take priority. This setting only controls how remaining history candidates are selected.';
 
   @override
   String get settingsByMessageCountUserAssistant =>
@@ -5962,11 +5962,11 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsCacheBreakpointUpdateInterval =>
-      'Cache Breakpoint Update Interval';
+      'History Candidate Update Interval';
 
   @override
   String get settingsDefault10MeaningDependsOnThe =>
-      'Default 10. Meaning depends on the mode above: message count (1-50 recommended) / user-message count (1-30 recommended) / tokens threshold (≥1000 recommended).';
+      'Default 10. Used only for automatic history candidates; its unit is message count, user-message count, or token threshold, depending on the mode above.';
 
   @override
   String get settingsSave => 'Save';
@@ -5976,7 +5976,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      'Default 4, range 1-4. Anthropic supports up to 4 cache_control breakpoints per request. OpenAI-compatible providers use this setting as cache-affinity strength only; no unsupported cache_control markers are added to their messages.';
+      'Default 4, range 1-4. Anthropic spends the budget on the stable system/tool anchor, previous request tail, current tail, then history candidates, with at most 4 cache_control markers per request. OpenAI-compatible providers do not receive these markers.';
 
   @override
   String get settingsCommandSafety => 'Command Safety';
@@ -6147,22 +6147,22 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsCacheBreakpointUpdateIntervalSaved =>
-      'Cache breakpoint update interval saved';
+      'History candidate update interval saved';
 
   @override
   String get settingsCacheBreakpointCountSaved =>
       'Cache breakpoint count saved';
 
   @override
-  String get settingsCacheBreakpointPositions => 'Cache Breakpoint Positions';
+  String get settingsCacheBreakpointPositions => 'History Cache Candidates';
 
   @override
   String get settingsCacheBreakpointPositionsSaved =>
-      'Cache breakpoint positions saved';
+      'History cache candidates saved';
 
   @override
   String get cacheBarTopDescription =>
-      'Each band maps to a prompt section. Drag the P-pins to position the static cache breakpoints; the dashed pin at the right is the dynamic breakpoint that follows the update interval. Band widths are illustrative — they do not reflect real token usage.';
+      'The colored bands illustrate prompt structure only. P-pins are candidate positions in message history; the dashed pin at the right is the current-request tail anchor. Stable and rolling tail anchors take priority before remaining candidates.';
 
   @override
   String get cacheBarSectionSysLabel => '[0] System';
@@ -6261,14 +6261,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get cacheBarSectionLatestCacheHint =>
-      'Always changing: this is the hottest tail region and the main target of the dynamic breakpoint.';
+      'Always changing: the current tail anchor covers this region while the previous tail anchor preserves continuity.';
 
   @override
   String get cacheBarDynamicTooltip =>
-      'Dynamic breakpoint — follows the cache update interval.';
+      'Current-request tail anchor — always follows the latest message.';
 
   @override
-  String get cacheBarDynamicSuffix => '(dynamic)';
+  String get cacheBarDynamicSuffix => '(current tail)';
 
   @override
   String get cacheBarResetEven => 'Reset to even';
@@ -6654,7 +6654,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
-    return 'Drag the $thumbCount thumbs to position the first N-1 static cache breakpoints across the message stream (0%-100%). The Nth breakpoint is locked to the tail (the locked dot). Tap \"Reset\" to redistribute evenly.';
+    return 'Drag $thumbCount points to set history candidates (0%-100%). Stable and rolling tail anchors use the budget first; the rightmost point is fixed to the current request tail.';
   }
 
   @override

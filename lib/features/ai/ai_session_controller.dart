@@ -8434,7 +8434,7 @@ class AiSessionController extends ChangeNotifier {
       if (shouldPersistIntermediateAssistantNarration) {
         // 提取图片摘要并回写对应附件，再保存清理后的助手正文。
         final extraction = AiImageSummaryExtractor.extractAndStrip(
-          effectiveReply,
+          sanitizedReply,
         );
         if (extraction.summariesByAttachmentId.isNotEmpty) {
           streamedSession = _applyImageSummariesToSession(
@@ -8445,7 +8445,7 @@ class AiSessionController extends ChangeNotifier {
         streamedSession = syncFinalAssistantMessage(
           streamedSession,
           extraction.summariesByAttachmentId.isEmpty
-              ? effectiveReply
+              ? sanitizedReply
               : extraction.strippedContent,
         );
       } else {
@@ -14700,13 +14700,13 @@ $tail''';
           as Map<String, Object?>,
     );
     final currentHash = stableFnv1a32Hex(currentJson);
-    final previousRound = _previousRoundAnchorMessageForTelemetry(
+    final previousRequest = _previousRequestMessageForTelemetry(
       session: session,
       messageId: messageId,
     );
-    final previousPayload = previousRound == null
+    final previousPayload = previousRequest == null
         ? null
-        : _metadataMap(previousRound.metadata['request_payload']);
+        : _metadataMap(previousRequest.metadata['request_payload']);
     if (previousPayload == null) {
       return <String, Object?>{
         'request_payload_json_length': currentJson.length,
@@ -14732,7 +14732,7 @@ $tail''';
     };
   }
 
-  AiSessionMessage? _previousRoundAnchorMessageForTelemetry({
+  AiSessionMessage? _previousRequestMessageForTelemetry({
     required AiSession session,
     required String messageId,
   }) {
@@ -14744,7 +14744,8 @@ $tail''';
     }
     for (var index = startIndex - 1; index >= 0; index -= 1) {
       final message = session.messages[index];
-      if (!message.isDeleted && message.startsConversationRound) {
+      if (!message.isDeleted &&
+          _metadataMap(message.metadata['request_payload']) != null) {
         return message;
       }
     }

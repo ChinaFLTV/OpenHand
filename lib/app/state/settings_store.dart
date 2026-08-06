@@ -673,7 +673,7 @@ class SettingsStore {
       min: AppSettingsSnapshot.minAiInputCacheBreakpointCount,
       max: AppSettingsSnapshot.maxAiInputCacheBreakpointCount,
     );
-    // 用户自定义前 N-1 个静态缓存点位置（百分比 0..1，升序）。
+    // 用户自定义的历史消息候选点位置（百分比 0..1，升序）。
     // JSON 形如 [0.25, 0.5, 0.75]；非法元素直接忽略，越界 clamp 至 [0,1]。
     final List<double> aiInputCacheBreakpointPositions = () {
       final raw = json['ai_input_cache_breakpoint_positions'];

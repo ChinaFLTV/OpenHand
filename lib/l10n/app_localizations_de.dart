@@ -5998,11 +5998,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsCacheBreakpointUpdateMode =>
-      'Cache-Breakpoint-Aktualisierungsmodus';
+      'Aktualisierungsmodus für Verlaufskandidaten';
 
   @override
   String get settingsChooseTheSlidingUnitForThe =>
-      'Wählen Sie die gleitende Einheit für den dynamischen Cache-Breakpoint: Gesamt-Nachrichtenanzahl (Benutzer+Assistent), nur Benutzer-Nachrichtenanzahl oder akkumulierter Token-Schwellwert.';
+      'Stabiler Anker, vorheriges Anfrageende und aktuelles Ende haben Vorrang. Diese Einstellung steuert nur die Auswahl der verbleibenden Verlaufskandidaten.';
 
   @override
   String get settingsByMessageCountUserAssistant =>
@@ -6017,11 +6017,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsCacheBreakpointUpdateInterval =>
-      'Cache-Breakpoint-Aktualisierungsintervall';
+      'Aktualisierungsintervall für Verlaufskandidaten';
 
   @override
   String get settingsDefault10MeaningDependsOnThe =>
-      'Standard 10. Bedeutung hängt vom obigen Modus ab: Nachrichtenanzahl (1-50 empfohlen) / Benutzer-Nachrichtenanzahl (1-30 empfohlen) / Token-Schwellwert (≥1000 empfohlen).';
+      'Standard 10. Wird nur für automatische Verlaufskandidaten verwendet; die Einheit richtet sich nach dem obigen Modus.';
 
   @override
   String get settingsSave => 'Speichern';
@@ -6031,7 +6031,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      'Standard 4, Bereich 1-4. Anthropic unterstützt bis zu 4 cache_control-Breakpoints pro Anfrage. OpenAI-kompatible Anbieter verwenden diese Einstellung nur als Cache-Affinitätsstärke; ihren Nachrichten werden keine inkompatiblen cache_control-Marker hinzugefügt.';
+      'Standard 4, Bereich 1-4. Anthropic verwendet das Budget zuerst für den stabilen System-/Werkzeuganker, das vorherige Anfrageende und das aktuelle Ende, danach für Verlaufskandidaten. Pro Anfrage sind höchstens 4 cache_control-Marker zulässig. OpenAI-kompatible Anbieter erhalten diese Marker nicht.';
 
   @override
   String get settingsCommandSafety => 'Befehlssicherheit';
@@ -6207,22 +6207,22 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settingsCacheBreakpointUpdateIntervalSaved =>
-      'Cache-Breakpoint-Aktualisierungsintervall gespeichert';
+      'Aktualisierungsintervall für Verlaufskandidaten gespeichert';
 
   @override
   String get settingsCacheBreakpointCountSaved =>
       'Anzahl der Cache-Breakpoints gespeichert';
 
   @override
-  String get settingsCacheBreakpointPositions => 'Cache-Breakpoint-Positionen';
+  String get settingsCacheBreakpointPositions => 'Cache-Verlaufskandidaten';
 
   @override
   String get settingsCacheBreakpointPositionsSaved =>
-      'Cache-Breakpoint-Positionen gespeichert';
+      'Cache-Verlaufskandidaten gespeichert';
 
   @override
   String get cacheBarTopDescription =>
-      'Jedes Band entspricht einem Prompt-Abschnitt. Ziehe die P-Pins, um die statischen Cache-Breakpoints zu platzieren; der gestrichelte Pin rechts ist der dynamische Breakpoint, der dem Aktualisierungsintervall folgt. Die Bandbreiten sind illustrativ — sie spiegeln nicht den tatsächlichen Token-Verbrauch wider.';
+      'Die farbigen Bänder zeigen nur die Prompt-Struktur. P-Pins markieren Kandidaten im Nachrichtenverlauf; der gestrichelte Pin rechts ist der Anker am aktuellen Anfrageende. Stabile und fortlaufende Endanker haben Vorrang.';
 
   @override
   String get cacheBarSectionSysLabel => '[0] System';
@@ -6321,14 +6321,14 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get cacheBarSectionLatestCacheHint =>
-      'Ändert sich jede Runde: Genau darauf zielt der dynamische Breakpoint.';
+      'Ändert sich jede Runde: Der aktuelle Endanker deckt diesen Bereich ab, während der vorherige Endanker die Kontinuität bewahrt.';
 
   @override
   String get cacheBarDynamicTooltip =>
-      'Dynamischer Breakpoint — folgt dem Cache-Aktualisierungsintervall.';
+      'Anker am aktuellen Anfrageende — folgt stets der neuesten Nachricht.';
 
   @override
-  String get cacheBarDynamicSuffix => '(dynamisch)';
+  String get cacheBarDynamicSuffix => '(aktuelles Ende)';
 
   @override
   String get cacheBarResetEven => 'Gleichmäßig zurücksetzen';
@@ -6715,7 +6715,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
-    return 'Ziehen Sie die $thumbCount Schieberegler, um die ersten N-1 statischen Cache-Breakpoints im Nachrichtenstrom zu positionieren.';
+    return 'Ziehen Sie $thumbCount Punkte, um Verlaufskandidaten festzulegen (0%-100%). Stabile und fortlaufende Endanker belegen das Budget zuerst; der rechte Punkt bleibt am aktuellen Anfrageende.';
   }
 
   @override

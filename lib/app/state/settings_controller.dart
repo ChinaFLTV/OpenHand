@@ -439,7 +439,7 @@ class SettingsController extends ChangeNotifier {
   int get aiInputCacheUpdateInterval => _aiInputCacheUpdateInterval;
   int get aiInputCacheBreakpointCount => _aiInputCacheBreakpointCount;
 
-  /// 用户自定义的前 N-1 个静态缓存点位置（百分比 0..1，升序）。
+  /// 用户自定义的历史消息候选点位置（百分比 0..1，升序）。
   /// 空列表表示沿用 mode-based 自动布点。
   List<double> get aiInputCacheBreakpointPositions =>
       _aiInputCacheBreakpointPositions;
@@ -1106,8 +1106,8 @@ class SettingsController extends ChangeNotifier {
     });
   }
 
-  /// 提交用户拖拽得到的前 N-1 个缓存点位置。空列表表示
-  /// 撤销自定义、回到 mode-based 自动布点。
+  /// 提交用户拖拽得到的历史消息候选点。空列表表示撤销自定义、
+  /// 回到 mode-based 自动布点。
   Future<bool> updateAiInputCacheBreakpointPositions(
     List<double> positions,
   ) async {

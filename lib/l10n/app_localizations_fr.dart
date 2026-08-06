@@ -6014,11 +6014,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsCacheBreakpointUpdateMode =>
-      'Mode de mise à jour des points d’arrêt de cache';
+      'Mode de mise à jour des candidats d’historique';
 
   @override
   String get settingsChooseTheSlidingUnitForThe =>
-      'Choisissez l’unité glissante pour le point d’arrêt de cache dynamique : nombre total de messages (utilisateur+assistant), nombre de messages utilisateur uniquement, ou seuil de jetons cumulés.';
+      'L’ancre stable, la fin de la requête précédente et la fin actuelle sont prioritaires. Ce réglage sélectionne uniquement les candidats d’historique restants.';
 
   @override
   String get settingsByMessageCountUserAssistant =>
@@ -6033,11 +6033,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsCacheBreakpointUpdateInterval =>
-      'Intervalle de mise à jour des points d’arrêt de cache';
+      'Intervalle des candidats d’historique';
 
   @override
   String get settingsDefault10MeaningDependsOnThe =>
-      'Par défaut 10. La signification dépend du mode ci-dessus : nombre de messages (1-50 recommandé) / nombre de messages utilisateur (1-30 recommandé) / seuil de jetons (≥1000 recommandé).';
+      'Par défaut 10. Utilisé uniquement pour les candidats d’historique automatiques ; l’unité dépend du mode ci-dessus.';
 
   @override
   String get settingsSave => 'Enregistrer';
@@ -6048,7 +6048,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsDefault4Range14Anthropic =>
-      'Par défaut 4, plage 1-4. Anthropic prend en charge jusqu’à 4 points d’arrêt cache_control par requête. Les fournisseurs compatibles OpenAI utilisent ce réglage uniquement comme force d’affinité de cache ; aucun marqueur cache_control incompatible n’est ajouté à leurs messages.';
+      'Par défaut 4, plage 1-4. Anthropic affecte d’abord le budget à l’ancre système/outils stable, à la fin de la requête précédente et à la fin actuelle, puis aux candidats d’historique. Chaque requête accepte au plus 4 marqueurs cache_control. Les fournisseurs compatibles OpenAI ne reçoivent pas ces marqueurs.';
 
   @override
   String get settingsCommandSafety => 'Sécurité des commandes';
@@ -6225,7 +6225,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsCacheBreakpointUpdateIntervalSaved =>
-      'Intervalle de mise à jour des points d’arrêt de cache enregistré';
+      'Intervalle des candidats d’historique enregistré';
 
   @override
   String get settingsCacheBreakpointCountSaved =>
@@ -6233,15 +6233,15 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settingsCacheBreakpointPositions =>
-      'Positions des points d’arrêt de cache';
+      'Candidats de cache d’historique';
 
   @override
   String get settingsCacheBreakpointPositionsSaved =>
-      'Positions des points d’arrêt de cache enregistrées';
+      'Candidats de cache d’historique enregistrés';
 
   @override
   String get cacheBarTopDescription =>
-      'Chaque bande correspond à une section du prompt. Faites glisser les épingles P pour placer les points de rupture statiques du cache ; l’épingle pointillée à droite est le point de rupture dynamique qui suit l’intervalle de mise à jour. Les largeurs des bandes sont indicatives — elles ne reflètent pas l’utilisation réelle des tokens.';
+      'Les bandes colorées illustrent uniquement la structure du prompt. Les épingles P indiquent des candidats dans l’historique ; l’épingle pointillée à droite est l’ancre de fin de la requête actuelle. Les ancres stables et de fin continues sont prioritaires.';
 
   @override
   String get cacheBarSectionSysLabel => '[0] Système';
@@ -6340,14 +6340,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get cacheBarSectionLatestCacheHint =>
-      'Change à chaque tour : c’est la cible du point de rupture dynamique.';
+      'Change à chaque tour : l’ancre de fin actuelle couvre cette zone, tandis que l’ancre précédente préserve la continuité.';
 
   @override
   String get cacheBarDynamicTooltip =>
-      'Point de rupture dynamique — suit l’intervalle de mise à jour du cache.';
+      'Ancre de fin de la requête actuelle — suit toujours le dernier message.';
 
   @override
-  String get cacheBarDynamicSuffix => '(dynamique)';
+  String get cacheBarDynamicSuffix => '(fin actuelle)';
 
   @override
   String get cacheBarResetEven => 'Réinitialiser uniformément';
@@ -6736,7 +6736,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String settingsDragTheThumbcountThumbsToPosition(Object thumbCount) {
-    return 'Faites glisser les $thumbCount curseurs pour positionner les N-1 premiers points d’arrêt de cache statiques sur le flux de messages.';
+    return 'Faites glisser $thumbCount points pour définir les candidats d’historique (0%-100%). Les ancres stables et de fin continues utilisent d’abord le budget ; le point de droite reste fixé à la fin actuelle.';
   }
 
   @override

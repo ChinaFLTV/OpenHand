@@ -428,14 +428,13 @@ class AppSettingsSnapshot {
   static const int maxAiInputCacheUpdateInterval = 200000;
 
   /// Anthropic cache_control 断点数量上限（协议侧硬上限 4）。
-  /// 第 N 个断点固定用于动态消息侧，前 N-1 个用于静态前缀切片。
+  /// 稳定系统/工具锚与连续消息尾锚优先，其余预算用于历史候选点。
   static const int defaultAiInputCacheBreakpointCount = 4;
   static const int minAiInputCacheBreakpointCount = 1;
   static const int maxAiInputCacheBreakpointCount = 4;
 
-  /// 用户自定义的前 N-1 个静态缓存点位置，单位是消息流的
-  /// 百分比 [0, 1]。空列表表示沿用 mode-based 自动布点；非空时长度应 ==
-  /// `aiInputCacheBreakpointCount - 1`，最后一个断点固定落在末尾消息。
+  /// 用户自定义的历史消息候选点，单位是消息流百分比 [0, 1]。
+  /// 空列表表示沿用 mode-based 自动布点；稳定锚与连续尾锚优先占用预算。
   static const List<double> defaultAiInputCacheBreakpointPositions = <double>[];
 
   /// 单会话 USD 预算上限。0 表示关闭预算告警；超过该阈值时

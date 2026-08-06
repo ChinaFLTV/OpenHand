@@ -35,9 +35,9 @@ class AiInputCacheRuntimeConfig {
   /// Anthropic 上限就是 4，超过会报 400。
   final int breakpointCount;
 
-  /// 用户自定义的前 N-1 个静态缓存点位置（百分比 0..1，升序）。
-  /// 长度 == [breakpointCount] - 1 时优先用此布点；否则适配器沿用 mode-based
-  /// 自动布点。最后一个断点恒位于消息流末尾。
+  /// 用户自定义的历史消息候选点（百分比 0..1，升序）。
+  /// 适配器按预算优先保留稳定系统/工具锚、上一请求尾锚和当前尾锚，再按
+  /// 此列表或 mode-based 规则补充历史候选点。
   final List<double> breakpointPositions;
 
   /// 稳定会话亲和键。OpenAI-compatible provider 可用它把同一会话路由到

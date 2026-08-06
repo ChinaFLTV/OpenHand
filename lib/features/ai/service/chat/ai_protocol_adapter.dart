@@ -2912,10 +2912,8 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
             thinkingPayload['type'] != 'enabled' ||
             claudeTemperature == 1.0);
     final cacheEnabled = inputCacheConfig?.isEffectivelyEnabled ?? false;
-    // Claude prompt caching: total cache_control markers <= 4 across system +
-    // tools + messages, otherwise the API rejects with 400. We allocate the
-    // user-configured budget greedily across (system end, tools end, static
-    // message prefix end, sliding tail per mode/interval).
+    // Claude 按 tools → system → messages 组成缓存前缀。system 末尾断点
+    // 已覆盖工具目录，因此不再重复占用工具断点，把预算留给消息连续锚点。
     int remainingBreakpoints = cacheEnabled
         ? inputCacheConfig!.breakpointCount.clamp(1, 4)
         : 0;
@@ -2946,9 +2944,11 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       final toolJson = stableToolDefinitionsForAiRequest(
         tools,
       ).map((item) => item.toClaudeJson()).toList(growable: false);
-      if (cacheEnabled && remainingBreakpoints > 0 && toolJson.isNotEmpty) {
-        // Anthropic accepts cache_control on the last tool definition; this
-        // freezes the entire tool block.
+      if (cacheEnabled &&
+          stableSystemContent.isEmpty &&
+          remainingBreakpoints > 0 &&
+          toolJson.isNotEmpty) {
+        // 没有 system 时，工具末尾作为稳定前缀锚点。
         final mutableTools = toolJson
             .map((e) => Map<String, Object?>.of(stringKeyedMapFromValue(e)))
             .toList(growable: false);
@@ -2994,72 +2994,60 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     required AiInputCacheRuntimeConfig config,
   }) {
     if (budget <= 0 || requestMessages.isEmpty) return;
-    // 优先尊重用户自定义的前 N-1 个静态缓存点位置。
-    // 当 positions 长度匹配 (breakpointCount-1) 时：
-    //   * 前 N-1 个断点 = positions[i] * (msgs.length-1) round 后的索引；
-    //   * 最后一个断点 = msgs.length-1 (固定落在尾部)；
-    //   * 索引去重，再按预算 budget 截断。
-    final positions = config.breakpointPositions;
     final lastIndex = requestMessages.length - 1;
+    // 当前尾点负责写入最新前缀；上一请求尾点必须原位保留，否则部分兼容网关
+    // 只会退回 system/tools 缓存，长工具轮会产生大量重复输入费用。
+    final selected = <int>{lastIndex};
+    if (selected.length < budget) {
+      final previousTailIndex = _previousRequestTailIndex(requestMessages);
+      if (previousTailIndex != null) selected.add(previousTailIndex);
+    }
+
+    final candidates = <int>[];
+    final positions = config.breakpointPositions;
     if (positions.isNotEmpty &&
         positions.length == config.breakpointCount - 1) {
-      final selected = <int>{lastIndex};
-      for (final p in positions) {
-        final clamped = finiteUnitInterval(p, fallback: 1.0);
-        final idx = (clamped * lastIndex).round().clamp(0, lastIndex);
-        selected.add(idx);
+      for (final position in positions.reversed) {
+        final ratio = finiteUnitInterval(position, fallback: 1.0);
+        candidates.add((ratio * lastIndex).round().clamp(0, lastIndex));
       }
-      final ordered = selected.toList()..sort((a, b) => b.compareTo(a));
-      for (final index in ordered.take(budget)) {
-        _attachCacheControlToMessageTail(requestMessages[index]);
-      }
-      return;
-    }
-    // 候选索引从尾部回溯，按 mode 过滤；保证最少打到最后一条消息。
-    // 不再把剩余断点全部花在滑动尾部。长线程里尾部常常包含
-    // 刚读到的大工具结果、连续“继续”、或失败工具调用；只缓存尾部会让服务端
-    // 在一次尾部形态变化后失去可复用的稳定会话前缀。默认布点改为：
-    // 1. 首个非空消息前缀（稳定锚点）
-    // 2. 当前尾部（最新上下文）
-    // 3. 其余预算再按用户选择的 mode/interval 补充
-    final stablePrefixIndex = _firstCacheableMessageIndex(requestMessages);
-    final selected = <int>{};
-    if (budget == 1) {
-      selected.add(lastIndex);
     } else {
-      selected.add(stablePrefixIndex);
-      selected.add(lastIndex);
-    }
-    final candidates = <int>[];
-    final interval = config.updateInterval <= 0 ? 1 : config.updateInterval;
-    switch (config.mode) {
-      case 'userMessages':
-        var seenUsers = 0;
-        for (var i = requestMessages.length - 1; i >= 0; i--) {
-          if (requestMessages[i]['role'] == 'user') {
-            if (seenUsers % interval == 0) candidates.add(i);
-            seenUsers++;
+      final interval = config.updateInterval <= 0 ? 1 : config.updateInterval;
+      switch (config.mode) {
+        case 'userMessages':
+          var seenUsers = 0;
+          for (var i = lastIndex; i >= 0; i--) {
+            if (requestMessages[i]['role'] == 'user') {
+              if (seenUsers % interval == 0) candidates.add(i);
+              seenUsers++;
+            }
           }
-        }
-      case 'tokens':
-        // 粗略以累计 char 长度模拟 token 累计，跨过 interval 即落点。
-        var charAcc = 0;
-        for (var i = requestMessages.length - 1; i >= 0; i--) {
-          charAcc += _estimateMessageChars(requestMessages[i]);
-          if (charAcc >= interval || i == requestMessages.length - 1) {
+        case 'tokens':
+          // 以累计字符数近似 token 数，达到间隔后放置候选点。
+          var charAcc = 0;
+          for (var i = lastIndex; i >= 0; i--) {
+            charAcc += _estimateMessageChars(requestMessages[i]);
+            if (charAcc >= interval || i == lastIndex) {
+              candidates.add(i);
+              charAcc = 0;
+            }
+          }
+        case 'allMessages':
+        default:
+          for (var i = lastIndex; i >= 0; i -= interval) {
             candidates.add(i);
-            charAcc = 0;
           }
-        }
-      case 'allMessages':
-      default:
-        for (var i = requestMessages.length - 1; i >= 0; i -= interval) {
-          candidates.add(i);
-        }
+      }
     }
     for (final index in candidates) {
       if (selected.length >= budget) break;
       selected.add(index);
+    }
+    for (var index = 0; index < requestMessages.length; index++) {
+      if (selected.length >= budget) break;
+      if (_estimateMessageChars(requestMessages[index]) > 0) {
+        selected.add(index);
+      }
     }
     final ordered = selected.toList()..sort();
     for (final index in ordered.take(budget)) {
@@ -3067,13 +3055,15 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
     }
   }
 
-  int _firstCacheableMessageIndex(List<Map<String, Object?>> requestMessages) {
-    for (var i = 0; i < requestMessages.length; i++) {
-      if (_estimateMessageChars(requestMessages[i]) > 0) {
-        return i;
+  int? _previousRequestTailIndex(List<Map<String, Object?>> requestMessages) {
+    for (var index = requestMessages.length - 2; index >= 0; index--) {
+      final message = requestMessages[index];
+      if (message['role'] != 'user' || _estimateMessageChars(message) <= 0) {
+        continue;
       }
+      return index;
     }
-    return 0;
+    return null;
   }
 
   int _estimateMessageChars(Map<String, Object?> message) {
@@ -3112,7 +3102,7 @@ class ClaudeProtocolAdapter extends AiProtocolAdapter {
       return;
     }
     if (content is List) {
-      // List<dynamic>; mutate the last entry if it's a Map.
+      // List<dynamic> 场景下复制并替换最后一个 Map，避免类型转换失败。
       if (content.isEmpty) return;
       final last = content.last;
       if (last is Map<String, Object?>) {

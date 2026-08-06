@@ -6005,18 +6005,18 @@ class _SettingsViewState extends State<SettingsView> {
     );
   }
 
-  /// 缓存断点位置滑块行：N-1 个可拖拽拇指 + 末尾固定锚。
+  /// 历史候选点滑块行：N-1 个可拖拽拇指 + 当前消息尾部固定锚。
   /// 拖拽实时更新本地草稿，松手时通过 SettingsController 持久化。
   Widget _buildAiInputCacheBreakpointPositionsRow(BuildContext context) {
     final controller = context.watch<SettingsController>();
     final count = controller.aiInputCacheBreakpointCount;
     final thumbCount = (count - 1).clamp(0, 3);
-    // 没有可拖拽断点时（count=1），整行收起，避免空白控件。
+    // 没有可拖拽候选点时（count=1），整行收起，避免空白控件。
     if (thumbCount == 0) {
       return const SizedBox.shrink();
     }
     final raw = controller.aiInputCacheBreakpointPositions;
-    // 缺省 = 均匀铺开。例如 count=4 → [0.25, 0.5, 0.75]。
+    // 缺省为均匀候选位置，例如 count=4 → [0.25, 0.5, 0.75]。
     final List<double> values = (raw.length == thumbCount)
         ? List<double>.from(raw)
         : List<double>.generate(thumbCount, (i) => (i + 1) / count);
