@@ -2,6 +2,7 @@ part of 'settings_view.dart';
 
 const double _kAiUsageMetricThreeColumnMinWidth = 660;
 const double _kAiUsageMetricTwoColumnMinWidth = 440;
+const double _kAiUsageMetricHeight = 150;
 const double _kAiUsageHeatmapMinWidth = 820;
 const double _kAiUsageBreakdownTableMinWidth = 860;
 const double _kAiUsageBreakdownHeaderHeight = 46;
@@ -740,6 +741,7 @@ class _AiUsageMetricGrid extends StatelessWidget {
                 key: ValueKey<String>('usage-metric-${metric.label}'),
                 child: SizedBox(
                   width: width,
+                  height: _kAiUsageMetricHeight,
                   child: _AiUsageMetricCard(data: metric),
                 ),
               ),
