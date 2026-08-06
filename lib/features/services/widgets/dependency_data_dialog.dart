@@ -1256,6 +1256,7 @@ class _DataRecordTile extends StatelessWidget {
         title: title,
         subtitle: '数据记录详情',
         icon: Icons.data_object_rounded,
+        presentation: ServiceDetailPresentation.record,
         fields: serviceDetailFieldsFromMap(record),
       ),
       child: Column(

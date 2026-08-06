@@ -2463,6 +2463,8 @@ class _MetricTile extends StatelessWidget {
           en: 'Scan workspace metric',
         ),
         icon: data.icon,
+        accentColor: tone,
+        presentation: ServiceDetailPresentation.metric,
         fields: [
           ServiceDetailField(
             label: openHandLocalizedText(context, zh: '指标', en: 'Metric'),
@@ -2816,6 +2818,7 @@ class _LogList extends StatelessWidget {
                 en: 'Scan log details',
               ),
               icon: Icons.terminal_rounded,
+              presentation: ServiceDetailPresentation.log,
               fields: [
                 ServiceDetailField(label: '时间', value: _dateTime(log.at)),
                 ServiceDetailField(label: '级别', value: log.level),
@@ -2880,6 +2883,8 @@ class _ResultTile extends StatelessWidget {
         title: result.product,
         subtitle: _categoryLabel(context, result.category),
         icon: _categoryIcon(result.category),
+        accentColor: color,
+        presentation: ServiceDetailPresentation.record,
         fields: [
           ServiceDetailField(label: 'ID', value: result.id),
           ServiceDetailField(label: '任务 ID', value: result.jobId),
@@ -3049,6 +3054,30 @@ class _HistoryTile extends StatelessWidget {
                 title: entry.name,
                 subtitle: _stageLabel(context, entry.stage),
                 icon: Icons.history_rounded,
+                presentation: ServiceDetailPresentation.process,
+                data: [
+                  ServiceDetailDatum(
+                    label: '已处理',
+                    value: entry.progress.processed.toDouble(),
+                    valueLabel:
+                        '${entry.progress.processed}/${entry.progress.total}',
+                  ),
+                  ServiceDetailDatum(
+                    label: '候选',
+                    value: entry.progress.candidates.toDouble(),
+                    valueLabel: '${entry.progress.candidates}',
+                  ),
+                  ServiceDetailDatum(
+                    label: '有效',
+                    value: entry.progress.valid.toDouble(),
+                    valueLabel: '${entry.progress.valid}',
+                  ),
+                  ServiceDetailDatum(
+                    label: '高价值',
+                    value: entry.progress.highValue.toDouble(),
+                    valueLabel: '${entry.progress.highValue}',
+                  ),
+                ],
                 fields: [
                   ServiceDetailField(label: '任务 ID', value: entry.id),
                   ServiceDetailField(label: '名称', value: entry.name),
@@ -3306,6 +3335,7 @@ class _RuleTile extends StatelessWidget {
       title: rule.vendor,
       subtitle: '扫描规则详情',
       icon: Icons.rule_rounded,
+      presentation: ServiceDetailPresentation.health,
       fields: [
         ServiceDetailField(label: '规则 ID', value: rule.id),
         ServiceDetailField(label: '产品', value: rule.vendor),

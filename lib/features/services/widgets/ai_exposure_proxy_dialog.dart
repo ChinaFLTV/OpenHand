@@ -1979,6 +1979,8 @@ class _ProxyPoolMetricTile extends StatelessWidget {
             en: 'Proxy pool metric',
           ),
           icon: data.icon,
+          accentColor: data.color,
+          presentation: ServiceDetailPresentation.metric,
           fields: [
             ServiceDetailField(label: '指标', value: data.label),
             ServiceDetailField(label: '当前值', value: data.value),

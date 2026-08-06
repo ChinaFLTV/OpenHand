@@ -2402,6 +2402,8 @@ class _KpiStrip extends StatelessWidget {
                         title: item.label,
                         subtitle: '依赖服务指标',
                         icon: item.icon,
+                        accentColor: tone,
+                        presentation: ServiceDetailPresentation.metric,
                         fields: [
                           ServiceDetailField(label: '指标', value: item.label),
                           ServiceDetailField(label: '当前值', value: item.value),
@@ -3112,6 +3114,21 @@ class _DonutBreakdown extends StatelessWidget {
                   title: item.label,
                   subtitle: '构成明细',
                   icon: Icons.donut_small_rounded,
+                  accentColor: item.color,
+                  presentation: ServiceDetailPresentation.composition,
+                  data: visible
+                      .map(
+                        (entry) => ServiceDetailDatum(
+                          label: entry.label,
+                          value: entry.value.toDouble(),
+                          valueLabel: rawCount
+                              ? _compactCount(entry.value)
+                              : formatByteSize(entry.value),
+                          color: entry.color,
+                          highlighted: identical(entry, item),
+                        ),
+                      )
+                      .toList(growable: false),
                   fields: [
                     ServiceDetailField(
                       label: '当前值',
@@ -3204,6 +3221,19 @@ class _HorizontalBars extends StatelessWidget {
               title: entry.key,
               subtitle: '排行明细',
               icon: Icons.bar_chart_rounded,
+              accentColor: color,
+              presentation: ServiceDetailPresentation.ranking,
+              data: sorted
+                  .map(
+                    (item) => ServiceDetailDatum(
+                      label: item.key,
+                      value: item.value.toDouble(),
+                      valueLabel: valueLabel(item.value),
+                      color: color,
+                      highlighted: item.key == entry.key,
+                    ),
+                  )
+                  .toList(growable: false),
               fields: [
                 ServiceDetailField(label: '项目', value: entry.key),
                 ServiceDetailField(
@@ -3359,6 +3389,7 @@ class _RankTable extends StatelessWidget {
                                 : sorted[rowIndex].cells.first,
                             subtitle: '完整排行数据',
                             icon: Icons.table_rows_rounded,
+                            presentation: ServiceDetailPresentation.record,
                             fields: [
                               for (
                                 var fieldIndex = 0;
@@ -3625,6 +3656,8 @@ class _OperationalSummary extends StatelessWidget {
                 title: items[index].label,
                 subtitle: '运行摘要',
                 icon: Icons.analytics_outlined,
+                accentColor: items[index].color,
+                presentation: ServiceDetailPresentation.metric,
                 fields: [
                   ServiceDetailField(label: '项目', value: items[index].label),
                   ServiceDetailField(label: '当前值', value: items[index].value),
@@ -3704,6 +3737,20 @@ class _AnomalyTimeline extends StatelessWidget {
               title: rows[index].title,
               subtitle: '异常时间线',
               icon: Icons.warning_amber_rounded,
+              accentColor: OpenHandStatusColors.warning,
+              presentation: ServiceDetailPresentation.timeline,
+              data: rows
+                  .map(
+                    (row) => ServiceDetailDatum(
+                      label: row.title,
+                      value: 1,
+                      valueLabel: row.time,
+                      helper: row.detail,
+                      color: OpenHandStatusColors.warning,
+                      highlighted: identical(row, rows[index]),
+                    ),
+                  )
+                  .toList(growable: false),
               fields: [
                 ServiceDetailField(label: '时间', value: rows[index].time),
                 ServiceDetailField(label: '标题', value: rows[index].title),
@@ -3801,6 +3848,7 @@ class _CompactRecordList extends StatelessWidget {
               title: '${records[index]['key'] ?? '--'}',
               subtitle: 'Redis Key 详情',
               icon: Icons.key_rounded,
+              presentation: ServiceDetailPresentation.record,
               fields: serviceDetailFieldsFromMap(records[index]),
             ),
             leading: Icon(Icons.key_rounded, size: 18, color: colors.primary),

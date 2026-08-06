@@ -2,10 +2,12 @@ import 'dart:convert';
 
 import 'package:flutter/material.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
@@ -214,11 +216,40 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
   }
 }
 
+enum ServiceDetailPresentation {
+  metric,
+  composition,
+  ranking,
+  timeline,
+  process,
+  health,
+  record,
+  log,
+}
+
 class ServiceDetailField {
   const ServiceDetailField({required this.label, required this.value});
 
   final String label;
   final String value;
+}
+
+class ServiceDetailDatum {
+  const ServiceDetailDatum({
+    required this.label,
+    required this.value,
+    this.valueLabel,
+    this.helper,
+    this.color,
+    this.highlighted = false,
+  });
+
+  final String label;
+  final double value;
+  final String? valueLabel;
+  final String? helper;
+  final Color? color;
+  final bool highlighted;
 }
 
 String formatServiceDetailValue(Object? value) {
@@ -253,21 +284,29 @@ Future<void> showServiceDetailsDialog(
   required List<ServiceDetailField> fields,
   String? subtitle,
   IconData icon = Icons.manage_search_rounded,
+  Color? accentColor,
+  required ServiceDetailPresentation presentation,
+  List<ServiceDetailDatum> data = const <ServiceDetailDatum>[],
 }) => showAnimatedDialog<void>(
   context: context,
   builder: (dialogContext) => buildOpenHandResponsiveDialogShell(
     context: dialogContext,
-    maxWidth: kOpenHandDialogWidthStandard,
-    maxHeight: kOpenHandDialogHeightStandard,
+    maxWidth: kOpenHandDialogWidthWide,
+    maxHeight: kOpenHandDialogHeightTall,
+    maxWidthFraction: 0.92,
+    maxHeightFraction: 0.9,
     minAvailableWidth: 300,
-    horizontalMargin: 28,
-    verticalMargin: 72,
+    horizontalMargin: 24,
+    verticalMargin: 48,
     expandToMax: true,
     child: ServiceDialogInteractionTheme(
       child: _ServiceDetailsDialog(
         title: title,
         subtitle: subtitle,
         icon: icon,
+        accentColor: accentColor,
+        presentation: presentation,
+        data: data,
         fields: fields,
       ),
     ),
@@ -352,12 +391,18 @@ class _ServiceDetailsDialog extends StatelessWidget {
     required this.title,
     required this.subtitle,
     required this.icon,
+    required this.accentColor,
+    required this.presentation,
+    required this.data,
     required this.fields,
   });
 
   final String title;
   final String? subtitle;
   final IconData icon;
+  final Color? accentColor;
+  final ServiceDetailPresentation presentation;
+  final List<ServiceDetailDatum> data;
   final List<ServiceDetailField> fields;
 
   @override
@@ -365,6 +410,7 @@ class _ServiceDetailsDialog extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final text = openHandTextResolver(context);
+    final tone = accentColor ?? colors.primary;
     final copyPayload = fields
         .map((field) => '${field.label}: ${field.value}')
         .join('\n');
@@ -379,10 +425,11 @@ class _ServiceDetailsDialog extends StatelessWidget {
                 width: 44,
                 height: 44,
                 decoration: BoxDecoration(
-                  color: colors.primaryContainer,
+                  color: tone.withValues(alpha: 0.12),
                   borderRadius: kServiceInteractiveBorderRadius,
+                  border: Border.all(color: tone.withValues(alpha: 0.28)),
                 ),
-                child: Icon(icon, color: colors.onPrimaryContainer),
+                child: Icon(icon, color: tone),
               ),
               const SizedBox(width: 12),
               Expanded(
@@ -426,12 +473,19 @@ class _ServiceDetailsDialog extends StatelessWidget {
                     ),
                   ),
                 )
-              : ListView.separated(
+              : ListView(
                   padding: const EdgeInsets.all(16),
-                  itemCount: fields.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 8),
-                  itemBuilder: (context, index) =>
-                      _ServiceDetailFieldTile(field: fields[index]),
+                  children: [
+                    _ServiceDetailDashboard(
+                      title: title,
+                      presentation: presentation,
+                      data: data,
+                      fields: fields,
+                      accentColor: tone,
+                    ),
+                    const SizedBox(height: 14),
+                    _ServiceDetailFacts(fields: fields, accentColor: tone),
+                  ],
                 ),
         ),
         Divider(height: 1, color: colors.outlineVariant),
@@ -462,30 +516,846 @@ class _ServiceDetailsDialog extends StatelessWidget {
   }
 }
 
-class _ServiceDetailFieldTile extends StatelessWidget {
-  const _ServiceDetailFieldTile({required this.field});
+class _ServiceDetailDashboard extends StatelessWidget {
+  const _ServiceDetailDashboard({
+    required this.title,
+    required this.presentation,
+    required this.data,
+    required this.fields,
+    required this.accentColor,
+  });
 
-  final ServiceDetailField field;
+  final String title;
+  final ServiceDetailPresentation presentation;
+  final List<ServiceDetailDatum> data;
+  final List<ServiceDetailField> fields;
+  final Color accentColor;
+
+  List<ServiceDetailDatum> _resolveData(ColorScheme colors) {
+    if (data.isNotEmpty) return data;
+    if (presentation != ServiceDetailPresentation.metric &&
+        presentation != ServiceDetailPresentation.composition &&
+        presentation != ServiceDetailPresentation.ranking) {
+      return const <ServiceDetailDatum>[];
+    }
+    final result = <ServiceDetailDatum>[];
+    for (final field in fields) {
+      final match = RegExp(r'-?\d+(?:\.\d+)?').firstMatch(field.value);
+      final value = match == null ? null : double.tryParse(match.group(0)!);
+      if (value == null || !value.isFinite) continue;
+      result.add(
+        ServiceDetailDatum(
+          label: field.label,
+          value: value.abs(),
+          valueLabel: field.value,
+          color: _serviceDetailTone(result.length, colors, accentColor),
+        ),
+      );
+    }
+    return result;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final resolved = _resolveData(colors);
+    final (sectionTitle, sectionIcon) = switch (presentation) {
+      ServiceDetailPresentation.metric => ('实时指标剖面', Icons.query_stats_rounded),
+      ServiceDetailPresentation.composition => (
+        '构成与占比',
+        Icons.donut_small_rounded,
+      ),
+      ServiceDetailPresentation.ranking => (
+        '排名与相对规模',
+        Icons.leaderboard_rounded,
+      ),
+      ServiceDetailPresentation.timeline => ('事件时间轴', Icons.timeline_rounded),
+      ServiceDetailPresentation.process => ('执行路径', Icons.route_rounded),
+      ServiceDetailPresentation.health => ('健康诊断', Icons.monitor_heart_rounded),
+      ServiceDetailPresentation.record => ('记录完整度', Icons.dataset_rounded),
+      ServiceDetailPresentation.log => ('事件上下文', Icons.terminal_rounded),
+    };
+    final child = switch (presentation) {
+      ServiceDetailPresentation.metric => _metric(context, resolved),
+      ServiceDetailPresentation.composition => _composition(context, resolved),
+      ServiceDetailPresentation.ranking => _ranking(context, resolved),
+      ServiceDetailPresentation.timeline => _timeline(context, resolved, false),
+      ServiceDetailPresentation.process => _timeline(context, resolved, true),
+      ServiceDetailPresentation.health => _health(context, resolved),
+      ServiceDetailPresentation.record => _record(context),
+      ServiceDetailPresentation.log => _log(context),
+    };
+    return _ServiceDetailSection(
+      title: sectionTitle,
+      icon: sectionIcon,
+      accentColor: accentColor,
+      child: child,
+    );
+  }
+
+  Widget _metric(BuildContext context, List<ServiceDetailDatum> values) {
+    final colors = Theme.of(context).colorScheme;
+    final primary = values.firstOrNull;
+    final displayValue =
+        primary?.valueLabel ??
+        fields
+            .where((field) => field.label.contains('值'))
+            .map((field) => field.value)
+            .firstOrNull ??
+        '--';
+    final donut = _donut(
+      context,
+      values,
+      centerValue: displayValue,
+      centerLabel: title,
+    );
+    final bars = _bars(context, values, showRank: false);
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth < 620
+          ? Column(children: [donut, const SizedBox(height: 12), bars])
+          : Row(
+              children: [
+                donut,
+                const SizedBox(width: 20),
+                Expanded(
+                  child: values.isEmpty
+                      ? Text(
+                          '当前指标暂未提供可计算样本。',
+                          style: Theme.of(context).textTheme.bodySmall
+                              ?.copyWith(color: colors.onSurfaceVariant),
+                        )
+                      : bars,
+                ),
+              ],
+            ),
+    );
+  }
+
+  Widget _composition(BuildContext context, List<ServiceDetailDatum> values) {
+    if (values.isEmpty) return _empty(context, '暂无可计算的构成数据。');
+    final total = values.fold<double>(0, (sum, item) => sum + item.value);
+    final donut = _donut(
+      context,
+      values,
+      centerValue: _compactServiceNumber(total),
+      centerLabel: '总量',
+    );
+    final bars = _bars(context, values, showRank: false, total: total);
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth < 620
+          ? Column(children: [donut, const SizedBox(height: 12), bars])
+          : Row(
+              children: [
+                donut,
+                const SizedBox(width: 20),
+                Expanded(child: bars),
+              ],
+            ),
+    );
+  }
+
+  Widget _ranking(BuildContext context, List<ServiceDetailDatum> values) {
+    if (values.isEmpty) return _empty(context, '暂无可比较的排名数据。');
+    final sorted = [...values]
+      ..sort((left, right) => right.value.compareTo(left.value));
+    return _bars(context, sorted, showRank: true);
+  }
+
+  Widget _timeline(
+    BuildContext context,
+    List<ServiceDetailDatum> values,
+    bool process,
+  ) {
+    final colors = Theme.of(context).colorScheme;
+    final steps = values.isNotEmpty
+        ? values
+        : fields
+              .where(
+                (field) => field.value.trim().isNotEmpty && field.value != '--',
+              )
+              .map(
+                (field) => ServiceDetailDatum(
+                  label: field.label,
+                  value: 1,
+                  valueLabel: field.value,
+                ),
+              )
+              .toList(growable: false);
+    if (steps.isEmpty) return _empty(context, '暂无轨迹信息。');
+    final visible = steps.take(8).toList(growable: false);
+    return Column(
+      children: visible.indexed
+          .map((entry) {
+            final item = entry.$2;
+            final tone =
+                item.color ?? _serviceDetailTone(entry.$1, colors, accentColor);
+            return IntrinsicHeight(
+              child: Row(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  SizedBox(
+                    width: 28,
+                    child: Column(
+                      children: [
+                        Container(
+                          width: process ? 20 : 12,
+                          height: process ? 20 : 12,
+                          alignment: Alignment.center,
+                          decoration: BoxDecoration(
+                            color: tone,
+                            shape: BoxShape.circle,
+                          ),
+                          child: process
+                              ? Text(
+                                  '${entry.$1 + 1}',
+                                  style: const TextStyle(
+                                    color: Colors.white,
+                                    fontSize: 10,
+                                    fontWeight: FontWeight.w900,
+                                  ),
+                                )
+                              : null,
+                        ),
+                        if (entry.$1 < visible.length - 1)
+                          Expanded(
+                            child: Container(
+                              width: 2,
+                              margin: const EdgeInsets.symmetric(vertical: 4),
+                              color: tone.withValues(alpha: 0.28),
+                            ),
+                          ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 14),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            item.label,
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(fontWeight: FontWeight.w800),
+                          ),
+                          if (item.valueLabel?.trim().isNotEmpty == true) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              item.valueLabel!,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                    height: 1.4,
+                                  ),
+                            ),
+                          ],
+                          if (item.helper?.trim().isNotEmpty == true) ...[
+                            const SizedBox(height: 3),
+                            Text(
+                              item.helper!,
+                              style: Theme.of(context).textTheme.labelSmall,
+                            ),
+                          ],
+                        ],
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            );
+          })
+          .toList(growable: false),
+    );
+  }
+
+  Widget _health(BuildContext context, List<ServiceDetailDatum> values) {
+    final healthy = RegExp(r'正常|可用|就绪|完成|启用|满足|成功|已配置');
+    final unhealthy = RegExp(r'异常|失败|阻塞|停用|未启用|未配置|不可用');
+    final positive = fields.where((field) {
+      return healthy.hasMatch(field.value) && !unhealthy.hasMatch(field.value);
+    }).length;
+    final negative = fields
+        .where((field) => unhealthy.hasMatch(field.value))
+        .length;
+    final measured = positive + negative;
+    final rawScore = values.isNotEmpty
+        ? values.fold<double>(0, (sum, item) => sum + item.value) /
+              values.length
+        : measured == 0
+        ? 0.5
+        : positive / measured;
+    final score = rawScore > 1
+        ? (rawScore / 100).clamp(0.0, 1.0)
+        : rawScore.clamp(0.0, 1.0);
+    final tone = score >= 0.8
+        ? OpenHandStatusColors.success
+        : score >= 0.5
+        ? OpenHandStatusColors.warning
+        : OpenHandStatusColors.error;
+    final donut = _donut(
+      context,
+      [
+        ServiceDetailDatum(label: '健康', value: score * 100, color: tone),
+        ServiceDetailDatum(
+          label: '风险',
+          value: (1 - score) * 100,
+          color: Colors.transparent,
+        ),
+      ],
+      centerValue: '${(score * 100).round()}%',
+      centerLabel: score >= 0.8
+          ? '健康'
+          : score >= 0.5
+          ? '需关注'
+          : '异常',
+    );
+    final signals = Column(
+      children: [
+        _healthRow(
+          context,
+          Icons.check_circle_outline_rounded,
+          '正常信号',
+          '$positive',
+          OpenHandStatusColors.success,
+        ),
+        const SizedBox(height: 10),
+        _healthRow(
+          context,
+          Icons.warning_amber_rounded,
+          '风险信号',
+          '$negative',
+          OpenHandStatusColors.warning,
+        ),
+        const SizedBox(height: 10),
+        _healthRow(
+          context,
+          Icons.fact_check_outlined,
+          '诊断维度',
+          '${fields.length}',
+          accentColor,
+        ),
+      ],
+    );
+    return LayoutBuilder(
+      builder: (context, constraints) => constraints.maxWidth < 620
+          ? Column(children: [donut, const SizedBox(height: 12), signals])
+          : Row(
+              children: [
+                donut,
+                const SizedBox(width: 20),
+                Expanded(child: signals),
+              ],
+            ),
+    );
+  }
+
+  Widget _record(BuildContext context) {
+    final complete = fields.where((field) {
+      final value = field.value.trim();
+      return value.isNotEmpty && value != '--' && value.toLowerCase() != 'null';
+    }).length;
+    final numeric = fields
+        .where((field) => RegExp(r'-?\d+(?:\.\d+)?').hasMatch(field.value))
+        .length;
+    final longValues = fields
+        .where((field) => field.value.length > 48 || field.value.contains('\n'))
+        .length;
+    final ratio = fields.isEmpty ? 0.0 : complete / fields.length;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _recordStat(
+              context,
+              '字段',
+              '${fields.length}',
+              Icons.view_agenda_outlined,
+              accentColor,
+            ),
+            _recordStat(
+              context,
+              '有效',
+              '$complete',
+              Icons.task_alt_rounded,
+              OpenHandStatusColors.success,
+            ),
+            _recordStat(
+              context,
+              '数值',
+              '$numeric',
+              Icons.numbers_rounded,
+              OpenHandStatusColors.info,
+            ),
+            _recordStat(
+              context,
+              '长文本',
+              '$longValues',
+              Icons.notes_rounded,
+              OpenHandStatusColors.warning,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Row(
+          children: [
+            Expanded(
+              child: ClipRRect(
+                borderRadius: BorderRadius.circular(99),
+                child: LinearProgressIndicator(
+                  minHeight: 10,
+                  value: ratio,
+                  color: accentColor,
+                  backgroundColor: accentColor.withValues(alpha: 0.11),
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Text(
+              '完整度 ${(ratio * 100).round()}%',
+              style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                color: accentColor,
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+          ],
+        ),
+      ],
+    );
+  }
+
+  Widget _log(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final level =
+        fields
+            .where((field) => field.label.contains('级别'))
+            .map((field) => field.value)
+            .firstOrNull ??
+        'INFO';
+    final message =
+        fields
+            .where((field) => field.label.contains('消息'))
+            .map((field) => field.value)
+            .firstOrNull ??
+        fields.last.value;
+    final tone = level.toLowerCase().contains('error') || level.contains('错误')
+        ? OpenHandStatusColors.error
+        : level.toLowerCase().contains('warn') || level.contains('警告')
+        ? OpenHandStatusColors.warning
+        : accentColor;
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      children: [
+        Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+              decoration: BoxDecoration(
+                color: tone.withValues(alpha: 0.11),
+                borderRadius: kServiceInteractiveBorderRadius,
+                border: Border.all(color: tone.withValues(alpha: 0.28)),
+              ),
+              child: Text(
+                level.toUpperCase(),
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: tone,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+            const SizedBox(width: 10),
+            Expanded(
+              child: Text(
+                fields
+                        .where((field) => field.label.contains('时间'))
+                        .map((field) => field.value)
+                        .firstOrNull ??
+                    '实时事件',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontFamily: 'monospace',
+                ),
+              ),
+            ),
+          ],
+        ),
+        const SizedBox(height: 12),
+        Container(
+          constraints: const BoxConstraints(minHeight: 96),
+          padding: const EdgeInsets.all(13),
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerLowest,
+            borderRadius: kServiceInteractiveBorderRadius,
+            border: Border.all(color: tone.withValues(alpha: 0.24)),
+          ),
+          child: SelectableText(
+            message,
+            style: Theme.of(context).textTheme.bodySmall?.copyWith(
+              fontFamily: 'monospace',
+              height: 1.55,
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Widget _donut(
+    BuildContext context,
+    List<ServiceDetailDatum> values, {
+    required String centerValue,
+    required String centerLabel,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    final chartValues = values.isEmpty
+        ? const <int>[0]
+        : values
+              .map((item) => item.value.round().clamp(0, 1 << 30))
+              .toList(growable: false);
+    return SizedBox(
+      width: 164,
+      height: 164,
+      child: Stack(
+        alignment: Alignment.center,
+        children: [
+          CustomPaint(
+            size: const Size.square(146),
+            painter: OpenHandDonutChartPainter(
+              values: chartValues,
+              colors: values.indexed
+                  .map(
+                    (entry) =>
+                        entry.$2.color ??
+                        _serviceDetailTone(entry.$1, colors, accentColor),
+                  )
+                  .toList(growable: false),
+              trackColor: colors.surfaceContainerHighest,
+            ),
+          ),
+          Padding(
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+            child: Column(
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  centerValue,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w900,
+                  ),
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  centerLabel,
+                  maxLines: 2,
+                  textAlign: TextAlign.center,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _bars(
+    BuildContext context,
+    List<ServiceDetailDatum> values, {
+    required bool showRank,
+    double? total,
+  }) {
+    if (values.isEmpty) return _empty(context, '暂无数值样本。');
+    final colors = Theme.of(context).colorScheme;
+    final maximum =
+        total ??
+        values.fold<double>(0, (max, item) {
+          return item.value > max ? item.value : max;
+        });
+    final visible = values.take(8).toList(growable: false);
+    return Column(
+      children: visible.indexed
+          .map((entry) {
+            final item = entry.$2;
+            final tone =
+                item.color ?? _serviceDetailTone(entry.$1, colors, accentColor);
+            final ratio = maximum <= 0
+                ? 0.0
+                : (item.value / maximum).clamp(0.0, 1.0);
+            final valueLabel = total == null
+                ? item.valueLabel ?? _compactServiceNumber(item.value)
+                : '${(ratio * 100).toStringAsFixed(1)}%';
+            return Padding(
+              padding: EdgeInsets.only(
+                bottom: entry.$1 == visible.length - 1 ? 0 : 11,
+              ),
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.stretch,
+                children: [
+                  Row(
+                    children: [
+                      if (showRank)
+                        SizedBox(
+                          width: 26,
+                          child: Text(
+                            '${entry.$1 + 1}',
+                            style: Theme.of(context).textTheme.labelLarge
+                                ?.copyWith(
+                                  color: tone,
+                                  fontWeight: FontWeight.w900,
+                                ),
+                          ),
+                        ),
+                      Container(
+                        width: 8,
+                        height: 8,
+                        decoration: BoxDecoration(
+                          color: tone,
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 7),
+                      Expanded(
+                        child: Text(
+                          item.label,
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: Theme.of(context).textTheme.labelMedium
+                              ?.copyWith(
+                                fontWeight: item.highlighted
+                                    ? FontWeight.w900
+                                    : FontWeight.w700,
+                              ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Text(
+                        valueLabel,
+                        style: Theme.of(context).textTheme.labelMedium
+                            ?.copyWith(
+                              color: tone,
+                              fontWeight: FontWeight.w900,
+                            ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 6),
+                  ClipRRect(
+                    borderRadius: BorderRadius.circular(99),
+                    child: LinearProgressIndicator(
+                      minHeight: item.highlighted ? 11 : 8,
+                      value: ratio,
+                      color: tone,
+                      backgroundColor: tone.withValues(alpha: 0.11),
+                    ),
+                  ),
+                  if (item.helper?.trim().isNotEmpty == true) ...[
+                    const SizedBox(height: 4),
+                    Text(
+                      item.helper!,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ],
+              ),
+            );
+          })
+          .toList(growable: false),
+    );
+  }
+
+  Widget _healthRow(
+    BuildContext context,
+    IconData icon,
+    String label,
+    String value,
+    Color color,
+  ) => Row(
+    children: [
+      Container(
+        width: 36,
+        height: 36,
+        alignment: Alignment.center,
+        decoration: BoxDecoration(
+          color: color.withValues(alpha: 0.1),
+          borderRadius: kServiceInteractiveBorderRadius,
+        ),
+        child: Icon(icon, size: 19, color: color),
+      ),
+      const SizedBox(width: 10),
+      Expanded(
+        child: Text(label, style: Theme.of(context).textTheme.labelLarge),
+      ),
+      Text(
+        value,
+        style: Theme.of(context).textTheme.titleMedium?.copyWith(
+          color: color,
+          fontWeight: FontWeight.w900,
+        ),
+      ),
+    ],
+  );
+
+  Widget _recordStat(
+    BuildContext context,
+    String label,
+    String value,
+    IconData icon,
+    Color color,
+  ) => Container(
+    constraints: const BoxConstraints(minWidth: 130),
+    padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.08),
+      borderRadius: kServiceInteractiveBorderRadius,
+      border: Border.all(color: color.withValues(alpha: 0.2)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 18, color: color),
+        const SizedBox(width: 8),
+        Text('$label  ', style: Theme.of(context).textTheme.labelMedium),
+        Text(
+          value,
+          style: Theme.of(context).textTheme.titleSmall?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w900,
+          ),
+        ),
+      ],
+    ),
+  );
+
+  Widget _empty(BuildContext context, String label) => Padding(
+    padding: const EdgeInsets.symmetric(vertical: 20),
+    child: Text(
+      label,
+      textAlign: TextAlign.center,
+      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+        color: Theme.of(context).colorScheme.onSurfaceVariant,
+      ),
+    ),
+  );
+}
+
+class _ServiceDetailSection extends StatelessWidget {
+  const _ServiceDetailSection({
+    required this.title,
+    required this.icon,
+    required this.accentColor,
+    required this.child,
+  });
+
+  final String title;
+  final IconData icon;
+  final Color accentColor;
+  final Widget child;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     return Container(
-      padding: const EdgeInsets.fromLTRB(12, 9, 6, 11),
+      padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.32),
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.22),
         borderRadius: kServiceInteractiveBorderRadius,
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.72),
-        ),
+        border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           Row(
             children: [
+              Icon(icon, size: 19, color: accentColor),
+              const SizedBox(width: 8),
               Expanded(
+                child: Text(
+                  title,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _ServiceDetailFacts extends StatelessWidget {
+  const _ServiceDetailFacts({required this.fields, required this.accentColor});
+
+  final List<ServiceDetailField> fields;
+  final Color accentColor;
+
+  @override
+  Widget build(BuildContext context) => _ServiceDetailSection(
+    title: openHandLocalizedText(
+      context,
+      zh: '完整信息',
+      en: 'Complete information',
+    ),
+    icon: Icons.subject_rounded,
+    accentColor: accentColor,
+    child: Column(
+      children: fields.indexed
+          .map(
+            (entry) => _ServiceDetailFieldRow(
+              field: entry.$2,
+              showDivider: entry.$1 > 0,
+            ),
+          )
+          .toList(growable: false),
+    ),
+  );
+}
+
+class _ServiceDetailFieldRow extends StatelessWidget {
+  const _ServiceDetailFieldRow({
+    required this.field,
+    required this.showDivider,
+  });
+
+  final ServiceDetailField field;
+  final bool showDivider;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Column(
+      children: [
+        if (showDivider)
+          Divider(
+            height: 1,
+            color: colors.outlineVariant.withValues(alpha: 0.7),
+          ),
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              SizedBox(
+                width: 118,
                 child: Text(
                   field.label,
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -494,14 +1364,22 @@ class _ServiceDetailFieldTile extends StatelessWidget {
                   ),
                 ),
               ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: SelectableText(
+                  field.value,
+                  style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
+                ),
+              ),
+              const SizedBox(width: 4),
               ServiceDialogCompactIconButton(
                 tooltip: openHandLocalizedText(
                   context,
                   zh: '复制此字段',
                   en: 'Copy field',
                 ),
-                size: 34,
-                icon: const Icon(Icons.copy_rounded, size: 17),
+                size: 32,
+                icon: const Icon(Icons.copy_rounded, size: 16),
                 onPressed: () => copyOpenHandTextToClipboard(
                   context: context,
                   text: field.value,
@@ -511,15 +1389,31 @@ class _ServiceDetailFieldTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 3),
-          SelectableText(
-            field.value,
-            style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
-          ),
-        ],
-      ),
+        ),
+      ],
     );
   }
+}
+
+Color _serviceDetailTone(int index, ColorScheme colors, Color accentColor) =>
+    <Color>[
+      accentColor,
+      OpenHandStatusColors.success,
+      OpenHandStatusColors.info,
+      OpenHandStatusColors.warning,
+      colors.tertiary,
+      const Color(0xffa855f7),
+      const Color(0xff0891b2),
+      OpenHandStatusColors.error,
+    ][index % 8];
+
+String _compactServiceNumber(double value) {
+  if (value >= 1000000000) return '${(value / 1000000000).toStringAsFixed(1)}B';
+  if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
+  if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
+  return value == value.roundToDouble()
+      ? value.round().toString()
+      : value.toStringAsFixed(1);
 }
 
 class ServiceFilterChip extends StatelessWidget {

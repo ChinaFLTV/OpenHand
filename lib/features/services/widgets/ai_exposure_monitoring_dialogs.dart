@@ -3859,6 +3859,23 @@ class _DistributionDetailRow extends StatelessWidget {
         title: item.label,
         subtitle: '分布指标详情',
         icon: Icons.donut_small_rounded,
+        accentColor: item.color,
+        presentation: ServiceDetailPresentation.composition,
+        data: [
+          ServiceDetailDatum(
+            label: item.label,
+            value: item.value.toDouble(),
+            valueLabel: '${item.value}',
+            color: item.color,
+            highlighted: true,
+          ),
+          ServiceDetailDatum(
+            label: '其他项目',
+            value: (total - item.value).clamp(0, total).toDouble(),
+            valueLabel: '${(total - item.value).clamp(0, total)}',
+            color: Theme.of(context).colorScheme.outline,
+          ),
+        ],
         fields: [
           ServiceDetailField(label: '项目', value: item.label),
           ServiceDetailField(label: '数量', value: '${item.value}'),
@@ -3967,6 +3984,8 @@ class _InsightRecordRow extends StatelessWidget {
         title: record.title,
         subtitle: '指标记录详情',
         icon: record.icon,
+        accentColor: record.color,
+        presentation: ServiceDetailPresentation.record,
         fields: [
           ServiceDetailField(label: '标题', value: record.title),
           ServiceDetailField(label: '说明', value: record.subtitle),
@@ -4452,6 +4471,20 @@ class _InsightRankingSection extends StatelessWidget {
                         title: item.label,
                         subtitle: title,
                         icon: icon,
+                        accentColor: item.color,
+                        presentation: ServiceDetailPresentation.ranking,
+                        data: sorted
+                            .map(
+                              (ranked) => ServiceDetailDatum(
+                                label: ranked.label,
+                                value: ranked.value,
+                                valueLabel: ranked.valueLabel,
+                                helper: ranked.helper,
+                                color: ranked.color,
+                                highlighted: identical(ranked, item),
+                              ),
+                            )
+                            .toList(growable: false),
                         fields: [
                           ServiceDetailField(
                             label: '排名',
@@ -4599,6 +4632,8 @@ class _InsightMatrixSection extends StatelessWidget {
                             title: entry.$2.title,
                             subtitle: title,
                             icon: entry.$2.icon,
+                            accentColor: entry.$2.color,
+                            presentation: ServiceDetailPresentation.health,
                             fields: [
                               ServiceDetailField(
                                 label: '标题',
@@ -4743,6 +4778,20 @@ class _InsightTimelineSection extends StatelessWidget {
                         title: item.title,
                         subtitle: title,
                         icon: icon,
+                        accentColor: item.color,
+                        presentation: ServiceDetailPresentation.timeline,
+                        data: shown
+                            .map(
+                              (event) => ServiceDetailDatum(
+                                label: event.title,
+                                value: 1,
+                                valueLabel: _shortDateTime(event.at),
+                                helper: event.detail,
+                                color: event.color,
+                                highlighted: identical(event, item),
+                              ),
+                            )
+                            .toList(growable: false),
                         fields: [
                           ServiceDetailField(
                             label: '时间',
@@ -6273,6 +6322,10 @@ class _SourceReadinessRow extends StatelessWidget {
         title: _sourceName(state.source),
         subtitle: state.ready ? '来源已就绪' : '来源存在阻塞',
         icon: _sourceIcon(state.source),
+        accentColor: state.ready
+            ? OpenHandStatusColors.success
+            : OpenHandStatusColors.warning,
+        presentation: ServiceDetailPresentation.health,
         fields: [
           ServiceDetailField(
             label: '访问前置',
@@ -12128,6 +12181,8 @@ class _RecentActivityPanel extends StatelessWidget {
                       context,
                       title: '运行事件详情',
                       icon: Icons.receipt_long_outlined,
+                      accentColor: color,
+                      presentation: ServiceDetailPresentation.log,
                       fields: [
                         ServiceDetailField(
                           label: '时间',
@@ -12294,6 +12349,8 @@ class _StageRow extends StatelessWidget {
         title: _stageName(stage),
         subtitle: '扫描阶段详情',
         icon: Icons.route_rounded,
+        accentColor: color,
+        presentation: ServiceDetailPresentation.process,
         fields: [
           ServiceDetailField(label: '阶段标识', value: stage),
           ServiceDetailField(label: '阶段名称', value: _stageName(stage)),
@@ -12344,6 +12401,10 @@ class _DependencyLine extends StatelessWidget {
       title: name,
       subtitle: '依赖状态详情',
       icon: Icons.account_tree_outlined,
+      accentColor: ready
+          ? OpenHandStatusColors.success
+          : Theme.of(context).colorScheme.outline,
+      presentation: ServiceDetailPresentation.health,
       fields: [
         ServiceDetailField(label: '依赖', value: name),
         ServiceDetailField(label: '状态', value: ready ? '正常' : '未启用'),
@@ -12688,6 +12749,8 @@ class _LogRow extends StatelessWidget {
         context,
         title: openHandLocalizedText(context, zh: '日志详情', en: 'Log details'),
         icon: Icons.terminal_rounded,
+        accentColor: color,
+        presentation: ServiceDetailPresentation.log,
         fields: [
           ServiceDetailField(label: '时间', value: local.toIso8601String()),
           ServiceDetailField(
