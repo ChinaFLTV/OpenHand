@@ -1100,7 +1100,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       ),
       foregroundDecoration: BoxDecoration(
         borderRadius: _markdownCodeBlockRadius,
-        border: Border.all(color: palette.borderColor, width: 0.8),
+        border: Border.all(color: palette.borderColor),
       ),
       clipBehavior: Clip.antiAlias,
       child: Column(

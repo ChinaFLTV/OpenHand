@@ -1361,11 +1361,9 @@ class _MessageMarkdownThemeData {
           borderRadius: const BorderRadius.all(Radius.circular(12)),
           border: Border(left: BorderSide(color: accentColor, width: 2.5)),
         ),
-        // 第三方渲染器会裁剪 pre，外层圆角需略大于代码面板，避免边框缺角。
+        // 代码面板自行裁剪圆角，外层仅约束边界，避免重复裁剪削薄四角边框。
         codeblockPadding: EdgeInsets.zero,
-        codeblockDecoration: const BoxDecoration(
-          borderRadius: _markdownCodeBlockClipRadius,
-        ),
+        codeblockDecoration: const BoxDecoration(),
         horizontalRuleDecoration: BoxDecoration(
           border: Border(top: BorderSide(color: borderColor)),
         ),

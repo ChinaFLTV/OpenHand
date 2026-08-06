@@ -171,9 +171,6 @@ const BorderRadius _borderRadius18 = BorderRadius.all(Radius.circular(18));
 const BorderRadius _markdownCodeBlockRadius = BorderRadius.all(
   Radius.circular(14),
 );
-const BorderRadius _markdownCodeBlockClipRadius = BorderRadius.all(
-  Radius.circular(15),
-);
 
 /// 会话渲染预热使用的逐帧有界任务队列。
 ///
