@@ -153,6 +153,12 @@ pub fn default_rules() -> Vec<ScanRule> {
             .iter()
             .map(|value| (*value).to_owned())
             .collect(),
+        version: None,
+        content_hash: None,
+        created_at: None,
+        updated_at: None,
+        snapshot_id: None,
+        change_source: None,
     })
     .collect()
 }

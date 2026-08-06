@@ -1,5 +1,5 @@
 use anyhow::Context;
-use chrono::Utc;
+use chrono::{DateTime, Utc};
 use futures::StreamExt;
 use hunt_core::{
     AuthorizedScope, CANDIDATE_ARTIFACT_TEXT_KEY, CompiledRuleSet, CredentialFinding,
@@ -33,7 +33,7 @@ use std::{
         Arc, Mutex as StdMutex, RwLock as StdRwLock,
         atomic::{AtomicU64, Ordering},
     },
-    time::Duration,
+    time::{Duration, Instant},
 };
 use thiserror::Error;
 use tokio::sync::{Mutex, RwLock, Semaphore, broadcast};
@@ -69,11 +69,35 @@ pub struct HuntEngine {
     sources: Arc<SourceRegistry>,
     store: HuntStore,
     credentials: Arc<RwLock<SourceCredentials>>,
+    quota_history: Arc<RwLock<HashMap<SourceKind, QuotaProbeHistory>>>,
     ai_extractor: Arc<RwLock<Option<AiExtractorConfiguration>>>,
     redis: Arc<RwLock<Option<RedisCoordinator>>>,
     jobs: Arc<RwLock<HashMap<Uuid, JobRuntime>>>,
     job_start_lock: Arc<Mutex<()>>,
     ai_extractor_slots: Arc<Semaphore>,
+}
+
+#[derive(Clone, Copy, Default)]
+struct QuotaProbeHistory {
+    last_success_at: Option<DateTime<Utc>>,
+    last_failure_at: Option<DateTime<Utc>>,
+}
+
+fn merge_quota_history(
+    quotas: &mut [SourceQuota],
+    history: &mut HashMap<SourceKind, QuotaProbeHistory>,
+) {
+    for quota in quotas {
+        let entry = history.entry(quota.source).or_default();
+        if quota.last_success_at.is_some() {
+            entry.last_success_at = quota.last_success_at;
+        }
+        if quota.last_failure_at.is_some() {
+            entry.last_failure_at = quota.last_failure_at;
+        }
+        quota.last_success_at = entry.last_success_at;
+        quota.last_failure_at = entry.last_failure_at;
+    }
 }
 
 #[derive(Clone)]
@@ -109,9 +133,13 @@ pub enum EngineEvent {
         progress: ScanProgress,
     },
     Log {
+        id: Uuid,
         level: EventLevel,
         message: String,
         at: chrono::DateTime<Utc>,
+        module: String,
+        #[serde(rename = "eventCode")]
+        event_code: Option<String>,
     },
     Result {
         result: ScanResult,
@@ -242,6 +270,26 @@ pub struct ProxyRequestSample {
     pub result: ProxyRequestResult,
     pub response_time_ms: u64,
     pub status_code: Option<u16>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub endpoint_id: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub target_host: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub method: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub timeout_ms: Option<u64>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_type: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub error_message: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub route_mode: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub selection_reason: Option<String>,
+    #[serde(default, skip_serializing_if = "Option::is_none")]
+    pub context: Option<String>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -310,6 +358,12 @@ struct ProxyObservationState {
 struct ProxyObservation {
     runtime: Arc<ProxyRuntime>,
     endpoint_index: usize,
+    request_id: String,
+    endpoint_id: String,
+    target_host: String,
+    selection_reason: String,
+    method: Option<String>,
+    timeout_ms: Option<u64>,
 }
 
 #[derive(Default)]
@@ -416,6 +470,12 @@ pub struct DependencyComponentStatus {
     pub configured: bool,
     pub connected: bool,
     pub message: String,
+    pub checked_at: chrono::DateTime<Utc>,
+    pub latency_ms: u64,
+    pub version: Option<String>,
+    pub endpoint_masked: Option<String>,
+    pub error_code: Option<String>,
+    pub telemetry: Map<String, Value>,
 }
 
 #[derive(Clone, Debug, Serialize)]
@@ -624,11 +684,38 @@ impl HttpRequestObserver for DynamicProxySelector {
                     ProxyObservation {
                         runtime: runtime.clone(),
                         endpoint_index,
+                        request_id: Uuid::new_v4().to_string(),
+                        endpoint_id: runtime.endpoint_ids[endpoint_index].clone(),
+                        target_host: target.host_str().unwrap_or_default().to_owned(),
+                        selection_reason: proxy_selection_reason(runtime.strategy).to_owned(),
+                        method: None,
+                        timeout_ms: None,
                     },
                 );
             ticket
         });
         Ok(Some(HttpRequestObservation { ticket, client }))
+    }
+
+    fn begin_request(
+        &self,
+        request: &reqwest::Request,
+    ) -> reqwest::Result<Option<HttpRequestObservation>> {
+        let observation = self.begin(request.url())?;
+        if let Some(ticket) = observation.as_ref().and_then(|value| value.ticket)
+            && let Some(pending) = self
+                .observations
+                .pending
+                .lock()
+                .unwrap_or_else(|error| error.into_inner())
+                .get_mut(&ticket)
+        {
+            pending.method = Some(request.method().as_str().to_owned());
+            pending.timeout_ms = request
+                .timeout()
+                .map(|value| value.as_millis().min(u64::MAX as u128) as u64);
+        }
+        Ok(observation)
     }
 
     fn begin_external(&self, target: &reqwest::Url) -> reqwest::Result<ExternalHttpRequestRoute> {
@@ -658,6 +745,12 @@ impl HttpRequestObserver for DynamicProxySelector {
                     ProxyObservation {
                         runtime: runtime.clone(),
                         endpoint_index,
+                        request_id: Uuid::new_v4().to_string(),
+                        endpoint_id: runtime.endpoint_ids[endpoint_index].clone(),
+                        target_host: target.host_str().unwrap_or_default().to_owned(),
+                        selection_reason: proxy_selection_reason(runtime.strategy).to_owned(),
+                        method: None,
+                        timeout_ms: None,
                     },
                 );
             ticket
@@ -686,7 +779,7 @@ impl HttpRequestObserver for DynamicProxySelector {
             .statistics
             .get(observation.endpoint_index)
         {
-            statistics.complete(elapsed, outcome);
+            statistics.complete(elapsed, outcome, &observation);
         }
     }
 }
@@ -1018,7 +1111,12 @@ impl ProxyEndpointTelemetry {
         self.in_flight.fetch_add(1, Ordering::Relaxed);
     }
 
-    fn complete(&self, elapsed: Duration, outcome: HttpRequestOutcome) {
+    fn complete(
+        &self,
+        elapsed: Duration,
+        outcome: HttpRequestOutcome,
+        observation: &ProxyObservation,
+    ) {
         self.in_flight.fetch_sub(1, Ordering::Relaxed);
         let response_time_ms = elapsed.as_millis().min(u64::MAX as u128) as u64;
         self.total_response_time_ms
@@ -1028,13 +1126,13 @@ impl ProxyEndpointTelemetry {
         self.max_response_time_ms
             .fetch_max(response_time_ms, Ordering::Relaxed);
         let at_ms = current_timestamp_ms();
-        let (result, status_code, error) = match outcome {
+        let (result, status_code, error_type, error) = match outcome {
             HttpRequestOutcome::Success(status) => {
                 self.successes.fetch_add(1, Ordering::Relaxed);
                 self.consecutive_failures.store(0, Ordering::Relaxed);
                 self.last_success_at_ms.store(at_ms, Ordering::Relaxed);
                 self.record_status(status);
-                (ProxyRequestResult::Success, Some(status), String::new())
+                (ProxyRequestResult::Success, Some(status), None, None)
             }
             HttpRequestOutcome::Failure(status) => {
                 self.failures.fetch_add(1, Ordering::Relaxed);
@@ -1044,24 +1142,35 @@ impl ProxyEndpointTelemetry {
                 (
                     ProxyRequestResult::Failure,
                     Some(status),
-                    format!("目标返回 HTTP {status}"),
+                    Some("http_status".to_owned()),
+                    Some(format!("目标返回 HTTP {status}")),
                 )
             }
             HttpRequestOutcome::Timeout => {
                 self.timeouts.fetch_add(1, Ordering::Relaxed);
                 self.consecutive_failures.fetch_add(1, Ordering::Relaxed);
                 self.last_failure_at_ms.store(at_ms, Ordering::Relaxed);
-                (ProxyRequestResult::Timeout, None, "请求超时".to_owned())
+                (
+                    ProxyRequestResult::Timeout,
+                    None,
+                    Some("timeout".to_owned()),
+                    Some("请求超时".to_owned()),
+                )
             }
             HttpRequestOutcome::TransportFailure => {
                 self.failures.fetch_add(1, Ordering::Relaxed);
                 self.consecutive_failures.fetch_add(1, Ordering::Relaxed);
                 self.last_failure_at_ms.store(at_ms, Ordering::Relaxed);
-                (ProxyRequestResult::Failure, None, "网络传输失败".to_owned())
+                (
+                    ProxyRequestResult::Failure,
+                    None,
+                    Some("transport".to_owned()),
+                    Some("网络传输失败".to_owned()),
+                )
             }
         };
         if let Ok(mut last_error) = self.last_error.write() {
-            *last_error = error;
+            *last_error = error.clone().unwrap_or_default();
         }
         if let Ok(mut recent) = self.recent_requests.lock() {
             if recent.len() >= MAX_PROXY_REQUEST_SAMPLES {
@@ -1072,6 +1181,17 @@ impl ProxyEndpointTelemetry {
                 result,
                 response_time_ms,
                 status_code,
+                id: Some(observation.request_id.clone()),
+                endpoint_id: Some(observation.endpoint_id.clone()),
+                target_host: (!observation.target_host.is_empty())
+                    .then(|| observation.target_host.clone()),
+                method: observation.method.clone(),
+                timeout_ms: observation.timeout_ms,
+                error_type,
+                error_message: error,
+                route_mode: Some("proxy_pool".to_owned()),
+                selection_reason: Some(observation.selection_reason.clone()),
+                context: None,
             });
         }
     }
@@ -1128,6 +1248,15 @@ impl ProxyEndpointTelemetry {
                 .map(|values| values.iter().cloned().collect())
                 .unwrap_or_default(),
         }
+    }
+}
+
+fn proxy_selection_reason(strategy: ProxyRotationStrategy) -> &'static str {
+    match strategy {
+        ProxyRotationStrategy::Fixed => "固定节点",
+        ProxyRotationStrategy::RoundRobin => "轮询调度",
+        ProxyRotationStrategy::Random => "确定性随机调度",
+        ProxyRotationStrategy::StickyHost => "目标主机粘性调度",
     }
 }
 
@@ -1570,6 +1699,7 @@ impl HuntEngine {
             proxy_selector,
             store,
             credentials: Arc::new(RwLock::new(SourceCredentials::default())),
+            quota_history: Arc::new(RwLock::new(HashMap::new())),
             ai_extractor: Arc::new(RwLock::new(None)),
             redis: Arc::new(RwLock::new(None)),
             jobs: Arc::new(RwLock::new(HashMap::new())),
@@ -1933,39 +2063,78 @@ impl HuntEngine {
     }
 
     pub async fn dependency_status(&self) -> DependencyStatus {
+        let postgres_checked_at = Utc::now();
+        let postgres_started = Instant::now();
         let postgres = self.store.postgres_status().await;
+        let postgres_latency = postgres_started.elapsed().as_millis().min(u64::MAX as u128) as u64;
         let redis = self.redis.read().await.clone();
+        let redis_checked_at = Utc::now();
+        let redis_started = Instant::now();
         let redis = match redis {
             None => DependencyComponentStatus {
                 configured: false,
                 connected: false,
                 message: "未启用".to_owned(),
+                checked_at: redis_checked_at,
+                latency_ms: redis_started.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                version: None,
+                endpoint_masked: None,
+                error_code: None,
+                telemetry: Map::new(),
             },
             Some(redis) => match redis.ping().await {
                 Ok(()) => DependencyComponentStatus {
                     configured: true,
                     connected: true,
                     message: "连接正常".to_owned(),
+                    checked_at: redis_checked_at,
+                    latency_ms: redis_started.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                    version: None,
+                    endpoint_masked: None,
+                    error_code: None,
+                    telemetry: Map::new(),
                 },
                 Err(_) => DependencyComponentStatus {
                     configured: true,
                     connected: false,
                     message: "连接不可用".to_owned(),
+                    checked_at: redis_checked_at,
+                    latency_ms: redis_started.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                    version: None,
+                    endpoint_masked: None,
+                    error_code: Some("ping_failed".to_owned()),
+                    telemetry: Map::new(),
                 },
             },
         };
+        let browser_checked_at = Utc::now();
+        let browser_started = Instant::now();
         let browser = self.sources.browser_status();
         DependencyStatus {
             postgresql: DependencyComponentStatus {
                 configured: postgres.configured,
                 connected: postgres.connected,
                 message: postgres.message,
+                checked_at: postgres_checked_at,
+                latency_ms: postgres_latency,
+                version: None,
+                endpoint_masked: None,
+                error_code: (postgres.configured && !postgres.connected)
+                    .then(|| "ping_failed".to_owned()),
+                telemetry: Map::new(),
             },
             redis,
             playwright: DependencyComponentStatus {
                 configured: browser.configured,
                 connected: browser.available,
                 message: browser.message,
+                checked_at: browser_checked_at,
+                latency_ms: browser_started.elapsed().as_millis().min(u64::MAX as u128) as u64,
+                version: browser.version,
+                endpoint_masked: None,
+                error_code: (browser.configured && !browser.available)
+                    .then(|| "runtime_unavailable".to_owned()),
+                telemetry: Map::new(),
             },
         }
     }
@@ -2102,7 +2271,10 @@ impl HuntEngine {
 
     pub async fn quotas(&self) -> Vec<SourceQuota> {
         let credentials = self.credentials.read().await.clone();
-        self.sources.quotas(&credentials).await
+        let mut quotas = self.sources.quotas(&credentials).await;
+        let mut history = self.quota_history.write().await;
+        merge_quota_history(&mut quotas, &mut history);
+        quotas
     }
 
     pub fn database_path(&self) -> std::path::PathBuf {
@@ -2703,18 +2875,28 @@ impl HuntEngine {
 
     async fn fail_job(&self, id: Uuid, runtime: JobRuntime, error: anyhow::Error) {
         let message = error.to_string();
+        let stack_summary = format!("{error:#}");
         {
             let mut progress = runtime.progress.write().await;
-            progress.stage = ScanStage::Failed;
-            progress.message = message.clone();
-            progress.updated_at = Utc::now();
+            progress.failure_stage = Some(progress.stage);
+            progress.transition_to(ScanStage::Failed, &message);
             let _ = runtime.events.send(EngineEvent::Progress {
                 progress: progress.clone(),
             });
         }
         let progress = runtime.progress.read().await.clone();
         let _ = self.store.update_progress(&progress).await;
-        let _ = self.emit_log(&runtime, EventLevel::Error, &message).await;
+        let _ = self
+            .emit_structured_log(
+                &runtime,
+                EventLevel::Error,
+                &message,
+                "scan_engine",
+                Some("scan_failed"),
+                Some("scan_engine_error"),
+                Some(&stack_summary),
+            )
+            .await;
         let _ = self.store.set_job_error(id, message).await;
     }
 
@@ -2724,18 +2906,43 @@ impl HuntEngine {
         level: EventLevel,
         message: &str,
     ) -> Result<(), hunt_store::StoreError> {
+        self.emit_structured_log(runtime, level, message, "scan_engine", None, None, None)
+            .await
+    }
+
+    async fn emit_structured_log(
+        &self,
+        runtime: &JobRuntime,
+        level: EventLevel,
+        message: &str,
+        module: &str,
+        event_code: Option<&str>,
+        exception_type: Option<&str>,
+        stack_summary: Option<&str>,
+    ) -> Result<(), hunt_store::StoreError> {
+        let id = Uuid::new_v4();
         let at = Utc::now();
         let _ = runtime.events.send(EngineEvent::Log {
+            id,
             level,
             message: message.to_owned(),
             at,
+            module: module.to_owned(),
+            event_code: event_code.map(str::to_owned),
         });
         self.store
             .insert_log(&ScanLogEntry {
+                id: Some(id),
                 job_id: runtime.job_id,
                 level: event_level_name(level).to_owned(),
                 message: message.to_owned(),
                 at,
+                module: Some(module.to_owned()),
+                event_code: event_code.map(str::to_owned),
+                trace_id: Some(runtime.job_id.to_string()),
+                exception_type: exception_type.map(str::to_owned),
+                stack_summary: stack_summary.map(str::to_owned),
+                metadata: BTreeMap::new(),
             })
             .await
     }
@@ -2785,15 +2992,38 @@ async fn set_stage(
 ) -> anyhow::Result<()> {
     let progress = {
         let mut progress = runtime.progress.write().await;
-        progress.stage = stage;
-        progress.message = message.to_owned();
-        progress.updated_at = Utc::now();
+        progress.transition_to(stage, message);
         progress.clone()
     };
     engine.store.update_progress(&progress).await?;
     let _ = runtime.events.send(EngineEvent::Progress { progress });
-    engine.emit_log(runtime, EventLevel::Info, message).await?;
+    engine
+        .emit_structured_log(
+            runtime,
+            EventLevel::Info,
+            message,
+            "pipeline",
+            Some(stage_event_code(stage)),
+            None,
+            None,
+        )
+        .await?;
     Ok(())
+}
+
+fn stage_event_code(stage: ScanStage) -> &'static str {
+    match stage {
+        ScanStage::Queued => "stage_queued",
+        ScanStage::Discovering => "stage_discovering",
+        ScanStage::Normalizing => "stage_normalizing",
+        ScanStage::Fingerprinting => "stage_fingerprinting",
+        ScanStage::Extracting => "stage_extracting",
+        ScanStage::Validating => "stage_validating",
+        ScanStage::Persisting => "stage_persisting",
+        ScanStage::Completed => "stage_completed",
+        ScanStage::Cancelled => "stage_cancelled",
+        ScanStage::Failed => "stage_failed",
+    }
 }
 
 fn event_level_name(level: EventLevel) -> &'static str {
@@ -3051,6 +3281,35 @@ mod tests {
     fn accepts_only_structured_model_lists() {
         assert_eq!(count_models(&serde_json::json!({"data": []})), Some(0));
         assert_eq!(count_models(&serde_json::json!({"status": "ok"})), None);
+    }
+
+    #[test]
+    fn keeps_latest_quota_success_and_failure_times() {
+        let success_at = Utc::now();
+        let failure_at = success_at + chrono::Duration::seconds(1);
+        let mut history = HashMap::new();
+        let mut quotas = vec![SourceQuota {
+            source: SourceKind::Gitee,
+            configured: true,
+            available: true,
+            remaining: Some(10),
+            limit: Some(20),
+            resets_at: None,
+            message: "配额可用。".to_owned(),
+            checked_at: Some(success_at),
+            latency_ms: Some(12),
+            http_status: Some(200),
+            error_code: None,
+            last_success_at: Some(success_at),
+            last_failure_at: None,
+        }];
+        merge_quota_history(&mut quotas, &mut history);
+        quotas[0].available = false;
+        quotas[0].last_success_at = None;
+        quotas[0].last_failure_at = Some(failure_at);
+        merge_quota_history(&mut quotas, &mut history);
+        assert_eq!(quotas[0].last_success_at, Some(success_at));
+        assert_eq!(quotas[0].last_failure_at, Some(failure_at));
     }
 
     #[test]

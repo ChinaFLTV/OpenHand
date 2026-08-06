@@ -133,6 +133,12 @@ pub struct ExternalHttpRequestRoute {
 
 pub trait HttpRequestObserver: Send + Sync {
     fn begin(&self, target: &reqwest::Url) -> reqwest::Result<Option<HttpRequestObservation>>;
+    fn begin_request(
+        &self,
+        request: &reqwest::Request,
+    ) -> reqwest::Result<Option<HttpRequestObservation>> {
+        self.begin(request.url())
+    }
     fn begin_external(&self, _target: &reqwest::Url) -> reqwest::Result<ExternalHttpRequestRoute> {
         Ok(ExternalHttpRequestRoute {
             ticket: None,
@@ -284,7 +290,7 @@ impl ObservedRequestBuilder {
 
     pub async fn send(self) -> reqwest::Result<Response> {
         let request = self.request.build()?;
-        let observation = self.client.observer.begin(request.url())?;
+        let observation = self.client.observer.begin_request(&request)?;
         let ticket = observation.as_ref().and_then(|value| value.ticket);
         let client = observation
             .map(|value| value.client)
@@ -329,6 +335,7 @@ pub struct BrowserAutomationStatus {
     pub configured: bool,
     pub available: bool,
     pub message: String,
+    pub version: Option<String>,
 }
 
 #[derive(Clone, Debug)]
@@ -468,11 +475,14 @@ impl BrowserAutomation {
                 } else {
                     format!("Playwright {} 浏览器通道已就绪。", value.version.trim())
                 },
+                version: (!value.version.trim().is_empty())
+                    .then(|| value.version.trim().to_owned()),
             },
             None => BrowserAutomationStatus {
                 configured: false,
                 available: false,
                 message: "未检测到可用的 Playwright 插件。".to_owned(),
+                version: None,
             },
         }
     }
@@ -1106,18 +1116,45 @@ impl SourceRegistry {
 }
 
 async fn quota_or_status(source: &dyn AssetSource, credentials: &SourceCredentials) -> SourceQuota {
-    source
-        .quota(credentials)
-        .await
-        .unwrap_or_else(|error| SourceQuota {
-            source: source.kind(),
-            configured: !matches!(&error, SourceError::MissingCredential(_)),
-            available: false,
-            remaining: None,
-            limit: None,
-            resets_at: None,
-            message: error.to_string(),
-        })
+    let checked_at = Utc::now();
+    let started = Instant::now();
+    match source.quota(credentials).await {
+        Ok(mut quota) => {
+            quota.checked_at = Some(checked_at);
+            quota.latency_ms = Some(started.elapsed().as_millis().min(u64::MAX as u128) as u64);
+            quota.last_success_at = Some(checked_at);
+            quota
+        }
+        Err(error) => {
+            let (http_status, error_code) = match &error {
+                SourceError::MissingCredential(_) => (None, "missing_credential".to_owned()),
+                SourceError::Http { status, .. } => (Some(*status), format!("http_{status}")),
+                SourceError::Transport(_) => (None, "transport".to_owned()),
+                SourceError::ResponseTooLarge { .. } => (None, "response_too_large".to_owned()),
+                SourceError::InvalidResponse(_) => (None, "invalid_response".to_owned()),
+                SourceError::ForumFetch { .. } => (None, "forum_fetch".to_owned()),
+                SourceError::BrowserUnavailable => (None, "browser_unavailable".to_owned()),
+                SourceError::Browser(_) => (None, "browser".to_owned()),
+                SourceError::InvalidForumEntry(_) => (None, "invalid_forum_entry".to_owned()),
+                SourceError::Other(_) => (None, "internal".to_owned()),
+            };
+            SourceQuota {
+                source: source.kind(),
+                configured: !matches!(&error, SourceError::MissingCredential(_)),
+                available: false,
+                remaining: None,
+                limit: None,
+                resets_at: None,
+                message: error.to_string(),
+                checked_at: Some(checked_at),
+                latency_ms: Some(started.elapsed().as_millis().min(u64::MAX as u128) as u64),
+                http_status,
+                error_code: Some(error_code),
+                last_success_at: None,
+                last_failure_at: Some(checked_at),
+            }
+        }
+    }
 }
 
 struct ManualSource;
@@ -1234,7 +1271,8 @@ impl AssetSource for GithubSource {
             .send()
             .await
             .map_err(|_| SourceError::Transport("GitHub"))?;
-        ensure_success("GitHub", response.status())?;
+        let http_status = response.status();
+        ensure_success("GitHub", http_status)?;
         let search = parse_json_limited::<GithubSearchResponse>("GitHub", response).await?;
         let client = self.client.clone();
         let kind = self.kind;
@@ -1277,7 +1315,8 @@ impl AssetSource for GithubSource {
             .send()
             .await
             .map_err(|_| SourceError::Transport("GitHub"))?;
-        ensure_success("GitHub", response.status())?;
+        let http_status = response.status();
+        ensure_success("GitHub", http_status)?;
         let quota = parse_json_limited::<GithubRateLimitResponse>("GitHub", response)
             .await?
             .resources
@@ -1290,6 +1329,12 @@ impl AssetSource for GithubSource {
             limit: Some(quota.limit),
             resets_at: chrono::DateTime::from_timestamp(quota.reset, 0),
             message: "GitHub Code Search 配额正常。".to_owned(),
+            checked_at: None,
+            latency_ms: None,
+            http_status: Some(http_status.as_u16()),
+            error_code: None,
+            last_success_at: None,
+            last_failure_at: None,
         })
     }
 }
@@ -1432,7 +1477,8 @@ impl AssetSource for GitPlatformSource {
             .send()
             .await
             .map_err(|_| SourceError::Transport(self.platform))?;
-        ensure_success(self.platform, response.status())?;
+        let http_status = response.status();
+        ensure_success(self.platform, http_status)?;
         let remaining = response
             .headers()
             .get("x-ratelimit-remaining")
@@ -1457,6 +1503,12 @@ impl AssetSource for GitPlatformSource {
             limit,
             resets_at,
             message: format!("{} 访问令牌有效。", self.platform),
+            checked_at: None,
+            latency_ms: None,
+            http_status: Some(http_status.as_u16()),
+            error_code: None,
+            last_success_at: None,
+            last_failure_at: None,
         })
     }
 }
@@ -1711,7 +1763,8 @@ impl AssetSource for FofaSource {
             .send()
             .await
             .map_err(|_| SourceError::Transport("FOFA"))?;
-        ensure_success("FOFA", response.status())?;
+        let http_status = response.status();
+        ensure_success("FOFA", http_status)?;
         let body = parse_json_limited::<FofaSearchResponse>("FOFA", response).await?;
         if body.error {
             return Err(SourceError::Other(anyhow::anyhow!(
@@ -1746,7 +1799,8 @@ impl AssetSource for FofaSource {
             .send()
             .await
             .map_err(|_| SourceError::Transport("FOFA"))?;
-        ensure_success("FOFA", response.status())?;
+        let http_status = response.status();
+        ensure_success("FOFA", http_status)?;
         let body = parse_json_limited::<FofaUserResponse>("FOFA", response).await?;
         if body.error {
             return Err(SourceError::InvalidResponse("FOFA"));
@@ -1759,6 +1813,12 @@ impl AssetSource for FofaSource {
             limit: None,
             resets_at: None,
             message: "FOFA 账户可用。".to_owned(),
+            checked_at: None,
+            latency_ms: None,
+            http_status: Some(http_status.as_u16()),
+            error_code: None,
+            last_success_at: None,
+            last_failure_at: None,
         })
     }
 }
@@ -1817,7 +1877,8 @@ impl AssetSource for ShodanSource {
             .send()
             .await
             .map_err(|_| SourceError::Transport("Shodan"))?;
-        ensure_success("Shodan", response.status())?;
+        let http_status = response.status();
+        ensure_success("Shodan", http_status)?;
         let body = parse_json_limited::<ShodanSearchResponse>("Shodan", response).await?;
         Ok(SourceDiscovery::new(
             body.matches
@@ -1857,7 +1918,8 @@ impl AssetSource for ShodanSource {
             .send()
             .await
             .map_err(|_| SourceError::Transport("Shodan"))?;
-        ensure_success("Shodan", response.status())?;
+        let http_status = response.status();
+        ensure_success("Shodan", http_status)?;
         let body = parse_json_limited::<ShodanAccountResponse>("Shodan", response).await?;
         Ok(SourceQuota {
             source: SourceKind::Shodan,
@@ -1871,6 +1933,12 @@ impl AssetSource for ShodanSource {
                 body.scan_credits
                     .map_or_else(|| "未知".to_owned(), |value| value.to_string())
             ),
+            checked_at: None,
+            latency_ms: None,
+            http_status: Some(http_status.as_u16()),
+            error_code: None,
+            last_success_at: None,
+            last_failure_at: None,
         })
     }
 }
@@ -2221,6 +2289,12 @@ fn unlimited_quota(source: SourceKind, message: &str) -> SourceQuota {
         limit: None,
         resets_at: None,
         message: message.to_owned(),
+        checked_at: None,
+        latency_ms: None,
+        http_status: None,
+        error_code: None,
+        last_success_at: None,
+        last_failure_at: None,
     }
 }
 

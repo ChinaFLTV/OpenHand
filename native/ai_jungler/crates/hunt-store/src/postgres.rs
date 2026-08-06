@@ -98,11 +98,25 @@ impl PostgresMirror {
              CREATE INDEX IF NOT EXISTS hunt_results_credential_idx ON hunt_results(credential_fingerprint);
              CREATE TABLE IF NOT EXISTS hunt_job_logs (
                id BIGSERIAL PRIMARY KEY,
+               event_id TEXT,
                job_id TEXT NOT NULL REFERENCES hunt_jobs(id) ON DELETE CASCADE,
                level TEXT NOT NULL,
+               module TEXT,
+               event_code TEXT,
                message TEXT NOT NULL,
-               created_at TIMESTAMPTZ NOT NULL
+               created_at TIMESTAMPTZ NOT NULL,
+               trace_id TEXT,
+               exception_type TEXT,
+               stack_summary TEXT,
+               metadata JSONB
              );
+             ALTER TABLE hunt_job_logs ADD COLUMN IF NOT EXISTS event_id TEXT;
+             ALTER TABLE hunt_job_logs ADD COLUMN IF NOT EXISTS module TEXT;
+             ALTER TABLE hunt_job_logs ADD COLUMN IF NOT EXISTS event_code TEXT;
+             ALTER TABLE hunt_job_logs ADD COLUMN IF NOT EXISTS trace_id TEXT;
+             ALTER TABLE hunt_job_logs ADD COLUMN IF NOT EXISTS exception_type TEXT;
+             ALTER TABLE hunt_job_logs ADD COLUMN IF NOT EXISTS stack_summary TEXT;
+             ALTER TABLE hunt_job_logs ADD COLUMN IF NOT EXISTS metadata JSONB;
              CREATE INDEX IF NOT EXISTS hunt_job_logs_job_idx ON hunt_job_logs(job_id, id);
              CREATE TABLE IF NOT EXISTS hunt_scanned_targets (
                url TEXT PRIMARY KEY,
@@ -547,14 +561,24 @@ impl PostgresMirror {
     }
 
     pub(crate) async fn insert_log(&self, entry: &ScanLogEntry) -> anyhow::Result<()> {
+        let metadata = serde_json::to_value(&entry.metadata)?;
         query(
-            "INSERT INTO hunt_job_logs (job_id, level, message, created_at)
-             VALUES ($1, $2, $3, $4)",
+            "INSERT INTO hunt_job_logs (
+               event_id, job_id, level, module, event_code, message, created_at,
+               trace_id, exception_type, stack_summary, metadata
+             ) VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11)",
         )
+        .bind(entry.id.map(|value| value.to_string()))
         .bind(entry.job_id.to_string())
         .bind(&entry.level)
+        .bind(&entry.module)
+        .bind(&entry.event_code)
         .bind(&entry.message)
         .bind(entry.at)
+        .bind(&entry.trace_id)
+        .bind(&entry.exception_type)
+        .bind(&entry.stack_summary)
+        .bind(metadata)
         .execute(&self.pool)
         .await?;
         Ok(())

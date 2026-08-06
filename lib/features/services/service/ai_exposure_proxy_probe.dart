@@ -24,30 +24,72 @@ class AiExposureProxyProbe {
   const AiExposureProxyProbe();
 
   Future<AiExposureProxyProbeSample> inspect(
-    AiExposureProxyEndpoint endpoint,
-  ) async {
-    final checkedAt = DateTime.now();
+    AiExposureProxyEndpoint endpoint, {
+    String? inspectionRunId,
+    DateTime? scheduledAt,
+  }) async {
+    final startedAt = DateTime.now();
+    final sampleId = [
+      inspectionRunId ?? 'manual',
+      endpoint.runtimeId,
+      '${startedAt.microsecondsSinceEpoch}',
+    ].join(':');
     final proxy = Uri.parse(endpoint.url);
     _ProxyProbeAttempt? failure;
     for (final target in _kProxyProbeTargets) {
       final attempt = await _probeTunnel(proxy, target);
       if (attempt.reachable) {
+        final finishedAt = DateTime.now();
         return AiExposureProxyProbeSample(
-          checkedAt: checkedAt,
+          id: sampleId,
+          inspectionRunId: inspectionRunId,
+          scheduledAt: scheduledAt,
+          startedAt: startedAt,
+          finishedAt: finishedAt,
+          checkedAt: startedAt,
           latencyMs: attempt.latencyMs,
           statusCode: attempt.statusCode,
           gatewayReachable: true,
+          stepResults: [
+            AiExposureProxyProbeStepResult(
+              step: '代理转发与协议检查',
+              succeeded: true,
+              startedAt: startedAt,
+              finishedAt: finishedAt,
+              durationMs: finishedAt.difference(startedAt).inMilliseconds,
+              message: '代理转发与协议检查通过。',
+            ),
+          ],
         );
       }
       failure = _preferredFailure(failure, attempt);
       if (!attempt.retryable) break;
     }
+    final finishedAt = DateTime.now();
+    final resolvedFailure =
+        failure?.failure ?? AiExposureProxyProbeFailure.forwarding;
+    final error = failure?.error ?? '代理检测失败';
     return AiExposureProxyProbeSample(
-      checkedAt: checkedAt,
+      id: sampleId,
+      inspectionRunId: inspectionRunId,
+      scheduledAt: scheduledAt,
+      startedAt: startedAt,
+      finishedAt: finishedAt,
+      checkedAt: startedAt,
       statusCode: failure?.statusCode,
       gatewayReachable: failure?.gatewayReachable ?? false,
-      failure: failure?.failure ?? AiExposureProxyProbeFailure.forwarding,
-      error: failure?.error ?? '代理检测失败',
+      failure: resolvedFailure,
+      error: error,
+      stepResults: [
+        AiExposureProxyProbeStepResult(
+          step: _proxyProbeFailureStepName(resolvedFailure),
+          succeeded: false,
+          startedAt: startedAt,
+          finishedAt: finishedAt,
+          durationMs: finishedAt.difference(startedAt).inMilliseconds,
+          message: error,
+        ),
+      ],
     );
   }
 
@@ -69,6 +111,16 @@ class AiExposureProxyProbe {
     }
   }
 }
+
+String _proxyProbeFailureStepName(AiExposureProxyProbeFailure failure) =>
+    switch (failure) {
+      AiExposureProxyProbeFailure.gateway => '代理网关连接',
+      AiExposureProxyProbeFailure.authentication => '代理身份认证',
+      AiExposureProxyProbeFailure.access => '代理访问控制',
+      AiExposureProxyProbeFailure.forwarding => '代理转发',
+      AiExposureProxyProbeFailure.protocol => '代理协议检查',
+      AiExposureProxyProbeFailure.timeout => '代理响应等待',
+    };
 
 Future<_ProxyProbeAttempt> _probeTunnel(
   Uri proxy,

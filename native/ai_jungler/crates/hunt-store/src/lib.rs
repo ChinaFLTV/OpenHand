@@ -360,18 +360,39 @@ impl HuntStore {
             for row in rows {
                 let (id, name, request_json, stage, progress_json, created_at, finished_at, error_message) = row?;
                 let request: ScanRequest = serde_json::from_str(&request_json)?;
+                let progress: ScanProgress = serde_json::from_str(&progress_json)?;
+                let stage = parse_stage(&stage);
+                let created_at = DateTime::parse_from_rfc3339(&created_at)?.with_timezone(&Utc);
+                let finished_at = finished_at
+                    .map(|value| DateTime::parse_from_rfc3339(&value).map(|time| time.with_timezone(&Utc)))
+                    .transpose()?;
+                let started_at = progress
+                    .stage_timings
+                    .iter()
+                    .find(|timing| timing.stage != ScanStage::Queued)
+                    .map(|timing| timing.started_at)
+                    .or_else(|| (stage != ScanStage::Queued).then_some(created_at));
                 jobs.push(ScanJobSummary {
                     id: Uuid::parse_str(&id)?,
                     name,
-                    stage: parse_stage(&stage),
+                    stage,
                     sources: request.sources,
                     mode: request.mode,
                     authorized_scope: request.authorized_scope,
-                    progress: serde_json::from_str(&progress_json)?,
-                    created_at: DateTime::parse_from_rfc3339(&created_at)?.with_timezone(&Utc),
-                    finished_at: finished_at
-                        .map(|value| DateTime::parse_from_rfc3339(&value).map(|time| time.with_timezone(&Utc)))
-                        .transpose()?,
+                    started_at,
+                    cancelled_at: (stage == ScanStage::Cancelled).then_some(finished_at).flatten(),
+                    cancel_reason: (stage == ScanStage::Cancelled).then(|| progress.message.clone()),
+                    last_checkpoint_at: Some(progress.updated_at),
+                    failure_stage: progress.failure_stage,
+                    retry_count: Some(0),
+                    concurrency: Some(request.concurrency),
+                    validation_mode: Some(request.validation_mode),
+                    forum_fetch_mode: Some(request.forum_fetch_mode),
+                    gpt_assisted: Some(request.gpt_assisted),
+                    stage_timings: progress.stage_timings.clone(),
+                    progress,
+                    created_at,
+                    finished_at,
                     error_message,
                 });
             }
@@ -480,13 +501,24 @@ impl HuntStore {
     pub async fn insert_log(&self, entry: &ScanLogEntry) -> Result<(), StoreError> {
         let sqlite_entry = entry.clone();
         self.with_connection(move |connection| {
+            let metadata_json = serde_json::to_string(&sqlite_entry.metadata)?;
             connection.execute(
-                "INSERT INTO job_logs (job_id, level, message, created_at) VALUES (?1, ?2, ?3, ?4)",
+                "INSERT INTO job_logs (
+                    event_id, job_id, level, module, event_code, message, created_at,
+                    trace_id, exception_type, stack_summary, metadata_json
+                ) VALUES (?1, ?2, ?3, ?4, ?5, ?6, ?7, ?8, ?9, ?10, ?11)",
                 params![
+                    sqlite_entry.id.map(|value| value.to_string()),
                     sqlite_entry.job_id.to_string(),
                     sqlite_entry.level,
+                    sqlite_entry.module,
+                    sqlite_entry.event_code,
                     sqlite_entry.message,
                     sqlite_entry.at.to_rfc3339(),
+                    sqlite_entry.trace_id,
+                    sqlite_entry.exception_type,
+                    sqlite_entry.stack_summary,
+                    metadata_json,
                 ],
             )?;
             Ok(())
@@ -509,21 +541,55 @@ impl HuntStore {
         let bounded_limit = limit.clamp(1, 5_000) as i64;
         self.with_connection(move |connection| {
             let mut statement = connection.prepare(
-                "SELECT level, message, created_at FROM job_logs
+                "SELECT event_id, level, module, event_code, message, created_at,
+                        trace_id, exception_type, stack_summary, metadata_json
+                 FROM job_logs
                  WHERE job_id = ?1 ORDER BY id ASC LIMIT ?2",
             )?;
             let rows = statement.query_map(params![job_id.to_string(), bounded_limit], |row| {
-                let at: String = row.get(2)?;
-                Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?, at))
+                Ok((
+                    row.get::<_, Option<String>>(0)?,
+                    row.get::<_, String>(1)?,
+                    row.get::<_, Option<String>>(2)?,
+                    row.get::<_, Option<String>>(3)?,
+                    row.get::<_, String>(4)?,
+                    row.get::<_, String>(5)?,
+                    row.get::<_, Option<String>>(6)?,
+                    row.get::<_, Option<String>>(7)?,
+                    row.get::<_, Option<String>>(8)?,
+                    row.get::<_, Option<String>>(9)?,
+                ))
             })?;
             let mut logs = Vec::new();
             for row in rows {
-                let (level, message, at) = row?;
+                let (
+                    id,
+                    level,
+                    module,
+                    event_code,
+                    message,
+                    at,
+                    trace_id,
+                    exception_type,
+                    stack_summary,
+                    metadata_json,
+                ) = row?;
                 logs.push(ScanLogEntry {
+                    id: id.map(|value| Uuid::parse_str(&value)).transpose()?,
                     job_id,
                     level,
                     message,
                     at: DateTime::parse_from_rfc3339(&at)?.with_timezone(&Utc),
+                    module,
+                    event_code,
+                    trace_id,
+                    exception_type,
+                    stack_summary,
+                    metadata: metadata_json
+                        .as_deref()
+                        .map(serde_json::from_str)
+                        .transpose()?
+                        .unwrap_or_default(),
                 });
             }
             Ok(logs)
@@ -817,10 +883,17 @@ fn migrate(connection: &Connection) -> anyhow::Result<()> {
          );
          CREATE TABLE IF NOT EXISTS job_logs (
            id INTEGER PRIMARY KEY AUTOINCREMENT,
+           event_id TEXT,
            job_id TEXT NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
            level TEXT NOT NULL,
+           module TEXT,
+           event_code TEXT,
            message TEXT NOT NULL,
-           created_at TEXT NOT NULL
+           created_at TEXT NOT NULL,
+           trace_id TEXT,
+           exception_type TEXT,
+           stack_summary TEXT,
+           metadata_json TEXT
          );
          CREATE INDEX IF NOT EXISTS idx_job_logs_job ON job_logs(job_id, id);
          CREATE TABLE IF NOT EXISTS scanned_targets (
@@ -841,6 +914,13 @@ fn migrate(connection: &Connection) -> anyhow::Result<()> {
         "duplicate_response_hosts",
         "INTEGER NOT NULL DEFAULT 0",
     )?;
+    ensure_column(connection, "job_logs", "event_id", "TEXT")?;
+    ensure_column(connection, "job_logs", "module", "TEXT")?;
+    ensure_column(connection, "job_logs", "event_code", "TEXT")?;
+    ensure_column(connection, "job_logs", "trace_id", "TEXT")?;
+    ensure_column(connection, "job_logs", "exception_type", "TEXT")?;
+    ensure_column(connection, "job_logs", "stack_summary", "TEXT")?;
+    ensure_column(connection, "job_logs", "metadata_json", "TEXT")?;
     ensure_column(
         connection,
         "results",
@@ -895,6 +975,27 @@ mod tests {
         let store = HuntStore::open(&path).await.unwrap();
         assert!(store.database_path().exists());
         assert!(store.load_rules().await.unwrap().len() >= 15);
+        drop(store);
+        fs::remove_dir_all(path).unwrap();
+    }
+
+    #[tokio::test]
+    async fn reports_job_runtime_configuration_and_start_time() {
+        let path = temporary_store_path();
+        let store = HuntStore::open(&path).await.unwrap();
+        let job_id = Uuid::new_v4();
+        let request = sample_request();
+        let mut progress = ScanProgress::queued(job_id);
+        store.create_job(job_id, &request, &progress).await.unwrap();
+        progress.transition_to(ScanStage::Discovering, "开始发现目标。");
+        store.update_progress(&progress).await.unwrap();
+
+        let job = store.list_jobs(1).await.unwrap().remove(0);
+        assert!(job.started_at.is_some());
+        assert_eq!(job.concurrency, Some(1));
+        assert_eq!(job.validation_mode, Some(ValidationMode::Passive));
+        assert_eq!(job.retry_count, Some(0));
+
         drop(store);
         fs::remove_dir_all(path).unwrap();
     }

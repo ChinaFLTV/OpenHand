@@ -980,6 +980,7 @@ class ServicesController extends ChangeNotifier {
   Future<bool> inspectAllProxies({
     int? concurrency,
     AiExposureProxyInspectionResultCallback? onResult,
+    DateTime? scheduledAt,
   }) async {
     if (_proxyInspectionRunning || _disposed) return false;
     final configuration = _proxyConfiguration;
@@ -990,6 +991,9 @@ class ServicesController extends ChangeNotifier {
     }
     if (targets.isEmpty) return false;
     final generation = ++_proxyInspectionGeneration;
+    final runStartedAt = DateTime.now();
+    final inspectionRunId =
+        'inspection-${runStartedAt.microsecondsSinceEpoch}-$generation';
     _proxyInspectionCancelRequested = false;
     _proxyInspectionRunning = true;
     _notify();
@@ -1046,7 +1050,11 @@ class ServicesController extends ChangeNotifier {
         final index = cursor++;
         if (index >= targets.length) return;
         final (endpointIndex, endpoint) = targets[index];
-        final sample = await _proxyProbe.inspect(endpoint);
+        final sample = await _proxyProbe.inspect(
+          endpoint,
+          inspectionRunId: inspectionRunId,
+          scheduledAt: scheduledAt,
+        );
         if (_disposed || generation != _proxyInspectionGeneration) return;
         pending.add((endpointIndex, endpoint.url, sample));
         completed++;
@@ -1122,7 +1130,7 @@ class ServicesController extends ChangeNotifier {
         if (_disposed || generation != _proxyInspectionScheduleGeneration) {
           return;
         }
-        await inspectAllProxies();
+        await inspectAllProxies(scheduledAt: DateTime.now());
         if (_disposed || generation != _proxyInspectionScheduleGeneration) {
           return;
         }
@@ -1551,16 +1559,7 @@ class ServicesController extends ChangeNotifier {
           ..._results.where((item) => item.id != result.id),
         ]);
       case 'log':
-        _appendLog(
-          AiExposureLogEntry(
-            jobId: jobId,
-            level: event['level'] as String? ?? 'info',
-            message: event['message'] as String? ?? '',
-            at:
-                DateTime.tryParse(event['at'] as String? ?? '') ??
-                DateTime.now(),
-          ),
-        );
+        _appendLog(AiExposureLogEntry.fromJson({...event, 'jobId': jobId}));
     }
     _notify();
   }

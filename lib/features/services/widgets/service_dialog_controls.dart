@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/hover_lift.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
@@ -18,6 +19,58 @@ const BorderRadius kServiceInteractiveBorderRadius = BorderRadius.all(
 );
 
 enum ServiceDialogHeaderActionTone { neutral, primary }
+
+double serviceProgressRatio({
+  required num value,
+  required num maximum,
+  double minimumVisible = 0,
+}) {
+  if (value <= 0 || maximum <= 0) return 0;
+  final ratio = value / maximum;
+  return ratio.clamp(minimumVisible.clamp(0, 1), 1).toDouble();
+}
+
+class ServiceAnimatedProgressBar extends StatelessWidget {
+  const ServiceAnimatedProgressBar({
+    super.key,
+    required this.value,
+    this.minHeight = 4,
+    this.color,
+    this.backgroundColor,
+  });
+
+  final double? value;
+  final double minHeight;
+  final Color? color;
+  final Color? backgroundColor;
+
+  @override
+  Widget build(BuildContext context) {
+    final target = value?.clamp(0.0, 1.0);
+    if (target == null) {
+      return LinearProgressIndicator(
+        minHeight: minHeight,
+        color: color,
+        backgroundColor: backgroundColor,
+      );
+    }
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: target),
+      duration: motion.entranceDuration,
+      curve: motion.curve.curve,
+      builder: (context, animatedValue, _) => LinearProgressIndicator(
+        value: animatedValue.clamp(0.0, 1.0),
+        minHeight: minHeight,
+        color: color,
+        backgroundColor: backgroundColor,
+      ),
+    );
+  }
+}
 
 String serviceProxyRouteText(
   ServicesController controller,
@@ -326,7 +379,7 @@ class ServiceInteractiveSurface extends StatelessWidget {
     this.showDetailsIcon = true,
   });
 
-  final VoidCallback onTap;
+  final VoidCallback? onTap;
   final Widget child;
   final String? tooltip;
   final EdgeInsetsGeometry padding;
@@ -338,6 +391,12 @@ class ServiceInteractiveSurface extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    if (onTap == null) {
+      return Padding(
+        padding: margin,
+        child: Padding(padding: padding, child: child),
+      );
+    }
     final label =
         tooltip ??
         openHandLocalizedText(context, zh: '查看完整详情', en: 'View full details');

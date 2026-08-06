@@ -143,6 +143,28 @@ DialogAnimationSettings _resolveDialogMotionSettings(
 
 const ScrollPhysics kOpenHandDialogScrollPhysics = ClampingScrollPhysics();
 
+Future<DateTimeRange?> showAnimatedDateRangePicker({
+  required BuildContext context,
+  required DateTime firstDate,
+  required DateTime lastDate,
+  DateTimeRange? initialDateRange,
+  String? helpText,
+  String? cancelText,
+  String? confirmText,
+  String? saveText,
+}) => showAnimatedDialog<DateTimeRange>(
+  context: context,
+  builder: (_) => DateRangePickerDialog(
+    firstDate: firstDate,
+    lastDate: lastDate,
+    initialDateRange: initialDateRange,
+    helpText: helpText,
+    cancelText: cancelText,
+    confirmText: confirmText,
+    saveText: saveText,
+  ),
+);
+
 class OpenHandDialogScrollBehavior extends OpenHandScrollBehaviorBase {
   const OpenHandDialogScrollBehavior();
 

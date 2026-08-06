@@ -40,6 +40,8 @@ class OpenHandChartSeries {
   final Color color;
 }
 
+enum OpenHandChartInterpolation { linear, smooth, step }
+
 /// 平滑折线趋势图画笔：网格 + 面积渐隐 + 平滑折线 + 端点圆点 + 峰值标签。
 class OpenHandSmoothLineChartPainter extends CustomPainter {
   const OpenHandSmoothLineChartPainter({
@@ -49,6 +51,7 @@ class OpenHandSmoothLineChartPainter extends CustomPainter {
     required this.emptyLabel,
     required this.valueSuffix,
     required this.textDirection,
+    this.interpolation = OpenHandChartInterpolation.smooth,
   });
 
   final List<OpenHandChartSeries> series;
@@ -62,6 +65,7 @@ class OpenHandSmoothLineChartPainter extends CustomPainter {
   final String valueSuffix;
 
   final TextDirection textDirection;
+  final OpenHandChartInterpolation interpolation;
 
   @override
   void paint(Canvas canvas, Size size) {
@@ -108,7 +112,7 @@ class OpenHandSmoothLineChartPainter extends CustomPainter {
       if (points.length == 1) {
         points.add(Offset(chart.right, points.first.dy));
       }
-      final area = _smoothPath(points)
+      final area = _linePath(points)
         ..lineTo(points.last.dx, chart.bottom)
         ..lineTo(points.first.dx, chart.bottom)
         ..close();
@@ -117,7 +121,7 @@ class OpenHandSmoothLineChartPainter extends CustomPainter {
         Paint()..color = item.color.withValues(alpha: _kAreaFillAlpha),
       );
       canvas.drawPath(
-        _smoothPath(points),
+        _linePath(points),
         Paint()
           ..color = item.color
           ..strokeWidth = _kLineStrokeWidth
@@ -153,6 +157,32 @@ class OpenHandSmoothLineChartPainter extends CustomPainter {
     }
     return path..lineTo(points.last.dx, points.last.dy);
   }
+
+  Path _linearPath(List<Offset> points) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    for (final point in points.skip(1)) {
+      path.lineTo(point.dx, point.dy);
+    }
+    return path;
+  }
+
+  Path _stepPath(List<Offset> points) {
+    final path = Path()..moveTo(points.first.dx, points.first.dy);
+    var previous = points.first;
+    for (final point in points.skip(1)) {
+      path
+        ..lineTo(point.dx, previous.dy)
+        ..lineTo(point.dx, point.dy);
+      previous = point;
+    }
+    return path;
+  }
+
+  Path _linePath(List<Offset> points) => switch (interpolation) {
+    OpenHandChartInterpolation.linear => _linearPath(points),
+    OpenHandChartInterpolation.smooth => _smoothPath(points),
+    OpenHandChartInterpolation.step => _stepPath(points),
+  };
 
   void _paintText(
     Canvas canvas,
@@ -191,6 +221,7 @@ class OpenHandSmoothLineChartPainter extends CustomPainter {
         oldDelegate.labelColor != labelColor ||
         oldDelegate.emptyLabel != emptyLabel ||
         oldDelegate.valueSuffix != valueSuffix ||
+        oldDelegate.interpolation != interpolation ||
         oldDelegate.textDirection != textDirection;
   }
 }
