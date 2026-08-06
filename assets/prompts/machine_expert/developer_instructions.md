@@ -8,7 +8,7 @@ For the machine_expert template, the OpenHand terminal panel is the execution su
 1. Use MachineTerminalExec for ordinary shell commands.
 2. Use MachineTerminalRead to inspect state/output.
 3. Use MachineTerminalWrite for interactive input only after checking state.
-4. Use MachineTerminalControl for terminal lifecycle and resize actions.
+4. Use MachineTerminalControl only to clear or resize the active terminal.
 5. Use skills, MCP, web, file, or search tools only as auxiliary context. They must not replace terminal execution when the task is about the machine terminal.
 6. Bash and BashBackground are not valid execution surfaces for this template.
 </tool_priority>
@@ -20,6 +20,9 @@ For the machine_expert template, the OpenHand terminal panel is the execution su
 - If a MachineTerminal call fails, recover with MachineTerminalRead/Control or stop and explain; never switch to Bash as a shortcut.
 - MachineTerminalExec already isolates command output with OpenHand markers; prefer it when exact stdout/stderr matters.
 - After MachineTerminalWrite, call MachineTerminalRead before interpreting the terminal state.
+- The active terminal connection belongs to the user. Never exit, disconnect, start, stop, restart, close, create, restore, select, or otherwise replace its execution target.
+- Never send EOF/job-control characters, SSH disconnect escapes, or commands that terminate the current shell or parent relay process.
+- After a timeout, read the same terminal and report any unresolved foreground process; never replace the terminal to recover.
 - Never claim success without a matching tool result or visible terminal evidence.
 - Keep output short, factual, and recoverable.
 - Do not emit literal `Tool:` / `工具:` / `tool_call` placeholder text in user-visible replies.

@@ -849,11 +849,15 @@ class MachineTerminalService extends ChangeNotifier {
     required String data,
     String? terminalId,
     bool appendNewline = false,
+    bool startIfNeeded = true,
   }) async {
     final terminal = await _requireTerminal(sessionId, terminalId);
     final wasRunning = terminal.status == MachineTerminalStatus.running;
-    if (!await terminal.ensureRunning()) {
+    if (startIfNeeded && !await terminal.ensureRunning()) {
       throw StateError('终端启动失败。');
+    }
+    if (terminal.status != MachineTerminalStatus.running) {
+      throw StateError(_terminalNotRunningError);
     }
     terminal.writeInput(appendNewline ? '$data\n' : data);
     if (!wasRunning) {
@@ -867,6 +871,7 @@ class MachineTerminalService extends ChangeNotifier {
     required String command,
     String? terminalId,
     Duration timeout = kMachineTerminalDefaultCommandTimeout,
+    bool startIfNeeded = true,
   }) async {
     final terminal = await _requireTerminal(sessionId, terminalId);
     final trimmed = command.trimRight();
@@ -880,7 +885,7 @@ class MachineTerminalService extends ChangeNotifier {
         error: '命令不能为空。',
       );
     }
-    if (!await terminal.ensureRunning()) {
+    if (startIfNeeded && !await terminal.ensureRunning()) {
       return MachineTerminalCommandResult(
         terminalId: terminal.id,
         command: command,
@@ -2190,7 +2195,7 @@ class MachineTerminalSession {
       final output = _clipToolOutput(
         _plainText(_outputSince(startOffset)).trimRight(),
       );
-      await _recoverTimedOutCommand(
+      await _interruptTimedOutCommandPreservingSession(
         begin: begin,
         end: end,
         startOffset: startOffset,
@@ -2202,7 +2207,9 @@ class MachineTerminalSession {
         output: output,
         durationMs: stopwatch.elapsedMilliseconds,
         timedOut: true,
-        error: '命令执行超过 ${timeout.inMilliseconds} 毫秒。',
+        error:
+            '命令执行超过 ${timeout.inMilliseconds} 毫秒，已向当前命令发送中断信号；'
+            '为保护 relay/SSH 会话，未重启终端。',
       );
     } catch (error, stack) {
       silentLog('machine_terminal', '执行终端命令', error, stack);
@@ -2339,7 +2346,7 @@ class MachineTerminalSession {
     }
   }
 
-  Future<void> _recoverTimedOutCommand({
+  Future<void> _interruptTimedOutCommandPreservingSession({
     required String begin,
     required String end,
     required int startOffset,
@@ -2354,22 +2361,8 @@ class MachineTerminalSession {
         startGeneration: startGeneration,
         timeout: _commandRecoveryTimeout,
       );
-      return;
     } catch (_) {
-      if (_startGeneration != startGeneration ||
-          _pty == null ||
-          _status != MachineTerminalStatus.running) {
-        return;
-      }
-    }
-    try {
-      final recoveryGeneration = _startGeneration + 1;
-      await stop(force: true);
-      if (_startGeneration != recoveryGeneration) return;
-      clear();
-      await start();
-    } catch (error, stack) {
-      silentLog('machine_terminal', '恢复超时终端', error, stack);
+      // 未恢复结束标记时保留原 PTY，禁止自动重启导致 relay/SSH 会话丢失。
     }
   }
 
@@ -2722,16 +2715,18 @@ String _commandPayload({
       'stty echo 2>/dev/null\n';
 }
 
-/// ANSI CSI / OSC 序列。提到顶层复用：命令等待循环每 80ms 调一次
+/// ANSI CSI / OSC / ESC 序列。提到顶层复用：命令等待循环每 80ms 调一次
 /// [_plainText]，就地构造正则等于每秒白白编译 25 次。
 final RegExp _ansiCsiPattern = RegExp(r'\x1B\[[0-?]*[ -/]*[@-~]');
 final RegExp _markerExitCodePattern = RegExp(r'^:(-?\d+)\n');
 final RegExp _ansiOscPattern = RegExp(r'\x1B\][^\x07]*(\x07|\x1B\\)');
+final RegExp _ansiEscapePattern = RegExp(r'\x1B[ -/]*[0-~]');
 
 String _plainText(String value) {
   return value
       .replaceAll(_ansiCsiPattern, '')
       .replaceAll(_ansiOscPattern, '')
+      .replaceAll(_ansiEscapePattern, '')
       .replaceAll('\r\n', '\n')
       .replaceAll('\r', '\n');
 }
@@ -2756,9 +2751,12 @@ int _ansiSafeSplitLength(String raw) {
     final plainEnd = (escape < 0 || escape >= limit) ? limit : escape;
     if (plainEnd > cursor) lastPlainIndex = plainEnd - 1;
     if (escape < 0 || escape >= limit) break;
-    final match =
-        _ansiCsiPattern.matchAsPrefix(raw, escape) ??
-        _ansiOscPattern.matchAsPrefix(raw, escape);
+    final nextCodeUnit = escape + 1 < limit ? raw.codeUnitAt(escape + 1) : null;
+    final match = switch (nextCodeUnit) {
+      0x5b => _ansiCsiPattern.matchAsPrefix(raw, escape),
+      0x5d => _ansiOscPattern.matchAsPrefix(raw, escape),
+      _ => _ansiEscapePattern.matchAsPrefix(raw, escape),
+    };
     if (match == null || match.end > limit) {
       limit = escape;
       break;

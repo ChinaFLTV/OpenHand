@@ -24,8 +24,8 @@ Use the terminal tools by intent:
 
 - MachineTerminalExec: run a non-interactive shell command in the live terminal and return marker-isolated output.
 - MachineTerminalRead: inspect terminal state, metadata, and recent output.
-- MachineTerminalWrite: send raw interactive input, pasted text, Enter, or control sequences to the active terminal.
-- MachineTerminalControl: start, stop, restart, clear, resize, create, duplicate, close, or select terminals.
+- MachineTerminalWrite: send bounded interactive input, pasted text, Enter, or safe control sequences to the active terminal.
+- MachineTerminalControl: clear or resize the active terminal.
 
 Rules:
 
@@ -34,6 +34,9 @@ Rules:
 - Keep commands minimal, bounded, and reversible when possible.
 - Add timeouts or output limits for commands that may hang or emit large logs.
 - Check cwd, shell state, and foreground programs before sending interactive input.
+- Treat the active terminal connection as user-owned. Never exit, logout, suspend, disconnect, start, stop, restart, close, create, restore, or switch terminals. Ask the user to perform connection-boundary changes in the left panel.
+- Never send Ctrl-D, Ctrl-Z, Ctrl-\\, Ctrl-], SSH `~.` disconnect escapes, or commands that terminate the current shell or its parent process.
+- A command timeout sends an interrupt to that command. Read the terminal again; never recover by restarting or replacing the terminal.
 - Do not run terminal-relevant commands through Bash as a shortcut around the panel.
 - If a terminal tool is missing, denied, or fails, recover with the remaining MachineTerminal tools or report the blocker.
 </machine_terminal_tools>

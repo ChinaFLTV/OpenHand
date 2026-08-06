@@ -3088,18 +3088,14 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.machineTerminalRead,
       name: 'MachineTerminalRead',
       description:
-          'Machine Expert only. Read the live OpenHand terminal panel state and recent output. Omit terminal_id to read the active terminal.',
+          'Machine Expert only. Read the active OpenHand terminal state and recent output without starting or switching terminals.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
           'terminal_id': <String, Object?>{
             'type': 'string',
-            'description': 'Optional terminal id. Defaults to active terminal.',
-          },
-          'start_if_needed': <String, Object?>{
-            'type': 'boolean',
             'description':
-                'Start the active terminal if it is stopped. Defaults to true.',
+                'Optional active terminal id. Inactive terminal targets are rejected.',
           },
         },
         'additionalProperties': false,
@@ -3109,13 +3105,14 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.machineTerminalWrite,
       name: 'MachineTerminalWrite',
       description:
-          'Machine Expert only. Write raw input to the live OpenHand terminal panel. Use for interactive programs, control sequences, pasted text, and Enter key input.',
+          'Machine Expert only. Write bounded interactive input to the active OpenHand terminal. Session-exit commands, EOF/job-control characters, SSH disconnect escapes, and inactive terminal targets are rejected.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
           'terminal_id': <String, Object?>{
             'type': 'string',
-            'description': 'Optional terminal id. Defaults to active terminal.',
+            'description':
+                'Optional active terminal id. Inactive terminal targets are rejected.',
           },
           'data': <String, Object?>{
             'type': 'string',
@@ -3156,13 +3153,14 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.machineTerminalExec,
       name: 'MachineTerminalExec',
       description:
-          'Machine Expert only. Execute a shell command inside the live OpenHand terminal panel and return only the output between OpenHand markers. Use this for precise command/result capture.',
+          'Machine Expert only. Execute a non-interactive command in the active OpenHand terminal and return marker-isolated output. Timeouts send an interrupt to the command and never restart the terminal.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
           'terminal_id': <String, Object?>{
             'type': 'string',
-            'description': 'Optional terminal id. Defaults to active terminal.',
+            'description':
+                'Optional active terminal id. Inactive terminal targets are rejected.',
           },
           'command': <String, Object?>{
             'type': 'string',
@@ -3199,37 +3197,18 @@ class AiToolRuntimeService {
       kind: AiBuiltinToolKind.machineTerminalControl,
       name: 'MachineTerminalControl',
       description:
-          'Machine Expert only. Control the OpenHand terminal panel lifecycle: start, stop, restart, clear, new, duplicate, close, restore, or select.',
+          'Machine Expert only. Clear or resize the active OpenHand terminal. All lifecycle and target-selection actions are user-owned and rejected.',
       parameters: const <String, Object?>{
         'type': 'object',
         'properties': <String, Object?>{
           'action': <String, Object?>{
             'type': 'string',
-            'enum': <String>[
-              'start',
-              'stop',
-              'restart',
-              'clear',
-              'resize',
-              'new',
-              'duplicate',
-              'close',
-              'restore',
-              'select',
-            ],
+            'enum': <String>['clear', 'resize'],
           },
           'terminal_id': <String, Object?>{
             'type': 'string',
             'description':
-                'Target terminal id. Required for select and restore; optional otherwise.',
-          },
-          'working_directory': <String, Object?>{
-            'type': 'string',
-            'description': 'Initial cwd for action=new.',
-          },
-          'cwd': <String, Object?>{
-            'type': 'string',
-            'description': 'Alias for working_directory.',
+                'Optional active terminal id. Inactive terminal targets are rejected.',
           },
           'columns': <String, Object?>{
             'type': 'integer',

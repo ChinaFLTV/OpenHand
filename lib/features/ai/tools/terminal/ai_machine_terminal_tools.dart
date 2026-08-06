@@ -6,6 +6,86 @@ import '../ai_tool.dart';
 import '../ai_tool_execution_context.dart';
 import '../ai_tool_utils.dart';
 
+abstract final class AiMachineTerminalBoundaryPolicy {
+  static const Set<String> allowedControlActions = <String>{'clear', 'resize'};
+
+  static const Map<int, String> _blockedControlCharacters = <int, String>{
+    0x04: 'Ctrl-D/EOF',
+    0x1a: 'Ctrl-Z',
+    0x1c: r'Ctrl-\',
+    0x1d: 'Ctrl-]',
+  };
+
+  static final RegExp _sessionExitCommandPattern = RegExp(
+    r'(?:^|[\r\n;]|&&|\|\||\|)\s*(?:(?:then|do|else|\{)\s+)?(?:(?:builtin|command|exec)\s+)?(?:exit|logout|suspend)(?=$|[\s;&|}<])',
+    caseSensitive: false,
+  );
+  static final RegExp _shellReplacementPattern = RegExp(
+    r'(?:^|[\r\n;]|&&|\|\||\|)\s*(?:(?:command|builtin)\s+)?exec(?=$|[\s;&|])',
+    caseSensitive: false,
+  );
+  static final RegExp _sshDisconnectPattern = RegExp(r'(?:^|[\r\n])\s*~\.');
+  static final RegExp _currentShellKillPattern = RegExp(
+    r'(?:^|[\r\n;]|&&|\|\||\|)\s*(?:(?:command|builtin|sudo)\s+)*(?:[^\s;&|]*/)?kill\b[^\r\n;&|]*(?:\$\$|\$\{?PPID\}?)',
+    caseSensitive: false,
+  );
+
+  static String? inputViolation(String value) {
+    for (final codeUnit in value.codeUnits) {
+      final label = _blockedControlCharacters[codeUnit];
+      if (label != null) {
+        return '禁止 AI 发送 $label，以免中断 relay/SSH 或退出当前终端。';
+      }
+    }
+    final shellText = _maskQuotedShellText(value);
+    if (_sshDisconnectPattern.hasMatch(shellText)) {
+      return '禁止 AI 发送 SSH 断连转义“~.”。';
+    }
+    if (_sessionExitCommandPattern.hasMatch(shellText) ||
+        _shellReplacementPattern.hasMatch(shellText)) {
+      return '禁止 AI 执行会退出、挂起或替换当前交互 Shell 的命令。';
+    }
+    if (_currentShellKillPattern.hasMatch(shellText)) {
+      return '禁止 AI 终止当前 Shell 或其父进程。';
+    }
+    return null;
+  }
+
+  static bool allowsControlAction(String action) {
+    return allowedControlActions.contains(action.trim().toLowerCase());
+  }
+
+  static String _maskQuotedShellText(String value) {
+    final buffer = StringBuffer();
+    var quote = 0;
+    var escaped = false;
+    for (final codeUnit in value.codeUnits) {
+      if (escaped) {
+        buffer.writeCharCode(0x20);
+        escaped = false;
+        continue;
+      }
+      if (codeUnit == 0x5c && quote != 0x27) {
+        buffer.writeCharCode(0x20);
+        escaped = true;
+        continue;
+      }
+      if (quote == 0) {
+        if (codeUnit == 0x27 || codeUnit == 0x22 || codeUnit == 0x60) {
+          quote = codeUnit;
+          buffer.writeCharCode(0x20);
+        } else {
+          buffer.writeCharCode(codeUnit);
+        }
+        continue;
+      }
+      buffer.writeCharCode(0x20);
+      if (codeUnit == quote) quote = 0;
+    }
+    return buffer.toString();
+  }
+}
+
 abstract class AiMachineTerminalToolBase extends AiTool {
   MachineTerminalService? terminalService(AiToolExecutionContext context) {
     final raw = context.metadata['machine_terminal_service'];
@@ -26,6 +106,58 @@ abstract class AiMachineTerminalToolBase extends AiTool {
       stderr: '当前会话不可用机器终端服务，请仅在 machine_expert 模板中使用此工具。',
       durationMs: 0,
       resultText: 'status: failed\nerror: 当前会话不可用机器终端服务。',
+    );
+  }
+
+  AiToolExecutionResult? inactiveTerminalResult({
+    required MachineTerminalService service,
+    required AiToolExecutionContext context,
+    required MachineTerminalWorkspaceSnapshot snapshot,
+    required String toolName,
+    required String? terminalId,
+  }) {
+    final activeTerminalId = snapshot.activeTerminalId.trim();
+    if (terminalId == null ||
+        activeTerminalId.isEmpty ||
+        terminalId == activeTerminalId) {
+      return null;
+    }
+    return boundaryDeniedResult(
+      service: service,
+      context: context,
+      toolName: toolName,
+      reason: 'AI 只能操作当前活动终端，禁止切换执行目标。',
+      metadata: <String, Object?>{
+        'active_terminal_id': activeTerminalId,
+        'requested_terminal_id': terminalId,
+      },
+    );
+  }
+
+  AiToolExecutionResult boundaryDeniedResult({
+    required MachineTerminalService service,
+    required AiToolExecutionContext context,
+    required String toolName,
+    required String reason,
+    Map<String, Object?> metadata = const <String, Object?>{},
+  }) {
+    final active = service.snapshot(context.sessionId)?.activeTerminal;
+    return AiToolExecutionResult(
+      status: BashToolExecutionStatus.denied,
+      command: toolName,
+      workingDirectory:
+          active?.workingDirectory ?? AiToolUtils.defaultWorkingDirectory(),
+      stdout: '',
+      stderr: reason,
+      durationMs: 0,
+      resultText:
+          'status: denied\nerror: $reason\nterminal_boundary_preserved: true',
+      metadata: <String, Object?>{
+        'terminal_boundary_preserved': true,
+        'terminal_boundary_guard': 'ai_session_boundary',
+        if (active != null) 'terminal_id': active.terminalId,
+        ...metadata,
+      },
     );
   }
 
@@ -58,11 +190,17 @@ class AiMachineTerminalReadTool extends AiMachineTerminalToolBase {
     final terminalId = readTerminalId(args);
     final snapshot = await service.ensureWorkspace(
       sessionId: context.sessionId,
-      start: AiToolUtils.readBool(args['start_if_needed']) != false,
+      start: false,
     );
-    final active = terminalId == null
-        ? snapshot.activeTerminal
-        : _terminalById(snapshot.terminals, terminalId);
+    final inactiveResult = inactiveTerminalResult(
+      service: service,
+      context: context,
+      snapshot: snapshot,
+      toolName: 'MachineTerminalRead',
+      terminalId: terminalId,
+    );
+    if (inactiveResult != null) return inactiveResult;
+    final active = snapshot.activeTerminal;
     if (active == null) {
       return AiToolUtils.invalidResult(
         'MachineTerminalRead',
@@ -110,6 +248,27 @@ class AiMachineTerminalWriteTool extends AiMachineTerminalToolBase {
     final service = terminalService(context);
     if (service == null) return missingServiceResult('MachineTerminalWrite');
     final args = context.decodedArguments;
+    final terminalId = readTerminalId(args);
+    final snapshot = await service.ensureWorkspace(
+      sessionId: context.sessionId,
+      start: false,
+    );
+    final inactiveResult = inactiveTerminalResult(
+      service: service,
+      context: context,
+      snapshot: snapshot,
+      toolName: 'MachineTerminalWrite',
+      terminalId: terminalId,
+    );
+    if (inactiveResult != null) return inactiveResult;
+    if (snapshot.activeTerminal?.status != MachineTerminalStatus.running) {
+      return boundaryDeniedResult(
+        service: service,
+        context: context,
+        toolName: 'MachineTerminalWrite',
+        reason: '当前终端未运行，请用户在左侧面板启动或重新连接。',
+      );
+    }
     final data = AiToolUtils.readFirstString(args, const <String>[
       'data',
       'text',
@@ -118,15 +277,25 @@ class AiMachineTerminalWriteTool extends AiMachineTerminalToolBase {
     if (data.isEmpty) {
       return AiToolUtils.invalidResult('MachineTerminalWrite', 'data 不能为空。');
     }
+    final violation = AiMachineTerminalBoundaryPolicy.inputViolation(data);
+    if (violation != null) {
+      return boundaryDeniedResult(
+        service: service,
+        context: context,
+        toolName: 'MachineTerminalWrite',
+        reason: violation,
+      );
+    }
     final stopwatch = Stopwatch()..start();
     try {
       await service.writeInput(
         sessionId: context.sessionId,
-        terminalId: readTerminalId(args),
+        terminalId: terminalId,
         data: data,
         appendNewline:
             AiToolUtils.readBool(args['append_newline']) == true ||
             AiToolUtils.readBool(args['enter']) == true,
+        startIfNeeded: false,
       );
     } catch (error, stack) {
       silentLog('ai_machine_terminal_tools', '写入机器终端', error, stack);
@@ -140,22 +309,22 @@ class AiMachineTerminalWriteTool extends AiMachineTerminalToolBase {
         resultText: 'status: failed\nerror: 写入机器终端失败。',
       );
     }
-    final snapshot = service.snapshot(context.sessionId)?.activeTerminal;
+    final active = service.snapshot(context.sessionId)?.activeTerminal;
     final output =
-        'terminal_id: ${snapshot?.terminalId ?? ''}\n'
-        'status: ${snapshot?.status.storageValue ?? 'running'}\n'
+        'terminal_id: ${active?.terminalId ?? ''}\n'
+        'status: ${active?.status.storageValue ?? 'running'}\n'
         'written_chars: ${data.length}';
     return AiToolExecutionResult(
       status: BashToolExecutionStatus.success,
       command: 'MachineTerminalWrite',
       workingDirectory:
-          snapshot?.workingDirectory ?? AiToolUtils.defaultWorkingDirectory(),
+          active?.workingDirectory ?? AiToolUtils.defaultWorkingDirectory(),
       stdout: output,
       stderr: '',
       durationMs: stopwatch.elapsedMilliseconds,
       resultText: output,
       metadata: <String, Object?>{
-        'terminal_id': snapshot?.terminalId,
+        'terminal_id': active?.terminalId,
         'written_chars': data.length,
       },
     );
@@ -181,6 +350,27 @@ class AiMachineTerminalExecTool extends AiMachineTerminalToolBase {
     final service = terminalService(context);
     if (service == null) return missingServiceResult('MachineTerminalExec');
     final args = context.decodedArguments;
+    final terminalId = readTerminalId(args);
+    final snapshot = await service.ensureWorkspace(
+      sessionId: context.sessionId,
+      start: false,
+    );
+    final inactiveResult = inactiveTerminalResult(
+      service: service,
+      context: context,
+      snapshot: snapshot,
+      toolName: 'MachineTerminalExec',
+      terminalId: terminalId,
+    );
+    if (inactiveResult != null) return inactiveResult;
+    if (snapshot.activeTerminal?.status != MachineTerminalStatus.running) {
+      return boundaryDeniedResult(
+        service: service,
+        context: context,
+        toolName: 'MachineTerminalExec',
+        reason: '当前终端未运行，请用户在左侧面板启动或重新连接。',
+      );
+    }
     final command = AiToolUtils.readFirstString(args, const <String>[
       'command',
       'cmd',
@@ -188,12 +378,22 @@ class AiMachineTerminalExecTool extends AiMachineTerminalToolBase {
     if (command.trim().isEmpty) {
       return AiToolUtils.invalidResult('MachineTerminalExec', 'command 不能为空。');
     }
+    final violation = AiMachineTerminalBoundaryPolicy.inputViolation(command);
+    if (violation != null) {
+      return boundaryDeniedResult(
+        service: service,
+        context: context,
+        toolName: 'MachineTerminalExec',
+        reason: violation,
+      );
+    }
     final timeoutMs = _clampedTimeoutMs(args);
     final result = await service.executeCommand(
       sessionId: context.sessionId,
-      terminalId: readTerminalId(args),
+      terminalId: terminalId,
       command: command,
       timeout: Duration(milliseconds: timeoutMs),
+      startIfNeeded: false,
     );
     return AiToolExecutionResult(
       status: result.timedOut
@@ -254,13 +454,35 @@ class AiMachineTerminalControlTool extends AiMachineTerminalToolBase {
         '必须提供 action。',
       );
     }
+    final terminalId = readTerminalId(args);
+    final snapshotBeforeControl = await service.ensureWorkspace(
+      sessionId: context.sessionId,
+      start: false,
+    );
+    final inactiveResult = inactiveTerminalResult(
+      service: service,
+      context: context,
+      snapshot: snapshotBeforeControl,
+      toolName: 'MachineTerminalControl',
+      terminalId: terminalId,
+    );
+    if (inactiveResult != null) return inactiveResult;
+    if (!AiMachineTerminalBoundaryPolicy.allowsControlAction(action)) {
+      return boundaryDeniedResult(
+        service: service,
+        context: context,
+        toolName: 'MachineTerminalControl',
+        reason: '终端生命周期和执行目标只能由用户在左侧面板管理。',
+        metadata: <String, Object?>{'requested_action': action.toLowerCase()},
+      );
+    }
     final stopwatch = Stopwatch()..start();
     late final MachineTerminalWorkspaceSnapshot snapshot;
     try {
       snapshot = await service.control(
         sessionId: context.sessionId,
         action: action,
-        terminalId: readTerminalId(args),
+        terminalId: terminalId,
         workingDirectory: AiToolUtils.readFirstString(args, const <String>[
           'working_directory',
           'cwd',
@@ -322,18 +544,6 @@ Map<String, Object?> _snapshotMetadata(
     if (activeTerminal != null)
       'active_terminal': activeTerminal.toMetadataJson(),
   };
-}
-
-MachineTerminalSnapshot? _terminalById(
-  List<MachineTerminalSnapshot> terminals,
-  String terminalId,
-) {
-  for (final terminal in terminals) {
-    if (terminal.terminalId == terminalId) {
-      return terminal;
-    }
-  }
-  return null;
 }
 
 String _terminalSnapshotText(
