@@ -474,7 +474,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
                 refreshedAt: refreshedAt,
               ),
               const SizedBox(height: 10),
-              _buildToolbar(context, compact, source),
+              _buildToolbar(context, compact),
               const SizedBox(height: 12),
               if (shown.isEmpty)
                 const _InsightEmpty(label: '当前筛选范围内没有任务。')
@@ -543,11 +543,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
     );
   }
 
-  Widget _buildToolbar(
-    BuildContext context,
-    bool compact,
-    List<AiExposureHistoryEntry> source,
-  ) {
+  Widget _buildToolbar(BuildContext context, bool compact) {
     final search = SizedBox(
       width: double.infinity,
       height: _kTaskLedgerFilterHeight,
@@ -582,8 +578,6 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
       ),
       _TaskLedgerSourceFilter(
         width: double.infinity,
-        available: source.expand((task) => task.sources).toSet().toList()
-          ..sort((left, right) => left.index.compareTo(right.index)),
         selected: _sources,
         onToggle: (source) => setState(() {
           _sources.contains(source)
@@ -762,13 +756,11 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
 class _TaskLedgerSourceFilter extends StatelessWidget {
   const _TaskLedgerSourceFilter({
     required this.width,
-    required this.available,
     required this.selected,
     required this.onToggle,
   });
 
   final double width;
-  final List<AiExposureSource> available;
   final Set<AiExposureSource> selected;
   final ValueChanged<AiExposureSource> onToggle;
 
@@ -778,9 +770,8 @@ class _TaskLedgerSourceFilter extends StatelessWidget {
     height: _kTaskLedgerFilterHeight,
     child: AnimatedPopupMenuButton<AiExposureSource>(
       tooltip: '按来源筛选',
-      enabled: available.isNotEmpty,
       onSelected: onToggle,
-      itemBuilder: (context) => available
+      itemBuilder: (context) => AiExposureSource.values
           .map(
             (source) => CheckedPopupMenuItem<AiExposureSource>(
               value: source,
@@ -801,10 +792,19 @@ class _TaskLedgerSourceFilter extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Expanded(
-              child: Text(selected.isEmpty ? '全部' : '已选 ${selected.length} 项'),
+              child: Text(
+                selected.isEmpty ? '全部' : '已选 ${selected.length} 项',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(context).textTheme.titleMedium,
+              ),
             ),
             const SizedBox(width: 4),
-            const Icon(Icons.arrow_drop_down_rounded, size: 20),
+            Icon(
+              Icons.arrow_drop_down_rounded,
+              size: 24,
+              color: Theme.of(context).colorScheme.onSurfaceVariant,
+            ),
           ],
         ),
       ),

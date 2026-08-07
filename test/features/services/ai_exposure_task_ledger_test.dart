@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:openhand/features/services/model/ai_exposure_models.dart';
 import 'package:openhand/features/services/widgets/ai_exposure_monitoring_dialogs.dart';
 
 void main() {
@@ -31,6 +32,32 @@ void main() {
       sourceDecorator.decoration.contentPadding,
       const EdgeInsets.symmetric(horizontal: 10, vertical: 18),
     );
+    TextStyle effectiveStyle(Finder finder) {
+      final text = tester.widget<Text>(finder);
+      final inherited = DefaultTextStyle.of(tester.element(finder)).style;
+      return text.style == null ? inherited : inherited.merge(text.style);
+    }
+
+    final sourceValue = find.descendant(
+      of: fieldFinder('来源'),
+      matching: find.text('全部'),
+    );
+    final timeValue = find.descendant(
+      of: fieldFinder('时间'),
+      matching: find.text('全部'),
+    );
+    expect(effectiveStyle(sourceValue), effectiveStyle(timeValue));
+
+    await tester.tap(fieldFinder('来源'));
+    await tester.pumpAndSettle();
+    final githubItem = find.widgetWithText(
+      CheckedPopupMenuItem<AiExposureSource>,
+      'GitHub',
+    );
+    expect(githubItem, findsOneWidget);
+    await tester.tap(githubItem);
+    await tester.pumpAndSettle();
+    expect(find.text('已选 1 项'), findsOneWidget);
   });
 
   testWidgets('任务账本桌面筛选栏铺满横向空间', (tester) async {
