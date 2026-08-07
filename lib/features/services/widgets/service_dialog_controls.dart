@@ -247,13 +247,15 @@ class ServiceAnimatedDonutChart extends StatelessWidget {
           color: colors.firstOrNull ?? Colors.transparent,
         ),
       ],
-      builder: (context, series) => CustomPaint(
-        painter: OpenHandDonutChartPainter(
-          values: series.first.values,
-          colors: colors,
-          trackColor: trackColor,
+      builder: (context, series) => RepaintBoundary(
+        child: CustomPaint(
+          painter: OpenHandDonutChartPainter(
+            values: series.first.values,
+            colors: colors,
+            trackColor: trackColor,
+          ),
+          child: child,
         ),
-        child: child,
       ),
     );
   }

@@ -136,7 +136,15 @@ void main() {
       ),
     );
 
-    await tester.tapAt(const Offset(190, 100));
+    final paint = find.descendant(
+      of: find.byType(OpenHandOperationalDonutChart),
+      matching: find.byType(CustomPaint),
+    );
+    final paintBox = tester.renderObject<RenderBox>(paint);
+    final paintOrigin = paintBox.localToGlobal(Offset.zero);
+    await tester.tapAt(
+      paintOrigin + Offset(paintBox.size.width - 10, paintBox.size.height / 2),
+    );
     expect(selection, isNotNull);
     expect(selection!.segment.label, 'first');
     expect(activated, isNotNull);
@@ -303,6 +311,129 @@ void main() {
     },
   );
 
+  testWidgets('comparison bars support keyboard action and repaint isolation', (
+    tester,
+  ) async {
+    OpenHandChartSegment? activated;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OpenHandOperationalComparisonBars(
+            segments: const [
+              OpenHandChartSegment(label: 'first', value: 4, color: blue),
+            ],
+            orientation: OpenHandComparisonBarOrientation.horizontal,
+            onSegmentTap: (segment) => activated = segment,
+          ),
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(activated?.label, 'first');
+    expect(
+      find.descendant(
+        of: find.byType(OpenHandOperationalComparisonBars),
+        matching: find.byType(RepaintBoundary),
+      ),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('multi-series charts keep legends and status icons', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SingleChildScrollView(
+            child: Column(
+              children: [
+                OpenHandOperationalTrendChart(
+                  series: [
+                    OpenHandChartSeries(label: 'a', values: [1], color: blue),
+                    OpenHandChartSeries(label: 'b', values: [2], color: orange),
+                  ],
+                  valueSuffix: '',
+                  onSelectionChanged: null,
+                  showLegend: false,
+                ),
+                OpenHandOperationalStatusBand(
+                  segments: [
+                    OpenHandChartSegment(
+                      label: 'healthy',
+                      value: 1,
+                      color: blue,
+                      icon: Icons.check_circle_outline,
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('a'), findsOneWidget);
+    expect(find.text('b'), findsOneWidget);
+    expect(find.byIcon(Icons.check_circle_outline), findsOneWidget);
+  });
+
+  testWidgets('external chart legend declaration avoids duplicate legends', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              OpenHandOperationalTrendChart(
+                series: [
+                  OpenHandChartSeries(
+                    label: 'trend-a',
+                    values: [1],
+                    color: blue,
+                  ),
+                  OpenHandChartSeries(
+                    label: 'trend-b',
+                    values: [2],
+                    color: orange,
+                  ),
+                ],
+                valueSuffix: '',
+                onSelectionChanged: null,
+                showLegend: false,
+                externalLegendProvided: true,
+              ),
+              OpenHandOperationalDonutChart(
+                segments: [
+                  OpenHandChartSegment(label: 'donut-a', value: 1, color: blue),
+                  OpenHandChartSegment(
+                    label: 'donut-b',
+                    value: 2,
+                    color: orange,
+                  ),
+                ],
+                trackColor: Colors.grey,
+                onSelectionChanged: null,
+                showLegend: false,
+                externalLegendProvided: true,
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('trend-a'), findsNothing);
+    expect(find.text('trend-b'), findsNothing);
+    expect(find.text('donut-a'), findsNothing);
+    expect(find.text('donut-b'), findsNothing);
+  });
+
   testWidgets('generic components expose empty states', (tester) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(
@@ -336,5 +467,285 @@ void main() {
       'no latency',
     );
     handle.dispose();
+  });
+
+  testWidgets('meter fills available width and clamps its displayed ratio', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: OpenHandOperationalMeter(
+              label: 'load',
+              value: 15,
+              maximum: 10,
+              color: blue,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final paint = find.descendant(
+      of: find.byType(OpenHandOperationalMeter),
+      matching: find.byType(CustomPaint),
+    );
+    expect(tester.getSize(paint).width, 320);
+    expect(find.text('100.0%'), findsOneWidget);
+    expect(
+      find.descendant(
+        of: find.byType(OpenHandOperationalMeter),
+        matching: find.byType(RepaintBoundary),
+      ),
+      findsWidgets,
+    );
+  });
+
+  testWidgets('trend keyboard Enter and Space activate a real point', (
+    tester,
+  ) async {
+    final activated = <OpenHandOperationalTrendSelection>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OpenHandOperationalTrendChart(
+            series: const [
+              OpenHandChartSeries(
+                label: 'requests',
+                values: [2, 4],
+                color: blue,
+              ),
+            ],
+            valueSuffix: '',
+            onSelectionChanged: (_) {},
+            onSelectionActivated: activated.add,
+          ),
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+
+    expect(activated, hasLength(2));
+    expect(activated.every((item) => item.pointIndex == 0), isTrue);
+  });
+
+  testWidgets('empty trend is keyboard inert and has no semantic actions', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    OpenHandOperationalTrendSelection? selection;
+    OpenHandOperationalTrendSelection? activated;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OpenHandOperationalTrendChart(
+            series: const [
+              OpenHandChartSeries(
+                label: 'empty',
+                values: [0, double.nan, -1],
+                color: blue,
+              ),
+            ],
+            valueSuffix: '',
+            semanticLabel: 'empty trend',
+            onSelectionChanged: (value) => selection = value,
+            onSelectionActivated: (value) => activated = value,
+          ),
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(selection, isNull);
+    expect(activated, isNull);
+
+    final semantics = tester
+        .getSemantics(find.bySemanticsLabel('empty trend'))
+        .getSemanticsData();
+    expect(semantics.hasAction(SemanticsAction.tap), isFalse);
+    expect(semantics.hasAction(SemanticsAction.increase), isFalse);
+    expect(semantics.hasAction(SemanticsAction.decrease), isFalse);
+    handle.dispose();
+  });
+
+  testWidgets('empty donut is keyboard inert and has no semantic actions', (
+    tester,
+  ) async {
+    final handle = tester.ensureSemantics();
+    OpenHandOperationalDonutSelection? selection;
+    OpenHandOperationalDonutSelection? activated;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OpenHandOperationalDonutChart(
+            segments: const [
+              OpenHandChartSegment(label: 'zero', value: 0, color: blue),
+              OpenHandChartSegment(
+                label: 'invalid',
+                value: double.nan,
+                color: orange,
+              ),
+            ],
+            trackColor: Colors.grey,
+            semanticLabel: 'empty donut',
+            onSelectionChanged: (value) => selection = value,
+            onSegmentTap: (value) => activated = value,
+          ),
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    expect(selection, isNull);
+    expect(activated, isNull);
+
+    final semantics = tester
+        .getSemantics(find.bySemanticsLabel('empty donut'))
+        .getSemanticsData();
+    expect(semantics.hasAction(SemanticsAction.tap), isFalse);
+    expect(semantics.hasAction(SemanticsAction.increase), isFalse);
+    expect(semantics.hasAction(SemanticsAction.decrease), isFalse);
+    handle.dispose();
+  });
+
+  testWidgets('vertical comparison bars support Space activation', (
+    tester,
+  ) async {
+    OpenHandChartSegment? activated;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OpenHandOperationalComparisonBars(
+            segments: const [
+              OpenHandChartSegment(label: 'vertical', value: 4, color: blue),
+            ],
+            orientation: OpenHandComparisonBarOrientation.vertical,
+            onSegmentTap: (segment) => activated = segment,
+          ),
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.space);
+    expect(activated?.label, 'vertical');
+  });
+
+  testWidgets('heatmap clamps requested column counts to valid bounds', (
+    tester,
+  ) async {
+    const segments = [
+      OpenHandChartSegment(label: 'a', value: 1, color: blue),
+      OpenHandChartSegment(label: 'b', value: 2, color: orange),
+    ];
+
+    Future<void> pumpWith(int requestedColumns) => tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: OpenHandOperationalHeatmap(
+              segments: segments,
+              color: blue,
+              columnCountForWidth: (_, _) => requestedColumns,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    await pumpWith(99);
+    var grid = tester.widget<GridView>(find.byType(GridView));
+    expect(
+      (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
+          .crossAxisCount,
+      2,
+    );
+
+    await pumpWith(0);
+    grid = tester.widget<GridView>(find.byType(GridView));
+    expect(
+      (grid.gridDelegate as SliverGridDelegateWithFixedCrossAxisCount)
+          .crossAxisCount,
+      1,
+    );
+  });
+
+  testWidgets('latency range scales bars and uses caller formatting', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OpenHandOperationalLatencyRange(
+            segments: const [
+              OpenHandChartSegment(label: 'p50', value: 5, color: blue),
+              OpenHandChartSegment(label: 'p95', value: 10, color: orange),
+            ],
+            valueLabel: (segment) => '${segment.value.toInt()} milliseconds',
+          ),
+        ),
+      ),
+    );
+
+    final factors = tester
+        .widgetList<FractionallySizedBox>(find.byType(FractionallySizedBox))
+        .map((widget) => widget.widthFactor)
+        .whereType<double>()
+        .toList(growable: false);
+    expect(factors, containsAllInOrder(<double>[0.5, 1]));
+    expect(find.text('5 milliseconds'), findsOneWidget);
+    expect(find.text('10 milliseconds'), findsOneWidget);
+  });
+
+  testWidgets('all-invalid generic datasets render honest empty states', (
+    tester,
+  ) async {
+    const invalid = [
+      OpenHandChartSegment(label: 'nan', value: double.nan, color: blue),
+      OpenHandChartSegment(
+        label: 'infinite',
+        value: double.infinity,
+        color: orange,
+      ),
+      OpenHandChartSegment(label: 'negative', value: -1, color: blue),
+    ];
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              OpenHandOperationalComparisonBars(
+                segments: invalid,
+                orientation: OpenHandComparisonBarOrientation.horizontal,
+                emptyLabel: 'invalid comparisons',
+              ),
+              OpenHandOperationalHeatmap(
+                segments: invalid,
+                color: blue,
+                emptyLabel: 'invalid heatmap',
+              ),
+              OpenHandOperationalLatencyRange(
+                segments: invalid,
+                emptyLabel: 'invalid latency',
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('invalid comparisons'), findsOneWidget);
+    expect(find.text('invalid heatmap'), findsOneWidget);
+    expect(find.text('invalid latency'), findsOneWidget);
+    expect(tester.takeException(), isNull);
   });
 }

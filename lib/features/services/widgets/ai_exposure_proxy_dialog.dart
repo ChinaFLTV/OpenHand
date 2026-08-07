@@ -3,8 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
@@ -1855,14 +1855,16 @@ class _ProxyPoolOverview extends StatelessWidget {
                     color: colors.primary,
                   ),
                 ],
-                builder: (context, series) => CustomPaint(
-                  painter: OpenHandSmoothLineChartPainter(
-                    series: series,
-                    gridColor: colors.outlineVariant.withValues(alpha: 0.55),
-                    labelColor: colors.onSurfaceVariant,
-                    emptyLabel: text(zh: '暂无请求样本', en: 'No request samples'),
-                    valueSuffix: ' ms',
-                    textDirection: Directionality.of(context),
+                builder: (context, series) => RepaintBoundary(
+                  child: CustomPaint(
+                    painter: OpenHandSmoothLineChartPainter(
+                      series: series,
+                      gridColor: colors.outlineVariant.withValues(alpha: 0.55),
+                      labelColor: colors.onSurfaceVariant,
+                      emptyLabel: text(zh: '暂无请求样本', en: 'No request samples'),
+                      valueSuffix: ' ms',
+                      textDirection: Directionality.of(context),
+                    ),
                   ),
                 ),
               ),
@@ -2120,12 +2122,14 @@ class _ProxyDetailTrendChart extends StatefulWidget {
     required this.lineColor,
     required this.emptyLabel,
     required this.seriesLabel,
+    required this.semanticLabel,
   });
 
   final List<_ProxyDetailTrendPoint> points;
   final Color lineColor;
   final String emptyLabel;
   final String seriesLabel;
+  final String semanticLabel;
 
   @override
   State<_ProxyDetailTrendChart> createState() => _ProxyDetailTrendChartState();
@@ -2137,18 +2141,34 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
   static const double _tooltipWidth = 224;
   int? _hoveredIndex;
   int _lastHoveredIndex = 0;
+  bool _focused = false;
+
+  void _selectPointAt(double dx, double width) {
+    if (widget.points.isEmpty || width <= _chartInset * 2) return;
+    final ratio = ((dx - _chartInset) / (width - _chartInset * 2)).clamp(
+      0.0,
+      1.0,
+    );
+    _selectIndex((ratio * (widget.points.length - 1)).round());
+  }
+
+  void _selectIndex(int index) {
+    if (widget.points.isEmpty) return;
+    final resolved = index.clamp(0, widget.points.length - 1);
+    if (resolved == _hoveredIndex) return;
+    setState(() {
+      _hoveredIndex = resolved;
+      _lastHoveredIndex = resolved;
+    });
+  }
+
+  void _moveSelection(int direction) {
+    if (widget.points.isEmpty) return;
+    _selectIndex((_hoveredIndex ?? _lastHoveredIndex) + direction);
+  }
 
   void _updateHoveredPoint(PointerHoverEvent event, double width) {
-    if (widget.points.isEmpty || width <= _chartInset * 2) return;
-    final ratio =
-        ((event.localPosition.dx - _chartInset) / (width - _chartInset * 2))
-            .clamp(0.0, 1.0);
-    final index = (ratio * (widget.points.length - 1)).round();
-    if (index == _hoveredIndex) return;
-    setState(() {
-      _hoveredIndex = index;
-      _lastHoveredIndex = index;
-    });
+    _selectPointAt(event.localPosition.dx, width);
   }
 
   @override
@@ -2164,7 +2184,7 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
     final displayedIndex = points.isEmpty
         ? null
         : (hoveredIndex ?? _lastHoveredIndex.clamp(0, points.length - 1));
-    final hoveredPoint = hoveredIndex == null ? null : points[hoveredIndex];
+    final activePoint = hoveredIndex == null ? null : points[hoveredIndex];
     final maxValue = values.fold<double>(0, (max, value) {
       return value > max ? value : max;
     });
@@ -2200,125 +2220,192 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
           const Duration(milliseconds: 190),
         );
 
-        return MouseRegion(
-          cursor: points.isEmpty
-              ? MouseCursor.defer
-              : SystemMouseCursors.precise,
-          onHover: (event) => _updateHoveredPoint(event, constraints.maxWidth),
-          onExit: (_) {
-            if (_hoveredIndex != null) {
-              setState(() => _hoveredIndex = null);
-            }
-          },
-          child: Stack(
-            clipBehavior: Clip.none,
-            children: [
-              Positioned.fill(
-                child: ServiceAnimatedChart(
-                  series: <OpenHandChartSeries>[
-                    OpenHandChartSeries(
-                      label: widget.seriesLabel,
-                      values: values,
-                      color: widget.lineColor,
-                    ),
-                  ],
-                  builder: (context, series) => CustomPaint(
-                    painter: OpenHandSmoothLineChartPainter(
-                      series: series,
-                      gridColor: colors.outlineVariant.withValues(alpha: 0.55),
-                      labelColor: colors.onSurfaceVariant,
-                      emptyLabel: widget.emptyLabel,
-                      valueSuffix: ' ms',
-                      textDirection: Directionality.of(context),
-                    ),
-                    size: Size.infinite,
-                  ),
+        return Semantics(
+          container: true,
+          label: widget.semanticLabel,
+          value: activePoint == null
+              ? widget.emptyLabel
+              : openHandLocalizedText(
+                  context,
+                  zh: '${activePoint.value} ms，${activePoint.status}，${activePoint.detail}',
+                  en: '${activePoint.value} ms, ${activePoint.status}, ${activePoint.detail}',
                 ),
-              ),
-              AnimatedPositioned(
-                duration: motionDuration,
-                curve: Curves.easeOutCubic,
-                left: pointX - 0.5,
-                top: _chartInset,
-                bottom: _bottomLabelHeight - _chartInset,
-                child: IgnorePointer(
-                  child: AnimatedOpacity(
-                    duration: motionDuration,
-                    opacity: hoveredPoint == null ? 0 : 1,
-                    child: Container(
-                      width: 1,
-                      color: widget.lineColor.withValues(alpha: 0.42),
-                    ),
-                  ),
+          hint: points.isEmpty
+              ? null
+              : openHandLocalizedText(
+                  context,
+                  zh: '使用左右方向键切换样本',
+                  en: 'Use left and right arrow keys to browse samples',
                 ),
-              ),
-              AnimatedPositioned(
-                duration: motionDuration,
-                curve: Curves.easeOutCubic,
-                left: pointX - 4,
-                top: pointY - 4,
-                child: IgnorePointer(
-                  child: AnimatedScale(
-                    duration: motionDuration,
-                    curve: Curves.easeOutBack,
-                    scale: hoveredPoint == null ? 0 : 1,
-                    child: Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: hoveredPoint?.color ?? widget.lineColor,
-                        shape: BoxShape.circle,
-                        border: Border.all(color: colors.surface, width: 2),
-                        boxShadow: <BoxShadow>[
-                          BoxShadow(
-                            color: widget.lineColor.withValues(alpha: 0.28),
-                            blurRadius: 7,
+          onIncrease: points.isEmpty ? null : () => _moveSelection(1),
+          onDecrease: points.isEmpty ? null : () => _moveSelection(-1),
+          child: Focus(
+            onFocusChange: (value) {
+              if (_focused == value) return;
+              setState(() {
+                _focused = value;
+                if (value && points.isNotEmpty) {
+                  _hoveredIndex = _lastHoveredIndex.clamp(0, points.length - 1);
+                } else if (!value) {
+                  _hoveredIndex = null;
+                }
+              });
+            },
+            onKeyEvent: (node, event) {
+              if (event is! KeyDownEvent) return KeyEventResult.ignored;
+              if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                  event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                _moveSelection(1);
+                return KeyEventResult.handled;
+              }
+              if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                  event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                _moveSelection(-1);
+                return KeyEventResult.handled;
+              }
+              return KeyEventResult.ignored;
+            },
+            child: MouseRegion(
+              cursor: points.isEmpty
+                  ? MouseCursor.defer
+                  : SystemMouseCursors.precise,
+              onHover: (event) =>
+                  _updateHoveredPoint(event, constraints.maxWidth),
+              onExit: (_) {
+                if (_hoveredIndex != null && !_focused) {
+                  setState(() => _hoveredIndex = null);
+                }
+              },
+              child: GestureDetector(
+                behavior: HitTestBehavior.opaque,
+                onTapDown: points.isEmpty
+                    ? null
+                    : (details) => _selectPointAt(
+                        details.localPosition.dx,
+                        constraints.maxWidth,
+                      ),
+                child: Stack(
+                  clipBehavior: Clip.none,
+                  children: [
+                    Positioned.fill(
+                      child: ServiceAnimatedChart(
+                        series: <OpenHandChartSeries>[
+                          OpenHandChartSeries(
+                            label: widget.seriesLabel,
+                            values: values,
+                            color: widget.lineColor,
                           ),
                         ],
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              AnimatedPositioned(
-                duration: motionDuration,
-                curve: Curves.easeOutCubic,
-                left: tooltipLeft,
-                top: 2,
-                width: tooltipWidth,
-                child: IgnorePointer(
-                  child: AnimatedSwitcher(
-                    duration: openHandMotionDuration(
-                      context,
-                      const Duration(milliseconds: 230),
-                    ),
-                    switchInCurve: Curves.easeOutBack,
-                    switchOutCurve: Curves.easeInCubic,
-                    transitionBuilder: (child, animation) => FadeTransition(
-                      opacity: animation,
-                      child: ScaleTransition(
-                        alignment: Alignment.bottomCenter,
-                        scale: Tween<double>(
-                          begin: .92,
-                          end: 1,
-                        ).animate(animation),
-                        child: child,
-                      ),
-                    ),
-                    child: hoveredPoint == null
-                        ? const SizedBox.shrink(
-                            key: ValueKey<String>('detail-tooltip-empty'),
-                          )
-                        : _ProxyDetailTrendTooltip(
-                            key: ValueKey<int>(hoveredIndex!),
-                            point: hoveredPoint,
-                            index: hoveredIndex + 1,
-                            total: points.length,
+                        builder: (context, series) => RepaintBoundary(
+                          child: CustomPaint(
+                            painter: OpenHandSmoothLineChartPainter(
+                              series: series,
+                              gridColor: colors.outlineVariant.withValues(
+                                alpha: 0.55,
+                              ),
+                              labelColor: colors.onSurfaceVariant,
+                              emptyLabel: widget.emptyLabel,
+                              valueSuffix: ' ms',
+                              textDirection: Directionality.of(context),
+                            ),
+                            size: Size.infinite,
                           ),
-                  ),
+                        ),
+                      ),
+                    ),
+                    AnimatedPositioned(
+                      duration: motionDuration,
+                      curve: Curves.easeOutCubic,
+                      left: pointX - 0.5,
+                      top: _chartInset,
+                      bottom: _bottomLabelHeight - _chartInset,
+                      child: IgnorePointer(
+                        child: AnimatedOpacity(
+                          duration: motionDuration,
+                          opacity: activePoint == null ? 0 : 1,
+                          child: Container(
+                            width: 1,
+                            color: widget.lineColor.withValues(alpha: 0.42),
+                          ),
+                        ),
+                      ),
+                    ),
+                    AnimatedPositioned(
+                      duration: motionDuration,
+                      curve: Curves.easeOutCubic,
+                      left: pointX - 4,
+                      top: pointY - 4,
+                      child: IgnorePointer(
+                        child: AnimatedScale(
+                          duration: motionDuration,
+                          curve: Curves.easeOutBack,
+                          scale: activePoint == null ? 0 : 1,
+                          child: Container(
+                            width: 8,
+                            height: 8,
+                            decoration: BoxDecoration(
+                              color: activePoint?.color ?? widget.lineColor,
+                              shape: BoxShape.circle,
+                              border: Border.all(
+                                color: colors.surface,
+                                width: 2,
+                              ),
+                              boxShadow: <BoxShadow>[
+                                BoxShadow(
+                                  color: widget.lineColor.withValues(
+                                    alpha: 0.28,
+                                  ),
+                                  blurRadius: 7,
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                    AnimatedPositioned(
+                      duration: motionDuration,
+                      curve: Curves.easeOutCubic,
+                      left: tooltipLeft,
+                      top: 2,
+                      width: tooltipWidth,
+                      child: IgnorePointer(
+                        child: AnimatedSwitcher(
+                          duration: openHandMotionDuration(
+                            context,
+                            const Duration(milliseconds: 230),
+                          ),
+                          switchInCurve: Curves.easeOutBack,
+                          switchOutCurve: Curves.easeInCubic,
+                          transitionBuilder: (child, animation) =>
+                              FadeTransition(
+                                opacity: animation,
+                                child: ScaleTransition(
+                                  alignment: Alignment.bottomCenter,
+                                  scale: Tween<double>(
+                                    begin: .92,
+                                    end: 1,
+                                  ).animate(animation),
+                                  child: child,
+                                ),
+                              ),
+                          child: activePoint == null
+                              ? const SizedBox.shrink(
+                                  key: ValueKey<String>('detail-tooltip-empty'),
+                                )
+                              : _ProxyDetailTrendTooltip(
+                                  key: ValueKey<int>(hoveredIndex!),
+                                  point: activePoint,
+                                  index: hoveredIndex + 1,
+                                  total: points.length,
+                                ),
+                        ),
+                      ),
+                    ),
+                  ],
                 ),
               ),
-            ],
+            ),
           ),
         );
       },
@@ -3265,6 +3352,7 @@ class _ProxyEndpointDetailsDialogState
         lineColor: colors.primary,
         emptyLabel: text(zh: '暂无真实请求', en: 'No request samples'),
         seriesLabel: 'requests',
+        semanticLabel: text(zh: '真实请求耗时趋势', en: 'Request latency trend'),
       ),
     );
     final probeChart = _ProxyPoolChartPanel(
@@ -3276,6 +3364,7 @@ class _ProxyEndpointDetailsDialogState
         lineColor: OpenHandStatusColors.info,
         emptyLabel: text(zh: '暂无巡检样本', en: 'No probe samples'),
         seriesLabel: 'probe',
+        semanticLabel: text(zh: '巡检连接延迟趋势', en: 'Probe latency trend'),
       ),
     );
     return LayoutBuilder(
@@ -4360,16 +4449,38 @@ class _ProxyLatencyChart extends StatefulWidget {
 class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
   static const double _tooltipWidth = 176;
   int? _hoveredIndex;
+  int _lastSelectedIndex = 0;
+  bool _focused = false;
+
+  void _selectSampleAt(double dx, double width, int sampleCount) {
+    if (sampleCount == 0 || width <= 16) return;
+    final ratio = ((dx - 8) / (width - 16)).clamp(0.0, 1.0);
+    _selectIndex((ratio * (sampleCount - 1)).round(), sampleCount);
+  }
+
+  void _selectIndex(int index, int sampleCount) {
+    if (sampleCount == 0) return;
+    final resolved = index.clamp(0, sampleCount - 1);
+    if (resolved == _hoveredIndex) return;
+    setState(() {
+      _hoveredIndex = resolved;
+      _lastSelectedIndex = resolved;
+    });
+  }
+
+  void _moveSelection(int direction, int sampleCount) {
+    _selectIndex(
+      (_hoveredIndex ?? _lastSelectedIndex) + direction,
+      sampleCount,
+    );
+  }
 
   void _updateHoveredSample(
     PointerHoverEvent event,
     double width,
     int sampleCount,
   ) {
-    if (sampleCount == 0 || width <= 16) return;
-    final ratio = ((event.localPosition.dx - 8) / (width - 16)).clamp(0.0, 1.0);
-    final index = (ratio * (sampleCount - 1)).round();
-    if (index != _hoveredIndex) setState(() => _hoveredIndex = index);
+    _selectSampleAt(event.localPosition.dx, width, sampleCount);
   }
 
   @override
@@ -4400,103 +4511,184 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
             0.0,
             (constraints.maxWidth - _tooltipWidth).clamp(0.0, double.infinity),
           );
-          return MouseRegion(
-            cursor: samples.isEmpty
-                ? MouseCursor.defer
-                : SystemMouseCursors.precise,
-            onHover: (event) => _updateHoveredSample(
-              event,
-              constraints.maxWidth,
-              samples.length,
+          return Semantics(
+            container: true,
+            label: openHandLocalizedText(
+              context,
+              zh: '${widget.endpoint.displayName} 巡检延迟趋势',
+              en: '${widget.endpoint.displayName} probe latency trend',
             ),
-            onExit: (_) {
-              if (_hoveredIndex != null) setState(() => _hoveredIndex = null);
-            },
-            child: Stack(
-              clipBehavior: Clip.none,
-              children: [
-                Positioned.fill(
-                  child: ServiceAnimatedChart(
-                    series: <OpenHandChartSeries>[
-                      OpenHandChartSeries(
-                        label: 'latency',
-                        values: values,
-                        color: colors.primary,
+            value: hoveredSample == null
+                ? openHandLocalizedText(
+                    context,
+                    zh: '未选择样本',
+                    en: 'No sample selected',
+                  )
+                : openHandLocalizedText(
+                    context,
+                    zh: '${hoveredSample.latencyMs} ms，${_dateTimeLabel(hoveredSample.checkedAt)}',
+                    en: '${hoveredSample.latencyMs} ms, ${_dateTimeLabel(hoveredSample.checkedAt)}',
+                  ),
+            hint: samples.isEmpty
+                ? null
+                : openHandLocalizedText(
+                    context,
+                    zh: '使用左右方向键切换样本',
+                    en: 'Use left and right arrow keys to browse samples',
+                  ),
+            onIncrease: samples.isEmpty
+                ? null
+                : () => _moveSelection(1, samples.length),
+            onDecrease: samples.isEmpty
+                ? null
+                : () => _moveSelection(-1, samples.length),
+            child: Focus(
+              onFocusChange: (value) {
+                if (_focused == value) return;
+                setState(() {
+                  _focused = value;
+                  if (value && samples.isNotEmpty) {
+                    _hoveredIndex = _lastSelectedIndex.clamp(
+                      0,
+                      samples.length - 1,
+                    );
+                  } else if (!value) {
+                    _hoveredIndex = null;
+                  }
+                });
+              },
+              onKeyEvent: (node, event) {
+                if (event is! KeyDownEvent) return KeyEventResult.ignored;
+                if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
+                    event.logicalKey == LogicalKeyboardKey.arrowDown) {
+                  _moveSelection(1, samples.length);
+                  return KeyEventResult.handled;
+                }
+                if (event.logicalKey == LogicalKeyboardKey.arrowLeft ||
+                    event.logicalKey == LogicalKeyboardKey.arrowUp) {
+                  _moveSelection(-1, samples.length);
+                  return KeyEventResult.handled;
+                }
+                return KeyEventResult.ignored;
+              },
+              child: MouseRegion(
+                cursor: samples.isEmpty
+                    ? MouseCursor.defer
+                    : SystemMouseCursors.precise,
+                onHover: (event) => _updateHoveredSample(
+                  event,
+                  constraints.maxWidth,
+                  samples.length,
+                ),
+                onExit: (_) {
+                  if (_hoveredIndex != null && !_focused) {
+                    setState(() => _hoveredIndex = null);
+                  }
+                },
+                child: GestureDetector(
+                  behavior: HitTestBehavior.opaque,
+                  onTapDown: samples.isEmpty
+                      ? null
+                      : (details) => _selectSampleAt(
+                          details.localPosition.dx,
+                          constraints.maxWidth,
+                          samples.length,
+                        ),
+                  child: Stack(
+                    clipBehavior: Clip.none,
+                    children: [
+                      Positioned.fill(
+                        child: ServiceAnimatedChart(
+                          series: <OpenHandChartSeries>[
+                            OpenHandChartSeries(
+                              label: 'latency',
+                              values: values,
+                              color: colors.primary,
+                            ),
+                          ],
+                          builder: (context, series) => RepaintBoundary(
+                            child: CustomPaint(
+                              painter: OpenHandSmoothLineChartPainter(
+                                series: series,
+                                gridColor: colors.outlineVariant.withValues(
+                                  alpha: 0.55,
+                                ),
+                                labelColor: colors.onSurfaceVariant,
+                                emptyLabel: openHandLocalizedText(
+                                  context,
+                                  zh: '暂无延迟样本',
+                                  en: 'No latency samples',
+                                ),
+                                valueSuffix: ' ms',
+                                textDirection: Directionality.of(context),
+                              ),
+                              size: Size.infinite,
+                            ),
+                          ),
+                        ),
+                      ),
+                      if (hoveredSample != null)
+                        Positioned(
+                          left: pointX.clamp(0.0, constraints.maxWidth),
+                          top: 8,
+                          bottom: 16,
+                          child: IgnorePointer(
+                            child: Container(
+                              width: 1,
+                              color: colors.primary.withValues(alpha: 0.38),
+                            ),
+                          ),
+                        ),
+                      AnimatedPositioned(
+                        duration: openHandMotionDuration(
+                          context,
+                          const Duration(milliseconds: 180),
+                        ),
+                        curve: Curves.easeOutCubic,
+                        left: tooltipLeft,
+                        top: 2,
+                        width: _tooltipWidth,
+                        child: IgnorePointer(
+                          child: AnimatedSwitcher(
+                            duration: openHandMotionDuration(
+                              context,
+                              const Duration(milliseconds: 220),
+                            ),
+                            switchInCurve: Curves.easeOutCubic,
+                            switchOutCurve: Curves.easeInCubic,
+                            transitionBuilder: (child, animation) =>
+                                FadeTransition(
+                                  opacity: animation,
+                                  child: ScaleTransition(
+                                    alignment: Alignment.bottomCenter,
+                                    scale: Tween<double>(
+                                      begin: .92,
+                                      end: 1,
+                                    ).animate(animation),
+                                    child: child,
+                                  ),
+                                ),
+                            child: hoveredSample == null
+                                ? const SizedBox.shrink(
+                                    key: ValueKey<String>(
+                                      'latency-tooltip-empty',
+                                    ),
+                                  )
+                                : _ProxyLatencyTooltip(
+                                    key: ValueKey<DateTime>(
+                                      hoveredSample.checkedAt,
+                                    ),
+                                    sample: hoveredSample,
+                                    index: hoveredIndex! + 1,
+                                    total: samples.length,
+                                  ),
+                          ),
+                        ),
                       ),
                     ],
-                    builder: (context, series) => CustomPaint(
-                      painter: OpenHandSmoothLineChartPainter(
-                        series: series,
-                        gridColor: colors.outlineVariant.withValues(
-                          alpha: 0.55,
-                        ),
-                        labelColor: colors.onSurfaceVariant,
-                        emptyLabel: openHandLocalizedText(
-                          context,
-                          zh: '暂无延迟样本',
-                          en: 'No latency samples',
-                        ),
-                        valueSuffix: ' ms',
-                        textDirection: Directionality.of(context),
-                      ),
-                      size: Size.infinite,
-                    ),
                   ),
                 ),
-                if (hoveredSample != null)
-                  Positioned(
-                    left: pointX.clamp(0.0, constraints.maxWidth),
-                    top: 8,
-                    bottom: 16,
-                    child: IgnorePointer(
-                      child: Container(
-                        width: 1,
-                        color: colors.primary.withValues(alpha: 0.38),
-                      ),
-                    ),
-                  ),
-                AnimatedPositioned(
-                  duration: openHandMotionDuration(
-                    context,
-                    const Duration(milliseconds: 180),
-                  ),
-                  curve: Curves.easeOutCubic,
-                  left: tooltipLeft,
-                  top: 2,
-                  width: _tooltipWidth,
-                  child: IgnorePointer(
-                    child: AnimatedSwitcher(
-                      duration: openHandMotionDuration(
-                        context,
-                        const Duration(milliseconds: 220),
-                      ),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: ScaleTransition(
-                          alignment: Alignment.bottomCenter,
-                          scale: Tween<double>(
-                            begin: .92,
-                            end: 1,
-                          ).animate(animation),
-                          child: child,
-                        ),
-                      ),
-                      child: hoveredSample == null
-                          ? const SizedBox.shrink(
-                              key: ValueKey<String>('latency-tooltip-empty'),
-                            )
-                          : _ProxyLatencyTooltip(
-                              key: ValueKey<DateTime>(hoveredSample.checkedAt),
-                              sample: hoveredSample,
-                              index: hoveredIndex! + 1,
-                              total: samples.length,
-                            ),
-                    ),
-                  ),
-                ),
-              ],
+              ),
             ),
           );
         },

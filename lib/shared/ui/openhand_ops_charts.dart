@@ -41,12 +41,14 @@ class OpenHandChartSegment {
     required this.value,
     required this.color,
     this.valueLabel,
+    this.icon,
   });
 
   final String label;
   final num value;
   final Color color;
   final String? valueLabel;
+  final IconData? icon;
 
   double get safeValue => _nonNegative(value);
 }
@@ -500,6 +502,7 @@ class OpenHandOperationalTrendChart extends StatefulWidget {
     this.interpolation = OpenHandChartInterpolation.smooth,
     this.area = false,
     this.showLegend = true,
+    this.externalLegendProvided = false,
     this.fixedMaximum,
     this.formatValue,
     this.semanticLabel = '运维趋势图',
@@ -514,7 +517,13 @@ class OpenHandOperationalTrendChart extends StatefulWidget {
   final String emptyLabel;
   final OpenHandChartInterpolation interpolation;
   final bool area;
+
+  /// Requests an internal legend when the chart has multiple series.
+  ///
+  /// An internal legend is still rendered when this is false unless the caller
+  /// explicitly declares an external legend or table.
   final bool showLegend;
+  final bool externalLegendProvided;
   final double? fixedMaximum;
   final String Function(double value)? formatValue;
   final String semanticLabel;
@@ -527,6 +536,13 @@ class OpenHandOperationalTrendChart extends StatefulWidget {
 class _OpenHandOperationalTrendChartState
     extends State<OpenHandOperationalTrendChart> {
   OpenHandOperationalTrendSelection? _selection;
+
+  double get _drawableMaximum => math.max(
+    _seriesMaximum(widget.series),
+    widget.fixedMaximum == null ? 0.0 : _nonNegative(widget.fixedMaximum!),
+  );
+
+  bool get _hasDrawableData => _drawableMaximum > 0;
 
   @override
   void didUpdateWidget(covariant OpenHandOperationalTrendChart oldWidget) {
@@ -569,6 +585,7 @@ class _OpenHandOperationalTrendChartState
     int seriesIndex,
     int pointIndex,
   ) {
+    if (!_hasDrawableData) return null;
     if (seriesIndex < 0 || seriesIndex >= widget.series.length) return null;
     final series = widget.series[seriesIndex];
     if (pointIndex < 0 || pointIndex >= series.values.length) return null;
@@ -631,10 +648,7 @@ class _OpenHandOperationalTrendChartState
         position.dy > chart.bottom) {
       return null;
     }
-    final maximum = math.max(
-      _seriesMaximum(widget.series),
-      widget.fixedMaximum == null ? 0.0 : _nonNegative(widget.fixedMaximum!),
-    );
+    final maximum = _drawableMaximum;
     if (maximum <= 0) return null;
     final normalizedMaximum = _normalizedMaximum(maximum);
     OpenHandOperationalTrendSelection? best;
@@ -677,21 +691,26 @@ class _OpenHandOperationalTrendChartState
     final resolvedHeight = widget.height.isFinite && widget.height > 0
         ? widget.height
         : 224.0;
+    final hasDrawableData = _hasDrawableData;
     return RepaintBoundary(
       child: Semantics(
         container: true,
         label: widget.semanticLabel,
         value: _selectionText(_selection),
-        hint: '点击或悬停数据点，使用左右方向键切换数据点',
-        onTap: () => _activate(_selection ?? _selectionForIndex(0)),
-        onIncrease: () => _moveSelection(1),
-        onDecrease: () => _moveSelection(-1),
-        increasedValue: '下一个数据点',
-        decreasedValue: '上一个数据点',
+        hint: hasDrawableData ? '点击或悬停数据点，使用左右方向键切换数据点' : null,
+        onTap: hasDrawableData
+            ? () => _activate(_selection ?? _selectionForIndex(0))
+            : null,
+        onIncrease: hasDrawableData ? () => _moveSelection(1) : null,
+        onDecrease: hasDrawableData ? () => _moveSelection(-1) : null,
+        increasedValue: hasDrawableData ? '下一个数据点' : null,
+        decreasedValue: hasDrawableData ? '上一个数据点' : null,
         child: Focus(
           autofocus: true,
           onKeyEvent: (node, event) {
-            if (event is! KeyDownEvent) return KeyEventResult.ignored;
+            if (!hasDrawableData || event is! KeyDownEvent) {
+              return KeyEventResult.ignored;
+            }
             if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
                 event.logicalKey == LogicalKeyboardKey.arrowDown) {
               _moveSelection(1);
@@ -726,15 +745,24 @@ class _OpenHandOperationalTrendChartState
                             : 0,
                       );
                       return MouseRegion(
-                        cursor: SystemMouseCursors.precise,
-                        onHover: (event) => _setSelection(
-                          _selectionFromOffset(event.localPosition, size),
-                        ),
+                        cursor: hasDrawableData
+                            ? SystemMouseCursors.precise
+                            : MouseCursor.defer,
+                        onHover: hasDrawableData
+                            ? (event) => _setSelection(
+                                _selectionFromOffset(event.localPosition, size),
+                              )
+                            : null,
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTapDown: (details) => _activate(
-                            _selectionFromOffset(details.localPosition, size),
-                          ),
+                          onTapDown: hasDrawableData
+                              ? (details) => _activate(
+                                  _selectionFromOffset(
+                                    details.localPosition,
+                                    size,
+                                  ),
+                                )
+                              : null,
                           child: Stack(
                             children: [
                               Positioned.fill(
@@ -777,7 +805,8 @@ class _OpenHandOperationalTrendChartState
                     },
                   ),
                 ),
-                if (widget.showLegend && widget.series.length > 1) ...[
+                if (widget.series.length > 1 &&
+                    (widget.showLegend || !widget.externalLegendProvided)) ...[
                   const SizedBox(height: 8),
                   _ChartLegend(
                     segments: widget.series
@@ -882,6 +911,7 @@ class OpenHandOperationalDonutChart extends StatefulWidget {
     this.height = 224,
     this.centerLabel,
     this.showLegend = true,
+    this.externalLegendProvided = false,
     this.formatValue,
     this.semanticLabel = '运维占比环图',
   });
@@ -892,7 +922,13 @@ class OpenHandOperationalDonutChart extends StatefulWidget {
   final ValueChanged<OpenHandOperationalDonutSelection>? onSegmentTap;
   final double height;
   final String? centerLabel;
+
+  /// Requests an internal legend when the chart has multiple segments.
+  ///
+  /// An internal legend is still rendered when this is false unless the caller
+  /// explicitly declares an external legend or table.
   final bool showLegend;
+  final bool externalLegendProvided;
   final String Function(OpenHandChartSegment segment)? formatValue;
   final String semanticLabel;
 
@@ -1025,21 +1061,24 @@ class _OpenHandOperationalDonutChartState
     final height = widget.height.isFinite && widget.height > 0
         ? widget.height
         : 224.0;
+    final hasDrawableData = _firstSelection() != null;
     return RepaintBoundary(
       child: Semantics(
         container: true,
         label: widget.semanticLabel,
         value: _selectionText(_selection),
-        hint: '点击或悬停圆环分段，使用左右方向键切换分段',
-        onTap: _activateCurrentSelection,
-        onIncrease: () => _moveSelection(1),
-        onDecrease: () => _moveSelection(-1),
-        increasedValue: '下一个分段',
-        decreasedValue: '上一个分段',
+        hint: hasDrawableData ? '点击或悬停圆环分段，使用左右方向键切换分段' : null,
+        onTap: hasDrawableData ? _activateCurrentSelection : null,
+        onIncrease: hasDrawableData ? () => _moveSelection(1) : null,
+        onDecrease: hasDrawableData ? () => _moveSelection(-1) : null,
+        increasedValue: hasDrawableData ? '下一个分段' : null,
+        decreasedValue: hasDrawableData ? '上一个分段' : null,
         child: Focus(
           autofocus: true,
           onKeyEvent: (node, event) {
-            if (event is! KeyDownEvent) return KeyEventResult.ignored;
+            if (!hasDrawableData || event is! KeyDownEvent) {
+              return KeyEventResult.ignored;
+            }
             if (event.logicalKey == LogicalKeyboardKey.arrowRight ||
                 event.logicalKey == LogicalKeyboardKey.arrowDown) {
               _moveSelection(1);
@@ -1073,16 +1112,24 @@ class _OpenHandOperationalDonutChartState
                         child: SizedBox.square(
                           dimension: side,
                           child: MouseRegion(
-                            cursor: SystemMouseCursors.precise,
-                            onHover: (event) =>
-                                _selectFromOffset(event.localPosition, size),
+                            cursor: hasDrawableData
+                                ? SystemMouseCursors.precise
+                                : MouseCursor.defer,
+                            onHover: hasDrawableData
+                                ? (event) => _selectFromOffset(
+                                    event.localPosition,
+                                    size,
+                                  )
+                                : null,
                             child: GestureDetector(
                               behavior: HitTestBehavior.opaque,
-                              onTapDown: (details) => _selectFromOffset(
-                                details.localPosition,
-                                size,
-                                activate: true,
-                              ),
+                              onTapDown: hasDrawableData
+                                  ? (details) => _selectFromOffset(
+                                      details.localPosition,
+                                      size,
+                                      activate: true,
+                                    )
+                                  : null,
                               child: Stack(
                                 alignment: Alignment.center,
                                 children: [
@@ -1136,7 +1183,8 @@ class _OpenHandOperationalDonutChartState
                     },
                   ),
                 ),
-                if (widget.showLegend && widget.segments.length > 1) ...[
+                if (widget.segments.length > 1 &&
+                    (widget.showLegend || !widget.externalLegendProvided)) ...[
                   const SizedBox(height: 8),
                   _ChartLegend(
                     segments: widget.segments,
@@ -1267,13 +1315,10 @@ class _ChartLegend extends StatelessWidget {
                 child: Row(
                   mainAxisSize: MainAxisSize.min,
                   children: [
-                    Container(
-                      width: 8,
-                      height: 8,
-                      decoration: BoxDecoration(
-                        color: segments[index].color,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
+                    Icon(
+                      segments[index].icon ?? Icons.circle,
+                      size: 12,
+                      color: segments[index].color,
                     ),
                     const SizedBox(width: 5),
                     Text(segments[index].label, style: textStyle),
@@ -1325,6 +1370,7 @@ class OpenHandOperationalMeter extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
+            width: double.infinity,
             height: semicircular ? 84 : 112,
             child: RepaintBoundary(
               child: CustomPaint(
@@ -1464,7 +1510,7 @@ class OpenHandOperationalComparisonBars extends StatelessWidget {
   }
 }
 
-class _ChartActionSurface extends StatelessWidget {
+class _ChartActionSurface extends StatefulWidget {
   const _ChartActionSurface({
     required this.semanticLabel,
     required this.onTap,
@@ -1476,26 +1522,61 @@ class _ChartActionSurface extends StatelessWidget {
   final Widget child;
 
   @override
+  State<_ChartActionSurface> createState() => _ChartActionSurfaceState();
+}
+
+class _ChartActionSurfaceState extends State<_ChartActionSurface> {
+  bool _hovered = false;
+  bool _focused = false;
+  bool _pressed = false;
+
+  @override
   Widget build(BuildContext context) {
-    if (onTap == null) return child;
+    if (widget.onTap == null) return widget.child;
+    final colors = Theme.of(context).colorScheme;
+    final highlighted = _hovered || _focused || _pressed;
     return Semantics(
       button: true,
-      label: semanticLabel,
-      onTap: onTap,
-      child: Focus(
-        onKeyEvent: (node, event) {
-          if (event is KeyDownEvent &&
-              (event.logicalKey == LogicalKeyboardKey.enter ||
-                  event.logicalKey == LogicalKeyboardKey.space)) {
-            onTap!();
-            return KeyEventResult.handled;
-          }
-          return KeyEventResult.ignored;
+      label: widget.semanticLabel,
+      onTap: widget.onTap,
+      child: FocusableActionDetector(
+        mouseCursor: SystemMouseCursors.click,
+        onShowHoverHighlight: (value) => setState(() => _hovered = value),
+        onShowFocusHighlight: (value) => setState(() => _focused = value),
+        shortcuts: const <ShortcutActivator, Intent>{
+          SingleActivator(LogicalKeyboardKey.enter): ActivateIntent(),
+          SingleActivator(LogicalKeyboardKey.space): ActivateIntent(),
+        },
+        actions: <Type, Action<Intent>>{
+          ActivateIntent: CallbackAction<ActivateIntent>(
+            onInvoke: (_) {
+              widget.onTap!();
+              return null;
+            },
+          ),
         },
         child: GestureDetector(
           behavior: HitTestBehavior.opaque,
-          onTap: onTap,
-          child: child,
+          onTapDown: (_) => setState(() => _pressed = true),
+          onTapCancel: () => setState(() => _pressed = false),
+          onTapUp: (_) => setState(() => _pressed = false),
+          onTap: widget.onTap,
+          child: AnimatedContainer(
+            duration: const Duration(milliseconds: 120),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 3),
+            decoration: BoxDecoration(
+              color: highlighted
+                  ? colors.primary.withValues(alpha: _pressed ? 0.14 : 0.08)
+                  : Colors.transparent,
+              borderRadius: BorderRadius.circular(6),
+              border: Border.all(
+                color: _focused
+                    ? colors.primary.withValues(alpha: 0.65)
+                    : Colors.transparent,
+              ),
+            ),
+            child: widget.child,
+          ),
         ),
       ),
     );
@@ -1738,13 +1819,10 @@ class OpenHandOperationalStatusBand extends StatelessWidget {
                   Row(
                     mainAxisSize: MainAxisSize.min,
                     children: [
-                      Container(
-                        width: 8,
-                        height: 8,
-                        decoration: BoxDecoration(
-                          color: segment.color,
-                          borderRadius: BorderRadius.circular(2),
-                        ),
+                      Icon(
+                        segment.icon ?? Icons.circle,
+                        size: 12,
+                        color: segment.color,
                       ),
                       const SizedBox(width: 5),
                       Text(

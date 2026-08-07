@@ -1156,7 +1156,12 @@ class _DependencyMetricDetailDialogState
           title: '大 Key 排行',
           subtitle: '当前已加载 Key 样本，按序列化大小倒序',
           icon: Icons.vertical_align_top_rounded,
-          trailing: _StatusTag(label: '${records.length} 个样本', color: tone),
+          trailing: _StatusTag(
+            label: sortedRecords.length > 12
+                ? '${records.length} 个样本 · 显示前 12 条'
+                : '${records.length} 个样本',
+            color: tone,
+          ),
           child: _RankTable(
             headers: const ['Key', '类型', '占用', 'TTL'],
             emptyLabel: '当前命名空间暂无 Key',
@@ -1391,6 +1396,7 @@ class _DependencyMetricDetailDialogState
             icon: Icons.vertical_align_top_rounded,
             child: _CompactRecordList(
               records: sortedBySize.take(8).toList(growable: false),
+              totalCount: sortedBySize.length,
               trailing: (record) =>
                   formatByteSize(_integer(record['sizeBytes'])),
               emptyLabel: '暂无 Key 样本',
@@ -1402,6 +1408,7 @@ class _DependencyMetricDetailDialogState
             icon: Icons.hourglass_bottom_rounded,
             child: _CompactRecordList(
               records: expiringSoon.take(8).toList(growable: false),
+              totalCount: expiringSoon.length,
               trailing: (record) => _ttlText(_integer(record['ttlSeconds'])),
               emptyLabel: '当前样本无即将过期 Key',
             ),
@@ -1598,10 +1605,13 @@ class _DependencyMetricDetailDialogState
           title: '请求命中率变化',
           subtitle: '${_range.label} · Redis Key 请求维度',
           icon: Icons.trending_up_rounded,
-          child: _SegmentedHitTrend(
+          child: _InteractiveTrendChart(
             times: _sampleTimes(samples),
-            values: hitRates,
-            tone: tone,
+            series: [
+              OpenHandChartSeries(label: '命中率', values: hitRates, color: tone),
+            ],
+            unit: '%',
+            formatValue: (value) => '${value.toStringAsFixed(1)}%',
           ),
         ),
         const SizedBox(height: _kSectionGap),
@@ -3544,11 +3554,13 @@ class _CompactRecordList extends StatelessWidget {
     required this.records,
     required this.trailing,
     required this.emptyLabel,
+    this.totalCount,
   });
 
   final List<Map<String, Object?>> records;
   final String Function(Map<String, Object?> record) trailing;
   final String emptyLabel;
+  final int? totalCount;
 
   @override
   Widget build(BuildContext context) {
@@ -3556,6 +3568,18 @@ class _CompactRecordList extends StatelessWidget {
     final colors = Theme.of(context).colorScheme;
     return Column(
       children: [
+        if ((totalCount ?? records.length) > records.length) ...[
+          Align(
+            alignment: Alignment.centerLeft,
+            child: Text(
+              '共 ${totalCount ?? records.length} 条，当前显示前 ${records.length} 条（已截断）',
+              style: Theme.of(
+                context,
+              ).textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+            ),
+          ),
+          const SizedBox(height: 6),
+        ],
         for (var index = 0; index < records.length; index++) ...[
           if (index > 0)
             Divider(
@@ -3738,94 +3762,6 @@ class _GaugeFact extends StatelessWidget {
   );
 }
 
-class _SegmentedHitTrend extends StatelessWidget {
-  const _SegmentedHitTrend({
-    required this.times,
-    required this.values,
-    required this.tone,
-  });
-
-  final List<DateTime> times;
-  final List<double> values;
-  final Color tone;
-
-  @override
-  Widget build(BuildContext context) {
-    if (values.length < 2) {
-      return const _InlineUnavailable(label: '等待更多命中率样本');
-    }
-    final colors = Theme.of(context).colorScheme;
-    final visibleCount = math.min(values.length, 48);
-    final start = values.length - visibleCount;
-    return Column(
-      children: [
-        SizedBox(
-          height: 88,
-          child: Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
-            children: [
-              for (var index = start; index < values.length; index++)
-                Expanded(
-                  child: Tooltip(
-                    message:
-                        '${_clockText(times[index])} · ${values[index].toStringAsFixed(1)}%',
-                    child: Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 1),
-                      child: ServiceAnimatedValue(
-                        value: values[index],
-                        builder: (context, animatedValue) => Container(
-                          height:
-                              18 + 70 * (animatedValue / 100).clamp(0.0, 1.0),
-                          decoration: BoxDecoration(
-                            color: values[index] < 70
-                                ? colors.error
-                                : values[index] < 90
-                                ? OpenHandStatusColors.warning
-                                : tone,
-                            borderRadius: const BorderRadius.vertical(
-                              top: Radius.circular(3),
-                            ),
-                          ),
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-            ],
-          ),
-        ),
-        const SizedBox(height: 8),
-        Row(
-          mainAxisAlignment: MainAxisAlignment.spaceBetween,
-          children: [
-            Text(
-              _clockText(times[start]),
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-            Text(
-              _clockText(times.last),
-              style: Theme.of(context).textTheme.labelSmall,
-            ),
-          ],
-        ),
-        const SizedBox(height: 8),
-        const Wrap(
-          spacing: 14,
-          runSpacing: 6,
-          children: [
-            _LegendDot(label: '健康 ≥ 90%', color: OpenHandStatusColors.success),
-            _LegendDot(
-              label: '关注 70% - 90%',
-              color: OpenHandStatusColors.warning,
-            ),
-            _LegendDot(label: '低命中 < 70%', color: OpenHandStatusColors.error),
-          ],
-        ),
-      ],
-    );
-  }
-}
-
 class _LatencyDistribution extends StatelessWidget {
   const _LatencyDistribution({
     required this.average,
@@ -3852,27 +3788,6 @@ class _LatencyDistribution extends StatelessWidget {
       emptyLabel: '当前接口暂未提供命令延迟分位数',
     );
   }
-}
-
-class _LegendDot extends StatelessWidget {
-  const _LegendDot({required this.label, required this.color});
-
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) => Row(
-    mainAxisSize: MainAxisSize.min,
-    children: [
-      Container(
-        width: 8,
-        height: 8,
-        decoration: BoxDecoration(color: color, shape: BoxShape.circle),
-      ),
-      const SizedBox(width: 5),
-      Text(label, style: Theme.of(context).textTheme.labelSmall),
-    ],
-  );
 }
 
 class _InteractiveTrendChart extends StatelessWidget {
@@ -4195,13 +4110,23 @@ List<_BreakdownItem> _breakdownFromMap(
     OpenHandStatusColors.info,
   ];
   final sorted = values.entries.toList()
-    ..sort((left, right) => right.value.compareTo(left.value));
+    ..sort((left, right) {
+      final byValue = right.value.compareTo(left.value);
+      return byValue != 0 ? byValue : left.key.compareTo(right.key);
+    });
+  const visibleCategoryLimit = 5;
+  final visible = sorted.take(visibleCategoryLimit).toList(growable: false);
+  final other = sorted
+      .skip(visibleCategoryLimit)
+      .fold<int>(0, (sum, entry) => sum + entry.value);
+  Color stableColor(String key) {
+    final hash = key.codeUnits.fold<int>(0, (value, unit) => value * 31 + unit);
+    return palette[hash.abs() % palette.length];
+  }
+
   return <_BreakdownItem>[
-    for (var index = 0; index < sorted.length; index++)
-      _BreakdownItem(
-        sorted[index].key,
-        sorted[index].value,
-        palette[index % palette.length],
-      ),
+    for (final entry in visible)
+      _BreakdownItem(entry.key, entry.value, stableColor(entry.key)),
+    if (other > 0) _BreakdownItem('其他', other, colors.outline),
   ];
 }
