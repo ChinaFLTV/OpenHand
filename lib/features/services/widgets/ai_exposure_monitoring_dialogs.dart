@@ -13,6 +13,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -1708,6 +1709,15 @@ class _NetworkPanel extends StatelessWidget {
                   _OpsKeyValue(
                     label: '调度策略',
                     value: _proxyStrategyName(configuration.strategy),
+                    onTap: () => _showDependencyEntityInsight(
+                      context,
+                      id: _DependencyInsightId.proxyRouting,
+                      name: '请求出口',
+                      configured: true,
+                      connected:
+                          controller.proxyRoute == AiExposureProxyRoute.pool,
+                      message: serviceProxyRouteText(controller, text),
+                    ),
                   ),
                   _OpsKeyValue(
                     label: '轮换频率',
@@ -1754,6 +1764,15 @@ class _NetworkPanel extends StatelessWidget {
                                     (max, value) => value > max ? value : max,
                                   ),
                                   color: colors.tertiary,
+                                  onTap: () => _showProxyRegionInsight(
+                                    context,
+                                    country: entry.key,
+                                    endpoints: endpoints.where(
+                                      (endpoint) =>
+                                          endpoint.identity?.country ==
+                                          entry.key,
+                                    ),
+                                  ),
                                 ),
                               )
                               .toList(),
@@ -2255,8 +2274,28 @@ class _StoragePanel extends StatelessWidget {
                   _OpsKeyValue(label: '孤立结果', value: '$orphanResults'),
                   _OpsKeyValue(label: '缺少证据结果', value: '$missingEvidence'),
                   _OpsKeyValue(label: '未结束任务', value: '$unfinished'),
-                  _OpsKeyValue(label: '可恢复任务', value: '$resumable'),
-                  _OpsKeyValue(label: '失败任务', value: '$failed'),
+                  _OpsKeyValue(
+                    label: '可恢复任务',
+                    value: '$resumable',
+                    onTap: resumable <= 0
+                        ? null
+                        : () => _showTaskCollectionInsight(
+                            context,
+                            status: 'resumable',
+                            title: '可恢复任务',
+                          ),
+                  ),
+                  _OpsKeyValue(
+                    label: '失败任务',
+                    value: '$failed',
+                    onTap: failed <= 0
+                        ? null
+                        : () => _showTaskCollectionInsight(
+                            context,
+                            status: 'failed',
+                            title: '失败任务',
+                          ),
+                  ),
                   _OpsKeyValue(
                     label: '审计结论',
                     value: integrityIssues == 0 ? '记录关系完整' : '存在待复核记录',
@@ -2317,9 +2356,29 @@ class _StoragePanel extends StatelessWidget {
           _Section(
             title: '数据库位置',
             icon: Icons.folder_open_outlined,
-            child: SelectableText(
-              controller.health!.databasePath,
-              style: const TextStyle(fontFamily: 'monospace'),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                SelectableText(
+                  controller.health!.databasePath,
+                  style: const TextStyle(fontFamily: 'monospace'),
+                ),
+                const SizedBox(height: 10),
+                Align(
+                  alignment: Alignment.centerRight,
+                  child: OpenHandDialogActionButton.secondary(
+                    onPressed: () => copyOpenHandTextToClipboard(
+                      context: context,
+                      text: controller.health!.databasePath,
+                      logTag: 'service_operations',
+                      logAction: '复制数据库路径',
+                      successMessage: '数据库路径已复制。',
+                    ),
+                    icon: Icons.copy_rounded,
+                    label: '复制路径',
+                  ),
+                ),
+              ],
             ),
           ),
         ],
@@ -2526,8 +2585,18 @@ class _SecurityPanel extends StatelessWidget {
                           AiExposureContentEncoding.hex => 'Hex',
                         },
                         color: enabled
-                            ? Colors.green
+                            ? OpenHandStatusColors.success
                             : Theme.of(context).colorScheme.outline,
+                        onTap: !enabled
+                            ? null
+                            : () => _showRulesForEncoding(
+                                context,
+                                encoding: encoding,
+                                rules: enabledRules.where(
+                                  (rule) =>
+                                      rule.contentEncodings.contains(encoding),
+                                ),
+                              ),
                       );
                     })
                     .toList(growable: false),
@@ -2848,47 +2917,58 @@ class _OpsKeyValue extends StatelessWidget {
     required this.value,
     this.color,
     this.maxLines = 2,
+    this.onTap,
   });
 
   final String label;
   final String value;
   final Color? color;
   final int maxLines;
+  final VoidCallback? onTap;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 5),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(
-            flex: 4,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
+    final content = Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Expanded(
+          flex: 4,
+          child: Text(
+            label,
+            style: theme.textTheme.bodySmall?.copyWith(
+              color: colors.onSurfaceVariant,
             ),
           ),
-          const SizedBox(width: 12),
-          Expanded(
-            flex: 6,
-            child: Text(
-              value,
-              maxLines: maxLines,
-              overflow: TextOverflow.ellipsis,
-              textAlign: TextAlign.end,
-              style: theme.textTheme.labelLarge?.copyWith(
-                color: color,
-                fontWeight: FontWeight.w700,
-              ),
+        ),
+        const SizedBox(width: 12),
+        Expanded(
+          flex: 6,
+          child: Text(
+            value,
+            maxLines: maxLines,
+            overflow: TextOverflow.ellipsis,
+            textAlign: TextAlign.end,
+            style: theme.textTheme.labelLarge?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
             ),
           ),
-        ],
-      ),
+        ),
+      ],
+    );
+    if (onTap == null) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: content,
+      );
+    }
+    return ServiceInteractiveSurface(
+      onTap: onTap,
+      tooltip: '查看$label详情',
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+      child: content,
     );
   }
 }
@@ -2997,17 +3077,18 @@ class _DistributionBar extends StatelessWidget {
     required this.value,
     required this.maxValue,
     required this.color,
+    this.onTap,
   });
 
   final String label;
   final int value;
   final int maxValue;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.symmetric(vertical: 5),
-    child: Row(
+  Widget build(BuildContext context) {
+    final content = Row(
       children: [
         SizedBox(
           width: 92,
@@ -3035,8 +3116,21 @@ class _DistributionBar extends StatelessWidget {
           ),
         ),
       ],
-    ),
-  );
+    );
+    if (onTap == null || value <= 0) {
+      return Padding(
+        padding: const EdgeInsets.symmetric(vertical: 5),
+        child: content,
+      );
+    }
+    return ServiceInteractiveSurface(
+      onTap: onTap,
+      tooltip: '查看$label记录',
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+      detailsIconColor: color,
+      child: content,
+    );
+  }
 }
 
 class _OpsPanelGrid extends StatelessWidget {
@@ -3580,6 +3674,86 @@ void _showDistributionInsight(
         valueListenable: items,
         builder: (context, values, _) =>
             _DistributionInsightBody(id: id, title: title, items: values),
+      ),
+    ),
+  );
+}
+
+void _showRulesForEncoding(
+  BuildContext context, {
+  required AiExposureContentEncoding encoding,
+  required Iterable<AiExposureScanRule> rules,
+}) {
+  final records = rules
+      .map(
+        (rule) => _InsightRecord(
+          icon: Icons.rule_rounded,
+          title: rule.vendor.trim().isEmpty ? rule.id : rule.vendor,
+          subtitle: rule.protocol.trim().isEmpty ? rule.id : rule.protocol,
+          tags: [
+            encoding.id,
+            '凭证模式 ${rule.credentialPatterns.length}',
+            '上下文词 ${rule.contextTerms.length}',
+          ],
+          color: OpenHandStatusColors.success,
+          target: _RuleInsightTarget(rule),
+        ),
+      )
+      .toList(growable: false);
+  showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _OperationsInsightDialog(
+      icon: Icons.code_rounded,
+      title: '${encoding.id} 编码规则',
+      subtitle: '当前启用规则中的真实编码覆盖',
+      entity: true,
+      child: _InsightRecordPanel(
+        icon: Icons.rule_folder_outlined,
+        title: '${encoding.id} · ${records.length} 条规则',
+        records: records,
+        emptyLabel: '当前没有启用该编码的规则。',
+      ),
+    ),
+  );
+}
+
+void _showProxyRegionInsight(
+  BuildContext context, {
+  required String country,
+  required Iterable<AiExposureProxyEndpoint> endpoints,
+}) {
+  final records = endpoints
+      .map(
+        (endpoint) => _InsightRecord(
+          icon: Icons.public_rounded,
+          title: endpoint.displayName,
+          subtitle: endpoint.maskedUrl,
+          tags: [
+            endpoint.identity?.exitIp ?? '出口 IP 未识别',
+            endpoint.identity?.location ?? country,
+            endpoint.enabled ? '已启用' : '未启用',
+          ],
+          color: endpoint.latestSample?.reachable == true
+              ? OpenHandStatusColors.success
+              : endpoint.latestSample?.reachable == false
+              ? OpenHandStatusColors.error
+              : Theme.of(context).colorScheme.outline,
+          target: _ProxyEndpointInsightTarget(endpoint),
+        ),
+      )
+      .toList(growable: false);
+  showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _OperationsInsightDialog(
+      icon: Icons.public_rounded,
+      title: '$country 出口节点',
+      subtitle: '已完成出口识别的当前代理配置',
+      entity: true,
+      child: _InsightRecordPanel(
+        icon: Icons.dns_outlined,
+        title: '$country · ${records.length} 个节点',
+        records: records,
+        emptyLabel: '当前配置中没有该地域的具体代理节点。',
       ),
     ),
   );
@@ -5688,85 +5862,99 @@ class _InsightRankingSectionState extends State<_InsightRankingSection> {
               children: sorted.indexed
                   .map((entry) {
                     final item = entry.$2;
-                    return ServiceInteractiveSurface(
-                      margin: const EdgeInsets.symmetric(vertical: 2),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 4,
-                        vertical: 7,
-                      ),
-                      reserveDetailsIconSpace: true,
-                      detailsIconColor: item.color,
-                      tooltip: item.target != null
-                          ? '查看排行详情'
-                          : widget.detailBuilder != null && item.value > 0
-                          ? '筛选${item.label}记录'
-                          : null,
-                      onTap: item.target != null
-                          ? () => _openInsightTarget(context, item.target!)
-                          : widget.detailBuilder != null && item.value > 0
-                          ? () => setState(
-                              () => _selectedKey = item.key ?? item.label,
-                            )
-                          : null,
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.stretch,
-                        children: [
-                          Row(
-                            children: [
-                              SizedBox(
-                                width: 28,
-                                child: Text(
-                                  '${entry.$1 + 1}',
-                                  style: Theme.of(context).textTheme.labelLarge
-                                      ?.copyWith(
-                                        color: item.color,
-                                        fontWeight: FontWeight.w900,
-                                      ),
+                    final actionable =
+                        item.value > 0 &&
+                        (item.target != null || widget.detailBuilder != null);
+                    return Opacity(
+                      opacity: item.value > 0 ? 1 : 0.52,
+                      child: ServiceInteractiveSurface(
+                        margin: const EdgeInsets.symmetric(vertical: 2),
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 4,
+                          vertical: 7,
+                        ),
+                        reserveDetailsIconSpace: actionable,
+                        detailsIconColor: item.color,
+                        tooltip: !actionable
+                            ? null
+                            : item.target != null
+                            ? '查看排行详情'
+                            : widget.detailBuilder != null && item.value > 0
+                            ? '筛选${item.label}记录'
+                            : null,
+                        onTap: !actionable
+                            ? null
+                            : item.target != null
+                            ? () => _openInsightTarget(context, item.target!)
+                            : () => setState(
+                                () => _selectedKey = item.key ?? item.label,
+                              ),
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.stretch,
+                          children: [
+                            Row(
+                              children: [
+                                SizedBox(
+                                  width: 28,
+                                  child: Text(
+                                    '${entry.$1 + 1}',
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(
+                                          color: item.color,
+                                          fontWeight: FontWeight.w900,
+                                        ),
+                                  ),
+                                ),
+                                Expanded(
+                                  child: Text(
+                                    item.label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(context)
+                                        .textTheme
+                                        .labelLarge
+                                        ?.copyWith(fontWeight: FontWeight.w800),
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Text(
+                                  item.value <= 0 ? '无记录' : item.valueLabel,
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 7),
+                            ClipRRect(
+                              borderRadius: BorderRadius.circular(99),
+                              child: ServiceAnimatedProgressBar(
+                                value: maxValue <= 0
+                                    ? 0
+                                    : item.value / maxValue,
+                                minHeight: 9,
+                                color: item.color,
+                                backgroundColor: item.color.withValues(
+                                  alpha: 0.1,
                                 ),
                               ),
-                              Expanded(
-                                child: Text(
-                                  item.label,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(context).textTheme.labelLarge
-                                      ?.copyWith(fontWeight: FontWeight.w800),
-                                ),
-                              ),
-                              const SizedBox(width: 12),
+                            ),
+                            if (item.helper.isNotEmpty) ...[
+                              const SizedBox(height: 5),
                               Text(
-                                item.valueLabel,
-                                style: Theme.of(context).textTheme.labelLarge,
+                                item.helper,
+                                maxLines: 2,
+                                overflow: TextOverflow.ellipsis,
+                                style: Theme.of(context).textTheme.bodySmall
+                                    ?.copyWith(
+                                      color: Theme.of(
+                                        context,
+                                      ).colorScheme.onSurfaceVariant,
+                                    ),
                               ),
                             ],
-                          ),
-                          const SizedBox(height: 7),
-                          ClipRRect(
-                            borderRadius: BorderRadius.circular(99),
-                            child: ServiceAnimatedProgressBar(
-                              value: maxValue <= 0 ? 0 : item.value / maxValue,
-                              minHeight: 9,
-                              color: item.color,
-                              backgroundColor: item.color.withValues(
-                                alpha: 0.1,
-                              ),
-                            ),
-                          ),
-                          if (item.helper.isNotEmpty) ...[
-                            const SizedBox(height: 5),
-                            Text(
-                              item.helper,
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: Theme.of(context).textTheme.bodySmall
-                                  ?.copyWith(
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
-                            ),
                           ],
-                        ],
+                        ),
                       ),
                     );
                   })
@@ -8492,25 +8680,18 @@ Widget _buildNetworkMetricInsight(
             _DistributionItem('成功', successes, OpenHandStatusColors.success),
             _DistributionItem('失败', failures, OpenHandStatusColors.error),
             _DistributionItem('超时', timeouts, OpenHandStatusColors.warning),
-            _DistributionItem(
-              '执行中',
-              controller.proxyStatus?.inFlight ?? 0,
-              OpenHandStatusColors.info,
-            ),
           ],
           detailBuilder: (context, item) {
             final lens = switch (item.label) {
               '成功' => _ProxyRequestLens.success,
               '超时' => _ProxyRequestLens.timeout,
-              '失败' => _ProxyRequestLens.failure,
-              _ => _ProxyRequestLens.all,
+              _ => _ProxyRequestLens.failure,
             };
             return _proxyRequestInsightPanel(
               context,
               controller,
               lens,
               title: '${item.label}请求样本',
-              filter: item.label == '执行中' ? (_, _, _) => false : null,
             );
           },
         ),
@@ -9692,25 +9873,18 @@ Widget _buildSecurityMetricInsight(
               proxy?.totalTimeouts ?? 0,
               OpenHandStatusColors.warning,
             ),
-            _DistributionItem(
-              '执行中',
-              proxy?.inFlight ?? 0,
-              OpenHandStatusColors.info,
-            ),
           ],
           detailBuilder: (context, item) {
             final lens = switch (item.label) {
               '成功' => _ProxyRequestLens.success,
               '超时' => _ProxyRequestLens.timeout,
-              '失败' => _ProxyRequestLens.failure,
-              _ => _ProxyRequestLens.all,
+              _ => _ProxyRequestLens.failure,
             };
             return _proxyRequestInsightPanel(
               context,
               controller,
               lens,
               title: '${item.label}验证出口请求',
-              filter: item.label == '执行中' ? (_, _, _) => false : null,
             );
           },
         ),
@@ -12216,7 +12390,7 @@ Widget _taskDurationTrendInsight(
       (left, right) =>
           _taskDurationMs(right)!.compareTo(_taskDurationMs(left)!),
     );
-  final chartTasks = controller.history.reversed
+  final chartTasks = finished.reversed
       .take(sampleLabels.length)
       .toList(growable: false);
   return _metricInsightPage([
@@ -14488,34 +14662,46 @@ class _StatusPill extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.color,
+    this.onTap,
   });
   final IconData icon;
   final String label;
   final Color color;
+  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) => Container(
-    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-    decoration: BoxDecoration(
-      color: color.withValues(alpha: 0.11),
-      borderRadius: BorderRadius.circular(999),
-      border: Border.all(color: color.withValues(alpha: 0.35)),
-    ),
-    child: Row(
-      mainAxisSize: MainAxisSize.min,
-      children: [
-        Icon(icon, size: 15, color: color),
-        const SizedBox(width: 6),
-        Text(
-          label,
-          style: Theme.of(context).textTheme.labelMedium?.copyWith(
-            color: color,
-            fontWeight: FontWeight.w700,
+  Widget build(BuildContext context) {
+    final pill = Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.11),
+        borderRadius: BorderRadius.circular(999),
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 15, color: color),
+          const SizedBox(width: 6),
+          Text(
+            label,
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w700,
+            ),
           ),
-        ),
-      ],
-    ),
-  );
+        ],
+      ),
+    );
+    if (onTap == null) return pill;
+    return ServiceInteractiveSurface(
+      onTap: onTap,
+      tooltip: '查看$label详情',
+      padding: EdgeInsets.zero,
+      showDetailsIcon: false,
+      child: pill,
+    );
+  }
 }
 
 class _StageRow extends StatelessWidget {
