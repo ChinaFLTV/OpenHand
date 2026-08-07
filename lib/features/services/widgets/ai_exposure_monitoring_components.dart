@@ -85,8 +85,11 @@ class _DependencyDataAccessPanel extends StatelessWidget {
   }
 }
 
-int _metricInt(Object? value) =>
-    value is num ? value.toInt() : int.tryParse('${value ?? ''}') ?? 0;
+int _metricInt(Object? value) {
+  if (value is int) return value;
+  if (value is num && value.isFinite) return value.toInt();
+  return int.tryParse('${value ?? ''}') ?? 0;
+}
 
 class _Metric {
   const _Metric(

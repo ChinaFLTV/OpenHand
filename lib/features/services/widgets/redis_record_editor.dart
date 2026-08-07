@@ -1234,7 +1234,7 @@ class _RedisJsonValueDraft {
 String _initialTtl(Object? value) {
   final ttl = switch (value) {
     int number => number,
-    num number => number.toInt(),
+    num number when number.isFinite => number.toInt(),
     String text => int.tryParse(text) ?? -1,
     _ => -1,
   };

@@ -1641,11 +1641,17 @@ List<Map<String, Object?>> _maps(Object? value) =>
 List<String> _strings(Object? value) =>
     _list(value).map((item) => '$item').toList(growable: false);
 
-int _integer(Object? value) =>
-    value is num ? value.toInt() : int.tryParse('$value') ?? 0;
+int _integer(Object? value) {
+  if (value is int) return value;
+  if (value is num && value.isFinite) return value.toInt();
+  return int.tryParse('$value') ?? 0;
+}
 
-double _number(Object? value) =>
-    value is num ? value.toDouble() : double.tryParse('$value') ?? 0;
+double _number(Object? value) {
+  if (value is num && value.isFinite) return value.toDouble();
+  final parsed = double.tryParse('$value');
+  return parsed != null && parsed.isFinite ? parsed : 0;
+}
 
 String _capturedAt(Map<String, Object?> overview) {
   final parsed = DateTime.tryParse(

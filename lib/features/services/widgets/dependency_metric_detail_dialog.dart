@@ -3874,7 +3874,7 @@ int? _integerOrNull(Object? value) {
 
 double _number(Object? value) => switch (value) {
   num number when number.isFinite => number.toDouble(),
-  String text => double.tryParse(text.trim()) ?? 0,
+  String text => _finiteParsedNumber(text),
   _ => 0,
 };
 
@@ -3882,15 +3882,26 @@ double? _numberOrNull(Object? value) {
   if (value == null) return null;
   return switch (value) {
     num number when number.isFinite => number.toDouble(),
-    String text => double.tryParse(text.trim()),
+    String text => _parsedFiniteNumberOrNull(text),
     _ => null,
   };
 }
 
 double _normalizedRatio(Object? value) {
   final ratio = _number(value);
-  if (ratio <= 1) return ratio.clamp(0.0, 1.0);
-  return (ratio / 100).clamp(0.0, 1.0);
+  if (!ratio.isFinite || ratio <= 0) return 0;
+  if (ratio <= 1) return ratio.clamp(0.0, 1.0).toDouble();
+  return (ratio / 100).clamp(0.0, 1.0).toDouble();
+}
+
+double _finiteParsedNumber(String value) {
+  final parsed = double.tryParse(value.trim());
+  return parsed != null && parsed.isFinite ? parsed : 0;
+}
+
+double? _parsedFiniteNumberOrNull(String value) {
+  final parsed = double.tryParse(value.trim());
+  return parsed != null && parsed.isFinite ? parsed : null;
 }
 
 Map<String, int> _stringIntMap(Object? value) {

@@ -951,6 +951,10 @@ class _OpenHandOperationalDonutChartState
       return;
     }
     final segment = widget.segments[selected.index];
+    if (segment.safeValue <= 0) {
+      _setSelection(null);
+      return;
+    }
     if (segment.label != selected.segment.label ||
         segment.value != selected.segment.value ||
         segment.color != selected.segment.color ||
@@ -1021,7 +1025,7 @@ class _OpenHandOperationalDonutChartState
     }
     final values = widget.segments.map((segment) => segment.safeValue).toList();
     final total = values.fold<double>(0, (sum, value) => sum + value);
-    if (total <= 0) return;
+    if (total <= 0 || !total.isFinite) return;
     var angle =
         math.atan2(position.dy - center.dy, position.dx - center.dx) +
         math.pi / 2;
@@ -1103,11 +1107,15 @@ class _OpenHandOperationalDonutChartState
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final side = math.min(
+                      final finiteDimensions = <double>[
                         constraints.maxWidth,
                         constraints.maxHeight,
-                      );
+                      ].where((value) => value.isFinite && value > 0);
+                      final side = finiteDimensions.isEmpty
+                          ? 0.0
+                          : finiteDimensions.reduce(math.min);
                       final size = Size.square(side);
+                      if (side <= 0) return const SizedBox.shrink();
                       return Center(
                         child: SizedBox.square(
                           dimension: side,
@@ -1222,12 +1230,13 @@ class _DonutSelectionPainter extends CustomPainter {
     final geometry = _donutGeometry(size);
     if (selected == null ||
         geometry == null ||
+        selected.index < 0 ||
         selected.index >= segments.length) {
       return;
     }
     final values = segments.map((segment) => segment.safeValue).toList();
     final total = values.fold<double>(0, (sum, value) => sum + value);
-    if (total <= 0) return;
+    if (total <= 0 || !total.isFinite) return;
     var start = -math.pi / 2;
     for (var index = 0; index < values.length; index++) {
       final sweep = math.pi * 2 * values[index] / total;
@@ -1766,7 +1775,9 @@ class OpenHandOperationalStatusBand extends StatelessWidget {
       0,
       (sum, segment) => sum + segment.safeValue,
     );
-    if (total <= 0) return _EmptyChartLabel(label: emptyLabel);
+    if (total <= 0 || !total.isFinite) {
+      return _EmptyChartLabel(label: emptyLabel);
+    }
     final colors = Theme.of(context).colorScheme;
     return RepaintBoundary(
       child: Semantics(

@@ -25,9 +25,35 @@ double serviceProgressRatio({
   required num maximum,
   double minimumVisible = 0,
 }) {
-  if (value <= 0 || maximum <= 0) return 0;
-  final ratio = value / maximum;
-  return ratio.clamp(minimumVisible.clamp(0, 1), 1).toDouble();
+  final safeValue = value.toDouble();
+  final safeMaximum = maximum.toDouble();
+  if (!safeValue.isFinite ||
+      !safeMaximum.isFinite ||
+      safeValue <= 0 ||
+      safeMaximum <= 0) {
+    return 0;
+  }
+  final safeMinimum = minimumVisible.isFinite
+      ? minimumVisible.clamp(0.0, 1.0).toDouble()
+      : 0.0;
+  return (safeValue / safeMaximum).clamp(safeMinimum, 1.0).toDouble();
+}
+
+double _finiteServiceValue(double value, {double fallback = 0}) {
+  return value.isFinite ? value : fallback;
+}
+
+double _serviceProgressValue(double? value) {
+  if (value == null) return 0;
+  if (value.isNaN) return 0;
+  if (value == double.infinity) return 1;
+  if (value == double.negativeInfinity) return 0;
+  return value.clamp(0.0, 1.0).toDouble();
+}
+
+double _serviceProgressHeight(double value) {
+  if (!value.isFinite || value <= 0) return 1;
+  return value;
 }
 
 class ServiceAnimatedProgressBar extends StatelessWidget {
@@ -46,10 +72,11 @@ class ServiceAnimatedProgressBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final target = value?.clamp(0.0, 1.0);
+    final height = _serviceProgressHeight(minHeight);
+    final target = value == null ? null : _serviceProgressValue(value);
     if (target == null) {
       return LinearProgressIndicator(
-        minHeight: minHeight,
+        minHeight: height,
         color: color,
         backgroundColor: backgroundColor,
       );
@@ -57,8 +84,8 @@ class ServiceAnimatedProgressBar extends StatelessWidget {
     return ServiceAnimatedValue(
       value: target,
       builder: (context, animatedValue) => LinearProgressIndicator(
-        value: animatedValue.clamp(0.0, 1.0),
-        minHeight: minHeight,
+        value: _serviceProgressValue(animatedValue),
+        minHeight: height,
         color: color,
         backgroundColor: backgroundColor,
       ),
@@ -83,12 +110,14 @@ class ServiceAnimatedValue extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final safeValue = _finiteServiceValue(value);
+    final safeInitialValue = _finiteServiceValue(initialValue);
     final motion = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.dialog,
     );
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: initialValue, end: value),
+      tween: Tween<double>(begin: safeInitialValue, end: safeValue),
       duration: motion.entranceDuration,
       curve: motion.curve.curve,
       builder: (context, animatedValue, _) => builder(context, animatedValue),
@@ -162,7 +191,7 @@ class _ServiceAnimatedChartState extends State<ServiceAnimatedChart> {
         (item) => OpenHandChartSeries(
           label: item.label,
           values: item.values
-              .map((value) => value.isFinite ? value : 0.0)
+              .map((value) => value.isFinite && value > 0 ? value : 0.0)
               .toList(growable: false),
           color: item.color,
         ),
@@ -1104,15 +1133,18 @@ class _ServiceDetailDashboard extends StatelessWidget {
         .where((field) => unhealthy.hasMatch(field.value))
         .length;
     final measured = positive + negative;
-    final rawScore = values.isNotEmpty
-        ? values.fold<double>(0, (sum, item) => sum + item.value) /
-              values.length
+    final finiteValues = values.where((item) => item.value.isFinite);
+    final finiteValueCount = finiteValues.length;
+    final rawScore = finiteValueCount > 0
+        ? finiteValues.fold<double>(0, (sum, item) => sum + item.value) /
+              finiteValueCount
         : measured == 0
         ? 0.5
         : positive / measured;
-    final score = rawScore > 1
-        ? (rawScore / 100).clamp(0.0, 1.0)
-        : rawScore.clamp(0.0, 1.0);
+    final normalizedScore = rawScore.isFinite ? rawScore : 0.5;
+    final score = normalizedScore > 1
+        ? (normalizedScore / 100).clamp(0.0, 1.0).toDouble()
+        : normalizedScore.clamp(0.0, 1.0).toDouble();
     final tone = score >= 0.8
         ? OpenHandStatusColors.success
         : score >= 0.5
@@ -1340,7 +1372,10 @@ class _ServiceDetailDashboard extends StatelessWidget {
     final chartValues = values.isEmpty
         ? const <int>[0]
         : values
-              .map((item) => item.value.round().clamp(0, 1 << 30))
+              .map(
+                (item) =>
+                    _finiteServiceValue(item.value).round().clamp(0, 1 << 30),
+              )
               .toList(growable: false);
     return SizedBox(
       width: 164,
@@ -1401,11 +1436,16 @@ class _ServiceDetailDashboard extends StatelessWidget {
   }) {
     if (values.isEmpty) return _empty(context, '暂无数值样本。');
     final colors = Theme.of(context).colorScheme;
+    final requestedMaximum = total;
     final maximum =
-        total ??
-        values.fold<double>(0, (max, item) {
-          return item.value > max ? item.value : max;
-        });
+        requestedMaximum != null &&
+            requestedMaximum.isFinite &&
+            requestedMaximum > 0
+        ? requestedMaximum
+        : values.fold<double>(0, (max, item) {
+            final value = item.value;
+            return value.isFinite && value > max ? value : max;
+          });
     final visible = values.take(8).toList(growable: false);
     return Column(
       children: visible.indexed
@@ -1413,9 +1453,10 @@ class _ServiceDetailDashboard extends StatelessWidget {
             final item = entry.$2;
             final tone =
                 item.color ?? _serviceDetailTone(entry.$1, colors, accentColor);
-            final ratio = maximum <= 0
-                ? 0.0
-                : (item.value / maximum).clamp(0.0, 1.0);
+            final ratio = serviceProgressRatio(
+              value: item.value,
+              maximum: maximum,
+            );
             final valueLabel = total == null
                 ? item.valueLabel ?? _compactServiceNumber(item.value)
                 : '${(ratio * 100).toStringAsFixed(1)}%';
@@ -1733,6 +1774,7 @@ Color _serviceDetailTone(int index, ColorScheme colors, Color accentColor) =>
     ][index % 8];
 
 String _compactServiceNumber(double value) {
+  if (!value.isFinite) return '--';
   if (value >= 1000000000) return '${(value / 1000000000).toStringAsFixed(1)}B';
   if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
   if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
