@@ -3431,6 +3431,11 @@ class _TaskEntityInsightBody extends StatelessWidget {
     final results = controller.results
         .where((result) => result.jobId == task.id)
         .toList(growable: false);
+    final highValueResults = results
+        .where(
+          (result) => result.category == AiExposureResultCategory.highValue,
+        )
+        .toList(growable: false);
     final logs =
         controller.logs
             .where((entry) => entry.jobId == task.id)
@@ -3485,7 +3490,10 @@ class _TaskEntityInsightBody extends StatelessWidget {
             value: '${task.progress.highValue}',
             helper:
                 '占有效 ${_chartRate(task.progress.highValue, task.progress.valid)}',
-            color: const Color(0xffa855f7),
+            color: colors.secondary,
+            target: highValueResults.length == 1
+                ? _ResultInsightTarget(highValueResults.single)
+                : null,
           ),
         ],
       ),
@@ -3597,10 +3605,14 @@ class _TaskEntityInsightBody extends StatelessWidget {
           _InsightFunnelItem(
             label: '高价值',
             value: task.progress.highValue,
-            color: const Color(0xffa855f7),
+            color: colors.secondary,
+            target: highValueResults.length == 1
+                ? _ResultInsightTarget(highValueResults.single)
+                : null,
           ),
         ],
       ),
+      _TaskStageGanttSection(task: task),
       _Section(
         title: task.stageTimings.isEmpty ? '阶段时间线 · 历史任务无阶段切片' : '阶段时间线',
         icon: Icons.account_tree_outlined,
@@ -3683,6 +3695,177 @@ class _TaskEntityInsightBody extends StatelessWidget {
   }
 }
 
+class _TaskStageGanttSection extends StatelessWidget {
+  const _TaskStageGanttSection({required this.task});
+
+  final AiExposureHistoryEntry task;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final entries = task.stageTimings
+        .where(
+          (timing) =>
+              timing.durationMs != null ||
+              timing.startedAt != null && timing.finishedAt != null,
+        )
+        .map((timing) {
+          final start = timing.startedAt;
+          final recordedEnd = timing.finishedAt;
+          final derivedEnd =
+              recordedEnd == null && start != null && timing.durationMs != null;
+          final end =
+              recordedEnd ??
+              (derivedEnd
+                  ? start.add(Duration(milliseconds: timing.durationMs!))
+                  : null);
+          final duration =
+              timing.durationMs ??
+              (start != null && end != null && !end.isBefore(start)
+                  ? end.difference(start).inMilliseconds
+                  : null);
+          return (
+            timing: timing,
+            start: start,
+            end: end,
+            duration: duration,
+            derivedEnd: derivedEnd,
+          );
+        })
+        .where((entry) => entry.duration != null && entry.duration! >= 0)
+        .toList(growable: false);
+    final dated = entries
+        .where((entry) => entry.start != null && entry.end != null)
+        .toList(growable: false);
+    final earliest = dated.map((entry) => entry.start!).fold<DateTime?>(null, (
+      value,
+      item,
+    ) {
+      if (value == null || item.isBefore(value)) return item;
+      return value;
+    });
+    final latest = dated.map((entry) => entry.end!).fold<DateTime?>(null, (
+      value,
+      item,
+    ) {
+      if (value == null || item.isAfter(value)) return item;
+      return value;
+    });
+    final spanMs = earliest == null || latest == null
+        ? 0
+        : latest.difference(earliest).inMilliseconds;
+    final maxDuration = entries.fold<int>(
+      0,
+      (value, entry) => entry.duration! > value ? entry.duration! : value,
+    );
+    return _Section(
+      title: '阶段执行甘特 · ${entries.length} 个计时切片',
+      icon: Icons.view_timeline_outlined,
+      child: entries.isEmpty
+          ? const _InsightEmpty(label: '该任务没有可绘制的阶段计时切片。')
+          : Column(
+              children: entries
+                  .map((entry) {
+                    final hasCalendarPosition =
+                        spanMs > 0 && entry.start != null && entry.end != null;
+                    final left = hasCalendarPosition
+                        ? entry.start!.difference(earliest!).inMilliseconds /
+                              spanMs
+                        : 0.0;
+                    final width = hasCalendarPosition
+                        ? (entry.end!.difference(entry.start!).inMilliseconds /
+                                  spanMs)
+                              .clamp(0.02, 1.0 - left)
+                        : maxDuration <= 0
+                        ? 0.04
+                        : (entry.duration! / maxDuration).clamp(0.04, 1.0);
+                    final target = _StageInsightTarget(
+                      entry.timing.stage,
+                      taskId: task.id,
+                    );
+                    return ServiceInteractiveSurface(
+                      onTap: () => _openInsightTarget(context, target),
+                      tooltip: '查看${_stageName(entry.timing.stage)}阶段详情',
+                      showDetailsIcon: false,
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _stageName(entry.timing.stage),
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                              ),
+                              Text(
+                                '${entry.duration} ms${entry.derivedEnd ? ' · 结束时间由耗时推导' : ''}',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: colors.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 7),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final safeWidth = constraints.maxWidth;
+                              return SizedBox(
+                                height: 18,
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: colors.surfaceContainerHighest,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      left: safeWidth * left,
+                                      top: 0,
+                                      bottom: 0,
+                                      width: (safeWidth * width).clamp(
+                                        2.0,
+                                        safeWidth,
+                                      ),
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: colors.primary.withValues(
+                                            alpha: 0.8,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                          if (!hasCalendarPosition) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '仅记录耗时，条形表示相对时长，不代表绝对开始时间。',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+    );
+  }
+}
+
 class _SourceEntityInsightBody extends StatelessWidget {
   const _SourceEntityInsightBody({required this.source});
 
@@ -3719,6 +3902,8 @@ class _SourceEntityInsightBody extends StatelessWidget {
     final results = controller.results
         .where((result) => result.source == source)
         .toList(growable: false);
+    final chronologicalTasks = [...tasks]
+      ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
     final valuable = results
         .where(
           (result) =>
@@ -3779,8 +3964,101 @@ class _SourceEntityInsightBody extends StatelessWidget {
           ),
         ],
       ),
+      _InsightTrendSection(
+        title: '来源任务处理表现 · 当前保留任务',
+        icon: Icons.show_chart_rounded,
+        series: [
+          OpenHandChartSeries(
+            label: '已处理',
+            values: chronologicalTasks
+                .map((task) => task.progress.processed.toDouble())
+                .toList(growable: false),
+            color: colors.primary,
+          ),
+          OpenHandChartSeries(
+            label: '有效',
+            values: chronologicalTasks
+                .map((task) => task.progress.valid.toDouble())
+                .toList(growable: false),
+            color: OpenHandStatusColors.success,
+          ),
+        ],
+        sampleLabels: chronologicalTasks
+            .map((task) => _shortDateTime(task.createdAt))
+            .toList(growable: false),
+        suffix: ' 项',
+        emptyLabel: '当前保留任务中没有该来源的处理样本。',
+        targets: chronologicalTasks
+            .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
+            .toList(growable: false),
+      ),
+      _InsightDonutSection(
+        title: '来源产出质量 · 当前保留结果',
+        icon: Icons.donut_large_rounded,
+        items: [
+          _DistributionItem(
+            '有效',
+            results
+                .where(
+                  (result) => result.category == AiExposureResultCategory.valid,
+                )
+                .length,
+            OpenHandStatusColors.success,
+          ),
+          _DistributionItem(
+            '高价值',
+            results
+                .where(
+                  (result) =>
+                      result.category == AiExposureResultCategory.highValue,
+                )
+                .length,
+            colors.secondary,
+          ),
+          _DistributionItem(
+            '可疑',
+            results
+                .where(
+                  (result) =>
+                      result.category == AiExposureResultCategory.suspicious,
+                )
+                .length,
+            OpenHandStatusColors.warning,
+          ),
+          _DistributionItem(
+            '蜜罐',
+            results
+                .where(
+                  (result) =>
+                      result.category == AiExposureResultCategory.honeypot,
+                )
+                .length,
+            OpenHandStatusColors.error,
+          ),
+        ],
+        detailBuilder: (context, item) {
+          final category = switch (item.label) {
+            '有效' => AiExposureResultCategory.valid,
+            '高价值' => AiExposureResultCategory.highValue,
+            '可疑' => AiExposureResultCategory.suspicious,
+            _ => AiExposureResultCategory.honeypot,
+          };
+          return _InsightRecordPanel(
+            icon: Icons.fact_check_outlined,
+            title: '${item.label}结果 · 当前保留集合',
+            records: results
+                .where((result) => result.category == category)
+                .map(
+                  (result) =>
+                      _resultInsightRecord(result, _ResultRecordLens.source),
+                )
+                .toList(growable: false),
+            emptyLabel: '当前保留结果中没有${item.label}记录。',
+          );
+        },
+      ),
       _Section(
-        title: '配额与来源状态',
+        title: '配额与来源状态 · 最近状态刷新快照',
         icon: Icons.rule_folder_outlined,
         child: _OpsKeyValueGrid(
           children: [
@@ -3922,8 +4200,19 @@ class _ProxyEndpointEntityInsightBody extends StatelessWidget {
     );
     final requests = [...statistics.recentRequests]
       ..sort((left, right) => right.at.compareTo(left.at));
+    final chronologicalRequests = requests.reversed.toList(growable: false);
     final probes = [...endpoint.samples]
       ..sort((left, right) => right.checkedAt.compareTo(left.checkedAt));
+    final successfulRequests = requests
+        .where((request) => request.succeeded)
+        .length;
+    final timeoutRequests = requests
+        .where((request) => request.timedOut)
+        .length;
+    final failedRequests =
+        requests.length - successfulRequests - timeoutRequests;
+    final reachableProbes = probes.where((probe) => probe.reachable).length;
+    final failedProbes = probes.length - reachableProbes;
     return _metricInsightPage([
       _InsightKpiBand(
         title: '节点请求质量',
@@ -3960,6 +4249,91 @@ class _ProxyEndpointEntityInsightBody extends StatelessWidget {
             color: OpenHandStatusColors.warning,
           ),
         ],
+      ),
+      _InsightTrendSection(
+        title: '近期请求时延 · 保留 ${chronologicalRequests.length} 条样本',
+        icon: Icons.show_chart_rounded,
+        series: [
+          OpenHandChartSeries(
+            label: '响应耗时',
+            values: chronologicalRequests
+                .map((request) => request.responseTimeMs.toDouble())
+                .toList(growable: false),
+            color: colors.tertiary,
+          ),
+        ],
+        sampleLabels: chronologicalRequests
+            .map((request) => _shortDateTime(request.at))
+            .toList(growable: false),
+        suffix: ' ms',
+        emptyLabel: '该节点没有近期请求时延样本。',
+        interpolation: OpenHandChartInterpolation.smooth,
+        targets: chronologicalRequests
+            .map<_InsightTarget?>(
+              (request) => _ProxyRequestInsightTarget(
+                endpoint: endpoint,
+                address: endpoint.maskedUrl,
+                sample: request,
+              ),
+            )
+            .toList(growable: false),
+      ),
+      _InsightDonutSection(
+        title: '近期请求结果 · 当前保留窗口',
+        icon: Icons.donut_large_rounded,
+        items: [
+          _DistributionItem(
+            '成功',
+            successfulRequests,
+            OpenHandStatusColors.success,
+          ),
+          _DistributionItem('失败', failedRequests, OpenHandStatusColors.error),
+          _DistributionItem(
+            '超时',
+            timeoutRequests,
+            OpenHandStatusColors.warning,
+          ),
+        ],
+        detailBuilder: (context, item) {
+          final selected = requests.where((request) {
+            if (item.label == '成功') return request.succeeded;
+            if (item.label == '超时') return request.timedOut;
+            return !request.succeeded && !request.timedOut;
+          });
+          return _InsightRecordPanel(
+            icon: Icons.swap_vert_rounded,
+            title: '${item.label}请求 · 当前保留窗口',
+            records: selected
+                .map((request) => _proxyRequestRecord(endpoint, request))
+                .toList(growable: false),
+            emptyLabel: '当前保留窗口中没有${item.label}请求。',
+          );
+        },
+      ),
+      _InsightDonutSection(
+        title: '巡检可靠性 · 保留 ${probes.length} 条样本',
+        icon: Icons.health_and_safety_outlined,
+        items: [
+          _DistributionItem(
+            '可达',
+            reachableProbes,
+            OpenHandStatusColors.success,
+          ),
+          _DistributionItem('异常', failedProbes, OpenHandStatusColors.error),
+        ],
+        detailBuilder: (context, item) {
+          final selected = probes.where(
+            (probe) => item.label == '可达' ? probe.reachable : !probe.reachable,
+          );
+          return _InsightRecordPanel(
+            icon: Icons.health_and_safety_outlined,
+            title: '${item.label}巡检 · 当前保留窗口',
+            records: selected
+                .map((probe) => _proxyProbeRecord(endpoint, probe))
+                .toList(growable: false),
+            emptyLabel: '当前保留窗口中没有${item.label}巡检。',
+          );
+        },
       ),
       _Section(
         title: '节点配置与出口身份',
@@ -4904,6 +5278,7 @@ class _InsightKpi {
     required this.value,
     required this.helper,
     required this.color,
+    this.target,
   });
 
   final IconData icon;
@@ -4911,6 +5286,7 @@ class _InsightKpi {
   final String value;
   final String helper;
   final Color color;
+  final _InsightTarget? target;
 }
 
 class _InsightKpiBand extends StatelessWidget {
@@ -4944,54 +5320,64 @@ class _InsightKpiBand extends StatelessWidget {
               .map(
                 (item) => SizedBox(
                   width: width,
-                  child: Container(
-                    constraints: const BoxConstraints(minHeight: 108),
-                    padding: const EdgeInsets.all(12),
-                    decoration: BoxDecoration(
-                      color: item.color.withValues(alpha: 0.08),
-                      borderRadius: BorderRadius.circular(8),
-                      border: Border.all(
-                        color: item.color.withValues(alpha: 0.26),
+                  child: ServiceInteractiveSurface(
+                    onTap: item.target == null
+                        ? null
+                        : () => _openInsightTarget(context, item.target!),
+                    tooltip: item.target == null ? null : '查看${item.label}详情',
+                    padding: EdgeInsets.zero,
+                    showDetailsIcon: item.target != null,
+                    child: Container(
+                      constraints: const BoxConstraints(minHeight: 108),
+                      padding: const EdgeInsets.all(12),
+                      decoration: BoxDecoration(
+                        color: item.color.withValues(alpha: 0.08),
+                        borderRadius: BorderRadius.circular(8),
+                        border: Border.all(
+                          color: item.color.withValues(alpha: 0.26),
+                        ),
                       ),
-                    ),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        Row(
-                          children: [
-                            Icon(item.icon, size: 18, color: item.color),
-                            const SizedBox(width: 7),
-                            Expanded(
-                              child: Text(
-                                item.label,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                                style: Theme.of(context).textTheme.labelMedium,
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Row(
+                            children: [
+                              Icon(item.icon, size: 18, color: item.color),
+                              const SizedBox(width: 7),
+                              Expanded(
+                                child: Text(
+                                  item.label,
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: Theme.of(
+                                    context,
+                                  ).textTheme.labelMedium,
+                                ),
                               ),
-                            ),
-                          ],
-                        ),
-                        const SizedBox(height: 10),
-                        Text(
-                          item.value,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.titleLarge
-                              ?.copyWith(fontWeight: FontWeight.w900),
-                        ),
-                        const SizedBox(height: 3),
-                        Text(
-                          item.helper,
-                          maxLines: 2,
-                          overflow: TextOverflow.ellipsis,
-                          style: Theme.of(context).textTheme.bodySmall
-                              ?.copyWith(
-                                color: Theme.of(
-                                  context,
-                                ).colorScheme.onSurfaceVariant,
-                              ),
-                        ),
-                      ],
+                            ],
+                          ),
+                          const SizedBox(height: 10),
+                          Text(
+                            item.value,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.titleLarge
+                                ?.copyWith(fontWeight: FontWeight.w900),
+                          ),
+                          const SizedBox(height: 3),
+                          Text(
+                            item.helper,
+                            maxLines: 2,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodySmall
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
@@ -5468,11 +5854,13 @@ class _InsightFunnelItem {
     required this.label,
     required this.value,
     required this.color,
+    this.target,
   });
 
   final String label;
   final int value;
   final Color color;
+  final _InsightTarget? target;
 }
 
 class _InsightFunnelSection extends StatelessWidget {
@@ -5510,7 +5898,7 @@ class _InsightFunnelSection extends StatelessWidget {
                     final conversion = previous == null || previous.value <= 0
                         ? null
                         : item.value * 100 / previous.value;
-                    return Padding(
+                    final content = Padding(
                       padding: const EdgeInsets.symmetric(vertical: 6),
                       child: Column(
                         children: [
@@ -5538,6 +5926,14 @@ class _InsightFunnelSection extends StatelessWidget {
                           ),
                         ],
                       ),
+                    );
+                    if (item.target == null || item.value <= 0) return content;
+                    return ServiceInteractiveSurface(
+                      onTap: () => _openInsightTarget(context, item.target!),
+                      tooltip: '查看${item.label}详情',
+                      padding: const EdgeInsets.symmetric(horizontal: 4),
+                      detailsIconColor: item.color,
+                      child: content,
                     );
                   })
                   .toList(growable: false),
@@ -5863,7 +6259,7 @@ Widget _buildOverviewMetricInsight(
             _DistributionItem(
               '高价值',
               category(AiExposureResultCategory.highValue),
-              const Color(0xffa855f7),
+              colors.secondary,
             ),
             _DistributionItem(
               '可疑',
@@ -5876,6 +6272,20 @@ Widget _buildOverviewMetricInsight(
               OpenHandStatusColors.error,
             ),
           ],
+          detailBuilder: (context, item) {
+            final selectedCategory = switch (item.label) {
+              '有效' => AiExposureResultCategory.valid,
+              '高价值' => AiExposureResultCategory.highValue,
+              '可疑' => AiExposureResultCategory.suspicious,
+              _ => AiExposureResultCategory.honeypot,
+            };
+            return _metricResultPanel(
+              results.where((result) => result.category == selectedCategory),
+              title: '${item.label}结果证据',
+              emptyLabel: '暂无${item.label}结果。',
+              lens: _ResultRecordLens.risk,
+            );
+          },
         ),
         _InsightRankingSection(
           title: '来源产出排名',
@@ -7775,6 +8185,21 @@ Widget _buildNetworkMetricInsight(
               OpenHandStatusColors.info,
             ),
           ],
+          detailBuilder: (context, item) {
+            final lens = switch (item.label) {
+              '成功' => _ProxyRequestLens.success,
+              '超时' => _ProxyRequestLens.timeout,
+              '失败' => _ProxyRequestLens.failure,
+              _ => _ProxyRequestLens.all,
+            };
+            return _proxyRequestInsightPanel(
+              context,
+              controller,
+              lens,
+              title: '${item.label}请求样本',
+              filter: item.label == '执行中' ? (_, _, _) => false : null,
+            );
+          },
         ),
         _proxyRequestLoadPanel(context, controller),
       ]);
@@ -8197,14 +8622,29 @@ Widget _buildStorageMetricInsight(
         },
       );
     case '最后写入':
-      final eventTimes = <DateTime>[
-        ...history.map((entry) => entry.effectiveFinishedAt ?? entry.createdAt),
-        ...results.map((entry) => entry.createdAt),
-        ...logs.map((entry) => entry.at),
-      ]..sort();
-      final recent = eventTimes.length <= 24
-          ? eventTimes
-          : eventTimes.sublist(eventTimes.length - 24);
+      final events = <({DateTime at, _InsightTarget target})>[
+        ...history.map(
+          (entry) => (
+            at: entry.effectiveFinishedAt ?? entry.createdAt,
+            target: _TaskInsightTarget(entry) as _InsightTarget,
+          ),
+        ),
+        ...results.map(
+          (entry) => (
+            at: entry.createdAt,
+            target: _ResultInsightTarget(entry) as _InsightTarget,
+          ),
+        ),
+        ...logs.map(
+          (entry) => (
+            at: entry.at,
+            target: _LogInsightTarget(entry) as _InsightTarget,
+          ),
+        ),
+      ]..sort((left, right) => left.at.compareTo(right.at));
+      final recent = events.length <= 24
+          ? events
+          : events.sublist(events.length - 24);
       return _metricInsightPage([
         _InsightTrendSection(
           title: '最近持久化活动节奏',
@@ -8219,10 +8659,15 @@ Widget _buildStorageMetricInsight(
               color: colors.primary,
             ),
           ],
-          sampleLabels: recent.map(_shortDateTime).toList(growable: false),
+          sampleLabels: recent
+              .map((event) => _shortDateTime(event.at))
+              .toList(growable: false),
           suffix: ' 条',
           emptyLabel: '暂无持久化活动时间样本',
           interpolation: OpenHandChartInterpolation.step,
+          targets: recent
+              .map<_InsightTarget?>((event) => event.target)
+              .toList(growable: false),
         ),
         _persistenceWriteEventPanel(context, controller),
       ]);
@@ -8237,6 +8682,26 @@ Widget _buildStorageMetricInsight(
             _DistributionItem('规则', rules.length, colors.tertiary),
             _DistributionItem('日志', logs.length, colors.secondary),
           ],
+          detailBuilder: (context, item) => switch (item.label) {
+            '任务' => _metricTaskPanel(
+              history,
+              title: '可见任务记录',
+              emptyLabel: '暂无可见任务记录。',
+            ),
+            '结果' => _metricResultPanel(
+              results,
+              title: '可见结果记录',
+              emptyLabel: '暂无可见结果记录。',
+            ),
+            '规则' => _ruleInsightPanel(context, rules, title: '可见规则记录'),
+            _ => _InsightRecordPanel(
+              icon: Icons.receipt_long_outlined,
+              title: '可见日志记录',
+              records: logs.map(_logInsightRecord).toList(growable: false),
+              emptyLabel: '暂无可见日志记录。',
+              maxEntries: 50,
+            ),
+          },
         ),
         _InsightTimelineSection(
           title: '最近可见记录时间线',
@@ -8447,6 +8912,23 @@ Widget _buildStorageMetricInsight(
             _DistributionItem('警告', warnings, OpenHandStatusColors.warning),
             _DistributionItem('错误', errors, OpenHandStatusColors.error),
           ],
+          detailBuilder: (context, item) {
+            final selectedLevel = switch (item.label) {
+              '警告' => 'warning',
+              '错误' => 'error',
+              _ => 'info',
+            };
+            return _InsightRecordPanel(
+              icon: Icons.receipt_long_outlined,
+              title: '${item.label}日志 · 当前缓冲',
+              records: logs
+                  .where((entry) => entry.level == selectedLevel)
+                  .map(_logInsightRecord)
+                  .toList(growable: false),
+              emptyLabel: '当前日志缓冲中没有${item.label}记录。',
+              maxEntries: 50,
+            );
+          },
         ),
         _InsightTimelineSection(
           title: '日志缓冲时间线',
@@ -8901,6 +9383,21 @@ Widget _buildSecurityMetricInsight(
               OpenHandStatusColors.info,
             ),
           ],
+          detailBuilder: (context, item) {
+            final lens = switch (item.label) {
+              '成功' => _ProxyRequestLens.success,
+              '超时' => _ProxyRequestLens.timeout,
+              '失败' => _ProxyRequestLens.failure,
+              _ => _ProxyRequestLens.all,
+            };
+            return _proxyRequestInsightPanel(
+              context,
+              controller,
+              lens,
+              title: '${item.label}验证出口请求',
+              filter: item.label == '执行中' ? (_, _, _) => false : null,
+            );
+          },
         ),
         _proxyRequestInsightPanel(
           context,
@@ -11794,6 +12291,29 @@ Widget _archiveGrowthTrendInsight(
         _DistributionItem('规则', controller.rules.length, colors.tertiary),
         _DistributionItem('日志', controller.logs.length, colors.secondary),
       ],
+      detailBuilder: (context, item) => switch (item.label) {
+        '任务' => _metricTaskPanel(
+          controller.history,
+          title: '当前归档任务',
+          emptyLabel: '暂无归档任务。',
+        ),
+        '结果' => _metricResultPanel(
+          controller.results,
+          title: '当前归档结果',
+          emptyLabel: '暂无归档结果。',
+          lens: _ResultRecordLens.archive,
+        ),
+        '规则' => _ruleInsightPanel(context, controller.rules, title: '当前规则快照'),
+        _ => _InsightRecordPanel(
+          icon: Icons.receipt_long_outlined,
+          title: '当前归档日志',
+          records: controller.logs
+              .map(_logInsightRecord)
+              .toList(growable: false),
+          emptyLabel: '暂无归档日志。',
+          maxEntries: 50,
+        ),
+      },
     ),
     _persistenceWriteEventPanel(context, controller),
     _Section(
