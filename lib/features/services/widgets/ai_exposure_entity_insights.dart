@@ -5,7 +5,7 @@ void _showResultEntityInsight(BuildContext context, AiExposureResult result) {
     context: context,
     builder: (_) => _OperationsInsightDialog(
       icon: Icons.fact_check_outlined,
-      title: result.product.trim().isEmpty ? result.host : result.product,
+      title: _resultDisplayName(result),
       subtitle: '结果身份、风险与完整证据',
       color: _resultEntityColor(result.category),
       entity: true,
@@ -900,28 +900,31 @@ Widget _entityCode(
   required String title,
   required IconData icon,
   required String value,
-}) => _Section(
-  title: title,
-  icon: icon,
-  child: Container(
-    width: double.infinity,
-    padding: const EdgeInsets.all(12),
-    decoration: BoxDecoration(
-      color: const Color(0xff0b0e12),
-      borderRadius: BorderRadius.circular(8),
-      border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
-    ),
-    child: SelectableText(
-      value,
-      style: const TextStyle(
-        color: Color(0xffd5dae3),
-        fontFamily: 'monospace',
-        fontSize: 12.5,
-        height: 1.5,
+}) {
+  final colors = Theme.of(context).colorScheme;
+  return _Section(
+    title: title,
+    icon: icon,
+    child: Container(
+      width: double.infinity,
+      padding: const EdgeInsets.all(12),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLowest,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(color: colors.outlineVariant),
+      ),
+      child: SelectableText(
+        value,
+        style: TextStyle(
+          color: colors.onSurface,
+          fontFamily: 'monospace',
+          fontSize: 12.5,
+          height: 1.5,
+        ),
       ),
     ),
-  ),
-);
+  );
+}
 
 Color _resultEntityColor(AiExposureResultCategory category) =>
     switch (category) {

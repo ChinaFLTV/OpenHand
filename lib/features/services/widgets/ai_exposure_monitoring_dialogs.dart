@@ -459,6 +459,14 @@ class _OverviewPanel extends StatelessWidget {
         : (durations.reduce((left, right) => left + right) / durations.length)
               .round();
     final historyTrend = history.reversed.take(24).toList(growable: false);
+    final durationTrend = historyTrend
+        .where((item) => _taskDurationMs(item) != null)
+        .toList(growable: false);
+    final credentialSourceCount = AiExposureSource.values
+        .where(_sourceRequiresCredential)
+        .map(_sourceCredentialKey)
+        .toSet()
+        .length;
     final stageCounts = <String, int>{};
     for (final item in history) {
       stageCounts.update(item.stage, (count) => count + 1, ifAbsent: () => 1);
@@ -510,7 +518,7 @@ class _OverviewPanel extends StatelessWidget {
               Icons.travel_explore_rounded,
               '已配置源',
               '${controller.sourceStatus.values.where((item) => item).length}',
-              '共 5 个凭证源',
+              '$credentialSourceCount 个独立凭证组',
               color: OpenHandStatusColors.success,
             ),
             _Metric(
@@ -594,15 +602,15 @@ class _OverviewPanel extends StatelessWidget {
             _TrendPanel(
               icon: Icons.timelapse_rounded,
               title: '任务耗时趋势',
-              subtitle: '仅统计已结束任务',
-              sampleLabels: historyTrend
+              subtitle: '最近 ${durationTrend.length} 个已结束任务',
+              sampleLabels: durationTrend
                   .map((item) => _shortDateTime(item.createdAt))
                   .toList(growable: false),
               series: <OpenHandChartSeries>[
                 OpenHandChartSeries(
                   label: '耗时',
-                  values: historyTrend
-                      .map((item) => (_taskDurationMs(item) ?? 0).toDouble())
+                  values: durationTrend
+                      .map((item) => _taskDurationMs(item)!.toDouble())
                       .toList(growable: false),
                   color: Theme.of(context).colorScheme.tertiary,
                 ),
@@ -1896,8 +1904,8 @@ class _StoragePanel extends StatelessWidget {
             _Metric(
               Icons.enhanced_encryption_outlined,
               '凭证加密',
-              'AES-256-GCM',
-              '密钥文件独立保存',
+              controller.ownsProcess ? 'AES-256-GCM' : '后端未证明',
+              controller.ownsProcess ? '内置引擎密钥文件独立保存' : '外部服务未提供运行时加密证明',
               color: colors.tertiary,
             ),
             _Metric(
@@ -2028,7 +2036,9 @@ class _StoragePanel extends StatelessWidget {
                   _DependencyLine(
                     name: '凭证密钥库',
                     ready: controller.isRunning,
-                    detail: 'AES-256-GCM · 数据库与密钥文件权限隔离',
+                    detail: controller.ownsProcess
+                        ? '内置引擎 AES-256-GCM · 数据库与密钥文件权限隔离'
+                        : '外部服务未提供运行时加密证明',
                   ),
                   _DependencyLine(
                     name: 'PostgreSQL 镜像',
@@ -2205,7 +2215,7 @@ class _SecurityPanel extends StatelessWidget {
             _Metric(
               Icons.code_rounded,
               '编码识别',
-              '${encodings.length}/4',
+              '${encodings.length}/${AiExposureContentEncoding.values.length}',
               '多层内容解码',
               color: const Color(0xff0891b2),
             ),
@@ -8585,12 +8595,14 @@ Widget _buildStorageMetricInsight(
               helper: '凭证关联范围统计',
               color: OpenHandStatusColors.warning,
             ),
-            const _InsightKpi(
+            _InsightKpi(
               icon: Icons.security_rounded,
-              label: '加密算法',
-              value: 'AES-256-GCM',
-              helper: '认证加密与独立随机数',
-              color: OpenHandStatusColors.success,
+              label: '加密证明',
+              value: controller.ownsProcess ? 'AES-256-GCM' : '未上报',
+              helper: controller.ownsProcess ? '内置引擎认证加密' : '外部服务未提供证明',
+              color: controller.ownsProcess
+                  ? OpenHandStatusColors.success
+                  : colors.outline,
             ),
           ],
         ),
@@ -9308,6 +9320,17 @@ _InsightRecord _taskInsightRecord(
   );
 }
 
+String _resultDisplayName(AiExposureResult entry) {
+  final product = entry.product.trim();
+  final host = entry.host.trim();
+  final url = entry.url.trim();
+  if (product.isNotEmpty && host.isNotEmpty) return '$product · $host';
+  if (product.isNotEmpty) return product;
+  if (host.isNotEmpty) return host;
+  if (url.isNotEmpty) return url;
+  return entry.id;
+}
+
 enum _ResultRecordLens { overview, risk, credentials, source, archive }
 
 _InsightRecord _resultInsightRecord(
@@ -9326,11 +9349,7 @@ _InsightRecord _resultInsightRecord(
     AiExposureResultCategory.honeypot => '蜜罐',
     AiExposureResultCategory.suspicious => '可疑',
   };
-  final title = entry.product.trim().isNotEmpty
-      ? '${entry.product} · ${entry.host}'
-      : entry.host.isNotEmpty
-      ? entry.host
-      : entry.url;
+  final title = _resultDisplayName(entry);
   final tags = switch (lens) {
     _ResultRecordLens.risk => [
       category,
@@ -10888,6 +10907,26 @@ Widget _credentialEncryptionDetailSection(
     0,
     (total, result) => total + result.duplicateKeyHosts,
   );
+  if (!controller.ownsProcess) {
+    return _Section(
+      title: '外部服务凭证保护边界',
+      icon: Icons.enhanced_encryption_outlined,
+      child: Column(
+        children: [
+          const _OpsKeyValue(label: '运行模式', value: '外部扫描服务'),
+          const _OpsKeyValue(
+            label: '加密证明',
+            value: '后端未提供运行时算法、密钥隔离或静态加密证明',
+            color: OpenHandStatusColors.warning,
+            maxLines: 4,
+          ),
+          const _OpsKeyValue(label: 'API 返回边界', value: '界面仅接收并展示脱敏凭证'),
+          _OpsKeyValue(label: '受保护结果', value: '${protectedResults.length}'),
+          _OpsKeyValue(label: '重复凭证关联主机', value: '$duplicateReferences'),
+        ],
+      ),
+    );
+  }
   return _LocalFileStatsBuilder(
     paths: [keyPath],
     refreshKey: controller.health?.uptimeSeconds,
@@ -11016,7 +11055,7 @@ Widget _integrityInsightPanel(
     records.add(
       _InsightRecord(
         icon: Icons.fact_check_outlined,
-        title: result.host.isEmpty ? result.url : result.host,
+        title: _resultDisplayName(result),
         subtitle: [
           if (orphan) '关联任务不存在',
           if (missingEvidence) '缺少审计证据',
@@ -11035,7 +11074,7 @@ Widget _integrityInsightPanel(
     records.add(
       _InsightRecord(
         icon: Icons.pending_actions_outlined,
-        title: job.name,
+        title: job.name.trim().isEmpty ? job.id : job.name,
         subtitle: '归档中仍处于 ${_stageName(job.stage)} 阶段。',
         tags: [job.id, _shortDateTime(job.createdAt)],
         color: colors.tertiary,
@@ -11416,7 +11455,7 @@ Widget _taskDurationTrendInsight(
           .where((task) => p95 > 0 && _taskDurationMs(task)! >= p95)
           .map(
             (task) => _InsightTimelineEntry(
-              at: task.finishedAt!,
+              at: task.effectiveFinishedAt!,
               title: task.name.trim().isEmpty ? task.id : task.name,
               detail: '耗时 ${_taskDurationMs(task)} ms · P95 阈值 $p95 ms',
               color: OpenHandStatusColors.warning,
