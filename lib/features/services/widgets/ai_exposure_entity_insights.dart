@@ -119,6 +119,7 @@ void _showStageEntityInsight(
 
 void _showDependencyEntityInsight(
   BuildContext context, {
+  required _DependencyInsightId id,
   required String name,
   required bool? configured,
   required bool? connected,
@@ -137,6 +138,7 @@ void _showDependencyEntityInsight(
           : Theme.of(context).colorScheme.outline,
       entity: true,
       child: _DependencyEntityInsightBody(
+        id: id,
         name: name,
         configured: configured,
         connected: connected,
@@ -1275,12 +1277,14 @@ class _StageEntityInsightBody extends StatelessWidget {
 
 class _DependencyEntityInsightBody extends StatelessWidget {
   const _DependencyEntityInsightBody({
+    required this.id,
     required this.name,
     required this.configured,
     required this.connected,
     required this.message,
   });
 
+  final _DependencyInsightId id;
   final String name;
   final bool? configured;
   final bool? connected;
@@ -1291,20 +1295,35 @@ class _DependencyEntityInsightBody extends StatelessWidget {
     final controller = context.watch<ServicesController>();
     final colors = Theme.of(context).colorScheme;
     final status = controller.dependencyStatus;
-    final componentKey = _entityDependencyKey(name);
-    final component = switch (componentKey) {
-      'postgresql' => status?.postgresql,
-      'redis' => status?.redis,
-      'playwright' => status?.playwright,
+    final componentKey = switch (id) {
+      _DependencyInsightId.postgresql => 'postgresql',
+      _DependencyInsightId.redis => 'redis',
+      _DependencyInsightId.playwright => 'playwright',
       _ => null,
     };
-    final impact = switch (componentKey) {
-      'postgresql' => '结果镜像与跨端数据访问',
-      'redis' => '分布式协调与缓存',
-      'playwright' => '浏览器自动化与动态页面访问',
-      _ when name.toLowerCase().contains('gpt') => 'AI 辅助提取',
-      _ when name.toLowerCase().contains('sqlite') => '本地任务、结果、规则与日志归档',
-      _ => '扫描服务运行链路',
+    final component = switch (id) {
+      _DependencyInsightId.postgresql => status?.postgresql,
+      _DependencyInsightId.redis => status?.redis,
+      _DependencyInsightId.playwright => status?.playwright,
+      _ => null,
+    };
+    final impact = switch (id) {
+      _DependencyInsightId.postgresql => '结果镜像与跨端数据访问',
+      _DependencyInsightId.redis => '分布式协调与缓存',
+      _DependencyInsightId.playwright => '浏览器自动化与动态页面访问',
+      _DependencyInsightId.sqlite => '本地任务、结果、规则与日志归档',
+      _DependencyInsightId.gptExtractor => 'AI 辅助提取',
+      _DependencyInsightId.credentialVault => '脱敏凭证与加密持久化边界',
+      _DependencyInsightId.proxyRouting ||
+      _DependencyInsightId.proxyReliability ||
+      _DependencyInsightId.localBypass ||
+      _DependencyInsightId.rotationPolicy => '代理请求选路与网络边界',
+      _DependencyInsightId.sourceAdapters => '资产发现来源适配链路',
+      _DependencyInsightId.fingerprintRules => '产品指纹、凭证模式与编码识别',
+      _DependencyInsightId.activeValidator => '授权验证端点与结果确认',
+      _DependencyInsightId.taskEventStream ||
+      _DependencyInsightId.eventArchive => '任务、结果与日志事件归档',
+      _DependencyInsightId.scannerCore => '扫描服务运行链路',
     };
     final historyTrend = componentKey == null
         ? null
@@ -1757,14 +1776,6 @@ String _entityNullableBoolLabel(
     : value
     ? trueLabel
     : falseLabel;
-
-String? _entityDependencyKey(String name) {
-  final normalized = name.toLowerCase();
-  if (normalized.contains('postgres')) return 'postgresql';
-  if (normalized.contains('redis')) return 'redis';
-  if (normalized.contains('playwright')) return 'playwright';
-  return null;
-}
 
 Map<String, Object?> _entityObjectMap(Object? value) => value is Map
     ? <String, Object?>{

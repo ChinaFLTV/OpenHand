@@ -143,6 +143,25 @@ enum _DistributionInsightId {
   ruleVendor,
 }
 
+enum _DependencyInsightId {
+  scannerCore,
+  sqlite,
+  credentialVault,
+  postgresql,
+  redis,
+  playwright,
+  gptExtractor,
+  proxyRouting,
+  proxyReliability,
+  localBypass,
+  rotationPolicy,
+  sourceAdapters,
+  fingerprintRules,
+  activeValidator,
+  taskEventStream,
+  eventArchive,
+}
+
 class _OperationsDialog extends StatefulWidget {
   const _OperationsDialog();
 
@@ -2189,6 +2208,7 @@ class _StoragePanel extends StatelessWidget {
               child: Column(
                 children: [
                   _DependencyLine(
+                    id: _DependencyInsightId.sqlite,
                     name: 'SQLite',
                     ready: databaseAccessible,
                     configured: true,
@@ -2197,6 +2217,7 @@ class _StoragePanel extends StatelessWidget {
                         : '等待本地数据库文件',
                   ),
                   _DependencyLine(
+                    id: _DependencyInsightId.credentialVault,
                     name: '凭证密钥库',
                     ready: controller.isRunning,
                     detail: controller.ownsProcess
@@ -2204,18 +2225,21 @@ class _StoragePanel extends StatelessWidget {
                         : '外部服务未提供运行时加密证明',
                   ),
                   _DependencyLine(
+                    id: _DependencyInsightId.postgresql,
                     name: 'PostgreSQL 镜像',
                     ready: dependencies?.postgresql.connected == true,
                     configured: dependencies?.postgresql.configured,
                     detail: dependencies?.postgresql.message ?? '未启用',
                   ),
                   _DependencyLine(
+                    id: _DependencyInsightId.redis,
                     name: 'Redis 目标协调',
                     ready: dependencies?.redis.connected == true,
                     configured: dependencies?.redis.configured,
                     detail: dependencies?.redis.message ?? '未启用',
                   ),
                   _DependencyLine(
+                    id: _DependencyInsightId.eventArchive,
                     name: '任务事件归档',
                     ready: controller.isRunning,
                     detail: '${logs.length} 条运行事件 · ${history.length} 个任务快照',
@@ -2518,6 +2542,7 @@ class _SecurityPanel extends StatelessWidget {
           child: Column(
             children: [
               _DependencyLine(
+                id: _DependencyInsightId.proxyRouting,
                 name: '请求出口',
                 ready: true,
                 detail: controller.proxyRoute == AiExposureProxyRoute.pool
@@ -2525,6 +2550,7 @@ class _SecurityPanel extends StatelessWidget {
                     : serviceProxyRouteText(controller, text),
               ),
               _DependencyLine(
+                id: _DependencyInsightId.proxyReliability,
                 name: '代理可靠性',
                 ready:
                     controller.proxyRoute != AiExposureProxyRoute.pool ||
@@ -2535,6 +2561,7 @@ class _SecurityPanel extends StatelessWidget {
                     : '代理池当前未参与选路',
               ),
               _DependencyLine(
+                id: _DependencyInsightId.localBypass,
                 name: '本地旁路',
                 ready: proxy?.bypassLocal ?? true,
                 detail: proxy?.bypassLocal == true
@@ -2542,6 +2569,7 @@ class _SecurityPanel extends StatelessWidget {
                     : '所有目标均按代理策略选路',
               ),
               _DependencyLine(
+                id: _DependencyInsightId.rotationPolicy,
                 name: '轮询规则',
                 ready: controller.proxyRoute == AiExposureProxyRoute.pool,
                 detail:
@@ -2560,39 +2588,46 @@ class _SecurityPanel extends StatelessWidget {
           child: Column(
             children: [
               _DependencyLine(
+                id: _DependencyInsightId.scannerCore,
                 name: 'ai_jungler',
                 ready: controller.isRunning,
                 detail: controller.health?.databasePath ?? '自研 Rust 扫描引擎',
               ),
               _DependencyLine(
+                id: _DependencyInsightId.sqlite,
                 name: 'SQLite',
                 ready: controller.isRunning,
                 detail: '本地任务、规则、结果与日志存储',
               ),
               _DependencyLine(
+                id: _DependencyInsightId.sourceAdapters,
                 name: '资产发现适配器',
                 ready: controller.sourceStatus.values.any((item) => item),
                 detail:
                     '代码托管 / 测绘平台 / NodeSeek / LINUX DO / V2EX，已就绪 ${controller.sourceStatus.values.where((item) => item).length}/${controller.discoverySourceCount}',
               ),
               _DependencyLine(
+                id: _DependencyInsightId.playwright,
                 name: 'Playwright 浏览器通道',
                 ready: dependencies?.playwright.connected == true,
                 configured: dependencies?.playwright.configured,
                 detail: dependencies?.playwright.message ?? '未接入浏览器降级通道',
               ),
               _DependencyLine(
+                id: _DependencyInsightId.fingerprintRules,
                 name: '指纹与规则引擎',
                 ready: enabledRules.isNotEmpty,
                 detail:
                     '${enabledRules.length} 条启用规则 · $patterns 条凭证模式 · ${encodings.length} 类编码',
               ),
               _DependencyLine(
+                id: _DependencyInsightId.activeValidator,
                 name: '主动验证器',
                 ready: modelPaths > 0,
                 detail: '$modelPaths 个模型端点 · $balancePaths 个余额端点',
               ),
               _DependencyLine(
+                id: _DependencyInsightId.taskEventStream,
                 name: '任务事件流',
                 ready: controller.isRunning,
                 detail: controller.hasActiveScan
@@ -2600,18 +2635,21 @@ class _SecurityPanel extends StatelessWidget {
                     : '已就绪，当前无活动任务',
               ),
               _DependencyLine(
+                id: _DependencyInsightId.postgresql,
                 name: 'PostgreSQL',
                 ready: dependencies?.postgresql.connected == true,
                 configured: dependencies?.postgresql.configured,
                 detail: dependencies?.postgresql.message ?? '未启用',
               ),
               _DependencyLine(
+                id: _DependencyInsightId.redis,
                 name: 'Redis',
                 ready: dependencies?.redis.connected == true,
                 configured: dependencies?.redis.configured,
                 detail: dependencies?.redis.message ?? '未启用',
               ),
               _DependencyLine(
+                id: _DependencyInsightId.gptExtractor,
                 name: 'GPT 辅助提取',
                 ready: controller.aiExtractorStatus?.configured == true,
                 configured: controller.aiExtractorStatus?.configured,
@@ -4926,12 +4964,14 @@ class _StageInsightTarget extends _InsightTarget {
 
 class _DependencyInsightTarget extends _InsightTarget {
   const _DependencyInsightTarget({
+    required this.id,
     required this.name,
     required this.configured,
     required this.connected,
     required this.message,
   });
 
+  final _DependencyInsightId id;
   final String name;
   final bool? configured;
   final bool? connected;
@@ -4970,6 +5010,7 @@ void _openInsightTarget(BuildContext context, _InsightTarget target) {
     case _StageInsightTarget(:final stage, :final taskId):
       _showStageEntityInsight(context, stage: stage, taskId: taskId);
     case _DependencyInsightTarget(
+      :final id,
       :final name,
       :final configured,
       :final connected,
@@ -4977,6 +5018,7 @@ void _openInsightTarget(BuildContext context, _InsightTarget target) {
     ):
       _showDependencyEntityInsight(
         context,
+        id: id,
         name: name,
         configured: configured,
         connected: connected,
@@ -9776,43 +9818,58 @@ Widget _buildSecurityMetricInsight(
       ]);
     case _MetricInsightId.securityDependencies:
       final dependencies = controller.dependencyStatus;
-      final states = <(String, IconData, bool, bool, String)>[
-        (
-          '扫描核心',
-          Icons.memory_rounded,
-          true,
-          controller.isRunning,
-          'ai_jungler ${controller.health?.version ?? '--'}',
-        ),
-        (
-          'PostgreSQL 镜像',
-          Icons.cloud_sync_outlined,
-          dependencies?.postgresql.configured ?? false,
-          dependencies?.postgresql.connected ?? false,
-          dependencies?.postgresql.message ?? '未启用',
-        ),
-        (
-          'Redis 协调',
-          Icons.hub_outlined,
-          dependencies?.redis.configured ?? false,
-          dependencies?.redis.connected ?? false,
-          dependencies?.redis.message ?? '未启用',
-        ),
-        (
-          'Playwright 浏览器',
-          Icons.web_outlined,
-          dependencies?.playwright.configured ?? false,
-          dependencies?.playwright.connected ?? false,
-          dependencies?.playwright.message ?? '未启用',
-        ),
-        (
-          'GPT 辅助提取',
-          Icons.auto_awesome_outlined,
-          controller.aiExtractorStatus?.configured ?? false,
-          controller.aiExtractorStatus?.configured ?? false,
-          controller.aiExtractorStatus?.model ?? '未启用',
-        ),
-      ];
+      final states =
+          <
+            ({
+              _DependencyInsightId id,
+              String name,
+              IconData icon,
+              bool configured,
+              bool connected,
+              String message,
+            })
+          >[
+            (
+              id: _DependencyInsightId.scannerCore,
+              name: '扫描核心',
+              icon: Icons.memory_rounded,
+              configured: true,
+              connected: controller.isRunning,
+              message: 'ai_jungler ${controller.health?.version ?? '--'}',
+            ),
+            (
+              id: _DependencyInsightId.postgresql,
+              name: 'PostgreSQL 镜像',
+              icon: Icons.cloud_sync_outlined,
+              configured: dependencies?.postgresql.configured ?? false,
+              connected: dependencies?.postgresql.connected ?? false,
+              message: dependencies?.postgresql.message ?? '未启用',
+            ),
+            (
+              id: _DependencyInsightId.redis,
+              name: 'Redis 协调',
+              icon: Icons.hub_outlined,
+              configured: dependencies?.redis.configured ?? false,
+              connected: dependencies?.redis.connected ?? false,
+              message: dependencies?.redis.message ?? '未启用',
+            ),
+            (
+              id: _DependencyInsightId.playwright,
+              name: 'Playwright 浏览器',
+              icon: Icons.web_outlined,
+              configured: dependencies?.playwright.configured ?? false,
+              connected: dependencies?.playwright.connected ?? false,
+              message: dependencies?.playwright.message ?? '未启用',
+            ),
+            (
+              id: _DependencyInsightId.gptExtractor,
+              name: 'GPT 辅助提取',
+              icon: Icons.auto_awesome_outlined,
+              configured: controller.aiExtractorStatus?.configured ?? false,
+              connected: controller.aiExtractorStatus?.configured ?? false,
+              message: controller.aiExtractorStatus?.model ?? '未启用',
+            ),
+          ];
       return _metricInsightPage([
         _InsightKpiBand(
           title: '依赖就绪摘要',
@@ -9821,21 +9878,22 @@ Widget _buildSecurityMetricInsight(
             _InsightKpi(
               icon: Icons.task_alt_rounded,
               label: '已就绪',
-              value: '${states.where((entry) => entry.$4).length}',
+              value: '${states.where((entry) => entry.connected).length}',
               helper: '${states.length} 个运行组件',
               color: OpenHandStatusColors.success,
             ),
             _InsightKpi(
               icon: Icons.settings_outlined,
               label: '已配置',
-              value: '${states.where((entry) => entry.$3).length}',
+              value: '${states.where((entry) => entry.configured).length}',
               helper: '满足配置前置',
               color: colors.primary,
             ),
             _InsightKpi(
               icon: Icons.link_off_rounded,
               label: '未连接',
-              value: '${states.where((entry) => entry.$3 && !entry.$4).length}',
+              value:
+                  '${states.where((entry) => entry.configured && !entry.connected).length}',
               helper: '已配置但当前不可用',
               color: OpenHandStatusColors.warning,
             ),
@@ -9847,28 +9905,29 @@ Widget _buildSecurityMetricInsight(
           rows: states
               .map(
                 (entry) => _InsightMatrixRow(
-                  icon: entry.$2,
-                  title: entry.$1,
-                  subtitle: entry.$5,
-                  color: entry.$4
+                  icon: entry.icon,
+                  title: entry.name,
+                  subtitle: entry.message,
+                  color: entry.connected
                       ? OpenHandStatusColors.success
-                      : entry.$3
+                      : entry.configured
                       ? OpenHandStatusColors.warning
                       : colors.outline,
                   target: _DependencyInsightTarget(
-                    name: entry.$1,
-                    configured: entry.$3,
-                    connected: entry.$4,
-                    message: entry.$5,
+                    id: entry.id,
+                    name: entry.name,
+                    configured: entry.configured,
+                    connected: entry.connected,
+                    message: entry.message,
                   ),
                   cells: [
                     _InsightMatrixCell(
-                      label: entry.$3 ? '已配置' : '未配置',
-                      color: entry.$3 ? colors.primary : colors.outline,
+                      label: entry.configured ? '已配置' : '未配置',
+                      color: entry.configured ? colors.primary : colors.outline,
                     ),
                     _InsightMatrixCell(
-                      label: entry.$4 ? '已就绪' : '未就绪',
-                      color: entry.$4
+                      label: entry.connected ? '已就绪' : '未就绪',
+                      color: entry.connected
                           ? OpenHandStatusColors.success
                           : OpenHandStatusColors.warning,
                     ),
@@ -11741,6 +11800,7 @@ Widget _dependencyInsightPanel(
   final colors = Theme.of(context).colorScheme;
   final records = <_InsightRecord>[];
   void add(
+    _DependencyInsightId id,
     String name,
     IconData icon,
     bool configured,
@@ -11760,6 +11820,7 @@ Widget _dependencyInsightPanel(
             ? OpenHandStatusColors.warning
             : colors.outline,
         target: _DependencyInsightTarget(
+          id: id,
           name: name,
           configured: configured,
           connected: connected,
@@ -11770,6 +11831,7 @@ Widget _dependencyInsightPanel(
   }
 
   add(
+    _DependencyInsightId.scannerCore,
     '扫描核心',
     Icons.memory_rounded,
     true,
@@ -11777,6 +11839,7 @@ Widget _dependencyInsightPanel(
     'ai_jungler ${controller.health?.version ?? '--'}',
   );
   add(
+    _DependencyInsightId.postgresql,
     'PostgreSQL 镜像',
     Icons.cloud_sync_outlined,
     dependencies?.postgresql.configured ?? false,
@@ -11784,6 +11847,7 @@ Widget _dependencyInsightPanel(
     dependencies?.postgresql.message ?? '未启用',
   );
   add(
+    _DependencyInsightId.redis,
     'Redis 协调',
     Icons.hub_outlined,
     dependencies?.redis.configured ?? false,
@@ -11791,6 +11855,7 @@ Widget _dependencyInsightPanel(
     dependencies?.redis.message ?? '未启用',
   );
   add(
+    _DependencyInsightId.playwright,
     'Playwright 浏览器',
     Icons.web_outlined,
     dependencies?.playwright.configured ?? false,
@@ -11798,6 +11863,7 @@ Widget _dependencyInsightPanel(
     dependencies?.playwright.message ?? '未启用',
   );
   add(
+    _DependencyInsightId.gptExtractor,
     'GPT 辅助提取',
     Icons.auto_awesome_outlined,
     controller.aiExtractorStatus?.configured ?? false,
@@ -14512,11 +14578,13 @@ class _StageRow extends StatelessWidget {
 
 class _DependencyLine extends StatelessWidget {
   const _DependencyLine({
+    required this.id,
     required this.name,
     required this.ready,
     required this.detail,
     this.configured,
   });
+  final _DependencyInsightId id;
   final String name;
   final bool ready;
   final String detail;
@@ -14527,6 +14595,7 @@ class _DependencyLine extends StatelessWidget {
     contentPadding: EdgeInsets.zero,
     onTap: () => _showDependencyEntityInsight(
       context,
+      id: id,
       name: name,
       configured: configured,
       connected: ready,
