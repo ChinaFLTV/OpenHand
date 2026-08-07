@@ -74,6 +74,7 @@ flutter:
     - assets/prompts/android_reverse_expert/
     - assets/prompts/android_reverse_expert/snippets/
     - assets/branding/
+    - assets/icons/plugins/
     - assets/ai_jungler/
     - assets/ai_jungler/darwin-arm64/
     - assets/ai_jungler/darwin-x64/

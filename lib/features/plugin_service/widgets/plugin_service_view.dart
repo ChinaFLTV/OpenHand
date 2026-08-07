@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/safe_subprocess.dart';
@@ -43,6 +44,28 @@ const Duration _kLogFollowDuration = Duration(milliseconds: 200);
 
 const String _playwrightMcpPackage = '@playwright/mcp';
 const String _playwrightMcpServerName = 'Playwright MCP';
+const String _pluginIconAssetDirectory = 'assets/icons/plugins';
+const String _pluginFallbackIconAsset =
+    '$_pluginIconAssetDirectory/blutter.svg';
+
+String _pluginIconAssetPath(String pluginId) {
+  return switch (pluginId) {
+    PluginCatalogIds.nodejs => '$_pluginIconAssetDirectory/nodejs.svg',
+    PluginCatalogIds.playwright => '$_pluginIconAssetDirectory/playwright.svg',
+    PluginCatalogIds.python => '$_pluginIconAssetDirectory/python.svg',
+    PluginCatalogIds.java => '$_pluginIconAssetDirectory/java.svg',
+    PluginCatalogIds.apktool => '$_pluginIconAssetDirectory/apktool.svg',
+    PluginCatalogIds.docker => '$_pluginIconAssetDirectory/docker.svg',
+    PluginCatalogIds.qdrant => '$_pluginIconAssetDirectory/qdrant.svg',
+    PluginCatalogIds.postgresql => '$_pluginIconAssetDirectory/postgresql.svg',
+    PluginCatalogIds.redis => '$_pluginIconAssetDirectory/redis.svg',
+    PluginCatalogIds.hermesAgent =>
+      '$_pluginIconAssetDirectory/hermes-agent.svg',
+    PluginCatalogIds.dingtalkWorkspaceCli =>
+      '$_pluginIconAssetDirectory/dingtalk-workspace-cli.svg',
+    _ => _pluginFallbackIconAsset,
+  };
+}
 
 bool _isPlaywrightMcpServer(McpServer server) {
   return server.name == _playwrightMcpServerName ||
@@ -345,25 +368,7 @@ class _PluginCard extends StatelessWidget {
       PluginStatus.notInstalled => theme.colorScheme.onSurfaceVariant,
     };
     final statusLabel = plugin.status.label(l10n);
-    final pluginIcon = switch (plugin.id) {
-      PluginCatalogIds.nodejs => Icons.javascript_rounded,
-      PluginCatalogIds.python => Icons.code_rounded,
-      PluginCatalogIds.pip => Icons.inventory_2_rounded,
-      PluginCatalogIds.playwright => Icons.theaters_rounded,
-      PluginCatalogIds.hermesAgent => Icons.auto_awesome_rounded,
-      PluginCatalogIds.java => Icons.coffee_rounded,
-      PluginCatalogIds.frida => Icons.bug_report_rounded,
-      PluginCatalogIds.mitmproxy => Icons.lan_rounded,
-      PluginCatalogIds.apktool => Icons.archive_rounded,
-      PluginCatalogIds.jadx => Icons.data_object_rounded,
-      PluginCatalogIds.docker => Icons.view_in_ar_rounded,
-      PluginCatalogIds.qdrant => Icons.hub_rounded,
-      PluginCatalogIds.postgresql => Icons.storage_rounded,
-      PluginCatalogIds.redis => Icons.memory_rounded,
-      PluginCatalogIds.aiJungler => Icons.radar_rounded,
-      PluginCatalogIds.dingtalkWorkspaceCli => Icons.workspaces_rounded,
-      _ => Icons.extension_rounded,
-    };
+    final pluginIconAsset = _pluginIconAssetPath(plugin.id);
 
     return Card(
       key: ValueKey<String>('plugin-card-${plugin.id}'),
@@ -390,9 +395,15 @@ class _PluginCard extends StatelessWidget {
                             color: theme.colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(18),
                           ),
-                          child: Icon(
-                            pluginIcon,
-                            color: theme.colorScheme.onPrimaryContainer,
+                          child: SvgPicture.asset(
+                            pluginIconAsset,
+                            width: 28,
+                            height: 28,
+                            colorFilter: ColorFilter.mode(
+                              theme.colorScheme.onPrimaryContainer,
+                              BlendMode.srcIn,
+                            ),
+                            semanticsLabel: plugin.name,
                           ),
                         ),
                         Positioned(
