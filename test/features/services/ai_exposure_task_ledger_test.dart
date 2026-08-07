@@ -32,4 +32,33 @@ void main() {
       const EdgeInsets.symmetric(horizontal: 10, vertical: 18),
     );
   });
+
+  testWidgets('任务账本桌面筛选栏铺满横向空间', (tester) async {
+    addTearDown(() => tester.binding.setSurfaceSize(null));
+
+    for (final width in [800.0, 900.0, 1400.0]) {
+      await tester.binding.setSurfaceSize(Size(width, 900));
+      await tester.pumpWidget(
+        const MaterialApp(
+          home: Scaffold(body: AiExposureTaskLedger(tasks: [])),
+        ),
+      );
+
+      final ledger = tester.getRect(find.byType(AiExposureTaskLedger));
+      final search = tester.getRect(find.byType(TextField));
+      final sort = tester.getRect(
+        find.ancestor(
+          of: find.text('排序'),
+          matching: find.byType(InputDecorator),
+        ),
+      );
+      final horizontalInset = search.left - ledger.left;
+      expect(
+        sort.right,
+        closeTo(ledger.right - horizontalInset, 0.01),
+        reason: '$width 宽度下筛选栏未铺满',
+      );
+      expect(tester.takeException(), isNull);
+    }
+  });
 }

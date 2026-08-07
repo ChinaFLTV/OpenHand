@@ -1,6 +1,7 @@
 part of 'ai_exposure_monitoring_dialogs.dart';
 
 const double _kTaskLedgerFilterHeight = 56;
+const double _kTaskLedgerToolbarGap = 8;
 const InputDecoration _kTaskLedgerFilterDecoration = InputDecoration(
   isDense: true,
   border: OutlineInputBorder(),
@@ -548,7 +549,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
     List<AiExposureHistoryEntry> source,
   ) {
     final search = SizedBox(
-      width: compact ? double.infinity : 260,
+      width: double.infinity,
       height: _kTaskLedgerFilterHeight,
       child: TextField(
         controller: _search,
@@ -564,7 +565,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
     final controls = <Widget>[
       _TaskLedgerDropdown<String>(
         label: '状态',
-        width: compact ? double.infinity : 108,
+        width: double.infinity,
         value: _status,
         items: const [
           ('all', '全部'),
@@ -580,7 +581,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
         }),
       ),
       _TaskLedgerSourceFilter(
-        width: compact ? double.infinity : 124,
+        width: double.infinity,
         available: source.expand((task) => task.sources).toSet().toList()
           ..sort((left, right) => left.index.compareTo(right.index)),
         selected: _sources,
@@ -593,7 +594,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
       ),
       _TaskLedgerDropdown<_TaskLedgerTimeRange>(
         label: '时间',
-        width: compact ? double.infinity : 112,
+        width: double.infinity,
         value: _timeRange,
         items: const [
           (_TaskLedgerTimeRange.all, '全部'),
@@ -606,7 +607,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
       ),
       _TaskLedgerDropdown<String>(
         label: '模式',
-        width: compact ? double.infinity : 100,
+        width: double.infinity,
         value: _mode,
         items: const [('all', '全部'), ('full', '全量'), ('incremental', '增量')],
         onChanged: (value) => setState(() {
@@ -616,7 +617,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
       ),
       _TaskLedgerDropdown<AiExposureTaskLedgerSort>(
         label: '排序',
-        width: compact ? double.infinity : 124,
+        width: double.infinity,
         value: _sort,
         items: const [
           (AiExposureTaskLedgerSort.createdAt, '创建时间'),
@@ -632,18 +633,20 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
         }),
       ),
     ];
+    const controlWeights = [108, 124, 112, 100, 124];
     if (compact) {
       return LayoutBuilder(
         builder: (context, constraints) {
-          final filterWidth = (constraints.maxWidth - 8) / 2;
+          final filterWidth =
+              (constraints.maxWidth - _kTaskLedgerToolbarGap) / 2;
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               search,
-              const SizedBox(height: 8),
+              const SizedBox(height: _kTaskLedgerToolbarGap),
               Wrap(
-                spacing: 8,
-                runSpacing: 8,
+                spacing: _kTaskLedgerToolbarGap,
+                runSpacing: _kTaskLedgerToolbarGap,
                 children: controls
                     .map(
                       (control) => SizedBox(width: filterWidth, child: control),
@@ -655,11 +658,14 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
         },
       );
     }
-    return Wrap(
-      spacing: 8,
-      runSpacing: 8,
-      crossAxisAlignment: WrapCrossAlignment.center,
-      children: [search, ...controls],
+    return Row(
+      children: [
+        Expanded(flex: 260, child: search),
+        for (var index = 0; index < controls.length; index++) ...[
+          const SizedBox(width: _kTaskLedgerToolbarGap),
+          Expanded(flex: controlWeights[index], child: controls[index]),
+        ],
+      ],
     );
   }
 
