@@ -784,7 +784,13 @@ class _TaskLedgerSourceFilter extends StatelessWidget {
           )
           .toList(growable: false),
       child: InputDecorator(
-        decoration: _kTaskLedgerFilterDecoration.copyWith(labelText: '来源'),
+        decoration: _kTaskLedgerFilterDecoration.copyWith(
+          labelText: '来源',
+          contentPadding: const EdgeInsets.symmetric(
+            horizontal: 10,
+            vertical: 18,
+          ),
+        ),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
