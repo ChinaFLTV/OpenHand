@@ -55,6 +55,94 @@ Future<void> showAiExposureLogMonitorDialog(BuildContext context) =>
 
 enum _OperationsView { overview, pipeline, sources, network, storage, security }
 
+enum _MetricInsightId {
+  overviewTaskTotal,
+  overviewResultTotal,
+  overviewHighValue,
+  overviewProcessed,
+  overviewAverageDuration,
+  overviewConfiguredSources,
+  overviewEnabledRules,
+  overviewProxyRouting,
+  overviewProxyAverageLatency,
+  overviewWarningLogs,
+  overviewErrorLogs,
+  overviewCancelledTasks,
+  pipelineCurrentState,
+  pipelineProcessed,
+  pipelineCandidates,
+  pipelineValid,
+  pipelineHighValue,
+  pipelineConcurrency,
+  pipelineFullScan,
+  pipelineResumable,
+  sourceReady,
+  sourceQuotaAvailable,
+  sourceQuotaRemaining,
+  sourceDiscoveryEnabled,
+  sourceTaskCalls,
+  sourceResults,
+  sourceQuotaAnomalies,
+  sourcePendingConfiguration,
+  networkRouteState,
+  networkProxyNodes,
+  networkReachableNodes,
+  networkRequests,
+  networkSuccesses,
+  networkFailures,
+  networkTimeouts,
+  networkAverageLatency,
+  networkP95Latency,
+  networkHttp2xx,
+  networkExitCountries,
+  networkInspectionPlan,
+  storageSqlite,
+  storageLastWrite,
+  storageVisibleRecords,
+  storageTaskArchive,
+  storageResultArchive,
+  storageRuleSnapshots,
+  storageLogBuffer,
+  storageResumable,
+  storagePostgresql,
+  storageRedis,
+  storageCredentialEncryption,
+  storageIntegrity,
+  securityEnabledRules,
+  securityCredentialPatterns,
+  securityModelEndpoints,
+  securityEncodings,
+  securityProxyRequests,
+  securityProxySuccess,
+  securityProxyAnomalies,
+  securityDependencies,
+}
+
+enum _TrendInsightId {
+  taskThroughput,
+  taskDuration,
+  pipelineFunnel,
+  proxyLatency,
+  archiveGrowth,
+  writeLoad,
+}
+
+enum _DistributionInsightId {
+  resultCategory,
+  taskStage,
+  scanMode,
+  resultSource,
+  taskSource,
+  requestOutcome,
+  httpStatus,
+  nodeRequest,
+  recordType,
+  archiveStage,
+  credentialState,
+  proxyReliability,
+  ruleVendor,
+}
+
 class _OperationsDialog extends StatefulWidget {
   const _OperationsDialog();
 
@@ -480,6 +568,7 @@ class _OverviewPanel extends StatelessWidget {
           title: '状态总览',
           metrics: [
             _Metric(
+              _MetricInsightId.overviewTaskTotal,
               Icons.work_history_outlined,
               '任务总数',
               '${history.length}',
@@ -487,6 +576,7 @@ class _OverviewPanel extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
             _Metric(
+              _MetricInsightId.overviewResultTotal,
               Icons.fact_check_outlined,
               '结果总数',
               '${results.length}',
@@ -494,6 +584,7 @@ class _OverviewPanel extends StatelessWidget {
               color: OpenHandStatusColors.info,
             ),
             _Metric(
+              _MetricInsightId.overviewHighValue,
               Icons.workspace_premium_outlined,
               '高价值',
               '$highValue',
@@ -501,6 +592,7 @@ class _OverviewPanel extends StatelessWidget {
               color: const Color(0xffa855f7),
             ),
             _Metric(
+              _MetricInsightId.overviewProcessed,
               Icons.radar_rounded,
               '累计处理',
               '$processed',
@@ -508,6 +600,7 @@ class _OverviewPanel extends StatelessWidget {
               color: const Color(0xff0891b2),
             ),
             _Metric(
+              _MetricInsightId.overviewAverageDuration,
               Icons.timer_outlined,
               '平均任务耗时',
               _duration((averageDuration / 1000).round()),
@@ -515,6 +608,7 @@ class _OverviewPanel extends StatelessWidget {
               color: Theme.of(context).colorScheme.tertiary,
             ),
             _Metric(
+              _MetricInsightId.overviewConfiguredSources,
               Icons.travel_explore_rounded,
               '已配置源',
               '${controller.sourceStatus.values.where((item) => item).length}',
@@ -522,6 +616,7 @@ class _OverviewPanel extends StatelessWidget {
               color: OpenHandStatusColors.success,
             ),
             _Metric(
+              _MetricInsightId.overviewEnabledRules,
               Icons.rule_rounded,
               '启用规则',
               '${controller.rules.where((item) => item.enabled).length}',
@@ -529,6 +624,7 @@ class _OverviewPanel extends StatelessWidget {
               color: const Color(0xff0f766e),
             ),
             _Metric(
+              _MetricInsightId.overviewProxyRouting,
               Icons.lan_outlined,
               '代理选路',
               '${proxy?.totalSelections ?? 0}',
@@ -538,6 +634,7 @@ class _OverviewPanel extends StatelessWidget {
               color: OpenHandStatusColors.info,
             ),
             _Metric(
+              _MetricInsightId.overviewProxyAverageLatency,
               Icons.speed_rounded,
               '代理平均响应',
               '${proxy?.averageResponseTimeMs ?? 0} ms',
@@ -547,6 +644,7 @@ class _OverviewPanel extends StatelessWidget {
               color: Theme.of(context).colorScheme.secondary,
             ),
             _Metric(
+              _MetricInsightId.overviewWarningLogs,
               Icons.warning_amber_rounded,
               '警告日志',
               '$warnings',
@@ -554,6 +652,7 @@ class _OverviewPanel extends StatelessWidget {
               color: OpenHandStatusColors.warning,
             ),
             _Metric(
+              _MetricInsightId.overviewErrorLogs,
               Icons.error_outline_rounded,
               '错误日志',
               '$errors',
@@ -561,6 +660,7 @@ class _OverviewPanel extends StatelessWidget {
               color: OpenHandStatusColors.error,
             ),
             _Metric(
+              _MetricInsightId.overviewCancelledTasks,
               Icons.cancel_outlined,
               '已取消任务',
               '$cancelled',
@@ -575,6 +675,8 @@ class _OverviewPanel extends StatelessWidget {
         _OpsPanelGrid(
           children: [
             _TrendPanel(
+              id: _TrendInsightId.taskThroughput,
+              interpolation: OpenHandChartInterpolation.linear,
               icon: Icons.show_chart_rounded,
               title: '任务处理趋势',
               subtitle: '最近 ${historyTrend.length} 个任务',
@@ -600,6 +702,8 @@ class _OverviewPanel extends StatelessWidget {
               suffix: ' 项',
             ),
             _TrendPanel(
+              id: _TrendInsightId.taskDuration,
+              interpolation: OpenHandChartInterpolation.smooth,
               icon: Icons.timelapse_rounded,
               title: '任务耗时趋势',
               subtitle: '最近 ${durationTrend.length} 个已结束任务',
@@ -618,6 +722,7 @@ class _OverviewPanel extends StatelessWidget {
               suffix: ' ms',
             ),
             _DistributionPanel(
+              id: _DistributionInsightId.resultCategory,
               icon: Icons.donut_large_rounded,
               title: '结果分类分布',
               centerValue: '${results.length}',
@@ -648,6 +753,7 @@ class _OverviewPanel extends StatelessWidget {
               ],
             ),
             _DistributionPanel(
+              id: _DistributionInsightId.taskStage,
               icon: Icons.account_tree_outlined,
               title: '任务状态分布',
               centerValue: '${history.length}',
@@ -840,6 +946,7 @@ class _PipelinePanel extends StatelessWidget {
           title: '任务管线',
           metrics: [
             _Metric(
+              _MetricInsightId.pipelineCurrentState,
               Icons.play_circle_outline_rounded,
               '当前状态',
               progress?.isRunning == true ? '执行中' : '空闲',
@@ -849,6 +956,7 @@ class _PipelinePanel extends StatelessWidget {
                   : Theme.of(context).colorScheme.outline,
             ),
             _Metric(
+              _MetricInsightId.pipelineProcessed,
               Icons.checklist_rounded,
               '累计处理',
               '$totalProcessed',
@@ -856,6 +964,7 @@ class _PipelinePanel extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
             _Metric(
+              _MetricInsightId.pipelineCandidates,
               Icons.filter_alt_outlined,
               '候选目标',
               '$totalCandidates',
@@ -865,6 +974,7 @@ class _PipelinePanel extends StatelessWidget {
               color: OpenHandStatusColors.info,
             ),
             _Metric(
+              _MetricInsightId.pipelineValid,
               Icons.verified_outlined,
               '有效结果',
               '$totalValid',
@@ -874,6 +984,7 @@ class _PipelinePanel extends StatelessWidget {
               color: OpenHandStatusColors.success,
             ),
             _Metric(
+              _MetricInsightId.pipelineHighValue,
               Icons.workspace_premium_outlined,
               '高价值结果',
               '$totalHighValue',
@@ -883,6 +994,7 @@ class _PipelinePanel extends StatelessWidget {
               color: const Color(0xffa855f7),
             ),
             _Metric(
+              _MetricInsightId.pipelineConcurrency,
               Icons.speed_rounded,
               '任务并发',
               '${controller.defaultConcurrency}',
@@ -890,6 +1002,7 @@ class _PipelinePanel extends StatelessWidget {
               color: Theme.of(context).colorScheme.tertiary,
             ),
             _Metric(
+              _MetricInsightId.pipelineFullScan,
               Icons.layers_outlined,
               '全量扫描',
               '${history.where((item) => item.mode == AiExposureScanMode.full).length}',
@@ -897,6 +1010,7 @@ class _PipelinePanel extends StatelessWidget {
               color: const Color(0xff0891b2),
             ),
             _Metric(
+              _MetricInsightId.pipelineResumable,
               Icons.restart_alt_rounded,
               '可恢复任务',
               '${history.where((item) => item.isResumable).length}',
@@ -911,6 +1025,8 @@ class _PipelinePanel extends StatelessWidget {
         _OpsPanelGrid(
           children: [
             _TrendPanel(
+              id: _TrendInsightId.pipelineFunnel,
+              interpolation: OpenHandChartInterpolation.linear,
               icon: Icons.multiline_chart_rounded,
               title: '处理漏斗趋势',
               subtitle: '处理 / 候选 / 有效',
@@ -943,6 +1059,7 @@ class _PipelinePanel extends StatelessWidget {
               suffix: ' 项',
             ),
             _DistributionPanel(
+              id: _DistributionInsightId.scanMode,
               icon: Icons.schema_outlined,
               title: '扫描模式分布',
               centerValue: '${history.length}',
@@ -1108,6 +1225,7 @@ class _SourcesPanel extends StatelessWidget {
           title: '数据源',
           metrics: [
             _Metric(
+              _MetricInsightId.sourceReady,
               Icons.cloud_done_outlined,
               '已就绪来源',
               '$configured/${controller.discoverySourceCount}',
@@ -1115,6 +1233,7 @@ class _SourcesPanel extends StatelessWidget {
               color: OpenHandStatusColors.success,
             ),
             _Metric(
+              _MetricInsightId.sourceQuotaAvailable,
               Icons.cloud_done_outlined,
               '配额可用源',
               '$available',
@@ -1122,6 +1241,7 @@ class _SourcesPanel extends StatelessWidget {
               color: OpenHandStatusColors.info,
             ),
             _Metric(
+              _MetricInsightId.sourceQuotaRemaining,
               Icons.data_usage_rounded,
               '剩余配额',
               '$remaining',
@@ -1129,6 +1249,7 @@ class _SourcesPanel extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
             _Metric(
+              _MetricInsightId.sourceDiscoveryEnabled,
               Icons.travel_explore_rounded,
               '启用发现源',
               '${controller.enabledSources.length}',
@@ -1136,6 +1257,7 @@ class _SourcesPanel extends StatelessWidget {
               color: const Color(0xff0891b2),
             ),
             _Metric(
+              _MetricInsightId.sourceTaskCalls,
               Icons.work_history_outlined,
               '来源调用任务',
               '${jobCounts.values.fold<int>(0, (sum, item) => sum + item)}',
@@ -1143,6 +1265,7 @@ class _SourcesPanel extends StatelessWidget {
               color: Theme.of(context).colorScheme.tertiary,
             ),
             _Metric(
+              _MetricInsightId.sourceResults,
               Icons.fact_check_outlined,
               '来源产出结果',
               '${controller.results.length}',
@@ -1150,6 +1273,7 @@ class _SourcesPanel extends StatelessWidget {
               color: const Color(0xff0f766e),
             ),
             _Metric(
+              _MetricInsightId.sourceQuotaAnomalies,
               Icons.warning_amber_rounded,
               '配额异常',
               '${controller.quotas.where((item) => item.configured && !item.available).length}',
@@ -1157,6 +1281,7 @@ class _SourcesPanel extends StatelessWidget {
               color: OpenHandStatusColors.warning,
             ),
             _Metric(
+              _MetricInsightId.sourcePendingConfiguration,
               Icons.key_off_outlined,
               '待配置来源',
               '${controller.discoverySourceCount - configured}',
@@ -1169,12 +1294,14 @@ class _SourcesPanel extends StatelessWidget {
         _OpsPanelGrid(
           children: [
             _DistributionPanel(
+              id: _DistributionInsightId.resultSource,
               icon: Icons.pie_chart_outline_rounded,
               title: '结果来源分布',
               centerValue: '${controller.results.length}',
               items: sourceItems,
             ),
             _DistributionPanel(
+              id: _DistributionInsightId.taskSource,
               icon: Icons.hub_outlined,
               title: '任务来源覆盖',
               centerValue:
@@ -1375,6 +1502,7 @@ class _NetworkPanel extends StatelessWidget {
           title: '网络遥测',
           metrics: [
             _Metric(
+              _MetricInsightId.networkRouteState,
               Icons.route_outlined,
               '选路状态',
               serviceProxyRouteText(controller, text, includePoolCount: false),
@@ -1388,6 +1516,7 @@ class _NetworkPanel extends StatelessWidget {
                   : colors.tertiary,
             ),
             _Metric(
+              _MetricInsightId.networkProxyNodes,
               Icons.dns_outlined,
               '代理节点',
               '${activeEndpoints.length}/${endpoints.length}',
@@ -1395,6 +1524,7 @@ class _NetworkPanel extends StatelessWidget {
               color: OpenHandStatusColors.info,
             ),
             _Metric(
+              _MetricInsightId.networkReachableNodes,
               Icons.cloud_done_outlined,
               '可连通节点',
               '$reachable',
@@ -1404,6 +1534,7 @@ class _NetworkPanel extends StatelessWidget {
               color: OpenHandStatusColors.success,
             ),
             _Metric(
+              _MetricInsightId.networkRequests,
               Icons.swap_vert_rounded,
               '累计请求',
               '$requests',
@@ -1411,6 +1542,7 @@ class _NetworkPanel extends StatelessWidget {
               color: colors.primary,
             ),
             _Metric(
+              _MetricInsightId.networkSuccesses,
               Icons.check_circle_outline_rounded,
               '成功请求',
               '$successes',
@@ -1418,6 +1550,7 @@ class _NetworkPanel extends StatelessWidget {
               color: OpenHandStatusColors.success,
             ),
             _Metric(
+              _MetricInsightId.networkFailures,
               Icons.error_outline_rounded,
               '失败请求',
               '$failures',
@@ -1425,6 +1558,7 @@ class _NetworkPanel extends StatelessWidget {
               color: OpenHandStatusColors.error,
             ),
             _Metric(
+              _MetricInsightId.networkTimeouts,
               Icons.timer_off_outlined,
               '超时请求',
               '$timeouts',
@@ -1434,6 +1568,7 @@ class _NetworkPanel extends StatelessWidget {
               color: OpenHandStatusColors.warning,
             ),
             _Metric(
+              _MetricInsightId.networkAverageLatency,
               Icons.speed_rounded,
               '平均响应',
               '$averageLatency ms',
@@ -1441,6 +1576,7 @@ class _NetworkPanel extends StatelessWidget {
               color: colors.secondary,
             ),
             _Metric(
+              _MetricInsightId.networkP95Latency,
               Icons.multiline_chart_rounded,
               'p95 响应',
               '$p95Latency ms',
@@ -1448,6 +1584,7 @@ class _NetworkPanel extends StatelessWidget {
               color: colors.tertiary,
             ),
             _Metric(
+              _MetricInsightId.networkHttp2xx,
               Icons.http_rounded,
               'HTTP 2xx',
               '$status2xx',
@@ -1455,6 +1592,7 @@ class _NetworkPanel extends StatelessWidget {
               color: OpenHandStatusColors.success,
             ),
             _Metric(
+              _MetricInsightId.networkExitCountries,
               Icons.public_rounded,
               '出口国家',
               '${countryCounts.length}',
@@ -1462,6 +1600,7 @@ class _NetworkPanel extends StatelessWidget {
               color: const Color(0xff0891b2),
             ),
             _Metric(
+              _MetricInsightId.networkInspectionPlan,
               Icons.health_and_safety_outlined,
               '巡检计划',
               configuration.inspectionEnabled ? '已启用' : '未启用',
@@ -1476,6 +1615,8 @@ class _NetworkPanel extends StatelessWidget {
         _OpsPanelGrid(
           children: [
             _TrendPanel(
+              id: _TrendInsightId.proxyLatency,
+              interpolation: OpenHandChartInterpolation.smooth,
               icon: Icons.query_stats_rounded,
               title: '代理响应耗时趋势',
               subtitle: '最近 ${visibleRequests.length} 个请求样本',
@@ -1494,6 +1635,7 @@ class _NetworkPanel extends StatelessWidget {
               suffix: ' ms',
             ),
             _DistributionPanel(
+              id: _DistributionInsightId.requestOutcome,
               icon: Icons.donut_large_rounded,
               title: '请求结果分布',
               centerValue: '$completed',
@@ -1508,6 +1650,7 @@ class _NetworkPanel extends StatelessWidget {
               ],
             ),
             _DistributionPanel(
+              id: _DistributionInsightId.httpStatus,
               icon: Icons.http_rounded,
               title: 'HTTP 状态分布',
               centerValue: '${status2xx + status3xx + status4xx + status5xx}',
@@ -1527,6 +1670,7 @@ class _NetworkPanel extends StatelessWidget {
               ],
             ),
             _DistributionPanel(
+              id: _DistributionInsightId.nodeRequest,
               icon: Icons.account_tree_outlined,
               title: '节点请求分布',
               centerValue: '$requests',
@@ -1824,6 +1968,7 @@ class _StoragePanel extends StatelessWidget {
           title: '存储与持久化',
           metrics: [
             _Metric(
+              _MetricInsightId.storageSqlite,
               Icons.storage_rounded,
               'SQLite 数据库',
               databaseAccessible ? formatByteSize(databaseBytes ?? 0) : '--',
@@ -1833,6 +1978,7 @@ class _StoragePanel extends StatelessWidget {
                   : colors.outline,
             ),
             _Metric(
+              _MetricInsightId.storageLastWrite,
               Icons.edit_calendar_outlined,
               '最后写入',
               databaseModifiedAt == null
@@ -1842,6 +1988,7 @@ class _StoragePanel extends StatelessWidget {
               color: colors.primary,
             ),
             _Metric(
+              _MetricInsightId.storageVisibleRecords,
               Icons.inventory_2_outlined,
               '可见记录',
               '$recordCount',
@@ -1849,6 +1996,7 @@ class _StoragePanel extends StatelessWidget {
               color: OpenHandStatusColors.info,
             ),
             _Metric(
+              _MetricInsightId.storageTaskArchive,
               Icons.work_history_outlined,
               '任务归档',
               '${history.length}',
@@ -1856,6 +2004,7 @@ class _StoragePanel extends StatelessWidget {
               color: colors.primary,
             ),
             _Metric(
+              _MetricInsightId.storageResultArchive,
               Icons.fact_check_outlined,
               '结果归档',
               '${results.length}',
@@ -1863,6 +2012,7 @@ class _StoragePanel extends StatelessWidget {
               color: const Color(0xff0891b2),
             ),
             _Metric(
+              _MetricInsightId.storageRuleSnapshots,
               Icons.rule_folder_outlined,
               '规则快照',
               '${rules.length}',
@@ -1870,6 +2020,7 @@ class _StoragePanel extends StatelessWidget {
               color: const Color(0xff0f766e),
             ),
             _Metric(
+              _MetricInsightId.storageLogBuffer,
               Icons.receipt_long_outlined,
               '日志缓冲',
               '${logs.length}',
@@ -1877,6 +2028,7 @@ class _StoragePanel extends StatelessWidget {
               color: colors.secondary,
             ),
             _Metric(
+              _MetricInsightId.storageResumable,
               Icons.restart_alt_rounded,
               '可恢复任务',
               '$resumable',
@@ -1884,6 +2036,7 @@ class _StoragePanel extends StatelessWidget {
               color: OpenHandStatusColors.warning,
             ),
             _Metric(
+              _MetricInsightId.storagePostgresql,
               Icons.cloud_sync_outlined,
               'PostgreSQL 镜像',
               dependencies?.postgresql.connected == true ? '在线' : '未连接',
@@ -1893,6 +2046,7 @@ class _StoragePanel extends StatelessWidget {
                   : colors.outline,
             ),
             _Metric(
+              _MetricInsightId.storageRedis,
               Icons.hub_outlined,
               'Redis 协调',
               dependencies?.redis.connected == true ? '在线' : '未连接',
@@ -1902,6 +2056,7 @@ class _StoragePanel extends StatelessWidget {
                   : colors.outline,
             ),
             _Metric(
+              _MetricInsightId.storageCredentialEncryption,
               Icons.enhanced_encryption_outlined,
               '凭证加密',
               controller.ownsProcess ? 'AES-256-GCM' : '后端未证明',
@@ -1909,6 +2064,7 @@ class _StoragePanel extends StatelessWidget {
               color: colors.tertiary,
             ),
             _Metric(
+              _MetricInsightId.storageIntegrity,
               integrityIssues == 0
                   ? Icons.verified_outlined
                   : Icons.warning_amber_rounded,
@@ -1927,6 +2083,8 @@ class _StoragePanel extends StatelessWidget {
         _OpsPanelGrid(
           children: [
             _TrendPanel(
+              id: _TrendInsightId.archiveGrowth,
+              interpolation: OpenHandChartInterpolation.step,
               icon: Icons.stacked_line_chart_rounded,
               title: '归档增长趋势',
               subtitle: '最近 ${chronological.length} 个任务的累计结果',
@@ -1943,6 +2101,8 @@ class _StoragePanel extends StatelessWidget {
               suffix: ' 条',
             ),
             _TrendPanel(
+              id: _TrendInsightId.writeLoad,
+              interpolation: OpenHandChartInterpolation.linear,
               icon: Icons.data_saver_on_rounded,
               title: '任务写入负载',
               subtitle: '已处理与发现记录',
@@ -1968,6 +2128,7 @@ class _StoragePanel extends StatelessWidget {
               suffix: ' 条',
             ),
             _DistributionPanel(
+              id: _DistributionInsightId.recordType,
               icon: Icons.pie_chart_outline_rounded,
               title: '记录类型分布',
               centerValue: '$recordCount',
@@ -1983,6 +2144,7 @@ class _StoragePanel extends StatelessWidget {
               ],
             ),
             _DistributionPanel(
+              id: _DistributionInsightId.archiveStage,
               icon: Icons.account_tree_outlined,
               title: '任务归档状态',
               centerValue: '${history.length}',
@@ -2002,6 +2164,7 @@ class _StoragePanel extends StatelessWidget {
                   .toList(),
             ),
             _DistributionPanel(
+              id: _DistributionInsightId.credentialState,
               icon: Icons.key_outlined,
               title: '凭证状态分布',
               centerValue: '${results.length}',
@@ -2192,6 +2355,7 @@ class _SecurityPanel extends StatelessWidget {
           title: '安全与依赖',
           metrics: [
             _Metric(
+              _MetricInsightId.securityEnabledRules,
               Icons.rule_rounded,
               '启用规则',
               '${enabledRules.length}/${controller.rules.length}',
@@ -2199,6 +2363,7 @@ class _SecurityPanel extends StatelessWidget {
               color: Theme.of(context).colorScheme.primary,
             ),
             _Metric(
+              _MetricInsightId.securityCredentialPatterns,
               Icons.fingerprint_rounded,
               '凭证模式',
               '$patterns',
@@ -2206,6 +2371,7 @@ class _SecurityPanel extends StatelessWidget {
               color: const Color(0xff0f766e),
             ),
             _Metric(
+              _MetricInsightId.securityModelEndpoints,
               Icons.api_rounded,
               '模型端点',
               '$modelPaths',
@@ -2213,6 +2379,7 @@ class _SecurityPanel extends StatelessWidget {
               color: OpenHandStatusColors.info,
             ),
             _Metric(
+              _MetricInsightId.securityEncodings,
               Icons.code_rounded,
               '编码识别',
               '${encodings.length}/${AiExposureContentEncoding.values.length}',
@@ -2220,6 +2387,7 @@ class _SecurityPanel extends StatelessWidget {
               color: const Color(0xff0891b2),
             ),
             _Metric(
+              _MetricInsightId.securityProxyRequests,
               Icons.lan_outlined,
               '代理请求',
               '${proxy?.totalSelections ?? 0}',
@@ -2227,6 +2395,7 @@ class _SecurityPanel extends StatelessWidget {
               color: Theme.of(context).colorScheme.secondary,
             ),
             _Metric(
+              _MetricInsightId.securityProxySuccess,
               Icons.task_alt_rounded,
               '代理成功',
               '${proxy?.totalSuccesses ?? 0}',
@@ -2234,6 +2403,7 @@ class _SecurityPanel extends StatelessWidget {
               color: OpenHandStatusColors.success,
             ),
             _Metric(
+              _MetricInsightId.securityProxyAnomalies,
               Icons.report_gmailerrorred_rounded,
               '代理异常',
               '${(proxy?.totalFailures ?? 0) + (proxy?.totalTimeouts ?? 0)}',
@@ -2241,6 +2411,7 @@ class _SecurityPanel extends StatelessWidget {
               color: OpenHandStatusColors.error,
             ),
             _Metric(
+              _MetricInsightId.securityDependencies,
               Icons.hub_outlined,
               '依赖就绪',
               '$dependencyReady/${dependencyReadyStates.length}',
@@ -2255,6 +2426,7 @@ class _SecurityPanel extends StatelessWidget {
         _OpsPanelGrid(
           children: [
             _DistributionPanel(
+              id: _DistributionInsightId.proxyReliability,
               icon: Icons.security_rounded,
               title: '代理可靠性分布',
               centerValue: '${proxy?.totalSelections ?? 0}',
@@ -2282,6 +2454,7 @@ class _SecurityPanel extends StatelessWidget {
               ],
             ),
             _DistributionPanel(
+              id: _DistributionInsightId.ruleVendor,
               icon: Icons.category_outlined,
               title: '启用规则供应商分布',
               centerValue: '${enabledRules.length}',
@@ -2453,7 +2626,15 @@ class _SecurityPanel extends StatelessWidget {
 }
 
 class _Metric {
-  const _Metric(this.icon, this.label, this.value, this.detail, {this.color});
+  const _Metric(
+    this.id,
+    this.icon,
+    this.label,
+    this.value,
+    this.detail, {
+    this.color,
+  });
+  final _MetricInsightId id;
   final IconData icon;
   final String label;
   final String value;
@@ -2843,6 +3024,8 @@ class _OpsPanelGrid extends StatelessWidget {
 
 class _TrendPanel extends StatefulWidget {
   const _TrendPanel({
+    required this.id,
+    required this.interpolation,
     required this.icon,
     required this.title,
     required this.subtitle,
@@ -2851,6 +3034,8 @@ class _TrendPanel extends StatefulWidget {
     required this.suffix,
   });
 
+  final _TrendInsightId id;
+  final OpenHandChartInterpolation interpolation;
   final IconData icon;
   final String title;
   final String subtitle;
@@ -2902,6 +3087,7 @@ class _TrendPanelState extends State<_TrendPanel> {
       color: colors.primary,
       onTap: () => _showTrendInsight(
         context,
+        id: widget.id,
         icon: widget.icon,
         title: widget.title,
         subtitle: widget.subtitle,
@@ -2963,11 +3149,7 @@ class _TrendPanelState extends State<_TrendPanel> {
                       emptyLabel: '暂无趋势数据',
                       valueSuffix: widget.suffix,
                       textDirection: Directionality.of(context),
-                      interpolation: switch (widget.title) {
-                        '代理响应耗时趋势' => OpenHandChartInterpolation.smooth,
-                        '归档增长趋势' => OpenHandChartInterpolation.step,
-                        _ => OpenHandChartInterpolation.linear,
-                      },
+                      interpolation: widget.interpolation,
                     ),
                     size: Size.infinite,
                   ),
@@ -3003,12 +3185,14 @@ enum _DistributionRecordType { task, result, rule, log }
 
 class _DistributionPanel extends StatefulWidget {
   const _DistributionPanel({
+    required this.id,
     required this.icon,
     required this.title,
     required this.centerValue,
     required this.items,
   });
 
+  final _DistributionInsightId id;
   final IconData icon;
   final String title;
   final String centerValue;
@@ -3058,6 +3242,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
       color: colors.primary,
       onTap: () => _showDistributionInsight(
         context,
+        id: widget.id,
         icon: widget.icon,
         title: widget.title,
         items: _liveItems,
@@ -3305,13 +3490,14 @@ void _showMetricInsight(
       title: selected.label,
       subtitle: '$title · 指标详情',
       color: selected.color,
-      child: _MetricInsightBody(sectionTitle: title, selected: selected),
+      child: _MetricInsightBody(selected: selected),
     ),
   );
 }
 
 void _showTrendInsight(
   BuildContext context, {
+  required _TrendInsightId id,
   required IconData icon,
   required String title,
   required String subtitle,
@@ -3328,6 +3514,7 @@ void _showTrendInsight(
       child: AnimatedBuilder(
         animation: Listenable.merge([series, sampleLabels]),
         builder: (context, _) => _TrendInsightBody(
+          id: id,
           title: title,
           series: series.value,
           sampleLabels: sampleLabels.value,
@@ -3340,6 +3527,7 @@ void _showTrendInsight(
 
 void _showDistributionInsight(
   BuildContext context, {
+  required _DistributionInsightId id,
   required IconData icon,
   required String title,
   required ValueListenable<List<_DistributionItem>> items,
@@ -3353,7 +3541,7 @@ void _showDistributionInsight(
       child: ValueListenableBuilder<List<_DistributionItem>>(
         valueListenable: items,
         builder: (context, values, _) =>
-            _DistributionInsightBody(title: title, items: values),
+            _DistributionInsightBody(id: id, title: title, items: values),
       ),
     ),
   );
@@ -4517,12 +4705,8 @@ class _OperationsInsightDialog extends StatelessWidget {
 }
 
 class _MetricInsightBody extends StatelessWidget {
-  const _MetricInsightBody({
-    required this.sectionTitle,
-    required this.selected,
-  });
+  const _MetricInsightBody({required this.selected});
 
-  final String sectionTitle;
   final _Metric selected;
 
   @override
@@ -4530,8 +4714,7 @@ class _MetricInsightBody extends StatelessWidget {
     final controller = context.watch<ServicesController>();
     return _buildDistinctMetricInsight(
       context,
-      section: sectionTitle,
-      label: selected.label,
+      id: selected.id,
       controller: controller,
     );
   }
@@ -4539,11 +4722,13 @@ class _MetricInsightBody extends StatelessWidget {
 
 class _TrendInsightBody extends StatelessWidget {
   const _TrendInsightBody({
+    required this.id,
     required this.title,
     required this.series,
     required this.sampleLabels,
     required this.suffix,
   });
+  final _TrendInsightId id;
   final String title;
   final List<OpenHandChartSeries> series;
   final List<String> sampleLabels;
@@ -4554,6 +4739,7 @@ class _TrendInsightBody extends StatelessWidget {
     final controller = context.watch<ServicesController>();
     return _buildTrendInsight(
       context,
+      id: id,
       title: title,
       controller: controller,
       series: series,
@@ -4564,7 +4750,12 @@ class _TrendInsightBody extends StatelessWidget {
 }
 
 class _DistributionInsightBody extends StatelessWidget {
-  const _DistributionInsightBody({required this.title, required this.items});
+  const _DistributionInsightBody({
+    required this.id,
+    required this.title,
+    required this.items,
+  });
+  final _DistributionInsightId id;
   final String title;
   final List<_DistributionItem> items;
 
@@ -4573,6 +4764,7 @@ class _DistributionInsightBody extends StatelessWidget {
     final controller = context.watch<ServicesController>();
     return _buildDistributionInsight(
       context,
+      id: id,
       title: title,
       controller: controller,
       items: items,
@@ -6071,17 +6263,93 @@ Widget _metricInsightPage(List<Widget> sections) => Column(
 
 Widget _buildDistinctMetricInsight(
   BuildContext context, {
-  required String section,
-  required String label,
+  required _MetricInsightId id,
   required ServicesController controller,
-}) => switch (section) {
-  '状态总览' => _buildOverviewMetricInsight(context, label, controller),
-  '任务管线' => _buildPipelineMetricInsight(context, label, controller),
-  '数据源' => _buildSourceMetricInsight(context, label, controller),
-  '网络遥测' => _buildNetworkMetricInsight(context, label, controller),
-  '存储与持久化' => _buildStorageMetricInsight(context, label, controller),
-  '安全与依赖' => _buildSecurityMetricInsight(context, label, controller),
-  _ => const _InsightEmpty(label: '暂无该指标的运维数据。'),
+}) => switch (id) {
+  _MetricInsightId.overviewTaskTotal ||
+  _MetricInsightId.overviewResultTotal ||
+  _MetricInsightId.overviewHighValue ||
+  _MetricInsightId.overviewProcessed ||
+  _MetricInsightId.overviewAverageDuration ||
+  _MetricInsightId.overviewConfiguredSources ||
+  _MetricInsightId.overviewEnabledRules ||
+  _MetricInsightId.overviewProxyRouting ||
+  _MetricInsightId.overviewProxyAverageLatency ||
+  _MetricInsightId.overviewWarningLogs ||
+  _MetricInsightId.overviewErrorLogs ||
+  _MetricInsightId.overviewCancelledTasks => _buildOverviewMetricInsight(
+    context,
+    id,
+    controller,
+  ),
+  _MetricInsightId.pipelineCurrentState ||
+  _MetricInsightId.pipelineProcessed ||
+  _MetricInsightId.pipelineCandidates ||
+  _MetricInsightId.pipelineValid ||
+  _MetricInsightId.pipelineHighValue ||
+  _MetricInsightId.pipelineConcurrency ||
+  _MetricInsightId.pipelineFullScan ||
+  _MetricInsightId.pipelineResumable => _buildPipelineMetricInsight(
+    context,
+    id,
+    controller,
+  ),
+  _MetricInsightId.sourceReady ||
+  _MetricInsightId.sourceQuotaAvailable ||
+  _MetricInsightId.sourceQuotaRemaining ||
+  _MetricInsightId.sourceDiscoveryEnabled ||
+  _MetricInsightId.sourceTaskCalls ||
+  _MetricInsightId.sourceResults ||
+  _MetricInsightId.sourceQuotaAnomalies ||
+  _MetricInsightId.sourcePendingConfiguration => _buildSourceMetricInsight(
+    context,
+    id,
+    controller,
+  ),
+  _MetricInsightId.networkRouteState ||
+  _MetricInsightId.networkProxyNodes ||
+  _MetricInsightId.networkReachableNodes ||
+  _MetricInsightId.networkRequests ||
+  _MetricInsightId.networkSuccesses ||
+  _MetricInsightId.networkFailures ||
+  _MetricInsightId.networkTimeouts ||
+  _MetricInsightId.networkAverageLatency ||
+  _MetricInsightId.networkP95Latency ||
+  _MetricInsightId.networkHttp2xx ||
+  _MetricInsightId.networkExitCountries ||
+  _MetricInsightId.networkInspectionPlan => _buildNetworkMetricInsight(
+    context,
+    id,
+    controller,
+  ),
+  _MetricInsightId.storageSqlite ||
+  _MetricInsightId.storageLastWrite ||
+  _MetricInsightId.storageVisibleRecords ||
+  _MetricInsightId.storageTaskArchive ||
+  _MetricInsightId.storageResultArchive ||
+  _MetricInsightId.storageRuleSnapshots ||
+  _MetricInsightId.storageLogBuffer ||
+  _MetricInsightId.storageResumable ||
+  _MetricInsightId.storagePostgresql ||
+  _MetricInsightId.storageRedis ||
+  _MetricInsightId.storageCredentialEncryption ||
+  _MetricInsightId.storageIntegrity => _buildStorageMetricInsight(
+    context,
+    id,
+    controller,
+  ),
+  _MetricInsightId.securityEnabledRules ||
+  _MetricInsightId.securityCredentialPatterns ||
+  _MetricInsightId.securityModelEndpoints ||
+  _MetricInsightId.securityEncodings ||
+  _MetricInsightId.securityProxyRequests ||
+  _MetricInsightId.securityProxySuccess ||
+  _MetricInsightId.securityProxyAnomalies ||
+  _MetricInsightId.securityDependencies => _buildSecurityMetricInsight(
+    context,
+    id,
+    controller,
+  ),
 };
 
 _InsightRecordPanel _metricTaskPanel(
@@ -6119,7 +6387,7 @@ List<AiExposureHistoryEntry> _chronologicalTasks(
 
 Widget _buildOverviewMetricInsight(
   BuildContext context,
-  String label,
+  _MetricInsightId id,
   ServicesController controller,
 ) {
   final colors = Theme.of(context).colorScheme;
@@ -6131,8 +6399,8 @@ Widget _buildOverviewMetricInsight(
       history.where((entry) => entry.stage == stage).length;
   final active = history.where((entry) => !entry.isTerminal).length;
 
-  switch (label) {
-    case '任务总数':
+  switch (id) {
+    case _MetricInsightId.overviewTaskTotal:
       final completed = taskCount('completed');
       final failed = taskCount('failed');
       final cancelled = taskCount('cancelled');
@@ -6234,7 +6502,7 @@ Widget _buildOverviewMetricInsight(
           emptyLabel: '暂无任务状态数据。',
         ),
       ]);
-    case '结果总数':
+    case _MetricInsightId.overviewResultTotal:
       int category(AiExposureResultCategory value) =>
           results.where((entry) => entry.category == value).length;
       final sourceCounts = <AiExposureSource, int>{};
@@ -6304,7 +6572,7 @@ Widget _buildOverviewMetricInsight(
           emptyLabel: '暂无来源产出。',
         ),
       ]);
-    case '高价值':
+    case _MetricInsightId.overviewHighValue:
       final highValue = results
           .where(
             (entry) => entry.category == AiExposureResultCategory.highValue,
@@ -6377,7 +6645,7 @@ Widget _buildOverviewMetricInsight(
               .toList(growable: false),
         ),
       ]);
-    case '累计处理':
+    case _MetricInsightId.overviewProcessed:
       final ranked = [...history]
         ..sort(
           (left, right) =>
@@ -6437,7 +6705,7 @@ Widget _buildOverviewMetricInsight(
           emptyLabel: '暂无任务处理样本。',
         ),
       ]);
-    case '平均任务耗时':
+    case _MetricInsightId.overviewAverageDuration:
       final finished = history
           .where((entry) => _taskDurationMs(entry) != null)
           .toList(growable: false);
@@ -6493,9 +6761,9 @@ Widget _buildOverviewMetricInsight(
           lens: _TaskRecordLens.duration,
         ),
       ]);
-    case '已配置源':
+    case _MetricInsightId.overviewConfiguredSources:
       return _buildSourceConfigurationInsight(context, controller);
-    case '启用规则':
+    case _MetricInsightId.overviewEnabledRules:
       final enabled = controller.rules.where((rule) => rule.enabled).toList();
       final vendors = <String, int>{};
       for (final rule in enabled) {
@@ -6530,13 +6798,13 @@ Widget _buildOverviewMetricInsight(
           ),
         ),
       ]);
-    case '代理选路':
+    case _MetricInsightId.overviewProxyRouting:
       return _metricInsightPage([
         _proxyRouteReadinessPanel(context, controller),
         _proxyPolicySection(context, controller),
         _proxyRoutingDecisionPanel(context, controller),
       ]);
-    case '代理平均响应':
+    case _MetricInsightId.overviewProxyAverageLatency:
       final samples = _proxyRequestSamples(controller);
       final latencies = samples.map((sample) => sample.responseTimeMs).toList()
         ..sort();
@@ -6596,21 +6864,21 @@ Widget _buildOverviewMetricInsight(
         ),
         _proxyFleetLatencyPanel(context, controller),
       ]);
-    case '警告日志':
+    case _MetricInsightId.overviewWarningLogs:
       return _buildLogMetricInsight(
         context,
         logs.where((entry) => entry.level == 'warning'),
         levelLabel: '警告',
         color: OpenHandStatusColors.warning,
       );
-    case '错误日志':
+    case _MetricInsightId.overviewErrorLogs:
       return _buildLogMetricInsight(
         context,
         logs.where((entry) => entry.level == 'error'),
         levelLabel: '错误',
         color: OpenHandStatusColors.error,
       );
-    case '已取消任务':
+    case _MetricInsightId.overviewCancelledTasks:
       final cancelled = history
           .where((entry) => entry.stage == 'cancelled')
           .toList(growable: false);
@@ -6657,13 +6925,14 @@ Widget _buildOverviewMetricInsight(
           ],
         ),
       ]);
+    default:
+      throw StateError('指标 ID 分派到了错误的运维分组：$id');
   }
-  return const _InsightEmpty(label: '暂无该指标的运维数据。');
 }
 
 Widget _buildPipelineMetricInsight(
   BuildContext context,
-  String label,
+  _MetricInsightId id,
   ServicesController controller,
 ) {
   final colors = Theme.of(context).colorScheme;
@@ -6677,8 +6946,8 @@ Widget _buildPipelineMetricInsight(
   final valid = total((value) => value.valid);
   final highValue = total((value) => value.highValue);
 
-  switch (label) {
-    case '当前状态':
+  switch (id) {
+    case _MetricInsightId.pipelineCurrentState:
       const stages = [
         'queued',
         'discovering',
@@ -6752,7 +7021,7 @@ Widget _buildPipelineMetricInsight(
           lens: _TaskRecordLens.runtime,
         ),
       ]);
-    case '累计处理':
+    case _MetricInsightId.pipelineProcessed:
       return _metricInsightPage([
         _InsightTrendSection(
           title: '逐任务处理量',
@@ -6792,7 +7061,7 @@ Widget _buildPipelineMetricInsight(
           lens: _TaskRecordLens.throughput,
         ),
       ]);
-    case '候选目标':
+    case _MetricInsightId.pipelineCandidates:
       return _metricInsightPage([
         _InsightFunnelSection(
           title: '候选提取漏斗',
@@ -6832,7 +7101,7 @@ Widget _buildPipelineMetricInsight(
           emptyLabel: '暂无候选转化样本。',
         ),
       ]);
-    case '有效结果':
+    case _MetricInsightId.pipelineValid:
       return _metricInsightPage([
         _InsightFunnelSection(
           title: '验证转化漏斗',
@@ -6888,7 +7157,7 @@ Widget _buildPipelineMetricInsight(
           lens: _TaskRecordLens.valid,
         ),
       ]);
-    case '高价值结果':
+    case _MetricInsightId.pipelineHighValue:
       return _metricInsightPage([
         _InsightFunnelSection(
           title: '高价值筛选漏斗',
@@ -6921,7 +7190,7 @@ Widget _buildPipelineMetricInsight(
           lens: _ResultRecordLens.risk,
         ),
       ]);
-    case '任务并发':
+    case _MetricInsightId.pipelineConcurrency:
       final activeTasks = history
           .where((entry) => entry.progress.isRunning)
           .toList(growable: false);
@@ -6967,7 +7236,7 @@ Widget _buildPipelineMetricInsight(
           lens: _TaskRecordLens.runtime,
         ),
       ]);
-    case '全量扫描':
+    case _MetricInsightId.pipelineFullScan:
       final full = history
           .where((entry) => entry.mode == AiExposureScanMode.full)
           .toList(growable: false);
@@ -7013,7 +7282,7 @@ Widget _buildPipelineMetricInsight(
           lens: _TaskRecordLens.scope,
         ),
       ]);
-    case '可恢复任务':
+    case _MetricInsightId.pipelineResumable:
       final resumable = history
           .where((entry) => entry.isResumable)
           .toList(growable: false);
@@ -7059,8 +7328,9 @@ Widget _buildPipelineMetricInsight(
           lens: _TaskRecordLens.recovery,
         ),
       ]);
+    default:
+      throw StateError('指标 ID 分派到了错误的运维分组：$id');
   }
-  return const _InsightEmpty(label: '暂无该指标的管线数据。');
 }
 
 Widget _buildLogMetricInsight(
@@ -7755,13 +8025,13 @@ Widget _buildSourceConfigurationInsight(
 
 Widget _buildSourceMetricInsight(
   BuildContext context,
-  String label,
+  _MetricInsightId id,
   ServicesController controller,
 ) {
   final colors = Theme.of(context).colorScheme;
   final states = _sourceInsightStates(controller);
-  switch (label) {
-    case '已就绪来源':
+  switch (id) {
+    case _MetricInsightId.sourceReady:
       final blocked = states.where((state) => !state.ready).toList();
       return _metricInsightPage([
         _SourceReadinessSection(states: states),
@@ -7802,7 +8072,7 @@ Widget _buildSourceMetricInsight(
           emptyLabel: '全部来源执行前置均已就绪。',
         ),
       ]);
-    case '配额可用源':
+    case _MetricInsightId.sourceQuotaAvailable:
       final metered = states
           .where((state) => state.quota?.configured == true)
           .toList(growable: false);
@@ -7865,7 +8135,7 @@ Widget _buildSourceMetricInsight(
           emptyLabel: '服务未返回配额重置时间。',
         ),
       ]);
-    case '剩余配额':
+    case _MetricInsightId.sourceQuotaRemaining:
       final metered = states
           .where((state) => state.quota?.remaining != null)
           .toList(growable: false);
@@ -7892,7 +8162,7 @@ Widget _buildSourceMetricInsight(
           emptyLabel: '暂无剩余配额计量值。',
         ),
       ]);
-    case '启用发现源':
+    case _MetricInsightId.sourceDiscoveryEnabled:
       return _metricInsightPage([
         _InsightMatrixSection(
           title: '发现源启用矩阵',
@@ -7929,7 +8199,7 @@ Widget _buildSourceMetricInsight(
           emptyLabel: '暂无发现源配置。',
         ),
       ]);
-    case '来源调用任务':
+    case _MetricInsightId.sourceTaskCalls:
       final called = states.where((state) => state.taskCount > 0).toList();
       return _metricInsightPage([
         _InsightRankingSection(
@@ -7956,7 +8226,7 @@ Widget _buildSourceMetricInsight(
           lens: _TaskRecordLens.scope,
         ),
       ]);
-    case '来源产出结果':
+    case _MetricInsightId.sourceResults:
       final produced = states.where((state) => state.resultCount > 0).toList();
       return _metricInsightPage([
         _InsightRankingSection(
@@ -7985,7 +8255,7 @@ Widget _buildSourceMetricInsight(
           lens: _ResultRecordLens.source,
         ),
       ]);
-    case '配额异常':
+    case _MetricInsightId.sourceQuotaAnomalies:
       final abnormal = states
           .where(
             (state) =>
@@ -8030,7 +8300,7 @@ Widget _buildSourceMetricInsight(
           emptyLabel: '实时配额探测未发现异常。',
         ),
       ]);
-    case '待配置来源':
+    case _MetricInsightId.sourcePendingConfiguration:
       final gaps = states
           .where((state) => state.requiresCredential && !state.configured)
           .toList(growable: false);
@@ -8094,13 +8364,14 @@ Widget _buildSourceMetricInsight(
           emptyLabel: '所有需要凭证的来源均已配置。',
         ),
       ]);
+    default:
+      throw StateError('指标 ID 分派到了错误的运维分组：$id');
   }
-  return const _InsightEmpty(label: '暂无该指标的来源数据。');
 }
 
 Widget _buildNetworkMetricInsight(
   BuildContext context,
-  String label,
+  _MetricInsightId id,
   ServicesController controller,
 ) {
   final colors = Theme.of(context).colorScheme;
@@ -8125,25 +8396,25 @@ Widget _buildNetworkMetricInsight(
       : (sum((value) => value.totalResponseTimeMs) / completed).round();
   final p95 = _latencyPercentile(latencies, 0.95);
 
-  switch (label) {
-    case '选路状态':
+  switch (id) {
+    case _MetricInsightId.networkRouteState:
       return _metricInsightPage([
         _proxyRouteReadinessPanel(context, controller),
         _proxyPolicySection(context, controller),
         _proxyRoutingDecisionPanel(context, controller),
       ]);
-    case '代理节点':
+    case _MetricInsightId.networkProxyNodes:
       return _metricInsightPage([
         _proxyFleetWorkbench(context, controller),
         if (endpoints.isNotEmpty) _proxyRequestLoadPanel(context, controller),
       ]);
-    case '可连通节点':
+    case _MetricInsightId.networkReachableNodes:
       return _metricInsightPage([
         _proxyReachabilityWorkbench(context, controller),
         if (endpoints.isNotEmpty)
           _proxyInspectionEventPanel(context, controller),
       ]);
-    case '累计请求':
+    case _MetricInsightId.networkRequests:
       return _metricInsightPage([
         _InsightKpiBand(
           title: '请求负载总览',
@@ -8203,7 +8474,7 @@ Widget _buildNetworkMetricInsight(
         ),
         _proxyRequestLoadPanel(context, controller),
       ]);
-    case '成功请求':
+    case _MetricInsightId.networkSuccesses:
       final successSamples = samples
           .where((sample) => sample.succeeded)
           .toList(growable: false);
@@ -8260,7 +8531,7 @@ Widget _buildNetworkMetricInsight(
         ),
         _proxySuccessEndpointAuditPanel(context, controller),
       ]);
-    case '失败请求':
+    case _MetricInsightId.networkFailures:
       return _metricInsightPage([
         _InsightRankingSection(
           title: '失败节点排名',
@@ -8289,7 +8560,7 @@ Widget _buildNetworkMetricInsight(
           title: '失败请求事件',
         ),
       ]);
-    case '超时请求':
+    case _MetricInsightId.networkTimeouts:
       return _metricInsightPage([
         _InsightRankingSection(
           title: '节点超时压力',
@@ -8317,7 +8588,7 @@ Widget _buildNetworkMetricInsight(
           title: '超时请求时间线',
         ),
       ]);
-    case '平均响应':
+    case _MetricInsightId.networkAverageLatency:
       return _metricInsightPage([
         _InsightKpiBand(
           title: '响应时延统计',
@@ -8368,7 +8639,7 @@ Widget _buildNetworkMetricInsight(
         ),
         _proxyLatencyQualityPanel(context, controller),
       ]);
-    case 'p95 响应':
+    case _MetricInsightId.networkP95Latency:
       final p50 = _latencyPercentile(latencies, 0.5);
       final peak = latencies.isEmpty ? 0 : latencies.last;
       return _metricInsightPage([
@@ -8408,7 +8679,7 @@ Widget _buildNetworkMetricInsight(
           _proxyTailLatencyPanel(context, controller),
         ],
       ]);
-    case 'HTTP 2xx':
+    case _MetricInsightId.networkHttp2xx:
       final status2xx = sum((value) => value.status2xx);
       final status3xx = sum((value) => value.status3xx);
       final status4xx = sum((value) => value.status4xx);
@@ -8494,7 +8765,7 @@ Widget _buildNetworkMetricInsight(
           title: 'HTTP 请求样本',
         ),
       ]);
-    case '出口国家':
+    case _MetricInsightId.networkExitCountries:
       final countryCounts = <String, int>{};
       for (final endpoint in endpoints) {
         final country = endpoint.identity?.country.trim() ?? '';
@@ -8519,19 +8790,20 @@ Widget _buildNetworkMetricInsight(
         ),
         _proxyExitIdentityPanel(context, controller),
       ]);
-    case '巡检计划':
+    case _MetricInsightId.networkInspectionPlan:
       return _metricInsightPage([
         _proxyInspectionPolicySection(context, controller),
         _proxyInspectionEventPanel(context, controller),
         _proxyReachabilityWorkbench(context, controller),
       ]);
+    default:
+      throw StateError('指标 ID 分派到了错误的运维分组：$id');
   }
-  return const _InsightEmpty(label: '暂无该指标的网络遥测数据。');
 }
 
 Widget _buildStorageMetricInsight(
   BuildContext context,
-  String label,
+  _MetricInsightId id,
   ServicesController controller,
 ) {
   final colors = Theme.of(context).colorScheme;
@@ -8542,8 +8814,8 @@ Widget _buildStorageMetricInsight(
   final chronological = _chronologicalTasks(controller);
   final dependencies = controller.dependencyStatus;
 
-  switch (label) {
-    case 'SQLite 数据库':
+  switch (id) {
+    case _MetricInsightId.storageSqlite:
       final path = controller.health?.databasePath.trim() ?? '';
       final walPath = path.isEmpty ? '' : '$path-wal';
       final sharedMemoryPath = path.isEmpty ? '' : '$path-shm';
@@ -8621,7 +8893,7 @@ Widget _buildStorageMetricInsight(
           ]);
         },
       );
-    case '最后写入':
+    case _MetricInsightId.storageLastWrite:
       final events = <({DateTime at, _InsightTarget target})>[
         ...history.map(
           (entry) => (
@@ -8671,7 +8943,7 @@ Widget _buildStorageMetricInsight(
         ),
         _persistenceWriteEventPanel(context, controller),
       ]);
-    case '可见记录':
+    case _MetricInsightId.storageVisibleRecords:
       return _metricInsightPage([
         _InsightDonutSection(
           title: '可见记录类型构成',
@@ -8749,7 +9021,7 @@ Widget _buildStorageMetricInsight(
           emptyLabel: '暂无可见记录。',
         ),
       ]);
-    case '任务归档':
+    case _MetricInsightId.storageTaskArchive:
       final stageCounts = <String, int>{};
       for (final entry in history) {
         stageCounts.update(
@@ -8820,7 +9092,7 @@ Widget _buildStorageMetricInsight(
           lens: _TaskRecordLens.archive,
         ),
       ]);
-    case '结果归档':
+    case _MetricInsightId.storageResultArchive:
       final withEvidence = results.where((entry) => entry.evidence.isNotEmpty);
       final jobIds = history.map((entry) => entry.id).toSet();
       return _metricInsightPage([
@@ -8867,7 +9139,7 @@ Widget _buildStorageMetricInsight(
           lens: _ResultRecordLens.archive,
         ),
       ]);
-    case '规则快照':
+    case _MetricInsightId.storageRuleSnapshots:
       final enabled = rules.where((entry) => entry.enabled).length;
       return _metricInsightPage([
         _InsightKpiBand(
@@ -8899,7 +9171,7 @@ Widget _buildStorageMetricInsight(
         ),
         _ruleInsightPanel(context, rules, title: '规则快照明细'),
       ]);
-    case '日志缓冲':
+    case _MetricInsightId.storageLogBuffer:
       final info = logs.where((entry) => entry.level == 'info').length;
       final warnings = logs.where((entry) => entry.level == 'warning').length;
       final errors = logs.where((entry) => entry.level == 'error').length;
@@ -8952,7 +9224,7 @@ Widget _buildStorageMetricInsight(
           emptyLabel: '日志缓冲为空。',
         ),
       ]);
-    case '可恢复任务':
+    case _MetricInsightId.storageResumable:
       final resumable = history.where((entry) => entry.isResumable).toList();
       return _metricInsightPage([
         _InsightMatrixSection(
@@ -8990,7 +9262,7 @@ Widget _buildStorageMetricInsight(
           emptyLabel: '归档中没有需要恢复的任务。',
         ),
       ]);
-    case 'PostgreSQL 镜像':
+    case _MetricInsightId.storagePostgresql:
       final status = dependencies?.postgresql;
       return _metricInsightPage([
         _InsightKpiBand(
@@ -9017,10 +9289,10 @@ Widget _buildStorageMetricInsight(
             ),
           ],
         ),
-        _dependencyInsightPanel(context, controller, only: label),
+        _dependencyInsightPanel(context, controller, only: 'PostgreSQL 镜像'),
         _DependencyDataAccessPanel(controller: controller),
       ]);
-    case 'Redis 协调':
+    case _MetricInsightId.storageRedis:
       final status = dependencies?.redis;
       return _metricInsightPage([
         _InsightKpiBand(
@@ -9047,10 +9319,10 @@ Widget _buildStorageMetricInsight(
             ),
           ],
         ),
-        _dependencyInsightPanel(context, controller, only: label),
+        _dependencyInsightPanel(context, controller, only: 'Redis 协调'),
         _DependencyDataAccessPanel(controller: controller),
       ]);
-    case '凭证加密':
+    case _MetricInsightId.storageCredentialEncryption:
       final protected = results
           .where((entry) => entry.maskedCredential?.trim().isNotEmpty == true)
           .toList(growable: false);
@@ -9096,7 +9368,7 @@ Widget _buildStorageMetricInsight(
           lens: _ResultRecordLens.credentials,
         ),
       ]);
-    case '一致性审计':
+    case _MetricInsightId.storageIntegrity:
       final jobIds = history.map((entry) => entry.id).toSet();
       final orphan = results
           .where((entry) => !jobIds.contains(entry.jobId))
@@ -9149,13 +9421,14 @@ Widget _buildStorageMetricInsight(
         ),
         _integrityInsightPanel(context, controller),
       ]);
+    default:
+      throw StateError('指标 ID 分派到了错误的运维分组：$id');
   }
-  return const _InsightEmpty(label: '暂无该指标的存储运维数据。');
 }
 
 Widget _buildSecurityMetricInsight(
   BuildContext context,
-  String label,
+  _MetricInsightId id,
   ServicesController controller,
 ) {
   final colors = Theme.of(context).colorScheme;
@@ -9165,8 +9438,8 @@ Widget _buildSecurityMetricInsight(
   final proxy = controller.proxyStatus;
   final samples = _proxyRequestSamples(controller);
 
-  switch (label) {
-    case '启用规则':
+  switch (id) {
+    case _MetricInsightId.securityEnabledRules:
       final vendors = <String, int>{};
       for (final rule in enabledRules) {
         final vendor = rule.vendor.trim().isEmpty ? '未分类' : rule.vendor;
@@ -9235,7 +9508,7 @@ Widget _buildSecurityMetricInsight(
           emptyLabel: '暂无启用规则。',
         ),
       ]);
-    case '凭证模式':
+    case _MetricInsightId.securityCredentialPatterns:
       final ruleItems = enabledRules
           .where((rule) => rule.credentialPatterns.isNotEmpty)
           .toList(growable: false);
@@ -9265,7 +9538,7 @@ Widget _buildSecurityMetricInsight(
           lens: _RuleDetailLens.credentials,
         ),
       ]);
-    case '模型端点':
+    case _MetricInsightId.securityModelEndpoints:
       final ruleItems = enabledRules
           .where(
             (rule) =>
@@ -9312,7 +9585,7 @@ Widget _buildSecurityMetricInsight(
           lens: _RuleDetailLens.endpoints,
         ),
       ]);
-    case '编码识别':
+    case _MetricInsightId.securityEncodings:
       final encodingCounts = <AiExposureContentEncoding, int>{};
       for (final rule in enabledRules) {
         for (final encoding in rule.contentEncodings) {
@@ -9355,7 +9628,7 @@ Widget _buildSecurityMetricInsight(
           lens: _RuleDetailLens.encodings,
         ),
       ]);
-    case '代理请求':
+    case _MetricInsightId.securityProxyRequests:
       return _metricInsightPage([
         _proxySecurityBoundaryPanel(context, controller),
         _InsightDonutSection(
@@ -9406,7 +9679,7 @@ Widget _buildSecurityMetricInsight(
           title: '近期出口异常审计',
         ),
       ]);
-    case '代理成功':
+    case _MetricInsightId.securityProxySuccess:
       final successSamples = samples
           .where((entry) => entry.succeeded)
           .toList(growable: false);
@@ -9461,7 +9734,7 @@ Widget _buildSecurityMetricInsight(
         ),
         _proxySuccessEndpointAuditPanel(context, controller),
       ]);
-    case '代理异常':
+    case _MetricInsightId.securityProxyAnomalies:
       final abnormal = samples
           .where((entry) => !entry.succeeded)
           .toList(growable: false);
@@ -9501,7 +9774,7 @@ Widget _buildSecurityMetricInsight(
           title: '异常验证请求',
         ),
       ]);
-    case '依赖就绪':
+    case _MetricInsightId.securityDependencies:
       final dependencies = controller.dependencyStatus;
       final states = <(String, IconData, bool, bool, String)>[
         (
@@ -9607,8 +9880,9 @@ Widget _buildSecurityMetricInsight(
         ),
         _DependencyDataAccessPanel(controller: controller),
       ]);
+    default:
+      throw StateError('指标 ID 分派到了错误的运维分组：$id');
   }
-  return const _InsightEmpty(label: '暂无该指标的安全运维数据。');
 }
 
 List<AiExposureProxyRequestSample> _proxyRequestSamples(
@@ -11589,87 +11863,113 @@ Widget _integrityInsightPanel(
 
 Widget _buildTrendInsight(
   BuildContext context, {
+  required _TrendInsightId id,
   required String title,
   required ServicesController controller,
   required List<OpenHandChartSeries> series,
   required List<String> sampleLabels,
   required String suffix,
-}) => switch (title) {
-  '任务处理趋势' => _taskThroughputTrendInsight(
+}) => switch (id) {
+  _TrendInsightId.taskThroughput => _taskThroughputTrendInsight(
     context,
     controller,
     series,
     sampleLabels,
     suffix,
   ),
-  '任务耗时趋势' => _taskDurationTrendInsight(
+  _TrendInsightId.taskDuration => _taskDurationTrendInsight(
     context,
     controller,
     series,
     sampleLabels,
     suffix,
   ),
-  '处理漏斗趋势' => _pipelineFunnelTrendInsight(
+  _TrendInsightId.pipelineFunnel => _pipelineFunnelTrendInsight(
     context,
     controller,
     series,
     sampleLabels,
     suffix,
   ),
-  '代理响应耗时趋势' => _proxyLatencyTrendInsight(
+  _TrendInsightId.proxyLatency => _proxyLatencyTrendInsight(
     context,
     controller,
     series,
     sampleLabels,
     suffix,
   ),
-  '归档增长趋势' => _archiveGrowthTrendInsight(
+  _TrendInsightId.archiveGrowth => _archiveGrowthTrendInsight(
     context,
     controller,
     series,
     sampleLabels,
     suffix,
   ),
-  '任务写入负载' => _writeLoadTrendInsight(
+  _TrendInsightId.writeLoad => _writeLoadTrendInsight(
     context,
     controller,
     series,
     sampleLabels,
     suffix,
-  ),
-  _ => _InsightTrendSection(
-    title: title,
-    icon: Icons.multiline_chart_rounded,
-    series: series,
-    sampleLabels: sampleLabels,
-    suffix: suffix,
-    emptyLabel: '暂无趋势样本。',
   ),
 };
 
 Widget _buildDistributionInsight(
   BuildContext context, {
+  required _DistributionInsightId id,
   required String title,
   required ServicesController controller,
   required List<_DistributionItem> items,
-}) => switch (title) {
-  '结果分类分布' => _resultCategoryDistributionInsight(context, controller),
-  '任务状态分布' => _taskStageDistributionInsight(context, controller),
-  '扫描模式分布' => _scanModeDistributionInsight(context, controller),
-  '结果来源分布' => _resultSourceDistributionInsight(context, controller),
-  '任务来源覆盖' => _taskSourceDistributionInsight(context, controller),
-  '请求结果分布' => _requestOutcomeDistributionInsight(context, controller),
-  'HTTP 状态分布' => _httpStatusDistributionInsight(context, controller),
-  '节点请求分布' => _nodeRequestDistributionInsight(context, controller),
-  '记录类型分布' => _recordTypeDistributionInsight(context, controller),
-  '任务归档状态' => _archiveStageDistributionInsight(context, controller),
-  '凭证状态分布' => _credentialDistributionInsight(context, controller),
-  '代理可靠性分布' => _proxyReliabilityDistributionInsight(context, controller),
-  '启用规则供应商分布' => _ruleVendorDistributionInsight(context, controller),
-  _ => _InsightDonutSection(
-    title: title,
-    icon: Icons.donut_small_rounded,
-    items: items,
+}) => switch (id) {
+  _DistributionInsightId.resultCategory => _resultCategoryDistributionInsight(
+    context,
+    controller,
+  ),
+  _DistributionInsightId.taskStage => _taskStageDistributionInsight(
+    context,
+    controller,
+  ),
+  _DistributionInsightId.scanMode => _scanModeDistributionInsight(
+    context,
+    controller,
+  ),
+  _DistributionInsightId.resultSource => _resultSourceDistributionInsight(
+    context,
+    controller,
+  ),
+  _DistributionInsightId.taskSource => _taskSourceDistributionInsight(
+    context,
+    controller,
+  ),
+  _DistributionInsightId.requestOutcome => _requestOutcomeDistributionInsight(
+    context,
+    controller,
+  ),
+  _DistributionInsightId.httpStatus => _httpStatusDistributionInsight(
+    context,
+    controller,
+  ),
+  _DistributionInsightId.nodeRequest => _nodeRequestDistributionInsight(
+    context,
+    controller,
+  ),
+  _DistributionInsightId.recordType => _recordTypeDistributionInsight(
+    context,
+    controller,
+  ),
+  _DistributionInsightId.archiveStage => _archiveStageDistributionInsight(
+    context,
+    controller,
+  ),
+  _DistributionInsightId.credentialState => _credentialDistributionInsight(
+    context,
+    controller,
+  ),
+  _DistributionInsightId.proxyReliability =>
+    _proxyReliabilityDistributionInsight(context, controller),
+  _DistributionInsightId.ruleVendor => _ruleVendorDistributionInsight(
+    context,
+    controller,
   ),
 };
 
