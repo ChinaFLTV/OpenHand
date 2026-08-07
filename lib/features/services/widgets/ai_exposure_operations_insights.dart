@@ -1,6 +1,12 @@
 part of 'ai_exposure_monitoring_dialogs.dart';
 
 const double _kTaskLedgerFilterHeight = 56;
+const InputDecoration _kTaskLedgerFilterDecoration = InputDecoration(
+  isDense: true,
+  border: OutlineInputBorder(),
+  contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+  constraints: BoxConstraints.tightFor(height: _kTaskLedgerFilterHeight),
+);
 const double _kTaskLedgerDesktopTableWidth = 1640;
 const Duration _kTaskLedgerPageMotionDuration = Duration(milliseconds: 180);
 const double _kTaskLedgerStatusWidth = 84;
@@ -552,12 +558,7 @@ class _TaskLedgerSourceFilter extends StatelessWidget {
           )
           .toList(growable: false),
       child: InputDecorator(
-        decoration: const InputDecoration(
-          isDense: true,
-          labelText: '来源',
-          border: OutlineInputBorder(),
-          contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-        ),
+        decoration: _kTaskLedgerFilterDecoration.copyWith(labelText: '来源'),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -637,12 +638,7 @@ class _TaskLedgerDropdown<T> extends StatelessWidget {
     child: AnimatedDropdownButtonFormField<T>(
       value: value,
       isExpanded: true,
-      decoration: InputDecoration(
-        isDense: true,
-        labelText: label,
-        border: const OutlineInputBorder(),
-        contentPadding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
-      ),
+      decoration: _kTaskLedgerFilterDecoration.copyWith(labelText: label),
       items: items
           .map(
             (item) => DropdownMenuItem<T>(value: item.$1, child: Text(item.$2)),
