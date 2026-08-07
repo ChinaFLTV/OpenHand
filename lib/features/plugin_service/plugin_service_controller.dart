@@ -195,6 +195,8 @@ class PluginServiceController extends ManagedChangeNotifier {
         PluginCatalogIds.nodejs => _scanner.scanNodeJs(),
         PluginCatalogIds.playwright => _scanner.scanPlaywright(),
         PluginCatalogIds.hermesAgent => _scanner.scanHermesAgent(),
+        PluginCatalogIds.dingtalkWorkspaceCli =>
+          _scanner.scanDingtalkWorkspaceCli(),
         PluginCatalogIds.python => _scanner.scanPython(),
         PluginCatalogIds.pip => _scanner.scanPip(),
         PluginCatalogIds.java => _scanner.scanJava(),
@@ -307,6 +309,8 @@ class PluginServiceController extends ManagedChangeNotifier {
         PluginCatalogIds.hermesAgent => _lifecycle.installHermesAgent(
           onProgress: _addLog,
         ),
+        PluginCatalogIds.dingtalkWorkspaceCli =>
+          _lifecycle.installDingtalkWorkspaceCli(onProgress: _addLog),
         PluginCatalogIds.python => _lifecycle.installPython(
           onProgress: _addLog,
         ),
@@ -377,6 +381,8 @@ class PluginServiceController extends ManagedChangeNotifier {
         PluginCatalogIds.hermesAgent => _lifecycle.updateHermesAgent(
           onProgress: _addLog,
         ),
+        PluginCatalogIds.dingtalkWorkspaceCli =>
+          _lifecycle.updateDingtalkWorkspaceCli(onProgress: _addLog),
         PluginCatalogIds.python => _lifecycle.updatePython(onProgress: _addLog),
         PluginCatalogIds.pip => _lifecycle.updatePip(onProgress: _addLog),
         PluginCatalogIds.java => _lifecycle.updateJava(onProgress: _addLog),
@@ -461,6 +467,8 @@ class PluginServiceController extends ManagedChangeNotifier {
         PluginCatalogIds.hermesAgent => _lifecycle.uninstallHermesAgent(
           onProgress: _addLog,
         ),
+        PluginCatalogIds.dingtalkWorkspaceCli =>
+          _lifecycle.uninstallDingtalkWorkspaceCli(onProgress: _addLog),
         PluginCatalogIds.python => _lifecycle.uninstallPython(
           onProgress: _addLog,
         ),

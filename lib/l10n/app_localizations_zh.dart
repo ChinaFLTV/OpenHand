@@ -501,6 +501,36 @@ class AppLocalizationsZh extends AppLocalizations {
   String get pluginServiceDetailInstallationTarget => '安装目标';
 
   @override
+  String get pluginServiceDetailInstallMethod => '安装方式';
+
+  @override
+  String get pluginServiceDetailTargetOs => '目标操作系统';
+
+  @override
+  String get pluginServiceDetailSupportedPlatforms => '支持平台';
+
+  @override
+  String get pluginServiceDetailPackageName => '包名称';
+
+  @override
+  String get pluginServiceDetailBinaryName => '命令名称';
+
+  @override
+  String get pluginServiceDetailRepository => '代码仓库';
+
+  @override
+  String get pluginServiceDetailDocumentation => '官方文档';
+
+  @override
+  String get pluginServiceDetailInstallCommand => '安装命令';
+
+  @override
+  String get pluginServiceDetailUpgradeCommand => '升级命令';
+
+  @override
+  String get pluginServiceDetailUninstallCommand => '卸载命令';
+
+  @override
   String get pluginServiceDetailExecutablePath => '可执行入口';
 
   @override
@@ -701,6 +731,10 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get pluginServiceDescriptionRedis => '内存数据存储服务，供 AI 暴露面扫描执行缓存与任务队列';
+
+  @override
+  String get pluginServiceDescriptionDingtalkWorkspaceCli =>
+      '钉钉工作区命令行工具，为 AI Agent 提供钉钉工作流能力';
 
   @override
   String get pluginServiceDetailExternalService => '外部服务';
@@ -11209,6 +11243,36 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   String get pluginServiceDetailInstallationTarget => '安裝目標';
 
   @override
+  String get pluginServiceDetailInstallMethod => '安裝方式';
+
+  @override
+  String get pluginServiceDetailTargetOs => '目標作業系統';
+
+  @override
+  String get pluginServiceDetailSupportedPlatforms => '支援平台';
+
+  @override
+  String get pluginServiceDetailPackageName => '套件名稱';
+
+  @override
+  String get pluginServiceDetailBinaryName => '命令名稱';
+
+  @override
+  String get pluginServiceDetailRepository => '程式碼倉庫';
+
+  @override
+  String get pluginServiceDetailDocumentation => '官方文件';
+
+  @override
+  String get pluginServiceDetailInstallCommand => '安裝命令';
+
+  @override
+  String get pluginServiceDetailUpgradeCommand => '升級命令';
+
+  @override
+  String get pluginServiceDetailUninstallCommand => '解除安裝命令';
+
+  @override
   String get pluginServiceDetailExecutablePath => '可執行入口';
 
   @override
@@ -11404,6 +11468,10 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get pluginServiceDescriptionQdrant =>
       '本地向量資料庫，用於知識庫 embedding 向量索引與檢索';
+
+  @override
+  String get pluginServiceDescriptionDingtalkWorkspaceCli =>
+      'DingTalk Workspace CLI，為 AI Agent 提供釘釘工作流能力';
 
   @override
   String get pluginServiceTemplateWebReverseExpert => 'Web 逆向專家';

@@ -194,6 +194,8 @@ class PluginScannerService {
       OpenHandKeyedSingleFlight<String, String?>();
   final OpenHandSingleFlight<String?> _latestPipVersionProbe =
       OpenHandSingleFlight<String?>();
+  final OpenHandSingleFlight<String?> _latestDingtalkWorkspaceCliVersionProbe =
+      OpenHandSingleFlight<String?>();
 
   Future<T> _runWithFallback<T>({
     required String operation,
@@ -211,11 +213,12 @@ class PluginScannerService {
   Future<ProcessResult> _runShellScript(
     String script, {
     String tag = 'plugin_scanner.shell_probe',
+    Duration timeout = const Duration(seconds: 15),
   }) {
     return runTrackedProcessOrFailed(
       pluginShellExecutable(),
       ['-c', script],
-      timeout: const Duration(seconds: 15),
+      timeout: timeout,
       tag: tag,
       environment: pluginProxyEnvironment(),
     );
@@ -759,6 +762,8 @@ class PluginScannerService {
       PluginCatalogIds.nodejs => _nodeNotInstalled,
       PluginCatalogIds.playwright => _playwrightNotInstalled,
       PluginCatalogIds.hermesAgent => _hermesAgentNotInstalled,
+      PluginCatalogIds.dingtalkWorkspaceCli =>
+        _dingtalkWorkspaceCliNotInstalled,
       PluginCatalogIds.python => _pythonNotInstalled,
       PluginCatalogIds.pip => _pipNotInstalled,
       PluginCatalogIds.java => _javaNotInstalled,
@@ -1080,6 +1085,109 @@ class PluginScannerService {
       latestNpmPackage: hermesAgentPackageName,
       dependencies: const <String>[PluginCatalogIds.nodejs],
     ),
+  );
+
+  Future<String?> _queryDingtalkWorkspaceCliRelease(String url) async {
+    final result = Platform.isWindows
+        ? await runTrackedProcessOrFailed(
+            'powershell.exe',
+            <String>[
+              '-NoLogo',
+              '-NoProfile',
+              '-NonInteractive',
+              '-Command',
+              "(Invoke-RestMethod -Uri '$url').tag_name",
+            ],
+            timeout: const Duration(seconds: 12),
+            tag: 'plugin_scanner.dingtalk_workspace_cli_release',
+            environment: pluginProxyEnvironment(),
+          )
+        : await _runShellScript(
+            '${pluginToolchainShellPrefix()}curl -fsSL ${_shellQuote(url)}',
+            tag: 'plugin_scanner.dingtalk_workspace_cli_release',
+            timeout: const Duration(seconds: 8),
+          );
+    if (result.exitCode != 0) return null;
+    final output = result.stdout.toString();
+    final decoded = _decodeOptionalJson(output);
+    final tag = decoded is Map
+        ? nullIfBlank('${stringKeyedMapFromValue(decoded)['tag_name'] ?? ''}')
+        : null;
+    return extractPluginFirstSemver(tag ?? output);
+  }
+
+  Future<String?> _queryLatestDingtalkWorkspaceCliVersion() async {
+    return _latestDingtalkWorkspaceCliVersionProbe.run(() async {
+      return await _queryDingtalkWorkspaceCliRelease(
+            'https://api.github.com/repos/DingTalk-Real-AI/dingtalk-workspace-cli/releases/latest',
+          ) ??
+          await _queryDingtalkWorkspaceCliRelease(
+            'https://gitee.com/api/v5/repos/DingTalk-Real-AI/dingtalk-workspace-cli/releases/latest',
+          ) ??
+          await _queryLatestNpmVersion(pluginDingtalkWorkspaceCliPackage);
+    });
+  }
+
+  Future<PluginInfo> scanDingtalkWorkspaceCli() => _runWithFallback(
+    operation: '扫描 DingTalk Workspace CLI',
+    fallback: _dingtalkWorkspaceCliNotInstalled,
+    operationBody: () async {
+      final executable = await resolvePluginDingtalkWorkspaceCliExecutable(
+        tag: 'plugin_scanner.dingtalk_workspace_cli_path',
+      );
+      if (executable == null || executable.isEmpty) {
+        return _dingtalkWorkspaceCliNotInstalled;
+      }
+      final versionResult = await runTrackedProcessOrFailed(
+        executable,
+        const <String>['--version'],
+        timeout: const Duration(seconds: 8),
+        tag: 'plugin_scanner.dingtalk_workspace_cli_version',
+        environment: pluginProxyEnvironment(),
+      );
+      final output = '${versionResult.stdout}\n${versionResult.stderr}'.trim();
+      final version = versionResult.exitCode == 0
+          ? _extractLooseVersion(output)
+          : null;
+      final latestVersion = await _queryLatestDingtalkWorkspaceCliVersion();
+      final npmInstallation =
+          await resolvePluginDingtalkWorkspaceCliNpmPackage();
+      final installationTarget =
+          npmInstallation?.packageDirectory ?? executable;
+      return PluginInfo(
+        id: PluginCatalogIds.dingtalkWorkspaceCli,
+        name: 'DingTalk Workspace CLI',
+        description: '钉钉工作区命令行工具，为 AI Agent 提供钉钉工作流能力',
+        status: PluginStatus.installed,
+        installedVersion: version,
+        latestVersion: latestVersion,
+        installPath: executable,
+        metadata: <String, Object?>{
+          'installation_target': installationTarget,
+          'executable_path': executable,
+          'installation_method': npmInstallation == null ? '官方脚本' : 'npm',
+          'target_os': pluginDingtalkWorkspaceCliTargetOs(),
+          'supported_platforms': const <String>[
+            'macOS amd64 / arm64',
+            'Linux amd64 / arm64',
+            'Windows amd64 / arm64',
+          ],
+          'package_name': pluginDingtalkWorkspaceCliPackage,
+          'binary_name': pluginDingtalkWorkspaceCliCommand,
+          'repository': pluginDingtalkWorkspaceCliRepository,
+          'documentation': pluginDingtalkWorkspaceCliDocumentation,
+          'install_command': Platform.isWindows
+              ? 'irm ${pluginDingtalkWorkspaceCliInstallScriptUrl()} | iex'
+              : 'curl -fsSL ${pluginDingtalkWorkspaceCliInstallScriptUrl()} | sh',
+          'upgrade_command': 'dws upgrade -y',
+          'uninstall_command': npmInstallation == null
+              ? '删除 dws 可执行文件及 ~/.*/skills/dws'
+              : 'npm uninstall -g $pluginDingtalkWorkspaceCliPackage',
+          if (latestVersion == null)
+            'update_check_error': '无法获取 DingTalk Workspace CLI 的最新版本。',
+        },
+      );
+    },
   );
 
   Future<PluginInfo> scanJava() => _runWithFallback(
@@ -1702,6 +1810,28 @@ class PluginScannerService {
     dependencies: [PluginCatalogIds.nodejs],
   );
 
+  static const _dingtalkWorkspaceCliNotInstalled = PluginInfo(
+    id: PluginCatalogIds.dingtalkWorkspaceCli,
+    name: 'DingTalk Workspace CLI',
+    description: '钉钉工作区命令行工具，为 AI Agent 提供钉钉工作流能力',
+    status: PluginStatus.notInstalled,
+    metadata: <String, Object?>{
+      'target_os': '按当前操作系统选择官方安装脚本',
+      'supported_platforms': <String>[
+        'macOS amd64 / arm64',
+        'Linux amd64 / arm64',
+        'Windows amd64 / arm64',
+      ],
+      'package_name': pluginDingtalkWorkspaceCliPackage,
+      'binary_name': pluginDingtalkWorkspaceCliCommand,
+      'repository': pluginDingtalkWorkspaceCliRepository,
+      'documentation': pluginDingtalkWorkspaceCliDocumentation,
+      'install_command': '按当前系统选择 install.sh / install.ps1',
+      'upgrade_command': 'dws upgrade -y',
+      'uninstall_command': '删除 dws 可执行文件及技能目录',
+    },
+  );
+
   static const _pythonNotInstalled = PluginInfo(
     id: PluginCatalogIds.python,
     name: 'Python',
@@ -1873,6 +2003,7 @@ class PluginScannerService {
     _redisNotInstalled,
     _hermesAgentNotInstalled,
     _aiJunglerPlugin,
+    _dingtalkWorkspaceCliNotInstalled,
   ];
 
   Future<List<PluginInfo>> scanAll() async {
@@ -1884,6 +2015,7 @@ class PluginScannerService {
     final nodeFuture = runScan(scanNodeJs);
     final playwrightFuture = runScan(scanPlaywright);
     final hermesAgentFuture = runScan(scanHermesAgent);
+    final dingtalkWorkspaceCliFuture = runScan(scanDingtalkWorkspaceCli);
     final javaFuture = runScan(scanJava);
     final fridaFuture = runScan(scanFrida);
     final mitmproxyFuture = runScan(scanMitmproxy);
@@ -1900,6 +2032,7 @@ class PluginScannerService {
     final nodeJs = await nodeFuture;
     final playwright = await playwrightFuture;
     final hermesAgent = await hermesAgentFuture;
+    final dingtalkWorkspaceCli = await dingtalkWorkspaceCliFuture;
     final java = await javaFuture;
     final frida = await fridaFuture;
     final mitmproxy = await mitmproxyFuture;
@@ -1963,6 +2096,7 @@ class PluginScannerService {
       redis,
       hermesAgent,
       _aiJunglerPlugin,
+      dingtalkWorkspaceCli,
     ];
   }
 }

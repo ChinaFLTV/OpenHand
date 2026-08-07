@@ -997,6 +997,66 @@ abstract class AppLocalizations {
   /// **'安装目标'**
   String get pluginServiceDetailInstallationTarget;
 
+  /// No description provided for @pluginServiceDetailInstallMethod.
+  ///
+  /// In zh, this message translates to:
+  /// **'安装方式'**
+  String get pluginServiceDetailInstallMethod;
+
+  /// No description provided for @pluginServiceDetailTargetOs.
+  ///
+  /// In zh, this message translates to:
+  /// **'目标操作系统'**
+  String get pluginServiceDetailTargetOs;
+
+  /// No description provided for @pluginServiceDetailSupportedPlatforms.
+  ///
+  /// In zh, this message translates to:
+  /// **'支持平台'**
+  String get pluginServiceDetailSupportedPlatforms;
+
+  /// No description provided for @pluginServiceDetailPackageName.
+  ///
+  /// In zh, this message translates to:
+  /// **'包名称'**
+  String get pluginServiceDetailPackageName;
+
+  /// No description provided for @pluginServiceDetailBinaryName.
+  ///
+  /// In zh, this message translates to:
+  /// **'命令名称'**
+  String get pluginServiceDetailBinaryName;
+
+  /// No description provided for @pluginServiceDetailRepository.
+  ///
+  /// In zh, this message translates to:
+  /// **'代码仓库'**
+  String get pluginServiceDetailRepository;
+
+  /// No description provided for @pluginServiceDetailDocumentation.
+  ///
+  /// In zh, this message translates to:
+  /// **'官方文档'**
+  String get pluginServiceDetailDocumentation;
+
+  /// No description provided for @pluginServiceDetailInstallCommand.
+  ///
+  /// In zh, this message translates to:
+  /// **'安装命令'**
+  String get pluginServiceDetailInstallCommand;
+
+  /// No description provided for @pluginServiceDetailUpgradeCommand.
+  ///
+  /// In zh, this message translates to:
+  /// **'升级命令'**
+  String get pluginServiceDetailUpgradeCommand;
+
+  /// No description provided for @pluginServiceDetailUninstallCommand.
+  ///
+  /// In zh, this message translates to:
+  /// **'卸载命令'**
+  String get pluginServiceDetailUninstallCommand;
+
   /// No description provided for @pluginServiceDetailExecutablePath.
   ///
   /// In zh, this message translates to:
@@ -1362,6 +1422,12 @@ abstract class AppLocalizations {
   /// In zh, this message translates to:
   /// **'内存数据存储服务，供 AI 暴露面扫描执行缓存与任务队列'**
   String get pluginServiceDescriptionRedis;
+
+  /// No description provided for @pluginServiceDescriptionDingtalkWorkspaceCli.
+  ///
+  /// In zh, this message translates to:
+  /// **'钉钉工作区命令行工具，为 AI Agent 提供钉钉工作流能力'**
+  String get pluginServiceDescriptionDingtalkWorkspaceCli;
 
   /// No description provided for @pluginServiceDetailExternalService.
   ///

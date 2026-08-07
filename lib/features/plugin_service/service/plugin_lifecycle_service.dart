@@ -816,6 +816,95 @@ class PluginLifecycleService {
     return extractPluginAbsolutePath(result.stdout.toString());
   }
 
+  Future<_SimpleProcessResult> _runDingtalkNpmCommandWithProgress(
+    List<String> arguments, {
+    void Function(String line)? onProgress,
+    Duration timeout = _npmGlobalPackageTimeout,
+  }) {
+    if (!Platform.isWindows) {
+      return _runManagedToolchainCommandWithProgress(
+        'npm',
+        arguments,
+        onProgress: onProgress,
+        timeout: timeout,
+        environment: _npmGlobalPackageEnv(),
+      );
+    }
+    return _runWithProgress(
+      'npm.cmd',
+      arguments,
+      onProgress: onProgress,
+      timeout: timeout,
+      environment: _npmGlobalPackageEnv(),
+    );
+  }
+
+  Future<_SimpleProcessResult> _runDingtalkCommandWithProgress(
+    List<String> arguments, {
+    void Function(String line)? onProgress,
+    Duration timeout = _packageOperationTimeout,
+  }) async {
+    final executable = await resolvePluginDingtalkWorkspaceCliExecutable(
+      tag: 'plugin_lifecycle.dingtalk_workspace_cli_path',
+    );
+    if (executable == null) {
+      return const _SimpleProcessResult(
+        exitCode: -1,
+        stdout: '',
+        stderr: '未找到 dws 可执行文件。',
+      );
+    }
+    return _runWithProgress(
+      executable,
+      arguments,
+      onProgress: onProgress,
+      timeout: timeout,
+      environment: pluginProxyEnvironment(),
+    );
+  }
+
+  Future<void> _removeDingtalkWorkspaceCliSkills(
+    void Function(String line)? onProgress,
+  ) async {
+    final home = OpenHandPaths.homeDirectoryPath();
+    const relativeSkillDirectories = <String>[
+      '.agents/skills/dws',
+      '.claude/skills/dws',
+      '.cursor/skills/dws',
+      '.qoder/skills/dws',
+      '.qoderwork/skills/dws',
+      '.gemini/skills/dws',
+      '.codex/skills/dws',
+      '.github/skills/dws',
+      '.windsurf/skills/dws',
+      '.augment/skills/dws',
+      '.cline/skills/dws',
+      '.amp/skills/dws',
+      '.kiro/skills/dws',
+      '.trae/skills/dws',
+      '.openclaw/skills/dws',
+      '.hermes/skills/dws',
+      '.dws/skills/dws',
+    ];
+    for (final relativePath in relativeSkillDirectories) {
+      final target = p.joinAll(<String>[home, ...relativePath.split('/')]);
+      try {
+        await deletePathBounded(
+          target,
+          allowedRoot: home,
+          policy: const BoundedDeletePolicy(
+            maxEntries: 20000,
+            maxDepth: 32,
+            totalTimeout: Duration(seconds: 12),
+          ),
+        );
+      } catch (error, stack) {
+        silentLog('plugin_lifecycle', '清理钉钉 CLI 技能目录', error, stack);
+        onProgress?.call('技能目录清理失败: $target');
+      }
+    }
+  }
+
   Future<PluginNpmPackageInstallation?> _resolveGlobalNpmPackage(
     String packageName,
   ) async {
@@ -1572,6 +1661,72 @@ fi
     ],
     onProgress: onProgress,
   );
+
+  Future<PluginOperationResult> installDingtalkWorkspaceCli({
+    void Function(String line)? onProgress,
+  }) async {
+    final url = pluginDingtalkWorkspaceCliInstallScriptUrl();
+    final target = pluginDingtalkWorkspaceCliTargetOs();
+    onProgress?.call('按当前平台 $target 安装 DingTalk Workspace CLI…');
+    final result = Platform.isWindows
+        ? await _runWithProgress(
+            'powershell.exe',
+            <String>[
+              '-NoLogo',
+              '-NoProfile',
+              '-NonInteractive',
+              '-ExecutionPolicy',
+              'Bypass',
+              '-Command',
+              "irm '$url' | iex",
+            ],
+            onProgress: onProgress,
+            timeout: _packageOperationTimeout,
+          )
+        : await _runWithProgress(
+            pluginShellExecutable(),
+            <String>['-c', 'curl -fsSL ${_pluginShellQuote(url)} | sh'],
+            onProgress: onProgress,
+            timeout: _packageOperationTimeout,
+          );
+    if (result.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: 'DingTalk Workspace CLI 安装失败: ${_processErrorMessage(result)}',
+      );
+    }
+    final executable = await resolvePluginDingtalkWorkspaceCliExecutable(
+      tag: 'plugin_lifecycle.dingtalk_workspace_cli_install_path',
+    );
+    if (executable == null) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'DingTalk Workspace CLI 安装后未找到 dws 可执行文件。',
+      );
+    }
+    final verify = await runTrackedProcessOrFailed(
+      executable,
+      const <String>['--version'],
+      timeout: _pluginLifecycleVerifyTimeout,
+      tag: 'plugin_lifecycle.dingtalk_workspace_cli_install_verify',
+      environment: pluginProxyEnvironment(),
+    );
+    final version = verify.exitCode == 0
+        ? extractPluginFirstSemver('${verify.stdout}\n${verify.stderr}')
+        : null;
+    if (version == null) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'DingTalk Workspace CLI 安装后版本校验失败。',
+      );
+    }
+    onProgress?.call('DingTalk Workspace CLI $version 安装成功');
+    return PluginOperationResult(
+      success: true,
+      message: 'DingTalk Workspace CLI 已安装到 $target',
+      newVersion: version,
+    );
+  }
 
   Future<PluginOperationResult> _installBrewFormula({
     required String formula,
@@ -3077,6 +3232,53 @@ ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: 
     onProgress: onProgress,
   );
 
+  Future<PluginOperationResult> updateDingtalkWorkspaceCli({
+    void Function(String line)? onProgress,
+  }) async {
+    onProgress?.call('正在使用 dws 自升级能力更新 DingTalk Workspace CLI…');
+    final result = await _runDingtalkCommandWithProgress(const <String>[
+      'upgrade',
+      '-y',
+    ], onProgress: onProgress);
+    if (result.exitCode != 0) {
+      return PluginOperationResult(
+        success: false,
+        message: 'DingTalk Workspace CLI 更新失败: ${_processErrorMessage(result)}',
+      );
+    }
+    final executable = await resolvePluginDingtalkWorkspaceCliExecutable(
+      tag: 'plugin_lifecycle.dingtalk_workspace_cli_update_path',
+    );
+    if (executable == null) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'DingTalk Workspace CLI 更新后未找到 dws 可执行文件。',
+      );
+    }
+    final verify = await runTrackedProcessOrFailed(
+      executable,
+      const <String>['--version'],
+      timeout: _pluginLifecycleVerifyTimeout,
+      tag: 'plugin_lifecycle.dingtalk_workspace_cli_update_verify',
+      environment: pluginProxyEnvironment(),
+    );
+    final version = verify.exitCode == 0
+        ? extractPluginFirstSemver('${verify.stdout}\n${verify.stderr}')
+        : null;
+    if (version == null) {
+      return const PluginOperationResult(
+        success: false,
+        message: 'DingTalk Workspace CLI 更新后版本校验失败。',
+      );
+    }
+    onProgress?.call('DingTalk Workspace CLI 已更新到 $version');
+    return PluginOperationResult(
+      success: true,
+      message: 'DingTalk Workspace CLI 已更新到 $version',
+      newVersion: version,
+    );
+  }
+
   Future<PluginOperationResult> updateJava({
     void Function(String line)? onProgress,
   }) => _updateBrewFormula(
@@ -3456,6 +3658,55 @@ ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: 
     ],
     onProgress: onProgress,
   );
+
+  Future<PluginOperationResult> uninstallDingtalkWorkspaceCli({
+    void Function(String line)? onProgress,
+  }) async {
+    final npmInstallation = await resolvePluginDingtalkWorkspaceCliNpmPackage(
+      tag: 'plugin_lifecycle.dingtalk_workspace_cli_npm_root',
+    );
+    if (npmInstallation != null) {
+      onProgress?.call('通过 npm 卸载 DingTalk Workspace CLI…');
+      final npmResult = await _runDingtalkNpmCommandWithProgress(const <String>[
+        'uninstall',
+        '-g',
+        pluginDingtalkWorkspaceCliPackage,
+      ], onProgress: onProgress);
+      if (npmResult.exitCode != 0) {
+        return PluginOperationResult(
+          success: false,
+          message:
+              'npm 卸载 DingTalk Workspace CLI 失败: ${_processErrorMessage(npmResult)}',
+        );
+      }
+    }
+
+    final executable = await resolvePluginDingtalkWorkspaceCliExecutable(
+      tag: 'plugin_lifecycle.dingtalk_workspace_cli_uninstall_path',
+    );
+    if (executable != null) {
+      try {
+        await File(executable).delete().timeout(_pluginLifecycleVerifyTimeout);
+        onProgress?.call('已删除 dws 可执行文件: $executable');
+      } on FileSystemException catch (error) {
+        return PluginOperationResult(
+          success: false,
+          message: '删除 dws 可执行文件失败: ${error.message}',
+        );
+      } on TimeoutException {
+        return const PluginOperationResult(
+          success: false,
+          message: '删除 dws 可执行文件超时。',
+        );
+      }
+    }
+    await _removeDingtalkWorkspaceCliSkills(onProgress);
+    onProgress?.call('DingTalk Workspace CLI 已卸载');
+    return const PluginOperationResult(
+      success: true,
+      message: 'DingTalk Workspace CLI 已卸载',
+    );
+  }
 
   Future<PluginOperationResult> uninstallJava({
     void Function(String line)? onProgress,

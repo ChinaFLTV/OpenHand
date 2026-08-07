@@ -1,7 +1,109 @@
+import 'dart:ffi';
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import 'plugin_environment_probe.dart';
+
+const String pluginDingtalkWorkspaceCliPackage = 'dingtalk-workspace-cli';
+const String pluginDingtalkWorkspaceCliCommand = 'dws';
+const String pluginDingtalkWorkspaceCliRepository =
+    'https://github.com/DingTalk-Real-AI/dingtalk-workspace-cli';
+const String pluginDingtalkWorkspaceCliDocumentation =
+    'https://open.dingtalk.com/document/development/dingtalk-cli-performing-tasks-within';
+const String pluginDingtalkWorkspaceCliInstallScriptBaseUrl =
+    'https://raw.githubusercontent.com/DingTalk-Real-AI/dingtalk-workspace-cli/main/scripts';
+
+String pluginDingtalkWorkspaceCliInstallScriptUrl() {
+  return Platform.isWindows
+      ? '$pluginDingtalkWorkspaceCliInstallScriptBaseUrl/install.ps1'
+      : '$pluginDingtalkWorkspaceCliInstallScriptBaseUrl/install.sh';
+}
+
+String pluginDingtalkWorkspaceCliTargetOs() {
+  return switch (Abi.current()) {
+    Abi.macosArm64 => 'macOS arm64',
+    Abi.macosX64 => 'macOS amd64',
+    Abi.linuxArm64 => 'Linux arm64',
+    Abi.linuxX64 => 'Linux amd64',
+    Abi.windowsArm64 => 'Windows arm64',
+    Abi.windowsX64 => 'Windows amd64',
+    _ => '${Platform.operatingSystem} ${Platform.version.split(' ').last}',
+  };
+}
+
+String pluginDingtalkWorkspaceCliDefaultExecutablePath() {
+  return p.join(
+    OpenHandPaths.homeDirectoryPath(),
+    '.local',
+    'bin',
+    Platform.isWindows ? 'dws.exe' : 'dws',
+  );
+}
+
+Future<String?> resolvePluginDingtalkWorkspaceCliExecutable({
+  Duration timeout = const Duration(seconds: 5),
+  String tag = 'plugin_toolchain.dingtalk_workspace_cli_path',
+}) async {
+  final defaultPath = pluginDingtalkWorkspaceCliDefaultExecutablePath();
+  if (await isRegularFilePath(defaultPath, followLinks: true)) {
+    return defaultPath;
+  }
+  final result = Platform.isWindows
+      ? await runTrackedProcessOrFailed(
+          'where.exe',
+          const <String>[pluginDingtalkWorkspaceCliCommand],
+          timeout: timeout,
+          tag: tag,
+          environment: pluginProxyEnvironment(),
+        )
+      : await runTrackedProcessOrFailed(
+          pluginShellExecutable(),
+          <String>[
+            '-c',
+            pluginToolchainCommandPathScript(
+              pluginDingtalkWorkspaceCliCommand,
+              includeNpmGlobalBinFallback: true,
+            ),
+          ],
+          timeout: timeout,
+          tag: tag,
+          environment: pluginProxyEnvironment(),
+        );
+  return result.exitCode == 0
+      ? extractPluginAbsolutePath(result.stdout.toString())
+      : null;
+}
+
+Future<PluginNpmPackageInstallation?>
+resolvePluginDingtalkWorkspaceCliNpmPackage({
+  Duration timeout = const Duration(seconds: 5),
+  String tag = 'plugin_toolchain.dingtalk_workspace_cli_npm_root',
+}) async {
+  final result = Platform.isWindows
+      ? await runTrackedProcessOrFailed(
+          'npm.cmd',
+          const <String>['root', '-g'],
+          timeout: timeout,
+          tag: tag,
+          environment: pluginProxyEnvironment(),
+        )
+      : await runPluginToolchainCommandOrFailed(
+          'npm',
+          const <String>['root', '-g'],
+          timeout: timeout,
+          tag: tag,
+          environment: pluginProxyEnvironment(),
+        );
+  return resolvePluginGlobalNpmPackage(
+    exitCode: result.exitCode,
+    stdout: result.stdout.toString(),
+    packageName: pluginDingtalkWorkspaceCliPackage,
+  );
+}
 
 final RegExp _pythonVersionOutputPattern = RegExp(r'Python\s+(\d+\.\d+\.\d+)');
 final RegExp _pipVersionOutputPattern = RegExp(r'pip\s+(\d+(?:\.\d+)+)');

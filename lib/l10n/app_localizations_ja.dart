@@ -502,6 +502,36 @@ class AppLocalizationsJa extends AppLocalizations {
   String get pluginServiceDetailInstallationTarget => 'インストール先';
 
   @override
+  String get pluginServiceDetailInstallMethod => 'インストール方法';
+
+  @override
+  String get pluginServiceDetailTargetOs => '対象 OS';
+
+  @override
+  String get pluginServiceDetailSupportedPlatforms => '対応プラットフォーム';
+
+  @override
+  String get pluginServiceDetailPackageName => 'パッケージ名';
+
+  @override
+  String get pluginServiceDetailBinaryName => 'コマンド名';
+
+  @override
+  String get pluginServiceDetailRepository => 'リポジトリ';
+
+  @override
+  String get pluginServiceDetailDocumentation => '公式ドキュメント';
+
+  @override
+  String get pluginServiceDetailInstallCommand => 'インストールコマンド';
+
+  @override
+  String get pluginServiceDetailUpgradeCommand => 'アップグレードコマンド';
+
+  @override
+  String get pluginServiceDetailUninstallCommand => 'アンインストールコマンド';
+
+  @override
   String get pluginServiceDetailExecutablePath => '実行エントリ';
 
   @override
@@ -707,6 +737,10 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get pluginServiceDescriptionRedis => '内存数据存储服务，供 AI 暴露面扫描执行缓存与任务队列';
+
+  @override
+  String get pluginServiceDescriptionDingtalkWorkspaceCli =>
+      'DingTalk の AI Agent ワークフロー向け DingTalk Workspace CLI';
 
   @override
   String get pluginServiceDetailExternalService => '外部服务';

@@ -93,6 +93,8 @@ String _localizedPluginDescription(AppLocalizations l10n, PluginInfo plugin) {
     PluginCatalogIds.qdrant => l10n.pluginServiceDescriptionQdrant,
     PluginCatalogIds.postgresql => l10n.pluginServiceDescriptionPostgresql,
     PluginCatalogIds.redis => l10n.pluginServiceDescriptionRedis,
+    PluginCatalogIds.dingtalkWorkspaceCli =>
+      l10n.pluginServiceDescriptionDingtalkWorkspaceCli,
     _ => plugin.description,
   };
 }
@@ -117,6 +119,16 @@ String _localizedDetailLabel(AppLocalizations l10n, String key) {
     'processors' => l10n.pluginServiceDetailProcessors,
     'install_path' => l10n.pluginServiceDetailInstallPath,
     'installation_target' => l10n.pluginServiceDetailInstallationTarget,
+    'installation_method' => l10n.pluginServiceDetailInstallMethod,
+    'target_os' => l10n.pluginServiceDetailTargetOs,
+    'supported_platforms' => l10n.pluginServiceDetailSupportedPlatforms,
+    'package_name' => l10n.pluginServiceDetailPackageName,
+    'binary_name' => l10n.pluginServiceDetailBinaryName,
+    'repository' => l10n.pluginServiceDetailRepository,
+    'documentation' => l10n.pluginServiceDetailDocumentation,
+    'install_command' => l10n.pluginServiceDetailInstallCommand,
+    'upgrade_command' => l10n.pluginServiceDetailUpgradeCommand,
+    'uninstall_command' => l10n.pluginServiceDetailUninstallCommand,
     'executable_path' => l10n.pluginServiceDetailExecutablePath,
     'cache_directory' => l10n.pluginServiceDetailCacheDirectory,
     'npm_global_root' => l10n.pluginServiceDetailNpmGlobalRoot,
@@ -349,6 +361,7 @@ class _PluginCard extends StatelessWidget {
       PluginCatalogIds.postgresql => Icons.storage_rounded,
       PluginCatalogIds.redis => Icons.memory_rounded,
       PluginCatalogIds.aiJungler => Icons.radar_rounded,
+      PluginCatalogIds.dingtalkWorkspaceCli => Icons.workspaces_rounded,
       _ => Icons.extension_rounded,
     };
 

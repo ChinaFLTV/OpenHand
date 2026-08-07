@@ -46,6 +46,7 @@ class PluginCatalogIds {
   static const String redis = 'redis';
   static const String hermesAgent = 'hermes_agent';
   static const String aiJungler = 'ai_jungler';
+  static const String dingtalkWorkspaceCli = 'dingtalk_workspace_cli';
 
   static const List<String> displayOrder = <String>[
     nodejs,
@@ -67,6 +68,7 @@ class PluginCatalogIds {
     redis,
     hermesAgent,
     aiJungler,
+    dingtalkWorkspaceCli,
   ];
 }
 
