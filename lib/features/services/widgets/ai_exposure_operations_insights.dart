@@ -122,31 +122,270 @@ class _OperationsDataScopeBar extends StatelessWidget {
     ]..sort();
     final updatedAt = candidates.lastOrNull;
     final colors = Theme.of(context).colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 40),
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+    final running = controller.isRunning;
+    final statusColor = running
+        ? OpenHandStatusColors.success
+        : colors.onSurfaceVariant;
+    return _InsightContextBar(
+      icon: running ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
+      label: '数据口径',
+      value: running ? '当前服务快照' : '最近离线快照',
+      helper: running ? '服务运行中 · 自动同步' : '服务离线 · 保留最近状态',
+      color: statusColor,
+      items: [
+        _InsightContextDatum(
+          icon: Icons.task_alt_rounded,
+          label: '任务',
+          value: '${controller.history.length}',
+        ),
+        _InsightContextDatum(
+          icon: Icons.inventory_2_outlined,
+          label: '结果',
+          value: '${controller.results.length}',
+        ),
+        _InsightContextDatum(
+          icon: Icons.receipt_long_outlined,
+          label: '日志',
+          value: '${controller.logs.length}',
+        ),
+        _InsightContextDatum(
+          icon: Icons.schedule_rounded,
+          label: '最近更新',
+          value: updatedAt == null ? '暂无运行数据' : _taskLedgerDateTime(updatedAt),
+          flex: 2,
+        ),
+        _InsightContextDatum(
+          icon: running ? Icons.bolt_rounded : Icons.pause_circle_outline,
+          label: '新鲜度',
+          value: running ? '实时' : '服务离线',
+          color: statusColor,
+        ),
+      ],
+    );
+  }
+}
+
+class _InsightContextDatum {
+  const _InsightContextDatum({
+    required this.icon,
+    required this.label,
+    required this.value,
+    this.color,
+    this.flex = 1,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final Color? color;
+  final int flex;
+}
+
+class _InsightContextBar extends StatelessWidget {
+  const _InsightContextBar({
+    required this.icon,
+    required this.label,
+    required this.value,
+    required this.helper,
+    required this.color,
+    required this.items,
+  });
+
+  final IconData icon;
+  final String label;
+  final String value;
+  final String helper;
+  final Color color;
+  final List<_InsightContextDatum> items;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    final identity = Row(
+      children: [
+        AnimatedContainer(
+          duration: motion.entranceDuration,
+          curve: motion.curve.curve,
+          width: 38,
+          height: 38,
+          alignment: Alignment.center,
+          decoration: BoxDecoration(
+            color: color.withValues(alpha: 0.12),
+            borderRadius: BorderRadius.circular(8),
+            border: Border.all(color: color.withValues(alpha: 0.28)),
+          ),
+          child: Icon(icon, size: 20, color: color),
+        ),
+        const SizedBox(width: 10),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                label,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                value,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+              const SizedBox(height: 1),
+              Text(
+                helper,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
+    );
+    return AnimatedContainer(
+      duration: motion.entranceDuration,
+      curve: motion.curve.curve,
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(6),
+        color: Color.alphaBlend(
+          color.withValues(alpha: 0.035),
+          colors.surfaceContainerHighest.withValues(alpha: 0.58),
+        ),
+        borderRadius: BorderRadius.circular(8),
         border: Border.all(color: colors.outlineVariant),
       ),
-      child: Wrap(
-        spacing: 14,
-        runSpacing: 4,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          Text(controller.isRunning ? '数据口径：当前服务快照' : '数据口径：离线快照'),
-          Text('任务 ${controller.history.length}'),
-          Text('结果 ${controller.results.length}'),
-          Text('日志 ${controller.logs.length}'),
-          Text(
-            updatedAt == null
-                ? '更新时间：暂无运行数据'
-                : '更新时间：${_taskLedgerDateTime(updatedAt)}',
-          ),
-          Text(controller.isRunning ? '新鲜度：实时' : '新鲜度：服务离线'),
-        ],
+      child: LayoutBuilder(
+        builder: (context, constraints) {
+          if (constraints.maxWidth < 860) {
+            final columns = constraints.maxWidth < 460 ? 1 : 2;
+            const spacing = 12.0;
+            final itemWidth =
+                (constraints.maxWidth - spacing * (columns - 1)) / columns;
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                identity,
+                const SizedBox(height: 12),
+                Divider(height: 1, color: colors.outlineVariant),
+                const SizedBox(height: 12),
+                Wrap(
+                  spacing: spacing,
+                  runSpacing: 12,
+                  children: items
+                      .map(
+                        (item) => SizedBox(
+                          width: itemWidth,
+                          child: _InsightContextMetric(item: item),
+                        ),
+                      )
+                      .toList(growable: false),
+                ),
+              ],
+            );
+          }
+          return Row(
+            children: [
+              SizedBox(width: 226, child: identity),
+              const SizedBox(width: 16),
+              SizedBox(
+                height: 48,
+                child: VerticalDivider(color: colors.outlineVariant),
+              ),
+              const SizedBox(width: 16),
+              for (final entry in items.indexed) ...[
+                if (entry.$1 > 0) const SizedBox(width: 14),
+                Expanded(
+                  flex: entry.$2.flex,
+                  child: _InsightContextMetric(item: entry.$2),
+                ),
+              ],
+            ],
+          );
+        },
       ),
+    );
+  }
+}
+
+class _InsightContextMetric extends StatelessWidget {
+  const _InsightContextMetric({required this.item});
+
+  final _InsightContextDatum item;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final tone = item.color ?? colors.primary;
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    return Row(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        Padding(
+          padding: const EdgeInsets.only(top: 2),
+          child: Icon(item.icon, size: 17, color: tone),
+        ),
+        const SizedBox(width: 7),
+        Expanded(
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                item.label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 2),
+              AnimatedSwitcher(
+                duration: motion.entranceDuration,
+                switchInCurve: motion.curve.curve,
+                switchOutCurve: motion.curve.curve,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.15),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: Text(
+                  item.value,
+                  key: ValueKey<(String, String)>((item.label, item.value)),
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: item.color,
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ],
     );
   }
 }
@@ -592,26 +831,37 @@ class _TaskLedgerScopeBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(6),
-      ),
-      child: Wrap(
-        spacing: 14,
-        runSpacing: 4,
-        children: [
-          const Text('数据范围：当前服务返回的任务历史记录'),
-          Text('总量 $total'),
-          Text(filtered == 0 ? '当前显示 0 条' : '当前显示 $start-$end'),
-          Text(
-            refreshedAt == null
-                ? '更新时间：暂无任务数据'
-                : '更新时间：${_taskLedgerDateTime(refreshedAt!)}',
-          ),
-        ],
-      ),
+    return _InsightContextBar(
+      icon: Icons.history_rounded,
+      label: '数据范围',
+      value: '任务历史记录',
+      helper: '当前服务返回',
+      color: colors.primary,
+      items: [
+        _InsightContextDatum(
+          icon: Icons.data_usage_rounded,
+          label: '任务总量',
+          value: '$total',
+        ),
+        _InsightContextDatum(
+          icon: Icons.filter_alt_outlined,
+          label: '匹配筛选',
+          value: '$filtered',
+        ),
+        _InsightContextDatum(
+          icon: Icons.view_list_outlined,
+          label: '当前页',
+          value: filtered == 0 ? '0 条' : '$start-$end',
+        ),
+        _InsightContextDatum(
+          icon: Icons.update_rounded,
+          label: '最近更新',
+          value: refreshedAt == null
+              ? '暂无任务数据'
+              : _taskLedgerDateTime(refreshedAt!),
+          flex: 2,
+        ),
+      ],
     );
   }
 }
