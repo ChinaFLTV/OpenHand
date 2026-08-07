@@ -146,8 +146,12 @@ class _StoragePanel extends StatelessWidget {
               _MetricInsightId.storagePostgresql,
               Icons.cloud_sync_outlined,
               'PostgreSQL 镜像',
-              dependencies?.postgresql.connected == true ? '在线' : '未连接',
-              dependencies?.postgresql.message ?? '未启用',
+              dependencies == null
+                  ? '状态未上报'
+                  : dependencies.postgresql.connected
+                  ? '在线'
+                  : '未连接',
+              dependencies?.postgresql.message ?? '依赖状态未上报',
               color: dependencies?.postgresql.connected == true
                   ? OpenHandStatusColors.success
                   : colors.outline,
@@ -156,8 +160,12 @@ class _StoragePanel extends StatelessWidget {
               _MetricInsightId.storageRedis,
               Icons.hub_outlined,
               'Redis 协调',
-              dependencies?.redis.connected == true ? '在线' : '未连接',
-              dependencies?.redis.message ?? '未启用',
+              dependencies == null
+                  ? '状态未上报'
+                  : dependencies.redis.connected
+                  ? '在线'
+                  : '未连接',
+              dependencies?.redis.message ?? '依赖状态未上报',
               color: dependencies?.redis.connected == true
                   ? OpenHandStatusColors.success
                   : colors.outline,

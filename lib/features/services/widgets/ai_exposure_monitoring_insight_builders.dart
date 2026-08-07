@@ -3145,20 +3145,34 @@ Widget _buildStorageMetricInsight(
           icon: Icons.cloud_sync_outlined,
           items: [
             _InsightKpi(
-              icon: Icons.settings_outlined,
+              icon: status == null
+                  ? Icons.help_outline_rounded
+                  : Icons.settings_outlined,
               label: '配置状态',
-              value: status?.configured == true ? '已配置' : '未配置',
+              value: status == null
+                  ? '状态未上报'
+                  : status.configured
+                  ? '已配置'
+                  : '未配置',
               helper: controller.postgresqlEnabled ? '偏好设置已启用' : '偏好设置未启用',
               color: status?.configured == true
                   ? colors.primary
                   : colors.outline,
             ),
             _InsightKpi(
-              icon: Icons.link_rounded,
+              icon: status == null
+                  ? Icons.help_outline_rounded
+                  : Icons.link_rounded,
               label: '连接状态',
-              value: status?.connected == true ? '在线' : '未连接',
+              value: status == null
+                  ? '状态未上报'
+                  : status.connected
+                  ? '在线'
+                  : '未连接',
               helper: status?.message ?? '服务未返回状态',
-              color: status?.connected == true
+              color: status == null
+                  ? colors.outline
+                  : status.connected
                   ? OpenHandStatusColors.success
                   : OpenHandStatusColors.warning,
             ),
@@ -3175,20 +3189,34 @@ Widget _buildStorageMetricInsight(
           icon: Icons.hub_outlined,
           items: [
             _InsightKpi(
-              icon: Icons.settings_outlined,
+              icon: status == null
+                  ? Icons.help_outline_rounded
+                  : Icons.settings_outlined,
               label: '配置状态',
-              value: status?.configured == true ? '已配置' : '未配置',
+              value: status == null
+                  ? '状态未上报'
+                  : status.configured
+                  ? '已配置'
+                  : '未配置',
               helper: controller.redisEnabled ? '偏好设置已启用' : '偏好设置未启用',
               color: status?.configured == true
                   ? colors.primary
                   : colors.outline,
             ),
             _InsightKpi(
-              icon: Icons.link_rounded,
+              icon: status == null
+                  ? Icons.help_outline_rounded
+                  : Icons.link_rounded,
               label: '连接状态',
-              value: status?.connected == true ? '在线' : '未连接',
+              value: status == null
+                  ? '状态未上报'
+                  : status.connected
+                  ? '在线'
+                  : '未连接',
               helper: status?.message ?? '服务未返回状态',
-              color: status?.connected == true
+              color: status == null
+                  ? colors.outline
+                  : status.connected
                   ? OpenHandStatusColors.success
                   : OpenHandStatusColors.warning,
             ),
@@ -5645,8 +5673,8 @@ Widget _dependencyInsightPanel(
     _DependencyInsightId id,
     String name,
     IconData icon,
-    bool configured,
-    bool connected,
+    bool? configured,
+    bool? connected,
     String message,
   ) {
     if (only != null && !name.startsWith(only.split(' ').first)) return;
@@ -5655,10 +5683,21 @@ Widget _dependencyInsightPanel(
         icon: icon,
         title: name,
         subtitle: message,
-        tags: [configured ? '已配置' : '未配置', connected ? '已连接' : '未连接'],
-        color: connected
+        tags: [
+          configured == null
+              ? '配置状态未上报'
+              : configured
+              ? '已配置'
+              : '未配置',
+          connected == null
+              ? '连接状态未上报'
+              : connected
+              ? '已连接'
+              : '未连接',
+        ],
+        color: connected == true
             ? OpenHandStatusColors.success
-            : configured
+            : configured == true
             ? OpenHandStatusColors.warning
             : colors.outline,
         target: _DependencyInsightTarget(
@@ -5684,33 +5723,33 @@ Widget _dependencyInsightPanel(
     _DependencyInsightId.postgresql,
     'PostgreSQL 镜像',
     Icons.cloud_sync_outlined,
-    dependencies?.postgresql.configured ?? false,
-    dependencies?.postgresql.connected ?? false,
-    dependencies?.postgresql.message ?? '未启用',
+    dependencies?.postgresql.configured,
+    dependencies?.postgresql.connected,
+    dependencies?.postgresql.message ?? '状态未上报',
   );
   add(
     _DependencyInsightId.redis,
     'Redis 协调',
     Icons.hub_outlined,
-    dependencies?.redis.configured ?? false,
-    dependencies?.redis.connected ?? false,
-    dependencies?.redis.message ?? '未启用',
+    dependencies?.redis.configured,
+    dependencies?.redis.connected,
+    dependencies?.redis.message ?? '状态未上报',
   );
   add(
     _DependencyInsightId.playwright,
     'Playwright 浏览器',
     Icons.web_outlined,
-    dependencies?.playwright.configured ?? false,
-    dependencies?.playwright.connected ?? false,
-    dependencies?.playwright.message ?? '未启用',
+    dependencies?.playwright.configured,
+    dependencies?.playwright.connected,
+    dependencies?.playwright.message ?? '状态未上报',
   );
   add(
     _DependencyInsightId.gptExtractor,
     'GPT 辅助提取',
     Icons.auto_awesome_outlined,
-    controller.aiExtractorStatus?.configured ?? false,
-    controller.aiExtractorStatus?.configured ?? false,
-    controller.aiExtractorStatus?.model ?? '未启用',
+    controller.aiExtractorStatus?.configured,
+    controller.aiExtractorStatus?.configured,
+    controller.aiExtractorStatus?.model ?? '状态未上报',
   );
   return _InsightRecordPanel(
     icon: Icons.hub_outlined,

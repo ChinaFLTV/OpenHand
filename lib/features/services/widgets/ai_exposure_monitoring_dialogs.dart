@@ -75,6 +75,10 @@ Widget buildAiExposureOperationsTestSurface() =>
 Widget buildAiExposureEntityTestSurface(
   String entity, {
   String stableId = '__missing__',
+  AiExposureLogEntry? logSnapshot,
+  AiExposureProxyRequestSample? proxyRequestSnapshot,
+  AiExposureProxyProbeSample? proxyProbeSnapshot,
+  String proxyRequestAddress = '',
 }) => switch (entity) {
   'task' => _TaskEntityInsightBody(taskId: stableId, legacySnapshot: null),
   'source' => const _SourceEntityInsightBody(source: AiExposureSource.manual),
@@ -84,30 +88,36 @@ Widget buildAiExposureEntityTestSurface(
     legacySnapshot: null,
   ),
   'log' => _LogEntityInsightBody(
-    entry: AiExposureLogEntry(
-      level: 'info',
-      message: '',
-      at: DateTime.fromMillisecondsSinceEpoch(0),
-      atReported: false,
-    ),
+    entry:
+        logSnapshot ??
+        AiExposureLogEntry(
+          level: 'info',
+          message: '',
+          at: DateTime.fromMillisecondsSinceEpoch(0),
+          atReported: false,
+        ),
   ),
   'rule' => _RuleEntityInsightBody(ruleId: stableId, legacySnapshot: null),
   'proxyRequest' => _ProxyRequestEntityInsightBody(
     endpointId: stableId,
-    address: '',
-    sample: AiExposureProxyRequestSample(
-      at: DateTime.fromMillisecondsSinceEpoch(0),
-      atReported: false,
-      result: 'failure',
-      responseTimeMs: 0,
-    ),
+    address: proxyRequestAddress,
+    sample:
+        proxyRequestSnapshot ??
+        AiExposureProxyRequestSample(
+          at: DateTime.fromMillisecondsSinceEpoch(0),
+          atReported: false,
+          result: 'failure',
+          responseTimeMs: 0,
+        ),
   ),
   'proxyProbe' => _ProxyProbeEntityInsightBody(
     endpointId: stableId,
-    sample: AiExposureProxyProbeSample(
-      checkedAt: DateTime.fromMillisecondsSinceEpoch(0),
-      checkedAtReported: false,
-    ),
+    sample:
+        proxyProbeSnapshot ??
+        AiExposureProxyProbeSample(
+          checkedAt: DateTime.fromMillisecondsSinceEpoch(0),
+          checkedAtReported: false,
+        ),
   ),
   'stage' => _StageEntityInsightBody(stage: stableId),
   'dependency' => const _DependencyEntityInsightBody(
