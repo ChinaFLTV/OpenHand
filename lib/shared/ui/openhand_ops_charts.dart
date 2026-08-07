@@ -436,11 +436,12 @@ _DonutGeometry? _donutGeometry(Size size) {
       .toDouble();
   final stroke = desired;
   if (stroke <= 0) return null;
+  final origin = Offset((size.width - side) / 2, (size.height - side) / 2);
   final rect = Rect.fromLTWH(
-    stroke / 2,
-    stroke / 2,
-    math.max(0, size.width - stroke),
-    math.max(0, size.height - stroke),
+    origin.dx + stroke / 2,
+    origin.dy + stroke / 2,
+    math.max(0, side - stroke),
+    math.max(0, side - stroke),
   );
   if (rect.width <= 0 || rect.height <= 0) return null;
   return _DonutGeometry(rect: rect, stroke: stroke);
@@ -987,70 +988,72 @@ class _OpenHandOperationalDonutChartState
                 Expanded(
                   child: LayoutBuilder(
                     builder: (context, constraints) {
-                      final size = Size(
-                        constraints.maxWidth.isFinite
-                            ? constraints.maxWidth
-                            : 0,
-                        constraints.maxHeight.isFinite
-                            ? constraints.maxHeight
-                            : 0,
+                      final side = math.min(
+                        constraints.maxWidth,
+                        constraints.maxHeight,
                       );
-                      return MouseRegion(
-                        cursor: SystemMouseCursors.precise,
-                        onHover: (event) =>
-                            _selectFromOffset(event.localPosition, size),
-                        child: GestureDetector(
-                          behavior: HitTestBehavior.opaque,
-                          onTapDown: (details) => _selectFromOffset(
-                            details.localPosition,
-                            size,
-                            activate: true,
-                          ),
-                          child: Stack(
-                            alignment: Alignment.center,
-                            children: [
-                              Positioned.fill(
-                                child: CustomPaint(
-                                  painter: OpenHandDonutChartPainter(
-                                    values: widget.segments
-                                        .map((segment) => segment.value)
-                                        .toList(growable: false),
-                                    colors: widget.segments
-                                        .map((segment) => segment.color)
-                                        .toList(growable: false),
-                                    trackColor: widget.trackColor,
-                                  ),
-                                  foregroundPainter: _DonutSelectionPainter(
-                                    selection: _selection,
-                                    segments: widget.segments,
-                                    color: colors.onSurface,
-                                  ),
-                                ),
+                      final size = Size.square(side);
+                      return Center(
+                        child: SizedBox.square(
+                          dimension: side,
+                          child: MouseRegion(
+                            cursor: SystemMouseCursors.precise,
+                            onHover: (event) =>
+                                _selectFromOffset(event.localPosition, size),
+                            child: GestureDetector(
+                              behavior: HitTestBehavior.opaque,
+                              onTapDown: (details) => _selectFromOffset(
+                                details.localPosition,
+                                size,
+                                activate: true,
                               ),
-                              if (widget.centerLabel?.trim().isNotEmpty ??
-                                  false)
-                                Padding(
-                                  padding: const EdgeInsets.all(32),
-                                  child: Text(
-                                    widget.centerLabel!,
-                                    maxLines: 2,
-                                    overflow: TextOverflow.ellipsis,
-                                    textAlign: TextAlign.center,
-                                    style: Theme.of(
-                                      context,
-                                    ).textTheme.labelLarge,
+                              child: Stack(
+                                alignment: Alignment.center,
+                                children: [
+                                  Positioned.fill(
+                                    child: CustomPaint(
+                                      painter: OpenHandDonutChartPainter(
+                                        values: widget.segments
+                                            .map((segment) => segment.value)
+                                            .toList(growable: false),
+                                        colors: widget.segments
+                                            .map((segment) => segment.color)
+                                            .toList(growable: false),
+                                        trackColor: widget.trackColor,
+                                      ),
+                                      foregroundPainter: _DonutSelectionPainter(
+                                        selection: _selection,
+                                        segments: widget.segments,
+                                        color: colors.onSurface,
+                                      ),
+                                    ),
                                   ),
-                                ),
-                              if (_selection != null)
-                                Positioned(
-                                  top: 8,
-                                  right: 8,
-                                  child: _ChartTooltip(
-                                    label: _selectionText(_selection),
-                                    color: _selection!.segment.color,
-                                  ),
-                                ),
-                            ],
+                                  if (widget.centerLabel?.trim().isNotEmpty ??
+                                      false)
+                                    Padding(
+                                      padding: const EdgeInsets.all(32),
+                                      child: Text(
+                                        widget.centerLabel!,
+                                        maxLines: 2,
+                                        overflow: TextOverflow.ellipsis,
+                                        textAlign: TextAlign.center,
+                                        style: Theme.of(
+                                          context,
+                                        ).textTheme.labelLarge,
+                                      ),
+                                    ),
+                                  if (_selection != null)
+                                    Positioned(
+                                      top: 8,
+                                      right: 8,
+                                      child: _ChartTooltip(
+                                        label: _selectionText(_selection),
+                                        color: _selection!.segment.color,
+                                      ),
+                                    ),
+                                ],
+                              ),
+                            ),
                           ),
                         ),
                       );

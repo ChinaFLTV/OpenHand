@@ -130,7 +130,7 @@ class _OperationsDataScopeBar extends StatelessWidget {
       icon: running ? Icons.cloud_done_outlined : Icons.cloud_off_outlined,
       label: '数据口径',
       value: running ? '当前服务快照' : '最近离线快照',
-      helper: running ? '服务运行中 · 自动同步' : '服务离线 · 保留最近状态',
+      helper: running ? '运行中 · 实时同步' : '服务离线 · 保留最近状态',
       color: statusColor,
       items: [
         _InsightContextDatum(
@@ -154,12 +154,6 @@ class _OperationsDataScopeBar extends StatelessWidget {
           value: updatedAt == null ? '暂无运行数据' : _taskLedgerDateTime(updatedAt),
           flex: 2,
         ),
-        _InsightContextDatum(
-          icon: running ? Icons.bolt_rounded : Icons.pause_circle_outline,
-          label: '新鲜度',
-          value: running ? '实时' : '服务离线',
-          color: statusColor,
-        ),
       ],
     );
   }
@@ -170,14 +164,12 @@ class _InsightContextDatum {
     required this.icon,
     required this.label,
     required this.value,
-    this.color,
     this.flex = 1,
   });
 
   final IconData icon;
   final String label;
   final String value;
-  final Color? color;
   final int flex;
 }
 
@@ -261,10 +253,7 @@ class _InsightContextBar extends StatelessWidget {
       curve: motion.curve.curve,
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          color.withValues(alpha: 0.035),
-          colors.surfaceContainerHighest.withValues(alpha: 0.58),
-        ),
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.38),
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: colors.outlineVariant),
       ),
@@ -330,7 +319,6 @@ class _InsightContextMetric extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final tone = item.color ?? colors.primary;
     final motion = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.dialog,
@@ -340,7 +328,7 @@ class _InsightContextMetric extends StatelessWidget {
       children: [
         Padding(
           padding: const EdgeInsets.only(top: 2),
-          child: Icon(item.icon, size: 17, color: tone),
+          child: Icon(item.icon, size: 17, color: colors.onSurfaceVariant),
         ),
         const SizedBox(width: 7),
         Expanded(
@@ -377,7 +365,6 @@ class _InsightContextMetric extends StatelessWidget {
                   maxLines: 2,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodyMedium?.copyWith(
-                    color: item.color,
                     fontWeight: FontWeight.w800,
                   ),
                 ),

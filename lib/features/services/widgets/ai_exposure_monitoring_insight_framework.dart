@@ -12,6 +12,7 @@ void _showMetricInsight(
       title: selected.label,
       subtitle: '$title · 指标详情',
       color: selected.color,
+      showDataScope: selected.id == _MetricInsightId.overviewTaskTotal,
       child: _MetricInsightBody(selected: selected),
     ),
   );
@@ -77,6 +78,7 @@ class _OperationsInsightDialog extends StatelessWidget {
     required this.child,
     this.color,
     this.entity = false,
+    this.showDataScope = false,
   });
 
   final IconData icon;
@@ -85,6 +87,7 @@ class _OperationsInsightDialog extends StatelessWidget {
   final Widget child;
   final Color? color;
   final bool entity;
+  final bool showDataScope;
 
   @override
   Widget build(BuildContext context) {
@@ -159,7 +162,7 @@ class _OperationsInsightDialog extends StatelessWidget {
                 const SizedBox(height: 14),
                 Divider(height: 1, color: colors.outlineVariant),
                 const SizedBox(height: 14),
-                if (!entity) ...[
+                if (showDataScope) ...[
                   const _OperationsDataScopeBar(),
                   const SizedBox(height: 12),
                 ],
@@ -966,84 +969,106 @@ class _InsightKpiBand extends StatelessWidget {
     icon: icon,
     child: LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth >= 760
+        final maxColumns = constraints.maxWidth >= 760
             ? 4
             : constraints.maxWidth >= 500
             ? 2
             : 1;
+        if (items.isEmpty) return const SizedBox.shrink();
         const gap = 10.0;
-        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: items
-              .map(
-                (item) => SizedBox(
-                  width: width,
-                  child: ServiceInteractiveSurface(
-                    onTap: item.target == null
-                        ? null
-                        : () => _openInsightTarget(context, item.target!),
-                    tooltip: item.target == null ? null : '查看${item.label}详情',
-                    padding: EdgeInsets.zero,
-                    showDetailsIcon: item.target != null,
-                    child: Container(
-                      constraints: const BoxConstraints(minHeight: 108),
-                      padding: const EdgeInsets.all(12),
-                      decoration: BoxDecoration(
-                        color: item.color.withValues(alpha: 0.08),
-                        borderRadius: BorderRadius.circular(8),
-                        border: Border.all(
-                          color: item.color.withValues(alpha: 0.26),
+        final rows = <Widget>[];
+        final rowCount = (items.length / maxColumns).ceil();
+        var start = 0;
+        for (var row = 0; row < rowCount; row++) {
+          final remainingRows = rowCount - row;
+          final rowLength =
+              (items.length - start + remainingRows - 1) ~/ remainingRows;
+          final end = start + rowLength;
+          if (rows.isNotEmpty) rows.add(const SizedBox(height: gap));
+          rows.add(
+            Row(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                for (var index = start; index < end; index++) ...[
+                  if (index > start) const SizedBox(width: gap),
+                  Expanded(
+                    child: ServiceInteractiveSurface(
+                      onTap: items[index].target == null
+                          ? null
+                          : () => _openInsightTarget(
+                              context,
+                              items[index].target!,
+                            ),
+                      tooltip: items[index].target == null
+                          ? null
+                          : '查看${items[index].label}详情',
+                      padding: EdgeInsets.zero,
+                      showDetailsIcon: items[index].target != null,
+                      child: Container(
+                        constraints: const BoxConstraints(minHeight: 108),
+                        padding: const EdgeInsets.all(12),
+                        decoration: BoxDecoration(
+                          color: items[index].color.withValues(alpha: 0.08),
+                          borderRadius: BorderRadius.circular(8),
+                          border: Border.all(
+                            color: items[index].color.withValues(alpha: 0.26),
+                          ),
                         ),
-                      ),
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Row(
-                            children: [
-                              Icon(item.icon, size: 18, color: item.color),
-                              const SizedBox(width: 7),
-                              Expanded(
-                                child: Text(
-                                  item.label,
-                                  maxLines: 1,
-                                  overflow: TextOverflow.ellipsis,
-                                  style: Theme.of(
-                                    context,
-                                  ).textTheme.labelMedium,
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Icon(
+                                  items[index].icon,
+                                  size: 18,
+                                  color: items[index].color,
                                 ),
-                              ),
-                            ],
-                          ),
-                          const SizedBox(height: 10),
-                          Text(
-                            item.value,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.titleLarge
-                                ?.copyWith(fontWeight: FontWeight.w900),
-                          ),
-                          const SizedBox(height: 3),
-                          Text(
-                            item.helper,
-                            maxLines: 2,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodySmall
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
+                                const SizedBox(width: 7),
+                                Expanded(
+                                  child: Text(
+                                    items[index].label,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                    style: Theme.of(
+                                      context,
+                                    ).textTheme.labelMedium,
+                                  ),
                                 ),
-                          ),
-                        ],
+                              ],
+                            ),
+                            const SizedBox(height: 10),
+                            Text(
+                              items[index].value,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.titleLarge
+                                  ?.copyWith(fontWeight: FontWeight.w900),
+                            ),
+                            const SizedBox(height: 3),
+                            Text(
+                              items[index].helper,
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(
+                                    color: Theme.of(
+                                      context,
+                                    ).colorScheme.onSurfaceVariant,
+                                  ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                ),
-              )
-              .toList(growable: false),
-        );
+                ],
+              ],
+            ),
+          );
+          start = end;
+        }
+        return Column(children: rows);
       },
     ),
   );

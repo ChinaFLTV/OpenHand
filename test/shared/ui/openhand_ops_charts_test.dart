@@ -41,6 +41,25 @@ void main() {
     recorder.endRecording().dispose();
   });
 
+  test('圆环在矩形画布中保持居中的正圆', () async {
+    final recorder = PictureRecorder();
+    final canvas = Canvas(recorder);
+    const OpenHandDonutChartPainter(
+      values: [0],
+      colors: [orange],
+      trackColor: blue,
+    ).paint(canvas, const Size(200, 100));
+    final picture = recorder.endRecording();
+    final image = await picture.toImage(200, 100);
+    final bytes = await image.toByteData();
+    int alphaAt(int x, int y) => bytes!.getUint8((y * 200 + x) * 4 + 3);
+
+    expect(alphaAt(4, 50), 0);
+    expect(alphaAt(54, 50), greaterThan(0));
+    image.dispose();
+    picture.dispose();
+  });
+
   testWidgets('operational trend selects only an actual plotted point', (
     tester,
   ) async {
@@ -133,6 +152,34 @@ void main() {
     expect(semantics.label, '运维占比环图');
     expect(semantics.hasAction(SemanticsAction.increase), isTrue);
     handle.dispose();
+  });
+
+  testWidgets('交互圆环在矩形父布局中使用正方形画布', (tester) async {
+    await tester.pumpWidget(
+      const MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 360,
+            height: 180,
+            child: OpenHandOperationalDonutChart(
+              segments: [
+                OpenHandChartSegment(label: 'sample', value: 1, color: blue),
+              ],
+              trackColor: Colors.grey,
+              showLegend: false,
+              height: 180,
+              onSelectionChanged: null,
+            ),
+          ),
+        ),
+      ),
+    );
+
+    final paint = find.descendant(
+      of: find.byType(OpenHandOperationalDonutChart),
+      matching: find.byType(CustomPaint),
+    );
+    expect(tester.getSize(paint).aspectRatio, closeTo(1, 0.001));
   });
 
   testWidgets('generic components expose empty states', (tester) async {
