@@ -544,16 +544,22 @@ class _UsageWhere {
 
 int _int(Object? value) => switch (value) {
   int number => number,
-  num number => number.round(),
+  num number when number.isFinite => number.round(),
   _ => int.tryParse('$value') ?? 0,
 };
 
 int? _nullableInt(Object? value) => value == null ? null : _int(value);
 
 double _double(Object? value) => switch (value) {
-  num number => number.toDouble(),
-  _ => double.tryParse('$value') ?? 0,
+  num number when number.isFinite => number.toDouble(),
+  String text => _finiteUsageDouble(text),
+  _ => _finiteUsageDouble('$value'),
 };
+
+double _finiteUsageDouble(String value) {
+  final parsed = double.tryParse(value.trim());
+  return parsed != null && parsed.isFinite ? parsed : 0;
+}
 
 double? _nullableDouble(Object? value) => value == null ? null : _double(value);
 
