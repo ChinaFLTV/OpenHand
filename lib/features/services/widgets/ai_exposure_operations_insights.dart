@@ -1,5 +1,23 @@
 part of 'ai_exposure_monitoring_dialogs.dart';
 
+const double _kTaskLedgerFilterHeight = 56;
+const double _kTaskLedgerDesktopTableWidth = 1640;
+const Duration _kTaskLedgerPageMotionDuration = Duration(milliseconds: 180);
+const double _kTaskLedgerStatusWidth = 84;
+const double _kTaskLedgerCreatedWidth = 150;
+const double _kTaskLedgerStartedWidth = 150;
+const double _kTaskLedgerFinishedWidth = 150;
+const double _kTaskLedgerDurationWidth = 84;
+const double _kTaskLedgerNameWidth = 210;
+const double _kTaskLedgerIdWidth = 190;
+const double _kTaskLedgerModeWidth = 68;
+const double _kTaskLedgerSourceWidth = 130;
+const double _kTaskLedgerProgressWidth = 148;
+const double _kTaskLedgerCandidatesWidth = 72;
+const double _kTaskLedgerValidWidth = 64;
+const double _kTaskLedgerHighValueWidth = 72;
+const double _kTaskLedgerDetailsWidth = 56;
+
 enum AiExposureTaskLedgerSort {
   createdAt,
   finishedAt,
@@ -160,6 +178,7 @@ class AiExposureTaskLedger extends StatefulWidget {
 
 class _TaskLedgerState extends State<AiExposureTaskLedger> {
   final TextEditingController _search = TextEditingController();
+  final ScrollController _horizontalScroll = ScrollController();
   late String _status;
   String _mode = 'all';
   final Set<AiExposureSource> _sources = <AiExposureSource>{};
@@ -178,6 +197,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
   @override
   void dispose() {
     _search.dispose();
+    _horizontalScroll.dispose();
     super.dispose();
   }
 
@@ -231,45 +251,56 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
                     onOpenTask: widget.onOpenTask,
                   ),
                 )
-              else ...[
-                const _TaskLedgerHeader(),
-                const Divider(height: 1),
-                ...shown.map(
-                  (task) => _TaskLedgerDesktopRow(
-                    task: task,
-                    onOpenTask: widget.onOpenTask,
-                  ),
-                ),
-              ],
-              const SizedBox(height: 10),
-              Row(
-                children: [
-                  Expanded(
-                    child: Text(
-                      tasks.isEmpty
-                          ? '共 0 条'
-                          : '共 ${tasks.length} 条，当前显示 ${start + 1}-$end',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: Theme.of(context).colorScheme.onSurfaceVariant,
+              else
+                OpenHandSafeScrollbar(
+                  controller: _horizontalScroll,
+                  thumbVisibility: true,
+                  interactive: true,
+                  scrollbarOrientation: ScrollbarOrientation.bottom,
+                  child: SingleChildScrollView(
+                    controller: _horizontalScroll,
+                    scrollDirection: Axis.horizontal,
+                    physics: openHandDialogAwareScrollPhysics(context),
+                    child: Padding(
+                      padding: const EdgeInsets.only(bottom: 12),
+                      child: SizedBox(
+                        width: _kTaskLedgerDesktopTableWidth,
+                        child: Column(
+                          children: [
+                            const _TaskLedgerHeader(),
+                            const Divider(height: 1),
+                            ...shown.map(
+                              (task) => _TaskLedgerDesktopRow(
+                                task: task,
+                                onOpenTask: widget.onOpenTask,
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
                     ),
                   ),
-                  IconButton(
-                    tooltip: '上一页',
-                    onPressed: page <= 0
-                        ? null
-                        : () => setState(() => _page = page - 1),
-                    icon: const Icon(Icons.chevron_left_rounded),
-                  ),
-                  Text('${page + 1}/$pageCount'),
-                  IconButton(
-                    tooltip: '下一页',
-                    onPressed: page >= pageCount - 1
-                        ? null
-                        : () => setState(() => _page = page + 1),
-                    icon: const Icon(Icons.chevron_right_rounded),
-                  ),
-                ],
+                ),
+              const SizedBox(height: 10),
+              _TaskLedgerFooter(
+                compact: compact,
+                countLabel: tasks.isEmpty
+                    ? '共 0 条'
+                    : '共 ${tasks.length} 条，当前显示 ${start + 1}-$end',
+                page: page,
+                pageCount: pageCount,
+                descending: _descending,
+                onToggleDirection: () => setState(() {
+                  _descending = !_descending;
+                  _page = 0;
+                }),
+                onReset: _reset,
+                onPrevious: page <= 0
+                    ? null
+                    : () => setState(() => _page = page - 1),
+                onNext: page >= pageCount - 1
+                    ? null
+                    : () => setState(() => _page = page + 1),
               ),
             ],
           );
@@ -285,6 +316,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
   ) {
     final search = SizedBox(
       width: compact ? double.infinity : 260,
+      height: _kTaskLedgerFilterHeight,
       child: TextField(
         controller: _search,
         onChanged: (_) => setState(() => _page = 0),
@@ -366,19 +398,6 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
           _page = 0;
         }),
       ),
-      IconButton(
-        tooltip: _descending ? '当前降序，点击切换升序' : '当前升序，点击切换降序',
-        onPressed: () => setState(() {
-          _descending = !_descending;
-          _page = 0;
-        }),
-        icon: Icon(_descending ? Icons.south_rounded : Icons.north_rounded),
-      ),
-      IconButton(
-        tooltip: '重置筛选',
-        onPressed: _reset,
-        icon: const Icon(Icons.restart_alt_rounded),
-      ),
     ];
     if (compact) {
       return LayoutBuilder(
@@ -393,15 +412,10 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
                 spacing: 8,
                 runSpacing: 8,
                 children: controls
-                    .take(5)
                     .map(
                       (control) => SizedBox(width: filterWidth, child: control),
                     )
                     .toList(growable: false),
-              ),
-              Row(
-                mainAxisAlignment: MainAxisAlignment.end,
-                children: controls.skip(5).toList(growable: false),
               ),
             ],
           );
@@ -522,6 +536,7 @@ class _TaskLedgerSourceFilter extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox(
     width: width,
+    height: _kTaskLedgerFilterHeight,
     child: AnimatedPopupMenuButton<AiExposureSource>(
       tooltip: '按来源筛选',
       enabled: available.isNotEmpty,
@@ -617,6 +632,7 @@ class _TaskLedgerDropdown<T> extends StatelessWidget {
   @override
   Widget build(BuildContext context) => SizedBox(
     width: width,
+    height: _kTaskLedgerFilterHeight,
     child: AnimatedDropdownButtonFormField<T>(
       value: value,
       isExpanded: true,
@@ -644,24 +660,165 @@ class _TaskLedgerDropdown<T> extends StatelessWidget {
   );
 }
 
+class _TaskLedgerFooter extends StatelessWidget {
+  const _TaskLedgerFooter({
+    required this.compact,
+    required this.countLabel,
+    required this.page,
+    required this.pageCount,
+    required this.descending,
+    required this.onToggleDirection,
+    required this.onReset,
+    required this.onPrevious,
+    required this.onNext,
+  });
+
+  final bool compact;
+  final String countLabel;
+  final int page;
+  final int pageCount;
+  final bool descending;
+  final VoidCallback onToggleDirection;
+  final VoidCallback onReset;
+  final VoidCallback? onPrevious;
+  final VoidCallback? onNext;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final buttonStyle = IconButton.styleFrom(
+      fixedSize: const Size.square(40),
+      padding: EdgeInsets.zero,
+      backgroundColor: colors.surfaceContainerHighest,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+    );
+    final count = Text(
+      countLabel,
+      style: Theme.of(
+        context,
+      ).textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
+    );
+    final controls = Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        IconButton(
+          tooltip: descending ? '当前降序，点击切换升序' : '当前升序，点击切换降序',
+          onPressed: onToggleDirection,
+          style: buttonStyle,
+          icon: Icon(descending ? Icons.south_rounded : Icons.north_rounded),
+        ),
+        const SizedBox(width: 8),
+        IconButton(
+          tooltip: '重置筛选',
+          onPressed: onReset,
+          style: buttonStyle,
+          icon: const Icon(Icons.restart_alt_rounded),
+        ),
+        const SizedBox(width: 16),
+        SizedBox(
+          height: 24,
+          child: VerticalDivider(color: colors.outlineVariant),
+        ),
+        const SizedBox(width: 16),
+        IconButton(
+          tooltip: '上一页',
+          onPressed: onPrevious,
+          style: buttonStyle,
+          icon: const Icon(Icons.chevron_left_rounded),
+        ),
+        const SizedBox(width: 12),
+        SizedBox(
+          width: 52,
+          child: AnimatedSwitcher(
+            duration: openHandMotionDuration(
+              context,
+              _kTaskLedgerPageMotionDuration,
+            ),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            transitionBuilder: (child, animation) => FadeTransition(
+              opacity: animation,
+              child: ScaleTransition(
+                scale: Tween<double>(begin: 0.94, end: 1).animate(animation),
+                child: child,
+              ),
+            ),
+            child: Text(
+              '${page + 1}/$pageCount',
+              key: ValueKey<(int, int)>((page, pageCount)),
+              textAlign: TextAlign.center,
+              style: Theme.of(
+                context,
+              ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w700),
+            ),
+          ),
+        ),
+        const SizedBox(width: 12),
+        IconButton(
+          tooltip: '下一页',
+          onPressed: onNext,
+          style: buttonStyle,
+          icon: const Icon(Icons.chevron_right_rounded),
+        ),
+      ],
+    );
+    if (compact) {
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          count,
+          const SizedBox(height: 10),
+          Align(alignment: Alignment.centerRight, child: controls),
+        ],
+      );
+    }
+    return Row(
+      children: [
+        Expanded(child: count),
+        controls,
+      ],
+    );
+  }
+}
+
 class _TaskLedgerHeader extends StatelessWidget {
   const _TaskLedgerHeader();
 
   @override
   Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 6, vertical: 8),
-    child: Row(
-      children: [
-        _TaskLedgerCell(width: 72, child: Text('状态')),
-        _TaskLedgerCell(width: 190, child: Text('创建 / 结束 / 耗时')),
-        _TaskLedgerCell(flex: 2, child: Text('任务')),
-        _TaskLedgerCell(width: 54, child: Text('模式')),
-        _TaskLedgerCell(width: 104, child: Text('来源')),
-        _TaskLedgerCell(width: 116, child: Text('进度')),
-        _TaskLedgerCell(width: 48, child: Text('候选')),
-        _TaskLedgerCell(width: 48, child: Text('有效')),
-        _TaskLedgerCell(width: 54, child: Text('高价值')),
-      ],
+    padding: EdgeInsets.symmetric(horizontal: 6),
+    child: SizedBox(
+      height: 40,
+      child: Row(
+        children: [
+          _TaskLedgerCell(width: _kTaskLedgerStatusWidth, child: Text('状态')),
+          _TaskLedgerCell(width: _kTaskLedgerCreatedWidth, child: Text('创建时间')),
+          _TaskLedgerCell(width: _kTaskLedgerStartedWidth, child: Text('开始时间')),
+          _TaskLedgerCell(
+            width: _kTaskLedgerFinishedWidth,
+            child: Text('结束时间'),
+          ),
+          _TaskLedgerCell(width: _kTaskLedgerDurationWidth, child: Text('耗时')),
+          _TaskLedgerCell(width: _kTaskLedgerNameWidth, child: Text('任务名称')),
+          _TaskLedgerCell(width: _kTaskLedgerIdWidth, child: Text('任务 ID')),
+          _TaskLedgerCell(width: _kTaskLedgerModeWidth, child: Text('模式')),
+          _TaskLedgerCell(width: _kTaskLedgerSourceWidth, child: Text('来源')),
+          _TaskLedgerCell(
+            width: _kTaskLedgerProgressWidth,
+            child: Text('处理进度'),
+          ),
+          _TaskLedgerCell(
+            width: _kTaskLedgerCandidatesWidth,
+            child: Text('候选'),
+          ),
+          _TaskLedgerCell(width: _kTaskLedgerValidWidth, child: Text('有效')),
+          _TaskLedgerCell(
+            width: _kTaskLedgerHighValueWidth,
+            child: Text('高价值'),
+          ),
+          _TaskLedgerCell(width: _kTaskLedgerDetailsWidth, child: Text('详情')),
+        ],
+      ),
     ),
   );
 }
@@ -675,12 +832,15 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = _taskLedgerStatus(task);
+    final startedAt = task.startedAt ?? task.createdAt;
+    final finishedAt = task.finishedAt;
     final fraction = task.progress.total <= 0
         ? 0.0
         : (task.progress.processed / task.progress.total).clamp(0.0, 1.0);
     return ServiceInteractiveSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
       tooltip: '查看任务详情',
+      showDetailsIcon: false,
       onTap: () {
         final callback = onOpenTask;
         if (callback != null) {
@@ -689,86 +849,112 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
         }
         _openInsightTarget(context, _TaskInsightTarget(task));
       },
-      child: Row(
-        children: [
-          _TaskLedgerCell(
-            width: 72,
-            child: Row(
-              children: [
-                Icon(status.$1, size: 15, color: status.$3),
-                const SizedBox(width: 4),
-                Flexible(
-                  child: Text(status.$2, overflow: TextOverflow.ellipsis),
-                ),
-              ],
-            ),
-          ),
-          _TaskLedgerCell(
-            width: 190,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('创建 ${_taskLedgerDateTime(task.createdAt)}'),
-                Text(
-                  task.finishedAt == null
-                      ? '结束 运行中'
-                      : '结束 ${_taskLedgerDateTime(task.finishedAt!)}',
-                ),
-                Text('耗时 ${_taskLedgerDurationText(task)}'),
-              ],
-            ),
-          ),
-          _TaskLedgerCell(
-            flex: 2,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  task.name.trim().isEmpty ? task.id : task.name,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                ),
-                Text(
-                  task.id,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
+      child: SizedBox(
+        height: 56,
+        child: Row(
+          children: [
+            _TaskLedgerCell(
+              width: _kTaskLedgerStatusWidth,
+              child: Row(
+                children: [
+                  Icon(status.$1, size: 15, color: status.$3),
+                  const SizedBox(width: 4),
+                  Flexible(
+                    child: Text(status.$2, overflow: TextOverflow.ellipsis),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
-          ),
-          _TaskLedgerCell(
-            width: 54,
-            child: Text(task.mode == AiExposureScanMode.full ? '全量' : '增量'),
-          ),
-          _TaskLedgerCell(
-            width: 104,
-            child: Text(
-              _taskLedgerSources(task.sources),
-              maxLines: 2,
-              overflow: TextOverflow.ellipsis,
+            _TaskLedgerCell(
+              width: _kTaskLedgerCreatedWidth,
+              child: Text(
+                _taskLedgerDateTime(task.createdAt),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-          _TaskLedgerCell(
-            width: 116,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text('${task.progress.processed}/${task.progress.total}'),
-                const SizedBox(height: 4),
-                ServiceAnimatedProgressBar(value: fraction),
-              ],
+            _TaskLedgerCell(
+              width: _kTaskLedgerStartedWidth,
+              child: Text(
+                _taskLedgerDateTime(startedAt),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
-          ),
-          _TaskLedgerCell(
-            width: 48,
-            child: Text('${task.progress.candidates}'),
-          ),
-          _TaskLedgerCell(width: 48, child: Text('${task.progress.valid}')),
-          _TaskLedgerCell(width: 54, child: Text('${task.progress.highValue}')),
-        ],
+            _TaskLedgerCell(
+              width: _kTaskLedgerFinishedWidth,
+              child: Text(
+                finishedAt == null ? '运行中' : _taskLedgerDateTime(finishedAt),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerDurationWidth,
+              child: Text(_taskLedgerDurationText(task)),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerNameWidth,
+              child: Text(
+                task.name.trim().isEmpty ? task.id : task.name,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerIdWidth,
+              child: Text(
+                task.id,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerModeWidth,
+              child: Text(task.mode == AiExposureScanMode.full ? '全量' : '增量'),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerSourceWidth,
+              child: Text(
+                _taskLedgerSources(task.sources),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerProgressWidth,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text('${task.progress.processed}/${task.progress.total}'),
+                  const SizedBox(height: 4),
+                  ServiceAnimatedProgressBar(value: fraction),
+                ],
+              ),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerCandidatesWidth,
+              child: Text('${task.progress.candidates}'),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerValidWidth,
+              child: Text('${task.progress.valid}'),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerHighValueWidth,
+              child: Text('${task.progress.highValue}'),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerDetailsWidth,
+              child: Icon(
+                Icons.chevron_right_rounded,
+                size: 20,
+                color: Theme.of(context).colorScheme.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -850,10 +1036,9 @@ class _TaskLedgerCompactRow extends StatelessWidget {
 }
 
 class _TaskLedgerCell extends StatelessWidget {
-  const _TaskLedgerCell({this.width, this.flex = 0, required this.child});
+  const _TaskLedgerCell({required this.width, required this.child});
 
-  final double? width;
-  final int flex;
+  final double width;
   final Widget child;
 
   @override
@@ -865,9 +1050,7 @@ class _TaskLedgerCell extends StatelessWidget {
         child: child,
       ),
     );
-    return flex > 0
-        ? Expanded(flex: flex, child: content)
-        : SizedBox(width: width, child: content);
+    return SizedBox(width: width, child: content);
   }
 }
 
