@@ -13,12 +13,7 @@ const Duration kBufferedConsoleFollowDuration = Duration(milliseconds: 120);
 
 /// 把高频子进程输出按帧批量刷入 UI 的控制台日志宿主。
 ///
-/// npm / pip 这类工具链会在极短时间内刷出成百上千行；逐行 setState 会把 build
-/// 打满，安装弹窗随即掉帧。这里按一帧的节奏把待写行合并成一次重建，重建后再
-/// 跟随到底部。各安装弹窗此前各写了一份同样的缓冲 + 定时器 + 贴底逻辑。
-///
-/// 混入方只需实现 [consoleLogTag]，并在渲染时读取 [logLines]、把
-/// [logScrollController] 与 [logScrollGuard] 接到列表上。
+/// 按帧合并高频日志，避免逐行重建；刷新后自动跟随到底部。
 mixin BufferedConsoleLogHost<T extends StatefulWidget> on State<T> {
   /// 已落地、可直接渲染的日志行。
   final BoundedLogBuffer logLines = BoundedLogBuffer();

@@ -1,9 +1,4 @@
-/// 运维面板共用的两个图表画笔：平滑折线趋势图与占比环。
-///
-/// MCP 运维与消息网关运维此前各画了一份，连网格密度、顶部余量、贝塞尔平滑
-/// 这些魔数都一模一样，却又各自漂移出了差异：折线图有一份没有对零尺寸画布
-/// 做保护（布局塌缩时算出 NaN 坐标），占比环有一份没有对空调色板取模（抛
-/// 整数除零）。这里收敛为一份，两处保护都补齐，魔数改为具名常量。
+/// 运维面板共用的折线趋势图与占比环画笔。
 library;
 
 import 'dart:math' as math;
@@ -236,9 +231,6 @@ const double _kDonutSegmentGap = 0.018;
 const double _kDonutMinSweep = 0.03;
 
 /// 运维面板共用的占比环画笔。
-///
-/// MCP 运维与消息网关运维此前各写了一份；其中一份没有对空调色板取模，
-/// `index % colors.length` 会在 colors 为空时抛整数除零。
 class OpenHandDonutChartPainter extends CustomPainter {
   const OpenHandDonutChartPainter({
     required this.values,

@@ -1,9 +1,4 @@
-/// 深色控制台日志区共用的配色令牌、行着色规则与面板组件。
-///
-/// 插件服务与 MCP STDIO 的安装 / 运维弹窗此前各自内联了一份深色终端面板，
-/// 连「哪一行算失败」都有三套互不一致的判定（一处只认行首 `✗`、一处不上
-/// 成功色、一处另认方括号前缀），配色也全是散落的十六进制字面量。这里收敛
-/// 为一份规则与一组具名令牌。
+/// 深色控制台日志区共用的配色、行着色规则与面板组件。
 library;
 
 import 'package:flutter/material.dart';
@@ -155,9 +150,6 @@ const double _kTerminalCardFontSize = 13;
 const double _kTerminalCardLineHeight = 1.45;
 
 /// 终端风格的命令提示卡片：深色底 + 细描边 + 柔和投影 + 等宽正文。
-///
-/// MCP 运维与消息网关运维各写了一份完全相同的外壳，只有底色与圆角按各自面板
-/// 定；描边透明度、投影参数、正文排版这些则是逐字重复的。
 class OpenHandTerminalHintCard extends StatelessWidget {
   const OpenHandTerminalHintCard({
     super.key,

@@ -772,10 +772,6 @@ class _BuiltinToolTile extends StatelessWidget {
   }
 }
 
-// ─────────────────────────────────────────────────────────────────────────────
-// Builtin Tool Editor Dialog
-// ─────────────────────────────────────────────────────────────────────────────
-
 class _BuiltinToolEditorDialog extends StatefulWidget {
   const _BuiltinToolEditorDialog({
     required this.initial,
@@ -788,19 +784,14 @@ class _BuiltinToolEditorDialog extends StatefulWidget {
 
   final AiBuiltinToolConfig initial;
 
-  /// Default tool name from the built-in tool catalog (for hint / pre-fill).
   final String? defaultName;
 
-  /// Default tool description from the built-in tool catalog.
   final String? defaultDescription;
 
-  /// Default tool parameters schema from the built-in tool catalog.
   final Map<String, Object?>? defaultParameters;
 
-  /// Provider configs available to the WebSearch sub-agent model picker.
   final List<AiModelConfig> availableModels;
 
-  /// Recent model selections, fed into the model picker dialog.
   final List<RecentModelSelection> recentModelSelections;
 
   @override
@@ -972,7 +963,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // ── Header ──
               Row(
                 children: [
                   Icon(Icons.build_circle_outlined, color: colorScheme.primary),
@@ -993,13 +983,11 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
               ),
               const SizedBox(height: 16),
 
-              // ── Body (scrollable) ──
               Flexible(
                 child: SingleChildScrollView(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      // Enabled toggle
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
                         title: Text(l10n.builtinToolEnableTitle),
@@ -1014,7 +1002,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       ),
                       const SizedBox(height: 14),
 
-                      // Display name
                       TextField(
                         controller: _displayNameController,
                         decoration: InputDecoration(
@@ -1025,7 +1012,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       ),
                       const SizedBox(height: 14),
 
-                      // Summary
                       TextField(
                         controller: _summaryController,
                         decoration: InputDecoration(
@@ -1036,7 +1022,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       ),
                       const SizedBox(height: 14),
 
-                      // Prompt override
                       TextField(
                         controller: _promptOverrideController,
                         decoration: InputDecoration(
@@ -1048,7 +1033,6 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                       ),
                       const SizedBox(height: 14),
 
-                      // Schema override
                       TextField(
                         controller: _schemaOverrideController,
                         decoration: InputDecoration(

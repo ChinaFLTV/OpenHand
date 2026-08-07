@@ -79,7 +79,7 @@ class AiReadLintsTool extends AiTool {
     List<String> paths, {
     String? toolCallId,
   }) async {
-    // Determine whether to use flutter analyze or dart analyze
+    // 根据项目类型选择分析器。
     final pubspecPath = p.join(workingDirectory, 'pubspec.yaml');
     final usesFlutter =
         await isRegularFilePath(pubspecPath, followLinks: true) &&
@@ -91,7 +91,7 @@ class AiReadLintsTool extends AiTool {
       if (usesFlutter) '--no-fatal-infos',
     ];
 
-    // If specific paths given, analyze those; otherwise analyze from root
+    // 未指定路径时分析项目根目录。
     if (paths.isNotEmpty) {
       for (final path in paths) {
         analyzeArgs.add(_resolveAnalyzePath(path, workingDirectory));

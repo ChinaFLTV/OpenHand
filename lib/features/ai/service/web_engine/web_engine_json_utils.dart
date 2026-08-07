@@ -1,9 +1,3 @@
-/// WebSearch / WebFetch 引擎适配器共用的 JSON 解析帮手。
-///
-/// 这里只放与具体引擎无关的、纯 stateless 的工具函数；和领域模型耦合的逻辑
-/// 仍保留在各自包内（`web_search/`、`web_fetch/`）。
-library;
-
 import 'dart:convert';
 
 import '../../../../shared/util/bounded_json_conversion.dart';
@@ -47,10 +41,6 @@ Map<String, Object?> decodeJsonObjectBytes(
 /// 替换为 0，并截断循环引用或超限容器。
 Map<String, Object?> jsonSafeMap(Map<Object?, Object?> value) {
   return convertToJsonSafeMap(value, config: _webEngineJsonConversionConfig);
-}
-
-Object? jsonSafeValue(Object? value) {
-  return convertToJsonSafeValue(value, config: _webEngineJsonConversionConfig);
 }
 
 /// 把任意 Map 解码成嵌套 Map / List 安全版本。

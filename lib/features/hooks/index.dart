@@ -1,6 +1,4 @@
-// Re-export the cross-feature domain models so external callers need only one
-// import for the hooks feature. HookEntry/HookEvent currently live in
-// `app/model/` because they predate the feature-first reorg.
+// 统一导出 Hook 领域模型，调用方只需依赖本模块入口。
 export '../../app/model/hook_config.dart' show HookEntry, HookEvent;
 
 export 'hooks_controller.dart';

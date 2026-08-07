@@ -11434,7 +11434,6 @@ class _ProbeTrendPainter extends CustomPainter {
       }
     }
 
-    // Fill area under healthy segments.
     final linePaint = Paint()
       ..color = lineColor
       ..strokeWidth = 1.6
@@ -11475,7 +11474,6 @@ class _ProbeTrendPainter extends CustomPainter {
     if (currentLine != null) {
       canvas.drawPath(currentLine, linePaint);
       if (currentFill != null && lineStart != null) {
-        // Find last non-null x in the trailing segment.
         Offset? lastPoint;
         for (var i = points.length - 1; i >= 0; i--) {
           if (points[i] != null) {
@@ -11492,7 +11490,6 @@ class _ProbeTrendPainter extends CustomPainter {
       }
     }
 
-    // Draw status dots.
     final healthyDotPaint = Paint()..color = healthyColor;
     final failedDotPaint = Paint()..color = failedColor;
     for (var i = 0; i < n; i++) {

@@ -6,13 +6,13 @@ class _HeReviewVerdictInfo {
   final String comment;
 }
 
-/// Parses a userInput segment to detect PASS/FAIL verdict lines.
+/// 从用户输入片段中解析 PASS/FAIL 结论。
 _HeReviewVerdictInfo? _parseReviewVerdict(_HeOutputSegment seg) {
   if (seg.kind != _HeSegmentKind.userInput) return null;
   final lines = seg.lines;
   if (lines.isEmpty) return null;
 
-  // Look at the first non-empty line for PASS/FAIL.
+  // 仅首个非空行可作为结论。
   bool? isPass;
   int verdictLineIndex = -1;
   for (var i = 0; i < lines.length; i++) {
@@ -28,12 +28,10 @@ _HeReviewVerdictInfo? _parseReviewVerdict(_HeOutputSegment seg) {
       verdictLineIndex = i;
       break;
     }
-    // First non-empty line is not PASS/FAIL — not a verdict segment.
     break;
   }
   if (isPass == null) return null;
 
-  // Collect remaining content as comment.
   final commentLines = <String>[];
   for (var i = verdictLineIndex + 1; i < lines.length; i++) {
     commentLines.add(lines[i]);
@@ -42,7 +40,6 @@ _HeReviewVerdictInfo? _parseReviewVerdict(_HeOutputSegment seg) {
   return _HeReviewVerdictInfo(isPass: isPass, comment: comment);
 }
 
-// _HeReviewVerdictCard — styled card for manual review verdict
 class _HeReviewVerdictCard extends StatelessWidget {
   const _HeReviewVerdictCard({
     required this.isPass,

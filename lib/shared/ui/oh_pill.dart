@@ -7,14 +7,7 @@ const BorderRadius kOpenHandPillBorderRadius = BorderRadius.all(
   kOpenHandPillRadius,
 );
 
-/// 通用的 32px 高、圆角药丸状 chip：左侧小图标 + 右侧文本，可选 onTap。
-///
-/// 设计来自 harness session header 的 `_HePill`，这里抽到 shared 让
-/// settings / mcp 等其他面板也能复用同一视觉。
-///
-/// - [foregroundColor] 同时控制图标颜色和文本颜色（默认 primary）；传入
-///   `null` 时文本回落到 `onSurface`，图标始终用 [foregroundColor] ?? primary。
-/// - [onTap] 非空时整体可点击，套一层 InkWell + 8% primary overlay。
+/// 左侧图标、右侧文本的通用胶囊。
 class OhPill extends StatelessWidget {
   const OhPill({
     super.key,
@@ -75,9 +68,6 @@ class OhPill extends StatelessWidget {
 }
 
 /// 行内计量胶囊：高对比容器底上的一行次级小字，用于超时、条数这类数值标注。
-///
-/// Hooks 与定时任务列表此前各内联一份逐字相同的实现。这是个视觉 token，散着
-/// 写迟早分叉——两处并排出现在同类列表里，看起来必须是一回事。
 class OpenHandMetricChip extends StatelessWidget {
   const OpenHandMetricChip({super.key, required this.label, this.tooltip});
 
@@ -110,8 +100,6 @@ class OpenHandMetricChip extends StatelessWidget {
 }
 
 /// 列表行尾的「编辑 + 删除」按钮对。
-///
-/// 命令规则与沙箱规则两处列表各写了一份，连 tooltip 取的 l10n 键都一样。
 class OpenHandRowEditDeleteActions extends StatelessWidget {
   const OpenHandRowEditDeleteActions({
     super.key,
@@ -146,11 +134,7 @@ class OpenHandRowEditDeleteActions extends StatelessWidget {
   }
 }
 
-/// 工具执行状态胶囊：小图标 + 标签，图标随状态变化做morph 切换。
-///
-/// 主会话工具卡与 Harness 面板此前各写了一份。两份还不一样：主会话那份已经
-/// 修过「长文案撑爆 chip 触发 RenderFlex 溢出」和「图标硬切」两个问题，Harness
-/// 那份没有——同一个视觉元素，一边修过一边没修，正是分散写法的典型代价。
+/// 工具执行状态胶囊；图标随状态平滑切换。
 class OpenHandToolChip extends StatelessWidget {
   const OpenHandToolChip({super.key, required this.icon, required this.label});
 

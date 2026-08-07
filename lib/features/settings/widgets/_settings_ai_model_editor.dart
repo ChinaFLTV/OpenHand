@@ -1455,18 +1455,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               ),
                             ),
                             const SizedBox(height: 12),
-                            // Available models chip list
                             if (_filteredVisibleModelIds.isNotEmpty)
                               ConstrainedBox(
                                 constraints: const BoxConstraints(
                                   maxHeight: 200,
                                 ),
                                 child: RepaintBoundary(
-                                  // Swallow overscroll notifications from this
-                                  // inner scroll area so they cannot bubble up
-                                  // and re-trigger the outer SingleChildScrollView,
-                                  // which would cause both scrollables to
-                                  // jitter against each other.
+                                  // 拦截内层越界通知，避免外层滚动区域同步抖动。
                                   child: NotificationListener<OverscrollNotification>(
                                     onNotification: (_) => true,
                                     child: OpenHandSafeScrollbar(
@@ -1535,7 +1530,6 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 dense: true,
                               ),
                             const SizedBox(height: 12),
-                            // Manual model ID input
                             Row(
                               children: [
                                 Expanded(
@@ -3184,12 +3178,10 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     _initializeOneMillionContextState();
   }
 
-  /// Infer modalities from protocol type + model ID patterns.
+  /// 根据协议和模型标识推断输入模态。
   Set<AiModelModality> _inferModalities() {
-    // All models support text.
     final result = <AiModelModality>{AiModelModality.text};
-    // Check if this model is likely to support image input (vision).
-    // Build a temporary AiModelConfig to query the adapter registry.
+    // 构造最小配置，通过适配器注册表判断图片输入能力。
     final probeConfig = AiModelConfig(
       id: '',
       baseUrl: '',
@@ -3204,7 +3196,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
     return result;
   }
 
-  /// Infer generation capabilities from protocol-level rules.
+  /// 根据协议规则推断生成能力。
   Set<AiModelCapability> _inferCapabilities() {
     final result = <AiModelCapability>{};
     if (AiImageGenerationService.supportsImageGeneration(widget.protocolType)) {
@@ -5131,7 +5123,6 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               ),
               const SizedBox(height: 16),
 
-              // Supported modalities
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdSupportedModalities,
               ),

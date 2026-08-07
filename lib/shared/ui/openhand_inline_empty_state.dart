@@ -1,13 +1,6 @@
 import 'package:flutter/material.dart';
 
-/// 面板内的空态提示：居中一行次级说明。
-///
-/// 全库有 69 处各写一遍：字号在 bodySmall / bodyMedium / bodyLarge 之间摇摆，
-/// 内边距从 12 到 32 都有，一半干脆没有。同样是「这里没有内容」，在不同面板里
-/// 却是不同的字号和留白，看起来不像同一个应用。
-///
-/// 与 [FeatureStateCard] 的分工：那个是页面级空态（图标 + 标题 + 说明 + 操作），
-/// 分量重；这里是面板内、卡片内的轻量提示，只有一行字。
+/// 面板或卡片内的轻量空态提示。
 class OpenHandInlineEmptyState extends StatelessWidget {
   const OpenHandInlineEmptyState({
     super.key,
@@ -19,7 +12,7 @@ class OpenHandInlineEmptyState extends StatelessWidget {
 
   final String message;
 
-  /// 可选前导图标。原先几处各自用 36 / 48 的尺寸与 8 / 10 的间距，统一到一档。
+  /// 可选前导图标。
   final IconData? icon;
 
   /// 紧凑档：用于卡片内、侧栏这类空间本就局促的位置。

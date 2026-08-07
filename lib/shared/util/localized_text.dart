@@ -3,9 +3,6 @@ import 'dart:ui' show PlatformDispatcher;
 import 'package:flutter/widgets.dart';
 
 /// 组件内按语言选择文本的唯一入口。
-///
-/// 旧代码曾在各功能模块重复实现 `_localizedText`，且中文判断规则不一致。
-/// 此处统一处理 `zh-Hans`、`zh_CN` 及大小写变体。
 
 Locale? _ambientLocaleOverride;
 
@@ -403,9 +400,6 @@ _openHandInlineTextCatalog = <String, Map<String, String>>{
 // ─────────────────────────────────────────────────────────────────────────────
 // 跨模块通用文案
 //
-// 下列标签原先在三个及以上的 feature 里各写了一份多语言字面量（合计逾百个
-// 调用点）：改一处措辞就得全库同步，漏改就是同一个动作在不同面板叫不同名字。
-// 收敛到这里后只剩一个改动点。
 // ─────────────────────────────────────────────────────────────────────────────
 
 String openHandAddLabel(BuildContext context) {

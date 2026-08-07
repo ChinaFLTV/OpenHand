@@ -5,11 +5,7 @@ import 'animated_dialog.dart';
 import 'motion_preference.dart';
 import 'openhand_dialog_action_button.dart';
 
-/// A single selectable choice displayed to the user.
-///
-/// - [value]: machine-readable identifier returned via [ChoiceInputResult.value].
-/// - [label]: short primary text rendered on the radio tile.
-/// - [description]: optional secondary helper text shown beneath the label.
+/// 单个可选项。
 class ChoiceInputOption {
   const ChoiceInputOption({
     required this.value,
@@ -22,13 +18,7 @@ class ChoiceInputOption {
   final String? description;
 }
 
-/// Result returned from the choice-input dialog.
-///
-/// Exactly one of [selectedOption] or [customInput] is set:
-/// - [selectedOption] — the user picked one of the predefined options
-///   (its [ChoiceInputOption.value] is returned directly as [value]).
-/// - [customInput] — the user chose the "custom" radio and typed free text;
-///   the trimmed text is returned as [value].
+/// 选择结果；[selectedOption] 与 [customInput] 仅有一个非空。
 class ChoiceInputResult {
   const ChoiceInputResult._({
     required this.value,
@@ -42,7 +32,7 @@ class ChoiceInputResult {
   factory ChoiceInputResult.custom(String text) =>
       ChoiceInputResult._(value: text, customInput: text);
 
-  /// Either the selected option's value or the trimmed custom input.
+  /// 选项值或去除首尾空白后的自定义输入。
   final String value;
 
   final ChoiceInputOption? selectedOption;
@@ -51,12 +41,9 @@ class ChoiceInputResult {
   bool get isCustom => customInput != null;
 }
 
-/// Shows a modal "single-select with optional free-form answer" dialog.
+/// 显示支持自定义输入的单选弹窗；关闭时返回 null。
 ///
-/// Uses [showAnimatedDialog] so the entrance/exit animations honor the
-/// global `Settings → 弹窗动画` configuration automatically.
-///
-/// Returns `null` if the user dismisses the dialog (tap outside / Esc / cancel).
+/// 进退场动画由 [showAnimatedDialog] 统一读取全局设置。
 Future<ChoiceInputResult?> showChoiceInputDialog({
   required BuildContext context,
   required String title,
@@ -224,9 +211,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
         ? const Duration(milliseconds: 220)
         : Duration.zero;
 
-    // `MediaQuery.sizeOf` only depends on the `size` aspect, so this dialog
-    // does not rebuild on unrelated MediaQuery changes (text scale, viewInsets,
-    // padding, etc.).
+    // 仅订阅尺寸变化，避免其他 MediaQuery 字段触发弹窗重建。
     final mediaSize = MediaQuery.sizeOf(context);
     final maxDialogWidth = mediaSize.width.clamp(280.0, 560.0);
     final maxContentHeight = mediaSize.height * 0.7;

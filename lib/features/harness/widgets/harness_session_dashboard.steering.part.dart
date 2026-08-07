@@ -1089,7 +1089,6 @@ class _HeSteeringFileEditorDialogState
         scrollDirection: Axis.horizontal,
         child: Row(
           children: [
-            // Headings
             _MdToolbarBtn(
               label: 'H₁',
               tooltip: openHandHeading1Label(context),
@@ -1106,7 +1105,6 @@ class _HeSteeringFileEditorDialogState
               onTap: () => _applyHeading(3),
             ),
             sep,
-            // Inline styles
             _MdToolbarBtn(
               icon: Icons.format_bold,
               tooltip: openHandLocalizedText(

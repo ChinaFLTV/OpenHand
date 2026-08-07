@@ -126,6 +126,13 @@ struct JobRuntime {
     events: broadcast::Sender<EngineEvent>,
 }
 
+struct StructuredLogMetadata<'a> {
+    module: &'a str,
+    event_code: Option<&'a str>,
+    exception_type: Option<&'a str>,
+    stack_summary: Option<&'a str>,
+}
+
 #[derive(Clone, Debug, Serialize)]
 #[serde(tag = "type", rename_all = "snake_case")]
 pub enum EngineEvent {
@@ -2891,10 +2898,12 @@ impl HuntEngine {
                 &runtime,
                 EventLevel::Error,
                 &message,
-                "scan_engine",
-                Some("scan_failed"),
-                Some("scan_engine_error"),
-                Some(&stack_summary),
+                StructuredLogMetadata {
+                    module: "scan_engine",
+                    event_code: Some("scan_failed"),
+                    exception_type: Some("scan_engine_error"),
+                    stack_summary: Some(&stack_summary),
+                },
             )
             .await;
         let _ = self.store.set_job_error(id, message).await;
@@ -2906,8 +2915,18 @@ impl HuntEngine {
         level: EventLevel,
         message: &str,
     ) -> Result<(), hunt_store::StoreError> {
-        self.emit_structured_log(runtime, level, message, "scan_engine", None, None, None)
-            .await
+        self.emit_structured_log(
+            runtime,
+            level,
+            message,
+            StructuredLogMetadata {
+                module: "scan_engine",
+                event_code: None,
+                exception_type: None,
+                stack_summary: None,
+            },
+        )
+        .await
     }
 
     async fn emit_structured_log(
@@ -2915,10 +2934,7 @@ impl HuntEngine {
         runtime: &JobRuntime,
         level: EventLevel,
         message: &str,
-        module: &str,
-        event_code: Option<&str>,
-        exception_type: Option<&str>,
-        stack_summary: Option<&str>,
+        metadata: StructuredLogMetadata<'_>,
     ) -> Result<(), hunt_store::StoreError> {
         let id = Uuid::new_v4();
         let at = Utc::now();
@@ -2927,8 +2943,8 @@ impl HuntEngine {
             level,
             message: message.to_owned(),
             at,
-            module: module.to_owned(),
-            event_code: event_code.map(str::to_owned),
+            module: metadata.module.to_owned(),
+            event_code: metadata.event_code.map(str::to_owned),
         });
         self.store
             .insert_log(&ScanLogEntry {
@@ -2937,11 +2953,11 @@ impl HuntEngine {
                 level: event_level_name(level).to_owned(),
                 message: message.to_owned(),
                 at,
-                module: Some(module.to_owned()),
-                event_code: event_code.map(str::to_owned),
+                module: Some(metadata.module.to_owned()),
+                event_code: metadata.event_code.map(str::to_owned),
                 trace_id: Some(runtime.job_id.to_string()),
-                exception_type: exception_type.map(str::to_owned),
-                stack_summary: stack_summary.map(str::to_owned),
+                exception_type: metadata.exception_type.map(str::to_owned),
+                stack_summary: metadata.stack_summary.map(str::to_owned),
                 metadata: BTreeMap::new(),
             })
             .await
@@ -3002,10 +3018,12 @@ async fn set_stage(
             runtime,
             EventLevel::Info,
             message,
-            "pipeline",
-            Some(stage_event_code(stage)),
-            None,
-            None,
+            StructuredLogMetadata {
+                module: "pipeline",
+                event_code: Some(stage_event_code(stage)),
+                exception_type: None,
+                stack_summary: None,
+            },
         )
         .await?;
     Ok(())
