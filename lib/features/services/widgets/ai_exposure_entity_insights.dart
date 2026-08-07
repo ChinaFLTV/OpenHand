@@ -1,5 +1,1133 @@
 part of 'ai_exposure_monitoring_dialogs.dart';
 
+void _showRulesForEncoding(
+  BuildContext context, {
+  required AiExposureContentEncoding encoding,
+  required Iterable<AiExposureScanRule> rules,
+}) {
+  final records = rules
+      .map(
+        (rule) => _InsightRecord(
+          icon: Icons.rule_rounded,
+          title: rule.vendor.trim().isEmpty ? rule.id : rule.vendor,
+          subtitle: rule.protocol.trim().isEmpty ? rule.id : rule.protocol,
+          tags: [
+            encoding.id,
+            '凭证模式 ${rule.credentialPatterns.length}',
+            '上下文词 ${rule.contextTerms.length}',
+          ],
+          color: OpenHandStatusColors.success,
+          target: _RuleInsightTarget(rule),
+        ),
+      )
+      .toList(growable: false);
+  showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _OperationsInsightDialog(
+      icon: Icons.code_rounded,
+      title: '${encoding.id} 编码规则',
+      subtitle: '当前启用规则中的真实编码覆盖',
+      entity: true,
+      child: _InsightRecordPanel(
+        icon: Icons.rule_folder_outlined,
+        title: '${encoding.id} · ${records.length} 条规则',
+        records: records,
+        emptyLabel: '当前没有启用该编码的规则。',
+      ),
+    ),
+  );
+}
+
+void _showProxyRegionInsight(
+  BuildContext context, {
+  required String country,
+  required Iterable<AiExposureProxyEndpoint> endpoints,
+}) {
+  final records = endpoints
+      .map(
+        (endpoint) => _InsightRecord(
+          icon: Icons.public_rounded,
+          title: endpoint.displayName,
+          subtitle: endpoint.maskedUrl,
+          tags: [
+            endpoint.identity?.exitIp ?? '出口 IP 未识别',
+            endpoint.identity?.location ?? country,
+            endpoint.enabled ? '已启用' : '未启用',
+          ],
+          color: endpoint.latestSample?.reachable == true
+              ? OpenHandStatusColors.success
+              : endpoint.latestSample?.reachable == false
+              ? OpenHandStatusColors.error
+              : Theme.of(context).colorScheme.outline,
+          target: _ProxyEndpointInsightTarget(endpoint),
+        ),
+      )
+      .toList(growable: false);
+  showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _OperationsInsightDialog(
+      icon: Icons.public_rounded,
+      title: '$country 出口节点',
+      subtitle: '已完成出口识别的当前代理配置',
+      entity: true,
+      child: _InsightRecordPanel(
+        icon: Icons.dns_outlined,
+        title: '$country · ${records.length} 个节点',
+        records: records,
+        emptyLabel: '当前配置中没有该地域的具体代理节点。',
+      ),
+    ),
+  );
+}
+
+void _showTaskEntityInsight(BuildContext context, AiExposureHistoryEntry task) {
+  showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _OperationsInsightDialog(
+      icon: _stageIcon(task.stage),
+      title: task.name.trim().isEmpty ? task.id : task.name,
+      subtitle: '任务运行、产出与归档详情',
+      entity: true,
+      child: _TaskEntityInsightBody(taskId: task.id),
+    ),
+  );
+}
+
+void _showSourceEntityInsight(BuildContext context, AiExposureSource source) {
+  showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _OperationsInsightDialog(
+      icon: _sourceIcon(source),
+      title: _sourceName(source),
+      subtitle: '来源配置、配额与真实产出',
+      entity: true,
+      child: _SourceEntityInsightBody(source: source),
+    ),
+  );
+}
+
+void _showProxyEndpointEntityInsight(
+  BuildContext context,
+  AiExposureProxyEndpoint endpoint,
+) {
+  showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => _OperationsInsightDialog(
+      icon: Icons.dns_outlined,
+      title: endpoint.displayName,
+      subtitle: '代理节点健康与请求遥测',
+      entity: true,
+      child: _ProxyEndpointEntityInsightBody(endpointId: endpoint.runtimeId),
+    ),
+  );
+}
+
+class _TaskEntityInsightBody extends StatelessWidget {
+  const _TaskEntityInsightBody({required this.taskId});
+
+  final String taskId;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<ServicesController>();
+    final task = controller.history
+        .where((entry) => entry.id == taskId)
+        .firstOrNull;
+    if (task == null) return const _InsightEmpty(label: '该任务已不在当前历史记录中。');
+    final colors = Theme.of(context).colorScheme;
+    final duration = _taskDurationMs(task);
+    final finishedAt = task.effectiveFinishedAt;
+    final recordedStartedAt =
+        task.startedAt ??
+        task.stageTimings
+            .where((timing) => timing.stage != 'queued')
+            .map((timing) => timing.startedAt)
+            .whereType<DateTime>()
+            .firstOrNull;
+    final startedLabel = recordedStartedAt == null
+        ? task.stage == 'queued'
+              ? '尚未开始'
+              : '${task.createdAt.toLocal().toIso8601String()}（历史记录按创建时间回溯）'
+        : recordedStartedAt.toLocal().toIso8601String();
+    final results = controller.results
+        .where((result) => result.jobId == task.id)
+        .toList(growable: false);
+    final highValueResults = results
+        .where(
+          (result) => result.category == AiExposureResultCategory.highValue,
+        )
+        .toList(growable: false);
+    final logs =
+        controller.logs
+            .where((entry) => entry.jobId == task.id)
+            .toList(growable: false)
+          ..sort((left, right) => right.at.compareTo(left.at));
+    const lifecycleStages = <String>[
+      'queued',
+      'discovering',
+      'normalizing',
+      'fingerprinting',
+      'extracting',
+      'validating',
+      'persisting',
+      'completed',
+    ];
+    final stages = <String>[
+      ...lifecycleStages,
+      if (task.stage == 'cancelled') 'cancelled',
+      if (task.stage == 'failed') 'failed',
+    ];
+    final activeIndex = stages.indexOf(task.stage);
+    return _metricInsightPage([
+      _InsightKpiBand(
+        title: '任务处理快照',
+        icon: Icons.radar_rounded,
+        items: [
+          _InsightKpi(
+            icon: Icons.radar_rounded,
+            label: '已处理',
+            value: '${task.progress.processed}',
+            helper: '总量 ${task.progress.total}',
+            color: colors.primary,
+          ),
+          _InsightKpi(
+            icon: Icons.filter_alt_outlined,
+            label: '候选',
+            value: '${task.progress.candidates}',
+            helper:
+                '候选率 ${_chartRate(task.progress.candidates, task.progress.processed)}',
+            color: OpenHandStatusColors.info,
+          ),
+          _InsightKpi(
+            icon: Icons.fact_check_outlined,
+            label: '有效',
+            value: '${task.progress.valid}',
+            helper: '已归档结果 ${results.length}',
+            color: OpenHandStatusColors.success,
+          ),
+          _InsightKpi(
+            icon: Icons.workspace_premium_outlined,
+            label: '高价值',
+            value: '${task.progress.highValue}',
+            helper:
+                '占有效 ${_chartRate(task.progress.highValue, task.progress.valid)}',
+            color: colors.secondary,
+            target: highValueResults.length == 1
+                ? _ResultInsightTarget(highValueResults.single)
+                : null,
+          ),
+        ],
+      ),
+      _Section(
+        title: '任务定义与运行状态',
+        icon: Icons.settings_outlined,
+        child: _OpsKeyValueGrid(
+          children: [
+            _OpsKeyValue(label: '任务 ID', value: task.id),
+            _OpsKeyValue(label: '当前阶段', value: _stageName(task.stage)),
+            _OpsKeyValue(
+              label: '扫描模式',
+              value: task.mode == AiExposureScanMode.full ? '全量扫描' : '增量扫描',
+            ),
+            _OpsKeyValue(
+              label: '数据来源',
+              value: task.sources.isEmpty
+                  ? '历史记录缺少来源'
+                  : task.sources.map(_sourceName).join(' / '),
+            ),
+            _OpsKeyValue(
+              label: '授权范围',
+              value: task.authorizedScope.isEmpty
+                  ? task.mode == AiExposureScanMode.full
+                        ? '公开来源全量范围'
+                        : '未设置授权域'
+                  : task.authorizedScope.join(' / '),
+              maxLines: 4,
+            ),
+            _OpsKeyValue(label: '创建时间', value: _shortDateTime(task.createdAt)),
+            _OpsKeyValue(label: '开始时间', value: startedLabel, maxLines: 3),
+            _OpsKeyValue(
+              label: '最近更新',
+              value: task.progress.updatedAt.toLocal().toIso8601String(),
+            ),
+            _OpsKeyValue(
+              label: '完成时间',
+              value: finishedAt == null ? '未结束' : _shortDateTime(finishedAt),
+            ),
+            _OpsKeyValue(
+              label: '任务耗时',
+              value: duration == null
+                  ? finishedAt == null
+                        ? '执行中'
+                        : '时间边界异常'
+                  : '$duration ms',
+            ),
+            _OpsKeyValue(
+              label: '恢复能力',
+              value: task.isResumable ? '可恢复' : '无需恢复',
+            ),
+            _OpsKeyValue(
+              label: '任务并发',
+              value: task.concurrency == null
+                  ? '旧版任务未记录'
+                  : '${task.concurrency}',
+            ),
+            _OpsKeyValue(
+              label: '验证模式',
+              value: switch (task.validationMode) {
+                AiExposureValidationMode.passive => '被动验证',
+                AiExposureValidationMode.authorizedActive => '授权主动验证',
+                null => '旧版任务未记录',
+              },
+            ),
+            _OpsKeyValue(
+              label: '论坛抓取模式',
+              value: switch (task.forumFetchMode) {
+                AiExposureForumFetchMode.jinaFallback => 'Jina 回退',
+                AiExposureForumFetchMode.playwright => 'Playwright',
+                null => '旧版任务未记录',
+              },
+            ),
+            _OpsKeyValue(
+              label: 'GPT 辅助',
+              value: task.gptAssisted == null
+                  ? '旧版任务未记录'
+                  : task.gptAssisted!
+                  ? '已启用'
+                  : '未启用',
+            ),
+          ],
+        ),
+      ),
+      _InsightFunnelSection(
+        title: '处理转化漏斗',
+        icon: Icons.filter_alt_outlined,
+        items: [
+          _InsightFunnelItem(
+            label: '发现',
+            value: task.progress.discovered,
+            color: colors.primary,
+          ),
+          _InsightFunnelItem(
+            label: '处理',
+            value: task.progress.processed,
+            color: OpenHandStatusColors.info,
+          ),
+          _InsightFunnelItem(
+            label: '候选',
+            value: task.progress.candidates,
+            color: colors.tertiary,
+          ),
+          _InsightFunnelItem(
+            label: '有效',
+            value: task.progress.valid,
+            color: OpenHandStatusColors.success,
+          ),
+          _InsightFunnelItem(
+            label: '高价值',
+            value: task.progress.highValue,
+            color: colors.secondary,
+            target: highValueResults.length == 1
+                ? _ResultInsightTarget(highValueResults.single)
+                : null,
+          ),
+        ],
+      ),
+      _TaskStageGanttSection(task: task),
+      _Section(
+        title: task.stageTimings.isEmpty ? '阶段时间线 · 历史任务无阶段切片' : '阶段时间线',
+        icon: Icons.account_tree_outlined,
+        child: Column(
+          children: stages.indexed
+              .map(
+                (entry) => _StageRow(
+                  stage: entry.$2,
+                  taskId: task.id,
+                  timing: task.stageTimings
+                      .where((timing) => timing.stage == entry.$2)
+                      .firstOrNull,
+                  completed:
+                      task.stage == 'completed' ||
+                      activeIndex >= 0 && entry.$1 < activeIndex,
+                  active: entry.$1 == activeIndex && task.stage != 'completed',
+                ),
+              )
+              .toList(growable: false),
+        ),
+      ),
+      _InsightRecordPanel(
+        icon: Icons.fact_check_outlined,
+        title: '关联扫描结果',
+        records: results.map(_resultInsightRecord).toList(growable: false),
+        emptyLabel: '该任务暂无已归档结果。',
+      ),
+      _InsightRecordPanel(
+        icon: Icons.receipt_long_outlined,
+        title: '关联运行事件',
+        records: logs.map(_logInsightRecord).toList(growable: false),
+        emptyLabel: '当前日志缓冲中没有该任务的运行事件。',
+      ),
+      _Section(
+        title: '错误与恢复',
+        icon: Icons.restart_alt_rounded,
+        child: Column(
+          children: [
+            _OpsKeyValue(
+              label: '错误摘要',
+              value: task.errorMessage?.trim().isNotEmpty == true
+                  ? task.errorMessage!.trim()
+                  : task.stage == 'failed'
+                  ? '失败上下文未上报'
+                  : '未发生',
+              maxLines: 6,
+            ),
+            _OpsKeyValue(
+              label: '失败阶段',
+              value: task.failureStage == null
+                  ? task.stage == 'failed'
+                        ? '失败阶段未上报'
+                        : '未发生'
+                  : _stageName(task.failureStage!),
+            ),
+            _OpsKeyValue(
+              label: '最后检查点',
+              value: (task.lastCheckpointAt ?? task.progress.updatedAt)
+                  .toLocal()
+                  .toIso8601String(),
+            ),
+            _OpsKeyValue(
+              label: '已处理进度',
+              value: '${task.progress.processed}/${task.progress.total}',
+            ),
+            _OpsKeyValue(
+              label: '恢复能力',
+              value: task.isResumable ? '服务标记为可恢复' : '无需恢复',
+            ),
+            _OpsKeyValue(
+              label: '取消时间',
+              value: task.cancelledAt?.toLocal().toIso8601String() ?? '未发生',
+            ),
+            _OpsKeyValue(label: '取消原因', value: task.cancelReason ?? '未发生'),
+            _OpsKeyValue(label: '重试次数', value: '${task.retryCount ?? 0}'),
+          ],
+        ),
+      ),
+    ]);
+  }
+}
+
+class _TaskStageGanttSection extends StatelessWidget {
+  const _TaskStageGanttSection({required this.task});
+
+  final AiExposureHistoryEntry task;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final entries = task.stageTimings
+        .where(
+          (timing) =>
+              timing.durationMs != null ||
+              timing.startedAt != null && timing.finishedAt != null,
+        )
+        .map((timing) {
+          final start = timing.startedAt;
+          final recordedEnd = timing.finishedAt;
+          final derivedEnd =
+              recordedEnd == null && start != null && timing.durationMs != null;
+          final end =
+              recordedEnd ??
+              (derivedEnd
+                  ? start.add(Duration(milliseconds: timing.durationMs!))
+                  : null);
+          final duration =
+              timing.durationMs ??
+              (start != null && end != null && !end.isBefore(start)
+                  ? end.difference(start).inMilliseconds
+                  : null);
+          return (
+            timing: timing,
+            start: start,
+            end: end,
+            duration: duration,
+            derivedEnd: derivedEnd,
+          );
+        })
+        .where((entry) => entry.duration != null && entry.duration! >= 0)
+        .toList(growable: false);
+    final dated = entries
+        .where((entry) => entry.start != null && entry.end != null)
+        .toList(growable: false);
+    final earliest = dated.map((entry) => entry.start!).fold<DateTime?>(null, (
+      value,
+      item,
+    ) {
+      if (value == null || item.isBefore(value)) return item;
+      return value;
+    });
+    final latest = dated.map((entry) => entry.end!).fold<DateTime?>(null, (
+      value,
+      item,
+    ) {
+      if (value == null || item.isAfter(value)) return item;
+      return value;
+    });
+    final spanMs = earliest == null || latest == null
+        ? 0
+        : latest.difference(earliest).inMilliseconds;
+    final maxDuration = entries.fold<int>(
+      0,
+      (value, entry) => entry.duration! > value ? entry.duration! : value,
+    );
+    return _Section(
+      title: '阶段执行甘特 · ${entries.length} 个计时切片',
+      icon: Icons.view_timeline_outlined,
+      child: entries.isEmpty
+          ? const _InsightEmpty(label: '该任务没有可绘制的阶段计时切片。')
+          : Column(
+              children: entries
+                  .map((entry) {
+                    final hasCalendarPosition =
+                        spanMs > 0 && entry.start != null && entry.end != null;
+                    final left = hasCalendarPosition
+                        ? entry.start!.difference(earliest!).inMilliseconds /
+                              spanMs
+                        : 0.0;
+                    final width = hasCalendarPosition
+                        ? (entry.end!.difference(entry.start!).inMilliseconds /
+                                  spanMs)
+                              .clamp(0.02, 1.0 - left)
+                        : maxDuration <= 0
+                        ? 0.04
+                        : (entry.duration! / maxDuration).clamp(0.04, 1.0);
+                    final target = _StageInsightTarget(
+                      entry.timing.stage,
+                      taskId: task.id,
+                    );
+                    return ServiceInteractiveSurface(
+                      onTap: () => _openInsightTarget(context, target),
+                      tooltip: '查看${_stageName(entry.timing.stage)}阶段详情',
+                      showDetailsIcon: false,
+                      padding: const EdgeInsets.symmetric(vertical: 7),
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.stretch,
+                        children: [
+                          Row(
+                            children: [
+                              Expanded(
+                                child: Text(
+                                  _stageName(entry.timing.stage),
+                                  style: Theme.of(context).textTheme.labelLarge,
+                                ),
+                              ),
+                              Text(
+                                '${entry.duration} ms${entry.derivedEnd ? ' · 结束时间由耗时推导' : ''}',
+                                style: Theme.of(context).textTheme.labelSmall
+                                    ?.copyWith(color: colors.onSurfaceVariant),
+                              ),
+                            ],
+                          ),
+                          const SizedBox(height: 7),
+                          LayoutBuilder(
+                            builder: (context, constraints) {
+                              final safeWidth = constraints.maxWidth;
+                              return SizedBox(
+                                height: 18,
+                                child: Stack(
+                                  children: [
+                                    Positioned.fill(
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: colors.surfaceContainerHighest,
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                    Positioned(
+                                      left: safeWidth * left,
+                                      top: 0,
+                                      bottom: 0,
+                                      width: (safeWidth * width).clamp(
+                                        2.0,
+                                        safeWidth,
+                                      ),
+                                      child: DecoratedBox(
+                                        decoration: BoxDecoration(
+                                          color: colors.primary.withValues(
+                                            alpha: 0.8,
+                                          ),
+                                          borderRadius: BorderRadius.circular(
+                                            4,
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  ],
+                                ),
+                              );
+                            },
+                          ),
+                          if (!hasCalendarPosition) ...[
+                            const SizedBox(height: 4),
+                            Text(
+                              '仅记录耗时，条形表示相对时长，不代表绝对开始时间。',
+                              style: Theme.of(context).textTheme.bodySmall
+                                  ?.copyWith(color: colors.onSurfaceVariant),
+                            ),
+                          ],
+                        ],
+                      ),
+                    );
+                  })
+                  .toList(growable: false),
+            ),
+    );
+  }
+}
+
+class _SourceEntityInsightBody extends StatelessWidget {
+  const _SourceEntityInsightBody({required this.source});
+
+  final AiExposureSource source;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<ServicesController>();
+    final colors = Theme.of(context).colorScheme;
+    final requiresCredential = _sourceRequiresCredential(source);
+    final configured = _sourceAccessConfigured(controller, source);
+    final enabled = controller.enabledSources.contains(source);
+    final quotaNotApplicable = source == AiExposureSource.manual;
+    final quota = controller.quotas
+        .where((entry) => entry.source == _sourceQuotaKey(source))
+        .firstOrNull;
+    final capacityFallback = quotaNotApplicable
+        ? '不适用'
+        : !configured
+        ? '待配置后获取'
+        : quota == null
+        ? '等待状态刷新'
+        : '接口未提供';
+    final probeFallback = quotaNotApplicable
+        ? '不适用'
+        : !configured
+        ? '待配置后探测'
+        : quota == null
+        ? '等待状态刷新'
+        : '等待首次探测';
+    final tasks = controller.history
+        .where((task) => task.sources.contains(source))
+        .toList(growable: false);
+    final results = controller.results
+        .where((result) => result.source == source)
+        .toList(growable: false);
+    final chronologicalTasks = [...tasks]
+      ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+    final valuable = results
+        .where(
+          (result) =>
+              result.category == AiExposureResultCategory.valid ||
+              result.category == AiExposureResultCategory.highValue,
+        )
+        .length;
+    return _metricInsightPage([
+      _InsightKpiBand(
+        title: '来源执行概览',
+        icon: _sourceIcon(source),
+        items: [
+          _InsightKpi(
+            icon: Icons.settings_outlined,
+            label: '访问前置',
+            value: configured ? '已满足' : '未满足',
+            helper: requiresCredential ? '需要访问凭证' : '无需 API 凭证',
+            color: configured
+                ? OpenHandStatusColors.success
+                : OpenHandStatusColors.warning,
+          ),
+          _InsightKpi(
+            icon: Icons.toggle_on_rounded,
+            label: '任务状态',
+            value: enabled ? '已启用' : '未启用',
+            helper: '${tasks.length} 个关联任务',
+            color: enabled ? colors.primary : colors.outline,
+          ),
+          _InsightKpi(
+            icon: Icons.data_usage_rounded,
+            label: '配额状态',
+            value: quotaNotApplicable
+                ? '不适用'
+                : !configured
+                ? '待配置'
+                : quota == null
+                ? '待刷新'
+                : quota.available
+                ? '可用'
+                : '异常',
+            helper: quota?.remaining == null
+                ? quota?.message.trim().isNotEmpty == true
+                      ? quota!.message.trim()
+                      : capacityFallback
+                : '剩余 ${quota!.remaining}/${quota.limit ?? '--'}',
+            color: quota?.available == true
+                ? OpenHandStatusColors.success
+                : quota == null
+                ? colors.outline
+                : OpenHandStatusColors.warning,
+          ),
+          _InsightKpi(
+            icon: Icons.fact_check_outlined,
+            label: '有效产出',
+            value: '$valuable',
+            helper: '共 ${results.length} 条结果',
+            color: OpenHandStatusColors.info,
+          ),
+        ],
+      ),
+      _InsightTrendSection(
+        title: '来源任务处理表现 · 当前保留任务',
+        icon: Icons.show_chart_rounded,
+        series: [
+          OpenHandChartSeries(
+            label: '已处理',
+            values: chronologicalTasks
+                .map((task) => task.progress.processed.toDouble())
+                .toList(growable: false),
+            color: colors.primary,
+          ),
+          OpenHandChartSeries(
+            label: '有效',
+            values: chronologicalTasks
+                .map((task) => task.progress.valid.toDouble())
+                .toList(growable: false),
+            color: OpenHandStatusColors.success,
+          ),
+        ],
+        sampleLabels: chronologicalTasks
+            .map((task) => _shortDateTime(task.createdAt))
+            .toList(growable: false),
+        suffix: ' 项',
+        emptyLabel: '当前保留任务中没有该来源的处理样本。',
+        targets: chronologicalTasks
+            .map<_InsightTarget?>((task) => _TaskInsightTarget(task))
+            .toList(growable: false),
+      ),
+      _InsightDonutSection(
+        title: '来源产出质量 · 当前保留结果',
+        icon: Icons.donut_large_rounded,
+        items: [
+          _DistributionItem(
+            '有效',
+            results
+                .where(
+                  (result) => result.category == AiExposureResultCategory.valid,
+                )
+                .length,
+            OpenHandStatusColors.success,
+          ),
+          _DistributionItem(
+            '高价值',
+            results
+                .where(
+                  (result) =>
+                      result.category == AiExposureResultCategory.highValue,
+                )
+                .length,
+            colors.secondary,
+          ),
+          _DistributionItem(
+            '可疑',
+            results
+                .where(
+                  (result) =>
+                      result.category == AiExposureResultCategory.suspicious,
+                )
+                .length,
+            OpenHandStatusColors.warning,
+          ),
+          _DistributionItem(
+            '蜜罐',
+            results
+                .where(
+                  (result) =>
+                      result.category == AiExposureResultCategory.honeypot,
+                )
+                .length,
+            OpenHandStatusColors.error,
+          ),
+        ],
+        detailBuilder: (context, item) {
+          final category = switch (item.label) {
+            '有效' => AiExposureResultCategory.valid,
+            '高价值' => AiExposureResultCategory.highValue,
+            '可疑' => AiExposureResultCategory.suspicious,
+            _ => AiExposureResultCategory.honeypot,
+          };
+          return _InsightRecordPanel(
+            icon: Icons.fact_check_outlined,
+            title: '${item.label}结果 · 当前保留集合',
+            records: results
+                .where((result) => result.category == category)
+                .map(
+                  (result) =>
+                      _resultInsightRecord(result, _ResultRecordLens.source),
+                )
+                .toList(growable: false),
+            emptyLabel: '当前保留结果中没有${item.label}记录。',
+          );
+        },
+      ),
+      _Section(
+        title: '配额与来源状态 · 最近状态刷新快照',
+        icon: Icons.rule_folder_outlined,
+        child: _OpsKeyValueGrid(
+          children: [
+            _OpsKeyValue(label: '来源标识', value: source.id),
+            _OpsKeyValue(
+              label: '凭证要求',
+              value: requiresCredential ? '需要' : '无需',
+            ),
+            _OpsKeyValue(label: '凭证配置', value: configured ? '已配置' : '待配置'),
+            _OpsKeyValue(label: '任务启用', value: enabled ? '已启用' : '未启用'),
+            _OpsKeyValue(
+              label: '配额上限',
+              value: quota?.limit == null
+                  ? capacityFallback
+                  : '${quota!.limit}',
+            ),
+            _OpsKeyValue(
+              label: '剩余配额',
+              value: quota?.remaining == null
+                  ? capacityFallback
+                  : '${quota!.remaining}',
+            ),
+            _OpsKeyValue(
+              label: '配额重置',
+              value: quota?.resetsAt == null
+                  ? capacityFallback
+                  : _shortDateTime(quota!.resetsAt!),
+            ),
+            _OpsKeyValue(
+              label: '最近探测',
+              value: quota?.checkedAt == null
+                  ? probeFallback
+                  : quota!.checkedAt!.toLocal().toIso8601String(),
+            ),
+            _OpsKeyValue(
+              label: '探测耗时',
+              value: quota?.latencyMs == null
+                  ? probeFallback
+                  : '${quota!.latencyMs} ms',
+            ),
+            _OpsKeyValue(
+              label: 'HTTP 状态',
+              value: quota?.httpStatus == null
+                  ? quotaNotApplicable || !requiresCredential
+                        ? '不适用'
+                        : !configured
+                        ? '未发起（凭证缺失）'
+                        : quota == null
+                        ? '等待状态刷新'
+                        : '探测未返回状态码'
+                  : '${quota!.httpStatus}',
+            ),
+            _OpsKeyValue(
+              label: '错误码',
+              value: quotaNotApplicable
+                  ? '不适用'
+                  : quota == null
+                  ? probeFallback
+                  : quota.available
+                  ? '未发生'
+                  : quota.errorCode ?? '未分类',
+            ),
+            _OpsKeyValue(
+              label: '最近成功探测',
+              value: quota?.lastSuccessAt == null
+                  ? quota?.available == true
+                        ? quota!.checkedAt?.toLocal().toIso8601String() ??
+                              probeFallback
+                        : '尚无成功探测'
+                  : quota!.lastSuccessAt!.toLocal().toIso8601String(),
+            ),
+            _OpsKeyValue(
+              label: '最近失败探测',
+              value: quota?.lastFailureAt == null
+                  ? quota?.available == true
+                        ? '未发生'
+                        : probeFallback
+                  : quota!.lastFailureAt!.toLocal().toIso8601String(),
+            ),
+            _OpsKeyValue(
+              label: '状态消息',
+              value: quota?.message.trim().isNotEmpty == true
+                  ? quota!.message.trim()
+                  : quotaNotApplicable
+                  ? '手工目标不执行来源配额探测。'
+                  : probeFallback,
+              maxLines: 4,
+            ),
+          ],
+        ),
+      ),
+      _InsightRecordPanel(
+        icon: Icons.work_history_outlined,
+        title: '来源关联任务',
+        records: tasks
+            .map((task) => _taskInsightRecord(task, _TaskRecordLens.scope))
+            .toList(growable: false),
+        emptyLabel: '该来源暂无关联任务。',
+      ),
+      _InsightRecordPanel(
+        icon: Icons.fact_check_outlined,
+        title: '来源产出结果',
+        records: results
+            .map(
+              (result) =>
+                  _resultInsightRecord(result, _ResultRecordLens.source),
+            )
+            .toList(growable: false),
+        emptyLabel: '该来源暂无已归档结果。',
+      ),
+    ]);
+  }
+}
+
+class _ProxyEndpointEntityInsightBody extends StatelessWidget {
+  const _ProxyEndpointEntityInsightBody({required this.endpointId});
+
+  final String endpointId;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<ServicesController>();
+    final endpoint = controller.proxyConfiguration.endpoints
+        .where((entry) => entry.runtimeId == endpointId)
+        .firstOrNull;
+    if (endpoint == null) return const _InsightEmpty(label: '该代理节点已不在当前配置中。');
+    final colors = Theme.of(context).colorScheme;
+    final statistics = _proxyEndpointStatistics(
+      endpoint,
+      _proxyRuntimeById(controller),
+    );
+    final sample = endpoint.latestSample;
+    final identity = endpoint.identity;
+    final p95 = _latencyPercentile(
+      statistics.recentRequests
+          .map((request) => request.responseTimeMs)
+          .toList(),
+      0.95,
+    );
+    final requests = [...statistics.recentRequests]
+      ..sort((left, right) => right.at.compareTo(left.at));
+    final chronologicalRequests = requests.reversed.toList(growable: false);
+    final probes = [...endpoint.samples]
+      ..sort((left, right) => right.checkedAt.compareTo(left.checkedAt));
+    final successfulRequests = requests
+        .where((request) => request.succeeded)
+        .length;
+    final timeoutRequests = requests
+        .where((request) => request.timedOut)
+        .length;
+    final failedRequests =
+        requests.length - successfulRequests - timeoutRequests;
+    final reachableProbes = probes.where((probe) => probe.reachable).length;
+    final failedProbes = probes.length - reachableProbes;
+    return _metricInsightPage([
+      _InsightKpiBand(
+        title: '节点请求质量',
+        icon: Icons.monitor_heart_outlined,
+        items: [
+          _InsightKpi(
+            icon: Icons.swap_vert_rounded,
+            label: '累计请求',
+            value: '${statistics.requests}',
+            helper: '执行中 ${statistics.inFlight}',
+            color: colors.primary,
+          ),
+          _InsightKpi(
+            icon: Icons.task_alt_rounded,
+            label: '成功率',
+            value: _chartRate(statistics.successes, statistics.completed),
+            helper: '${statistics.successes}/${statistics.completed}',
+            color: OpenHandStatusColors.success,
+          ),
+          _InsightKpi(
+            icon: Icons.speed_rounded,
+            label: '平均 / P95',
+            value: statistics.completed == 0
+                ? '暂无请求样本'
+                : '${statistics.averageResponseTimeMs} / $p95 ms',
+            helper: '业务请求样本',
+            color: colors.tertiary,
+          ),
+          _InsightKpi(
+            icon: Icons.warning_amber_rounded,
+            label: '异常请求',
+            value: '${statistics.failures + statistics.timeouts}',
+            helper: '连续失败 ${statistics.consecutiveFailures}',
+            color: OpenHandStatusColors.warning,
+          ),
+        ],
+      ),
+      _InsightTrendSection(
+        title: '近期请求时延 · 保留 ${chronologicalRequests.length} 条样本',
+        icon: Icons.show_chart_rounded,
+        series: [
+          OpenHandChartSeries(
+            label: '响应耗时',
+            values: chronologicalRequests
+                .map((request) => request.responseTimeMs.toDouble())
+                .toList(growable: false),
+            color: colors.tertiary,
+          ),
+        ],
+        sampleLabels: chronologicalRequests
+            .map((request) => _shortDateTime(request.at))
+            .toList(growable: false),
+        suffix: ' ms',
+        emptyLabel: '该节点没有近期请求时延样本。',
+        interpolation: OpenHandChartInterpolation.smooth,
+        targets: chronologicalRequests
+            .map<_InsightTarget?>(
+              (request) => _ProxyRequestInsightTarget(
+                endpoint: endpoint,
+                address: endpoint.maskedUrl,
+                sample: request,
+              ),
+            )
+            .toList(growable: false),
+      ),
+      _InsightDonutSection(
+        title: '近期请求结果 · 当前保留窗口',
+        icon: Icons.donut_large_rounded,
+        items: [
+          _DistributionItem(
+            '成功',
+            successfulRequests,
+            OpenHandStatusColors.success,
+          ),
+          _DistributionItem('失败', failedRequests, OpenHandStatusColors.error),
+          _DistributionItem(
+            '超时',
+            timeoutRequests,
+            OpenHandStatusColors.warning,
+          ),
+        ],
+        detailBuilder: (context, item) {
+          final selected = requests.where((request) {
+            if (item.label == '成功') return request.succeeded;
+            if (item.label == '超时') return request.timedOut;
+            return !request.succeeded && !request.timedOut;
+          });
+          return _InsightRecordPanel(
+            icon: Icons.swap_vert_rounded,
+            title: '${item.label}请求 · 当前保留窗口',
+            records: selected
+                .map((request) => _proxyRequestRecord(endpoint, request))
+                .toList(growable: false),
+            emptyLabel: '当前保留窗口中没有${item.label}请求。',
+          );
+        },
+      ),
+      _InsightDonutSection(
+        title: '巡检可靠性 · 保留 ${probes.length} 条样本',
+        icon: Icons.health_and_safety_outlined,
+        items: [
+          _DistributionItem(
+            '可达',
+            reachableProbes,
+            OpenHandStatusColors.success,
+          ),
+          _DistributionItem('异常', failedProbes, OpenHandStatusColors.error),
+        ],
+        detailBuilder: (context, item) {
+          final selected = probes.where(
+            (probe) => item.label == '可达' ? probe.reachable : !probe.reachable,
+          );
+          return _InsightRecordPanel(
+            icon: Icons.health_and_safety_outlined,
+            title: '${item.label}巡检 · 当前保留窗口',
+            records: selected
+                .map((probe) => _proxyProbeRecord(endpoint, probe))
+                .toList(growable: false),
+            emptyLabel: '当前保留窗口中没有${item.label}巡检。',
+          );
+        },
+      ),
+      _Section(
+        title: '节点配置与出口身份',
+        icon: Icons.dns_outlined,
+        child: _OpsKeyValueGrid(
+          children: [
+            _OpsKeyValue(label: '代理地址', value: endpoint.maskedUrl),
+            _OpsKeyValue(
+              label: '配置状态',
+              value: endpoint.enabled ? '已启用' : '未启用',
+            ),
+            _OpsKeyValue(
+              label: '最近巡检',
+              value: sample == null
+                  ? '等待首次巡检'
+                  : _shortDateTime(sample.checkedAt),
+            ),
+            _OpsKeyValue(
+              label: '巡检结果',
+              value: sample == null
+                  ? '等待首次巡检'
+                  : sample.reachable
+                  ? '转发可用'
+                  : sample.error?.trim().isNotEmpty == true
+                  ? sample.error!.trim()
+                  : '转发不可用',
+              maxLines: 4,
+            ),
+            _OpsKeyValue(
+              label: '出口 IP',
+              value: identity?.exitIp.trim().isNotEmpty == true
+                  ? identity!.exitIp
+                  : '等待首次出口识别',
+            ),
+            _OpsKeyValue(
+              label: '出口地域',
+              value: identity?.location.isNotEmpty == true
+                  ? identity!.location
+                  : '等待首次出口识别',
+            ),
+            _OpsKeyValue(
+              label: '网络组织',
+              value: identity == null
+                  ? '等待首次出口识别'
+                  : [
+                      identity.isp,
+                      identity.organization,
+                      identity.asn,
+                    ].where((value) => value.trim().isNotEmpty).join(' / '),
+            ),
+          ],
+        ),
+      ),
+      _InsightRecordPanel(
+        icon: Icons.swap_vert_rounded,
+        title: '节点请求时间线',
+        records: requests
+            .map((request) => _proxyRequestRecord(endpoint, request))
+            .toList(growable: false),
+        emptyLabel: '该节点暂无近期请求样本。',
+      ),
+      _InsightRecordPanel(
+        icon: Icons.health_and_safety_outlined,
+        title: '节点巡检时间线',
+        records: probes
+            .map((probe) => _proxyProbeRecord(endpoint, probe))
+            .toList(growable: false),
+        emptyLabel: '该节点暂无巡检样本。',
+      ),
+    ]);
+  }
+}
+
 void _showResultEntityInsight(BuildContext context, AiExposureResult result) {
   showAnimatedDialog<void>(
     context: context,

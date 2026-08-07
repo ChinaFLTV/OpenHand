@@ -1,0 +1,471 @@
+part of 'ai_exposure_monitoring_dialogs.dart';
+
+enum _OperationsView { overview, pipeline, sources, network, storage, security }
+
+enum _MetricInsightId {
+  overviewTaskTotal,
+  overviewResultTotal,
+  overviewHighValue,
+  overviewProcessed,
+  overviewAverageDuration,
+  overviewConfiguredSources,
+  overviewEnabledRules,
+  overviewProxyRouting,
+  overviewProxyAverageLatency,
+  overviewWarningLogs,
+  overviewErrorLogs,
+  overviewCancelledTasks,
+  pipelineCurrentState,
+  pipelineProcessed,
+  pipelineCandidates,
+  pipelineValid,
+  pipelineHighValue,
+  pipelineConcurrency,
+  pipelineFullScan,
+  pipelineResumable,
+  sourceReady,
+  sourceQuotaAvailable,
+  sourceQuotaRemaining,
+  sourceDiscoveryEnabled,
+  sourceTaskCalls,
+  sourceResults,
+  sourceQuotaAnomalies,
+  sourcePendingConfiguration,
+  networkRouteState,
+  networkProxyNodes,
+  networkReachableNodes,
+  networkRequests,
+  networkSuccesses,
+  networkFailures,
+  networkTimeouts,
+  networkAverageLatency,
+  networkP95Latency,
+  networkHttp2xx,
+  networkExitCountries,
+  networkInspectionPlan,
+  storageSqlite,
+  storageLastWrite,
+  storageVisibleRecords,
+  storageTaskArchive,
+  storageResultArchive,
+  storageRuleSnapshots,
+  storageLogBuffer,
+  storageResumable,
+  storagePostgresql,
+  storageRedis,
+  storageCredentialEncryption,
+  storageIntegrity,
+  securityEnabledRules,
+  securityCredentialPatterns,
+  securityModelEndpoints,
+  securityEncodings,
+  securityProxyRequests,
+  securityProxySuccess,
+  securityProxyAnomalies,
+  securityDependencies,
+}
+
+enum _TrendInsightId {
+  taskThroughput,
+  taskDuration,
+  pipelineFunnel,
+  proxyLatency,
+  archiveGrowth,
+  writeLoad,
+}
+
+enum _DistributionInsightId {
+  resultCategory,
+  taskStage,
+  scanMode,
+  resultSource,
+  taskSource,
+  requestOutcome,
+  httpStatus,
+  nodeRequest,
+  recordType,
+  archiveStage,
+  credentialState,
+  proxyReliability,
+  ruleVendor,
+}
+
+enum _DependencyInsightId {
+  scannerCore,
+  sqlite,
+  credentialVault,
+  postgresql,
+  redis,
+  playwright,
+  gptExtractor,
+  proxyRouting,
+  proxyReliability,
+  localBypass,
+  rotationPolicy,
+  sourceAdapters,
+  fingerprintRules,
+  activeValidator,
+  taskEventStream,
+  eventArchive,
+}
+
+class _OperationsDialog extends StatefulWidget {
+  const _OperationsDialog();
+
+  @override
+  State<_OperationsDialog> createState() => _OperationsDialogState();
+}
+
+class _OperationsDialogState extends State<_OperationsDialog> {
+  _OperationsView _view = _OperationsView.overview;
+  Timer? _timer;
+  bool _refreshing = false;
+  bool _databaseAccessible = false;
+  int? _databaseBytes;
+  DateTime? _databaseModifiedAt;
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _refresh());
+    _timer = startNonOverlappingPeriodicTimer(
+      _kOperationsRefreshInterval,
+      (_) => _refresh(),
+      onError: (error, stack) =>
+          silentLog('service_operations', '执行定时状态刷新', error, stack),
+    );
+  }
+
+  @override
+  void dispose() {
+    _timer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _refresh() async {
+    if (!mounted || _refreshing) return;
+    final controller = context.read<ServicesController>();
+    if (!controller.isRunning) return;
+    setState(() => _refreshing = true);
+    var accessible = false;
+    int? bytes;
+    DateTime? modifiedAt;
+    try {
+      await Future.wait<Object?>([
+        controller.refreshServiceStatus(),
+        controller.refreshDependencyDataOverview(),
+      ]);
+      final path = controller.health?.databasePath.trim() ?? '';
+      if (path.isNotEmpty) {
+        try {
+          final stat = await File(
+            path,
+          ).stat().timeout(_kOperationsMetadataTimeout);
+          accessible = stat.type == FileSystemEntityType.file;
+          if (accessible) {
+            bytes = stat.size;
+            modifiedAt = stat.modified;
+          }
+        } on FileSystemException {
+          accessible = false;
+        } on TimeoutException {
+          accessible = false;
+        } on UnsupportedError {
+          accessible = false;
+        }
+      }
+    } catch (error, stack) {
+      silentLog('service_operations', '刷新服务运维状态', error, stack);
+    } finally {
+      if (mounted) {
+        setState(() {
+          _databaseAccessible = accessible;
+          _databaseBytes = bytes;
+          _databaseModifiedAt = modifiedAt;
+          _refreshing = false;
+        });
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<ServicesController>();
+    final text = openHandTextResolver(context);
+    final theme = Theme.of(context);
+    final cs = theme.colorScheme;
+    final running = controller.isRunning;
+    final compact = MediaQuery.sizeOf(context).width < 600;
+    return Padding(
+      padding: EdgeInsets.all(compact ? 14 : 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OpenHandResponsiveHeaderLayout(
+            compactBreakpoint: 700,
+            identity: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    color: cs.primaryContainer,
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: cs.primary.withValues(alpha: 0.35),
+                    ),
+                  ),
+                  child: Icon(
+                    Icons.monitor_heart_rounded,
+                    color: cs.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        text(
+                          zh: 'AI 基础设施扫描服务状态与运维',
+                          en: 'AI exposure scanner status and operations',
+                        ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleLarge,
+                      ),
+                      Text(
+                        'ai_jungler ${controller.health?.version ?? '--'} · ${controller.ownsProcess ? text(zh: '内嵌进程', en: 'Bundled') : text(zh: '外部服务', en: 'External')}',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: cs.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: Wrap(
+              spacing: 8,
+              runSpacing: 8,
+              children: [
+                ServiceDialogHeaderIconButton(
+                  tooltip: text(zh: '刷新运维数据', en: 'Refresh operations'),
+                  onPressed: running && !_refreshing ? _refresh : null,
+                  icon: _refreshing
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
+                ServiceDialogHeaderIconButton(
+                  tooltip: running
+                      ? text(zh: '停止服务', en: 'Stop service')
+                      : text(zh: '启动服务', en: 'Start service'),
+                  onPressed: controller.busy
+                      ? null
+                      : running
+                      ? controller.stopService
+                      : controller.startService,
+                  icon: Icon(
+                    running ? Icons.stop_rounded : Icons.play_arrow_rounded,
+                  ),
+                  tone: ServiceDialogHeaderActionTone.primary,
+                ),
+                ServiceDialogHeaderIconButton(
+                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 12),
+          _OperationsStrip(
+            compact: compact,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _StatusPill(
+                icon: running
+                    ? Icons.circle
+                    : Icons.pause_circle_outline_rounded,
+                label: running
+                    ? text(zh: '运行中', en: 'Running')
+                    : text(zh: '已停止', en: 'Stopped'),
+                color: running ? Colors.green : cs.outline,
+              ),
+              _StatusPill(
+                icon: Icons.schedule_rounded,
+                label: _duration(controller.health?.uptimeSeconds ?? 0),
+                color: cs.primary,
+              ),
+              _StatusPill(
+                icon: Icons.lan_outlined,
+                label: serviceProxyRouteText(controller, text),
+                color: controller.proxyRoute != AiExposureProxyRoute.direct
+                    ? cs.tertiary
+                    : cs.onSurfaceVariant,
+              ),
+              _StatusPill(
+                icon: Icons.rule_rounded,
+                label: text(
+                  zh: '${controller.rules.where((rule) => rule.enabled).length} 条规则',
+                  en: '${controller.rules.where((rule) => rule.enabled).length} rules',
+                ),
+                color: cs.secondary,
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          _OperationsStrip(
+            compact: compact,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              _OperationsTab(
+                value: _OperationsView.overview,
+                selected: _view == _OperationsView.overview,
+                icon: Icons.dashboard_outlined,
+                label: text(zh: '状态总览', en: 'Status overview'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+              _OperationsTab(
+                value: _OperationsView.pipeline,
+                selected: _view == _OperationsView.pipeline,
+                icon: Icons.account_tree_outlined,
+                label: text(zh: '任务管线', en: 'Pipeline'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+              _OperationsTab(
+                value: _OperationsView.sources,
+                selected: _view == _OperationsView.sources,
+                icon: Icons.travel_explore_rounded,
+                label: text(zh: '数据源', en: 'Sources'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+              _OperationsTab(
+                value: _OperationsView.network,
+                selected: _view == _OperationsView.network,
+                icon: Icons.lan_outlined,
+                label: text(zh: '网络遥测', en: 'Network'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+              _OperationsTab(
+                value: _OperationsView.storage,
+                selected: _view == _OperationsView.storage,
+                icon: Icons.storage_rounded,
+                label: text(zh: '存储与持久化', en: 'Storage'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+              _OperationsTab(
+                value: _OperationsView.security,
+                selected: _view == _OperationsView.security,
+                icon: Icons.shield_outlined,
+                label: text(zh: '安全与依赖', en: 'Security'),
+                onSelected: (value) => setState(() => _view = value),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            child: AnimatedSwitcher(
+              duration: openHandMotionDuration(
+                context,
+                const Duration(milliseconds: 220),
+              ),
+              switchInCurve: Curves.easeOutCubic,
+              switchOutCurve: Curves.easeInCubic,
+              child: SingleChildScrollView(
+                key: ValueKey<_OperationsView>(_view),
+                physics: openHandDialogAwareScrollPhysics(context),
+                child: switch (_view) {
+                  _OperationsView.overview => _OverviewPanel(
+                    controller: controller,
+                  ),
+                  _OperationsView.pipeline => _PipelinePanel(
+                    controller: controller,
+                  ),
+                  _OperationsView.sources => _SourcesPanel(
+                    controller: controller,
+                  ),
+                  _OperationsView.network => _NetworkPanel(
+                    controller: controller,
+                  ),
+                  _OperationsView.storage => _StoragePanel(
+                    controller: controller,
+                    databaseAccessible: _databaseAccessible,
+                    databaseBytes: _databaseBytes,
+                    databaseModifiedAt: _databaseModifiedAt,
+                  ),
+                  _OperationsView.security => _SecurityPanel(
+                    controller: controller,
+                  ),
+                },
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _OperationsTab extends StatelessWidget {
+  const _OperationsTab({
+    required this.value,
+    required this.selected,
+    required this.icon,
+    required this.label,
+    required this.onSelected,
+  });
+
+  final _OperationsView value;
+  final bool selected;
+  final IconData icon;
+  final String label;
+  final ValueChanged<_OperationsView> onSelected;
+
+  @override
+  Widget build(BuildContext context) => ServiceFilterChip(
+    selected: selected,
+    icon: Icon(icon, size: 17),
+    label: Text(label),
+    onSelected: (_) => onSelected(value),
+  );
+}
+
+class _OperationsStrip extends StatelessWidget {
+  const _OperationsStrip({
+    required this.compact,
+    required this.spacing,
+    required this.runSpacing,
+    required this.children,
+  });
+
+  final bool compact;
+  final double spacing;
+  final double runSpacing;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    if (!compact) {
+      return Wrap(spacing: spacing, runSpacing: runSpacing, children: children);
+    }
+    return SingleChildScrollView(
+      scrollDirection: Axis.horizontal,
+      physics: const ClampingScrollPhysics(),
+      child: Row(
+        children: children.indexed
+            .expand(
+              (entry) => [if (entry.$1 > 0) SizedBox(width: spacing), entry.$2],
+            )
+            .toList(growable: false),
+      ),
+    );
+  }
+}
