@@ -54,19 +54,206 @@ class ServiceAnimatedProgressBar extends StatelessWidget {
         backgroundColor: backgroundColor,
       );
     }
+    return ServiceAnimatedValue(
+      value: target,
+      builder: (context, animatedValue) => LinearProgressIndicator(
+        value: animatedValue.clamp(0.0, 1.0),
+        minHeight: minHeight,
+        color: color,
+        backgroundColor: backgroundColor,
+      ),
+    );
+  }
+}
+
+typedef ServiceAnimatedValueBuilder =
+    Widget Function(BuildContext context, double value);
+
+class ServiceAnimatedValue extends StatelessWidget {
+  const ServiceAnimatedValue({
+    super.key,
+    required this.value,
+    required this.builder,
+    this.initialValue = 0,
+  });
+
+  final double value;
+  final double initialValue;
+  final ServiceAnimatedValueBuilder builder;
+
+  @override
+  Widget build(BuildContext context) {
     final motion = openHandMotionSettingsOf(
       context,
       OpenHandMotionSettingsScope.dialog,
     );
     return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: target),
+      tween: Tween<double>(begin: initialValue, end: value),
       duration: motion.entranceDuration,
       curve: motion.curve.curve,
-      builder: (context, animatedValue, _) => LinearProgressIndicator(
-        value: animatedValue.clamp(0.0, 1.0),
-        minHeight: minHeight,
-        color: color,
-        backgroundColor: backgroundColor,
+      builder: (context, animatedValue, _) => builder(context, animatedValue),
+    );
+  }
+}
+
+typedef ServiceAnimatedChartBuilder =
+    Widget Function(BuildContext context, List<OpenHandChartSeries> series);
+
+class ServiceAnimatedChart extends StatefulWidget {
+  const ServiceAnimatedChart({
+    super.key,
+    required this.series,
+    required this.builder,
+  });
+
+  final List<OpenHandChartSeries> series;
+  final ServiceAnimatedChartBuilder builder;
+
+  @override
+  State<ServiceAnimatedChart> createState() => _ServiceAnimatedChartState();
+}
+
+class _ServiceAnimatedChartState extends State<ServiceAnimatedChart> {
+  late List<OpenHandChartSeries> _from = _copySeries(widget.series);
+  late List<OpenHandChartSeries> _target = _copySeries(widget.series);
+  double _progress = 1;
+  int _revision = 0;
+
+  @override
+  void didUpdateWidget(ServiceAnimatedChart oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final target = _copySeries(widget.series);
+    if (_sameSeries(_target, target)) return;
+    _from = _interpolateSeries(_from, _target, _progress);
+    _target = target;
+    _progress = 0;
+    _revision++;
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final motion = openHandMotionSettingsOf(
+      context,
+      OpenHandMotionSettingsScope.dialog,
+    );
+    if (_revision == 0 || motion.entranceDuration == Duration.zero) {
+      _progress = 1;
+      return widget.builder(context, _target);
+    }
+    return TweenAnimationBuilder<double>(
+      key: ValueKey<int>(_revision),
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: motion.entranceDuration,
+      curve: motion.curve.curve,
+      builder: (context, progress, _) {
+        _progress = progress;
+        return widget.builder(
+          context,
+          _interpolateSeries(_from, _target, progress),
+        );
+      },
+    );
+  }
+
+  static List<OpenHandChartSeries> _copySeries(
+    List<OpenHandChartSeries> series,
+  ) => series
+      .map(
+        (item) => OpenHandChartSeries(
+          label: item.label,
+          values: item.values
+              .map((value) => value.isFinite ? value : 0.0)
+              .toList(growable: false),
+          color: item.color,
+        ),
+      )
+      .toList(growable: false);
+
+  static List<OpenHandChartSeries> _interpolateSeries(
+    List<OpenHandChartSeries> from,
+    List<OpenHandChartSeries> target,
+    double progress,
+  ) {
+    final previous = <String, OpenHandChartSeries>{
+      for (final item in from) item.label: item,
+    };
+    return target
+        .map((item) {
+          final oldValues = previous[item.label]?.values ?? const <double>[];
+          final targetLength = item.values.length;
+          return OpenHandChartSeries(
+            label: item.label,
+            values: List<double>.generate(targetLength, (index) {
+              final start = _resample(oldValues, index, targetLength);
+              return (start + (item.values[index] - start) * progress)
+                  .clamp(0, double.infinity)
+                  .toDouble();
+            }, growable: false),
+            color: item.color,
+          );
+        })
+        .toList(growable: false);
+  }
+
+  static double _resample(List<double> values, int index, int targetLength) {
+    if (values.isEmpty) return 0;
+    if (values.length == 1 || targetLength <= 1) return values.last;
+    final position = index * (values.length - 1) / (targetLength - 1);
+    final lower = position.floor();
+    final upper = position.ceil().clamp(0, values.length - 1).toInt();
+    if (lower == upper) return values[lower];
+    return values[lower] + (values[upper] - values[lower]) * (position - lower);
+  }
+
+  static bool _sameSeries(
+    List<OpenHandChartSeries> left,
+    List<OpenHandChartSeries> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (var seriesIndex = 0; seriesIndex < left.length; seriesIndex++) {
+      final a = left[seriesIndex];
+      final b = right[seriesIndex];
+      if (a.label != b.label || a.color != b.color) return false;
+      if (a.values.length != b.values.length) return false;
+      for (var valueIndex = 0; valueIndex < a.values.length; valueIndex++) {
+        if (a.values[valueIndex] != b.values[valueIndex]) return false;
+      }
+    }
+    return true;
+  }
+}
+
+class ServiceAnimatedDonutChart extends StatelessWidget {
+  const ServiceAnimatedDonutChart({
+    super.key,
+    required this.values,
+    required this.colors,
+    required this.trackColor,
+    this.child,
+  });
+
+  final List<int> values;
+  final List<Color> colors;
+  final Color trackColor;
+  final Widget? child;
+
+  @override
+  Widget build(BuildContext context) {
+    return ServiceAnimatedChart(
+      series: <OpenHandChartSeries>[
+        OpenHandChartSeries(
+          label: 'distribution',
+          values: values.map((value) => value.toDouble()).toList(),
+          color: colors.firstOrNull ?? Colors.transparent,
+        ),
+      ],
+      builder: (context, series) => CustomPaint(
+        painter: OpenHandDonutChartPainter(
+          values: series.first.values,
+          colors: colors,
+          trackColor: trackColor,
+        ),
+        child: child,
       ),
     );
   }
@@ -1035,7 +1222,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
             Expanded(
               child: ClipRRect(
                 borderRadius: BorderRadius.circular(99),
-                child: LinearProgressIndicator(
+                child: ServiceAnimatedProgressBar(
                   minHeight: 10,
                   value: ratio,
                   color: accentColor,
@@ -1153,9 +1340,9 @@ class _ServiceDetailDashboard extends StatelessWidget {
       child: Stack(
         alignment: Alignment.center,
         children: [
-          CustomPaint(
-            size: const Size.square(146),
-            painter: OpenHandDonutChartPainter(
+          SizedBox.square(
+            dimension: 146,
+            child: ServiceAnimatedDonutChart(
               values: chartValues,
               colors: values.indexed
                   .map(
@@ -1281,7 +1468,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                   const SizedBox(height: 6),
                   ClipRRect(
                     borderRadius: BorderRadius.circular(99),
-                    child: LinearProgressIndicator(
+                    child: ServiceAnimatedProgressBar(
                       minHeight: item.highlighted ? 11 : 8,
                       value: ratio,
                       color: tone,

@@ -2943,21 +2943,24 @@ class _TrendPanelState extends State<_TrendPanel> {
             const SizedBox(height: 12),
             Expanded(
               child: RepaintBoundary(
-                child: CustomPaint(
-                  painter: OpenHandSmoothLineChartPainter(
-                    series: widget.series,
-                    gridColor: colors.outlineVariant.withValues(alpha: 0.58),
-                    labelColor: colors.onSurfaceVariant,
-                    emptyLabel: '暂无趋势数据',
-                    valueSuffix: widget.suffix,
-                    textDirection: Directionality.of(context),
-                    interpolation: switch (widget.title) {
-                      '代理响应耗时趋势' => OpenHandChartInterpolation.smooth,
-                      '归档增长趋势' => OpenHandChartInterpolation.step,
-                      _ => OpenHandChartInterpolation.linear,
-                    },
+                child: ServiceAnimatedChart(
+                  series: widget.series,
+                  builder: (context, series) => CustomPaint(
+                    painter: OpenHandSmoothLineChartPainter(
+                      series: series,
+                      gridColor: colors.outlineVariant.withValues(alpha: 0.58),
+                      labelColor: colors.onSurfaceVariant,
+                      emptyLabel: '暂无趋势数据',
+                      valueSuffix: widget.suffix,
+                      textDirection: Directionality.of(context),
+                      interpolation: switch (widget.title) {
+                        '代理响应耗时趋势' => OpenHandChartInterpolation.smooth,
+                        '归档增长趋势' => OpenHandChartInterpolation.step,
+                        _ => OpenHandChartInterpolation.linear,
+                      },
+                    ),
+                    size: Size.infinite,
                   ),
-                  size: Size.infinite,
                 ),
               ),
             ),
@@ -3097,12 +3100,10 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                 builder: (context, constraints) {
                   final donut = SizedBox.square(
                     dimension: 112,
-                    child: CustomPaint(
-                      painter: OpenHandDonutChartPainter(
-                        values: visible.map((item) => item.value).toList(),
-                        colors: visible.map((item) => item.color).toList(),
-                        trackColor: colors.surfaceContainerHighest,
-                      ),
+                    child: ServiceAnimatedDonutChart(
+                      values: visible.map((item) => item.value).toList(),
+                      colors: visible.map((item) => item.color).toList(),
+                      trackColor: colors.surfaceContainerHighest,
                       child: Center(
                         child: Text(
                           widget.centerValue,
@@ -4755,15 +4756,18 @@ class _InsightTrendSection extends StatelessWidget {
 
   Widget _buildChart(BuildContext context, ColorScheme colors) {
     final chart = RepaintBoundary(
-      child: CustomPaint(
-        painter: OpenHandSmoothLineChartPainter(
-          series: series,
-          gridColor: colors.outlineVariant.withValues(alpha: 0.58),
-          labelColor: colors.onSurfaceVariant,
-          emptyLabel: emptyLabel,
-          valueSuffix: suffix,
-          textDirection: Directionality.of(context),
-          interpolation: interpolation,
+      child: ServiceAnimatedChart(
+        series: series,
+        builder: (context, animatedSeries) => CustomPaint(
+          painter: OpenHandSmoothLineChartPainter(
+            series: animatedSeries,
+            gridColor: colors.outlineVariant.withValues(alpha: 0.58),
+            labelColor: colors.onSurfaceVariant,
+            emptyLabel: emptyLabel,
+            valueSuffix: suffix,
+            textDirection: Directionality.of(context),
+            interpolation: interpolation,
+          ),
         ),
       ),
     );
@@ -4826,12 +4830,10 @@ class _InsightDonutSectionState extends State<_InsightDonutSection> {
         builder: (context, constraints) {
           final donut = SizedBox.square(
             dimension: 138,
-            child: CustomPaint(
-              painter: OpenHandDonutChartPainter(
-                values: items.map((item) => item.value).toList(growable: false),
-                colors: items.map((item) => item.color).toList(growable: false),
-                trackColor: colors.surfaceContainerHighest,
-              ),
+            child: ServiceAnimatedDonutChart(
+              values: items.map((item) => item.value).toList(growable: false),
+              colors: items.map((item) => item.color).toList(growable: false),
+              trackColor: colors.surfaceContainerHighest,
               child: Center(
                 child: Text(
                   selected == null ? '$total' : '${selected.value}',
@@ -5542,26 +5544,19 @@ class _AnimatedFunnelBar extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final motion = openHandMotionSettingsOf(
-      context,
-      OpenHandMotionSettingsScope.dialog,
-    );
     return SizedBox(
       height: 20,
-      child: TweenAnimationBuilder<double>(
-        tween: Tween<double>(begin: 0, end: widthFactor.clamp(0.0, 1.0)),
-        duration: motion.entranceDuration,
-        curve: motion.curve.curve,
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: color.withValues(alpha: 0.78),
-            borderRadius: BorderRadius.circular(4),
-          ),
-        ),
-        builder: (context, animatedWidth, child) => Align(
+      child: ServiceAnimatedValue(
+        value: widthFactor.clamp(0.0, 1.0),
+        builder: (context, animatedWidth) => Align(
           child: FractionallySizedBox(
             widthFactor: animatedWidth.clamp(0.0, 1.0),
-            child: child,
+            child: DecoratedBox(
+              decoration: BoxDecoration(
+                color: color.withValues(alpha: 0.78),
+                borderRadius: BorderRadius.circular(4),
+              ),
+            ),
           ),
         ),
       ),
@@ -5619,21 +5614,29 @@ class _InsightCapacitySection extends StatelessWidget {
               final columns = constraints.maxWidth >= 720 ? 32 : 16;
               final size =
                   (constraints.maxWidth - gap * (columns - 1)) / columns;
-              return Wrap(
-                spacing: gap,
-                runSpacing: gap,
-                children: List<Widget>.generate(
-                  safeMaximum,
-                  (index) => Container(
-                    width: size,
-                    height: size.clamp(7, 16),
-                    decoration: BoxDecoration(
-                      color: index < safeConfigured
-                          ? color
-                          : colors.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
+              return ServiceAnimatedValue(
+                value: safeConfigured.toDouble(),
+                builder: (context, animatedConfigured) => Wrap(
+                  spacing: gap,
+                  runSpacing: gap,
+                  children: List<Widget>.generate(safeMaximum, (index) {
+                    final activity = (animatedConfigured - index).clamp(
+                      0.0,
+                      1.0,
+                    );
+                    return Container(
+                      width: size,
+                      height: size.clamp(7, 16),
+                      decoration: BoxDecoration(
+                        color: Color.lerp(
+                          colors.surfaceContainerHighest,
+                          color,
+                          activity,
+                        ),
+                        borderRadius: BorderRadius.circular(2),
+                      ),
+                    );
+                  }),
                 ),
               );
             },
@@ -9919,14 +9922,10 @@ Widget _proxyFleetWorkbench(
                 alignment: Alignment.center,
                 children: [
                   Positioned.fill(
-                    child: CustomPaint(
-                      painter: OpenHandDonutChartPainter(
-                        values: [enabled, endpoints.length - enabled],
-                        colors: [OpenHandStatusColors.success, colors.outline],
-                        trackColor: colors.outlineVariant.withValues(
-                          alpha: 0.5,
-                        ),
-                      ),
+                    child: ServiceAnimatedDonutChart(
+                      values: [enabled, endpoints.length - enabled],
+                      colors: [OpenHandStatusColors.success, colors.outline],
+                      trackColor: colors.outlineVariant.withValues(alpha: 0.5),
                     ),
                   ),
                   Column(

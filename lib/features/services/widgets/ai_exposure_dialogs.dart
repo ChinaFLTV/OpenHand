@@ -953,7 +953,7 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
         const SizedBox(height: 8),
         ClipRRect(
           borderRadius: kOpenHandPillBorderRadius,
-          child: LinearProgressIndicator(
+          child: ServiceAnimatedProgressBar(
             value: progress.total <= 0 ? null : progress.fraction,
             minHeight: 8,
           ),

@@ -258,7 +258,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                             Expanded(
                               child: ClipRRect(
                                 borderRadius: BorderRadius.circular(99),
-                                child: LinearProgressIndicator(
+                                child: ServiceAnimatedProgressBar(
                                   value: _inspectionTotal == 0
                                       ? null
                                       : _inspectionCompleted / _inspectionTotal,
@@ -1845,22 +1845,25 @@ class _ProxyPoolOverview extends StatelessWidget {
             final latency = _ProxyPoolChartPanel(
               icon: Icons.show_chart_rounded,
               title: text(zh: '请求响应趋势', en: 'Response trend'),
-              child: CustomPaint(
-                painter: OpenHandSmoothLineChartPainter(
-                  series: <OpenHandChartSeries>[
-                    OpenHandChartSeries(
-                      label: 'latency',
-                      values: recent
-                          .map((item) => item.responseTimeMs.toDouble())
-                          .toList(growable: false),
-                      color: colors.primary,
-                    ),
-                  ],
-                  gridColor: colors.outlineVariant.withValues(alpha: 0.55),
-                  labelColor: colors.onSurfaceVariant,
-                  emptyLabel: text(zh: '暂无请求样本', en: 'No request samples'),
-                  valueSuffix: ' ms',
-                  textDirection: Directionality.of(context),
+              child: ServiceAnimatedChart(
+                series: <OpenHandChartSeries>[
+                  OpenHandChartSeries(
+                    label: 'latency',
+                    values: recent
+                        .map((item) => item.responseTimeMs.toDouble())
+                        .toList(growable: false),
+                    color: colors.primary,
+                  ),
+                ],
+                builder: (context, series) => CustomPaint(
+                  painter: OpenHandSmoothLineChartPainter(
+                    series: series,
+                    gridColor: colors.outlineVariant.withValues(alpha: 0.55),
+                    labelColor: colors.onSurfaceVariant,
+                    emptyLabel: text(zh: '暂无请求样本', en: 'No request samples'),
+                    valueSuffix: ' ms',
+                    textDirection: Directionality.of(context),
+                  ),
                 ),
               ),
             );
@@ -1871,16 +1874,14 @@ class _ProxyPoolOverview extends StatelessWidget {
                 children: [
                   SizedBox.square(
                     dimension: 74,
-                    child: CustomPaint(
-                      painter: OpenHandDonutChartPainter(
-                        values: <int>[successes, failures, timeouts],
-                        colors: const <Color>[
-                          OpenHandStatusColors.success,
-                          OpenHandStatusColors.error,
-                          OpenHandStatusColors.warning,
-                        ],
-                        trackColor: colors.surfaceContainerHighest,
-                      ),
+                    child: ServiceAnimatedDonutChart(
+                      values: <int>[successes, failures, timeouts],
+                      colors: const <Color>[
+                        OpenHandStatusColors.success,
+                        OpenHandStatusColors.error,
+                        OpenHandStatusColors.warning,
+                      ],
+                      trackColor: colors.surfaceContainerHighest,
                       child: Center(
                         child: Text(
                           '$completed',
@@ -2164,13 +2165,6 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
         ? null
         : (hoveredIndex ?? _lastHoveredIndex.clamp(0, points.length - 1));
     final hoveredPoint = hoveredIndex == null ? null : points[hoveredIndex];
-    final revision = points.isEmpty
-        ? 0
-        : Object.hash(
-            points.length,
-            points.last.at.microsecondsSinceEpoch,
-            points.last.value,
-          );
     final maxValue = values.fold<double>(0, (max, value) {
       return value > max ? value : max;
     });
@@ -2220,25 +2214,17 @@ class _ProxyDetailTrendChartState extends State<_ProxyDetailTrendChart> {
             clipBehavior: Clip.none,
             children: [
               Positioned.fill(
-                child: TweenAnimationBuilder<double>(
-                  key: ValueKey<int>(revision),
-                  tween: Tween<double>(begin: 0, end: 1),
-                  duration: openHandMotionDuration(
-                    context,
-                    const Duration(milliseconds: 460),
-                  ),
-                  curve: Curves.easeOutCubic,
-                  builder: (context, progress, _) => CustomPaint(
+                child: ServiceAnimatedChart(
+                  series: <OpenHandChartSeries>[
+                    OpenHandChartSeries(
+                      label: widget.seriesLabel,
+                      values: values,
+                      color: widget.lineColor,
+                    ),
+                  ],
+                  builder: (context, series) => CustomPaint(
                     painter: OpenHandSmoothLineChartPainter(
-                      series: <OpenHandChartSeries>[
-                        OpenHandChartSeries(
-                          label: widget.seriesLabel,
-                          values: values
-                              .map((value) => value * progress)
-                              .toList(growable: false),
-                          color: widget.lineColor,
-                        ),
-                      ],
+                      series: series,
                       gridColor: colors.outlineVariant.withValues(alpha: 0.55),
                       labelColor: colors.onSurfaceVariant,
                       emptyLabel: widget.emptyLabel,
@@ -3364,7 +3350,7 @@ class _ProxyEndpointDetailsDialogState
                     Expanded(
                       child: ClipRRect(
                         borderRadius: BorderRadius.circular(99),
-                        child: LinearProgressIndicator(
+                        child: ServiceAnimatedProgressBar(
                           value: item.value / maxValue,
                           minHeight: 8,
                           color: item.color,
@@ -4396,8 +4382,6 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
     final values = samples
         .map((sample) => sample.latencyMs!.toDouble())
         .toList(growable: false);
-    final revision =
-        widget.endpoint.latestSample?.checkedAt.microsecondsSinceEpoch ?? 0;
     final hoveredIndex = _hoveredIndex == null || samples.isEmpty
         ? null
         : _hoveredIndex!.clamp(0, samples.length - 1);
@@ -4432,42 +4416,31 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
               clipBehavior: Clip.none,
               children: [
                 Positioned.fill(
-                  child: TweenAnimationBuilder<double>(
-                    key: ValueKey<int>(revision),
-                    tween: Tween<double>(begin: 0, end: 1),
-                    duration: openHandMotionDuration(
-                      context,
-                      const Duration(milliseconds: 460),
-                    ),
-                    curve: Curves.easeOutBack,
-                    builder: (context, progress, _) {
-                      final scale = progress.clamp(0.0, 1.0);
-                      return CustomPaint(
-                        painter: OpenHandSmoothLineChartPainter(
-                          series: <OpenHandChartSeries>[
-                            OpenHandChartSeries(
-                              label: 'latency',
-                              values: values
-                                  .map((value) => value * scale)
-                                  .toList(),
-                              color: colors.primary,
-                            ),
-                          ],
-                          gridColor: colors.outlineVariant.withValues(
-                            alpha: 0.55,
-                          ),
-                          labelColor: colors.onSurfaceVariant,
-                          emptyLabel: openHandLocalizedText(
-                            context,
-                            zh: '暂无延迟样本',
-                            en: 'No latency samples',
-                          ),
-                          valueSuffix: ' ms',
-                          textDirection: Directionality.of(context),
+                  child: ServiceAnimatedChart(
+                    series: <OpenHandChartSeries>[
+                      OpenHandChartSeries(
+                        label: 'latency',
+                        values: values,
+                        color: colors.primary,
+                      ),
+                    ],
+                    builder: (context, series) => CustomPaint(
+                      painter: OpenHandSmoothLineChartPainter(
+                        series: series,
+                        gridColor: colors.outlineVariant.withValues(
+                          alpha: 0.55,
                         ),
-                        size: Size.infinite,
-                      );
-                    },
+                        labelColor: colors.onSurfaceVariant,
+                        emptyLabel: openHandLocalizedText(
+                          context,
+                          zh: '暂无延迟样本',
+                          en: 'No latency samples',
+                        ),
+                        valueSuffix: ' ms',
+                        textDirection: Directionality.of(context),
+                      ),
+                      size: Size.infinite,
+                    ),
                   ),
                 ),
                 if (hoveredSample != null)

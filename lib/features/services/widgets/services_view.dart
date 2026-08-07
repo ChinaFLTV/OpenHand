@@ -11,6 +11,7 @@ import '../services_controller.dart';
 import 'ai_exposure_dialogs.dart';
 import 'ai_exposure_monitoring_dialogs.dart';
 import 'ai_exposure_proxy_dialog.dart';
+import 'service_dialog_controls.dart';
 
 const double _kServiceCardRadius = 22;
 const double _kServiceIconExtent = 64;
@@ -530,7 +531,7 @@ class _CompactProgress extends StatelessWidget {
         Expanded(
           child: ClipRRect(
             borderRadius: kOpenHandPillBorderRadius,
-            child: LinearProgressIndicator(
+            child: ServiceAnimatedProgressBar(
               value: progress.total <= 0 ? null : progress.fraction,
               minHeight: 7,
               backgroundColor: cs.surfaceContainerHighest,

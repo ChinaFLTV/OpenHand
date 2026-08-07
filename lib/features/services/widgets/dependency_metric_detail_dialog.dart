@@ -2612,7 +2612,7 @@ class _ConnectionCapacityHero extends StatelessWidget {
                 const SizedBox(height: 10),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(999),
-                  child: LinearProgressIndicator(
+                  child: ServiceAnimatedProgressBar(
                     minHeight: 8,
                     value: ratio.clamp(0.0, 1.0),
                     color: riskColor,
@@ -3072,16 +3072,14 @@ class _DonutBreakdown extends StatelessWidget {
             child: Stack(
               fit: StackFit.expand,
               children: [
-                CustomPaint(
-                  painter: OpenHandDonutChartPainter(
-                    values: visible
-                        .map((item) => item.value)
-                        .toList(growable: false),
-                    colors: visible
-                        .map((item) => item.color)
-                        .toList(growable: false),
-                    trackColor: colors.surfaceContainerHighest,
-                  ),
+                ServiceAnimatedDonutChart(
+                  values: visible
+                      .map((item) => item.value)
+                      .toList(growable: false),
+                  colors: visible
+                      .map((item) => item.color)
+                      .toList(growable: false),
+                  trackColor: colors.surfaceContainerHighest,
                 ),
                 Center(
                   child: Padding(
@@ -3259,7 +3257,7 @@ class _HorizontalBars extends StatelessWidget {
                 Expanded(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(
+                    child: ServiceAnimatedProgressBar(
                       minHeight: 9,
                       value: dependencySafeRatio(entry.value, maximum),
                       color: color,
@@ -3540,22 +3538,26 @@ class _VerticalComparison extends StatelessWidget {
                       Expanded(
                         child: Align(
                           alignment: Alignment.bottomCenter,
-                          child: FractionallySizedBox(
-                            heightFactor: maximum <= 0
+                          child: ServiceAnimatedValue(
+                            value: maximum <= 0
                                 ? 0
                                 : dependencySafeRatio(
                                     item.value,
                                     maximum,
                                   ).clamp(0.03, 1.0),
-                            child: Container(
-                              width: 52,
-                              decoration: BoxDecoration(
-                                color: item.color,
-                                borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(6),
+                            builder: (context, heightFactor) =>
+                                FractionallySizedBox(
+                                  heightFactor: heightFactor.clamp(0.0, 1.0),
+                                  child: Container(
+                                    width: 52,
+                                    decoration: BoxDecoration(
+                                      color: item.color,
+                                      borderRadius: const BorderRadius.vertical(
+                                        top: Radius.circular(6),
+                                      ),
+                                    ),
+                                  ),
                                 ),
-                              ),
-                            ),
                           ),
                         ),
                       ),
@@ -3608,7 +3610,7 @@ class _UsageRail extends StatelessWidget {
         const SizedBox(height: 8),
         ClipRRect(
           borderRadius: BorderRadius.circular(999),
-          child: LinearProgressIndicator(
+          child: ServiceAnimatedProgressBar(
             minHeight: 11,
             value: value.clamp(0.0, 1.0),
             color: color,
@@ -3979,17 +3981,20 @@ class _RadialMeter extends StatelessWidget {
             children: [
               SizedBox.square(
                 dimension: math.min(116, constraints.maxWidth * 0.36),
-                child: CustomPaint(
-                  painter: _ArcMeterPainter(
-                    value: unavailable ? 0 : value,
-                    color: color,
-                    trackColor: colors.surfaceContainerHighest,
-                  ),
-                  child: Center(
-                    child: Text(
-                      unavailable ? '--' : _percent(value),
-                      style: theme.textTheme.titleMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
+                child: ServiceAnimatedValue(
+                  value: unavailable ? 0 : value,
+                  builder: (context, animatedValue) => CustomPaint(
+                    painter: _ArcMeterPainter(
+                      value: animatedValue,
+                      color: color,
+                      trackColor: colors.surfaceContainerHighest,
+                    ),
+                    child: Center(
+                      child: Text(
+                        unavailable ? '--' : _percent(value),
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
                     ),
                   ),
@@ -4103,25 +4108,28 @@ class _RedisHitGauge extends StatelessWidget {
           final gauge = SizedBox(
             width: math.min(300, constraints.maxWidth),
             height: 150,
-            child: CustomPaint(
-              painter: _SemiGaugePainter(
-                value: rate,
-                color: statusColor,
-                trackColor: colors.surfaceContainerHighest,
-              ),
-              child: Align(
-                alignment: const Alignment(0, 0.72),
-                child: Column(
-                  mainAxisSize: MainAxisSize.min,
-                  children: [
-                    Text(
-                      _percent(rate),
-                      style: theme.textTheme.headlineMedium?.copyWith(
-                        fontWeight: FontWeight.w900,
+            child: ServiceAnimatedValue(
+              value: rate,
+              builder: (context, animatedValue) => CustomPaint(
+                painter: _SemiGaugePainter(
+                  value: animatedValue,
+                  color: statusColor,
+                  trackColor: colors.surfaceContainerHighest,
+                ),
+                child: Align(
+                  alignment: const Alignment(0, 0.72),
+                  child: Column(
+                    mainAxisSize: MainAxisSize.min,
+                    children: [
+                      Text(
+                        _percent(rate),
+                        style: theme.textTheme.headlineMedium?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
                       ),
-                    ),
-                    Text('当前命中率', style: theme.textTheme.labelSmall),
-                  ],
+                      Text('当前命中率', style: theme.textTheme.labelSmall),
+                    ],
+                  ),
                 ),
               ),
             ),
@@ -4264,16 +4272,20 @@ class _SegmentedHitTrend extends StatelessWidget {
                         '${_clockText(times[index])} · ${values[index].toStringAsFixed(1)}%',
                     child: Padding(
                       padding: const EdgeInsets.symmetric(horizontal: 1),
-                      child: Container(
-                        height: 18 + 70 * (values[index] / 100).clamp(0.0, 1.0),
-                        decoration: BoxDecoration(
-                          color: values[index] < 70
-                              ? colors.error
-                              : values[index] < 90
-                              ? OpenHandStatusColors.warning
-                              : tone,
-                          borderRadius: const BorderRadius.vertical(
-                            top: Radius.circular(3),
+                      child: ServiceAnimatedValue(
+                        value: values[index],
+                        builder: (context, animatedValue) => Container(
+                          height:
+                              18 + 70 * (animatedValue / 100).clamp(0.0, 1.0),
+                          decoration: BoxDecoration(
+                            color: values[index] < 70
+                                ? colors.error
+                                : values[index] < 90
+                                ? OpenHandStatusColors.warning
+                                : tone,
+                            borderRadius: const BorderRadius.vertical(
+                              top: Radius.circular(3),
+                            ),
                           ),
                         ),
                       ),
@@ -4350,7 +4362,7 @@ class _LatencyDistribution extends StatelessWidget {
                 Expanded(
                   child: ClipRRect(
                     borderRadius: BorderRadius.circular(999),
-                    child: LinearProgressIndicator(
+                    child: ServiceAnimatedProgressBar(
                       minHeight: 12,
                       value: dependencySafeRatio(values[index].value, maximum),
                       color: index == 2 ? colors.error : colors.primary,
@@ -4474,7 +4486,10 @@ class _InteractiveTrendChartState extends State<_InteractiveTrendChart> {
             height: _kChartHeight,
             child: LayoutBuilder(
               builder: (context, constraints) {
-                final hovered = _hoveredIndex;
+                final hovered =
+                    _hoveredIndex == null || _hoveredIndex! >= pointCount
+                    ? null
+                    : _hoveredIndex;
                 final tooltipWidth = math.min(
                   210.0,
                   constraints.maxWidth * 0.62,
@@ -4505,17 +4520,20 @@ class _InteractiveTrendChartState extends State<_InteractiveTrendChart> {
                       clipBehavior: Clip.none,
                       children: [
                         Positioned.fill(
-                          child: CustomPaint(
-                            painter: _DependencyTrendPainter(
-                              times: times,
-                              series: series,
-                              gridColor: colors.outlineVariant.withValues(
-                                alpha: 0.58,
+                          child: ServiceAnimatedChart(
+                            series: series,
+                            builder: (context, animatedSeries) => CustomPaint(
+                              painter: _DependencyTrendPainter(
+                                times: times,
+                                series: animatedSeries,
+                                gridColor: colors.outlineVariant.withValues(
+                                  alpha: 0.58,
+                                ),
+                                labelColor: colors.onSurfaceVariant,
+                                area: widget.area,
+                                hoveredIndex: hovered,
+                                fixedMaximum: widget.fixedMaximum,
                               ),
-                              labelColor: colors.onSurfaceVariant,
-                              area: widget.area,
-                              hoveredIndex: hovered,
-                              fixedMaximum: widget.fixedMaximum,
                             ),
                           ),
                         ),

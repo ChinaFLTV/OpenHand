@@ -238,7 +238,7 @@ class OpenHandDonutChartPainter extends CustomPainter {
     required this.trackColor,
   });
 
-  final List<int> values;
+  final List<num> values;
   final List<Color> colors;
 
   /// 底环颜色；总量为零时只画这一圈。
@@ -246,7 +246,10 @@ class OpenHandDonutChartPainter extends CustomPainter {
 
   @override
   void paint(Canvas canvas, Size size) {
-    final total = values.fold<int>(0, (sum, value) => sum + value);
+    final total = values.fold<double>(
+      0,
+      (sum, value) => sum + math.max(0, value.toDouble()),
+    );
     final stroke = math.max(
       _kDonutMinStroke,
       math.min(size.shortestSide * _kDonutStrokeRatio, _kDonutMaxStroke),
@@ -269,7 +272,7 @@ class OpenHandDonutChartPainter extends CustomPainter {
 
     var start = -math.pi / 2;
     for (var index = 0; index < values.length; index++) {
-      final sweep = math.pi * 2 * values[index] / total;
+      final sweep = math.pi * 2 * math.max(0, values[index].toDouble()) / total;
       if (sweep <= 0) continue;
       canvas.drawArc(
         rect,
