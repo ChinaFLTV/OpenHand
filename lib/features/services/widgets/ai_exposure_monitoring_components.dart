@@ -1008,7 +1008,7 @@ class _RecentActivityPanel extends StatelessWidget {
                         ),
                         const SizedBox(width: 12),
                         Text(
-                          _shortDateTime(entry.at),
+                          _reportedShortDateTime(entry.at, entry.atReported),
                           style: Theme.of(context).textTheme.labelSmall,
                         ),
                       ],
@@ -1268,6 +1268,18 @@ String _duration(int seconds) {
 String _shortDateTime(DateTime value) =>
     '${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')} '
     '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+
+String _reportedShortDateTime(
+  DateTime value,
+  bool reported, {
+  String unavailable = '时间未上报',
+}) => reported ? _shortDateTime(value) : unavailable;
+
+String _reportedIsoDateTime(
+  DateTime value,
+  bool reported, {
+  String unavailable = '时间未上报',
+}) => reported ? value.toLocal().toIso8601String() : unavailable;
 
 String _sourceName(AiExposureSource source) => switch (source) {
   AiExposureSource.manual => '手工目标',

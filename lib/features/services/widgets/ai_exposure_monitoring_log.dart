@@ -287,7 +287,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
     final payload = logs
         .map(
           (entry) => jsonEncode(<String, Object?>{
-            'at': entry.at.toUtc().toIso8601String(),
+            if (entry.atReported) 'at': entry.at.toUtc().toIso8601String(),
             'level': entry.level,
             'jobId': entry.jobId,
             'message': entry.message,
@@ -307,8 +307,9 @@ class _LogRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final color = _logColor(entry.level);
     final local = entry.at.toLocal();
-    final time =
-        '${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}:${local.second.toString().padLeft(2, '0')}';
+    final time = entry.atReported
+        ? '${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}:${local.second.toString().padLeft(2, '0')}'
+        : '时间未上报';
     return ServiceInteractiveSurface(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),
       showDetailsIcon: false,

@@ -191,7 +191,12 @@ class _StoragePanel extends StatelessWidget {
               title: '归档增长趋势',
               subtitle: '最近 ${chronological.length} 个任务的累计结果',
               sampleLabels: chronological
-                  .map((entry) => _shortDateTime(entry.createdAt))
+                  .map(
+                    (entry) => _reportedShortDateTime(
+                      entry.createdAt,
+                      entry.createdAtReported,
+                    ),
+                  )
                   .toList(growable: false),
               series: [
                 OpenHandChartSeries(
@@ -209,7 +214,12 @@ class _StoragePanel extends StatelessWidget {
               title: '任务写入负载',
               subtitle: '已处理与发现记录',
               sampleLabels: chronological
-                  .map((entry) => _shortDateTime(entry.createdAt))
+                  .map(
+                    (entry) => _reportedShortDateTime(
+                      entry.createdAt,
+                      entry.createdAtReported,
+                    ),
+                  )
                   .toList(growable: false),
               series: [
                 OpenHandChartSeries(

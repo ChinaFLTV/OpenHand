@@ -720,7 +720,7 @@ class _TrendSampleTable extends StatelessWidget {
           Align(
             alignment: Alignment.centerLeft,
             child: Text(
-              '$truncationNotice · 按最新样本倒序展示',
+              '共 $maxSamples 条，当前显示最新 ${indexes.length} 条（已截断） · 按时间倒序展示',
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: Theme.of(context).colorScheme.onSurfaceVariant,
               ),

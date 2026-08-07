@@ -224,7 +224,9 @@ class _TaskEntityInsightBody extends StatelessWidget {
     final startedLabel = recordedStartedAt == null
         ? task.stage == 'queued'
               ? '尚未开始'
-              : '未记录实测开始时间；创建于 ${_shortDateTime(task.createdAt)}'
+              : task.createdAtReported
+              ? '未记录实测开始时间；创建于 ${_shortDateTime(task.createdAt)}'
+              : '未记录实测开始时间；创建时间未上报'
         : '${_shortDateTime(recordedStartedAt)}（实测 startedAt）';
     final terminalBoundaryLabel = task.finishedAt != null
         ? '${_shortDateTime(task.finishedAt!)}（实测 finishedAt）'
@@ -232,22 +234,27 @@ class _TaskEntityInsightBody extends StatelessWidget {
         ? '${_shortDateTime(task.cancelledAt!)}（取消边界）'
         : task.lastCheckpointAt != null
         ? '${_shortDateTime(task.lastCheckpointAt!)}（最后检查点）'
-        : task.isTerminal
+        : task.isTerminal && task.progress.updatedAtReported
         ? '${_shortDateTime(task.progress.updatedAt)}（终态进度观测）'
+        : task.isTerminal
+        ? '终态时间未上报'
         : '未结束';
-    final results = controller.results
-        .where((result) => result.jobId == task.id)
-        .toList(growable: false);
+    final results = task.id.isEmpty
+        ? const <AiExposureResult>[]
+        : controller.results
+              .where((result) => result.jobId == task.id)
+              .toList(growable: false);
     final highValueResults = results
         .where(
           (result) => result.category == AiExposureResultCategory.highValue,
         )
         .toList(growable: false);
-    final logs =
-        controller.logs
-            .where((entry) => entry.jobId == task.id)
-            .toList(growable: false)
-          ..sort((left, right) => right.at.compareTo(left.at));
+    final logs = task.id.isEmpty
+        ? <AiExposureLogEntry>[]
+        : (controller.logs
+              .where((entry) => entry.jobId == task.id)
+              .toList(growable: false)
+            ..sort((left, right) => right.at.compareTo(left.at)));
     const lifecycleStages = <String>[
       'queued',
       'discovering',
@@ -364,11 +371,22 @@ class _TaskEntityInsightBody extends StatelessWidget {
                   : task.authorizedScope.join(' / '),
               maxLines: 4,
             ),
-            _OpsKeyValue(label: '创建时间', value: _shortDateTime(task.createdAt)),
+            _OpsKeyValue(
+              label: '创建时间',
+              value: _reportedShortDateTime(
+                task.createdAt,
+                task.createdAtReported,
+                unavailable: '创建时间未上报',
+              ),
+            ),
             _OpsKeyValue(label: '开始时间', value: startedLabel, maxLines: 3),
             _OpsKeyValue(
               label: '最近更新',
-              value: task.progress.updatedAt.toLocal().toIso8601String(),
+              value: _reportedIsoDateTime(
+                task.progress.updatedAt,
+                task.progress.updatedAtReported,
+                unavailable: '最近更新未上报',
+              ),
             ),
             _OpsKeyValue(
               label: '终态时间边界',
@@ -449,13 +467,15 @@ class _TaskEntityInsightBody extends StatelessWidget {
         icon: Icons.fact_check_outlined,
         title: '关联扫描结果',
         records: results.map(_resultInsightRecord).toList(growable: false),
-        emptyLabel: '该任务暂无已归档结果。',
+        emptyLabel: task.id.isEmpty ? '旧版任务没有稳定 ID，未自动关联结果。' : '该任务暂无已归档结果。',
       ),
       _InsightRecordPanel(
         icon: Icons.receipt_long_outlined,
         title: '关联运行事件',
         records: logs.map(_logInsightRecord).toList(growable: false),
-        emptyLabel: '当前日志缓冲中没有该任务的运行事件。',
+        emptyLabel: task.id.isEmpty
+            ? '旧版任务没有稳定 ID，未自动关联运行事件。'
+            : '当前日志缓冲中没有该任务的运行事件。',
       ),
       _Section(
         title: '错误与恢复',
@@ -481,9 +501,13 @@ class _TaskEntityInsightBody extends StatelessWidget {
             ),
             _OpsKeyValue(
               label: '最后检查点',
-              value: (task.lastCheckpointAt ?? task.progress.updatedAt)
-                  .toLocal()
-                  .toIso8601String(),
+              value: task.lastCheckpointAt != null
+                  ? task.lastCheckpointAt!.toLocal().toIso8601String()
+                  : _reportedIsoDateTime(
+                      task.progress.updatedAt,
+                      task.progress.updatedAtReported,
+                      unavailable: '最后检查点未上报',
+                    ),
             ),
             _OpsKeyValue(
               label: '已处理进度',
@@ -811,7 +835,12 @@ class _SourceEntityInsightBody extends StatelessWidget {
           ),
         ],
         sampleLabels: chronologicalTasks
-            .map((task) => _shortDateTime(task.createdAt))
+            .map(
+              (task) => _reportedShortDateTime(
+                task.createdAt,
+                task.createdAtReported,
+              ),
+            )
             .toList(growable: false),
         suffix: ' 项',
         emptyLabel: '当前保留任务中没有该来源的处理样本。',
@@ -1091,7 +1120,10 @@ class _ProxyEndpointEntityInsightBody extends StatelessWidget {
           ),
         ],
         sampleLabels: chronologicalRequests
-            .map((request) => _shortDateTime(request.at))
+            .map(
+              (request) =>
+                  _reportedShortDateTime(request.at, request.atReported),
+            )
             .toList(growable: false),
         suffix: ' ms',
         emptyLabel: '该节点没有近期请求时延样本。',
@@ -1177,7 +1209,11 @@ class _ProxyEndpointEntityInsightBody extends StatelessWidget {
               label: '最近巡检',
               value: sample == null
                   ? '等待首次巡检'
-                  : _shortDateTime(sample.checkedAt),
+                  : _reportedShortDateTime(
+                      sample.checkedAt,
+                      sample.checkedAtReported,
+                      unavailable: '巡检时间未上报',
+                    ),
             ),
             _OpsKeyValue(
               label: '巡检结果',
@@ -1459,7 +1495,7 @@ class _ResultEntityInsightBody extends StatelessWidget {
                 icon: Icons.fact_check_outlined,
                 title: _entitySafeText(_resultDisplayName(entry)),
                 subtitle:
-                    '结果 ${_entitySafeText(entry.id)} · ${_shortDateTime(entry.createdAt)}',
+                    '结果 ${_entitySafeText(entry.id)} · ${_reportedShortDateTime(entry.createdAt, entry.createdAtReported, unavailable: '创建时间未上报')}',
                 color: _resultEntityColor(entry.category),
                 target: _ResultInsightTarget(entry),
                 cells: [
@@ -1499,7 +1535,14 @@ class _ResultEntityInsightBody extends StatelessWidget {
             '任务 ID',
             result.jobId.isEmpty ? '记录缺少关联任务' : _entitySafeText(result.jobId),
           ),
-          ('创建时间', result.createdAt.toLocal().toIso8601String()),
+          (
+            '创建时间',
+            _reportedIsoDateTime(
+              result.createdAt,
+              result.createdAtReported,
+              unavailable: '创建时间未上报',
+            ),
+          ),
           ('来源', _sourceName(result.source)),
           ('URL', _entitySafeUrl(result.url)),
           ('主机', _entitySafeText(result.host, unavailable: '记录字段缺失')),
@@ -1581,7 +1624,7 @@ class _LogEntityInsightBody extends StatelessWidget {
             subtitle: _entitySafeText(item.message, unavailable: '日志消息为空'),
             tags: [
               _logLevelName(context, item.level),
-              _shortDateTime(item.at),
+              _reportedShortDateTime(item.at, item.atReported),
               if (item.jobId.isNotEmpty) '任务 ${_entitySafeText(item.jobId)}',
             ],
             color: _logColor(item.level),
@@ -1630,6 +1673,7 @@ class _LogEntityInsightBody extends StatelessWidget {
         title: '同追踪保留时间线',
         icon: Icons.timeline_rounded,
         entries: traceEntries
+            .where((item) => item.atReported)
             .map(
               (item) => _InsightTimelineEntry(
                 at: item.at,
@@ -1656,7 +1700,14 @@ class _LogEntityInsightBody extends StatelessWidget {
         title: '事件字段',
         icon: Icons.receipt_long_outlined,
         fields: [
-          ('时间', entry.at.toLocal().toIso8601String()),
+          (
+            '时间',
+            _reportedIsoDateTime(
+              entry.at,
+              entry.atReported,
+              unavailable: '事件时间未上报',
+            ),
+          ),
           ('级别', _logLevelName(context, entry.level)),
           (
             '任务 ID',
@@ -2008,7 +2059,7 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
                 tags: [
                   '${item.responseTimeMs} ms',
                   if (item.statusCode != null) 'HTTP ${item.statusCode}',
-                  _shortDateTime(item.at),
+                  _reportedShortDateTime(item.at, item.atReported),
                 ],
                 color: item.succeeded
                     ? OpenHandStatusColors.success
@@ -2031,7 +2082,14 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
         title: '请求与选路事实',
         icon: Icons.receipt_long_outlined,
         fields: [
-          ('请求时间', sample.at.toLocal().toIso8601String()),
+          (
+            '请求时间',
+            _reportedIsoDateTime(
+              sample.at,
+              sample.atReported,
+              unavailable: '请求时间未上报',
+            ),
+          ),
           ('请求 ID', _entitySafeText(sample.id, unavailable: '旧版请求样本未记录')),
           ('节点', _entitySafeText(endpoint?.displayName, unavailable: '运行时节点')),
           ('代理地址', endpoint?.maskedUrl ?? _maskProxyAddress(address)),
@@ -2076,7 +2134,11 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
             '身份采集时间',
             identity == null
                 ? '尚未完成出口识别'
-                : identity.observedAt.toLocal().toIso8601String(),
+                : _reportedIsoDateTime(
+                    identity.observedAt,
+                    identity.observedAtReported,
+                    unavailable: '身份采集时间未上报',
+                  ),
           ),
         ],
       ),
@@ -2193,7 +2255,12 @@ class _ProxyProbeEntityInsightBody extends StatelessWidget {
           ),
         ],
         sampleLabels: latencySamples
-            .map((entry) => _shortDateTime(entry.checkedAt))
+            .map(
+              (entry) => _reportedShortDateTime(
+                entry.checkedAt,
+                entry.checkedAtReported,
+              ),
+            )
             .toList(growable: false),
         suffix: ' ms',
         emptyLabel: endpoint == null
@@ -2236,7 +2303,14 @@ class _ProxyProbeEntityInsightBody extends StatelessWidget {
         title: '巡检身份与失败事实',
         icon: Icons.badge_outlined,
         fields: [
-          ('巡检时间', sample.checkedAt.toLocal().toIso8601String()),
+          (
+            '巡检时间',
+            _reportedIsoDateTime(
+              sample.checkedAt,
+              sample.checkedAtReported,
+              unavailable: '巡检时间未上报',
+            ),
+          ),
           ('巡检 ID', _entitySafeText(sample.id, unavailable: '旧版巡检样本未记录')),
           (
             '巡检轮次 ID',
@@ -2385,7 +2459,12 @@ class _StageEntityInsightBody extends StatelessWidget {
           ),
         ],
         sampleLabels: visibleDurationTasks
-            .map((entry) => _shortDateTime(entry.createdAt))
+            .map(
+              (entry) => _reportedShortDateTime(
+                entry.createdAt,
+                entry.createdAtReported,
+              ),
+            )
             .toList(growable: false),
         suffix: ' ms',
         emptyLabel: '当前任务历史没有该阶段的真实时长切片。',

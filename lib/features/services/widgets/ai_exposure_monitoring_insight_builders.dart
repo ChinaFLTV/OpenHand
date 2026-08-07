@@ -383,7 +383,12 @@ Widget _buildOverviewMetricInsight(
             ),
           ],
           sampleLabels: chronological
-              .map((entry) => _shortDateTime(entry.createdAt))
+              .map(
+                (entry) => _reportedShortDateTime(
+                  entry.createdAt,
+                  entry.createdAtReported,
+                ),
+              )
               .toList(growable: false),
           suffix: ' 条',
           emptyLabel: '暂无任务产出样本',
@@ -425,7 +430,12 @@ Widget _buildOverviewMetricInsight(
             ),
           ],
           sampleLabels: chronological
-              .map((entry) => _shortDateTime(entry.createdAt))
+              .map(
+                (entry) => _reportedShortDateTime(
+                  entry.createdAt,
+                  entry.createdAtReported,
+                ),
+              )
               .toList(growable: false),
           suffix: ' 项',
           emptyLabel: '暂无处理吞吐样本',
@@ -454,10 +464,11 @@ Widget _buildOverviewMetricInsight(
       ]);
     case _MetricInsightId.overviewAverageDuration:
       final finished = history
-          .where((entry) => _taskDurationMs(entry) != null)
+          .where((entry) => _taskMeasuredDurationMs(entry) != null)
           .toList(growable: false);
       final durations =
-          finished.map((entry) => _taskDurationMs(entry)!).toList()..sort();
+          finished.map((entry) => _taskMeasuredDurationMs(entry)!).toList()
+            ..sort();
       final average = durations.isEmpty
           ? 0
           : (durations.fold<int>(0, (sum, value) => sum + value) /
@@ -500,8 +511,9 @@ Widget _buildOverviewMetricInsight(
         ),
         _metricTaskPanel(
           finished..sort(
-            (left, right) =>
-                _taskDurationMs(right)!.compareTo(_taskDurationMs(left)!),
+            (left, right) => _taskMeasuredDurationMs(
+              right,
+            )!.compareTo(_taskMeasuredDurationMs(left)!),
           ),
           title: '最慢任务清单',
           emptyLabel: '暂无已结束任务耗时样本。',
@@ -602,7 +614,10 @@ Widget _buildOverviewMetricInsight(
             ),
           ],
           sampleLabels: samples
-              .map((sample) => _shortDateTime(sample.at))
+              .map(
+                (sample) =>
+                    _reportedShortDateTime(sample.at, sample.atReported),
+              )
               .toList(growable: false),
           suffix: ' ms',
           emptyLabel: '暂无代理请求时延样本',
@@ -753,7 +768,10 @@ Widget _buildPipelineMetricInsight(
               label: '最近更新',
               value: progress == null
                   ? '--'
-                  : _shortDateTime(progress.updatedAt),
+                  : _reportedShortDateTime(
+                      progress.updatedAt,
+                      progress.updatedAtReported,
+                    ),
               helper: progress?.jobId.isEmpty == false
                   ? '任务 ${progress!.jobId}'
                   : '无活动任务',
@@ -790,7 +808,12 @@ Widget _buildPipelineMetricInsight(
             ),
           ],
           sampleLabels: chronological
-              .map((entry) => _shortDateTime(entry.createdAt))
+              .map(
+                (entry) => _reportedShortDateTime(
+                  entry.createdAt,
+                  entry.createdAtReported,
+                ),
+              )
               .toList(growable: false),
           suffix: ' 项',
           emptyLabel: '暂无任务处理样本',
@@ -886,7 +909,12 @@ Widget _buildPipelineMetricInsight(
             ),
           ],
           sampleLabels: chronological
-              .map((entry) => _shortDateTime(entry.createdAt))
+              .map(
+                (entry) => _reportedShortDateTime(
+                  entry.createdAt,
+                  entry.createdAtReported,
+                ),
+              )
               .toList(growable: false),
           suffix: ' 条',
           emptyLabel: '暂无验证产出样本',
@@ -1055,7 +1083,8 @@ Widget _buildPipelineMetricInsight(
                           : OpenHandStatusColors.warning,
                     ),
                     _InsightMatrixCell(
-                      label: '检查点 ${_shortDateTime(entry.progress.updatedAt)}',
+                      label:
+                          '检查点 ${_reportedShortDateTime(entry.progress.updatedAt, entry.progress.updatedAtReported)}',
                       color: colors.primary,
                     ),
                     _InsightMatrixCell(
@@ -2274,7 +2303,9 @@ Widget _buildNetworkMetricInsight(
             ),
           ],
           sampleLabels: successSamples
-              .map((entry) => _shortDateTime(entry.at))
+              .map(
+                (entry) => _reportedShortDateTime(entry.at, entry.atReported),
+              )
               .toList(growable: false),
           suffix: ' ms',
           emptyLabel: '暂无成功请求样本',
@@ -2382,7 +2413,9 @@ Widget _buildNetworkMetricInsight(
             ),
           ],
           sampleLabels: samples
-              .map((entry) => _shortDateTime(entry.at))
+              .map(
+                (entry) => _reportedShortDateTime(entry.at, entry.atReported),
+              )
               .toList(growable: false),
           suffix: ' ms',
           emptyLabel: '暂无请求时延样本',
@@ -2421,7 +2454,9 @@ Widget _buildNetworkMetricInsight(
               ),
             ],
             sampleLabels: samples
-                .map((entry) => _shortDateTime(entry.at))
+                .map(
+                  (entry) => _reportedShortDateTime(entry.at, entry.atReported),
+                )
                 .toList(growable: false),
             suffix: ' ms',
             emptyLabel: '暂无长尾响应样本',
@@ -2647,24 +2682,39 @@ Widget _buildStorageMetricInsight(
       );
     case _MetricInsightId.storageLastWrite:
       final events = <({DateTime at, _InsightTarget target})>[
-        ...history.map(
-          (entry) => (
-            at: entry.effectiveFinishedAt ?? entry.createdAt,
-            target: _TaskInsightTarget(entry) as _InsightTarget,
-          ),
+        ...history.expand(
+          (entry) => entry.effectiveFinishedAt != null
+              ? [
+                  (
+                    at: entry.effectiveFinishedAt!,
+                    target: _TaskInsightTarget(entry) as _InsightTarget,
+                  ),
+                ]
+              : entry.createdAtReported
+              ? [
+                  (
+                    at: entry.createdAt,
+                    target: _TaskInsightTarget(entry) as _InsightTarget,
+                  ),
+                ]
+              : const <({DateTime at, _InsightTarget target})>[],
         ),
-        ...results.map(
-          (entry) => (
-            at: entry.createdAt,
-            target: _ResultInsightTarget(entry) as _InsightTarget,
-          ),
-        ),
-        ...logs.map(
-          (entry) => (
-            at: entry.at,
-            target: _LogInsightTarget(entry) as _InsightTarget,
-          ),
-        ),
+        ...results
+            .where((entry) => entry.createdAtReported)
+            .map(
+              (entry) => (
+                at: entry.createdAt,
+                target: _ResultInsightTarget(entry) as _InsightTarget,
+              ),
+            ),
+        ...logs
+            .where((entry) => entry.atReported)
+            .map(
+              (entry) => (
+                at: entry.at,
+                target: _LogInsightTarget(entry) as _InsightTarget,
+              ),
+            ),
       ]..sort((left, right) => left.at.compareTo(right.at));
       final recent = events.length <= 24
           ? events
@@ -2756,44 +2806,53 @@ Widget _buildStorageMetricInsight(
           title: '最近可见记录时间线',
           icon: Icons.timeline_rounded,
           entries: [
-            ...history.map(
-              (entry) => _InsightTimelineEntry(
-                at: entry.effectiveFinishedAt ?? entry.createdAt,
-                title:
-                    '任务 · ${entry.name.trim().isEmpty ? entry.id : entry.name}',
-                detail:
-                    '${_stageName(entry.stage)} · 处理 ${entry.progress.processed}',
-                tag: '任务',
-                color: colors.primary,
-                target: _TaskInsightTarget(entry),
-              ),
-            ),
-            ...results.map(
-              (entry) => _InsightTimelineEntry(
-                at: entry.createdAt,
-                title:
-                    '结果 · ${entry.product.isEmpty ? entry.host : entry.product}',
-                detail:
-                    '${_sourceName(entry.source)} · 证据 ${entry.evidence.length}',
-                tag: '结果',
-                color: OpenHandStatusColors.info,
-                target: _ResultInsightTarget(entry),
-              ),
-            ),
-            ...logs.map(
-              (entry) => _InsightTimelineEntry(
-                at: entry.at,
-                title: '日志 · ${entry.message}',
-                detail: entry.jobId.isEmpty ? '系统事件' : '任务 ${entry.jobId}',
-                tag: '日志',
-                color: entry.level == 'error'
-                    ? OpenHandStatusColors.error
-                    : entry.level == 'warning'
-                    ? OpenHandStatusColors.warning
-                    : colors.secondary,
-                target: _LogInsightTarget(entry),
-              ),
-            ),
+            ...history.expand((entry) {
+              final at = entry.effectiveFinishedAt ?? entry.reportedCreatedAt;
+              return at == null
+                  ? const <_InsightTimelineEntry>[]
+                  : <_InsightTimelineEntry>[
+                      _InsightTimelineEntry(
+                        at: at,
+                        title:
+                            '任务 · ${entry.name.trim().isEmpty ? entry.id : entry.name}',
+                        detail:
+                            '${_stageName(entry.stage)} · 处理 ${entry.progress.processed}',
+                        tag: '任务',
+                        color: colors.primary,
+                        target: _TaskInsightTarget(entry),
+                      ),
+                    ];
+            }),
+            ...results
+                .where((entry) => entry.createdAtReported)
+                .map(
+                  (entry) => _InsightTimelineEntry(
+                    at: entry.createdAt,
+                    title:
+                        '结果 · ${entry.product.isEmpty ? entry.host : entry.product}',
+                    detail:
+                        '${_sourceName(entry.source)} · 证据 ${entry.evidence.length}',
+                    tag: '结果',
+                    color: OpenHandStatusColors.info,
+                    target: _ResultInsightTarget(entry),
+                  ),
+                ),
+            ...logs
+                .where((entry) => entry.atReported)
+                .map(
+                  (entry) => _InsightTimelineEntry(
+                    at: entry.at,
+                    title: '日志 · ${entry.message}',
+                    detail: entry.jobId.isEmpty ? '系统事件' : '任务 ${entry.jobId}',
+                    tag: '日志',
+                    color: entry.level == 'error'
+                        ? OpenHandStatusColors.error
+                        : entry.level == 'warning'
+                        ? OpenHandStatusColors.warning
+                        : colors.secondary,
+                    target: _LogInsightTarget(entry),
+                  ),
+                ),
           ]..sort((left, right) => right.at.compareTo(left.at)),
           emptyLabel: '暂无可见记录。',
         ),
@@ -2854,7 +2913,12 @@ Widget _buildStorageMetricInsight(
             ),
           ],
           sampleLabels: chronological
-              .map((entry) => _shortDateTime(entry.createdAt))
+              .map(
+                (entry) => _reportedShortDateTime(
+                  entry.createdAt,
+                  entry.createdAtReported,
+                ),
+              )
               .toList(growable: false),
           suffix: ' 项',
           emptyLabel: '暂无归档任务样本',
@@ -3036,7 +3100,8 @@ Widget _buildStorageMetricInsight(
                           : OpenHandStatusColors.warning,
                     ),
                     _InsightMatrixCell(
-                      label: '更新 ${_shortDateTime(entry.progress.updatedAt)}',
+                      label:
+                          '更新 ${_reportedShortDateTime(entry.progress.updatedAt, entry.progress.updatedAtReported)}',
                       color: colors.primary,
                     ),
                     _InsightMatrixCell(
@@ -3503,7 +3568,9 @@ Widget _buildSecurityMetricInsight(
             ),
           ],
           sampleLabels: successSamples
-              .map((entry) => _shortDateTime(entry.at))
+              .map(
+                (entry) => _reportedShortDateTime(entry.at, entry.atReported),
+              )
               .toList(growable: false),
           suffix: ' ms',
           emptyLabel: '暂无验证成功请求样本',
@@ -3787,7 +3854,7 @@ _InsightRecord _taskInsightRecord(
     _ => OpenHandStatusColors.info,
   };
   final finishedAt = entry.effectiveFinishedAt;
-  final durationMs = _taskDurationMs(entry);
+  final durationMs = _taskMeasuredDurationMs(entry);
   final duration = durationMs == null
       ? null
       : Duration(milliseconds: durationMs);
@@ -3799,7 +3866,7 @@ _InsightRecord _taskInsightRecord(
       _stageName(entry.stage),
       '处理 ${progress.processed}/${progress.total}',
       '进度 ${rate(progress.processed, progress.total)}',
-      '更新 ${_shortDateTime(progress.updatedAt)}',
+      '更新 ${_reportedShortDateTime(progress.updatedAt, progress.updatedAtReported)}',
     ],
     _TaskRecordLens.throughput => [
       '处理 ${progress.processed}',
@@ -3827,7 +3894,7 @@ _InsightRecord _taskInsightRecord(
     ],
     _TaskRecordLens.duration => [
       '耗时 ${duration == null ? '--' : _duration(duration.inSeconds.clamp(0, 86400))}',
-      '开始 ${_shortDateTime(entry.effectiveStartedAt)}',
+      '开始 ${entry.effectiveStartedAt == null ? '时间未上报' : _shortDateTime(entry.effectiveStartedAt!)}',
       if (finishedAt != null) '结束 ${_shortDateTime(finishedAt)}',
       '处理 ${progress.processed}',
     ],
@@ -3840,13 +3907,13 @@ _InsightRecord _taskInsightRecord(
     _TaskRecordLens.recovery => [
       _stageName(entry.stage),
       entry.isResumable ? '允许恢复' : '不可恢复',
-      '检查点 ${_shortDateTime(progress.updatedAt)}',
+      '检查点 ${_reportedShortDateTime(progress.updatedAt, progress.updatedAtReported)}',
       '任务 ${entry.id}',
     ],
     _TaskRecordLens.archive => [
       '任务 ${entry.id}',
       _stageName(entry.stage),
-      '创建 ${_shortDateTime(entry.createdAt)}',
+      '创建 ${_reportedShortDateTime(entry.createdAt, entry.createdAtReported)}',
       if (finishedAt != null) '归档 ${_shortDateTime(finishedAt)}',
     ],
     _TaskRecordLens.overview => [
@@ -3859,7 +3926,9 @@ _InsightRecord _taskInsightRecord(
         '耗时 ${_duration(duration.inSeconds.clamp(0, 86400))}',
       if (entry.sources.isNotEmpty)
         entry.sources.map(_sourceName).take(3).join(' / '),
-      _shortDateTime(finishedAt ?? entry.createdAt),
+      finishedAt == null
+          ? _reportedShortDateTime(entry.createdAt, entry.createdAtReported)
+          : _shortDateTime(finishedAt),
     ],
   };
   final scope = entry.authorizedScope.take(3).join(', ');
@@ -3924,27 +3993,27 @@ _InsightRecord _resultInsightRecord(
       if (entry.duplicateResponseHosts > 0)
         '重复响应 ${entry.duplicateResponseHosts}',
       if (entry.duplicateKeyHosts > 0) '重复凭证 ${entry.duplicateKeyHosts}',
-      _shortDateTime(entry.createdAt),
+      _reportedShortDateTime(entry.createdAt, entry.createdAtReported),
     ],
     _ResultRecordLens.credentials => [
       '状态 ${aiExposureCredentialStateName(entry.credentialState)}',
       if (entry.maskedCredential?.trim().isNotEmpty == true)
         entry.maskedCredential!.trim(),
       '模型 ${entry.modelCount}',
-      _shortDateTime(entry.createdAt),
+      _reportedShortDateTime(entry.createdAt, entry.createdAtReported),
     ],
     _ResultRecordLens.source => [
       _sourceName(entry.source),
       '任务 ${entry.jobId}',
       category,
-      _shortDateTime(entry.createdAt),
+      _reportedShortDateTime(entry.createdAt, entry.createdAtReported),
     ],
     _ResultRecordLens.archive => [
       '结果 ${entry.id}',
       '任务 ${entry.jobId}',
       category,
       '证据 ${entry.evidence.length}',
-      _shortDateTime(entry.createdAt),
+      _reportedShortDateTime(entry.createdAt, entry.createdAtReported),
     ],
     _ResultRecordLens.overview => [
       category,
@@ -3954,7 +4023,7 @@ _InsightRecord _resultInsightRecord(
       if (entry.duplicateResponseHosts > 0)
         '重复响应 ${entry.duplicateResponseHosts}',
       if (entry.duplicateKeyHosts > 0) '重复凭证 ${entry.duplicateKeyHosts}',
-      _shortDateTime(entry.createdAt),
+      _reportedShortDateTime(entry.createdAt, entry.createdAtReported),
     ],
   };
   final subtitle = switch (lens) {
@@ -4001,7 +4070,10 @@ _InsightRecord _logInsightRecord(AiExposureLogEntry entry) {
         : Icons.info_outline_rounded,
     title: entry.message,
     subtitle: entry.jobId.isEmpty ? '' : '关联任务 ${entry.jobId}',
-    tags: [_operationsLogLevelName(entry.level), _shortDateTime(entry.at)],
+    tags: [
+      _operationsLogLevelName(entry.level),
+      _reportedShortDateTime(entry.at, entry.atReported),
+    ],
     color: tone,
     target: _LogInsightTarget(entry),
   );
@@ -4031,7 +4103,7 @@ _InsightRecord _proxyRequestRecord(
     tags: [
       '${request.responseTimeMs} ms',
       if (request.statusCode != null) 'HTTP ${request.statusCode}',
-      _shortDateTime(request.at),
+      _reportedShortDateTime(request.at, request.atReported),
     ],
     color: tone,
     target: _ProxyRequestInsightTarget(
@@ -4062,7 +4134,7 @@ _InsightRecord _proxyProbeRecord(
       if (probe.latencyMs != null) '${probe.latencyMs} ms',
       if (probe.statusCode != null) 'HTTP ${probe.statusCode}',
       if (probe.failure != null) _proxyProbeFailureName(probe.failure!),
-      _shortDateTime(probe.checkedAt),
+      _reportedShortDateTime(probe.checkedAt, probe.checkedAtReported),
     ],
     color: tone,
     target: _ProxyProbeInsightTarget(endpoint: endpoint, sample: probe),
@@ -5197,7 +5269,7 @@ Widget _proxyRequestInsightPanel(
                 : '失败',
             '${sample.responseTimeMs} ms',
             if (sample.statusCode != null) 'HTTP ${sample.statusCode}',
-            _shortDateTime(sample.at),
+            _reportedShortDateTime(sample.at, sample.atReported),
           ],
           color: tone,
           target: _ProxyRequestInsightTarget(
@@ -5365,7 +5437,9 @@ Widget _persistenceWriteEventPanel(
   ServicesController controller,
 ) {
   final events = <(DateTime, _InsightRecord)>[];
-  for (final job in controller.history) {
+  for (final job in controller.history.where(
+    (entry) => entry.createdAtReported,
+  )) {
     events.add((
       job.createdAt,
       _InsightRecord(
@@ -5373,7 +5447,7 @@ Widget _persistenceWriteEventPanel(
         title: '创建任务 · ${job.name.trim().isEmpty ? job.id : job.name}',
         subtitle: '任务 ${job.id} · ${job.sources.map(_sourceName).join(' / ')}',
         tags: [
-          _shortDateTime(job.createdAt),
+          _reportedShortDateTime(job.createdAt, job.createdAtReported),
           job.mode == AiExposureScanMode.full ? '全量扫描' : '增量扫描',
           '授权范围 ${job.authorizedScope.length}',
         ],
@@ -5406,7 +5480,9 @@ Widget _persistenceWriteEventPanel(
       ));
     }
   }
-  for (final result in controller.results) {
+  for (final result in controller.results.where(
+    (entry) => entry.createdAtReported,
+  )) {
     events.add((
       result.createdAt,
       _InsightRecord(
@@ -5415,7 +5491,7 @@ Widget _persistenceWriteEventPanel(
             '写入扫描结果 · ${result.product.isEmpty ? result.host : result.product}',
         subtitle: '结果 ${result.id} · 关联任务 ${result.jobId}',
         tags: [
-          _shortDateTime(result.createdAt),
+          _reportedShortDateTime(result.createdAt, result.createdAtReported),
           _sourceName(result.source),
           '证据 ${result.evidence.length}',
           '凭证 ${aiExposureCredentialStateName(result.credentialState)}',
@@ -5425,7 +5501,7 @@ Widget _persistenceWriteEventPanel(
       ),
     ));
   }
-  for (final log in controller.logs) {
+  for (final log in controller.logs.where((entry) => entry.atReported)) {
     events.add((
       log.at,
       _InsightRecord(
@@ -5433,7 +5509,7 @@ Widget _persistenceWriteEventPanel(
         title: '追加运行日志 · ${_operationsLogLevelName(log.level)}',
         subtitle: log.message,
         tags: [
-          _shortDateTime(log.at),
+          _reportedShortDateTime(log.at, log.atReported),
           if (log.jobId.isNotEmpty) '任务 ${log.jobId}',
         ],
         color: log.level == 'error'
@@ -5649,7 +5725,10 @@ Widget _integrityInsightPanel(
         icon: Icons.pending_actions_outlined,
         title: job.name.trim().isEmpty ? job.id : job.name,
         subtitle: '归档中仍处于 ${_stageName(job.stage)} 阶段。',
-        tags: [job.id, _shortDateTime(job.createdAt)],
+        tags: [
+          job.id,
+          _reportedShortDateTime(job.createdAt, job.createdAtReported),
+        ],
         color: colors.tertiary,
         target: _TaskInsightTarget(job),
       ),
@@ -5786,13 +5865,6 @@ int? _taskMeasuredDurationMs(AiExposureHistoryEntry task) {
       finishedAt.isBefore(startedAt)) {
     return null;
   }
-  return finishedAt.difference(startedAt).inMilliseconds;
-}
-
-int? _taskDurationMs(AiExposureHistoryEntry task) {
-  final finishedAt = task.effectiveFinishedAt;
-  final startedAt = task.effectiveStartedAt;
-  if (finishedAt == null || finishedAt.isBefore(startedAt)) return null;
   return finishedAt.difference(startedAt).inMilliseconds;
 }
 
@@ -5933,9 +6005,11 @@ Widget _taskDurationTrendInsight(
 ) {
   final colors = Theme.of(context).colorScheme;
   final finished = controller.history
-      .where((task) => _taskDurationMs(task) != null)
+      .where((task) => _taskMeasuredDurationMs(task) != null)
       .toList(growable: false);
-  final durations = finished.map((task) => _taskDurationMs(task)!).toList();
+  final durations = finished
+      .map((task) => _taskMeasuredDurationMs(task)!)
+      .toList();
   final p50 = _latencyPercentile([...durations], 0.50);
   final p90 = _latencyPercentile([...durations], 0.90);
   final p95 = _latencyPercentile([...durations], 0.95);
@@ -5960,8 +6034,9 @@ Widget _taskDurationTrendInsight(
 
   final slowest = [...finished]
     ..sort(
-      (left, right) =>
-          _taskDurationMs(right)!.compareTo(_taskDurationMs(left)!),
+      (left, right) => _taskMeasuredDurationMs(
+        right,
+      )!.compareTo(_taskMeasuredDurationMs(left)!),
     );
   final chartTasks = finished.reversed
       .take(sampleLabels.length)
@@ -6045,11 +6120,11 @@ Widget _taskDurationTrendInsight(
           .map(
             (task) => _InsightRankItem(
               label: task.name.trim().isEmpty ? task.id : task.name,
-              value: _taskDurationMs(task)!.toDouble(),
-              valueLabel: '${_taskDurationMs(task)} ms',
+              value: _taskMeasuredDurationMs(task)!.toDouble(),
+              valueLabel: '${_taskMeasuredDurationMs(task)} ms',
               helper:
                   '${_stageName(task.stage)} · 处理 ${task.progress.processed} · ${task.sources.map(_sourceName).join(' / ')}',
-              color: _taskDurationMs(task)! >= p95 && p95 > 0
+              color: _taskMeasuredDurationMs(task)! >= p95 && p95 > 0
                   ? OpenHandStatusColors.warning
                   : colors.primary,
               target: _TaskInsightTarget(task),
@@ -6062,12 +6137,12 @@ Widget _taskDurationTrendInsight(
       title: '耗时异常',
       icon: Icons.notification_important_outlined,
       entries: slowest
-          .where((task) => p95 > 0 && _taskDurationMs(task)! >= p95)
+          .where((task) => p95 > 0 && _taskMeasuredDurationMs(task)! >= p95)
           .map(
             (task) => _InsightTimelineEntry(
               at: task.effectiveFinishedAt!,
               title: task.name.trim().isEmpty ? task.id : task.name,
-              detail: '耗时 ${_taskDurationMs(task)} ms · P95 阈值 $p95 ms',
+              detail: '耗时 ${_taskMeasuredDurationMs(task)} ms · P95 阈值 $p95 ms',
               color: OpenHandStatusColors.warning,
               tag: _stageName(task.stage),
               target: _TaskInsightTarget(task),
@@ -6175,7 +6250,7 @@ Widget _pipelineFunnelTrendInsight(
               icon: _stageIcon(task.stage),
               title: task.name.trim().isEmpty ? task.id : task.name,
               subtitle:
-                  '${_stageName(task.stage)} · ${_shortDateTime(task.createdAt)}',
+                  '${_stageName(task.stage)} · ${_reportedShortDateTime(task.createdAt, task.createdAtReported)}',
               color: task.stage == 'failed'
                   ? OpenHandStatusColors.error
                   : colors.primary,
@@ -6330,9 +6405,18 @@ Widget _archiveGrowthTrendInsight(
   int previousCount(Iterable<DateTime> values) => values
       .where((at) => !at.isBefore(twoDaysAgo) && at.isBefore(dayAgo))
       .length;
-  final resultTimes = controller.results.map((result) => result.createdAt);
-  final jobTimes = controller.history.map((task) => task.createdAt);
-  final logTimes = controller.logs.map((log) => log.at);
+  final resultTimes = controller.results
+      .where((result) => result.createdAtReported)
+      .map((result) => result.createdAt)
+      .toList(growable: false);
+  final jobTimes = controller.history
+      .where((task) => task.createdAtReported)
+      .map((task) => task.createdAt)
+      .toList(growable: false);
+  final logTimes = controller.logs
+      .where((log) => log.atReported)
+      .map((log) => log.at)
+      .toList(growable: false);
   final recentResults = recentCount(resultTimes);
   final previousResults = previousCount(resultTimes);
   final lastWrite = <DateTime>[...resultTimes, ...jobTimes, ...logTimes]
@@ -6592,21 +6676,25 @@ Widget _resultCategoryDistributionInsight(
       '有效',
       count(AiExposureResultCategory.valid),
       OpenHandStatusColors.success,
+      key: AiExposureResultCategory.valid,
     ),
     _DistributionItem(
       '高价值',
       count(AiExposureResultCategory.highValue),
       const Color(0xffa855f7),
+      key: AiExposureResultCategory.highValue,
     ),
     _DistributionItem(
       '可疑',
       count(AiExposureResultCategory.suspicious),
       OpenHandStatusColors.warning,
+      key: AiExposureResultCategory.suspicious,
     ),
     _DistributionItem(
       '蜜罐',
       count(AiExposureResultCategory.honeypot),
       OpenHandStatusColors.error,
+      key: AiExposureResultCategory.honeypot,
     ),
   ];
   final actionable = items[0].value + items[1].value;
@@ -6848,7 +6936,7 @@ Widget _scanModeDistributionInsight(
   int failures(Iterable<AiExposureHistoryEntry> jobs) =>
       jobs.where((task) => task.stage == 'failed').length;
   int averageDuration(Iterable<AiExposureHistoryEntry> jobs) {
-    final values = jobs.map(_taskDurationMs).whereType<int>().toList();
+    final values = jobs.map(_taskMeasuredDurationMs).whereType<int>().toList();
     return values.isEmpty
         ? 0
         : (values.reduce((a, b) => a + b) / values.length).round();
@@ -6969,6 +7057,9 @@ Widget _resultSourceDistributionInsight(
   for (final result in controller.results) {
     counts.update(result.source, (value) => value + 1, ifAbsent: () => 1);
   }
+  final sourceStates = {
+    for (final state in _sourceInsightStates(controller)) state.source: state,
+  };
   final items = AiExposureSource.values
       .map(
         (source) => _DistributionItem(
@@ -7024,11 +7115,9 @@ Widget _resultSourceDistributionInsight(
       title: '来源配置与产出',
       icon: Icons.hub_outlined,
       rows: AiExposureSource.values.map((source) {
-        final quota = controller.quotas
-            .where((quota) => quota.source == _sourceQuotaKey(source))
-            .firstOrNull;
-        final ready =
-            controller.sourceStatus[_sourceCredentialKey(source)] == true;
+        final state = sourceStates[source]!;
+        final quota = state.quota;
+        final ready = state.ready;
         return _InsightMatrixRow(
           icon: _sourceIcon(source),
           title: _sourceName(source),
@@ -7085,6 +7174,9 @@ Widget _taskSourceDistributionInsight(
   for (final result in controller.results) {
     resultCounts.update(result.source, (value) => value + 1, ifAbsent: () => 1);
   }
+  final sourceStates = {
+    for (final state in _sourceInsightStates(controller)) state.source: state,
+  };
   return _metricInsightPage([
     _InsightDonutSection(
       title: '任务来源覆盖次数',
@@ -7154,9 +7246,7 @@ Widget _taskSourceDistributionInsight(
             (source) => _InsightMatrixRow(
               icon: _sourceIcon(source),
               title: _sourceName(source),
-              subtitle: controller.sourceStatus[source.id] == true
-                  ? '来源已就绪'
-                  : '来源未就绪',
+              subtitle: sourceStates[source]!.ready ? '来源已就绪' : '来源未就绪',
               color: _distributionColor(source.index, colors),
               target: _SourceInsightTarget(source),
               cells: [

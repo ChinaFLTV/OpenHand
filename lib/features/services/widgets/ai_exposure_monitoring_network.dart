@@ -219,7 +219,10 @@ class _NetworkPanel extends StatelessWidget {
               title: '代理响应耗时趋势',
               subtitle: '最近 ${visibleRequests.length} 个请求样本',
               sampleLabels: visibleRequests
-                  .map((sample) => _shortDateTime(sample.at))
+                  .map(
+                    (sample) =>
+                        _reportedShortDateTime(sample.at, sample.atReported),
+                  )
                   .toList(growable: false),
               series: [
                 OpenHandChartSeries(

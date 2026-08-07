@@ -128,7 +128,12 @@ class _PipelinePanel extends StatelessWidget {
               title: '处理漏斗趋势',
               subtitle: '处理 / 候选 / 有效',
               sampleLabels: trend
-                  .map((item) => _shortDateTime(item.createdAt))
+                  .map(
+                    (item) => _reportedShortDateTime(
+                      item.createdAt,
+                      item.createdAtReported,
+                    ),
+                  )
                   .toList(growable: false),
               series: <OpenHandChartSeries>[
                 OpenHandChartSeries(

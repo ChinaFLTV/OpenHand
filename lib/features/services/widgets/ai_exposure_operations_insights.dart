@@ -76,17 +76,20 @@ List<AiExposureHistoryEntry> filterAndSortAiExposureTasks({
             !task.sources.any((source) => sources.contains(source))) {
           return false;
         }
-        if (createdFrom != null && task.createdAt.isBefore(createdFrom)) {
+        final createdAt = task.reportedCreatedAt;
+        if (createdFrom != null &&
+            (createdAt == null || createdAt.isBefore(createdFrom))) {
           return false;
         }
-        return createdUntil == null || !task.createdAt.isAfter(createdUntil);
+        return createdUntil == null ||
+            (createdAt != null && !createdAt.isAfter(createdUntil));
       })
       .toList(growable: false);
   tasks.sort((left, right) {
     final compared = switch (sort) {
-      AiExposureTaskLedgerSort.createdAt => left.createdAt.compareTo(
-        right.createdAt,
-      ),
+      AiExposureTaskLedgerSort.createdAt => _taskLedgerTimeValue(
+        left.reportedCreatedAt,
+      ).compareTo(_taskLedgerTimeValue(right.reportedCreatedAt)),
       AiExposureTaskLedgerSort.finishedAt => _taskLedgerTimeValue(
         left.effectiveFinishedAt,
       ).compareTo(_taskLedgerTimeValue(right.effectiveFinishedAt)),
@@ -116,10 +119,17 @@ class _OperationsDataScopeBar extends StatelessWidget {
   Widget build(BuildContext context) {
     final controller = context.watch<ServicesController>();
     final candidates = <DateTime>[
-      if (controller.progress != null) controller.progress!.updatedAt,
-      ...controller.history.map((entry) => entry.progress.updatedAt),
-      ...controller.results.map((entry) => entry.createdAt),
-      ...controller.logs.map((entry) => entry.at),
+      if (controller.progress?.reportedUpdatedAt case final updatedAt?)
+        updatedAt,
+      ...controller.history
+          .map((entry) => entry.progress.reportedUpdatedAt)
+          .whereType<DateTime>(),
+      ...controller.results
+          .where((entry) => entry.createdAtReported)
+          .map((entry) => entry.createdAt),
+      ...controller.logs
+          .where((entry) => entry.atReported)
+          .map((entry) => entry.at),
     ]..sort();
     final updatedAt = candidates.lastOrNull;
     final colors = Theme.of(context).colorScheme;
@@ -1078,7 +1088,7 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = _taskLedgerStatus(task);
-    final startedAt = task.startedAt ?? task.createdAt;
+    final startedAt = task.startedAt ?? task.reportedCreatedAt;
     final finishedAt = task.effectiveFinishedAt;
     final fraction = task.progress.total <= 0
         ? 0.0
@@ -1114,7 +1124,9 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
             _TaskLedgerCell(
               width: _kTaskLedgerCreatedWidth,
               child: Text(
-                _taskLedgerDateTime(task.createdAt),
+                task.createdAtReported
+                    ? _taskLedgerDateTime(task.createdAt)
+                    : '未上报',
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1122,7 +1134,7 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
             _TaskLedgerCell(
               width: _kTaskLedgerStartedWidth,
               child: Text(
-                _taskLedgerDateTime(startedAt),
+                startedAt == null ? '未上报' : _taskLedgerDateTime(startedAt),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1247,7 +1259,9 @@ class _TaskLedgerCompactRow extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            '创建时间：${_taskLedgerDateTime(task.createdAt)}',
+            task.createdAtReported
+                ? '创建时间：${_taskLedgerDateTime(task.createdAt)}'
+                : '创建时间：未上报',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),

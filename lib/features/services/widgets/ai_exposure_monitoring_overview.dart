@@ -181,7 +181,12 @@ class _OverviewPanel extends StatelessWidget {
               title: '任务处理趋势',
               subtitle: '最近 ${historyTrend.length} 个任务',
               sampleLabels: historyTrend
-                  .map((item) => _shortDateTime(item.createdAt))
+                  .map(
+                    (item) => _reportedShortDateTime(
+                      item.createdAt,
+                      item.createdAtReported,
+                    ),
+                  )
                   .toList(growable: false),
               series: <OpenHandChartSeries>[
                 OpenHandChartSeries(
@@ -208,7 +213,12 @@ class _OverviewPanel extends StatelessWidget {
               title: '任务耗时趋势',
               subtitle: '最近 ${durationTrend.length} 个已结束任务',
               sampleLabels: durationTrend
-                  .map((item) => _shortDateTime(item.createdAt))
+                  .map(
+                    (item) => _reportedShortDateTime(
+                      item.createdAt,
+                      item.createdAtReported,
+                    ),
+                  )
                   .toList(growable: false),
               series: <OpenHandChartSeries>[
                 OpenHandChartSeries(

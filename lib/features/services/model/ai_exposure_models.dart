@@ -116,27 +116,31 @@ class AiExposureProgress {
     required this.total,
     required this.message,
     required this.updatedAt,
+    this.updatedAtReported = true,
     this.failureStage,
     this.stageTimings = const <AiExposureStageTiming>[],
   });
 
-  factory AiExposureProgress.fromJson(Map<String, Object?> json) =>
-      AiExposureProgress(
-        jobId: _stringValue(json['jobId']),
-        stage: _stringValue(json['stage'], fallback: 'queued'),
-        discovered: _nonNegativeInt(json['discovered']),
-        candidates: _nonNegativeInt(json['candidates']),
-        valid: _nonNegativeInt(json['valid']),
-        highValue: _nonNegativeInt(json['highValue']),
-        processed: _nonNegativeInt(json['processed']),
-        total: _nonNegativeInt(json['total']),
-        message: _stringValue(json['message']),
-        updatedAt: _optionalDateTime(json['updatedAt']) ?? DateTime.now(),
-        failureStage: _optionalString(json['failureStage']),
-        stageTimings: _objectList(
-          json['stageTimings'],
-        ).map(AiExposureStageTiming.fromJson).toList(growable: false),
-      );
+  factory AiExposureProgress.fromJson(Map<String, Object?> json) {
+    final updatedAt = _optionalDateTime(json['updatedAt']);
+    return AiExposureProgress(
+      jobId: _stringValue(json['jobId']),
+      stage: _stringValue(json['stage'], fallback: 'queued'),
+      discovered: _nonNegativeInt(json['discovered']),
+      candidates: _nonNegativeInt(json['candidates']),
+      valid: _nonNegativeInt(json['valid']),
+      highValue: _nonNegativeInt(json['highValue']),
+      processed: _nonNegativeInt(json['processed']),
+      total: _nonNegativeInt(json['total']),
+      message: _stringValue(json['message']),
+      updatedAt: updatedAt ?? DateTime.now(),
+      updatedAtReported: updatedAt != null,
+      failureStage: _optionalString(json['failureStage']),
+      stageTimings: _objectList(
+        json['stageTimings'],
+      ).map(AiExposureStageTiming.fromJson).toList(growable: false),
+    );
+  }
 
   final String jobId;
   final String stage;
@@ -148,9 +152,11 @@ class AiExposureProgress {
   final int total;
   final String message;
   final DateTime updatedAt;
+  final bool updatedAtReported;
   final String? failureStage;
   final List<AiExposureStageTiming> stageTimings;
 
+  DateTime? get reportedUpdatedAt => updatedAtReported ? updatedAt : null;
   double get fraction => total <= 0 ? 0 : (processed / total).clamp(0, 1);
   bool get isRunning => !isAiExposureTerminalStage(stage);
 }
@@ -411,6 +417,7 @@ class AiExposureProxyProbeStepResult {
 class AiExposureProxyProbeSample {
   const AiExposureProxyProbeSample({
     required this.checkedAt,
+    this.checkedAtReported = true,
     this.latencyMs,
     this.statusCode,
     this.gatewayReachable = false,
@@ -431,8 +438,10 @@ class AiExposureProxyProbeSample {
       max: _kAiExposureMaxTelemetryDurationMs,
     );
     final statusCode = _optionalHttpStatus(json['statusCode']);
+    final checkedAt = _optionalDateTime(json['checkedAt']);
     return AiExposureProxyProbeSample(
-      checkedAt: _optionalDateTime(json['checkedAt']) ?? DateTime.now(),
+      checkedAt: checkedAt ?? DateTime.now(),
+      checkedAtReported: checkedAt != null,
       latencyMs: latencyMs,
       statusCode: statusCode,
       gatewayReachable:
@@ -454,6 +463,7 @@ class AiExposureProxyProbeSample {
   }
 
   final DateTime checkedAt;
+  final bool checkedAtReported;
   final int? latencyMs;
   final int? statusCode;
   final bool gatewayReachable;
@@ -469,7 +479,7 @@ class AiExposureProxyProbeSample {
   bool get reachable => latencyMs != null && error == null;
 
   Map<String, Object?> toJson() => <String, Object?>{
-    'checkedAt': checkedAt.toIso8601String(),
+    if (checkedAtReported) 'checkedAt': checkedAt.toIso8601String(),
     if (latencyMs != null) 'latencyMs': latencyMs,
     if (statusCode != null) 'statusCode': statusCode,
     if (gatewayReachable) 'gatewayReachable': true,
@@ -488,6 +498,7 @@ class AiExposureProxyProbeSample {
 class AiExposureProxyRequestSample {
   const AiExposureProxyRequestSample({
     required this.at,
+    this.atReported = true,
     required this.result,
     required this.responseTimeMs,
     this.statusCode,
@@ -515,10 +526,12 @@ class AiExposureProxyRequestSample {
         ? rawResult!
         : 'failure';
     final statusCode = _optionalHttpStatus(json['statusCode']);
+    final atReported = milliseconds > 0;
     return AiExposureProxyRequestSample(
-      at: milliseconds > 0
+      at: atReported
           ? DateTime.fromMillisecondsSinceEpoch(milliseconds)
           : DateTime.now(),
+      atReported: atReported,
       result: result,
       responseTimeMs: _nonNegativeInt(
         json['responseTimeMs'],
@@ -542,6 +555,7 @@ class AiExposureProxyRequestSample {
   }
 
   final DateTime at;
+  final bool atReported;
   final String result;
   final int responseTimeMs;
   final int? statusCode;
@@ -560,7 +574,7 @@ class AiExposureProxyRequestSample {
   bool get timedOut => result == 'timeout';
 
   Map<String, Object?> toJson() => <String, Object?>{
-    'atMs': at.millisecondsSinceEpoch,
+    if (atReported) 'atMs': at.millisecondsSinceEpoch,
     'result': result,
     'responseTimeMs': responseTimeMs,
     if (statusCode != null) 'statusCode': statusCode,
@@ -680,7 +694,8 @@ class AiExposureProxyUsageStatistics {
     for (var index = 0; index < recentRequests.length; index++) {
       final current = recentRequests[index];
       final next = other.recentRequests[index];
-      if (current.at != next.at ||
+      if (current.atReported != next.atReported ||
+          (current.atReported && current.at != next.at) ||
           current.result != next.result ||
           current.responseTimeMs != next.responseTimeMs ||
           current.statusCode != next.statusCode ||
@@ -749,10 +764,12 @@ class AiExposureProxyIdentity {
     required this.latitude,
     required this.longitude,
     required this.observedAt,
+    this.observedAtReported = true,
   });
 
   factory AiExposureProxyIdentity.fromJson(Object? raw) {
     final json = _jsonMap(raw);
+    final observedAt = _optionalDateTime(json['observedAt']);
     return AiExposureProxyIdentity(
       exitIp: _stringValue(json['exitIp']),
       ipType: _stringValue(json['ipType'], fallback: '--'),
@@ -776,7 +793,8 @@ class AiExposureProxyIdentity {
       hosting: _boolValue(json['hosting']),
       latitude: _optionalFiniteDouble(json['latitude']),
       longitude: _optionalFiniteDouble(json['longitude']),
-      observedAt: _optionalDateTime(json['observedAt']) ?? DateTime.now(),
+      observedAt: observedAt ?? DateTime.now(),
+      observedAtReported: observedAt != null,
     );
   }
 
@@ -803,6 +821,7 @@ class AiExposureProxyIdentity {
   final double? latitude;
   final double? longitude;
   final DateTime observedAt;
+  final bool observedAtReported;
 
   String get location => <String>[
     country,
@@ -834,7 +853,7 @@ class AiExposureProxyIdentity {
     'hosting': hosting,
     if (latitude != null) 'latitude': latitude,
     if (longitude != null) 'longitude': longitude,
-    'observedAt': observedAt.toIso8601String(),
+    if (observedAtReported) 'observedAt': observedAt.toIso8601String(),
   };
 }
 
@@ -1207,6 +1226,7 @@ class AiExposureHistoryEntry {
     required this.authorizedScope,
     required this.progress,
     required this.createdAt,
+    this.createdAtReported = true,
     this.finishedAt,
     this.errorMessage,
     this.startedAt,
@@ -1222,44 +1242,47 @@ class AiExposureHistoryEntry {
     this.stageTimings = const <AiExposureStageTiming>[],
   });
 
-  factory AiExposureHistoryEntry.fromJson(Map<String, Object?> json) =>
-      AiExposureHistoryEntry(
-        id: _stringValue(json['id']),
-        name: _stringValue(json['name']),
-        stage: _stringValue(json['stage'], fallback: 'queued'),
-        sources: _stringList(
-          json['sources'],
-        ).map(AiExposureSource.fromId).toList(growable: false),
-        mode: json['mode'] == 'full'
-            ? AiExposureScanMode.full
-            : AiExposureScanMode.incremental,
-        authorizedScope: _stringList(json['authorizedScope']),
-        progress: AiExposureProgress.fromJson(_jsonMap(json['progress'])),
-        createdAt: _optionalDateTime(json['createdAt']) ?? DateTime.now(),
-        finishedAt: _optionalDateTime(json['finishedAt']),
-        errorMessage: _optionalString(json['errorMessage']),
-        startedAt: _optionalDateTime(json['startedAt']),
-        cancelledAt: _optionalDateTime(json['cancelledAt']),
-        cancelReason: _optionalString(json['cancelReason']),
-        lastCheckpointAt: _optionalDateTime(json['lastCheckpointAt']),
-        failureStage: _optionalString(json['failureStage']),
-        retryCount: _optionalNonNegativeInt(json['retryCount']),
-        concurrency: _optionalNonNegativeInt(json['concurrency'], max: 128),
-        validationMode: switch (json['validationMode']) {
-          'passive' => AiExposureValidationMode.passive,
-          'authorized_active' => AiExposureValidationMode.authorizedActive,
-          _ => null,
-        },
-        forumFetchMode: switch (json['forumFetchMode']) {
-          'jina_fallback' => AiExposureForumFetchMode.jinaFallback,
-          'playwright' => AiExposureForumFetchMode.playwright,
-          _ => null,
-        },
-        gptAssisted: _optionalBool(json['gptAssisted']),
-        stageTimings: _objectList(
-          json['stageTimings'],
-        ).map(AiExposureStageTiming.fromJson).toList(growable: false),
-      );
+  factory AiExposureHistoryEntry.fromJson(Map<String, Object?> json) {
+    final createdAt = _optionalDateTime(json['createdAt']);
+    return AiExposureHistoryEntry(
+      id: _stringValue(json['id']),
+      name: _stringValue(json['name']),
+      stage: _stringValue(json['stage'], fallback: 'queued'),
+      sources: _stringList(
+        json['sources'],
+      ).map(AiExposureSource.fromId).toList(growable: false),
+      mode: json['mode'] == 'full'
+          ? AiExposureScanMode.full
+          : AiExposureScanMode.incremental,
+      authorizedScope: _stringList(json['authorizedScope']),
+      progress: AiExposureProgress.fromJson(_jsonMap(json['progress'])),
+      createdAt: createdAt ?? DateTime.now(),
+      createdAtReported: createdAt != null,
+      finishedAt: _optionalDateTime(json['finishedAt']),
+      errorMessage: _optionalString(json['errorMessage']),
+      startedAt: _optionalDateTime(json['startedAt']),
+      cancelledAt: _optionalDateTime(json['cancelledAt']),
+      cancelReason: _optionalString(json['cancelReason']),
+      lastCheckpointAt: _optionalDateTime(json['lastCheckpointAt']),
+      failureStage: _optionalString(json['failureStage']),
+      retryCount: _optionalNonNegativeInt(json['retryCount']),
+      concurrency: _optionalNonNegativeInt(json['concurrency'], max: 128),
+      validationMode: switch (json['validationMode']) {
+        'passive' => AiExposureValidationMode.passive,
+        'authorized_active' => AiExposureValidationMode.authorizedActive,
+        _ => null,
+      },
+      forumFetchMode: switch (json['forumFetchMode']) {
+        'jina_fallback' => AiExposureForumFetchMode.jinaFallback,
+        'playwright' => AiExposureForumFetchMode.playwright,
+        _ => null,
+      },
+      gptAssisted: _optionalBool(json['gptAssisted']),
+      stageTimings: _objectList(
+        json['stageTimings'],
+      ).map(AiExposureStageTiming.fromJson).toList(growable: false),
+    );
+  }
 
   final String id;
   final String name;
@@ -1269,6 +1292,7 @@ class AiExposureHistoryEntry {
   final List<String> authorizedScope;
   final AiExposureProgress progress;
   final DateTime createdAt;
+  final bool createdAtReported;
   final DateTime? finishedAt;
   final String? errorMessage;
   final DateTime? startedAt;
@@ -1287,15 +1311,17 @@ class AiExposureHistoryEntry {
   bool get isTerminal => isAiExposureTerminalStage(stage);
   bool get isResumable => !isCompleted;
   bool get isRestartable => id.isNotEmpty;
-  DateTime get effectiveStartedAt => startedAt ?? createdAt;
+  DateTime? get reportedCreatedAt => createdAtReported ? createdAt : null;
+  DateTime? get effectiveStartedAt => startedAt ?? reportedCreatedAt;
   DateTime? get effectiveFinishedAt =>
       finishedAt ??
       cancelledAt ??
-      (isTerminal ? lastCheckpointAt ?? progress.updatedAt : null);
+      (isTerminal ? lastCheckpointAt ?? progress.reportedUpdatedAt : null);
 
   Duration? durationUntil(DateTime now) {
-    final end = effectiveFinishedAt ?? now;
     final start = effectiveStartedAt;
+    if (start == null) return null;
+    final end = effectiveFinishedAt ?? now;
     return end.isBefore(start) ? null : end.difference(start);
   }
 }
@@ -1316,37 +1342,41 @@ class AiExposureResult {
     required this.modelCount,
     required this.evidence,
     required this.createdAt,
+    this.createdAtReported = true,
     this.maskedCredential,
     this.balanceSummary,
   });
 
-  factory AiExposureResult.fromJson(Map<String, Object?> json) =>
-      AiExposureResult(
-        id: _stringValue(json['id']),
-        jobId: _stringValue(json['jobId']),
-        source: AiExposureSource.fromId(_optionalString(json['source'])),
-        url: _stringValue(json['url']),
-        host: _stringValue(json['host']),
-        product: _stringValue(json['product']),
-        category: switch (json['category']) {
-          'valid' => AiExposureResultCategory.valid,
-          'high_value' => AiExposureResultCategory.highValue,
-          'honeypot' => AiExposureResultCategory.honeypot,
-          _ => AiExposureResultCategory.suspicious,
-        },
-        credentialState: _stringValue(
-          json['credentialState'],
-          fallback: 'not_found',
-        ),
-        maskedCredential: _optionalString(json['maskedCredential']),
-        responseFingerprint: _stringValue(json['responseFingerprint']),
-        duplicateResponseHosts: _nonNegativeInt(json['duplicateResponseHosts']),
-        duplicateKeyHosts: _nonNegativeInt(json['duplicateKeyHosts']),
-        modelCount: _nonNegativeInt(json['modelCount']),
-        balanceSummary: _optionalString(json['balanceSummary']),
-        evidence: _stringList(json['evidence']),
-        createdAt: _optionalDateTime(json['createdAt']) ?? DateTime.now(),
-      );
+  factory AiExposureResult.fromJson(Map<String, Object?> json) {
+    final createdAt = _optionalDateTime(json['createdAt']);
+    return AiExposureResult(
+      id: _stringValue(json['id']),
+      jobId: _stringValue(json['jobId']),
+      source: AiExposureSource.fromId(_optionalString(json['source'])),
+      url: _stringValue(json['url']),
+      host: _stringValue(json['host']),
+      product: _stringValue(json['product']),
+      category: switch (json['category']) {
+        'valid' => AiExposureResultCategory.valid,
+        'high_value' => AiExposureResultCategory.highValue,
+        'honeypot' => AiExposureResultCategory.honeypot,
+        _ => AiExposureResultCategory.suspicious,
+      },
+      credentialState: _stringValue(
+        json['credentialState'],
+        fallback: 'not_found',
+      ),
+      maskedCredential: _optionalString(json['maskedCredential']),
+      responseFingerprint: _stringValue(json['responseFingerprint']),
+      duplicateResponseHosts: _nonNegativeInt(json['duplicateResponseHosts']),
+      duplicateKeyHosts: _nonNegativeInt(json['duplicateKeyHosts']),
+      modelCount: _nonNegativeInt(json['modelCount']),
+      balanceSummary: _optionalString(json['balanceSummary']),
+      evidence: _stringList(json['evidence']),
+      createdAt: createdAt ?? DateTime.now(),
+      createdAtReported: createdAt != null,
+    );
+  }
 
   final String id;
   final String jobId;
@@ -1364,6 +1394,7 @@ class AiExposureResult {
   final String? balanceSummary;
   final List<String> evidence;
   final DateTime createdAt;
+  final bool createdAtReported;
 }
 
 class AiExposureScanRequest {
@@ -1419,6 +1450,7 @@ class AiExposureLogEntry {
     required this.level,
     required this.message,
     required this.at,
+    this.atReported = true,
     this.jobId = '',
     this.id,
     this.module,
@@ -1429,25 +1461,29 @@ class AiExposureLogEntry {
     this.metadata = const <String, Object?>{},
   });
 
-  factory AiExposureLogEntry.fromJson(Map<String, Object?> json) =>
-      AiExposureLogEntry(
-        jobId: _stringValue(json['jobId']),
-        level: _stringValue(json['level'], fallback: 'info'),
-        message: _stringValue(json['message']),
-        at: _optionalDateTime(json['at']) ?? DateTime.now(),
-        id: _optionalString(json['id']),
-        module: _optionalString(json['module']),
-        eventCode: _optionalString(json['eventCode']),
-        traceId: _optionalString(json['traceId']),
-        exceptionType: _optionalString(json['exceptionType']),
-        stackSummary: _optionalString(json['stackSummary']),
-        metadata: Map<String, Object?>.unmodifiable(_jsonMap(json['metadata'])),
-      );
+  factory AiExposureLogEntry.fromJson(Map<String, Object?> json) {
+    final at = _optionalDateTime(json['at']);
+    return AiExposureLogEntry(
+      jobId: _stringValue(json['jobId']),
+      level: _stringValue(json['level'], fallback: 'info'),
+      message: _stringValue(json['message']),
+      at: at ?? DateTime.now(),
+      atReported: at != null,
+      id: _optionalString(json['id']),
+      module: _optionalString(json['module']),
+      eventCode: _optionalString(json['eventCode']),
+      traceId: _optionalString(json['traceId']),
+      exceptionType: _optionalString(json['exceptionType']),
+      stackSummary: _optionalString(json['stackSummary']),
+      metadata: Map<String, Object?>.unmodifiable(_jsonMap(json['metadata'])),
+    );
+  }
 
   final String jobId;
   final String level;
   final String message;
   final DateTime at;
+  final bool atReported;
   final String? id;
   final String? module;
   final String? eventCode;
