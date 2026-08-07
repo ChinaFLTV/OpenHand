@@ -143,6 +143,7 @@ class ServicesController extends ChangeNotifier {
   final LatestTaskQueue _managedDependencyListenerSyncQueue = LatestTaskQueue();
   final List<AiExposureLogEntry> _logs = <AiExposureLogEntry>[];
   String? _errorMessage;
+  String? _proxyRuntimeSyncError;
   bool _busy = false;
   bool _scanBusy = false;
   bool _logRefreshBusy = false;
@@ -195,6 +196,7 @@ class ServicesController extends ChangeNotifier {
 
   List<AiExposureLogEntry> get logs => List.unmodifiable(_logs);
   String? get errorMessage => _errorMessage;
+  String? get proxyRuntimeSyncError => _proxyRuntimeSyncError;
   bool get busy => _busy;
   bool get scanBusy => _scanBusy;
   bool get isRunning => _lifecycle == AiExposureServiceLifecycle.running;
@@ -247,6 +249,7 @@ class ServicesController extends ChangeNotifier {
           final status = await _updateProxyRuntime(client);
           if (!_isCurrentClient(client)) return;
           _proxyStatus = status;
+          _proxyRuntimeSyncError = null;
           _notify();
         } catch (error, stack) {
           silentLog('services_controller', '同步系统代理到扫描服务', error, stack);
@@ -380,6 +383,7 @@ class ServicesController extends ChangeNotifier {
       final client = await _runtime.startBundled();
       _health = await client.health();
       _proxyStatus = await _updateProxyRuntime(client);
+      _proxyRuntimeSyncError = null;
       await _syncManagedDependencies();
       _lifecycle = AiExposureServiceLifecycle.running;
       _appendLog(
@@ -425,6 +429,7 @@ class ServicesController extends ChangeNotifier {
       );
       _health = await client.health();
       _proxyStatus = await _updateProxyRuntime(client);
+      _proxyRuntimeSyncError = null;
       await _syncManagedDependencies();
       _lifecycle = AiExposureServiceLifecycle.running;
       await refreshData();
@@ -863,7 +868,6 @@ class ServicesController extends ChangeNotifier {
     _proxyInspectionTimer = null;
     final previousConfiguration = _proxyConfiguration;
     final previousStatus = _proxyStatus;
-    AiJunglerClient? updatedClient;
     try {
       if (configuration.endpoints.length > 10000) {
         throw const FormatException('代理池最多支持 10000 个代理。');
@@ -872,83 +876,78 @@ class ServicesController extends ChangeNotifier {
           configuration.activeEndpoints.isEmpty) {
         throw const FormatException('启用巡检前至少启用一个代理节点。');
       }
-      // 先更新期望状态，让并发的系统代理热同步读取到同一份配置。
       _proxyConfiguration = configuration;
-      final client = _client;
-      if (client != null) {
-        updatedClient = client;
-        _proxyStatus = await _updateProxyRuntime(
-          client,
-          configuration: configuration,
-        );
-      }
-      if (_proxyStatus != null) {
-        await _mergeProxyStatistics(_proxyStatus!);
-      }
       if (!await _persistPreferences()) {
-        final restored = await _restoreProxyConfiguration(
-          previousConfiguration,
-          previousStatus,
-          updatedClient,
-        );
-        if (!restored) {
-          _errorMessage =
-              '${_errorMessage ?? '保存代理设置失败。'} '
-              '运行时配置恢复失败，请重启扫描服务。';
-        }
+        _proxyConfiguration = previousConfiguration;
+        _proxyStatus = previousStatus;
+        _scheduleProxyInspection();
+        _scheduleProxyStatisticsSync();
         _notify();
         return false;
       }
-      _scheduleProxyInspection(firstDelay: _proxyInspectionFirstRunDelay);
-      _scheduleProxyStatisticsSync();
-      _errorMessage = null;
-      _appendLog(
-        AiExposureLogEntry(
-          level: 'info',
-          message: logMessage,
-          at: DateTime.now(),
-        ),
-      );
-      _notify();
-      return true;
     } catch (error, stack) {
-      final restored = await _restoreProxyConfiguration(
-        previousConfiguration,
-        previousStatus,
-        updatedClient,
-      );
-      final failure = _reportServicesFailure(
-        '更新扫描网络代理',
+      _proxyConfiguration = previousConfiguration;
+      _proxyStatus = previousStatus;
+      _scheduleProxyInspection();
+      _scheduleProxyStatisticsSync();
+      _errorMessage = _reportServicesFailure(
+        '保存扫描网络代理',
         error,
         stack,
-        fallback: '更新扫描网络代理失败，请检查配置后重试。',
+        fallback: '保存扫描网络代理失败，请检查配置后重试。',
       );
-      _errorMessage = restored ? failure : '$failure 运行时配置恢复失败，请重启扫描服务。';
       _notify();
       return false;
     }
-  }
 
-  Future<bool> _restoreProxyConfiguration(
-    AiExposureProxyConfiguration configuration,
-    AiExposureProxyStatus? status,
-    AiJunglerClient? updatedClient,
-  ) async {
-    _proxyConfiguration = configuration;
-    _proxyStatus = status;
-    _scheduleProxyInspection();
+    _scheduleProxyInspection(firstDelay: _proxyInspectionFirstRunDelay);
     _scheduleProxyStatisticsSync();
-    if (updatedClient == null) return true;
-    try {
-      _proxyStatus = await _updateProxyRuntime(
-        updatedClient,
-        configuration: configuration,
-      );
-      return true;
-    } catch (error, stack) {
-      silentLog('services_controller', '恢复扫描网络代理', error, stack);
-      return false;
+    _errorMessage = null;
+    _proxyRuntimeSyncError = null;
+    _appendLog(
+      AiExposureLogEntry(
+        level: 'info',
+        message: logMessage,
+        at: DateTime.now(),
+      ),
+    );
+    final client = _client;
+    if (client != null) {
+      try {
+        final status = await _updateProxyRuntime(
+          client,
+          configuration: configuration,
+        );
+        if (_isCurrentClient(client)) {
+          _proxyStatus = status;
+          try {
+            await _mergeProxyStatistics(status);
+          } catch (error, stack) {
+            silentLog('services_controller', '保存代理运行统计', error, stack);
+          }
+        }
+      } catch (error, stack) {
+        if (_isCurrentClient(client)) {
+          _proxyStatus = previousStatus;
+          final syncError = _reportServicesFailure(
+            '同步代理配置到扫描服务',
+            error,
+            stack,
+            fallback: '扫描服务暂时无法接收代理配置。',
+          );
+          _proxyRuntimeSyncError = syncError;
+          _appendLog(
+            AiExposureLogEntry(
+              level: 'warning',
+              message: '代理配置已保存，但未能同步到扫描服务：$syncError',
+              at: DateTime.now(),
+            ),
+          );
+        }
+      }
     }
+    _notify();
+    return true;
   }
 
   Future<void> saveProxyProbeSamples(

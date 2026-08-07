@@ -625,12 +625,10 @@ class _ServiceDetailsDialog extends StatelessWidget {
           actions: [
             OpenHandDialogActionButton.secondary(
               label: text(zh: '关闭', en: 'Close'),
-              icon: Icons.close_rounded,
               onPressed: () => Navigator.of(context).maybePop(),
             ),
             OpenHandDialogActionButton.primary(
               label: text(zh: '复制全部', en: 'Copy all'),
-              icon: Icons.copy_all_rounded,
               onPressed: fields.isEmpty
                   ? null
                   : () => copyOpenHandTextToClipboard(

@@ -232,11 +232,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
               onPressed: () => Navigator.of(context).maybePop(),
               label: '取消',
             ),
-            OpenHandDialogActionButton.primary(
-              icon: Icons.save_outlined,
-              onPressed: _submit,
-              label: '保存',
-            ),
+            OpenHandDialogActionButton.primary(onPressed: _submit, label: '保存'),
           ],
         ),
       ],

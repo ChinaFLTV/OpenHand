@@ -406,7 +406,6 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                     label: text(zh: '取消', en: 'Cancel'),
                   ),
                   OpenHandDialogActionButton.primary(
-                    icon: Icons.save_rounded,
                     busy: _busy,
                     onPressed: _busy || _inspectionBusy ? null : _save,
                     label: text(zh: '应用代理设置', en: 'Apply proxy settings'),
@@ -493,15 +492,20 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     if (_selectedUrls.isEmpty) _selectionMode = false;
   }
 
-  Future<bool> _persistEndpoints(
+  Future<({bool saved, bool hasSyncWarning})> _persistEndpoints(
     List<AiExposureProxyEndpoint> endpoints,
   ) async {
     final controller = context.read<ServicesController>();
-    final updated = await controller.updateProxyEndpoints(endpoints);
-    if (mounted && !updated) {
-      showOpenHandErrorSnack(context, controller.errorMessage ?? '保存代理节点失败。');
+    final saved = await controller.updateProxyEndpoints(endpoints);
+    final syncError = controller.proxyRuntimeSyncError;
+    if (mounted) {
+      if (!saved) {
+        showOpenHandErrorSnack(context, controller.errorMessage ?? '保存代理节点失败。');
+      } else if (syncError != null) {
+        showOpenHandInfoSnack(context, '代理配置已保存，但尚未同步到扫描服务：$syncError');
+      }
     }
-    return updated;
+    return (saved: saved, hasSyncWarning: saved && syncError != null);
   }
 
   Future<void> _setEndpointEnabled(String url, bool enabled) async {
@@ -512,11 +516,11 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     endpoints[index] = endpoints[index].copyWith(enabled: enabled);
     dismissOpenHandTooltipsSafely(debugLabel: '切换代理节点状态前收起工具提示');
     setState(() => _busy = true);
-    final updated = await _persistEndpoints(endpoints);
+    final result = await _persistEndpoints(endpoints);
     if (!mounted) return;
     setState(() {
       _busy = false;
-      if (updated) _replaceEndpointsLocally(endpoints);
+      if (result.saved) _replaceEndpointsLocally(endpoints);
     });
   }
 
@@ -637,25 +641,27 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     });
     await awaitOpenHandListRemoval(context);
     if (!mounted) return;
-    final updated = await _persistEndpoints(remaining);
+    final result = await _persistEndpoints(remaining);
     if (!mounted) return;
     setState(() {
       _busy = false;
       _removingUrls.removeAll(removedUrls);
-      if (updated) {
+      if (result.saved) {
         _replaceEndpointsLocally(remaining);
         _testingUrls.removeAll(removedUrls);
         _pendingSamples.removeWhere((url, _) => removedUrls.contains(url));
       }
     });
-    if (!updated) return;
-    showOpenHandSuccessSnack(
-      context,
-      text(
-        zh: '已删除并保存 $count 个代理节点。',
-        en: '$count proxy nodes removed and saved.',
-      ),
-    );
+    if (!result.saved) return;
+    if (!result.hasSyncWarning) {
+      showOpenHandSuccessSnack(
+        context,
+        text(
+          zh: '已删除并保存 $count 个代理节点。',
+          en: '$count proxy nodes removed and saved.',
+        ),
+      );
+    }
   }
 
   Widget _buildSettingsPanel(
@@ -1264,13 +1270,13 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       final endpoints = <AiExposureProxyEndpoint>[..._endpoints, endpoint];
       dismissOpenHandTooltipsSafely(debugLabel: '新增代理节点前收起工具提示');
       setState(() => _busy = true);
-      final updated = await _persistEndpoints(endpoints);
+      final result = await _persistEndpoints(endpoints);
       if (!mounted) return;
       setState(() {
         _busy = false;
-        if (updated) _replaceEndpointsLocally(endpoints);
+        if (result.saved) _replaceEndpointsLocally(endpoints);
       });
-      if (updated) {
+      if (result.saved && !result.hasSyncWarning) {
         showOpenHandSuccessSnack(context, '代理节点已添加并保存。');
       }
     } catch (error, stack) {
@@ -1309,13 +1315,15 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     );
     dismissOpenHandTooltipsSafely(debugLabel: '更新代理节点前收起工具提示');
     setState(() => _busy = true);
-    final saved = await _persistEndpoints(endpoints);
+    final result = await _persistEndpoints(endpoints);
     if (!mounted) return;
     setState(() {
       _busy = false;
-      if (saved) _replaceEndpointsLocally(endpoints);
+      if (result.saved) _replaceEndpointsLocally(endpoints);
     });
-    if (saved) showOpenHandSuccessSnack(context, '代理节点已更新并保存。');
+    if (result.saved && !result.hasSyncWarning) {
+      showOpenHandSuccessSnack(context, '代理节点已更新并保存。');
+    }
   }
 
   Future<void> _showEndpointDetails(
@@ -1495,17 +1503,19 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       }
       if (!mounted) return;
       final endpoints = merged.values.toList(growable: false);
-      final updated = await _persistEndpoints(endpoints);
-      if (!mounted || !updated) return;
+      final result = await _persistEndpoints(endpoints);
+      if (!mounted || !result.saved) return;
       setState(() {
         _replaceEndpointsLocally(endpoints);
       });
-      showOpenHandSuccessSnack(
-        context,
-        imported.invalid == 0
-            ? '已新增并保存 $accepted 个代理。'
-            : '已新增并保存 $accepted 个代理，忽略 ${imported.invalid} 条无效记录。',
-      );
+      if (!result.hasSyncWarning) {
+        showOpenHandSuccessSnack(
+          context,
+          imported.invalid == 0
+              ? '已新增并保存 $accepted 个代理。'
+              : '已新增并保存 $accepted 个代理，忽略 ${imported.invalid} 条无效记录。',
+        );
+      }
     } catch (error, stack) {
       final message = reportServicesFailure(
         'ai_exposure_proxy_dialog',
@@ -1610,7 +1620,13 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     );
     if (!mounted) return;
     setState(() => _busy = false);
-    if (updated) _closeDialog();
+    if (updated) {
+      final syncError = controller.proxyRuntimeSyncError;
+      if (syncError != null) {
+        showOpenHandInfoSnack(context, '代理配置已保存，但尚未同步到扫描服务：$syncError');
+      }
+      _closeDialog();
+    }
   }
 }
 
@@ -3954,7 +3970,6 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                     label: text(zh: '取消', en: 'Cancel'),
                   ),
                   OpenHandDialogActionButton.primary(
-                    icon: Icons.check_rounded,
                     onPressed: _submit,
                     label: editing
                         ? text(zh: '保存修改', en: 'Save changes')

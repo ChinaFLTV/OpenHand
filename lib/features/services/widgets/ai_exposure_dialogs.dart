@@ -188,7 +188,6 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
             label: openHandCancelLabel(context),
           ),
           OpenHandDialogActionButton.primary(
-            icon: Icons.play_arrow_rounded,
             onPressed: controller.isRunning && !_submitting ? _submit : null,
             busy: _submitting,
             label: text(zh: '开始扫描', en: 'Start scan'),
@@ -719,25 +718,21 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
           _ScanWorkspaceView.live => <Widget>[
             if (progress == null || !progress.isRunning)
               OpenHandDialogActionButton.primary(
-                icon: Icons.add_rounded,
                 onPressed: controller.isRunning ? _openNewHunt : null,
                 label: text(zh: '新建狩猎', en: 'New hunt'),
               )
             else
               OpenHandDialogActionButton.destructive(
-                icon: Icons.stop_rounded,
                 onPressed: controller.stopScan,
                 label: text(zh: '停止扫描', en: 'Stop scan'),
               ),
           ],
           _ScanWorkspaceView.results => <Widget>[
             OpenHandDialogActionButton.secondary(
-              icon: Icons.refresh_rounded,
               onPressed: controller.isRunning ? controller.refreshData : null,
               label: text(zh: '刷新', en: 'Refresh'),
             ),
             OpenHandDialogActionButton.primary(
-              icon: Icons.download_rounded,
               onPressed: results.isEmpty
                   ? null
                   : () => _exportResults(context, results),
@@ -746,7 +741,6 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
           ],
           _ScanWorkspaceView.history => <Widget>[
             OpenHandDialogActionButton.secondary(
-              icon: Icons.refresh_rounded,
               onPressed: controller.isRunning ? controller.refreshData : null,
               label: text(zh: '刷新', en: 'Refresh'),
             ),
@@ -1145,14 +1139,12 @@ class _ToolsDialogState extends State<_ToolsDialog> {
       footer: _DialogActions(
         actions: [
           OpenHandDialogActionButton.secondary(
-            icon: Icons.data_usage_rounded,
             onPressed: controller.isRunning
                 ? controller.refreshServiceStatus
                 : null,
             label: text(zh: '检查配额', en: 'Check quotas'),
           ),
           OpenHandDialogActionButton.primary(
-            icon: Icons.save_rounded,
             onPressed: controller.isRunning && !_saving ? _save : null,
             label: openHandSaveLabel(context),
           ),
@@ -1328,12 +1320,10 @@ class _RulesDialogState extends State<_RulesDialog> {
       footer: _DialogActions(
         actions: [
           OpenHandDialogActionButton.secondary(
-            icon: Icons.add_rounded,
             onPressed: () => _editRule(null),
             label: text(zh: '新增规则', en: 'Add rule'),
           ),
           OpenHandDialogActionButton.primary(
-            icon: Icons.save_rounded,
             onPressed: controller.isRunning && !_saving ? _save : null,
             label: openHandSaveLabel(context),
           ),
@@ -1453,7 +1443,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       footer: _DialogActions(
         actions: [
           OpenHandDialogActionButton.secondary(
-            icon: Icons.refresh_rounded,
             onPressed: controller.isRunning && !_applying
                 ? () async {
                     await pluginController.rescan();
@@ -1463,7 +1452,6 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             label: text(zh: '刷新 API 状态', en: 'Refresh API status'),
           ),
           OpenHandDialogActionButton.primary(
-            icon: Icons.link_rounded,
             onPressed: controller.busy || _applying ? null : _apply,
             label: text(zh: '应用设置', en: 'Apply settings'),
           ),
@@ -3566,7 +3554,6 @@ class _RuleEditorState extends State<_RuleEditor> {
             label: openHandCancelLabel(context),
           ),
           OpenHandDialogActionButton.primary(
-            icon: Icons.check_rounded,
             onPressed: _submit,
             label: openHandSaveLabel(context),
           ),
