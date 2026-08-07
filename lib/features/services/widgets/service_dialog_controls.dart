@@ -1087,8 +1087,14 @@ class _ServiceDetailDashboard extends StatelessWidget {
   }
 
   Widget _health(BuildContext context, List<ServiceDetailDatum> values) {
-    final healthy = RegExp(r'正常|可用|就绪|完成|启用|满足|成功|已配置');
-    final unhealthy = RegExp(r'异常|失败|阻塞|停用|未启用|未配置|不可用');
+    final healthy = RegExp(
+      r'正常|可用|就绪|完成|启用|满足|成功|已配置|\bhealthy\b|\bready\b|\bconnected\b|\benabled\b|\bavailable\b|\bconfigured\b|\bsuccess(?:ful)?\b|\bcomplete(?:d)?\b',
+      caseSensitive: false,
+    );
+    final unhealthy = RegExp(
+      r'异常|失败|阻塞|停用|未启用|未配置|不可用|\bunhealthy\b|\bunavailable\b|\bdisconnected\b|\bdisabled\b|\bunconfigured\b|\bfailed?\b|\bblocked\b|\berror\b',
+      caseSensitive: false,
+    );
     final positive = fields.where((field) {
       return healthy.hasMatch(field.value) && !unhealthy.hasMatch(field.value);
     }).length;
