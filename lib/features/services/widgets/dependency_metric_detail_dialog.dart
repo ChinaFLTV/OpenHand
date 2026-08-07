@@ -3048,139 +3048,66 @@ class _DonutBreakdown extends StatelessWidget {
     required this.centerLabel,
     this.rawCount = false,
   });
-
   final List<_BreakdownItem> values;
   final String centerLabel;
   final bool rawCount;
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     final visible = values
         .where((item) => item.value > 0)
         .toList(growable: false);
     final total = visible.fold<int>(0, (sum, item) => sum + item.value);
-    if (visible.isEmpty) {
-      return const _InlineUnavailable(label: '暂无构成数据');
-    }
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final chart = Semantics(
-          label: visible.map((item) => '${item.label} ${item.value}').join('，'),
-          child: SizedBox.square(
-            dimension: 132,
-            child: Stack(
-              fit: StackFit.expand,
-              children: [
-                ServiceAnimatedDonutChart(
-                  values: visible
-                      .map((item) => item.value)
-                      .toList(growable: false),
-                  colors: visible
-                      .map((item) => item.color)
-                      .toList(growable: false),
-                  trackColor: colors.surfaceContainerHighest,
-                ),
-                Center(
-                  child: Padding(
-                    padding: const EdgeInsets.all(24),
-                    child: FittedBox(
-                      fit: BoxFit.scaleDown,
-                      child: Text(
-                        centerLabel,
-                        textAlign: TextAlign.center,
-                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ],
+    return OpenHandOperationalDonutChart(
+      segments: visible
+          .map(
+            (item) => OpenHandChartSegment(
+              label: item.label,
+              value: item.value,
+              color: item.color,
+              valueLabel: rawCount
+                  ? _compactCount(item.value)
+                  : formatByteSize(item.value),
             ),
-          ),
-        );
-        final legend = Column(
-          crossAxisAlignment: CrossAxisAlignment.stretch,
-          children: [
-            for (final item in visible)
-              ServiceInteractiveSurface(
-                padding: const EdgeInsets.symmetric(vertical: 4),
-                tooltip: '查看构成详情',
-                onTap: () => showServiceDetailsDialog(
-                  context,
-                  title: item.label,
-                  subtitle: '构成明细',
-                  icon: Icons.donut_small_rounded,
-                  accentColor: item.color,
-                  presentation: ServiceDetailPresentation.composition,
-                  data: visible
-                      .map(
-                        (entry) => ServiceDetailDatum(
-                          label: entry.label,
-                          value: entry.value.toDouble(),
-                          valueLabel: rawCount
-                              ? _compactCount(entry.value)
-                              : formatByteSize(entry.value),
-                          color: entry.color,
-                          highlighted: identical(entry, item),
-                        ),
-                      )
-                      .toList(growable: false),
-                  fields: [
-                    ServiceDetailField(
-                      label: '当前值',
-                      value: rawCount
-                          ? _compactCount(item.value)
-                          : formatByteSize(item.value),
-                    ),
-                    ServiceDetailField(
-                      label: '占比',
-                      value: _percent(dependencySafeRatio(item.value, total)),
-                    ),
-                    ServiceDetailField(label: '总量', value: '$total'),
-                  ],
+          )
+          .toList(growable: false),
+      trackColor: Theme.of(context).colorScheme.surfaceContainerHighest,
+      centerLabel: centerLabel,
+      onSelectionChanged: null,
+      onSegmentTap: (selection) {
+        final item = visible[selection.index];
+        showServiceDetailsDialog(
+          context,
+          title: item.label,
+          subtitle: '构成明细',
+          icon: Icons.donut_small_rounded,
+          accentColor: item.color,
+          presentation: ServiceDetailPresentation.composition,
+          data: visible
+              .map(
+                (entry) => ServiceDetailDatum(
+                  label: entry.label,
+                  value: entry.value.toDouble(),
+                  valueLabel: rawCount
+                      ? _compactCount(entry.value)
+                      : formatByteSize(entry.value),
+                  color: entry.color,
+                  highlighted: identical(entry, item),
                 ),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 9,
-                      height: 9,
-                      decoration: BoxDecoration(
-                        color: item.color,
-                        borderRadius: BorderRadius.circular(2),
-                      ),
-                    ),
-                    const SizedBox(width: 7),
-                    Expanded(
-                      child: Text(
-                        item.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
-                    const SizedBox(width: 8),
-                    Text(
-                      rawCount
-                          ? _compactCount(item.value)
-                          : formatByteSize(item.value),
-                      style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-          ],
-        );
-        if (constraints.maxWidth < 330) {
-          return Column(children: [chart, const SizedBox(height: 10), legend]);
-        }
-        return Row(
-          children: [
-            chart,
-            const SizedBox(width: 16),
-            Expanded(child: legend),
+              )
+              .toList(growable: false),
+          fields: [
+            ServiceDetailField(
+              label: '当前值',
+              value: rawCount
+                  ? _compactCount(item.value)
+                  : formatByteSize(item.value),
+            ),
+            ServiceDetailField(
+              label: '占比',
+              value: _percent(dependencySafeRatio(item.value, total)),
+            ),
+            ServiceDetailField(label: '总量', value: '$total'),
           ],
         );
       },
@@ -3195,7 +3122,6 @@ class _HorizontalBars extends StatelessWidget {
     required this.emptyLabel,
     required this.valueLabel,
   });
-
   final Map<String, int> values;
   final Color color;
   final String emptyLabel;
@@ -3203,85 +3129,50 @@ class _HorizontalBars extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final sorted = values.entries.where((entry) => entry.value > 0).toList()
+    final sorted = values.entries.where((item) => item.value > 0).toList()
       ..sort((left, right) => right.value.compareTo(left.value));
     if (sorted.isEmpty) return _InlineUnavailable(label: emptyLabel);
-    final maximum = sorted.first.value;
-    return Column(
-      children: [
-        for (final entry in sorted.take(10))
-          ServiceInteractiveSurface(
-            padding: const EdgeInsets.symmetric(vertical: 5),
-            tooltip: '查看排行详情',
-            detailsIconColor: color,
-            onTap: () => showServiceDetailsDialog(
-              context,
-              title: entry.key,
-              subtitle: '排行明细',
-              icon: Icons.bar_chart_rounded,
-              accentColor: color,
-              presentation: ServiceDetailPresentation.ranking,
-              data: sorted
-                  .map(
-                    (item) => ServiceDetailDatum(
-                      label: item.key,
-                      value: item.value.toDouble(),
-                      valueLabel: valueLabel(item.value),
-                      color: color,
-                      highlighted: item.key == entry.key,
-                    ),
-                  )
-                  .toList(growable: false),
-              fields: [
-                ServiceDetailField(label: '项目', value: entry.key),
-                ServiceDetailField(
-                  label: '当前值',
-                  value: valueLabel(entry.value),
-                ),
-                ServiceDetailField(label: '原始值', value: '${entry.value}'),
-              ],
+    return OpenHandOperationalComparisonBars(
+      segments: sorted
+          .take(10)
+          .map(
+            (item) => OpenHandChartSegment(
+              label: item.key,
+              value: item.value,
+              color: color,
+              valueLabel: valueLabel(item.value),
             ),
-            child: Row(
-              children: [
-                SizedBox(
-                  width: 104,
-                  child: Text(
-                    entry.key,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
+          )
+          .toList(growable: false),
+      orientation: OpenHandComparisonBarOrientation.horizontal,
+      emptyLabel: emptyLabel,
+      onSegmentTap: (selected) {
+        final item = sorted.firstWhere((entry) => entry.key == selected.label);
+        showServiceDetailsDialog(
+          context,
+          title: item.key,
+          subtitle: '排行明细',
+          icon: Icons.bar_chart_rounded,
+          accentColor: color,
+          presentation: ServiceDetailPresentation.ranking,
+          data: sorted
+              .map(
+                (entry) => ServiceDetailDatum(
+                  label: entry.key,
+                  value: entry.value.toDouble(),
+                  valueLabel: valueLabel(entry.value),
+                  color: color,
+                  highlighted: entry.key == item.key,
                 ),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: ServiceAnimatedProgressBar(
-                      minHeight: 9,
-                      value: dependencySafeRatio(entry.value, maximum),
-                      color: color,
-                      backgroundColor: colors.surfaceContainerHighest,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 64,
-                  child: Text(
-                    valueLabel(entry.value),
-                    textAlign: TextAlign.end,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                      fontWeight: FontWeight.w700,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-          ),
-      ],
+              )
+              .toList(growable: false),
+          fields: [
+            ServiceDetailField(label: '项目', value: item.key),
+            ServiceDetailField(label: '当前值', value: valueLabel(item.value)),
+            ServiceDetailField(label: '原始值', value: '${item.value}'),
+          ],
+        );
+      },
     );
   }
 }
@@ -3304,7 +3195,6 @@ class _RankTable extends StatelessWidget {
     required this.rows,
     this.emptyLabel = '暂无数据',
   });
-
   final List<String> headers;
   final List<_RankRow> rows;
   final String emptyLabel;
@@ -3312,124 +3202,32 @@ class _RankTable extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     if (rows.isEmpty) return _InlineUnavailable(label: emptyLabel);
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final sorted = [...rows]
-      ..sort((left, right) => right.value.compareTo(left.value));
-    final tableWidth = math.max(680.0, headers.length * 180.0);
-    return Scrollbar(
-      thumbVisibility: false,
-      child: SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: SizedBox(
-          width: tableWidth,
-          child: Table(
-            columnWidths: <int, TableColumnWidth>{
-              for (var index = 0; index < headers.length; index++)
-                index: index == 0
-                    ? const FlexColumnWidth(1.5)
-                    : const FlexColumnWidth(),
-            },
-            defaultVerticalAlignment: TableCellVerticalAlignment.middle,
-            border: TableBorder(
-              horizontalInside: BorderSide(
-                color: colors.outlineVariant.withValues(alpha: 0.5),
-              ),
+    final colors = Theme.of(context).colorScheme;
+    return OpenHandOperationalRankTable(
+      headers: headers,
+      emptyLabel: emptyLabel,
+      rows: rows
+          .map(
+            (row) => OpenHandOperationalRankRow(
+              cells: row.cells,
+              value: row.value,
+              highlightColor: row.alert ? colors.error : null,
             ),
-            children: [
-              TableRow(
-                decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(9),
-                ),
-                children: [
-                  for (final header in headers)
-                    Padding(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 10,
-                        vertical: 9,
-                      ),
-                      child: Text(
-                        header,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                          fontWeight: FontWeight.w800,
-                        ),
-                      ),
-                    ),
-                ],
-              ),
-              for (var rowIndex = 0; rowIndex < sorted.length; rowIndex++)
-                TableRow(
-                  decoration: sorted[rowIndex].alert
-                      ? BoxDecoration(
-                          color: colors.errorContainer.withValues(alpha: 0.22),
-                        )
-                      : rowIndex.isOdd
-                      ? BoxDecoration(
-                          color: colors.surfaceContainerHighest.withValues(
-                            alpha: 0.2,
-                          ),
-                        )
-                      : null,
-                  children: [
-                    for (var index = 0; index < headers.length; index++)
-                      Tooltip(
-                        message: index < sorted[rowIndex].cells.length
-                            ? sorted[rowIndex].cells[index]
-                            : '--',
-                        child: InkWell(
-                          onTap: () => showServiceDetailsDialog(
-                            context,
-                            title: sorted[rowIndex].cells.isEmpty
-                                ? '排行记录'
-                                : sorted[rowIndex].cells.first,
-                            subtitle: '完整排行数据',
-                            icon: Icons.table_rows_rounded,
-                            presentation: ServiceDetailPresentation.record,
-                            fields: [
-                              for (
-                                var fieldIndex = 0;
-                                fieldIndex < headers.length;
-                                fieldIndex++
-                              )
-                                ServiceDetailField(
-                                  label: headers[fieldIndex],
-                                  value:
-                                      fieldIndex < sorted[rowIndex].cells.length
-                                      ? sorted[rowIndex].cells[fieldIndex]
-                                      : '--',
-                                ),
-                            ],
-                          ),
-                          child: Padding(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 10,
-                              vertical: 9,
-                            ),
-                            child: Text(
-                              index < sorted[rowIndex].cells.length
-                                  ? sorted[rowIndex].cells[index]
-                                  : '--',
-                              maxLines: 2,
-                              overflow: TextOverflow.ellipsis,
-                              style: theme.textTheme.bodySmall?.copyWith(
-                                color: sorted[rowIndex].alert && index == 0
-                                    ? colors.error
-                                    : null,
-                                fontWeight: index == 0 ? FontWeight.w700 : null,
-                              ),
-                            ),
-                          ),
-                        ),
-                      ),
-                  ],
-                ),
-            ],
-          ),
-        ),
+          )
+          .toList(growable: false),
+      onRowTap: (row) => showServiceDetailsDialog(
+        context,
+        title: row.cells.isEmpty ? '排行记录' : row.cells.first,
+        subtitle: '完整排行数据',
+        icon: Icons.table_rows_rounded,
+        presentation: ServiceDetailPresentation.record,
+        fields: [
+          for (var i = 0; i < headers.length; i++)
+            ServiceDetailField(
+              label: headers[i],
+              value: i < row.cells.length ? row.cells[i] : '--',
+            ),
+        ],
       ),
     );
   }
@@ -3437,148 +3235,51 @@ class _RankTable extends StatelessWidget {
 
 class _StackedStatusBand extends StatelessWidget {
   const _StackedStatusBand({required this.values});
-
   final List<_BreakdownItem> values;
 
   @override
   Widget build(BuildContext context) {
-    final visible = values
-        .where((item) => item.value > 0)
-        .toList(growable: false);
-    final total = visible.fold<int>(0, (sum, item) => sum + item.value);
-    if (visible.isEmpty) {
-      return const _InlineUnavailable(label: '暂无连接状态数据');
-    }
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        ClipRRect(
-          borderRadius: BorderRadius.circular(6),
-          child: SizedBox(
-            height: 22,
-            child: Row(
-              children: [
-                for (final item in visible)
-                  Expanded(
-                    flex: math.max(1, item.value),
-                    child: Tooltip(
-                      message:
-                          '${item.label}：${item.value} · ${_percent(dependencySafeRatio(item.value, total))}',
-                      child: ColoredBox(color: item.color),
-                    ),
-                  ),
-              ],
+    final total = values.fold<int>(
+      0,
+      (sum, item) => sum + math.max(0, item.value),
+    );
+    return OpenHandOperationalStatusBand(
+      segments: values
+          .map(
+            (item) => OpenHandChartSegment(
+              label: item.label,
+              value: item.value,
+              color: item.color,
             ),
-          ),
-        ),
-        const SizedBox(height: 10),
-        Wrap(
-          spacing: 16,
-          runSpacing: 8,
-          children: [
-            for (final item in values)
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                children: [
-                  Container(
-                    width: 9,
-                    height: 9,
-                    decoration: BoxDecoration(
-                      color: item.color,
-                      borderRadius: BorderRadius.circular(2),
-                    ),
-                  ),
-                  const SizedBox(width: 6),
-                  Text('${item.label} ${item.value}'),
-                ],
-              ),
-          ],
-        ),
-      ],
+          )
+          .toList(growable: false),
+      emptyLabel: '暂无连接状态数据',
+      valueLabel: (item) =>
+          '${item.safeValue.round()} · ${_percent(dependencySafeRatio(item.safeValue, total))}',
     );
   }
 }
 
 class _VerticalComparison extends StatelessWidget {
   const _VerticalComparison({required this.items, required this.valueLabel});
-
   final List<_BreakdownItem> items;
   final String Function(int value) valueLabel;
 
   @override
-  Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final maximum = items.fold<int>(
-      0,
-      (value, item) => math.max(value, item.value),
-    );
-    return SizedBox(
-      height: _kChartHeight,
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.end,
-        children: [
-          for (final item in items)
-            Expanded(
-              child: Tooltip(
-                message: '${item.label}：${valueLabel(item.value)}',
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 12),
-                  child: Column(
-                    mainAxisAlignment: MainAxisAlignment.end,
-                    children: [
-                      Text(
-                        valueLabel(item.value),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          fontWeight: FontWeight.w700,
-                        ),
-                      ),
-                      const SizedBox(height: 6),
-                      Expanded(
-                        child: Align(
-                          alignment: Alignment.bottomCenter,
-                          child: ServiceAnimatedValue(
-                            value: maximum <= 0
-                                ? 0
-                                : dependencySafeRatio(
-                                    item.value,
-                                    maximum,
-                                  ).clamp(0.03, 1.0),
-                            builder: (context, heightFactor) =>
-                                FractionallySizedBox(
-                                  heightFactor: heightFactor.clamp(0.0, 1.0),
-                                  child: Container(
-                                    width: 52,
-                                    decoration: BoxDecoration(
-                                      color: item.color,
-                                      borderRadius: const BorderRadius.vertical(
-                                        top: Radius.circular(6),
-                                      ),
-                                    ),
-                                  ),
-                                ),
-                          ),
-                        ),
-                      ),
-                      const SizedBox(height: 7),
-                      Text(
-                        item.label,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                          color: colors.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-            ),
-        ],
-      ),
-    );
-  }
+  Widget build(BuildContext context) => OpenHandOperationalComparisonBars(
+    segments: items
+        .map(
+          (item) => OpenHandChartSegment(
+            label: item.label,
+            value: item.value,
+            color: item.color,
+            valueLabel: valueLabel(item.value),
+          ),
+        )
+        .toList(growable: false),
+    orientation: OpenHandComparisonBarOrientation.vertical,
+    emptyLabel: '暂无对比数据',
+  );
 }
 
 class _UsageRail extends StatelessWidget {
@@ -3885,67 +3586,25 @@ class _CompactRecordList extends StatelessWidget {
 
 class _TtlHeatmap extends StatelessWidget {
   const _TtlHeatmap({required this.values, required this.color});
-
   final Map<String, int> values;
   final Color color;
 
   @override
-  Widget build(BuildContext context) {
-    final maximum = values.values.fold<int>(0, math.max);
-    final colors = Theme.of(context).colorScheme;
-    return LayoutBuilder(
-      builder: (context, constraints) {
-        final columns = constraints.maxWidth < 520 ? 2 : values.length;
-        const gap = 8.0;
-        final width = (constraints.maxWidth - gap * (columns - 1)) / columns;
-        return Wrap(
-          spacing: gap,
-          runSpacing: gap,
-          children: [
-            for (final entry in values.entries)
-              Tooltip(
-                message: '${entry.key}：${entry.value} 个 Key',
-                child: Container(
-                  width: math.max(120, width),
-                  height: 82,
-                  padding: const EdgeInsets.all(9),
-                  decoration: BoxDecoration(
-                    color: Color.alphaBlend(
-                      color.withValues(
-                        alpha: maximum <= 0
-                            ? 0.04
-                            : 0.08 +
-                                  dependencySafeRatio(entry.value, maximum) *
-                                      0.34,
-                      ),
-                      colors.surface,
-                    ),
-                    borderRadius: BorderRadius.circular(6),
-                    border: Border.all(color: color.withValues(alpha: 0.18)),
-                  ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        '${entry.value}',
-                        style: Theme.of(context).textTheme.titleMedium
-                            ?.copyWith(fontWeight: FontWeight.w900),
-                      ),
-                      Text(
-                        entry.key,
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                        style: Theme.of(context).textTheme.labelSmall,
-                      ),
-                    ],
-                  ),
-                ),
-              ),
-          ],
-        );
-      },
-    );
-  }
+  Widget build(BuildContext context) => OpenHandOperationalHeatmap(
+    segments: values.entries
+        .map(
+          (item) => OpenHandChartSegment(
+            label: item.key,
+            value: item.value,
+            color: color,
+            valueLabel: '${item.value} 个 Key',
+          ),
+        )
+        .toList(growable: false),
+    color: color,
+    emptyLabel: '暂无 TTL 数据',
+    columnCountForWidth: (width, itemCount) => width < 520 ? 2 : itemCount,
+  );
 }
 
 class _RadialMeter extends StatelessWidget {
@@ -3956,7 +3615,6 @@ class _RadialMeter extends StatelessWidget {
     required this.helper,
     this.unavailable = false,
   });
-
   final String label;
   final double value;
   final Color color;
@@ -3964,114 +3622,15 @@ class _RadialMeter extends StatelessWidget {
   final bool unavailable;
 
   @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Container(
-      constraints: const BoxConstraints(minHeight: 168),
-      padding: const EdgeInsets.all(14),
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withValues(alpha: 0.22)),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          return Row(
-            children: [
-              SizedBox.square(
-                dimension: math.min(116, constraints.maxWidth * 0.36),
-                child: ServiceAnimatedValue(
-                  value: unavailable ? 0 : value,
-                  builder: (context, animatedValue) => CustomPaint(
-                    painter: _ArcMeterPainter(
-                      value: animatedValue,
-                      color: color,
-                      trackColor: colors.surfaceContainerHighest,
-                    ),
-                    child: Center(
-                      child: Text(
-                        unavailable ? '--' : _percent(value),
-                        style: theme.textTheme.titleMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                    ),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: Column(
-                  mainAxisAlignment: MainAxisAlignment.center,
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: theme.textTheme.titleSmall?.copyWith(
-                        fontWeight: FontWeight.w800,
-                      ),
-                    ),
-                    const SizedBox(height: 6),
-                    Text(
-                      helper,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          );
-        },
-      ),
-    );
-  }
-}
-
-class _ArcMeterPainter extends CustomPainter {
-  const _ArcMeterPainter({
-    required this.value,
-    required this.color,
-    required this.trackColor,
-  });
-
-  final double value;
-  final Color color;
-  final Color trackColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    final stroke = math.max(8.0, size.shortestSide * 0.1);
-    final rect =
-        Offset(stroke / 2, stroke / 2) &
-        Size(size.width - stroke, size.height - stroke);
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(
-      rect,
-      -math.pi * 0.75,
-      math.pi * 1.5,
-      false,
-      paint..color = trackColor,
-    );
-    canvas.drawArc(
-      rect,
-      -math.pi * 0.75,
-      math.pi * 1.5 * value.clamp(0.0, 1.0),
-      false,
-      paint..color = color,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _ArcMeterPainter oldDelegate) =>
-      oldDelegate.value != value ||
-      oldDelegate.color != color ||
-      oldDelegate.trackColor != trackColor;
+  Widget build(BuildContext context) => OpenHandOperationalMeter(
+    label: label,
+    value: value,
+    color: color,
+    helper: helper,
+    unavailable: unavailable,
+    valueLabel: unavailable ? '--' : _percent(value),
+    semicircular: false,
+  );
 }
 
 class _RedisHitGauge extends StatelessWidget {
@@ -4081,7 +3640,6 @@ class _RedisHitGauge extends StatelessWidget {
     required this.misses,
     required this.tone,
   });
-
   final double rate;
   final int hits;
   final int misses;
@@ -4089,85 +3647,48 @@ class _RedisHitGauge extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final statusColor = rate < 0.7
+    final colors = Theme.of(context).colorScheme;
+    final status = rate < 0.7
         ? colors.error
         : rate < 0.9
         ? OpenHandStatusColors.warning
         : tone;
-    return Container(
-      padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: statusColor.withValues(alpha: 0.06),
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: statusColor.withValues(alpha: 0.24)),
-      ),
-      child: LayoutBuilder(
-        builder: (context, constraints) {
-          final gauge = SizedBox(
-            width: math.min(300, constraints.maxWidth),
-            height: 150,
-            child: ServiceAnimatedValue(
-              value: rate,
-              builder: (context, animatedValue) => CustomPaint(
-                painter: _SemiGaugePainter(
-                  value: animatedValue,
-                  color: statusColor,
-                  trackColor: colors.surfaceContainerHighest,
-                ),
-                child: Align(
-                  alignment: const Alignment(0, 0.72),
-                  child: Column(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        _percent(rate),
-                        style: theme.textTheme.headlineMedium?.copyWith(
-                          fontWeight: FontWeight.w900,
-                        ),
-                      ),
-                      Text('当前命中率', style: theme.textTheme.labelSmall),
-                    ],
-                  ),
-                ),
-              ),
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final gauge = OpenHandOperationalMeter(
+          label: '当前命中率',
+          value: rate,
+          color: status,
+          valueLabel: _percent(rate),
+        );
+        final facts = Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            _GaugeFact(label: '累计命中', value: _compactCount(hits), color: tone),
+            const SizedBox(height: 8),
+            _GaugeFact(
+              label: '累计未命中',
+              value: _compactCount(misses),
+              color: colors.error,
             ),
-          );
-          final facts = Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [
-              _GaugeFact(
-                label: '累计命中',
-                value: _compactCount(hits),
-                color: tone,
-              ),
-              const SizedBox(height: 8),
-              _GaugeFact(
-                label: '累计未命中',
-                value: _compactCount(misses),
-                color: colors.error,
-              ),
-              const SizedBox(height: 8),
-              _GaugeFact(
-                label: '总请求',
-                value: _compactCount(hits + misses),
-                color: colors.primary,
-              ),
-            ],
-          );
-          if (constraints.maxWidth < 600) {
-            return Column(children: [gauge, const SizedBox(height: 10), facts]);
-          }
-          return Row(
-            children: [
-              Expanded(child: gauge),
-              const SizedBox(width: 24),
-              Expanded(child: facts),
-            ],
-          );
-        },
-      ),
+            const SizedBox(height: 8),
+            _GaugeFact(
+              label: '总请求',
+              value: _compactCount(hits + misses),
+              color: colors.primary,
+            ),
+          ],
+        );
+        return constraints.maxWidth < 600
+            ? Column(children: [gauge, const SizedBox(height: 10), facts])
+            : Row(
+                children: [
+                  Expanded(child: gauge),
+                  const SizedBox(width: 24),
+                  Expanded(child: facts),
+                ],
+              );
+      },
     );
   }
 }
@@ -4178,11 +3699,9 @@ class _GaugeFact extends StatelessWidget {
     required this.value,
     required this.color,
   });
-
   final String label;
   final String value;
   final Color color;
-
   @override
   Widget build(BuildContext context) => Row(
     children: [
@@ -4196,47 +3715,6 @@ class _GaugeFact extends StatelessWidget {
       Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
     ],
   );
-}
-
-class _SemiGaugePainter extends CustomPainter {
-  const _SemiGaugePainter({
-    required this.value,
-    required this.color,
-    required this.trackColor,
-  });
-
-  final double value;
-  final Color color;
-  final Color trackColor;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const stroke = 16.0;
-    final rect = Rect.fromLTWH(
-      stroke / 2,
-      stroke / 2,
-      size.width - stroke,
-      (size.height - stroke) * 1.65,
-    );
-    final paint = Paint()
-      ..style = PaintingStyle.stroke
-      ..strokeWidth = stroke
-      ..strokeCap = StrokeCap.round;
-    canvas.drawArc(rect, math.pi, math.pi, false, paint..color = trackColor);
-    canvas.drawArc(
-      rect,
-      math.pi,
-      math.pi * value.clamp(0.0, 1.0),
-      false,
-      paint..color = color,
-    );
-  }
-
-  @override
-  bool shouldRepaint(covariant _SemiGaugePainter oldDelegate) =>
-      oldDelegate.value != value ||
-      oldDelegate.color != color ||
-      oldDelegate.trackColor != trackColor;
 }
 
 class _SegmentedHitTrend extends StatelessWidget {
@@ -4333,56 +3811,24 @@ class _LatencyDistribution extends StatelessWidget {
     required this.p95,
     required this.p99,
   });
-
   final double average;
   final double p95;
   final double p99;
 
   @override
   Widget build(BuildContext context) {
-    if (average <= 0 && p95 <= 0 && p99 <= 0) {
-      return const _InlineUnavailable(label: '当前接口暂未提供命令延迟分位数');
-    }
     final colors = Theme.of(context).colorScheme;
-    final maximum = math.max(average, math.max(p95, p99));
-    final values = <MapEntry<String, double>>[
-      MapEntry('平均', average),
-      MapEntry('p95', p95),
-      MapEntry('p99', p99),
-    ];
-    return Column(
-      children: [
-        for (var index = 0; index < values.length; index++)
-          Padding(
-            padding: const EdgeInsets.symmetric(vertical: 6),
-            child: Row(
-              children: [
-                SizedBox(width: 38, child: Text(values[index].key)),
-                const SizedBox(width: 8),
-                Expanded(
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(999),
-                    child: ServiceAnimatedProgressBar(
-                      minHeight: 12,
-                      value: dependencySafeRatio(values[index].value, maximum),
-                      color: index == 2 ? colors.error : colors.primary,
-                      backgroundColor: colors.surfaceContainerHighest,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 8),
-                SizedBox(
-                  width: 70,
-                  child: Text(
-                    '${values[index].value.toStringAsFixed(2)} ms',
-                    textAlign: TextAlign.end,
-                    style: Theme.of(context).textTheme.labelSmall,
-                  ),
-                ),
-              ],
-            ),
-          ),
+    return OpenHandOperationalLatencyRange(
+      segments: [
+        OpenHandChartSegment(
+          label: '平均',
+          value: average,
+          color: colors.primary,
+        ),
+        OpenHandChartSegment(label: 'p95', value: p95, color: colors.primary),
+        OpenHandChartSegment(label: 'p99', value: p99, color: colors.error),
       ],
+      emptyLabel: '当前接口暂未提供命令延迟分位数',
     );
   }
 }
@@ -4408,7 +3854,7 @@ class _LegendDot extends StatelessWidget {
   );
 }
 
-class _InteractiveTrendChart extends StatefulWidget {
+class _InteractiveTrendChart extends StatelessWidget {
   const _InteractiveTrendChart({
     required this.times,
     required this.series,
@@ -4417,7 +3863,6 @@ class _InteractiveTrendChart extends StatefulWidget {
     this.area = false,
     this.fixedMaximum,
   });
-
   final List<DateTime> times;
   final List<OpenHandChartSeries> series;
   final String unit;
@@ -4426,333 +3871,39 @@ class _InteractiveTrendChart extends StatefulWidget {
   final double? fixedMaximum;
 
   @override
-  State<_InteractiveTrendChart> createState() => _InteractiveTrendChartState();
-}
-
-class _InteractiveTrendChartState extends State<_InteractiveTrendChart> {
-  int? _hoveredIndex;
-
-  int get _pointCount => widget.series.fold<int>(
-    widget.times.length,
-    (count, series) => math.min(count, series.values.length),
-  );
-
-  void _updateHover(Offset position, double width) {
-    if (_pointCount <= 0 || width <= 56) return;
-    const left = 44.0;
-    const right = 12.0;
-    final ratio = ((position.dx - left) / math.max(1, width - left - right))
-        .clamp(0.0, 1.0);
-    final index = (_pointCount == 1 ? 0 : ratio * (_pointCount - 1)).round();
-    if (_hoveredIndex != index) setState(() => _hoveredIndex = index);
-  }
-
-  @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    final pointCount = _pointCount;
-    if (pointCount < 2) {
+    final count = series.fold<int>(
+      times.length,
+      (value, item) => math.min(value, item.values.length),
+    );
+    if (count < 2) {
       return const SizedBox(
         height: _kChartHeight,
         child: _InlineUnavailable(label: '等待更多趋势采样点'),
       );
     }
-    final times = widget.times.take(pointCount).toList(growable: false);
-    final series = widget.series
-        .map(
-          (item) => OpenHandChartSeries(
-            label: item.label,
-            values: item.values.take(pointCount).toList(growable: false),
-            color: item.color,
-          ),
-        )
-        .toList(growable: false);
-    return Semantics(
-      label:
-          '${widget.unit}趋势，${series.map((item) => item.label).join('、')}，从 ${_clockText(times.first)} 到 ${_clockText(times.last)}',
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.stretch,
-        children: [
-          Wrap(
-            spacing: 14,
-            runSpacing: 6,
-            children: [
-              for (final item in series)
-                _LegendDot(label: item.label, color: item.color),
-            ],
-          ),
-          const SizedBox(height: 6),
-          SizedBox(
-            height: _kChartHeight,
-            child: LayoutBuilder(
-              builder: (context, constraints) {
-                final hovered =
-                    _hoveredIndex == null || _hoveredIndex! >= pointCount
-                    ? null
-                    : _hoveredIndex;
-                final tooltipWidth = math.min(
-                  210.0,
-                  constraints.maxWidth * 0.62,
-                );
-                final hoverX = hovered == null
-                    ? 0.0
-                    : 44 +
-                          (constraints.maxWidth - 56) *
-                              dependencySafeRatio(hovered, pointCount - 1);
-                final tooltipLeft = (hoverX - tooltipWidth / 2)
-                    .clamp(
-                      0.0,
-                      math.max(0, constraints.maxWidth - tooltipWidth),
-                    )
-                    .toDouble();
-                return MouseRegion(
-                  cursor: SystemMouseCursors.precise,
-                  onHover: (event) =>
-                      _updateHover(event.localPosition, constraints.maxWidth),
-                  onExit: (_) => setState(() => _hoveredIndex = null),
-                  child: GestureDetector(
-                    behavior: HitTestBehavior.opaque,
-                    onTapDown: (details) => _updateHover(
-                      details.localPosition,
-                      constraints.maxWidth,
-                    ),
-                    child: Stack(
-                      clipBehavior: Clip.none,
-                      children: [
-                        Positioned.fill(
-                          child: ServiceAnimatedChart(
-                            series: series,
-                            builder: (context, animatedSeries) => CustomPaint(
-                              painter: _DependencyTrendPainter(
-                                times: times,
-                                series: animatedSeries,
-                                gridColor: colors.outlineVariant.withValues(
-                                  alpha: 0.58,
-                                ),
-                                labelColor: colors.onSurfaceVariant,
-                                area: widget.area,
-                                hoveredIndex: hovered,
-                                fixedMaximum: widget.fixedMaximum,
-                              ),
-                            ),
-                          ),
-                        ),
-                        if (hovered != null)
-                          Positioned(
-                            left: tooltipLeft,
-                            top: 3,
-                            width: tooltipWidth,
-                            child: IgnorePointer(
-                              child: DecoratedBox(
-                                decoration: BoxDecoration(
-                                  color: colors.inverseSurface.withValues(
-                                    alpha: 0.94,
-                                  ),
-                                  borderRadius: BorderRadius.circular(6),
-                                  boxShadow: [
-                                    BoxShadow(
-                                      color: colors.shadow.withValues(
-                                        alpha: 0.16,
-                                      ),
-                                      blurRadius: 10,
-                                      offset: const Offset(0, 5),
-                                    ),
-                                  ],
-                                ),
-                                child: Padding(
-                                  padding: const EdgeInsets.symmetric(
-                                    horizontal: 9,
-                                    vertical: 7,
-                                  ),
-                                  child: Column(
-                                    crossAxisAlignment:
-                                        CrossAxisAlignment.start,
-                                    children: [
-                                      Text(
-                                        _clockText(times[hovered]),
-                                        style: Theme.of(context)
-                                            .textTheme
-                                            .labelSmall
-                                            ?.copyWith(
-                                              color: colors.onInverseSurface,
-                                              fontWeight: FontWeight.w700,
-                                            ),
-                                      ),
-                                      for (final item in series)
-                                        Text(
-                                          '${item.label} ${widget.formatValue(item.values[hovered])}',
-                                          maxLines: 1,
-                                          overflow: TextOverflow.ellipsis,
-                                          style: Theme.of(context)
-                                              .textTheme
-                                              .labelSmall
-                                              ?.copyWith(
-                                                color: colors.onInverseSurface,
-                                              ),
-                                        ),
-                                    ],
-                                  ),
-                                ),
-                              ),
-                            ),
-                          ),
-                      ],
-                    ),
-                  ),
-                );
-              },
+    final visibleTimes = times.take(count).toList(growable: false);
+    return OpenHandOperationalTrendChart(
+      series: series
+          .map(
+            (item) => OpenHandChartSeries(
+              label: item.label,
+              values: item.values.take(count).toList(growable: false),
+              color: item.color,
             ),
-          ),
-        ],
-      ),
+          )
+          .toList(growable: false),
+      xLabels: visibleTimes.map(_clockText).toList(growable: false),
+      valueSuffix: unit,
+      formatValue: formatValue,
+      area: area,
+      fixedMaximum: fixedMaximum,
+      emptyLabel: '等待更多趋势采样点',
+      semanticLabel:
+          '$unit 趋势，从 ${_clockText(visibleTimes.first)} 到 ${_clockText(visibleTimes.last)}',
+      onSelectionChanged: null,
     );
   }
-}
-
-class _DependencyTrendPainter extends CustomPainter {
-  const _DependencyTrendPainter({
-    required this.times,
-    required this.series,
-    required this.gridColor,
-    required this.labelColor,
-    required this.area,
-    required this.hoveredIndex,
-    required this.fixedMaximum,
-  });
-
-  final List<DateTime> times;
-  final List<OpenHandChartSeries> series;
-  final Color gridColor;
-  final Color labelColor;
-  final bool area;
-  final int? hoveredIndex;
-  final double? fixedMaximum;
-
-  @override
-  void paint(Canvas canvas, Size size) {
-    const left = 44.0;
-    const right = 12.0;
-    const top = 12.0;
-    const bottom = 26.0;
-    final chart = Rect.fromLTRB(
-      left,
-      top,
-      size.width - right,
-      size.height - bottom,
-    );
-    if (chart.width <= 0 || chart.height <= 0 || times.length < 2) return;
-    final maxValue =
-        fixedMaximum ??
-        series.expand((item) => item.values).fold<double>(0, math.max);
-    final scaleMax = math.max(
-      1.0,
-      maxValue * (fixedMaximum == null ? 1.12 : 1),
-    );
-    final gridPaint = Paint()
-      ..color = gridColor
-      ..strokeWidth = 1;
-    for (var index = 0; index <= 4; index++) {
-      final y = chart.top + chart.height * index / 4;
-      canvas.drawLine(Offset(chart.left, y), Offset(chart.right, y), gridPaint);
-    }
-    for (var index = 0; index <= 5; index++) {
-      final x = chart.left + chart.width * index / 5;
-      canvas.drawLine(Offset(x, chart.top), Offset(x, chart.bottom), gridPaint);
-    }
-    _paintLabel(canvas, _shortAxisValue(scaleMax), const Offset(0, top - 2));
-    _paintLabel(canvas, '0', Offset(left - 18, chart.bottom - 6));
-    _paintLabel(
-      canvas,
-      _clockText(times.first),
-      Offset(chart.left, chart.bottom + 7),
-    );
-    final lastLabel = _textPainter(_clockText(times.last));
-    lastLabel.paint(
-      canvas,
-      Offset(chart.right - lastLabel.width, chart.bottom + 7),
-    );
-    final denominator = math.max(1, times.length - 1);
-    for (final item in series) {
-      final points = <Offset>[
-        for (var index = 0; index < times.length; index++)
-          Offset(
-            chart.left + chart.width * index / denominator,
-            chart.bottom -
-                chart.height * (item.values[index] / scaleMax).clamp(0.0, 1.0),
-          ),
-      ];
-      final path = _smoothPath(points);
-      if (area) {
-        final fill = Path.from(path)
-          ..lineTo(points.last.dx, chart.bottom)
-          ..lineTo(points.first.dx, chart.bottom)
-          ..close();
-        canvas.drawPath(
-          fill,
-          Paint()..color = item.color.withValues(alpha: 0.1),
-        );
-      }
-      canvas.drawPath(
-        path,
-        Paint()
-          ..color = item.color
-          ..strokeWidth = 2.4
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round,
-      );
-      if (hoveredIndex case final index?) {
-        canvas.drawCircle(points[index], 4, Paint()..color = item.color);
-      }
-    }
-    if (hoveredIndex case final index?) {
-      final x = chart.left + chart.width * index / denominator;
-      canvas.drawLine(
-        Offset(x, chart.top),
-        Offset(x, chart.bottom),
-        Paint()
-          ..color = labelColor.withValues(alpha: 0.65)
-          ..strokeWidth = 1,
-      );
-    }
-  }
-
-  Path _smoothPath(List<Offset> points) {
-    final path = Path()..moveTo(points.first.dx, points.first.dy);
-    for (var index = 0; index < points.length - 1; index++) {
-      final current = points[index];
-      final next = points[index + 1];
-      final midpoint = Offset(
-        (current.dx + next.dx) / 2,
-        (current.dy + next.dy) / 2,
-      );
-      path.quadraticBezierTo(current.dx, current.dy, midpoint.dx, midpoint.dy);
-    }
-    return path..lineTo(points.last.dx, points.last.dy);
-  }
-
-  TextPainter _textPainter(String text) => TextPainter(
-    text: TextSpan(
-      text: text,
-      style: TextStyle(color: labelColor, fontSize: 10),
-    ),
-    textDirection: TextDirection.ltr,
-    maxLines: 1,
-  )..layout();
-
-  void _paintLabel(Canvas canvas, String text, Offset offset) {
-    _textPainter(text).paint(canvas, offset);
-  }
-
-  @override
-  bool shouldRepaint(covariant _DependencyTrendPainter oldDelegate) =>
-      oldDelegate.times != times ||
-      oldDelegate.series != series ||
-      oldDelegate.gridColor != gridColor ||
-      oldDelegate.labelColor != labelColor ||
-      oldDelegate.area != area ||
-      oldDelegate.hoveredIndex != hoveredIndex ||
-      oldDelegate.fixedMaximum != fixedMaximum;
 }
 
 Map<String, Object?> _objectMap(Object? value) {
@@ -4886,17 +4037,6 @@ String _compactCount(int value) {
   if (absolute >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
   if (absolute >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
   return '$value';
-}
-
-String _shortAxisValue(double value) {
-  if (value >= 1024 * 1024 * 1024) {
-    return '${(value / (1024 * 1024 * 1024)).toStringAsFixed(1)}G';
-  }
-  if (value >= 1024 * 1024) {
-    return '${(value / (1024 * 1024)).toStringAsFixed(1)}M';
-  }
-  if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
-  return value.toStringAsFixed(value < 10 ? 1 : 0);
 }
 
 String _durationText(int seconds) {
