@@ -35,7 +35,10 @@ class _PipelinePanel extends StatelessWidget {
       0,
       (sum, item) => sum + item.progress.highValue,
     );
-    final trend = history.reversed.take(24).toList(growable: false);
+    final trend = history.reversed
+        .where((item) => item.createdAtReported)
+        .take(24)
+        .toList(growable: false);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [

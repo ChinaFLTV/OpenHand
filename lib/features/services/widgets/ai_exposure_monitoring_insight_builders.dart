@@ -131,7 +131,12 @@ _InsightRecordPanel _metricResultPanel(
 List<AiExposureHistoryEntry> _chronologicalTasks(
   ServicesController controller, {
   int limit = 24,
-}) => controller.history.take(limit).toList().reversed.toList(growable: false);
+}) => controller.history
+    .where((task) => task.createdAtReported)
+    .take(limit)
+    .toList()
+    .reversed
+    .toList(growable: false);
 
 Widget _buildOverviewMetricInsight(
   BuildContext context,
@@ -449,7 +454,9 @@ Widget _buildOverviewMetricInsight(
           items: ranked
               .map(
                 (entry) => _InsightRankItem(
-                  label: entry.name.trim().isEmpty ? entry.id : entry.name,
+                  label: entry.name.trim().isEmpty
+                      ? entry.id
+                      : entry.name.trim(),
                   value: entry.progress.processed.toDouble(),
                   valueLabel: '${entry.progress.processed}',
                   helper:
@@ -858,7 +865,9 @@ Widget _buildPipelineMetricInsight(
                     ? 0.0
                     : entry.progress.candidates / entry.progress.processed;
                 return _InsightRankItem(
-                  label: entry.name.trim().isEmpty ? entry.id : entry.name,
+                  label: entry.name.trim().isEmpty
+                      ? entry.id
+                      : entry.name.trim(),
                   value: rate,
                   valueLabel: '${(rate * 100).toStringAsFixed(1)}%',
                   helper:
@@ -1023,7 +1032,9 @@ Widget _buildPipelineMetricInsight(
               .map(
                 (entry) => _InsightMatrixRow(
                   icon: Icons.layers_outlined,
-                  title: entry.name.trim().isEmpty ? entry.id : entry.name,
+                  title: entry.name.trim().isEmpty
+                      ? entry.id
+                      : entry.name.trim(),
                   subtitle: entry.authorizedScope.isEmpty
                       ? '未记录授权范围'
                       : entry.authorizedScope.join(' · '),
@@ -1069,7 +1080,9 @@ Widget _buildPipelineMetricInsight(
               .map(
                 (entry) => _InsightMatrixRow(
                   icon: Icons.restore_rounded,
-                  title: entry.name.trim().isEmpty ? entry.id : entry.name,
+                  title: entry.name.trim().isEmpty
+                      ? entry.id
+                      : entry.name.trim(),
                   subtitle: entry.errorMessage?.trim().isNotEmpty == true
                       ? entry.errorMessage!.trim()
                       : entry.progress.message,
@@ -1683,11 +1696,18 @@ Widget _buildSourceConfigurationInsight(
 ) {
   final colors = Theme.of(context).colorScheme;
   final states = _sourceInsightStates(controller);
-  final credentialSources = states.where((state) => state.requiresCredential);
-  final configured = credentialSources
+  final credentialStates = <String, _SourceInsightState>{};
+  for (final state in states.where((state) => state.requiresCredential)) {
+    credentialStates.putIfAbsent(
+      _sourceCredentialKey(state.source),
+      () => state,
+    );
+  }
+  final credentialSources = credentialStates.values;
+  final configured = credentialStates.values
       .where((state) => state.configured)
       .length;
-  final gaps = credentialSources
+  final gaps = credentialStates.values
       .where((state) => !state.configured)
       .toList(growable: false);
   return _metricInsightPage([
@@ -2814,7 +2834,7 @@ Widget _buildStorageMetricInsight(
                       _InsightTimelineEntry(
                         at: at,
                         title:
-                            '任务 · ${entry.name.trim().isEmpty ? entry.id : entry.name}',
+                            '任务 · ${entry.name.trim().isEmpty ? entry.id : entry.name.trim()}',
                         detail:
                             '${_stageName(entry.stage)} · 处理 ${entry.progress.processed}',
                         tag: '任务',
@@ -3086,7 +3106,9 @@ Widget _buildStorageMetricInsight(
               .map(
                 (entry) => _InsightMatrixRow(
                   icon: Icons.restore_rounded,
-                  title: entry.name.trim().isEmpty ? entry.id : entry.name,
+                  title: entry.name.trim().isEmpty
+                      ? entry.id
+                      : entry.name.trim(),
                   subtitle: entry.errorMessage?.trim().isNotEmpty == true
                       ? entry.errorMessage!.trim()
                       : entry.progress.message,
@@ -3627,7 +3649,7 @@ Widget _buildSecurityMetricInsight(
               _DependencyInsightId id,
               String name,
               IconData icon,
-              bool configured,
+              bool? configured,
               bool connected,
               String message,
             })
@@ -3644,7 +3666,7 @@ Widget _buildSecurityMetricInsight(
               id: _DependencyInsightId.postgresql,
               name: 'PostgreSQL 镜像',
               icon: Icons.cloud_sync_outlined,
-              configured: dependencies?.postgresql.configured ?? false,
+              configured: dependencies?.postgresql.configured,
               connected: dependencies?.postgresql.connected ?? false,
               message: dependencies?.postgresql.message ?? '未启用',
             ),
@@ -3652,7 +3674,7 @@ Widget _buildSecurityMetricInsight(
               id: _DependencyInsightId.redis,
               name: 'Redis 协调',
               icon: Icons.hub_outlined,
-              configured: dependencies?.redis.configured ?? false,
+              configured: dependencies?.redis.configured,
               connected: dependencies?.redis.connected ?? false,
               message: dependencies?.redis.message ?? '未启用',
             ),
@@ -3660,7 +3682,7 @@ Widget _buildSecurityMetricInsight(
               id: _DependencyInsightId.playwright,
               name: 'Playwright 浏览器',
               icon: Icons.web_outlined,
-              configured: dependencies?.playwright.configured ?? false,
+              configured: dependencies?.playwright.configured,
               connected: dependencies?.playwright.connected ?? false,
               message: dependencies?.playwright.message ?? '未启用',
             ),
@@ -3668,7 +3690,7 @@ Widget _buildSecurityMetricInsight(
               id: _DependencyInsightId.gptExtractor,
               name: 'GPT 辅助提取',
               icon: Icons.auto_awesome_outlined,
-              configured: controller.aiExtractorStatus?.configured ?? false,
+              configured: controller.aiExtractorStatus?.configured,
               connected: controller.aiExtractorStatus?.configured ?? false,
               message: controller.aiExtractorStatus?.model ?? '未启用',
             ),
@@ -3688,7 +3710,8 @@ Widget _buildSecurityMetricInsight(
             _InsightKpi(
               icon: Icons.settings_outlined,
               label: '已配置',
-              value: '${states.where((entry) => entry.configured).length}',
+              value:
+                  '${states.where((entry) => entry.configured == true).length}',
               helper: '满足配置前置',
               color: colors.primary,
             ),
@@ -3696,7 +3719,7 @@ Widget _buildSecurityMetricInsight(
               icon: Icons.link_off_rounded,
               label: '未连接',
               value:
-                  '${states.where((entry) => entry.configured && !entry.connected).length}',
+                  '${states.where((entry) => entry.configured == true && !entry.connected).length}',
               helper: '已配置但当前不可用',
               color: OpenHandStatusColors.warning,
             ),
@@ -3713,7 +3736,7 @@ Widget _buildSecurityMetricInsight(
                   subtitle: entry.message,
                   color: entry.connected
                       ? OpenHandStatusColors.success
-                      : entry.configured
+                      : entry.configured == true
                       ? OpenHandStatusColors.warning
                       : colors.outline,
                   target: _DependencyInsightTarget(
@@ -3725,8 +3748,14 @@ Widget _buildSecurityMetricInsight(
                   ),
                   cells: [
                     _InsightMatrixCell(
-                      label: entry.configured ? '已配置' : '未配置',
-                      color: entry.configured ? colors.primary : colors.outline,
+                      label: entry.configured == null
+                          ? '状态未上报'
+                          : entry.configured!
+                          ? '已配置'
+                          : '未配置',
+                      color: entry.configured == true
+                          ? colors.primary
+                          : colors.outline,
                     ),
                     _InsightMatrixCell(
                       label: entry.connected ? '已就绪' : '未就绪',
@@ -3947,7 +3976,7 @@ _InsightRecord _taskInsightRecord(
   };
   return _InsightRecord(
     icon: _stageIcon(entry.stage),
-    title: entry.name.trim().isEmpty ? entry.id : entry.name,
+    title: entry.name.trim().isEmpty ? entry.id : entry.name.trim(),
     subtitle: subtitle,
     tags: tags,
     color: tone,
@@ -5444,7 +5473,7 @@ Widget _persistenceWriteEventPanel(
       job.createdAt,
       _InsightRecord(
         icon: Icons.note_add_outlined,
-        title: '创建任务 · ${job.name.trim().isEmpty ? job.id : job.name}',
+        title: '创建任务 · ${job.name.trim().isEmpty ? job.id : job.name.trim()}',
         subtitle: '任务 ${job.id} · ${job.sources.map(_sourceName).join(' / ')}',
         tags: [
           _reportedShortDateTime(job.createdAt, job.createdAtReported),
@@ -5460,7 +5489,8 @@ Widget _persistenceWriteEventPanel(
         job.finishedAt!,
         _InsightRecord(
           icon: _stageIcon(job.stage),
-          title: '更新任务终态 · ${job.name.trim().isEmpty ? job.id : job.name}',
+          title:
+              '更新任务终态 · ${job.name.trim().isEmpty ? job.id : job.name.trim()}',
           subtitle: job.errorMessage?.trim().isNotEmpty == true
               ? job.errorMessage!.trim()
               : '写入阶段 ${_stageName(job.stage)} 与最终进度快照。',
@@ -5723,7 +5753,7 @@ Widget _integrityInsightPanel(
     records.add(
       _InsightRecord(
         icon: Icons.pending_actions_outlined,
-        title: job.name.trim().isEmpty ? job.id : job.name,
+        title: job.name.trim().isEmpty ? job.id : job.name.trim(),
         subtitle: '归档中仍处于 ${_stageName(job.stage)} 阶段。',
         tags: [
           job.id,
@@ -5859,7 +5889,7 @@ String _chartRate(int value, int total) =>
 
 int? _taskMeasuredDurationMs(AiExposureHistoryEntry task) {
   final startedAt = task.startedAt;
-  final finishedAt = task.finishedAt;
+  final finishedAt = task.effectiveFinishedAt;
   if (startedAt == null ||
       finishedAt == null ||
       finishedAt.isBefore(startedAt)) {
@@ -5872,34 +5902,43 @@ List<AiExposureHistoryEntry> _chronologicalJobs(
   ServicesController controller, {
   int limit = 24,
 }) {
-  final jobs = [...controller.history]
-    ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
+  final jobs =
+      controller.history.where((task) => task.createdAtReported).toList()
+        ..sort((left, right) => left.createdAt.compareTo(right.createdAt));
   return jobs.length <= limit ? jobs : jobs.sublist(jobs.length - limit);
 }
 
 List<_InsightTimelineEntry> _taskTimeline(
   Iterable<AiExposureHistoryEntry> jobs,
 ) {
-  final sorted = [...jobs]
-    ..sort((left, right) => right.createdAt.compareTo(left.createdAt));
-  return sorted
-      .map(
-        (task) => _InsightTimelineEntry(
-          at: task.effectiveFinishedAt ?? task.createdAt,
-          title: task.name.trim().isEmpty ? task.id : task.name,
-          detail:
-              '处理 ${task.progress.processed} · 候选 ${task.progress.candidates} · 有效 ${task.progress.valid} · 高价值 ${task.progress.highValue}',
-          color: switch (task.stage) {
-            'completed' => OpenHandStatusColors.success,
-            'failed' => OpenHandStatusColors.error,
-            'cancelled' => OpenHandStatusColors.warning,
-            _ => OpenHandStatusColors.info,
-          },
-          tag: _stageName(task.stage),
-          target: _TaskInsightTarget(task),
-        ),
-      )
-      .toList(growable: false);
+  final entries =
+      jobs
+          .expand((task) {
+            final at = task.effectiveFinishedAt ?? task.reportedCreatedAt;
+            return at == null
+                ? const <_InsightTimelineEntry>[]
+                : <_InsightTimelineEntry>[
+                    _InsightTimelineEntry(
+                      at: at,
+                      title: task.name.trim().isEmpty
+                          ? task.id
+                          : task.name.trim(),
+                      detail:
+                          '处理 ${task.progress.processed} · 候选 ${task.progress.candidates} · 有效 ${task.progress.valid} · 高价值 ${task.progress.highValue}',
+                      color: switch (task.stage) {
+                        'completed' => OpenHandStatusColors.success,
+                        'failed' => OpenHandStatusColors.error,
+                        'cancelled' => OpenHandStatusColors.warning,
+                        _ => OpenHandStatusColors.info,
+                      },
+                      tag: _stageName(task.stage),
+                      target: _TaskInsightTarget(task),
+                    ),
+                  ];
+          })
+          .toList(growable: false)
+        ..sort((left, right) => right.at.compareTo(left.at));
+  return entries;
 }
 
 Widget _taskThroughputTrendInsight(
@@ -6119,7 +6158,7 @@ Widget _taskDurationTrendInsight(
           .take(20)
           .map(
             (task) => _InsightRankItem(
-              label: task.name.trim().isEmpty ? task.id : task.name,
+              label: task.name.trim().isEmpty ? task.id : task.name.trim(),
               value: _taskMeasuredDurationMs(task)!.toDouble(),
               valueLabel: '${_taskMeasuredDurationMs(task)} ms',
               helper:
@@ -6141,7 +6180,7 @@ Widget _taskDurationTrendInsight(
           .map(
             (task) => _InsightTimelineEntry(
               at: task.effectiveFinishedAt!,
-              title: task.name.trim().isEmpty ? task.id : task.name,
+              title: task.name.trim().isEmpty ? task.id : task.name.trim(),
               detail: '耗时 ${_taskMeasuredDurationMs(task)} ms · P95 阈值 $p95 ms',
               color: OpenHandStatusColors.warning,
               tag: _stageName(task.stage),
@@ -6248,7 +6287,7 @@ Widget _pipelineFunnelTrendInsight(
           .map(
             (task) => _InsightMatrixRow(
               icon: _stageIcon(task.stage),
-              title: task.name.trim().isEmpty ? task.id : task.name,
+              title: task.name.trim().isEmpty ? task.id : task.name.trim(),
               subtitle:
                   '${_stageName(task.stage)} · ${_reportedShortDateTime(task.createdAt, task.createdAtReported)}',
               color: task.stage == 'failed'
@@ -6648,7 +6687,7 @@ Widget _writeLoadTrendInsight(
                 task.progress.discovered +
                 (resultCounts[task.id] ?? 0);
             return _InsightRankItem(
-              label: task.name.trim().isEmpty ? task.id : task.name,
+              label: task.name.trim().isEmpty ? task.id : task.name.trim(),
               value: count.toDouble(),
               valueLabel: '$count 条',
               helper:

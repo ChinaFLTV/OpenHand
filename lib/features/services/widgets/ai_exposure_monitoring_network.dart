@@ -21,6 +21,7 @@ class _NetworkPanel extends StatelessWidget {
     final recentRequests =
         endpoints
             .expand((endpoint) => endpoint.statistics.recentRequests)
+            .where((request) => request.atReported)
             .toList()
           ..sort((left, right) => left.at.compareTo(right.at));
     final visibleRequests = recentRequests.length <= 48

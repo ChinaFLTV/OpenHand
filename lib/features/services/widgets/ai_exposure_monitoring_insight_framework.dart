@@ -327,9 +327,12 @@ sealed class _InsightTarget {
 }
 
 class _TaskInsightTarget extends _InsightTarget {
-  const _TaskInsightTarget(this.task);
+  _TaskInsightTarget(AiExposureHistoryEntry task)
+    : taskId = task.id,
+      legacySnapshot = task.id.isEmpty ? task : null;
 
-  final AiExposureHistoryEntry task;
+  final String taskId;
+  final AiExposureHistoryEntry? legacySnapshot;
 }
 
 class _TaskCollectionInsightTarget extends _InsightTarget {
@@ -349,15 +352,19 @@ class _SourceInsightTarget extends _InsightTarget {
 }
 
 class _ProxyEndpointInsightTarget extends _InsightTarget {
-  const _ProxyEndpointInsightTarget(this.endpoint);
+  _ProxyEndpointInsightTarget(AiExposureProxyEndpoint endpoint)
+    : endpointId = endpoint.runtimeId;
 
-  final AiExposureProxyEndpoint endpoint;
+  final String endpointId;
 }
 
 class _ResultInsightTarget extends _InsightTarget {
-  const _ResultInsightTarget(this.result);
+  _ResultInsightTarget(AiExposureResult result)
+    : resultId = result.id,
+      legacySnapshot = result.id.isEmpty ? result : null;
 
-  final AiExposureResult result;
+  final String resultId;
+  final AiExposureResult? legacySnapshot;
 }
 
 class _LogInsightTarget extends _InsightTarget {
@@ -367,9 +374,12 @@ class _LogInsightTarget extends _InsightTarget {
 }
 
 class _RuleInsightTarget extends _InsightTarget {
-  const _RuleInsightTarget(this.rule);
+  _RuleInsightTarget(AiExposureScanRule rule)
+    : ruleId = rule.id,
+      legacySnapshot = rule.id.isEmpty ? rule : null;
 
-  final AiExposureScanRule rule;
+  final String ruleId;
+  final AiExposureScanRule? legacySnapshot;
 }
 
 class _ProxyRequestInsightTarget extends _InsightTarget {
@@ -419,20 +429,32 @@ class _DependencyInsightTarget extends _InsightTarget {
 
 void _openInsightTarget(BuildContext context, _InsightTarget target) {
   switch (target) {
-    case _TaskInsightTarget(:final task):
-      _showTaskEntityInsight(context, task);
+    case _TaskInsightTarget(:final taskId, :final legacySnapshot):
+      _showTaskEntityInsightById(
+        context,
+        taskId: taskId,
+        legacySnapshot: legacySnapshot,
+      );
     case _TaskCollectionInsightTarget(:final status, :final title):
       _showTaskCollectionInsight(context, status: status, title: title);
     case _SourceInsightTarget(:final source):
       _showSourceEntityInsight(context, source);
-    case _ProxyEndpointInsightTarget(:final endpoint):
-      _showProxyEndpointEntityInsight(context, endpoint);
-    case _ResultInsightTarget(:final result):
-      _showResultEntityInsight(context, result);
+    case _ProxyEndpointInsightTarget(:final endpointId):
+      _showProxyEndpointEntityInsightById(context, endpointId);
+    case _ResultInsightTarget(:final resultId, :final legacySnapshot):
+      _showResultEntityInsightById(
+        context,
+        resultId: resultId,
+        legacySnapshot: legacySnapshot,
+      );
     case _LogInsightTarget(:final entry):
       _showLogEntityInsight(context, entry);
-    case _RuleInsightTarget(:final rule):
-      _showRuleEntityInsight(context, rule);
+    case _RuleInsightTarget(:final ruleId, :final legacySnapshot):
+      _showRuleEntityInsightById(
+        context,
+        ruleId: ruleId,
+        legacySnapshot: legacySnapshot,
+      );
     case _ProxyRequestInsightTarget(
       :final endpoint,
       :final address,
@@ -834,6 +856,7 @@ class _InsightTrendSection extends StatelessWidget {
     interpolation: interpolation,
     height: 250,
     showLegend: false,
+    externalLegendProvided: true,
     semanticLabel: '$title，${series.length} 个序列，${sampleLabels.length} 个样本',
     onSelectionChanged: (_) {},
     onSelectionActivated: (selection) {
@@ -896,6 +919,7 @@ class _InsightDonutSectionState extends State<_InsightDonutSection> {
               trackColor: colors.surfaceContainerHighest,
               height: 138,
               showLegend: false,
+              externalLegendProvided: true,
               centerLabel: selected == null ? '$total' : '${selected.value}',
               semanticLabel: '${widget.title}，共 $total 条',
               onSelectionChanged: (_) {},

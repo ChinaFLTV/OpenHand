@@ -24,6 +24,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/sensitive_data.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
+import '../model/dependency_telemetry.dart';
 import '../services_controller.dart';
 import 'dependency_data_dialog.dart';
 import 'service_dialog_controls.dart';
@@ -65,3 +66,56 @@ Future<void> showAiExposureLogMonitorDialog(BuildContext context) =>
         child: const ServiceDialogInteractionTheme(child: _LogMonitorDialog()),
       ),
     );
+
+@visibleForTesting
+Widget buildAiExposureOperationsTestSurface() =>
+    const ServiceDialogInteractionTheme(child: _OperationsDialog());
+
+@visibleForTesting
+Widget buildAiExposureEntityTestSurface(
+  String entity, {
+  String stableId = '__missing__',
+}) => switch (entity) {
+  'task' => _TaskEntityInsightBody(taskId: stableId, legacySnapshot: null),
+  'source' => const _SourceEntityInsightBody(source: AiExposureSource.manual),
+  'proxyEndpoint' => _ProxyEndpointEntityInsightBody(endpointId: stableId),
+  'result' => _ResultEntityInsightBody(
+    resultId: stableId,
+    legacySnapshot: null,
+  ),
+  'log' => _LogEntityInsightBody(
+    entry: AiExposureLogEntry(
+      level: 'info',
+      message: '',
+      at: DateTime.fromMillisecondsSinceEpoch(0),
+      atReported: false,
+    ),
+  ),
+  'rule' => _RuleEntityInsightBody(ruleId: stableId, legacySnapshot: null),
+  'proxyRequest' => _ProxyRequestEntityInsightBody(
+    endpointId: stableId,
+    address: '',
+    sample: AiExposureProxyRequestSample(
+      at: DateTime.fromMillisecondsSinceEpoch(0),
+      atReported: false,
+      result: 'failure',
+      responseTimeMs: 0,
+    ),
+  ),
+  'proxyProbe' => _ProxyProbeEntityInsightBody(
+    endpointId: stableId,
+    sample: AiExposureProxyProbeSample(
+      checkedAt: DateTime.fromMillisecondsSinceEpoch(0),
+      checkedAtReported: false,
+    ),
+  ),
+  'stage' => _StageEntityInsightBody(stage: stableId),
+  'dependency' => const _DependencyEntityInsightBody(
+    id: _DependencyInsightId.sqlite,
+    name: 'SQLite',
+    configured: null,
+    connected: null,
+    message: '',
+  ),
+  _ => throw ArgumentError.value(entity, 'entity', '未知实体类型'),
+};

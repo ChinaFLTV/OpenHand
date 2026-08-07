@@ -274,6 +274,8 @@ class _OpsKeyValue extends StatelessWidget {
     this.color,
     this.maxLines = 2,
     this.onTap,
+    this.selectable = false,
+    this.copyable = false,
   });
 
   final String label;
@@ -281,6 +283,8 @@ class _OpsKeyValue extends StatelessWidget {
   final Color? color;
   final int maxLines;
   final VoidCallback? onTap;
+  final bool selectable;
+  final bool copyable;
 
   @override
   Widget build(BuildContext context) {
@@ -301,15 +305,47 @@ class _OpsKeyValue extends StatelessWidget {
         const SizedBox(width: 12),
         Expanded(
           flex: 6,
-          child: Text(
-            value,
-            maxLines: maxLines,
-            overflow: TextOverflow.ellipsis,
-            textAlign: TextAlign.end,
-            style: theme.textTheme.labelLarge?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
+          child: Row(
+            mainAxisAlignment: MainAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Flexible(
+                child: selectable
+                    ? SelectableText(
+                        value,
+                        maxLines: maxLines,
+                        textAlign: TextAlign.end,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      )
+                    : Text(
+                        value,
+                        maxLines: maxLines,
+                        overflow: TextOverflow.ellipsis,
+                        textAlign: TextAlign.end,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: color,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+              ),
+              if (copyable) ...[
+                const SizedBox(width: 4),
+                IconButton(
+                  visualDensity: VisualDensity.compact,
+                  tooltip: '复制$label',
+                  onPressed: () => copyOpenHandTextToClipboard(
+                    context: context,
+                    text: value,
+                    logTag: 'service_operations',
+                    logAction: '复制$label',
+                  ),
+                  icon: const Icon(Icons.copy_rounded, size: 15),
+                ),
+              ],
+            ],
           ),
         ),
       ],
@@ -1174,6 +1210,8 @@ class _StageRow extends StatelessWidget {
                 if (timing!.finishedAt != null)
                   '结束 ${_shortDateTime(timing!.finishedAt!)}',
                 if (timing!.durationMs != null) '${timing!.durationMs} ms',
+                if (timing!.inputCount != null) '输入 ${timing!.inputCount}',
+                if (timing!.outputCount != null) '输出 ${timing!.outputCount}',
                 if (timing!.message?.trim().isNotEmpty == true)
                   timing!.message!.trim(),
               ].join(' · '),

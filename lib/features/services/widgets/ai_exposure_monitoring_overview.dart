@@ -42,7 +42,10 @@ class _OverviewPanel extends StatelessWidget {
         ? 0
         : (durations.reduce((left, right) => left + right) / durations.length)
               .round();
-    final historyTrend = history.reversed.take(24).toList(growable: false);
+    final historyTrend = history.reversed
+        .where((item) => item.createdAtReported)
+        .take(24)
+        .toList(growable: false);
     final durationTrend = historyTrend
         .where((item) => _taskMeasuredDurationMs(item) != null)
         .toList(growable: false);

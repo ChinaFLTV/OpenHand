@@ -162,15 +162,43 @@ void _showProxyRegionInsight(
   );
 }
 
-void _showTaskEntityInsight(BuildContext context, AiExposureHistoryEntry task) {
+void _showTaskEntityInsight(
+  BuildContext context,
+  AiExposureHistoryEntry task,
+) => _showTaskEntityInsightById(
+  context,
+  taskId: task.id,
+  legacySnapshot: task.id.isEmpty ? task : null,
+);
+
+void _showTaskEntityInsightById(
+  BuildContext context, {
+  required String taskId,
+  AiExposureHistoryEntry? legacySnapshot,
+}) {
+  final text = openHandTextResolver(context);
+  final task = taskId.isEmpty
+      ? legacySnapshot
+      : context
+            .read<ServicesController>()
+            .history
+            .where((entry) => entry.id == taskId)
+            .firstOrNull;
   showAnimatedDialog<void>(
     context: context,
     builder: (_) => _OperationsInsightDialog(
-      icon: _stageIcon(task.stage),
-      title: task.name.trim().isEmpty ? task.id : task.name,
+      icon: task == null ? Icons.work_history_outlined : _stageIcon(task.stage),
+      title: task == null
+          ? text(zh: '任务 $taskId', en: 'Task $taskId')
+          : task.name.trim().isEmpty
+          ? task.id
+          : task.name.trim(),
       subtitle: '任务运行、产出与归档详情',
       entity: true,
-      child: _TaskEntityInsightBody(taskId: task.id, snapshot: task),
+      child: _TaskEntityInsightBody(
+        taskId: taskId,
+        legacySnapshot: legacySnapshot,
+      ),
     ),
   );
 }
@@ -191,30 +219,48 @@ void _showSourceEntityInsight(BuildContext context, AiExposureSource source) {
 void _showProxyEndpointEntityInsight(
   BuildContext context,
   AiExposureProxyEndpoint endpoint,
+) => _showProxyEndpointEntityInsightById(context, endpoint.runtimeId);
+
+void _showProxyEndpointEntityInsightById(
+  BuildContext context,
+  String endpointId,
 ) {
+  final text = openHandTextResolver(context);
+  final endpoint = context
+      .read<ServicesController>()
+      .proxyConfiguration
+      .endpoints
+      .where((entry) => entry.runtimeId == endpointId)
+      .firstOrNull;
   showAnimatedDialog<void>(
     context: context,
     builder: (_) => _OperationsInsightDialog(
       icon: Icons.dns_outlined,
-      title: endpoint.displayName,
+      title:
+          endpoint?.displayName ??
+          text(zh: '代理节点 $endpointId', en: 'Proxy node $endpointId'),
       subtitle: '代理节点健康与请求遥测',
       entity: true,
-      child: _ProxyEndpointEntityInsightBody(endpointId: endpoint.runtimeId),
+      child: _ProxyEndpointEntityInsightBody(endpointId: endpointId),
     ),
   );
 }
 
 class _TaskEntityInsightBody extends StatelessWidget {
-  const _TaskEntityInsightBody({required this.taskId, required this.snapshot});
+  const _TaskEntityInsightBody({
+    required this.taskId,
+    required this.legacySnapshot,
+  });
 
   final String taskId;
-  final AiExposureHistoryEntry snapshot;
+  final AiExposureHistoryEntry? legacySnapshot;
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final controller = context.watch<ServicesController>();
     final task = taskId.isEmpty
-        ? snapshot
+        ? legacySnapshot
         : controller.history.where((entry) => entry.id == taskId).firstOrNull;
     if (task == null) return const _InsightEmpty(label: '该任务已不在当前历史记录中。');
     final colors = Theme.of(context).colorScheme;
@@ -345,6 +391,52 @@ class _TaskEntityInsightBody extends StatelessWidget {
         ],
       ),
       _TaskStageGanttSection(task: task),
+      _Section(
+        title: text(zh: '任务生命周期流', en: 'Task lifecycle flow'),
+        icon: Icons.alt_route_rounded,
+        child: _InsightFlowLane(
+          nodes: [
+            (
+              icon: Icons.add_task_rounded,
+              label: text(zh: '创建', en: 'Created'),
+              value: task.createdAtReported
+                  ? _shortDateTime(task.createdAt)
+                  : text(zh: '时间未上报', en: 'Time not reported'),
+              color: colors.primary,
+            ),
+            (
+              icon: task.isTerminal
+                  ? Icons.check_circle_outline_rounded
+                  : Icons.play_circle_outline_rounded,
+              label: task.isTerminal
+                  ? text(zh: '最近阶段', en: 'Latest stage')
+                  : text(zh: '活动阶段', en: 'Active stage'),
+              value: _stageName(task.stage),
+              color: task.isTerminal
+                  ? _entityTerminalStageColor(task.stage, colors)
+                  : OpenHandStatusColors.info,
+            ),
+            (
+              icon: task.stage == 'failed'
+                  ? Icons.error_outline_rounded
+                  : task.stage == 'cancelled'
+                  ? Icons.cancel_outlined
+                  : task.stage == 'completed'
+                  ? Icons.flag_rounded
+                  : Icons.pending_actions_rounded,
+              label: task.isTerminal
+                  ? text(zh: '终态', en: 'Terminal state')
+                  : text(zh: '等待终态', en: 'Awaiting terminal state'),
+              value: task.isTerminal
+                  ? _stageName(task.stage)
+                  : text(zh: '执行中', en: 'Running'),
+              color: task.isTerminal
+                  ? _entityTerminalStageColor(task.stage, colors)
+                  : colors.outline,
+            ),
+          ],
+        ),
+      ),
       _Section(
         title: '任务定义与运行状态',
         icon: Icons.settings_outlined,
@@ -1035,6 +1127,7 @@ class _ProxyEndpointEntityInsightBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final controller = context.watch<ServicesController>();
     final endpoint = controller.proxyConfiguration.endpoints
         .where((entry) => entry.runtimeId == endpointId)
@@ -1058,6 +1151,13 @@ class _ProxyEndpointEntityInsightBody extends StatelessWidget {
     final requests = [...statistics.recentRequests]
       ..sort((left, right) => right.at.compareTo(left.at));
     final chronologicalRequests = requests.reversed.toList(growable: false);
+    var successfulSoFar = 0;
+    final reliabilityValues = chronologicalRequests.indexed
+        .map((entry) {
+          if (entry.$2.succeeded) successfulSoFar++;
+          return successfulSoFar * 100 / (entry.$1 + 1);
+        })
+        .toList(growable: false);
     final probes = [...endpoint.samples]
       ..sort((left, right) => right.checkedAt.compareTo(left.checkedAt));
     final successfulRequests = requests
@@ -1128,6 +1228,40 @@ class _ProxyEndpointEntityInsightBody extends StatelessWidget {
         suffix: ' ms',
         emptyLabel: '该节点没有近期请求时延样本。',
         interpolation: OpenHandChartInterpolation.smooth,
+        targets: chronologicalRequests
+            .map<_InsightTarget?>(
+              (request) => _ProxyRequestInsightTarget(
+                endpoint: endpoint,
+                address: endpoint.maskedUrl,
+                sample: request,
+              ),
+            )
+            .toList(growable: false),
+      ),
+      _InsightTrendSection(
+        title: text(
+          zh: '近期请求可靠性 · 累计成功率',
+          en: 'Recent request reliability · cumulative success rate',
+        ),
+        icon: Icons.monitor_heart_outlined,
+        series: [
+          OpenHandChartSeries(
+            label: text(zh: '累计成功率', en: 'Cumulative success rate'),
+            values: reliabilityValues,
+            color: OpenHandStatusColors.success,
+          ),
+        ],
+        sampleLabels: chronologicalRequests
+            .map(
+              (request) =>
+                  _reportedShortDateTime(request.at, request.atReported),
+            )
+            .toList(growable: false),
+        suffix: '%',
+        emptyLabel: text(
+          zh: '该节点没有近期请求可靠性样本。',
+          en: 'This node has no recent request reliability samples.',
+        ),
         targets: chronologicalRequests
             .map<_InsightTarget?>(
               (request) => _ProxyRequestInsightTarget(
@@ -1271,16 +1405,35 @@ class _ProxyEndpointEntityInsightBody extends StatelessWidget {
   }
 }
 
-void _showResultEntityInsight(BuildContext context, AiExposureResult result) {
+void _showResultEntityInsightById(
+  BuildContext context, {
+  required String resultId,
+  AiExposureResult? legacySnapshot,
+}) {
+  final text = openHandTextResolver(context);
+  final result = resultId.isEmpty
+      ? legacySnapshot
+      : context
+            .read<ServicesController>()
+            .results
+            .where((entry) => entry.id == resultId)
+            .firstOrNull;
   showAnimatedDialog<void>(
     context: context,
     builder: (_) => _OperationsInsightDialog(
       icon: Icons.fact_check_outlined,
-      title: _resultDisplayName(result),
+      title: result == null
+          ? text(zh: '结果 $resultId', en: 'Result $resultId')
+          : _resultDisplayName(result),
       subtitle: '结果身份、风险与完整证据',
-      color: _resultEntityColor(result.category),
+      color: result == null
+          ? Theme.of(context).colorScheme.outline
+          : _resultEntityColor(result.category),
       entity: true,
-      child: _ResultEntityInsightBody(resultId: result.id, snapshot: result),
+      child: _ResultEntityInsightBody(
+        resultId: resultId,
+        legacySnapshot: legacySnapshot,
+      ),
     ),
   );
 }
@@ -1299,18 +1452,37 @@ void _showLogEntityInsight(BuildContext context, AiExposureLogEntry entry) {
   );
 }
 
-void _showRuleEntityInsight(BuildContext context, AiExposureScanRule rule) {
+void _showRuleEntityInsightById(
+  BuildContext context, {
+  required String ruleId,
+  AiExposureScanRule? legacySnapshot,
+}) {
+  final text = openHandTextResolver(context);
+  final rule = ruleId.isEmpty
+      ? legacySnapshot
+      : context
+            .read<ServicesController>()
+            .rules
+            .where((entry) => entry.id == ruleId)
+            .firstOrNull;
   showAnimatedDialog<void>(
     context: context,
     builder: (_) => _OperationsInsightDialog(
       icon: Icons.rule_rounded,
-      title: rule.vendor.trim().isEmpty ? rule.id : rule.vendor,
+      title: rule == null
+          ? text(zh: '规则 $ruleId', en: 'Rule $ruleId')
+          : rule.vendor.trim().isEmpty
+          ? rule.id
+          : rule.vendor.trim(),
       subtitle: '规则身份、识别模式与验证端点',
-      color: rule.enabled
+      color: rule?.enabled == true
           ? OpenHandStatusColors.success
           : Theme.of(context).colorScheme.outline,
       entity: true,
-      child: _RuleEntityInsightBody(ruleId: rule.id, snapshot: rule),
+      child: _RuleEntityInsightBody(
+        ruleId: ruleId,
+        legacySnapshot: legacySnapshot,
+      ),
     ),
   );
 }
@@ -1422,17 +1594,17 @@ void _showDependencyEntityInsight(
 class _ResultEntityInsightBody extends StatelessWidget {
   const _ResultEntityInsightBody({
     required this.resultId,
-    required this.snapshot,
+    required this.legacySnapshot,
   });
 
   final String resultId;
-  final AiExposureResult snapshot;
+  final AiExposureResult? legacySnapshot;
 
   @override
   Widget build(BuildContext context) {
     final controller = context.watch<ServicesController>();
     final result = resultId.isEmpty
-        ? snapshot
+        ? legacySnapshot
         : controller.results.where((entry) => entry.id == resultId).firstOrNull;
     if (result == null) return const _InsightEmpty(label: '该结果已不在当前结果集合中。');
     final colors = Theme.of(context).colorScheme;
@@ -1598,6 +1770,7 @@ class _LogEntityInsightBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final controller = context.watch<ServicesController>();
     final colors = Theme.of(context).colorScheme;
     final task = controller.history
@@ -1606,11 +1779,27 @@ class _LogEntityInsightBody extends StatelessWidget {
     final traceId = entry.traceId?.trim() ?? '';
     final traceEntries =
         traceId.isEmpty
-              ? const <AiExposureLogEntry>[]
+              ? <AiExposureLogEntry>[]
               : controller.logs
                     .where((item) => item.traceId?.trim() == traceId)
                     .toList()
           ..sort((left, right) => right.at.compareTo(left.at));
+    final unspecifiedModule = text(zh: '未标明模块', en: 'Unspecified module');
+    final unspecifiedEvent = text(zh: '未标明事件', en: 'Unspecified event');
+    final aggregateCounts = <String, int>{};
+    for (final item in controller.logs) {
+      final module = item.module?.trim().isNotEmpty == true
+          ? item.module!.trim()
+          : unspecifiedModule;
+      final eventCode = item.eventCode?.trim().isNotEmpty == true
+          ? item.eventCode!.trim()
+          : unspecifiedEvent;
+      aggregateCounts.update(
+        '$module / $eventCode',
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
     final traceRecords = traceEntries
         .map(
           (item) => _InsightRecord(
@@ -1620,7 +1809,7 @@ class _LogEntityInsightBody extends StatelessWidget {
                 ? Icons.warning_amber_rounded
                 : Icons.terminal_rounded,
             title:
-                '${_entitySafeText(item.module, unavailable: '未标明模块')} · ${_entitySafeText(item.eventCode, unavailable: '未标明事件')}',
+                '${_entitySafeText(item.module, unavailable: unspecifiedModule)} · ${_entitySafeText(item.eventCode, unavailable: unspecifiedEvent)}',
             subtitle: _entitySafeText(item.message, unavailable: '日志消息为空'),
             tags: [
               _logLevelName(context, item.level),
@@ -1690,6 +1879,55 @@ class _LogEntityInsightBody extends StatelessWidget {
             ? '该日志未关联追踪 ID，无法建立同追踪时间线。'
             : '当前日志缓冲没有同追踪事件。',
       ),
+      _InsightRankingSection(
+        title: text(
+          zh: '模块 / 事件码聚合 · 当前日志缓冲',
+          en: 'Module / event-code aggregation · current log buffer',
+        ),
+        icon: Icons.leaderboard_outlined,
+        items: aggregateCounts.entries
+            .map(
+              (aggregate) => _InsightRankItem(
+                label: aggregate.key,
+                value: aggregate.value.toDouble(),
+                valueLabel: text(
+                  zh: '${aggregate.value} 条',
+                  en: '${aggregate.value} records',
+                ),
+                color: colors.primary,
+                key: aggregate.key,
+              ),
+            )
+            .toList(growable: false),
+        emptyLabel: text(
+          zh: '当前日志缓冲没有可聚合记录。',
+          en: 'The current log buffer has no records to aggregate.',
+        ),
+        detailBuilder: (context, item) {
+          final parts = '${item.key}'.split(' / ');
+          final module = parts.first;
+          final eventCode = parts.length > 1 ? parts[1] : unspecifiedEvent;
+          final matches = controller.logs.where((log) {
+            final logModule = log.module?.trim().isNotEmpty == true
+                ? log.module!.trim()
+                : unspecifiedModule;
+            final logEvent = log.eventCode?.trim().isNotEmpty == true
+                ? log.eventCode!.trim()
+                : unspecifiedEvent;
+            return logModule == module && logEvent == eventCode;
+          });
+          return _InsightRecordPanel(
+            icon: Icons.receipt_long_outlined,
+            title: text(zh: '${item.label} 日志', en: '${item.label} logs'),
+            records: matches.map(_logInsightRecord).toList(growable: false),
+            emptyLabel: text(
+              zh: '当前日志缓冲没有对应记录。',
+              en: 'The current log buffer has no matching records.',
+            ),
+            maxEntries: 50,
+          );
+        },
+      ),
       _InsightRecordPanel(
         icon: Icons.list_alt_rounded,
         title: '同追踪模块 / 事件记录',
@@ -1737,6 +1975,8 @@ class _LogEntityInsightBody extends StatelessWidget {
         title: '事件元数据（按字段名排序）',
         icon: Icons.data_object_rounded,
         fields: _entitySortedFacts(entry.metadata, emptyLabel: '当前事件未保留元数据。'),
+        selectable: true,
+        copyable: true,
       ),
       _entityCode(
         context,
@@ -1758,16 +1998,20 @@ class _LogEntityInsightBody extends StatelessWidget {
 }
 
 class _RuleEntityInsightBody extends StatelessWidget {
-  const _RuleEntityInsightBody({required this.ruleId, required this.snapshot});
+  const _RuleEntityInsightBody({
+    required this.ruleId,
+    required this.legacySnapshot,
+  });
 
   final String ruleId;
-  final AiExposureScanRule snapshot;
+  final AiExposureScanRule? legacySnapshot;
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final rules = context.watch<ServicesController>().rules;
     final rule = ruleId.isEmpty
-        ? snapshot
+        ? legacySnapshot
         : rules.where((entry) => entry.id == ruleId).firstOrNull;
     if (rule == null) return const _InsightEmpty(label: '该规则已不在当前规则集合中。');
     final colors = Theme.of(context).colorScheme;
@@ -1832,6 +2076,61 @@ class _RuleEntityInsightBody extends StatelessWidget {
             color: colors.tertiary,
           ),
         ],
+      ),
+      _InsightRankingSection(
+        title: text(zh: '规则复杂度五维', en: 'Five rule complexity dimensions'),
+        icon: Icons.bar_chart_rounded,
+        items: [
+          _InsightRankItem(
+            label: text(zh: '凭证正则', en: 'Credential patterns'),
+            value: rule.credentialPatterns.length.toDouble(),
+            valueLabel: text(
+              zh: '${rule.credentialPatterns.length} 条',
+              en: '${rule.credentialPatterns.length} patterns',
+            ),
+            color: colors.primary,
+          ),
+          _InsightRankItem(
+            label: text(zh: '上下文词', en: 'Context terms'),
+            value: rule.contextTerms.length.toDouble(),
+            valueLabel: text(
+              zh: '${rule.contextTerms.length} 条',
+              en: '${rule.contextTerms.length} terms',
+            ),
+            color: OpenHandStatusColors.info,
+          ),
+          _InsightRankItem(
+            label: text(zh: '编码', en: 'Encodings'),
+            value: rule.contentEncodings.length.toDouble(),
+            valueLabel: text(
+              zh: '${rule.contentEncodings.length} 种',
+              en: '${rule.contentEncodings.length} types',
+            ),
+            color: colors.secondary,
+          ),
+          _InsightRankItem(
+            label: text(zh: '模型路径', en: 'Model paths'),
+            value: rule.modelPaths.length.toDouble(),
+            valueLabel: text(
+              zh: '${rule.modelPaths.length} 条',
+              en: '${rule.modelPaths.length} paths',
+            ),
+            color: colors.tertiary,
+          ),
+          _InsightRankItem(
+            label: text(zh: '余额路径', en: 'Balance paths'),
+            value: rule.balancePaths.length.toDouble(),
+            valueLabel: text(
+              zh: '${rule.balancePaths.length} 条',
+              en: '${rule.balancePaths.length} paths',
+            ),
+            color: OpenHandStatusColors.warning,
+          ),
+        ],
+        emptyLabel: text(
+          zh: '该规则没有可视化的复杂度配置。',
+          en: 'This rule has no complexity configuration to visualize.',
+        ),
       ),
       _InsightTimelineSection(
         title: '当前规则记录溯源时间线',
@@ -1913,8 +2212,10 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final controller = context.watch<ServicesController>();
     final colors = Theme.of(context).colorScheme;
+    final unavailable = text(zh: '不可用', en: 'Unavailable');
     final endpoint = endpointId == null
         ? null
         : controller.proxyConfiguration.endpoints
@@ -1927,7 +2228,7 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
     final targetHost = sample.targetHost?.trim() ?? '';
     final sameHostRecords =
         targetHost.isEmpty
-              ? const <AiExposureProxyRequestSample>[]
+              ? <AiExposureProxyRequestSample>[]
               : endpointSamples
                     .where((entry) => entry.targetHost?.trim() == targetHost)
                     .toList()
@@ -1944,6 +2245,9 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
         : sample.timedOut
         ? OpenHandStatusColors.warning
         : OpenHandStatusColors.error;
+    final timeoutHeadroom = sample.timeoutMs == null
+        ? null
+        : sample.timeoutMs! - sample.responseTimeMs;
     return _metricInsightPage([
       _InsightKpiBand(
         title: '请求样本与端点基准',
@@ -1983,11 +2287,48 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
             color: OpenHandStatusColors.info,
           ),
           _InsightKpi(
+            icon: Icons.http_rounded,
+            label: text(zh: 'HTTP 状态', en: 'HTTP status'),
+            value: sample.statusCode == null
+                ? unavailable
+                : '${sample.statusCode}',
+            helper: sample.statusCode == null
+                ? text(
+                    zh: '样本未上报状态码',
+                    en: 'The sample did not report a status code',
+                  )
+                : text(zh: '当前请求响应', en: 'Current request response'),
+            color: sample.statusCode == null ? colors.outline : colors.tertiary,
+          ),
+          _InsightKpi(
             icon: Icons.vertical_align_top_rounded,
             label: '同端点峰值',
             value: latencies.isEmpty ? '不可用' : '$peak ms',
             helper: endpoint == null ? '没有可用端点记录' : '有限保留窗口最大值',
             color: colors.tertiary,
+          ),
+          _InsightKpi(
+            icon: Icons.timer_outlined,
+            label: text(zh: '超时余量', en: 'Timeout headroom'),
+            value: timeoutHeadroom == null
+                ? unavailable
+                : '$timeoutHeadroom ms',
+            helper: sample.timeoutMs == null
+                ? text(
+                    zh: '客户端未设置显式阈值',
+                    en: 'The client did not set an explicit threshold',
+                  )
+                : timeoutHeadroom! < 0
+                ? text(zh: '已超过阈值', en: 'Threshold exceeded')
+                : text(
+                    zh: '阈值 ${sample.timeoutMs} ms',
+                    en: 'Threshold ${sample.timeoutMs} ms',
+                  ),
+            color: timeoutHeadroom == null
+                ? colors.outline
+                : timeoutHeadroom < 0
+                ? OpenHandStatusColors.error
+                : OpenHandStatusColors.success,
           ),
         ],
       ),
@@ -2006,6 +2347,15 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
               icon: Icons.route_outlined,
               label: '选路',
               value: _entitySafeText(sample.routeMode, unavailable: '模式未上报'),
+              color: colors.tertiary,
+            ),
+            (
+              icon: Icons.psychology_alt_outlined,
+              label: text(zh: '选路原因', en: 'Routing reason'),
+              value: _entitySafeText(
+                sample.selectionReason,
+                unavailable: text(zh: '原因未上报', en: 'Reason not reported'),
+              ),
               color: colors.tertiary,
             ),
             (
@@ -2100,7 +2450,12 @@ class _ProxyRequestEntityInsightBody extends StatelessWidget {
           ('请求方法', _entitySafeText(sample.method, unavailable: '旧版请求样本未记录')),
           (
             '超时阈值',
-            sample.timeoutMs == null ? '客户端未设置显式阈值' : '${sample.timeoutMs} ms',
+            sample.timeoutMs == null
+                ? text(
+                    zh: '客户端未设置显式阈值',
+                    en: 'The client did not set an explicit threshold',
+                  )
+                : '${sample.timeoutMs} ms',
           ),
           ('选路模式', _entitySafeText(sample.routeMode, unavailable: '旧版请求样本未记录')),
           (
@@ -2157,6 +2512,7 @@ class _ProxyProbeEntityInsightBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final endpoint = context
         .watch<ServicesController>()
         .proxyConfiguration
@@ -2186,10 +2542,15 @@ class _ProxyProbeEntityInsightBody extends StatelessWidget {
       '协议响应：${_probeStepState(sample, AiExposureProxyProbeFailure.protocol)}',
       '最终结果：${sample.reachable ? '通过' : '失败'}',
     ];
+    final failureCounts = <AiExposureProxyProbeFailure, int>{};
+    for (final entry in samples.where((entry) => entry.failure != null)) {
+      failureCounts.update(
+        entry.failure!,
+        (count) => count + 1,
+        ifAbsent: () => 1,
+      );
+    }
     final reachable = samples.where((entry) => entry.reachable).length;
-    final classifiedFailures = samples
-        .where((entry) => !entry.reachable && entry.failure != null)
-        .length;
     final unclassifiedFailures = samples
         .where((entry) => !entry.reachable && entry.failure == null)
         .length;
@@ -2280,10 +2641,13 @@ class _ProxyProbeEntityInsightBody extends StatelessWidget {
         icon: Icons.donut_small_rounded,
         items: [
           _DistributionItem('通过', reachable, OpenHandStatusColors.success),
-          _DistributionItem(
-            '已分类失败',
-            classifiedFailures,
-            OpenHandStatusColors.error,
+          ...AiExposureProxyProbeFailure.values.map(
+            (failure) => _DistributionItem(
+              _proxyProbeFailureName(failure),
+              failureCounts[failure] ?? 0,
+              _distributionColor(failure.index + 1, colors),
+              key: failure,
+            ),
           ),
           _DistributionItem(
             '未分类失败',
@@ -2293,11 +2657,31 @@ class _ProxyProbeEntityInsightBody extends StatelessWidget {
         ],
       ),
       if (sample.stepResults.isEmpty)
-        _entityTextList(
+        _Section(
           title: '旧版推断诊断路径（非计时采样）',
           icon: Icons.auto_fix_high_outlined,
-          values: inferredSteps,
-          emptyLabel: '无可用推断路径。',
+          child: _InsightFlowLane(
+            nodes: [
+              for (final entry in inferredSteps.indexed)
+                (
+                  icon: entry.$2.endsWith('通过')
+                      ? Icons.check_circle_outline_rounded
+                      : entry.$2.endsWith('失败')
+                      ? Icons.error_outline_rounded
+                      : Icons.pending_outlined,
+                  label: text(
+                    zh: '步骤 ${entry.$1 + 1}',
+                    en: 'Step ${entry.$1 + 1}',
+                  ),
+                  value: entry.$2,
+                  color: entry.$2.endsWith('通过')
+                      ? OpenHandStatusColors.success
+                      : entry.$2.endsWith('失败')
+                      ? OpenHandStatusColors.error
+                      : colors.outline,
+                ),
+            ],
+          ),
         ),
       _entityFacts(
         title: '巡检身份与失败事实',
@@ -2367,6 +2751,7 @@ class _StageEntityInsightBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final controller = context.watch<ServicesController>();
     final colors = Theme.of(context).colorScheme;
     final task = taskId == null
@@ -2498,9 +2883,9 @@ class _StageEntityInsightBody extends StatelessWidget {
         child: _InsightFlowLane(
           nodes: [
             (
-              icon: Icons.input_rounded,
-              label: '输入',
-              value: _entitySafeText(definition.$2),
+              icon: Icons.skip_previous_rounded,
+              label: text(zh: '前置阶段', en: 'Previous stage'),
+              value: _entitySafeText(definition.$4),
               color: colors.primary,
             ),
             (
@@ -2510,9 +2895,9 @@ class _StageEntityInsightBody extends StatelessWidget {
               color: OpenHandStatusColors.info,
             ),
             (
-              icon: Icons.output_rounded,
-              label: '输出',
-              value: _entitySafeText(definition.$3),
+              icon: Icons.skip_next_rounded,
+              label: text(zh: '下一阶段', en: 'Next stage'),
+              value: _entitySafeText(definition.$5),
               color: OpenHandStatusColors.success,
             ),
             (
@@ -2614,6 +2999,7 @@ class _DependencyEntityInsightBody extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final text = openHandTextResolver(context);
     final controller = context.watch<ServicesController>();
     final colors = Theme.of(context).colorScheme;
     final status = controller.dependencyStatus;
@@ -2629,6 +3015,18 @@ class _DependencyEntityInsightBody extends StatelessWidget {
       _DependencyInsightId.playwright => status?.playwright,
       _ => null,
     };
+    final overview = controller.dependencyDataOverview;
+    final componentOverview = componentKey == null
+        ? const <String, Object?>{}
+        : _entityObjectMap(overview[componentKey]);
+    final nestedOverviewTelemetry = _entityObjectMap(
+      componentOverview['telemetry'],
+    );
+    final currentTelemetry = nestedOverviewTelemetry.isNotEmpty
+        ? nestedOverviewTelemetry
+        : componentOverview.isNotEmpty
+        ? componentOverview
+        : component?.telemetry ?? const <String, Object?>{};
     final impact = switch (id) {
       _DependencyInsightId.postgresql => '结果镜像与跨端数据访问',
       _DependencyInsightId.redis => '分布式协调与缓存',
@@ -2652,7 +3050,7 @@ class _DependencyEntityInsightBody extends StatelessWidget {
         : _entityDependencyHistoryTrend(
             controller,
             componentKey,
-            component?.telemetry ?? const <String, Object?>{},
+            currentTelemetry,
           );
     final connectedColor = connected == true
         ? OpenHandStatusColors.success
@@ -2664,6 +3062,7 @@ class _DependencyEntityInsightBody extends StatelessWidget {
         : configured == false
         ? OpenHandStatusColors.warning
         : colors.outline;
+    final meter = _entityDependencyMeter(id, currentTelemetry, colors, text);
     return _metricInsightPage([
       _InsightKpiBand(
         title: '依赖状态快照',
@@ -2727,6 +3126,19 @@ class _DependencyEntityInsightBody extends StatelessWidget {
           ),
         ],
       ),
+      if (meter != null)
+        _Section(
+          title: meter.label,
+          icon: Icons.speed_rounded,
+          child: OpenHandOperationalMeter(
+            label: meter.label,
+            value: meter.value,
+            maximum: meter.maximum,
+            color: meter.color,
+            valueLabel: meter.valueLabel,
+            helper: meter.helper,
+          ),
+        ),
       historyTrend == null
           ? const _Section(
               title: '24 小时依赖遥测趋势',
@@ -2794,9 +3206,23 @@ class _DependencyEntityInsightBody extends StatelessWidget {
       _entityFacts(
         title: '当前结构化遥测（字段名已排序）',
         icon: Icons.data_object_rounded,
-        fields: component == null
-            ? const <(String, String)>[('遥测状态', '组件状态未上报')]
-            : _entitySortedFacts(component.telemetry, emptyLabel: '组件未提供扩展遥测。'),
+        fields: currentTelemetry.isEmpty
+            ? <(String, String)>[
+                (
+                  text(zh: '遥测状态', en: 'Telemetry status'),
+                  text(
+                    zh: '组件未提供扩展遥测',
+                    en: 'The component did not provide extended telemetry',
+                  ),
+                ),
+              ]
+            : _entitySortedFacts(
+                currentTelemetry,
+                emptyLabel: text(
+                  zh: '组件未提供扩展遥测。',
+                  en: 'The component did not provide extended telemetry.',
+                ),
+              ),
       ),
     ]);
   }
@@ -2806,14 +3232,21 @@ Widget _entityFacts({
   required String title,
   required IconData icon,
   required List<(String, String)> fields,
+  bool selectable = false,
+  bool copyable = false,
 }) => _Section(
   title: title,
   icon: icon,
   child: Column(
     children: fields
         .map(
-          (field) =>
-              _OpsKeyValue(label: field.$1, value: field.$2, maxLines: 6),
+          (field) => _OpsKeyValue(
+            label: field.$1,
+            value: field.$2,
+            maxLines: 6,
+            selectable: selectable,
+            copyable: copyable,
+          ),
         )
         .toList(growable: false),
   ),
@@ -3125,6 +3558,108 @@ Map<String, Object?> _entityObjectMap(Object? value) => value is Map
       }
     : const <String, Object?>{};
 
+({
+  String label,
+  double value,
+  double maximum,
+  String valueLabel,
+  String helper,
+  Color color,
+})?
+_entityDependencyMeter(
+  _DependencyInsightId id,
+  Map<String, Object?> telemetry,
+  ColorScheme colors,
+  OpenHandLocalizedTextResolver text,
+) {
+  num? number(String key) {
+    final value = telemetry[key];
+    if (value is num && value.isFinite && value >= 0) return value;
+    return num.tryParse('${value ?? ''}');
+  }
+
+  return switch (id) {
+    _DependencyInsightId.redis => () {
+      final used = number('usedMemoryBytes');
+      final capacity = number('maxMemoryBytes');
+      if (used == null || capacity == null || capacity <= 0) return null;
+      final ratio = dependencySafeRatio(used, capacity).clamp(0.0, 1.0);
+      return (
+        label: text(zh: 'Redis 内存水位', en: 'Redis memory utilization'),
+        value: used.toDouble(),
+        maximum: capacity.toDouble(),
+        valueLabel: '${(ratio * 100).toStringAsFixed(1)}%',
+        helper:
+            '${formatByteSize(used.toInt())} / ${formatByteSize(capacity.toInt())}',
+        color: ratio >= 0.9
+            ? OpenHandStatusColors.error
+            : ratio >= 0.75
+            ? OpenHandStatusColors.warning
+            : OpenHandStatusColors.success,
+      );
+    }(),
+    _DependencyInsightId.postgresql => () {
+      final active = number('activeConnections');
+      final capacity = number('maxConnections');
+      if (active == null || capacity == null || capacity <= 0) return null;
+      final ratio = dependencySafeRatio(active, capacity).clamp(0.0, 1.0);
+      return (
+        label: text(
+          zh: 'PostgreSQL 连接水位',
+          en: 'PostgreSQL connection utilization',
+        ),
+        value: active.toDouble(),
+        maximum: capacity.toDouble(),
+        valueLabel: '${(ratio * 100).toStringAsFixed(1)}%',
+        helper: text(
+          zh: '${active.toInt()} / ${capacity.toInt()} 个连接',
+          en: '${active.toInt()} / ${capacity.toInt()} connections',
+        ),
+        color: ratio >= 0.9
+            ? OpenHandStatusColors.error
+            : ratio >= 0.75
+            ? OpenHandStatusColors.warning
+            : colors.primary,
+      );
+    }(),
+    _ => null,
+  };
+}
+
+const Map<String, List<String>> _entityDependencyTrendMetrics = {
+  'postgresql': [
+    'databaseSizeBytes',
+    'activeConnections',
+    'maxConnections',
+    'bloatRatio',
+    'sharedBuffersUsedBytes',
+    'transactionsCommitted',
+    'transactionsRolledBack',
+    'deadlocks',
+    'conflicts',
+  ],
+  'redis': [
+    'usedMemoryBytes',
+    'maxMemoryBytes',
+    'memoryFragmentationRatio',
+    'keyCount',
+    'operationsPerSecond',
+    'keyspaceHits',
+    'keyspaceMisses',
+  ],
+  'playwright': ['latencyMs'],
+};
+
+const Map<String, Set<String>> _entityDependencyCounterMetrics = {
+  'postgresql': {
+    'transactionsCommitted',
+    'transactionsRolledBack',
+    'deadlocks',
+    'conflicts',
+  },
+  'redis': {'keyspaceHits', 'keyspaceMisses'},
+};
+
 const int _kEntityDependencyTrendMaxPoints = 720;
 
 List<(DateTime, double)> _entityDownsampleTrend(
@@ -3148,38 +3683,53 @@ _entityDependencyHistoryTrend(
   String componentKey,
   Map<String, Object?> currentTelemetry,
 ) {
+  final allowedMetrics = _entityDependencyTrendMetrics[componentKey];
+  if (allowedMetrics == null || allowedMetrics.isEmpty) return null;
   final cutoff = DateTime.now().subtract(const Duration(hours: 24));
+  final samples = controller.dependencyTelemetryHistory
+      .where((sample) => !sample.capturedAt.isBefore(cutoff))
+      .toList(growable: false);
   final candidates = <String, List<(DateTime, double)>>{};
-  for (final sample in controller.dependencyTelemetryHistory) {
-    if (sample.capturedAt.isBefore(cutoff)) continue;
-    final component = _entityObjectMap(sample.overview[componentKey]);
-    final nested = _entityObjectMap(component['telemetry']);
-    final telemetry = nested.isEmpty ? component : nested;
-    for (final entry in telemetry.entries) {
-      final value = entry.value;
-      if (value is! num || !value.isFinite) continue;
-      candidates.putIfAbsent(entry.key, () => <(DateTime, double)>[]).add((
-        sample.capturedAt,
-        value.toDouble(),
-      ));
+  for (final metric in allowedMetrics) {
+    final metricSamples = <DependencyTelemetrySample>[];
+    final rawPoints = <(DateTime, double)>[];
+    for (final sample in samples) {
+      final component = _entityObjectMap(sample.overview[componentKey]);
+      final nested = _entityObjectMap(component['telemetry']);
+      final telemetry = nested.isEmpty ? component : nested;
+      final value = telemetry[metric];
+      if (value is! num || !value.isFinite || value < 0) continue;
+      metricSamples.add(
+        DependencyTelemetrySample(
+          capturedAt: sample.capturedAt,
+          overview: <String, Object?>{'value': value},
+        ),
+      );
+      rawPoints.add((sample.capturedAt, value.toDouble()));
+    }
+    if (rawPoints.isEmpty) continue;
+    if (_entityDependencyCounterMetrics[componentKey]?.contains(metric) ==
+            true &&
+        metricSamples.length >= 2) {
+      final rates = dependencyCounterRates(
+        metricSamples,
+        (overview) => overview['value'] as num,
+      );
+      candidates[metric] = [
+        for (var index = 0; index < metricSamples.length; index++)
+          (metricSamples[index].capturedAt, rates[index]),
+      ];
+    } else {
+      candidates[metric] = rawPoints;
     }
   }
   if (candidates.isEmpty) return null;
-  final currentKeys =
-      currentTelemetry.entries
-          .where((entry) => entry.value is num && (entry.value as num).isFinite)
-          .map((entry) => entry.key)
-          .toList()
-        ..sort();
-  String? metric = currentKeys.where(candidates.containsKey).firstOrNull;
-  if (metric == null) {
-    final ranked = candidates.entries.toList()
-      ..sort((left, right) {
-        final count = right.value.length.compareTo(left.value.length);
-        return count != 0 ? count : left.key.compareTo(right.key);
-      });
-    metric = ranked.first.key;
-  }
+  final currentKeys = allowedMetrics
+      .where(
+        (key) => currentTelemetry[key] is num && candidates.containsKey(key),
+      )
+      .toList(growable: false);
+  final metric = currentKeys.firstOrNull ?? candidates.keys.first;
   final points = _entityDownsampleTrend(candidates[metric]!);
   return (metric: metric, points: points);
 }

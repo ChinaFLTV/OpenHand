@@ -1154,7 +1154,7 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
             _TaskLedgerCell(
               width: _kTaskLedgerNameWidth,
               child: Text(
-                task.name.trim().isEmpty ? task.id : task.name,
+                task.name.trim().isEmpty ? task.id : task.name.trim(),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
               ),
@@ -1249,7 +1249,7 @@ class _TaskLedgerCompactRow extends StatelessWidget {
               const SizedBox(width: 6),
               Expanded(
                 child: Text(
-                  task.name.trim().isEmpty ? task.id : task.name,
+                  task.name.trim().isEmpty ? task.id : task.name.trim(),
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelLarge,

@@ -42,7 +42,12 @@ class _StoragePanel extends StatelessWidget {
     final integrityIssues = missingEvidence;
     final recordCount =
         history.length + results.length + logs.length + rules.length;
-    final chronological = history.take(24).toList().reversed.toList();
+    final chronological = history
+        .where((entry) => entry.createdAtReported)
+        .take(24)
+        .toList()
+        .reversed
+        .toList();
     var cumulativeResults = 0;
     final cumulativeResultValues = <double>[];
     for (final entry in chronological) {
@@ -401,12 +406,14 @@ class _StoragePanel extends StatelessWidget {
                       onTap: () => _showTaskEntityInsight(context, entry),
                       leading: Icon(_stageIcon(entry.stage)),
                       title: Text(
-                        entry.name.trim().isEmpty ? entry.id : entry.name,
+                        entry.name.trim().isEmpty
+                            ? entry.id
+                            : entry.name.trim(),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
                       ),
                       subtitle: Text(
-                        '${_shortDateTime(entry.effectiveFinishedAt ?? entry.createdAt)} · 处理 ${entry.progress.processed} · 结果 $resultCount',
+                        '${entry.effectiveFinishedAt == null ? _reportedShortDateTime(entry.createdAt, entry.createdAtReported) : _shortDateTime(entry.effectiveFinishedAt!)} · 处理 ${entry.progress.processed} · 结果 $resultCount',
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
