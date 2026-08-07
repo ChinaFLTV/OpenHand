@@ -366,7 +366,7 @@ Future<void> showServiceDetailsDialog(
   ),
 );
 
-class ServiceInteractiveSurface extends StatelessWidget {
+class ServiceInteractiveSurface extends StatefulWidget {
   const ServiceInteractiveSurface({
     super.key,
     required this.onTap,
@@ -377,6 +377,8 @@ class ServiceInteractiveSurface extends StatelessWidget {
     this.color,
     this.borderColor,
     this.showDetailsIcon = true,
+    this.reserveDetailsIconSpace = false,
+    this.detailsIconColor,
   });
 
   final VoidCallback? onTap;
@@ -387,52 +389,123 @@ class ServiceInteractiveSurface extends StatelessWidget {
   final Color? color;
   final Color? borderColor;
   final bool showDetailsIcon;
+  final bool reserveDetailsIconSpace;
+  final Color? detailsIconColor;
+
+  @override
+  State<ServiceInteractiveSurface> createState() =>
+      _ServiceInteractiveSurfaceState();
+}
+
+class _ServiceInteractiveSurfaceState extends State<ServiceInteractiveSurface> {
+  bool _hovered = false;
+  bool _focused = false;
+
+  @override
+  void didUpdateWidget(ServiceInteractiveSurface oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.onTap == null) {
+      _hovered = false;
+      _focused = false;
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    if (onTap == null) {
+    final interactive = widget.onTap != null;
+    final showDetailsSlot =
+        widget.showDetailsIcon &&
+        (interactive || widget.reserveDetailsIconSpace);
+    final detailsColor = widget.detailsIconColor ?? colors.primary;
+    final emphasized = interactive && (_hovered || _focused);
+    final motionDuration = openHandMotionDuration(
+      context,
+      const Duration(milliseconds: 160),
+    );
+    final content = showDetailsSlot
+        ? Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Expanded(child: widget.child),
+              const SizedBox(width: 10),
+              AnimatedOpacity(
+                opacity: interactive ? 1 : 0,
+                duration: motionDuration,
+                curve: Curves.easeOutCubic,
+                child: AnimatedContainer(
+                  duration: motionDuration,
+                  curve: Curves.easeOutCubic,
+                  width: 32,
+                  height: 32,
+                  alignment: Alignment.center,
+                  transform: Matrix4.translationValues(
+                    emphasized ? 2 : 0,
+                    0,
+                    0,
+                  ),
+                  decoration: BoxDecoration(
+                    color: detailsColor.withValues(
+                      alpha: emphasized ? 0.16 : 0.08,
+                    ),
+                    borderRadius: BorderRadius.circular(8),
+                    border: Border.all(
+                      color: detailsColor.withValues(
+                        alpha: emphasized ? 0.3 : 0.16,
+                      ),
+                    ),
+                  ),
+                  child: ExcludeSemantics(
+                    child: Icon(
+                      Icons.arrow_forward_rounded,
+                      size: 18,
+                      color: detailsColor.withValues(
+                        alpha: emphasized ? 1 : 0.82,
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+            ],
+          )
+        : widget.child;
+    if (!interactive) {
       return Padding(
-        padding: margin,
-        child: Padding(padding: padding, child: child),
+        padding: widget.margin,
+        child: Padding(padding: widget.padding, child: content),
       );
     }
     final label =
-        tooltip ??
+        widget.tooltip ??
         openHandLocalizedText(context, zh: '查看完整详情', en: 'View full details');
-    final content = Row(
-      children: [
-        Expanded(child: child),
-        if (showDetailsIcon) ...[
-          const SizedBox(width: 8),
-          Icon(
-            Icons.chevron_right_rounded,
-            size: 20,
-            color: colors.onSurfaceVariant,
-          ),
-        ],
-      ],
-    );
     final surface = Material(
       color: Colors.transparent,
       shape: RoundedRectangleBorder(
         borderRadius: kServiceInteractiveBorderRadius,
-        side: borderColor == null
+        side: widget.borderColor == null
             ? BorderSide.none
-            : BorderSide(color: borderColor!),
+            : BorderSide(color: widget.borderColor!),
       ),
       clipBehavior: Clip.antiAlias,
       child: Ink(
-        color: color ?? Colors.transparent,
+        color: widget.color ?? Colors.transparent,
         child: InkWell(
-          onTap: onTap,
+          onTap: widget.onTap,
+          onHover: (value) {
+            if (_hovered == value) return;
+            setState(() => _hovered = value);
+          },
+          onFocusChange: (value) {
+            if (_focused == value) return;
+            setState(() => _focused = value);
+          },
           borderRadius: kServiceInteractiveBorderRadius,
-          child: Padding(padding: padding, child: content),
+          child: Padding(padding: widget.padding, child: content),
         ),
       ),
     );
     return Padding(
-      padding: margin,
+      padding: widget.margin,
       child: Tooltip(
         message: label,
         child: Semantics(

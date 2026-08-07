@@ -3216,6 +3216,7 @@ class _HorizontalBars extends StatelessWidget {
           ServiceInteractiveSurface(
             padding: const EdgeInsets.symmetric(vertical: 5),
             tooltip: '查看排行详情',
+            detailsIconColor: color,
             onTap: () => showServiceDetailsDialog(
               context,
               title: entry.key,

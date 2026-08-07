@@ -4245,6 +4245,8 @@ class _DistributionDetailRow extends StatelessWidget {
       onTap: onTap,
       color: selected ? item.color.withValues(alpha: 0.08) : null,
       borderColor: selected ? item.color.withValues(alpha: 0.35) : null,
+      reserveDetailsIconSpace: true,
+      detailsIconColor: item.color,
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth < 440) {
@@ -5061,6 +5063,8 @@ class _InsightRankingSectionState extends State<_InsightRankingSection> {
                         horizontal: 4,
                         vertical: 7,
                       ),
+                      reserveDetailsIconSpace: true,
+                      detailsIconColor: item.color,
                       tooltip: item.target != null
                           ? '查看排行详情'
                           : widget.detailBuilder != null && item.value > 0
