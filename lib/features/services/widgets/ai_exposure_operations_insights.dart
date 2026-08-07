@@ -41,7 +41,7 @@ List<AiExposureHistoryEntry> filterAndSortAiExposureTasks({
   bool descending = true,
 }) {
   final normalizedQuery = query.trim().toLowerCase();
-  const terminalStages = <String>{'completed', 'failed', 'cancelled'};
+  final now = DateTime.now();
   final tasks = source
       .where((task) {
         final matchesQuery =
@@ -51,7 +51,7 @@ List<AiExposureHistoryEntry> filterAndSortAiExposureTasks({
             (task.errorMessage ?? '').toLowerCase().contains(normalizedQuery);
         if (!matchesQuery) return false;
         final matchesStatus = switch (status) {
-          'running' => !terminalStages.contains(task.stage),
+          'running' => !task.isTerminal,
           'completed' => task.stage == 'completed',
           'failed' => task.stage == 'failed',
           'cancelled' => task.stage == 'cancelled',
@@ -81,11 +81,12 @@ List<AiExposureHistoryEntry> filterAndSortAiExposureTasks({
         right.createdAt,
       ),
       AiExposureTaskLedgerSort.finishedAt => _taskLedgerTimeValue(
-        left.finishedAt,
-      ).compareTo(_taskLedgerTimeValue(right.finishedAt)),
+        left.effectiveFinishedAt,
+      ).compareTo(_taskLedgerTimeValue(right.effectiveFinishedAt)),
       AiExposureTaskLedgerSort.duration => _taskLedgerDuration(
         left,
-      ).compareTo(_taskLedgerDuration(right)),
+        now,
+      ).compareTo(_taskLedgerDuration(right, now)),
       AiExposureTaskLedgerSort.processed => left.progress.processed.compareTo(
         right.progress.processed,
       ),
@@ -833,7 +834,7 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final status = _taskLedgerStatus(task);
     final startedAt = task.startedAt ?? task.createdAt;
-    final finishedAt = task.finishedAt;
+    final finishedAt = task.effectiveFinishedAt;
     final fraction = task.progress.total <= 0
         ? 0.0
         : (task.progress.processed / task.progress.total).clamp(0.0, 1.0);
@@ -969,6 +970,7 @@ class _TaskLedgerCompactRow extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final status = _taskLedgerStatus(task);
+    final finishedAt = task.effectiveFinishedAt;
     return ServiceInteractiveSurface(
       margin: const EdgeInsets.only(bottom: 4),
       padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 9),
@@ -1013,9 +1015,9 @@ class _TaskLedgerCompactRow extends StatelessWidget {
           ),
           const SizedBox(height: 4),
           Text(
-            task.finishedAt == null
+            finishedAt == null
                 ? '结束时间：运行中 · 已运行 ${_taskLedgerDurationText(task)}'
-                : '结束时间：${_taskLedgerDateTime(task.finishedAt!)} · 耗时 ${_taskLedgerDurationText(task)}',
+                : '结束时间：${_taskLedgerDateTime(finishedAt)} · 耗时 ${_taskLedgerDurationText(task)}',
             style: Theme.of(context).textTheme.bodySmall?.copyWith(
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
@@ -1069,14 +1071,12 @@ class _TaskLedgerCell extends StatelessWidget {
 
 int _taskLedgerTimeValue(DateTime? value) => value?.millisecondsSinceEpoch ?? 0;
 
-int _taskLedgerDuration(AiExposureHistoryEntry task) =>
-    (task.finishedAt ?? DateTime.now())
-        .difference(task.createdAt)
-        .inMilliseconds
-        .clamp(0, 1 << 62);
+int _taskLedgerDuration(AiExposureHistoryEntry task, DateTime now) =>
+    task.durationUntil(now)?.inMilliseconds ?? 0;
 
 String _taskLedgerDurationText(AiExposureHistoryEntry task) {
-  final duration = Duration(milliseconds: _taskLedgerDuration(task));
+  final duration = task.durationUntil(DateTime.now());
+  if (duration == null) return '--';
   final hours = duration.inHours;
   final minutes = duration.inMinutes.remainder(60);
   final seconds = duration.inSeconds.remainder(60);

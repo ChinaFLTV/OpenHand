@@ -3142,9 +3142,9 @@ class _HistoryTile extends StatelessWidget {
                   ),
                   ServiceDetailField(
                     label: '完成时间',
-                    value: entry.finishedAt == null
+                    value: entry.effectiveFinishedAt == null
                         ? '--'
-                        : _dateTime(entry.finishedAt!),
+                        : _dateTime(entry.effectiveFinishedAt!),
                   ),
                 ],
               ),

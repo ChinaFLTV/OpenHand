@@ -40,6 +40,19 @@ enum AiExposureForumFetchMode {
 
 enum AiExposureResultCategory { valid, suspicious, highValue, honeypot }
 
+const Set<String> _kAiExposureTerminalStages = <String>{
+  'completed',
+  'failed',
+  'cancelled',
+};
+const int _kAiExposureMaxTelemetryDurationMs = 600000;
+const int _kAiExposureMaxEpochMs = 8640000000000000;
+const int _kAiExposureMinHttpStatus = 100;
+const int _kAiExposureMaxHttpStatus = 599;
+
+bool isAiExposureTerminalStage(String stage) =>
+    _kAiExposureTerminalStages.contains(stage);
+
 enum AiExposureContentEncoding {
   base64('base64'),
   base64Url('base64_url'),
@@ -81,9 +94,9 @@ class AiExposureHealth {
 
   factory AiExposureHealth.fromJson(Map<String, Object?> json) =>
       AiExposureHealth(
-        version: json['version'] as String? ?? '',
-        databasePath: json['databasePath'] as String? ?? '',
-        uptimeSeconds: (json['uptimeSeconds'] as num?)?.toInt() ?? 0,
+        version: _stringValue(json['version']),
+        databasePath: _stringValue(json['databasePath']),
+        uptimeSeconds: _nonNegativeInt(json['uptimeSeconds']),
       );
 
   final String version;
@@ -109,22 +122,20 @@ class AiExposureProgress {
 
   factory AiExposureProgress.fromJson(Map<String, Object?> json) =>
       AiExposureProgress(
-        jobId: json['jobId'] as String? ?? '',
-        stage: json['stage'] as String? ?? 'queued',
-        discovered: (json['discovered'] as num?)?.toInt() ?? 0,
-        candidates: (json['candidates'] as num?)?.toInt() ?? 0,
-        valid: (json['valid'] as num?)?.toInt() ?? 0,
-        highValue: (json['highValue'] as num?)?.toInt() ?? 0,
-        processed: (json['processed'] as num?)?.toInt() ?? 0,
-        total: (json['total'] as num?)?.toInt() ?? 0,
-        message: json['message'] as String? ?? '',
-        updatedAt:
-            DateTime.tryParse(json['updatedAt'] as String? ?? '') ??
-            DateTime.now(),
+        jobId: _stringValue(json['jobId']),
+        stage: _stringValue(json['stage'], fallback: 'queued'),
+        discovered: _nonNegativeInt(json['discovered']),
+        candidates: _nonNegativeInt(json['candidates']),
+        valid: _nonNegativeInt(json['valid']),
+        highValue: _nonNegativeInt(json['highValue']),
+        processed: _nonNegativeInt(json['processed']),
+        total: _nonNegativeInt(json['total']),
+        message: _stringValue(json['message']),
+        updatedAt: _optionalDateTime(json['updatedAt']) ?? DateTime.now(),
         failureStage: _optionalString(json['failureStage']),
-        stageTimings: (json['stageTimings'] as List? ?? const <Object?>[])
-            .map(AiExposureStageTiming.fromJson)
-            .toList(growable: false),
+        stageTimings: _objectList(
+          json['stageTimings'],
+        ).map(AiExposureStageTiming.fromJson).toList(growable: false),
       );
 
   final String jobId;
@@ -141,8 +152,7 @@ class AiExposureProgress {
   final List<AiExposureStageTiming> stageTimings;
 
   double get fraction => total <= 0 ? 0 : (processed / total).clamp(0, 1);
-  bool get isRunning =>
-      !const <String>{'completed', 'cancelled', 'failed'}.contains(stage);
+  bool get isRunning => !isAiExposureTerminalStage(stage);
 }
 
 class AiExposureStageTiming {
@@ -159,7 +169,7 @@ class AiExposureStageTiming {
   factory AiExposureStageTiming.fromJson(Object? raw) {
     final json = _jsonMap(raw);
     return AiExposureStageTiming(
-      stage: json['stage'] as String? ?? '',
+      stage: _stringValue(json['stage']),
       startedAt: _optionalDateTime(json['startedAt']),
       finishedAt: _optionalDateTime(json['finishedAt']),
       durationMs: _optionalNonNegativeInt(json['durationMs']),
@@ -197,16 +207,19 @@ class AiExposureQuota {
 
   factory AiExposureQuota.fromJson(Map<String, Object?> json) =>
       AiExposureQuota(
-        source: AiExposureSource.fromId(json['source'] as String?),
-        configured: json['configured'] as bool? ?? false,
-        available: json['available'] as bool? ?? false,
-        remaining: (json['remaining'] as num?)?.toInt(),
-        limit: (json['limit'] as num?)?.toInt(),
-        resetsAt: DateTime.tryParse(json['resetsAt'] as String? ?? ''),
-        message: json['message'] as String? ?? '',
+        source: AiExposureSource.fromId(_optionalString(json['source'])),
+        configured: _boolValue(json['configured']),
+        available: _boolValue(json['available']),
+        remaining: _optionalNonNegativeInt(json['remaining']),
+        limit: _optionalNonNegativeInt(json['limit']),
+        resetsAt: _optionalDateTime(json['resetsAt']),
+        message: _stringValue(json['message']),
         checkedAt: _optionalDateTime(json['checkedAt']),
-        latencyMs: _optionalNonNegativeInt(json['latencyMs'], max: 600000),
-        httpStatus: _optionalNonNegativeInt(json['httpStatus'], max: 599),
+        latencyMs: _optionalNonNegativeInt(
+          json['latencyMs'],
+          max: _kAiExposureMaxTelemetryDurationMs,
+        ),
+        httpStatus: _optionalHttpStatus(json['httpStatus']),
         errorCode: _optionalString(json['errorCode']),
         lastSuccessAt: _optionalDateTime(json['lastSuccessAt']),
         lastFailureAt: _optionalDateTime(json['lastFailureAt']),
@@ -248,10 +261,10 @@ class AiExposureScanRule {
 
   factory AiExposureScanRule.fromJson(Map<String, Object?> json) =>
       AiExposureScanRule(
-        id: json['id'] as String? ?? '',
-        vendor: json['vendor'] as String? ?? '',
-        protocol: json['protocol'] as String? ?? '',
-        enabled: json['enabled'] as bool? ?? true,
+        id: _stringValue(json['id']),
+        vendor: _stringValue(json['vendor']),
+        protocol: _stringValue(json['protocol']),
+        enabled: _boolValue(json['enabled'], fallback: true),
         credentialPatterns: _stringList(json['credentialPatterns']),
         contextTerms: _stringList(json['contextTerms']),
         contentEncodings: _stringList(json['contentEncodings'])
@@ -366,11 +379,14 @@ class AiExposureProxyProbeStepResult {
   factory AiExposureProxyProbeStepResult.fromJson(Object? raw) {
     final json = _jsonMap(raw);
     return AiExposureProxyProbeStepResult(
-      step: json['step'] as String? ?? '',
-      succeeded: json['succeeded'] as bool? ?? false,
+      step: _stringValue(json['step']),
+      succeeded: _boolValue(json['succeeded']),
       startedAt: _optionalDateTime(json['startedAt']),
       finishedAt: _optionalDateTime(json['finishedAt']),
-      durationMs: _optionalNonNegativeInt(json['durationMs'], max: 600000),
+      durationMs: _optionalNonNegativeInt(
+        json['durationMs'],
+        max: _kAiExposureMaxTelemetryDurationMs,
+      ),
       message: _optionalString(json['message']),
     );
   }
@@ -410,27 +426,30 @@ class AiExposureProxyProbeSample {
 
   factory AiExposureProxyProbeSample.fromJson(Object? raw) {
     final json = _jsonMap(raw);
+    final latencyMs = _optionalNonNegativeInt(
+      json['latencyMs'],
+      max: _kAiExposureMaxTelemetryDurationMs,
+    );
+    final statusCode = _optionalHttpStatus(json['statusCode']);
     return AiExposureProxyProbeSample(
-      checkedAt:
-          DateTime.tryParse(json['checkedAt'] as String? ?? '') ??
-          DateTime.now(),
-      latencyMs: (json['latencyMs'] as num?)?.toInt().clamp(0, 600000),
-      statusCode: (json['statusCode'] as num?)?.toInt(),
+      checkedAt: _optionalDateTime(json['checkedAt']) ?? DateTime.now(),
+      latencyMs: latencyMs,
+      statusCode: statusCode,
       gatewayReachable:
-          json['gatewayReachable'] as bool? ??
-          json['latencyMs'] != null || json['statusCode'] != null,
+          _optionalBool(json['gatewayReachable']) ??
+          latencyMs != null || statusCode != null,
       failure: AiExposureProxyProbeFailure.tryFromId(
-        json['failure'] as String?,
+        _optionalString(json['failure']),
       ),
-      error: (json['error'] as String?)?.trim(),
+      error: _optionalString(json['error']),
       id: _optionalString(json['id']),
       inspectionRunId: _optionalString(json['inspectionRunId']),
       scheduledAt: _optionalDateTime(json['scheduledAt']),
       startedAt: _optionalDateTime(json['startedAt']),
       finishedAt: _optionalDateTime(json['finishedAt']),
-      stepResults: (json['stepResults'] as List? ?? const <Object?>[])
-          .map(AiExposureProxyProbeStepResult.fromJson)
-          .toList(growable: false),
+      stepResults: _objectList(
+        json['stepResults'],
+      ).map(AiExposureProxyProbeStepResult.fromJson).toList(growable: false),
     );
   }
 
@@ -486,27 +505,34 @@ class AiExposureProxyRequestSample {
 
   factory AiExposureProxyRequestSample.fromJson(Object? raw) {
     final json = _jsonMap(raw);
-    final milliseconds = _nonNegativeInt(json['atMs'], max: 8640000000000000);
-    final rawResult = json['result'] as String?;
+    final milliseconds = _nonNegativeInt(
+      json['atMs'],
+      max: _kAiExposureMaxEpochMs,
+    );
+    final rawResult = _optionalString(json['result']);
     final result =
         const <String>{'success', 'failure', 'timeout'}.contains(rawResult)
         ? rawResult!
         : 'failure';
-    final statusCode = (json['statusCode'] as num?)?.toInt();
+    final statusCode = _optionalHttpStatus(json['statusCode']);
     return AiExposureProxyRequestSample(
       at: milliseconds > 0
           ? DateTime.fromMillisecondsSinceEpoch(milliseconds)
           : DateTime.now(),
       result: result,
-      responseTimeMs: _nonNegativeInt(json['responseTimeMs'], max: 600000),
-      statusCode: statusCode != null && statusCode >= 100 && statusCode <= 599
-          ? statusCode
-          : null,
+      responseTimeMs: _nonNegativeInt(
+        json['responseTimeMs'],
+        max: _kAiExposureMaxTelemetryDurationMs,
+      ),
+      statusCode: statusCode,
       id: _optionalString(json['id']),
       endpointId: _optionalString(json['endpointId']),
       targetHost: _optionalString(json['targetHost']),
       method: _optionalString(json['method']),
-      timeoutMs: _optionalNonNegativeInt(json['timeoutMs'], max: 600000),
+      timeoutMs: _optionalNonNegativeInt(
+        json['timeoutMs'],
+        max: _kAiExposureMaxTelemetryDurationMs,
+      ),
       errorType: _optionalString(json['errorType']),
       errorMessage: _optionalString(json['errorMessage']),
       routeMode: _optionalString(json['routeMode']),
@@ -575,11 +601,11 @@ class AiExposureProxyUsageStatistics {
 
   factory AiExposureProxyUsageStatistics.fromJson(Object? raw) {
     final json = _jsonMap(raw);
-    final recent = (json['recentRequests'] as List? ?? const <Object?>[])
-        .map(AiExposureProxyRequestSample.fromJson)
-        .toList(growable: false);
+    final recent = _objectList(
+      json['recentRequests'],
+    ).map(AiExposureProxyRequestSample.fromJson).toList(growable: false);
     DateTime? timestamp(String key) {
-      final value = _nonNegativeInt(json[key], max: 8640000000000000);
+      final value = _nonNegativeInt(json[key], max: _kAiExposureMaxEpochMs);
       return value <= 0 ? null : DateTime.fromMillisecondsSinceEpoch(value);
     }
 
@@ -600,7 +626,7 @@ class AiExposureProxyUsageStatistics {
       lastUsedAt: timestamp('lastUsedAtMs'),
       lastSuccessAt: timestamp('lastSuccessAtMs'),
       lastFailureAt: timestamp('lastFailureAtMs'),
-      lastError: json['lastError'] as String? ?? '',
+      lastError: _stringValue(json['lastError']),
       recentRequests: recent.length <= kAiExposureProxyRequestSampleLimit
           ? recent
           : recent.sublist(recent.length - kAiExposureProxyRequestSampleLimit),
@@ -728,31 +754,29 @@ class AiExposureProxyIdentity {
   factory AiExposureProxyIdentity.fromJson(Object? raw) {
     final json = _jsonMap(raw);
     return AiExposureProxyIdentity(
-      exitIp: json['exitIp'] as String? ?? '',
-      ipType: json['ipType'] as String? ?? '--',
-      networkType: json['networkType'] as String? ?? '--',
-      cleanliness: json['cleanliness'] as String? ?? '--',
-      continent: json['continent'] as String? ?? '',
-      country: json['country'] as String? ?? '',
-      countryCode: json['countryCode'] as String? ?? '',
-      region: json['region'] as String? ?? '',
-      city: json['city'] as String? ?? '',
-      district: json['district'] as String? ?? '',
-      postalCode: json['postalCode'] as String? ?? '',
-      timezone: json['timezone'] as String? ?? '',
-      currency: json['currency'] as String? ?? '',
-      isp: json['isp'] as String? ?? '',
-      organization: json['organization'] as String? ?? '',
-      asn: json['asn'] as String? ?? '',
-      asName: json['asName'] as String? ?? '',
-      mobile: json['mobile'] as bool? ?? false,
-      proxy: json['proxy'] as bool? ?? false,
-      hosting: json['hosting'] as bool? ?? false,
-      latitude: (json['latitude'] as num?)?.toDouble(),
-      longitude: (json['longitude'] as num?)?.toDouble(),
-      observedAt:
-          DateTime.tryParse(json['observedAt'] as String? ?? '') ??
-          DateTime.now(),
+      exitIp: _stringValue(json['exitIp']),
+      ipType: _stringValue(json['ipType'], fallback: '--'),
+      networkType: _stringValue(json['networkType'], fallback: '--'),
+      cleanliness: _stringValue(json['cleanliness'], fallback: '--'),
+      continent: _stringValue(json['continent']),
+      country: _stringValue(json['country']),
+      countryCode: _stringValue(json['countryCode']),
+      region: _stringValue(json['region']),
+      city: _stringValue(json['city']),
+      district: _stringValue(json['district']),
+      postalCode: _stringValue(json['postalCode']),
+      timezone: _stringValue(json['timezone']),
+      currency: _stringValue(json['currency']),
+      isp: _stringValue(json['isp']),
+      organization: _stringValue(json['organization']),
+      asn: _stringValue(json['asn']),
+      asName: _stringValue(json['asName']),
+      mobile: _boolValue(json['mobile']),
+      proxy: _boolValue(json['proxy']),
+      hosting: _boolValue(json['hosting']),
+      latitude: _optionalFiniteDouble(json['latitude']),
+      longitude: _optionalFiniteDouble(json['longitude']),
+      observedAt: _optionalDateTime(json['observedAt']) ?? DateTime.now(),
     );
   }
 
@@ -871,15 +895,13 @@ class AiExposureProxyEndpoint {
   factory AiExposureProxyEndpoint.fromJson(Object? raw) {
     if (raw is String) return AiExposureProxyEndpoint.parse(raw);
     final json = _jsonMap(raw);
-    final endpoint = AiExposureProxyEndpoint.parse(
-      json['url'] as String? ?? '',
-    );
-    final samples = (json['samples'] as List? ?? const <Object?>[])
-        .map(AiExposureProxyProbeSample.fromJson)
-        .toList(growable: false);
+    final endpoint = AiExposureProxyEndpoint.parse(_stringValue(json['url']));
+    final samples = _objectList(
+      json['samples'],
+    ).map(AiExposureProxyProbeSample.fromJson).toList(growable: false);
     return endpoint.copyWith(
       name: json['name'] is String ? json['name'] as String : null,
-      enabled: json['enabled'] as bool? ?? true,
+      enabled: _boolValue(json['enabled'], fallback: true),
       samples: samples.length <= kAiExposureProxyLatencySampleLimit
           ? samples
           : samples.sublist(
@@ -984,7 +1006,7 @@ class AiExposureProxyConfiguration {
     final json = _jsonMap(raw);
     final endpoints = <AiExposureProxyEndpoint>[];
     final seen = <String>{};
-    for (final value in json['endpoints'] as List? ?? const <Object?>[]) {
+    for (final value in _objectList(json['endpoints'])) {
       try {
         final endpoint = AiExposureProxyEndpoint.fromJson(value);
         if (seen.add(endpoint.url)) endpoints.add(endpoint);
@@ -993,22 +1015,31 @@ class AiExposureProxyConfiguration {
       }
     }
     return AiExposureProxyConfiguration(
-      enabled: json['enabled'] as bool? ?? false,
-      strategy: AiExposureProxyStrategy.fromId(json['strategy'] as String?),
-      rotationEvery: ((json['rotationEvery'] as num?)?.toInt() ?? 1).clamp(
-        1,
-        10000,
+      enabled: _boolValue(json['enabled']),
+      strategy: AiExposureProxyStrategy.fromId(
+        _optionalString(json['strategy']),
       ),
-      bypassLocal: json['bypassLocal'] as bool? ?? true,
+      rotationEvery: _boundedInt(
+        json['rotationEvery'],
+        fallback: 1,
+        min: 1,
+        max: 10000,
+      ),
+      bypassLocal: _boolValue(json['bypassLocal'], fallback: true),
       endpoints: List<AiExposureProxyEndpoint>.unmodifiable(endpoints),
-      inspectionEnabled: json['inspectionEnabled'] as bool? ?? false,
-      inspectionIntervalMinutes:
-          ((json['inspectionIntervalMinutes'] as num?)?.toInt() ?? 30).clamp(
-            1,
-            1440,
-          ),
-      inspectionConcurrency:
-          ((json['inspectionConcurrency'] as num?)?.toInt() ?? 8).clamp(1, 32),
+      inspectionEnabled: _boolValue(json['inspectionEnabled']),
+      inspectionIntervalMinutes: _boundedInt(
+        json['inspectionIntervalMinutes'],
+        fallback: 30,
+        min: 1,
+        max: 1440,
+      ),
+      inspectionConcurrency: _boundedInt(
+        json['inspectionConcurrency'],
+        fallback: 8,
+        min: 1,
+        max: 32,
+      ),
     );
   }
 
@@ -1097,9 +1128,9 @@ class AiExposureProxyEndpointStatus {
 
   factory AiExposureProxyEndpointStatus.fromJson(Map<String, Object?> json) =>
       AiExposureProxyEndpointStatus(
-        id: json['id'] as String? ?? '',
-        address: json['address'] as String? ?? '',
-        selections: (json['selections'] as num?)?.toInt() ?? 0,
+        id: _stringValue(json['id']),
+        address: _stringValue(json['address']),
+        selections: _nonNegativeInt(json['selections']),
         statistics: AiExposureProxyUsageStatistics.fromJson(json['statistics']),
       );
 
@@ -1125,26 +1156,32 @@ class AiExposureProxyStatus {
     required this.endpoints,
   });
 
-  factory AiExposureProxyStatus.fromJson(Map<String, Object?> json) =>
-      AiExposureProxyStatus(
-        enabled: json['enabled'] as bool? ?? false,
-        strategy: AiExposureProxyStrategy.fromId(json['strategy'] as String?),
-        rotationEvery: (json['rotationEvery'] as num?)?.toInt() ?? 1,
-        bypassLocal: json['bypassLocal'] as bool? ?? true,
-        totalSelections: (json['totalSelections'] as num?)?.toInt() ?? 0,
-        totalSuccesses: (json['totalSuccesses'] as num?)?.toInt() ?? 0,
-        totalFailures: (json['totalFailures'] as num?)?.toInt() ?? 0,
-        totalTimeouts: (json['totalTimeouts'] as num?)?.toInt() ?? 0,
-        inFlight: (json['inFlight'] as num?)?.toInt() ?? 0,
-        averageResponseTimeMs:
-            (json['averageResponseTimeMs'] as num?)?.toInt() ?? 0,
-        systemProxyEnabled: json['systemProxyEnabled'] as bool? ?? false,
-        endpoints: (json['endpoints'] as List? ?? const <Object?>[])
-            .map(
-              (item) => AiExposureProxyEndpointStatus.fromJson(_jsonMap(item)),
-            )
-            .toList(growable: false),
-      );
+  factory AiExposureProxyStatus.fromJson(
+    Map<String, Object?> json,
+  ) => AiExposureProxyStatus(
+    enabled: _boolValue(json['enabled']),
+    strategy: AiExposureProxyStrategy.fromId(_optionalString(json['strategy'])),
+    rotationEvery: _boundedInt(
+      json['rotationEvery'],
+      fallback: 1,
+      min: 1,
+      max: 10000,
+    ),
+    bypassLocal: _boolValue(json['bypassLocal'], fallback: true),
+    totalSelections: _nonNegativeInt(json['totalSelections']),
+    totalSuccesses: _nonNegativeInt(json['totalSuccesses']),
+    totalFailures: _nonNegativeInt(json['totalFailures']),
+    totalTimeouts: _nonNegativeInt(json['totalTimeouts']),
+    inFlight: _nonNegativeInt(json['inFlight']),
+    averageResponseTimeMs: _nonNegativeInt(
+      json['averageResponseTimeMs'],
+      max: _kAiExposureMaxTelemetryDurationMs,
+    ),
+    systemProxyEnabled: _boolValue(json['systemProxyEnabled']),
+    endpoints: _objectList(json['endpoints'])
+        .map((item) => AiExposureProxyEndpointStatus.fromJson(_jsonMap(item)))
+        .toList(growable: false),
+  );
 
   final bool enabled;
   final AiExposureProxyStrategy strategy;
@@ -1187,9 +1224,9 @@ class AiExposureHistoryEntry {
 
   factory AiExposureHistoryEntry.fromJson(Map<String, Object?> json) =>
       AiExposureHistoryEntry(
-        id: json['id'] as String? ?? '',
-        name: json['name'] as String? ?? '',
-        stage: json['stage'] as String? ?? 'queued',
+        id: _stringValue(json['id']),
+        name: _stringValue(json['name']),
+        stage: _stringValue(json['stage'], fallback: 'queued'),
         sources: _stringList(
           json['sources'],
         ).map(AiExposureSource.fromId).toList(growable: false),
@@ -1198,11 +1235,9 @@ class AiExposureHistoryEntry {
             : AiExposureScanMode.incremental,
         authorizedScope: _stringList(json['authorizedScope']),
         progress: AiExposureProgress.fromJson(_jsonMap(json['progress'])),
-        createdAt:
-            DateTime.tryParse(json['createdAt'] as String? ?? '') ??
-            DateTime.now(),
-        finishedAt: DateTime.tryParse(json['finishedAt'] as String? ?? ''),
-        errorMessage: json['errorMessage'] as String?,
+        createdAt: _optionalDateTime(json['createdAt']) ?? DateTime.now(),
+        finishedAt: _optionalDateTime(json['finishedAt']),
+        errorMessage: _optionalString(json['errorMessage']),
         startedAt: _optionalDateTime(json['startedAt']),
         cancelledAt: _optionalDateTime(json['cancelledAt']),
         cancelReason: _optionalString(json['cancelReason']),
@@ -1220,10 +1255,10 @@ class AiExposureHistoryEntry {
           'playwright' => AiExposureForumFetchMode.playwright,
           _ => null,
         },
-        gptAssisted: json['gptAssisted'] as bool?,
-        stageTimings: (json['stageTimings'] as List? ?? const <Object?>[])
-            .map(AiExposureStageTiming.fromJson)
-            .toList(growable: false),
+        gptAssisted: _optionalBool(json['gptAssisted']),
+        stageTimings: _objectList(
+          json['stageTimings'],
+        ).map(AiExposureStageTiming.fromJson).toList(growable: false),
       );
 
   final String id;
@@ -1249,8 +1284,20 @@ class AiExposureHistoryEntry {
   final List<AiExposureStageTiming> stageTimings;
 
   bool get isCompleted => stage == 'completed';
-  bool get isResumable => stage != 'completed';
+  bool get isTerminal => isAiExposureTerminalStage(stage);
+  bool get isResumable => !isCompleted;
   bool get isRestartable => id.isNotEmpty;
+  DateTime get effectiveStartedAt => startedAt ?? createdAt;
+  DateTime? get effectiveFinishedAt =>
+      finishedAt ??
+      cancelledAt ??
+      (isTerminal ? lastCheckpointAt ?? progress.updatedAt : null);
+
+  Duration? durationUntil(DateTime now) {
+    final end = effectiveFinishedAt ?? now;
+    final start = effectiveStartedAt;
+    return end.isBefore(start) ? null : end.difference(start);
+  }
 }
 
 class AiExposureResult {
@@ -1275,30 +1322,30 @@ class AiExposureResult {
 
   factory AiExposureResult.fromJson(Map<String, Object?> json) =>
       AiExposureResult(
-        id: json['id'] as String? ?? '',
-        jobId: json['jobId'] as String? ?? '',
-        source: AiExposureSource.fromId(json['source'] as String?),
-        url: json['url'] as String? ?? '',
-        host: json['host'] as String? ?? '',
-        product: json['product'] as String? ?? '',
+        id: _stringValue(json['id']),
+        jobId: _stringValue(json['jobId']),
+        source: AiExposureSource.fromId(_optionalString(json['source'])),
+        url: _stringValue(json['url']),
+        host: _stringValue(json['host']),
+        product: _stringValue(json['product']),
         category: switch (json['category']) {
           'valid' => AiExposureResultCategory.valid,
           'high_value' => AiExposureResultCategory.highValue,
           'honeypot' => AiExposureResultCategory.honeypot,
           _ => AiExposureResultCategory.suspicious,
         },
-        credentialState: json['credentialState'] as String? ?? 'not_found',
-        maskedCredential: json['maskedCredential'] as String?,
-        responseFingerprint: json['responseFingerprint'] as String? ?? '',
-        duplicateResponseHosts:
-            (json['duplicateResponseHosts'] as num?)?.toInt() ?? 0,
-        duplicateKeyHosts: (json['duplicateKeyHosts'] as num?)?.toInt() ?? 0,
-        modelCount: (json['modelCount'] as num?)?.toInt() ?? 0,
-        balanceSummary: json['balanceSummary'] as String?,
+        credentialState: _stringValue(
+          json['credentialState'],
+          fallback: 'not_found',
+        ),
+        maskedCredential: _optionalString(json['maskedCredential']),
+        responseFingerprint: _stringValue(json['responseFingerprint']),
+        duplicateResponseHosts: _nonNegativeInt(json['duplicateResponseHosts']),
+        duplicateKeyHosts: _nonNegativeInt(json['duplicateKeyHosts']),
+        modelCount: _nonNegativeInt(json['modelCount']),
+        balanceSummary: _optionalString(json['balanceSummary']),
         evidence: _stringList(json['evidence']),
-        createdAt:
-            DateTime.tryParse(json['createdAt'] as String? ?? '') ??
-            DateTime.now(),
+        createdAt: _optionalDateTime(json['createdAt']) ?? DateTime.now(),
       );
 
   final String id;
@@ -1384,10 +1431,10 @@ class AiExposureLogEntry {
 
   factory AiExposureLogEntry.fromJson(Map<String, Object?> json) =>
       AiExposureLogEntry(
-        jobId: json['jobId'] as String? ?? '',
-        level: json['level'] as String? ?? 'info',
-        message: json['message'] as String? ?? '',
-        at: DateTime.tryParse(json['at'] as String? ?? '') ?? DateTime.now(),
+        jobId: _stringValue(json['jobId']),
+        level: _stringValue(json['level'], fallback: 'info'),
+        message: _stringValue(json['message']),
+        at: _optionalDateTime(json['at']) ?? DateTime.now(),
         id: _optionalString(json['id']),
         module: _optionalString(json['module']),
         eventCode: _optionalString(json['eventCode']),
@@ -1415,8 +1462,8 @@ class AiExposureAiExtractorStatus {
 
   factory AiExposureAiExtractorStatus.fromJson(Map<String, Object?> json) =>
       AiExposureAiExtractorStatus(
-        configured: json['configured'] as bool? ?? false,
-        model: json['model'] as String?,
+        configured: _boolValue(json['configured']),
+        model: _optionalString(json['model']),
       );
 
   final bool configured;
@@ -1439,11 +1486,14 @@ class AiExposureDependencyComponentStatus {
   factory AiExposureDependencyComponentStatus.fromJson(
     Map<String, Object?> json,
   ) => AiExposureDependencyComponentStatus(
-    configured: json['configured'] as bool? ?? false,
-    connected: json['connected'] as bool? ?? false,
-    message: json['message'] as String? ?? '',
+    configured: _boolValue(json['configured']),
+    connected: _boolValue(json['connected']),
+    message: _stringValue(json['message']),
     checkedAt: _optionalDateTime(json['checkedAt']),
-    latencyMs: _optionalNonNegativeInt(json['latencyMs'], max: 600000),
+    latencyMs: _optionalNonNegativeInt(
+      json['latencyMs'],
+      max: _kAiExposureMaxTelemetryDurationMs,
+    ),
     version: _optionalString(json['version']),
     endpointMasked: _optionalString(json['endpointMasked']),
     errorCode: _optionalString(json['errorCode']),
@@ -1528,23 +1578,25 @@ class AiExposurePreferences {
       enabledSources: sources.isEmpty
           ? const <AiExposureSource>{AiExposureSource.manual}
           : sources,
-      defaultConcurrency: ((json['defaultConcurrency'] as num?)?.toInt() ?? 24)
-          .clamp(1, 128),
+      defaultConcurrency: _boundedInt(
+        json['defaultConcurrency'],
+        fallback: 24,
+        min: 1,
+        max: 128,
+      ),
       defaultValidationMode:
           json['defaultValidationMode'] == 'authorized_active'
           ? AiExposureValidationMode.authorizedActive
           : AiExposureValidationMode.passive,
       forumFetchMode: AiExposureForumFetchMode.fromId(
-        json['forumFetchMode'] as String?,
+        _optionalString(json['forumFetchMode']),
       ),
-      defaultGptAssisted: json['defaultGptAssisted'] as bool? ?? false,
-      useBundledEngine: json['useBundledEngine'] as bool? ?? true,
+      defaultGptAssisted: _boolValue(json['defaultGptAssisted']),
+      useBundledEngine: _boolValue(json['useBundledEngine'], fallback: true),
       externalAddress:
-          (json['externalAddress'] as String?)?.trim().isNotEmpty == true
-          ? (json['externalAddress'] as String).trim()
-          : 'http://127.0.0.1:37821',
-      postgresqlEnabled: json['postgresqlEnabled'] as bool? ?? false,
-      redisEnabled: json['redisEnabled'] as bool? ?? false,
+          _optionalString(json['externalAddress']) ?? 'http://127.0.0.1:37821',
+      postgresqlEnabled: _boolValue(json['postgresqlEnabled']),
+      redisEnabled: _boolValue(json['redisEnabled']),
       proxyConfiguration: AiExposureProxyConfiguration.fromJson(json['proxy']),
     );
   }
@@ -1595,6 +1647,17 @@ List<String> _stringList(Object? value) => value is List
     ? value.whereType<Object>().map((item) => '$item').toList(growable: false)
     : const <String>[];
 
+List<Object?> _objectList(Object? value) =>
+    value is List ? value : const <Object?>[];
+
+String _stringValue(Object? value, {String fallback = ''}) =>
+    value is String ? value : fallback;
+
+bool? _optionalBool(Object? value) => value is bool ? value : null;
+
+bool _boolValue(Object? value, {bool fallback = false}) =>
+    _optionalBool(value) ?? fallback;
+
 String? _optionalString(Object? value) {
   final text = value is String ? value.trim() : '';
   return text.isEmpty ? null : text;
@@ -1603,13 +1666,33 @@ String? _optionalString(Object? value) {
 DateTime? _optionalDateTime(Object? value) =>
     value is String ? DateTime.tryParse(value) : null;
 
+double? _optionalFiniteDouble(Object? value) {
+  if (value is! num || !value.isFinite) return null;
+  return value.toDouble();
+}
+
 int? _optionalNonNegativeInt(Object? value, {int max = 0x1fffffffffffff}) {
   if (value is! num || !value.isFinite) return null;
   final parsed = value.toInt();
   return parsed < 0 || parsed > max ? null : parsed;
 }
 
+int? _optionalHttpStatus(Object? value) {
+  final parsed = _optionalNonNegativeInt(value, max: _kAiExposureMaxHttpStatus);
+  return parsed != null && parsed >= _kAiExposureMinHttpStatus ? parsed : null;
+}
+
 int _nonNegativeInt(Object? value, {int max = 0x1fffffffffffff}) {
-  final parsed = (value as num?)?.toInt() ?? 0;
-  return parsed.clamp(0, max).toInt();
+  if (value is! num || !value.isFinite) return 0;
+  return value.toInt().clamp(0, max);
+}
+
+int _boundedInt(
+  Object? value, {
+  required int fallback,
+  required int min,
+  required int max,
+}) {
+  if (value is! num || !value.isFinite) return fallback;
+  return value.toInt().clamp(min, max);
 }

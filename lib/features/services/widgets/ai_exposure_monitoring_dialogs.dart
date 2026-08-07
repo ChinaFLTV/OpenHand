@@ -2093,7 +2093,7 @@ class _StoragePanel extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       subtitle: Text(
-                        '${_shortDateTime(entry.finishedAt ?? entry.createdAt)} · 处理 ${entry.progress.processed} · 结果 $resultCount',
+                        '${_shortDateTime(entry.effectiveFinishedAt ?? entry.createdAt)} · 处理 ${entry.progress.processed} · 结果 $resultCount',
                       ),
                       trailing: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -3404,6 +3404,7 @@ class _TaskEntityInsightBody extends StatelessWidget {
     if (task == null) return const _InsightEmpty(label: '该任务已不在当前历史记录中。');
     final colors = Theme.of(context).colorScheme;
     final duration = _taskDurationMs(task);
+    final finishedAt = task.effectiveFinishedAt;
     final recordedStartedAt =
         task.startedAt ??
         task.stageTimings
@@ -3511,14 +3512,12 @@ class _TaskEntityInsightBody extends StatelessWidget {
             ),
             _OpsKeyValue(
               label: '完成时间',
-              value: task.finishedAt == null
-                  ? '未结束'
-                  : _shortDateTime(task.finishedAt!),
+              value: finishedAt == null ? '未结束' : _shortDateTime(finishedAt),
             ),
             _OpsKeyValue(
               label: '任务耗时',
               value: duration == null
-                  ? task.finishedAt == null
+                  ? finishedAt == null
                         ? '执行中'
                         : '时间边界异常'
                   : '$duration ms',
@@ -5721,10 +5720,7 @@ Widget _buildOverviewMetricInsight(
   final logs = controller.logs;
   int taskCount(String stage) =>
       history.where((entry) => entry.stage == stage).length;
-  final terminalStages = <String>{'completed', 'failed', 'cancelled'};
-  final active = history
-      .where((entry) => !terminalStages.contains(entry.stage))
-      .length;
+  final active = history.where((entry) => !entry.isTerminal).length;
 
   switch (label) {
     case '任务总数':
@@ -8189,7 +8185,7 @@ Widget _buildStorageMetricInsight(
       );
     case '最后写入':
       final eventTimes = <DateTime>[
-        ...history.map((entry) => entry.finishedAt ?? entry.createdAt),
+        ...history.map((entry) => entry.effectiveFinishedAt ?? entry.createdAt),
         ...results.map((entry) => entry.createdAt),
         ...logs.map((entry) => entry.at),
       ]..sort();
@@ -8235,7 +8231,7 @@ Widget _buildStorageMetricInsight(
           entries: [
             ...history.map(
               (entry) => _InsightTimelineEntry(
-                at: entry.finishedAt ?? entry.createdAt,
+                at: entry.effectiveFinishedAt ?? entry.createdAt,
                 title:
                     '任务 · ${entry.name.trim().isEmpty ? entry.id : entry.name}',
                 detail:
@@ -9209,7 +9205,11 @@ _InsightRecord _taskInsightRecord(
     'cancelled' => OpenHandStatusColors.warning,
     _ => OpenHandStatusColors.info,
   };
-  final duration = entry.finishedAt?.difference(entry.createdAt);
+  final finishedAt = entry.effectiveFinishedAt;
+  final durationMs = _taskDurationMs(entry);
+  final duration = durationMs == null
+      ? null
+      : Duration(milliseconds: durationMs);
   final progress = entry.progress;
   String rate(int value, int total) =>
       total <= 0 ? '--' : '${(value * 100 / total).toStringAsFixed(1)}%';
@@ -9246,8 +9246,8 @@ _InsightRecord _taskInsightRecord(
     ],
     _TaskRecordLens.duration => [
       '耗时 ${duration == null ? '--' : _duration(duration.inSeconds.clamp(0, 86400))}',
-      '开始 ${_shortDateTime(entry.createdAt)}',
-      if (entry.finishedAt != null) '结束 ${_shortDateTime(entry.finishedAt!)}',
+      '开始 ${_shortDateTime(entry.effectiveStartedAt)}',
+      if (finishedAt != null) '结束 ${_shortDateTime(finishedAt)}',
       '处理 ${progress.processed}',
     ],
     _TaskRecordLens.scope => [
@@ -9266,7 +9266,7 @@ _InsightRecord _taskInsightRecord(
       '任务 ${entry.id}',
       _stageName(entry.stage),
       '创建 ${_shortDateTime(entry.createdAt)}',
-      if (entry.finishedAt != null) '归档 ${_shortDateTime(entry.finishedAt!)}',
+      if (finishedAt != null) '归档 ${_shortDateTime(finishedAt)}',
     ],
     _TaskRecordLens.overview => [
       _stageName(entry.stage),
@@ -9278,7 +9278,7 @@ _InsightRecord _taskInsightRecord(
         '耗时 ${_duration(duration.inSeconds.clamp(0, 86400))}',
       if (entry.sources.isNotEmpty)
         entry.sources.map(_sourceName).take(3).join(' / '),
-      _shortDateTime(entry.finishedAt ?? entry.createdAt),
+      _shortDateTime(finishedAt ?? entry.createdAt),
     ],
   };
   final scope = entry.authorizedScope.take(3).join(', ');
@@ -11032,10 +11032,7 @@ Widget _integrityInsightPanel(
       ),
     );
   }
-  for (final job in controller.history.where(
-    (entry) =>
-        !const {'completed', 'failed', 'cancelled'}.contains(entry.stage),
-  )) {
+  for (final job in controller.history.where((entry) => !entry.isTerminal)) {
     records.add(
       _InsightRecord(
         icon: Icons.pending_actions_outlined,
@@ -11145,8 +11142,8 @@ String _chartRate(int value, int total) =>
     total <= 0 ? '不适用' : '${(value * 100 / total).toStringAsFixed(1)}%';
 
 int? _taskDurationMs(AiExposureHistoryEntry task) {
-  final finishedAt = task.finishedAt;
-  final startedAt = task.startedAt ?? task.createdAt;
+  final finishedAt = task.effectiveFinishedAt;
+  final startedAt = task.effectiveStartedAt;
   if (finishedAt == null || finishedAt.isBefore(startedAt)) return null;
   return finishedAt.difference(startedAt).inMilliseconds;
 }
@@ -11168,7 +11165,7 @@ List<_InsightTimelineEntry> _taskTimeline(
   return sorted
       .map(
         (task) => _InsightTimelineEntry(
-          at: task.finishedAt ?? task.createdAt,
+          at: task.effectiveFinishedAt ?? task.createdAt,
           title: task.name.trim().isEmpty ? task.id : task.name,
           detail:
               '处理 ${task.progress.processed} · 候选 ${task.progress.candidates} · 有效 ${task.progress.valid} · 高价值 ${task.progress.highValue}',
@@ -12102,12 +12099,10 @@ Widget _taskStageDistributionInsight(
       items: items,
       detailBuilder: (context, item) {
         final status = item.key! as String;
-        const terminal = {'completed', 'failed', 'cancelled'};
         return _metricTaskPanel(
           controller.history.where(
-            (task) => status == 'running'
-                ? !terminal.contains(task.stage)
-                : task.stage == status,
+            (task) =>
+                status == 'running' ? !task.isTerminal : task.stage == status,
           ),
           title: '${item.label}任务',
           emptyLabel: '暂无${item.label}任务。',
