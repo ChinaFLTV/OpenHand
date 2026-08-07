@@ -470,11 +470,13 @@ class OpenHandOperationalTrendChart extends StatefulWidget {
     required this.series,
     required this.valueSuffix,
     required this.onSelectionChanged,
+    this.onSelectionActivated,
     this.xLabels = const <String>[],
     this.height = 224,
     this.emptyLabel = '暂无可用趋势数据',
     this.interpolation = OpenHandChartInterpolation.smooth,
     this.area = false,
+    this.showLegend = true,
     this.fixedMaximum,
     this.formatValue,
     this.semanticLabel = '运维趋势图',
@@ -483,11 +485,13 @@ class OpenHandOperationalTrendChart extends StatefulWidget {
   final List<OpenHandChartSeries> series;
   final String valueSuffix;
   final ValueChanged<OpenHandOperationalTrendSelection?>? onSelectionChanged;
+  final ValueChanged<OpenHandOperationalTrendSelection>? onSelectionActivated;
   final List<String> xLabels;
   final double height;
   final String emptyLabel;
   final OpenHandChartInterpolation interpolation;
   final bool area;
+  final bool showLegend;
   final double? fixedMaximum;
   final String Function(double value)? formatValue;
   final String semanticLabel;
@@ -520,6 +524,12 @@ class _OpenHandOperationalTrendChartState
     }
     setState(() => _selection = value);
     widget.onSelectionChanged?.call(value);
+  }
+
+  void _activate(OpenHandOperationalTrendSelection? value) {
+    if (value == null) return;
+    _setSelection(value);
+    widget.onSelectionActivated?.call(value);
   }
 
   OpenHandOperationalTrendSelection? _selectionFor(
@@ -569,19 +579,22 @@ class _OpenHandOperationalTrendChartState
     _setSelection(_selectionForIndex(target));
   }
 
-  void _selectFromOffset(Offset position, Size size) {
+  OpenHandOperationalTrendSelection? _selectionFromOffset(
+    Offset position,
+    Size size,
+  ) {
     final chart = _lineChartRect(size);
     if (position.dx < chart.left ||
         position.dx > chart.right ||
         position.dy < chart.top ||
         position.dy > chart.bottom) {
-      return;
+      return null;
     }
     final maximum = math.max(
       _seriesMaximum(widget.series),
       widget.fixedMaximum == null ? 0.0 : _nonNegative(widget.fixedMaximum!),
     );
-    if (maximum <= 0) return;
+    if (maximum <= 0) return null;
     final normalizedMaximum = _normalizedMaximum(maximum);
     OpenHandOperationalTrendSelection? best;
     var bestDistanceSquared = _kTrendHitRadius * _kTrendHitRadius;
@@ -603,7 +616,7 @@ class _OpenHandOperationalTrendChartState
         }
       }
     }
-    if (best != null) _setSelection(best);
+    return best;
   }
 
   String _selectionText(OpenHandOperationalTrendSelection? selection) {
@@ -627,7 +640,7 @@ class _OpenHandOperationalTrendChartState
         label: widget.semanticLabel,
         value: _selectionText(_selection),
         hint: '点击或悬停数据点，使用左右方向键切换数据点',
-        onTap: () => _setSelection(_selectionForIndex(0)),
+        onTap: () => _activate(_selection ?? _selectionForIndex(0)),
         onIncrease: () => _moveSelection(1),
         onDecrease: () => _moveSelection(-1),
         increasedValue: '下一个数据点',
@@ -648,7 +661,7 @@ class _OpenHandOperationalTrendChartState
             }
             if (event.logicalKey == LogicalKeyboardKey.enter ||
                 event.logicalKey == LogicalKeyboardKey.space) {
-              _setSelection(_selection ?? _selectionForIndex(0));
+              _activate(_selection ?? _selectionForIndex(0));
               return KeyEventResult.handled;
             }
             return KeyEventResult.ignored;
@@ -671,12 +684,14 @@ class _OpenHandOperationalTrendChartState
                       );
                       return MouseRegion(
                         cursor: SystemMouseCursors.precise,
-                        onHover: (event) =>
-                            _selectFromOffset(event.localPosition, size),
+                        onHover: (event) => _setSelection(
+                          _selectionFromOffset(event.localPosition, size),
+                        ),
                         child: GestureDetector(
                           behavior: HitTestBehavior.opaque,
-                          onTapDown: (details) =>
-                              _selectFromOffset(details.localPosition, size),
+                          onTapDown: (details) => _activate(
+                            _selectionFromOffset(details.localPosition, size),
+                          ),
                           child: Stack(
                             children: [
                               Positioned.fill(
@@ -719,7 +734,7 @@ class _OpenHandOperationalTrendChartState
                     },
                   ),
                 ),
-                if (widget.series.length > 1) ...[
+                if (widget.showLegend && widget.series.length > 1) ...[
                   const SizedBox(height: 8),
                   _ChartLegend(
                     segments: widget.series

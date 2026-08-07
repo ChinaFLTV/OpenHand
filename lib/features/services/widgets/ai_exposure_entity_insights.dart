@@ -1098,7 +1098,7 @@ class _StageEntityInsightBody extends StatelessWidget {
             value: taskState,
             helper: task == null ? '未关联任务' : '任务当前阶段 ${_stageName(task.stage)}',
             color: task?.isTerminal == true
-                ? _entityTerminalStageColor(task.stage, colors)
+                ? _entityTerminalStageColor(task!.stage, colors)
                 : taskState == '进行中'
                 ? OpenHandStatusColors.info
                 : colors.outline,
@@ -1162,11 +1162,15 @@ class _StageEntityInsightBody extends StatelessWidget {
           title: '当前任务输入到输出漏斗',
           icon: Icons.filter_alt_outlined,
           items: [
-            _InsightFunnelItem('输入', timing!.inputCount!, colors.primary),
             _InsightFunnelItem(
-              '输出',
-              timing.outputCount!,
-              OpenHandStatusColors.success,
+              label: '输入',
+              value: timing!.inputCount!,
+              color: colors.primary,
+            ),
+            _InsightFunnelItem(
+              label: '输出',
+              value: timing.outputCount!,
+              color: OpenHandStatusColors.success,
             ),
           ],
         ),
@@ -1200,7 +1204,7 @@ class _StageEntityInsightBody extends StatelessWidget {
               label: '任务状态',
               value: taskState,
               color: task?.isTerminal == true
-                  ? _entityTerminalStageColor(task.stage, colors)
+                  ? _entityTerminalStageColor(task!.stage, colors)
                   : colors.tertiary,
             ),
           ],
@@ -1351,7 +1355,7 @@ class _DependencyEntityInsightBody extends StatelessWidget {
             icon: configured == true
                 ? Icons.settings_suggest_outlined
                 : configured == false
-                ? Icons.settings_off_outlined
+                ? Icons.settings_outlined
                 : Icons.help_outline_rounded,
             label: '配置状态',
             value: _entityNullableBoolLabel(
@@ -1465,9 +1469,7 @@ class _DependencyEntityInsightBody extends StatelessWidget {
           ),
           (
             '错误码',
-            connected == true
-                ? '未发生'
-                : _entitySafeText(component?.errorCode, unavailable: '不可用'),
+            connected == true ? '未发生' : _entitySafeText(component?.errorCode),
           ),
         ],
       ),
@@ -1719,7 +1721,7 @@ Object? _entityRedactStructuredValue(Object? value, {String? key}) {
 String _entitySafeStructuredValue(Object? value) {
   final safeValue = _entityRedactStructuredValue(value);
   if (safeValue is! Map && safeValue is! Iterable) {
-    return _entitySafeText(safeValue, unavailable: '不可用');
+    return _entitySafeText(safeValue);
   }
   try {
     return _entitySafeText(const JsonEncoder().convert(safeValue));

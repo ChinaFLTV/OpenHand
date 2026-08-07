@@ -5518,14 +5518,13 @@ class _InsightTrendSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
     return _Section(
       title: title,
       icon: icon,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          SizedBox(height: 250, child: _buildChart(context, colors)),
+          _buildChart(context),
           const SizedBox(height: 10),
           Wrap(
             spacing: 12,
@@ -5546,42 +5545,22 @@ class _InsightTrendSection extends StatelessWidget {
     );
   }
 
-  Widget _buildChart(BuildContext context, ColorScheme colors) {
-    final chart = RepaintBoundary(
-      child: ServiceAnimatedChart(
-        series: series,
-        builder: (context, animatedSeries) => CustomPaint(
-          painter: OpenHandSmoothLineChartPainter(
-            series: animatedSeries,
-            gridColor: colors.outlineVariant.withValues(alpha: 0.58),
-            labelColor: colors.onSurfaceVariant,
-            emptyLabel: emptyLabel,
-            valueSuffix: suffix,
-            textDirection: Directionality.of(context),
-            interpolation: interpolation,
-          ),
-        ),
-      ),
-    );
-    if (targets.whereType<_InsightTarget>().isEmpty) return chart;
-    return LayoutBuilder(
-      builder: (context, constraints) => MouseRegion(
-        cursor: SystemMouseCursors.click,
-        child: GestureDetector(
-          behavior: HitTestBehavior.opaque,
-          onTapUp: (details) {
-            if (targets.isEmpty || constraints.maxWidth <= 0) return;
-            final ratio = (details.localPosition.dx / constraints.maxWidth)
-                .clamp(0.0, 1.0);
-            final index = (ratio * (targets.length - 1)).round();
-            final target = targets[index];
-            if (target != null) _openInsightTarget(context, target);
-          },
-          child: chart,
-        ),
-      ),
-    );
-  }
+  Widget _buildChart(BuildContext context) => OpenHandOperationalTrendChart(
+    series: series,
+    xLabels: sampleLabels,
+    valueSuffix: suffix,
+    emptyLabel: emptyLabel,
+    interpolation: interpolation,
+    height: 250,
+    showLegend: false,
+    semanticLabel: '$title，${series.length} 个序列，${sampleLabels.length} 个样本',
+    onSelectionChanged: (_) {},
+    onSelectionActivated: (selection) {
+      if (selection.pointIndex >= targets.length) return;
+      final target = targets[selection.pointIndex];
+      if (target != null) _openInsightTarget(context, target);
+    },
+  );
 }
 
 class _InsightDonutSection extends StatefulWidget {
