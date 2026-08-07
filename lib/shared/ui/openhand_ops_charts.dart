@@ -8,7 +8,7 @@ import 'package:flutter/services.dart';
 
 /// 图表四周留白与底部标签区高度。
 const double _kChartInset = 8;
-const double _kChartBottomLabelHeight = 24;
+const double _kChartBottomLabelHeight = 32;
 const int _kHorizontalGridLines = 4;
 const int _kVerticalGridLines = 6;
 const double _kMaxValueHeadroom = 1.14;
@@ -137,34 +137,42 @@ class OpenHandSmoothLineChartPainter extends CustomPainter {
     final normalizedMax = _normalizedMaximum(maxValue);
     for (final item in series) {
       final points = _linePoints(item.values, chart, normalizedMax);
-      if (points.isEmpty) continue;
-      final linePoints = points.length == 1
-          ? <Offset>[points.first, Offset(chart.right, points.first.dy)]
-          : points;
-      if (area) {
-        final areaPath = _linePath(linePoints, interpolation)
-          ..lineTo(linePoints.last.dx, chart.bottom)
-          ..lineTo(linePoints.first.dx, chart.bottom)
-          ..close();
+      final segments = _contiguousLineSegments(points);
+      for (final segment in segments) {
+        final linePoints = segment.length == 1
+            ? <Offset>[
+                segment.first,
+                Offset(segment.first.dx + 1, segment.first.dy),
+              ]
+            : segment;
+        if (area) {
+          final areaPath = _linePath(linePoints, interpolation)
+            ..lineTo(linePoints.last.dx, chart.bottom)
+            ..lineTo(linePoints.first.dx, chart.bottom)
+            ..close();
+          canvas.drawPath(
+            areaPath,
+            Paint()..color = item.color.withValues(alpha: _kAreaFillAlpha),
+          );
+        }
         canvas.drawPath(
-          areaPath,
-          Paint()..color = item.color.withValues(alpha: _kAreaFillAlpha),
+          _linePath(linePoints, interpolation),
+          Paint()
+            ..color = item.color
+            ..strokeWidth = _kLineStrokeWidth
+            ..style = PaintingStyle.stroke
+            ..strokeCap = StrokeCap.round
+            ..strokeJoin = StrokeJoin.round,
         );
       }
-      canvas.drawPath(
-        _linePath(linePoints, interpolation),
-        Paint()
-          ..color = item.color
-          ..strokeWidth = _kLineStrokeWidth
-          ..style = PaintingStyle.stroke
-          ..strokeCap = StrokeCap.round
-          ..strokeJoin = StrokeJoin.round,
-      );
-      canvas.drawCircle(
-        linePoints.last,
-        _kEndpointDotRadius,
-        Paint()..color = item.color,
-      );
+      final endpoint = points.whereType<Offset>().lastOrNull;
+      if (endpoint != null) {
+        canvas.drawCircle(
+          endpoint,
+          _kEndpointDotRadius,
+          Paint()..color = item.color,
+        );
+      }
     }
 
     _paintChartText(
@@ -203,7 +211,7 @@ Rect _lineChartRect(Size size) {
     _kChartInset,
     _kChartInset,
     math.max(0, size.width - _kChartInset * 2),
-    math.max(0, size.height - _kChartBottomLabelHeight),
+    math.max(0, size.height - _kChartInset - _kChartBottomLabelHeight),
   );
 }
 
@@ -248,23 +256,37 @@ double _seriesMaximum(List<OpenHandChartSeries> series) {
 double _normalizedMaximum(double maximum) =>
     maximum <= 1 ? 1 : maximum * _kMaxValueHeadroom;
 
-List<Offset> _linePoints(
+List<Offset?> _linePoints(
   List<double> values,
   Rect chart,
   double normalizedMaximum,
 ) {
   if (values.isEmpty || chart.width <= 0 || chart.height <= 0) {
-    return const <Offset>[];
+    return const <Offset?>[];
   }
   final denominator = math.max(1, values.length - 1);
-  return List<Offset>.generate(values.length, (index) {
+  return List<Offset?>.generate(values.length, (index) {
+    final value = values[index];
+    if (!value.isFinite || value < 0) return null;
     final x = chart.left + chart.width * index / denominator;
-    final ratio = (_nonNegative(values[index]) / normalizedMaximum).clamp(
-      0.0,
-      1.0,
-    );
+    final ratio = (value / normalizedMaximum).clamp(0.0, 1.0);
     return Offset(x, chart.bottom - chart.height * ratio);
   });
+}
+
+List<List<Offset>> _contiguousLineSegments(List<Offset?> points) {
+  final segments = <List<Offset>>[];
+  var current = <Offset>[];
+  for (final point in points) {
+    if (point == null) {
+      if (current.isNotEmpty) segments.add(current);
+      current = <Offset>[];
+      continue;
+    }
+    current.add(point);
+  }
+  if (current.isNotEmpty) segments.add(current);
+  return segments;
 }
 
 Path _linePath(List<Offset> points, OpenHandChartInterpolation interpolation) {
@@ -378,8 +400,8 @@ class OpenHandDonutChartPainter extends CustomPainter {
       paint..color = trackColor,
     );
 
-    final count = math.min(values.length, colors.length);
-    if (count == 0) return;
+    if (values.length != colors.length || values.isEmpty) return;
+    final count = values.length;
     final pairedValues = List<double>.generate(
       count,
       (index) => _nonNegative(values[index]),
@@ -509,11 +531,21 @@ class _OpenHandOperationalTrendChartState
   @override
   void didUpdateWidget(covariant OpenHandOperationalTrendChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_selection != null &&
-        (_selection!.seriesIndex >= widget.series.length ||
-            _selection!.pointIndex >=
-                widget.series[_selection!.seriesIndex].values.length)) {
+    final selected = _selection;
+    if (selected == null) return;
+    final refreshed = _selectionFor(selected.seriesIndex, selected.pointIndex);
+    if (refreshed == null) {
       _setSelection(null);
+      return;
+    }
+    if (refreshed.value != selected.value ||
+        refreshed.series.label != selected.series.label ||
+        refreshed.series.color != selected.series.color ||
+        refreshed.xLabel != selected.xLabel) {
+      _selection = refreshed;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onSelectionChanged?.call(refreshed);
+      });
     }
   }
 
@@ -540,7 +572,9 @@ class _OpenHandOperationalTrendChartState
     if (seriesIndex < 0 || seriesIndex >= widget.series.length) return null;
     final series = widget.series[seriesIndex];
     if (pointIndex < 0 || pointIndex >= series.values.length) return null;
-    final value = _nonNegative(series.values[pointIndex]);
+    final rawValue = series.values[pointIndex];
+    if (!rawValue.isFinite || rawValue < 0) return null;
+    final value = rawValue;
     return OpenHandOperationalTrendSelection(
       seriesIndex: seriesIndex,
       pointIndex: pointIndex,
@@ -575,9 +609,15 @@ class _OpenHandOperationalTrendChartState
       (maximum, series) => math.max(maximum, series.values.length),
     );
     if (total == 0) return;
-    final currentIndex = _selection?.pointIndex ?? (direction > 0 ? -1 : total);
-    final target = (currentIndex + direction).clamp(0, total - 1);
-    _setSelection(_selectionForIndex(target));
+    var target = _selection?.pointIndex ?? (direction > 0 ? -1 : total);
+    while (true) {
+      target += direction;
+      if (target < 0 || target >= total) return;
+      final selection = _selectionForIndex(target);
+      if (selection == null) continue;
+      _setSelection(selection);
+      return;
+    }
   }
 
   OpenHandOperationalTrendSelection? _selectionFromOffset(
@@ -610,7 +650,9 @@ class _OpenHandOperationalTrendChartState
         normalizedMaximum,
       );
       for (var pointIndex = 0; pointIndex < points.length; pointIndex++) {
-        final distanceSquared = (points[pointIndex] - position).distanceSquared;
+        final point = points[pointIndex];
+        if (point == null) continue;
+        final distanceSquared = (point - position).distanceSquared;
         if (distanceSquared <= bestDistanceSquared) {
           bestDistanceSquared = distanceSquared;
           best = _selectionFor(seriesIndex, pointIndex);
@@ -797,6 +839,7 @@ class _TrendSelectionPainter extends CustomPainter {
     );
     if (selected.pointIndex >= points.length) return;
     final point = points[selected.pointIndex];
+    if (point == null) return;
     canvas.drawLine(
       Offset(point.dx, chart.top),
       Offset(point.dx, chart.bottom),
@@ -865,8 +908,25 @@ class _OpenHandOperationalDonutChartState
   @override
   void didUpdateWidget(covariant OpenHandOperationalDonutChart oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (_selection != null && _selection!.index >= widget.segments.length) {
+    final selected = _selection;
+    if (selected == null) return;
+    if (selected.index >= widget.segments.length) {
       _setSelection(null);
+      return;
+    }
+    final segment = widget.segments[selected.index];
+    if (segment.label != selected.segment.label ||
+        segment.value != selected.segment.value ||
+        segment.color != selected.segment.color ||
+        segment.valueLabel != selected.segment.valueLabel) {
+      final refreshed = OpenHandOperationalDonutSelection(
+        index: selected.index,
+        segment: segment,
+      );
+      _selection = refreshed;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) widget.onSelectionChanged?.call(refreshed);
+      });
     }
   }
 
@@ -879,6 +939,22 @@ class _OpenHandOperationalDonutChartState
   void _activate(OpenHandOperationalDonutSelection value) {
     _setSelection(value);
     widget.onSegmentTap?.call(value);
+  }
+
+  OpenHandOperationalDonutSelection? _firstSelection() {
+    for (var index = 0; index < widget.segments.length; index++) {
+      if (widget.segments[index].safeValue <= 0) continue;
+      return OpenHandOperationalDonutSelection(
+        index: index,
+        segment: widget.segments[index],
+      );
+    }
+    return null;
+  }
+
+  void _activateCurrentSelection() {
+    final selection = _selection ?? _firstSelection();
+    if (selection != null) _activate(selection);
   }
 
   void _moveSelection(int direction) {
@@ -955,7 +1031,7 @@ class _OpenHandOperationalDonutChartState
         label: widget.semanticLabel,
         value: _selectionText(_selection),
         hint: '点击或悬停圆环分段，使用左右方向键切换分段',
-        onTap: () => _moveSelection(1),
+        onTap: _activateCurrentSelection,
         onIncrease: () => _moveSelection(1),
         onDecrease: () => _moveSelection(-1),
         increasedValue: '下一个分段',
@@ -976,7 +1052,7 @@ class _OpenHandOperationalDonutChartState
             }
             if (event.logicalKey == LogicalKeyboardKey.enter ||
                 event.logicalKey == LogicalKeyboardKey.space) {
-              _moveSelection(1);
+              _activateCurrentSelection();
               return KeyEventResult.handled;
             }
             return KeyEventResult.ignored;
@@ -1388,6 +1464,44 @@ class OpenHandOperationalComparisonBars extends StatelessWidget {
   }
 }
 
+class _ChartActionSurface extends StatelessWidget {
+  const _ChartActionSurface({
+    required this.semanticLabel,
+    required this.onTap,
+    required this.child,
+  });
+
+  final String semanticLabel;
+  final VoidCallback? onTap;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    if (onTap == null) return child;
+    return Semantics(
+      button: true,
+      label: semanticLabel,
+      onTap: onTap,
+      child: Focus(
+        onKeyEvent: (node, event) {
+          if (event is KeyDownEvent &&
+              (event.logicalKey == LogicalKeyboardKey.enter ||
+                  event.logicalKey == LogicalKeyboardKey.space)) {
+            onTap!();
+            return KeyEventResult.handled;
+          }
+          return KeyEventResult.ignored;
+        },
+        child: GestureDetector(
+          behavior: HitTestBehavior.opaque,
+          onTap: onTap,
+          child: child,
+        ),
+      ),
+    );
+  }
+}
+
 class _HorizontalComparisonBars extends StatelessWidget {
   const _HorizontalComparisonBars({
     required this.segments,
@@ -1408,8 +1522,8 @@ class _HorizontalComparisonBars extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         for (final segment in segments) ...[
-          GestureDetector(
-            behavior: HitTestBehavior.opaque,
+          _ChartActionSurface(
+            semanticLabel: '${segment.label}，${valueLabel(segment)}',
             onTap: onSegmentTap == null ? null : () => onSegmentTap!(segment),
             child: Row(
               children: [
@@ -1492,8 +1606,8 @@ class _VerticalComparisonBars extends StatelessWidget {
         children: [
           for (final segment in segments)
             Expanded(
-              child: GestureDetector(
-                behavior: HitTestBehavior.opaque,
+              child: _ChartActionSurface(
+                semanticLabel: '${segment.label}，${valueLabel(segment)}',
                 onTap: onSegmentTap == null
                     ? null
                     : () => onSegmentTap!(segment),

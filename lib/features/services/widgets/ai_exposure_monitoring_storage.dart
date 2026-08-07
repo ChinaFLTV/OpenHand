@@ -22,7 +22,7 @@ class _StoragePanel extends StatelessWidget {
     final rules = controller.rules;
     final dependencies = controller.dependencyStatus;
     final historyIds = history.map((entry) => entry.id).toSet();
-    final orphanResults = results
+    final missingHistoryLinks = results
         .where((result) => !historyIds.contains(result.jobId))
         .length;
     final missingEvidence = results
@@ -39,7 +39,7 @@ class _StoragePanel extends StatelessWidget {
         .length;
     final resumable = history.where((entry) => entry.isResumable).length;
     final failed = history.where((entry) => entry.stage == 'failed').length;
-    final integrityIssues = orphanResults + missingEvidence;
+    final integrityIssues = missingEvidence;
     final recordCount =
         history.length + results.length + logs.length + rules.length;
     final chronological = history.take(24).toList().reversed.toList();
@@ -74,7 +74,7 @@ class _StoragePanel extends StatelessWidget {
               Icons.storage_rounded,
               'SQLite 数据库',
               databaseAccessible ? formatByteSize(databaseBytes ?? 0) : '--',
-              databaseAccessible ? 'WAL 持久化可访问' : '等待本地服务路径',
+              databaseAccessible ? '数据库文件可访问' : '等待本地服务路径',
               color: databaseAccessible
                   ? OpenHandStatusColors.success
                   : colors.outline,
@@ -92,7 +92,7 @@ class _StoragePanel extends StatelessWidget {
             _Metric(
               _MetricInsightId.storageVisibleRecords,
               Icons.inventory_2_outlined,
-              '可见记录',
+              '当前可见记录',
               '$recordCount',
               '任务、结果、规则与日志',
               color: OpenHandStatusColors.info,
@@ -100,7 +100,7 @@ class _StoragePanel extends StatelessWidget {
             _Metric(
               _MetricInsightId.storageTaskArchive,
               Icons.work_history_outlined,
-              '任务归档',
+              '当前任务窗口',
               '${history.length}',
               '$unfinished 个未结束',
               color: colors.primary,
@@ -108,7 +108,7 @@ class _StoragePanel extends StatelessWidget {
             _Metric(
               _MetricInsightId.storageResultArchive,
               Icons.fact_check_outlined,
-              '结果归档',
+              '当前结果窗口',
               '${results.length}',
               '$missingEvidence 条缺少证据',
               color: const Color(0xff0891b2),
@@ -172,7 +172,7 @@ class _StoragePanel extends StatelessWidget {
                   : Icons.warning_amber_rounded,
               '一致性审计',
               integrityIssues == 0 ? '通过' : '$integrityIssues 项',
-              '孤立结果 $orphanResults · 缺少证据 $missingEvidence',
+              '当前窗口关联缺口 $missingHistoryLinks · 缺少证据 $missingEvidence',
               color: integrityIssues == 0
                   ? OpenHandStatusColors.success
                   : OpenHandStatusColors.warning,
@@ -296,7 +296,7 @@ class _StoragePanel extends StatelessWidget {
                     ready: databaseAccessible,
                     configured: true,
                     detail: databaseAccessible
-                        ? 'WAL 日志模式 · 外键约束开启 · ${formatByteSize(databaseBytes ?? 0)}'
+                        ? '数据库文件可访问 · ${formatByteSize(databaseBytes ?? 0)} · WAL/外键状态未从运行时验证'
                         : '等待本地数据库文件',
                   ),
                   _DependencyLine(
@@ -304,7 +304,7 @@ class _StoragePanel extends StatelessWidget {
                     name: '凭证密钥库',
                     ready: controller.isRunning,
                     detail: controller.ownsProcess
-                        ? '内置引擎 AES-256-GCM · 数据库与密钥文件权限隔离'
+                        ? '内置引擎声明使用 AES-256-GCM · 当前运行时未提供加密证明字段'
                         : '外部服务未提供运行时加密证明',
                   ),
                   _DependencyLine(
@@ -335,7 +335,10 @@ class _StoragePanel extends StatelessWidget {
               icon: Icons.rule_folder_outlined,
               child: Column(
                 children: [
-                  _OpsKeyValue(label: '孤立结果', value: '$orphanResults'),
+                  _OpsKeyValue(
+                    label: '当前窗口关联缺口',
+                    value: '$missingHistoryLinks',
+                  ),
                   _OpsKeyValue(label: '缺少证据结果', value: '$missingEvidence'),
                   _OpsKeyValue(label: '未结束任务', value: '$unfinished'),
                   _OpsKeyValue(

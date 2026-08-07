@@ -271,30 +271,29 @@ Widget _buildOverviewMetricInsight(
               '有效',
               category(AiExposureResultCategory.valid),
               OpenHandStatusColors.success,
+              key: AiExposureResultCategory.valid,
             ),
             _DistributionItem(
               '高价值',
               category(AiExposureResultCategory.highValue),
               colors.secondary,
+              key: AiExposureResultCategory.highValue,
             ),
             _DistributionItem(
               '可疑',
               category(AiExposureResultCategory.suspicious),
               OpenHandStatusColors.warning,
+              key: AiExposureResultCategory.suspicious,
             ),
             _DistributionItem(
               '蜜罐',
               category(AiExposureResultCategory.honeypot),
               OpenHandStatusColors.error,
+              key: AiExposureResultCategory.honeypot,
             ),
           ],
           detailBuilder: (context, item) {
-            final selectedCategory = switch (item.label) {
-              '有效' => AiExposureResultCategory.valid,
-              '高价值' => AiExposureResultCategory.highValue,
-              '可疑' => AiExposureResultCategory.suspicious,
-              _ => AiExposureResultCategory.honeypot,
-            };
+            final selectedCategory = item.key! as AiExposureResultCategory;
             return _metricResultPanel(
               results.where((result) => result.category == selectedCategory),
               title: '${item.label}结果证据',
@@ -1262,7 +1261,8 @@ AiExposureSource _sourceQuotaKey(AiExposureSource source) =>
 
 List<_SourceInsightState> _sourceInsightStates(
   ServicesController controller, {
-  bool includeManual = false,
+  bool includeManual = true,
+  bool includeArtifact = true,
 }) {
   final quotas = {for (final quota in controller.quotas) quota.source: quota};
   final tasks = <AiExposureSource, int>{};
@@ -1278,7 +1278,7 @@ List<_SourceInsightState> _sourceInsightStates(
   return AiExposureSource.values
       .where(
         (source) =>
-            source != AiExposureSource.githubArtifact &&
+            (includeArtifact || source != AiExposureSource.githubArtifact) &&
             (includeManual || source != AiExposureSource.manual),
       )
       .map((source) {
@@ -2195,16 +2195,27 @@ Widget _buildNetworkMetricInsight(
           title: '请求结果构成',
           icon: Icons.donut_small_rounded,
           items: [
-            _DistributionItem('成功', successes, OpenHandStatusColors.success),
-            _DistributionItem('失败', failures, OpenHandStatusColors.error),
-            _DistributionItem('超时', timeouts, OpenHandStatusColors.warning),
+            _DistributionItem(
+              '成功',
+              successes,
+              OpenHandStatusColors.success,
+              key: _ProxyRequestLens.success,
+            ),
+            _DistributionItem(
+              '失败',
+              failures,
+              OpenHandStatusColors.error,
+              key: _ProxyRequestLens.failure,
+            ),
+            _DistributionItem(
+              '超时',
+              timeouts,
+              OpenHandStatusColors.warning,
+              key: _ProxyRequestLens.timeout,
+            ),
           ],
           detailBuilder: (context, item) {
-            final lens = switch (item.label) {
-              '成功' => _ProxyRequestLens.success,
-              '超时' => _ProxyRequestLens.timeout,
-              _ => _ProxyRequestLens.failure,
-            };
+            final lens = item.key! as _ProxyRequestLens;
             return _proxyRequestInsightPanel(
               context,
               controller,
@@ -2690,30 +2701,55 @@ Widget _buildStorageMetricInsight(
           title: '可见记录类型构成',
           icon: Icons.inventory_2_outlined,
           items: [
-            _DistributionItem('任务', history.length, colors.primary),
-            _DistributionItem('结果', results.length, OpenHandStatusColors.info),
-            _DistributionItem('规则', rules.length, colors.tertiary),
-            _DistributionItem('日志', logs.length, colors.secondary),
+            _DistributionItem(
+              '任务',
+              history.length,
+              colors.primary,
+              key: _DistributionRecordType.task,
+            ),
+            _DistributionItem(
+              '结果',
+              results.length,
+              OpenHandStatusColors.info,
+              key: _DistributionRecordType.result,
+            ),
+            _DistributionItem(
+              '规则',
+              rules.length,
+              colors.tertiary,
+              key: _DistributionRecordType.rule,
+            ),
+            _DistributionItem(
+              '日志',
+              logs.length,
+              colors.secondary,
+              key: _DistributionRecordType.log,
+            ),
           ],
-          detailBuilder: (context, item) => switch (item.label) {
-            '任务' => _metricTaskPanel(
+          detailBuilder: (context, item) => switch (item.key) {
+            _DistributionRecordType.task => _metricTaskPanel(
               history,
               title: '可见任务记录',
               emptyLabel: '暂无可见任务记录。',
             ),
-            '结果' => _metricResultPanel(
+            _DistributionRecordType.result => _metricResultPanel(
               results,
               title: '可见结果记录',
               emptyLabel: '暂无可见结果记录。',
             ),
-            '规则' => _ruleInsightPanel(context, rules, title: '可见规则记录'),
-            _ => _InsightRecordPanel(
+            _DistributionRecordType.rule => _ruleInsightPanel(
+              context,
+              rules,
+              title: '可见规则记录',
+            ),
+            _DistributionRecordType.log => _InsightRecordPanel(
               icon: Icons.receipt_long_outlined,
               title: '可见日志记录',
               records: logs.map(_logInsightRecord).toList(growable: false),
               emptyLabel: '暂无可见日志记录。',
               maxEntries: 50,
             ),
+            _ => throw StateError('未知记录类型：${item.key}'),
           },
         ),
         _InsightTimelineSection(
@@ -2864,12 +2900,12 @@ Widget _buildStorageMetricInsight(
               color: OpenHandStatusColors.warning,
             ),
             _InsightKpi(
-              icon: Icons.link_off_rounded,
-              label: '孤立结果',
+              icon: Icons.link_outlined,
+              label: '当前窗口关联缺口',
               value:
                   '${results.where((entry) => !jobIds.contains(entry.jobId)).length}',
-              helper: '关联任务不存在',
-              color: OpenHandStatusColors.error,
+              helper: '任务可能位于未加载的历史窗口',
+              color: colors.outline,
             ),
           ],
         ),
@@ -2921,16 +2957,27 @@ Widget _buildStorageMetricInsight(
           title: '日志缓冲级别构成',
           icon: Icons.receipt_long_outlined,
           items: [
-            _DistributionItem('信息', info, OpenHandStatusColors.info),
-            _DistributionItem('警告', warnings, OpenHandStatusColors.warning),
-            _DistributionItem('错误', errors, OpenHandStatusColors.error),
+            _DistributionItem(
+              '信息',
+              info,
+              OpenHandStatusColors.info,
+              key: 'info',
+            ),
+            _DistributionItem(
+              '警告',
+              warnings,
+              OpenHandStatusColors.warning,
+              key: 'warning',
+            ),
+            _DistributionItem(
+              '错误',
+              errors,
+              OpenHandStatusColors.error,
+              key: 'error',
+            ),
           ],
           detailBuilder: (context, item) {
-            final selectedLevel = switch (item.label) {
-              '警告' => 'warning',
-              '错误' => 'error',
-              _ => 'info',
-            };
+            final selectedLevel = item.key! as String;
             return _InsightRecordPanel(
               icon: Icons.receipt_long_outlined,
               title: '${item.label}日志 · 当前缓冲',
@@ -3111,7 +3158,7 @@ Widget _buildStorageMetricInsight(
       ]);
     case _MetricInsightId.storageIntegrity:
       final jobIds = history.map((entry) => entry.id).toSet();
-      final orphan = results
+      final missingHistoryLinks = results
           .where((entry) => !jobIds.contains(entry.jobId))
           .length;
       final missingEvidence = results
@@ -3132,13 +3179,11 @@ Widget _buildStorageMetricInsight(
           icon: Icons.verified_outlined,
           items: [
             _InsightKpi(
-              icon: Icons.link_off_rounded,
-              label: '孤立结果',
-              value: '$orphan',
-              helper: '关联任务不存在',
-              color: orphan == 0
-                  ? OpenHandStatusColors.success
-                  : OpenHandStatusColors.error,
+              icon: Icons.link_outlined,
+              label: '当前窗口关联缺口',
+              value: '$missingHistoryLinks',
+              helper: '不等同于持久化层孤立结果',
+              color: colors.outline,
             ),
             _InsightKpi(
               icon: Icons.find_in_page_outlined,
@@ -3380,24 +3425,23 @@ Widget _buildSecurityMetricInsight(
               '成功',
               proxy?.totalSuccesses ?? 0,
               OpenHandStatusColors.success,
+              key: _ProxyRequestLens.success,
             ),
             _DistributionItem(
               '失败',
               proxy?.totalFailures ?? 0,
               OpenHandStatusColors.error,
+              key: _ProxyRequestLens.failure,
             ),
             _DistributionItem(
               '超时',
               proxy?.totalTimeouts ?? 0,
               OpenHandStatusColors.warning,
+              key: _ProxyRequestLens.timeout,
             ),
           ],
           detailBuilder: (context, item) {
-            final lens = switch (item.label) {
-              '成功' => _ProxyRequestLens.success,
-              '超时' => _ProxyRequestLens.timeout,
-              _ => _ProxyRequestLens.failure,
-            };
+            final lens = item.key! as _ProxyRequestLens;
             return _proxyRequestInsightPanel(
               context,
               controller,
@@ -5578,15 +5622,15 @@ Widget _integrityInsightPanel(
   final jobIds = controller.history.map((entry) => entry.id).toSet();
   final records = <_InsightRecord>[];
   for (final result in controller.results) {
-    final orphan = !jobIds.contains(result.jobId);
+    final missingHistoryLink = !jobIds.contains(result.jobId);
     final missingEvidence = result.evidence.isEmpty;
-    if (!orphan && !missingEvidence) continue;
+    if (!missingHistoryLink && !missingEvidence) continue;
     records.add(
       _InsightRecord(
         icon: Icons.fact_check_outlined,
         title: _resultDisplayName(result),
         subtitle: [
-          if (orphan) '关联任务不存在',
+          if (missingHistoryLink) '当前任务窗口未加载关联任务',
           if (missingEvidence) '缺少审计证据',
         ].join(' · '),
         tags: [
@@ -5613,9 +5657,9 @@ Widget _integrityInsightPanel(
   }
   return _InsightRecordPanel(
     icon: Icons.rule_folder_outlined,
-    title: '一致性问题',
+    title: '当前加载窗口一致性线索',
     records: records,
-    emptyLabel: '未发现孤立结果、缺少证据或未结束归档。',
+    emptyLabel: '当前加载窗口未发现关联缺口、缺少证据或未结束归档。',
   );
 }
 
@@ -5733,6 +5777,17 @@ Widget _buildDistributionInsight(
 
 String _chartRate(int value, int total) =>
     total <= 0 ? '不适用' : '${(value * 100 / total).toStringAsFixed(1)}%';
+
+int? _taskMeasuredDurationMs(AiExposureHistoryEntry task) {
+  final startedAt = task.startedAt;
+  final finishedAt = task.finishedAt;
+  if (startedAt == null ||
+      finishedAt == null ||
+      finishedAt.isBefore(startedAt)) {
+    return null;
+  }
+  return finishedAt.difference(startedAt).inMilliseconds;
+}
 
 int? _taskDurationMs(AiExposureHistoryEntry task) {
   final finishedAt = task.effectiveFinishedAt;
@@ -6340,29 +6395,49 @@ Widget _archiveGrowthTrendInsight(
       title: '当前归档记录构成',
       icon: Icons.pie_chart_outline_rounded,
       items: [
-        _DistributionItem('任务', controller.history.length, colors.primary),
+        _DistributionItem(
+          '任务',
+          controller.history.length,
+          colors.primary,
+          key: _DistributionRecordType.task,
+        ),
         _DistributionItem(
           '结果',
           controller.results.length,
           OpenHandStatusColors.info,
+          key: _DistributionRecordType.result,
         ),
-        _DistributionItem('规则', controller.rules.length, colors.tertiary),
-        _DistributionItem('日志', controller.logs.length, colors.secondary),
+        _DistributionItem(
+          '规则',
+          controller.rules.length,
+          colors.tertiary,
+          key: _DistributionRecordType.rule,
+        ),
+        _DistributionItem(
+          '日志',
+          controller.logs.length,
+          colors.secondary,
+          key: _DistributionRecordType.log,
+        ),
       ],
-      detailBuilder: (context, item) => switch (item.label) {
-        '任务' => _metricTaskPanel(
+      detailBuilder: (context, item) => switch (item.key) {
+        _DistributionRecordType.task => _metricTaskPanel(
           controller.history,
           title: '当前归档任务',
           emptyLabel: '暂无归档任务。',
         ),
-        '结果' => _metricResultPanel(
+        _DistributionRecordType.result => _metricResultPanel(
           controller.results,
           title: '当前归档结果',
           emptyLabel: '暂无归档结果。',
           lens: _ResultRecordLens.archive,
         ),
-        '规则' => _ruleInsightPanel(context, controller.rules, title: '当前规则快照'),
-        _ => _InsightRecordPanel(
+        _DistributionRecordType.rule => _ruleInsightPanel(
+          context,
+          controller.rules,
+          title: '当前规则快照',
+        ),
+        _DistributionRecordType.log => _InsightRecordPanel(
           icon: Icons.receipt_long_outlined,
           title: '当前归档日志',
           records: controller.logs
@@ -6371,6 +6446,7 @@ Widget _archiveGrowthTrendInsight(
           emptyLabel: '暂无归档日志。',
           maxEntries: 50,
         ),
+        _ => throw StateError('未知归档记录类型：${item.key}'),
       },
     ),
     _persistenceWriteEventPanel(context, controller),
@@ -6516,25 +6592,21 @@ Widget _resultCategoryDistributionInsight(
       '有效',
       count(AiExposureResultCategory.valid),
       OpenHandStatusColors.success,
-      key: AiExposureResultCategory.valid,
     ),
     _DistributionItem(
       '高价值',
       count(AiExposureResultCategory.highValue),
       const Color(0xffa855f7),
-      key: AiExposureResultCategory.highValue,
     ),
     _DistributionItem(
       '可疑',
       count(AiExposureResultCategory.suspicious),
       OpenHandStatusColors.warning,
-      key: AiExposureResultCategory.suspicious,
     ),
     _DistributionItem(
       '蜜罐',
       count(AiExposureResultCategory.honeypot),
       OpenHandStatusColors.error,
-      key: AiExposureResultCategory.honeypot,
     ),
   ];
   final actionable = items[0].value + items[1].value;

@@ -182,6 +182,127 @@ void main() {
     expect(tester.getSize(paint).aspectRatio, closeTo(1, 0.001));
   });
 
+  testWidgets('donut keyboard activation invokes segment action', (
+    tester,
+  ) async {
+    OpenHandOperationalDonutSelection? activated;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: OpenHandOperationalDonutChart(
+            segments: const [
+              OpenHandChartSegment(label: 'first', value: 1, color: blue),
+              OpenHandChartSegment(label: 'second', value: 1, color: orange),
+            ],
+            trackColor: Colors.grey,
+            showLegend: false,
+            height: 180,
+            onSelectionChanged: (_) {},
+            onSegmentTap: (selection) => activated = selection,
+          ),
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    expect(activated, isNotNull);
+    expect(activated!.segment.label, 'first');
+  });
+
+  testWidgets('live chart updates rehydrate selected snapshots', (
+    tester,
+  ) async {
+    final trendSeries = ValueNotifier<List<OpenHandChartSeries>>(const [
+      OpenHandChartSeries(label: 'requests', values: [1], color: blue),
+    ]);
+    final donutSegments = ValueNotifier<List<OpenHandChartSegment>>(const [
+      OpenHandChartSegment(label: 'first', value: 1, color: blue),
+    ]);
+    addTearDown(trendSeries.dispose);
+    addTearDown(donutSegments.dispose);
+    OpenHandOperationalTrendSelection? trendSelection;
+    OpenHandOperationalDonutSelection? donutSelection;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: Column(
+            children: [
+              ValueListenableBuilder(
+                valueListenable: trendSeries,
+                builder: (context, series, _) => OpenHandOperationalTrendChart(
+                  series: series,
+                  valueSuffix: '',
+                  height: 160,
+                  onSelectionChanged: (value) => trendSelection = value,
+                ),
+              ),
+              ValueListenableBuilder(
+                valueListenable: donutSegments,
+                builder: (context, segments, _) =>
+                    OpenHandOperationalDonutChart(
+                      segments: segments,
+                      trackColor: Colors.grey,
+                      showLegend: false,
+                      height: 160,
+                      onSelectionChanged: (value) => donutSelection = value,
+                    ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    expect(trendSelection, isNotNull);
+    await tester.sendKeyEvent(LogicalKeyboardKey.tab);
+    await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+    expect(donutSelection, isNotNull);
+
+    trendSeries.value = const [
+      OpenHandChartSeries(label: 'requests', values: [9], color: orange),
+    ];
+    donutSegments.value = const [
+      OpenHandChartSegment(label: 'updated', value: 9, color: orange),
+    ];
+    await tester.pump();
+
+    expect(trendSelection?.value, 9);
+    expect(trendSelection?.series.color, orange);
+    expect(donutSelection?.segment.label, 'updated');
+    expect(donutSelection?.segment.value, 9);
+  });
+
+  testWidgets(
+    'nonfinite trend samples are unavailable, not selectable zeroes',
+    (tester) async {
+      OpenHandOperationalTrendSelection? selection;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: OpenHandOperationalTrendChart(
+              series: const [
+                OpenHandChartSeries(
+                  label: 'samples',
+                  values: [1, double.nan, 3],
+                  color: blue,
+                ),
+              ],
+              valueSuffix: '',
+              onSelectionChanged: (value) => selection = value,
+            ),
+          ),
+        ),
+      );
+
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      expect(selection?.pointIndex, 0);
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowRight);
+      expect(selection?.pointIndex, 2);
+    },
+  );
+
   testWidgets('generic components expose empty states', (tester) async {
     final handle = tester.ensureSemantics();
     await tester.pumpWidget(

@@ -20,16 +20,15 @@ class _SourcesPanel extends StatelessWidget {
         jobCounts.update(source, (value) => value + 1, ifAbsent: () => 1);
       }
     }
-    final configured = controller.sourceStatus.values
-        .where((item) => item)
-        .length;
+    final states = _sourceInsightStates(controller);
+    final configured = states.where((state) => state.configured).length;
+    final ready = states.where((state) => state.ready).length;
     final available = controller.quotas.where((item) => item.available).length;
     final remaining = controller.quotas.fold<int>(
       0,
       (sum, item) => sum + (item.remaining ?? 0),
     );
     final sourceItems = AiExposureSource.values
-        .where((item) => item != AiExposureSource.githubArtifact)
         .map(
           (source) => _DistributionItem(
             _sourceName(source),
@@ -48,8 +47,8 @@ class _SourcesPanel extends StatelessWidget {
               _MetricInsightId.sourceReady,
               Icons.cloud_done_outlined,
               '已就绪来源',
-              '$configured/${controller.discoverySourceCount}',
-              '论坛来源无需 API 凭证',
+              '$ready/${states.length}',
+              '按访问前置与最近配额快照计算',
               color: OpenHandStatusColors.success,
             ),
             _Metric(
@@ -104,8 +103,8 @@ class _SourcesPanel extends StatelessWidget {
               _MetricInsightId.sourcePendingConfiguration,
               Icons.key_off_outlined,
               '待配置来源',
-              '${controller.discoverySourceCount - configured}',
-              '可在服务设置中补齐',
+              '${states.length - configured}',
+              '当前来源维度，可在服务设置中补齐',
               color: Theme.of(context).colorScheme.outline,
             ),
           ],
@@ -127,7 +126,6 @@ class _SourcesPanel extends StatelessWidget {
               centerValue:
                   '${jobCounts.values.fold<int>(0, (sum, item) => sum + item)}',
               items: AiExposureSource.values
-                  .where((item) => item != AiExposureSource.githubArtifact)
                   .map(
                     (source) => _DistributionItem(
                       _sourceName(source),
@@ -152,7 +150,7 @@ class _SourcesPanel extends StatelessWidget {
                     source,
                   );
                   final quota = controller.quotas
-                      .where((item) => item.source == source)
+                      .where((item) => item.source == _sourceQuotaKey(source))
                       .firstOrNull;
                   final isAvailable =
                       isConfigured && (quota?.available ?? !requiresCredential);

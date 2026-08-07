@@ -3520,6 +3520,25 @@ class _AnomalyTimeline extends StatelessWidget {
   }
 }
 
+Map<String, Object?> _redisRecordMetadata(Map<String, Object?> record) {
+  const allowed = <String>{
+    'key',
+    'type',
+    'sizeBytes',
+    'ttlSeconds',
+    'length',
+    'encoding',
+    'database',
+    'idleSeconds',
+    'frequency',
+  };
+  return <String, Object?>{
+    for (final entry in record.entries)
+      if (allowed.contains(entry.key)) entry.key: entry.value,
+    'valueExposure': '已隐藏原始值，仅展示运维元数据',
+  };
+}
+
 class _CompactRecordList extends StatelessWidget {
   const _CompactRecordList({
     required this.records,
@@ -3553,7 +3572,9 @@ class _CompactRecordList extends StatelessWidget {
               subtitle: 'Redis Key 详情',
               icon: Icons.key_rounded,
               presentation: ServiceDetailPresentation.record,
-              fields: serviceDetailFieldsFromMap(records[index]),
+              fields: serviceDetailFieldsFromMap(
+                _redisRecordMetadata(records[index]),
+              ),
             ),
             leading: Icon(Icons.key_rounded, size: 18, color: colors.primary),
             title: Text(

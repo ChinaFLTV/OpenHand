@@ -34,7 +34,7 @@ class _OverviewPanel extends StatelessWidget {
         .where((item) => item.level == 'error')
         .length;
     final durations = history
-        .map(_taskDurationMs)
+        .map(_taskMeasuredDurationMs)
         .whereType<int>()
         .map((duration) => duration.toDouble())
         .toList(growable: false);
@@ -44,8 +44,12 @@ class _OverviewPanel extends StatelessWidget {
               .round();
     final historyTrend = history.reversed.take(24).toList(growable: false);
     final durationTrend = historyTrend
-        .where((item) => _taskDurationMs(item) != null)
+        .where((item) => _taskMeasuredDurationMs(item) != null)
         .toList(growable: false);
+    final sourceStates = _sourceInsightStates(controller);
+    final configuredSources = sourceStates
+        .where((state) => state.configured)
+        .length;
     final credentialSourceCount = AiExposureSource.values
         .where(_sourceRequiresCredential)
         .map(_sourceCredentialKey)
@@ -66,7 +70,7 @@ class _OverviewPanel extends StatelessWidget {
             _Metric(
               _MetricInsightId.overviewTaskTotal,
               Icons.work_history_outlined,
-              '任务总数',
+              '当前任务窗口',
               '${history.length}',
               '完成 $completed · 失败 $failed',
               color: Theme.of(context).colorScheme.primary,
@@ -74,7 +78,7 @@ class _OverviewPanel extends StatelessWidget {
             _Metric(
               _MetricInsightId.overviewResultTotal,
               Icons.fact_check_outlined,
-              '结果总数',
+              '当前结果窗口',
               '${results.length}',
               '有效 $valid',
               color: OpenHandStatusColors.info,
@@ -90,7 +94,7 @@ class _OverviewPanel extends StatelessWidget {
             _Metric(
               _MetricInsightId.overviewProcessed,
               Icons.radar_rounded,
-              '累计处理',
+              '窗口累计处理',
               '$processed',
               '发现 $discovered',
               color: const Color(0xff0891b2),
@@ -100,14 +104,14 @@ class _OverviewPanel extends StatelessWidget {
               Icons.timer_outlined,
               '平均任务耗时',
               _duration((averageDuration / 1000).round()),
-              '已完成 ${durations.length} 项',
+              '${durations.length} 个实测完成任务',
               color: Theme.of(context).colorScheme.tertiary,
             ),
             _Metric(
               _MetricInsightId.overviewConfiguredSources,
               Icons.travel_explore_rounded,
               '已配置源',
-              '${controller.sourceStatus.values.where((item) => item).length}',
+              '$configuredSources/${sourceStates.length}',
               '$credentialSourceCount 个独立凭证组',
               color: OpenHandStatusColors.success,
             ),
@@ -210,7 +214,7 @@ class _OverviewPanel extends StatelessWidget {
                 OpenHandChartSeries(
                   label: '耗时',
                   values: durationTrend
-                      .map((item) => _taskDurationMs(item)!.toDouble())
+                      .map((item) => _taskMeasuredDurationMs(item)!.toDouble())
                       .toList(growable: false),
                   color: Theme.of(context).colorScheme.tertiary,
                 ),

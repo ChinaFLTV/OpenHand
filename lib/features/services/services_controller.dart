@@ -248,6 +248,8 @@ class ServicesController extends ChangeNotifier {
         try {
           final status = await _updateProxyRuntime(client);
           if (!_isCurrentClient(client)) return;
+          await _mergeProxyStatistics(status);
+          if (!_isCurrentClient(client)) return;
           _proxyStatus = status;
           _proxyRuntimeSyncError = null;
           _notify();
