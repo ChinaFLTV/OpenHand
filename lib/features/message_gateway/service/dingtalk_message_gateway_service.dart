@@ -15,6 +15,37 @@ class DingTalkGatewayQueryResult {
   final String? warning;
 }
 
+/// dws 返回的业务错误。可选详情接口失败时由调用方按错误类别降级处理。
+class DingTalkGatewayCommandException implements Exception {
+  const DingTalkGatewayCommandException({
+    required this.message,
+    this.category,
+    this.reason,
+    this.serverCode,
+    this.operation,
+  });
+
+  final String message;
+  final String? category;
+  final String? reason;
+  final String? serverCode;
+  final String? operation;
+
+  bool get isBusinessError =>
+      category == 'api' ||
+      reason == 'business_error' ||
+      (serverCode != null && serverCode!.trim().isNotEmpty);
+
+  bool get isPermissionDenied =>
+      serverCode == '2001' ||
+      message.contains('无花名册管理权限') ||
+      message.contains('权限不足') ||
+      message.contains('无权限');
+
+  @override
+  String toString() => message;
+}
+
 class DingTalkMessageGatewayService {
   static const Duration _commandTimeout = Duration(seconds: 25);
   static const Duration _authTimeout = Duration(minutes: 15);
@@ -23,6 +54,7 @@ class DingTalkMessageGatewayService {
   Process? _authProcess;
   String? _executable;
   bool _authCancelled = false;
+  bool _rosterAccessDenied = false;
 
   String? get cachedExecutable => _executable;
 
@@ -60,6 +92,7 @@ class DingTalkMessageGatewayService {
     required Future<void> Function(String url) onDeviceUrl,
   }) async {
     _authCancelled = false;
+    _rosterAccessDenied = false;
     final executable = await _requireExecutable();
     final process = await startTrackedProcessBounded(
       executable,
@@ -180,6 +213,7 @@ class DingTalkMessageGatewayService {
   }
 
   Future<DingTalkAuthStatus> logout({String? profile}) async {
+    _rosterAccessDenied = false;
     final args = <String>['auth', 'logout'];
     if (profile != null && profile.trim().isNotEmpty) {
       args.addAll(<String>['--profile', profile.trim()]);
@@ -397,17 +431,7 @@ class DingTalkMessageGatewayService {
         <Future<MapEntry<String, Object?>?>>[
           _loadDetail('会话信息', () => _loadConversationInfo(conversation)),
           _loadDetail('联系人信息', () => _loadContact(conversation)),
-          _loadDetail(
-            '可见花名册字段',
-            () => _runJson(const <String>[
-              'contact',
-              'user',
-              'profile',
-              'fields',
-              '--format',
-              'json',
-            ]),
-          ),
+          _loadDetail('可见花名册字段', _loadRosterFields),
           _loadDetail(
             '特别关注列表',
             () => _runJson(const <String>[
@@ -427,26 +451,13 @@ class DingTalkMessageGatewayService {
       final contact = result['联系人信息'];
       final staffId = _extractFirstStaffId(contact);
       final departmentIds = _extractDepartmentIds(contact);
-      final contactDetails = await Future.wait(
-        <Future<MapEntry<String, Object?>?>>[
-          if (staffId.isNotEmpty)
-            _loadDetail(
-              '联系人档案',
-              () => _runJson(<String>[
-                'contact',
-                'user',
-                'profile',
-                'get',
-                '--staff-id',
-                staffId,
-                '--format',
-                'json',
-              ]),
-            ),
-          if (departmentIds.isNotEmpty)
-            _loadDetail('部门资料', () => _loadDepartmentDetails(departmentIds)),
-        ],
-      );
+      final contactDetails =
+          await Future.wait(<Future<MapEntry<String, Object?>?>>[
+            if (staffId.isNotEmpty && !_rosterAccessDenied)
+              _loadDetail('联系人档案', () => _loadRosterProfile(staffId)),
+            if (departmentIds.isNotEmpty)
+              _loadDetail('部门资料', () => _loadDepartmentDetails(departmentIds)),
+          ]);
       for (final entry in contactDetails.nonNulls) {
         result[entry.key] = entry.value;
       }
@@ -469,6 +480,9 @@ class DingTalkMessageGatewayService {
       final value = await loader();
       return MapEntry<String, Object?>(name, value);
     } catch (error, stack) {
+      if (error is DingTalkGatewayCommandException && error.isBusinessError) {
+        return null;
+      }
       silentLog('dingtalk_gateway', '读取$name', error, stack);
       return null;
     }
@@ -500,6 +514,40 @@ class DingTalkMessageGatewayService {
         silentLog('dingtalk_gateway', '按名称读取联系人', fallbackError, fallbackStack);
         rethrow;
       }
+    }
+  }
+
+  Future<Object?> _loadRosterFields() async {
+    try {
+      return await _runJson(const <String>[
+        'contact',
+        'user',
+        'profile',
+        'fields',
+        '--format',
+        'json',
+      ]);
+    } on DingTalkGatewayCommandException catch (error) {
+      if (error.isPermissionDenied) _rosterAccessDenied = true;
+      rethrow;
+    }
+  }
+
+  Future<Object?> _loadRosterProfile(String staffId) async {
+    try {
+      return await _runJson(<String>[
+        'contact',
+        'user',
+        'profile',
+        'get',
+        '--staff-id',
+        staffId,
+        '--format',
+        'json',
+      ]);
+    } on DingTalkGatewayCommandException catch (error) {
+      if (error.isPermissionDenied) _rosterAccessDenied = true;
+      rethrow;
     }
   }
 
@@ -584,7 +632,9 @@ class DingTalkMessageGatewayService {
       batches,
       (batch) => _runJson(<String>[
         'chat',
-        '+chat-members-get',
+        'group',
+        'members',
+        'list-by-ids',
         '--id',
         groupId,
         '--users',
@@ -655,6 +705,9 @@ class DingTalkMessageGatewayService {
     try {
       return await _runJson(arguments);
     } catch (error, stack) {
+      if (error is DingTalkGatewayCommandException && error.isBusinessError) {
+        return null;
+      }
       silentLog('dingtalk_gateway', name, error, stack);
       return null;
     }
@@ -675,6 +728,10 @@ class DingTalkMessageGatewayService {
         try {
           results[index] = await action(values[index]);
         } catch (error, stack) {
+          if (error is DingTalkGatewayCommandException &&
+              error.isBusinessError) {
+            continue;
+          }
           silentLog('dingtalk_gateway', onError, error, stack);
         }
       }
@@ -703,8 +760,10 @@ class DingTalkMessageGatewayService {
           'memberUserId',
           'member_user_id',
         ]) {
-          final id = '${map[key] ?? ''}'.trim();
-          if (id.isNotEmpty) ids.add(id);
+          final raw = map[key];
+          if (raw is Map || raw is List) continue;
+          final id = '$raw'.trim();
+          if (id.isNotEmpty && id != 'null') ids.add(id);
         }
         for (final item in map.values) {
           visit(item);
@@ -725,8 +784,6 @@ class DingTalkMessageGatewayService {
       'openDingTalkId',
       'openDingtalkId',
       'open_dingtalk_id',
-      'memberDingtalkId',
-      'member_dingtalk_id',
     });
   }
 
@@ -766,8 +823,12 @@ class DingTalkMessageGatewayService {
       if (current is Map) {
         final map = _asMap(current);
         for (final key in keys) {
-          final candidate = '${map[key] ?? ''}'.trim();
-          if (candidate.isNotEmpty) values.add(candidate);
+          final raw = map[key];
+          if (raw is Map || raw is List) continue;
+          final candidate = '$raw'.trim();
+          if (candidate.isNotEmpty && candidate != 'null') {
+            values.add(candidate);
+          }
         }
         for (final item in map.values) {
           visit(item);
@@ -818,8 +879,10 @@ class DingTalkMessageGatewayService {
       if (current is Map) {
         final map = _asMap(current);
         for (final key in const <String>['staffId', 'staff_id']) {
-          final candidate = '${map[key] ?? ''}'.trim();
-          if (candidate.isNotEmpty) {
+          final raw = map[key];
+          if (raw is Map || raw is List) continue;
+          final candidate = '$raw'.trim();
+          if (candidate.isNotEmpty && candidate != 'null') {
             found = candidate;
             return;
           }
@@ -894,10 +957,19 @@ class DingTalkMessageGatewayService {
       maxCapturedLinesPerStream: 4096,
     );
     final decoded = _decodeJson(result.stdout);
-    if (result.exitCode != 0) {
-      throw StateError(
-        _asMap(decoded)['message']?.toString() ??
-            result.stderr.trim().ifEmpty('dws 执行失败。'),
+    final payload = _asMap(decoded);
+    final error = _asMap(payload['error']);
+    if (result.exitCode != 0 || error.isNotEmpty) {
+      final message =
+          error['message']?.toString().trim().ifEmpty('dws 执行失败。') ??
+          payload['message']?.toString().trim().ifEmpty('dws 执行失败。') ??
+          result.stderr.trim().ifEmpty('dws 执行失败。');
+      throw DingTalkGatewayCommandException(
+        message: message,
+        category: error['category']?.toString(),
+        reason: error['reason']?.toString(),
+        serverCode: error['server_error_code']?.toString(),
+        operation: error['operation']?.toString(),
       );
     }
     return decoded;

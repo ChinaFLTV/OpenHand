@@ -96,7 +96,9 @@ Future<String> _readMcpHttpErrorBodyBestEffort(
       allowMalformed: true,
     );
   } catch (error, stack) {
-    silentLog('mcp_tool_discovery_service', '读取有界 HTTP 错误响应', error, stack);
+    if (!_isExpectedMcpTransportError(error)) {
+      silentLog('mcp_tool_discovery_service', '读取有界 HTTP 错误响应', error, stack);
+    }
     return '';
   }
 }
@@ -123,6 +125,13 @@ bool _isExpectedStreamableSessionCloseError(Object error) {
   final message = error.message.trim();
   return message == _httpClientAlreadyClosedMessage ||
       message.startsWith(_httpConnectionClosedBeforeHeadersMessage);
+}
+
+bool _isExpectedMcpTransportError(Object error) {
+  return error is HandshakeException ||
+      error is TlsException ||
+      error is SocketException ||
+      error is http.ClientException;
 }
 
 abstract class McpToolDiscoveryService {
@@ -285,7 +294,9 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           lastScannedAt: scannedAt,
         );
       } catch (error, stack) {
-        silentLog('mcp_tool_discovery_service', '发现 MCP 工具', error, stack);
+        if (!_isExpectedMcpTransportError(error)) {
+          silentLog('mcp_tool_discovery_service', '发现 MCP 工具', error, stack);
+        }
         return McpToolCatalog(
           status: McpToolCatalogStatus.failed,
           errorMessage: _friendlyMcpDiscoveryError(server, error),
@@ -344,7 +355,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
           lastCheckedAt: checkedAt,
         );
       } catch (error, stack) {
-        silentLog('mcp_tool_discovery_service', '检查 MCP 服务健康状态', error, stack);
+        if (!_isExpectedMcpTransportError(error)) {
+          silentLog(
+            'mcp_tool_discovery_service',
+            '检查 MCP 服务健康状态',
+            error,
+            stack,
+          );
+        }
         return McpServerHealth(
           status: McpServerHealthStatus.unhealthy,
           errorMessage: _friendlyMcpDiscoveryError(server, error),
