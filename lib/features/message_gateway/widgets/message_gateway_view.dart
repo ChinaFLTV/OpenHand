@@ -12553,60 +12553,75 @@ class _DingTalkConversationDetailsDialogState
       width: double.infinity,
       height: 690,
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
+        padding: const EdgeInsets.fromLTRB(20, 16, 20, 16),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Row(
               children: [
-                Icon(
-                  widget.conversation.type == DingTalkConversationType.group
-                      ? Icons.groups_rounded
-                      : Icons.person_rounded,
-                  color: colors.primary,
+                Container(
+                  padding: const EdgeInsets.all(8),
+                  decoration: BoxDecoration(
+                    color: colors.primaryContainer.withValues(alpha: 0.7),
+                    borderRadius: BorderRadius.circular(10),
+                  ),
+                  child: Icon(
+                    widget.conversation.type == DingTalkConversationType.group
+                        ? Icons.groups_rounded
+                        : Icons.person_rounded,
+                    size: 20,
+                    color: colors.onPrimaryContainer,
+                  ),
                 ),
-                const SizedBox(width: 10),
+                const SizedBox(width: 12),
                 Expanded(
-                  child: Text(
-                    widget.conversation.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleLarge,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.conversation.title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        widget.conversation.type == DingTalkConversationType.group
+                            ? openHandLocalizedText(
+                                context,
+                                zh: '群聊详情',
+                                zhHant: '群聊詳情',
+                                en: 'Group details',
+                                fr: 'Détails du groupe',
+                                de: 'Gruppendetails',
+                                ja: 'グループ詳細',
+                              )
+                            : openHandLocalizedText(
+                                context,
+                                zh: '联系人详情',
+                                zhHant: '聯絡人詳情',
+                                en: 'Contact details',
+                                fr: 'Détails du contact',
+                                de: 'Kontaktdetails',
+                                ja: '連絡先の詳細',
+                              ),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
                   ),
                 ),
                 IconButton(
                   tooltip: '关闭',
                   onPressed: _close,
-                  icon: const Icon(Icons.close_rounded),
+                  icon: const Icon(Icons.close_rounded, size: 20),
                 ),
               ],
             ),
-            const SizedBox(height: 4),
-            Text(
-              widget.conversation.type == DingTalkConversationType.group
-                  ? openHandLocalizedText(
-                      context,
-                      zh: '群聊详情',
-                      zhHant: '群聊詳情',
-                      en: 'Group details',
-                      fr: 'Détails du groupe',
-                      de: 'Gruppendetails',
-                      ja: 'グループ詳細',
-                    )
-                  : openHandLocalizedText(
-                      context,
-                      zh: '联系人详情',
-                      zhHant: '聯絡人詳情',
-                      en: 'Contact details',
-                      fr: 'Détails du contact',
-                      de: 'Kontaktdetails',
-                      ja: '連絡先の詳細',
-                    ),
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-              ),
-            ),
-            const SizedBox(height: 14),
+            const SizedBox(height: 12),
             Expanded(
               child: FutureBuilder<Object?>(
                 future: _details,
@@ -12712,28 +12727,175 @@ class _DingTalkDetailsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final document = _buildDingTalkDetailDocument(value);
-    final sections = <Widget>[
-      _DingTalkDetailIdentityCard(conversation: conversation),
-      if (document.conversation.isNotEmpty)
-        _DingTalkDetailSection(
-          label: '会话概览',
-          value: document.conversation,
-          icon: Icons.forum_rounded,
-        ),
-      if (document.contact.isNotEmpty)
-        _DingTalkDetailSection(
-          label: '联系人资料',
-          value: document.contact,
-          icon: Icons.person_rounded,
-        ),
-      if (document.members.isNotEmpty)
-        _DingTalkMemberSection(members: document.members),
-    ];
-    return ListView.separated(
+
+    return SingleChildScrollView(
       padding: const EdgeInsets.fromLTRB(2, 2, 4, 18),
-      itemCount: sections.length,
-      separatorBuilder: (_, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) => sections[index],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _DingTalkDetailIdentityCard(conversation: conversation),
+          if (document.conversation.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _DingTalkDetailCardGroup(
+              title: '会话概览',
+              icon: Icons.forum_rounded,
+              badge: _dingtalkDetailCountLabel(context, document.conversation.length),
+              child: _DingTalkDetailGrid(data: document.conversation),
+            ),
+          ],
+          if (document.contact.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _DingTalkDetailCardGroup(
+              title: '联系人资料',
+              icon: Icons.person_rounded,
+              badge: _dingtalkDetailCountLabel(context, document.contact.length),
+              child: _DingTalkDetailGrid(data: document.contact),
+            ),
+          ],
+          if (document.members.isNotEmpty) ...[
+            const SizedBox(height: 16),
+            _DingTalkDetailCardGroup(
+              title: '群成员',
+              icon: Icons.people_alt_rounded,
+              badge: _dingtalkDetailCountLabel(context, document.members.length, unit: '人'),
+              child: ListView.separated(
+                shrinkWrap: true,
+                physics: const NeverScrollableScrollPhysics(),
+                itemCount: document.members.length,
+                separatorBuilder: (context, index) => const SizedBox(height: 10),
+                itemBuilder: (context, index) => _DingTalkMemberCard(
+                  details: document.members[index],
+                ),
+              ),
+            ),
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+class _DingTalkDetailCardGroup extends StatelessWidget {
+  const _DingTalkDetailCardGroup({
+    required this.title,
+    required this.icon,
+    required this.badge,
+    required this.child,
+  });
+
+  final String title;
+  final IconData icon;
+  final String badge;
+  final Widget child;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.35),
+        ),
+      ),
+      padding: const EdgeInsets.all(16),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Container(
+                padding: const EdgeInsets.all(6),
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(8),
+                ),
+                child: Icon(
+                  icon,
+                  size: 16,
+                  color: colors.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  _displayDingTalkDetailLabel(context, title),
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
+                  ),
+                ),
+              ),
+              Container(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                decoration: BoxDecoration(
+                  color: colors.surfaceContainerHighest.withValues(alpha: 0.6),
+                  borderRadius: BorderRadius.circular(10),
+                ),
+                child: Text(
+                  badge,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 14),
+          child,
+        ],
+      ),
+    );
+  }
+}
+
+class _DingTalkDetailGrid extends StatelessWidget {
+  const _DingTalkDetailGrid({required this.data});
+
+  final Map<String, Object?> data;
+
+  @override
+  Widget build(BuildContext context) {
+    final entries = data.entries.toList(growable: false);
+    final simpleEntries = entries.where((e) => !_dingtalkIsCompound(e.value)).toList();
+    final compoundEntries = entries.where((e) => _dingtalkIsCompound(e.value)).toList();
+
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        if (simpleEntries.isNotEmpty)
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final crossAxisCount = constraints.maxWidth > 520 ? 3 : 2;
+              final width = (constraints.maxWidth - (crossAxisCount - 1) * 10) / crossAxisCount;
+              return Wrap(
+                spacing: 10,
+                runSpacing: 10,
+                children: [
+                  for (final entry in simpleEntries)
+                    SizedBox(
+                      width: width,
+                      child: _DingTalkDetailField(
+                        label: entry.key,
+                        value: entry.value,
+                      ),
+                    ),
+                ],
+              );
+            },
+          ),
+        if (compoundEntries.isNotEmpty) ...[
+          if (simpleEntries.isNotEmpty) const SizedBox(height: 12),
+          for (final entry in compoundEntries) ...[
+            _DingTalkDetailNestedSection(
+              label: entry.key,
+              value: entry.value,
+            ),
+            const SizedBox(height: 10),
+          ],
+        ],
+      ],
     );
   }
 }
@@ -12782,68 +12944,6 @@ _DingTalkDetailDocument _buildDingTalkDetailDocument(Object value) {
   );
 }
 
-class _DingTalkMemberSection extends StatelessWidget {
-  const _DingTalkMemberSection({required this.members});
-
-  final List<Map<String, Object?>> members;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Material(
-      color: colors.surfaceContainerLow,
-      shadowColor: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.secondaryContainer,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      Icons.people_alt_rounded,
-                      size: 19,
-                      color: colors.onSecondaryContainer,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _displayDingTalkDetailLabel(context, '群成员'),
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                Text(
-                  _dingtalkDetailCountLabel(context, members.length, unit: '人'),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 12),
-            for (var index = 0; index < members.length; index++) ...[
-              if (index > 0) const SizedBox(height: 8),
-              _DingTalkMemberCard(details: members[index]),
-            ],
-          ],
-        ),
-      ),
-    );
-  }
-}
-
 class _DingTalkMemberCard extends StatelessWidget {
   const _DingTalkMemberCard({required this.details});
 
@@ -12858,75 +12958,74 @@ class _DingTalkMemberCard extends StatelessWidget {
     final fields = Map<String, Object?>.from(details)
       ..remove('姓名')
       ..remove('群内角色');
-    return DecoratedBox(
+
+    return Container(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.7)),
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(12),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
       ),
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                CircleAvatar(
-                  radius: 18,
-                  backgroundColor: colors.primaryContainer,
-                  child: Icon(
-                    Icons.person_rounded,
-                    size: 20,
-                    color: colors.onPrimaryContainer,
+      padding: const EdgeInsets.all(12),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              CircleAvatar(
+                radius: 16,
+                backgroundColor: colors.primaryContainer,
+                child: Icon(
+                  Icons.person_rounded,
+                  size: 18,
+                  color: colors.onPrimaryContainer,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: Text(
+                  name.isEmpty
+                      ? openHandLocalizedText(
+                          context,
+                          zh: '未命名成员',
+                          zhHant: '未命名成員',
+                          en: 'Unnamed member',
+                          fr: 'Membre sans nom',
+                          de: 'Unbenanntes Mitglied',
+                          ja: '名前なしのメンバー',
+                        )
+                      : name,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleSmall?.copyWith(
+                    fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: 10),
-                Expanded(
+              ),
+              if (role.isNotEmpty)
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 8,
+                    vertical: 3,
+                  ),
+                  decoration: BoxDecoration(
+                    color: colors.tertiaryContainer.withValues(alpha: 0.8),
+                    borderRadius: BorderRadius.circular(6),
+                  ),
                   child: Text(
-                    name.isEmpty
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '未命名成员',
-                            zhHant: '未命名成員',
-                            en: 'Unnamed member',
-                            fr: 'Membre sans nom',
-                            de: 'Unbenanntes Mitglied',
-                            ja: '名前なしのメンバー',
-                          )
-                        : name,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.w800,
+                    _dingtalkRoleLabel(context, role),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onTertiaryContainer,
+                      fontWeight: FontWeight.w600,
                     ),
                   ),
                 ),
-                if (role.isNotEmpty)
-                  Container(
-                    padding: const EdgeInsets.symmetric(
-                      horizontal: 9,
-                      vertical: 5,
-                    ),
-                    decoration: BoxDecoration(
-                      color: colors.tertiaryContainer,
-                      borderRadius: BorderRadius.circular(9),
-                    ),
-                    child: Text(
-                      _dingtalkRoleLabel(context, role),
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onTertiaryContainer,
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ),
-              ],
-            ),
-            if (fields.isNotEmpty) ...[
-              const SizedBox(height: 10),
-              _DingTalkDetailValue(value: fields),
             ],
+          ),
+          if (fields.isNotEmpty) ...[
+            const SizedBox(height: 10),
+            _DingTalkDetailGrid(data: fields),
           ],
-        ),
+        ],
       ),
     );
   }
@@ -12942,35 +13041,31 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final isGroup = conversation.type == DingTalkConversationType.group;
-    return DecoratedBox(
+    return Container(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [
-            colors.primaryContainer,
-            colors.primaryContainer.withValues(alpha: 0.62),
-          ],
+        color: colors.surfaceContainer,
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.4),
         ),
-        borderRadius: BorderRadius.circular(18),
       ),
       child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 15, 16, 14),
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
         child: Row(
           children: [
-            DecoratedBox(
+            Container(
               decoration: BoxDecoration(
-                color: colors.surface.withValues(alpha: 0.72),
+                color: colors.primaryContainer,
                 borderRadius: BorderRadius.circular(14),
               ),
-              child: Padding(
-                padding: const EdgeInsets.all(12),
-                child: Icon(
-                  isGroup ? Icons.groups_rounded : Icons.person_rounded,
-                  size: 26,
-                  color: colors.onPrimaryContainer,
-                ),
+              padding: const EdgeInsets.all(12),
+              child: Icon(
+                isGroup ? Icons.groups_rounded : Icons.person_rounded,
+                size: 24,
+                color: colors.onPrimaryContainer,
               ),
             ),
-            const SizedBox(width: 12),
+            const SizedBox(width: 14),
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -12980,112 +13075,60 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.titleMedium?.copyWith(
-                      color: colors.onPrimaryContainer,
-                      fontWeight: FontWeight.w800,
+                      fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 5),
-                  Text(
-                    isGroup
-                        ? openHandLocalizedText(
-                            context,
-                            zh: '群聊 · 钉钉会话',
-                            zhHant: '群聊 · 釘釘會話',
-                            en: 'Group chat · DingTalk conversation',
-                            fr: 'Groupe · conversation DingTalk',
-                            de: 'Gruppe · DingTalk-Unterhaltung',
-                            ja: 'グループ · DingTalk 会話',
-                          )
-                        : openHandLocalizedText(
-                            context,
-                            zh: '私聊 · 钉钉联系人',
-                            zhHant: '私聊 · 釘釘聯絡人',
-                            en: 'Direct chat · DingTalk contact',
-                            fr: 'Direct · contact DingTalk',
-                            de: 'Direkt · DingTalk-Kontakt',
-                            ja: 'ダイレクト · DingTalk 連絡先',
+                  const SizedBox(height: 4),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                        decoration: BoxDecoration(
+                          color: colors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        child: Text(
+                          isGroup
+                              ? openHandLocalizedText(
+                                  context,
+                                  zh: '群聊',
+                                  zhHant: '群聊',
+                                  en: 'Group',
+                                  fr: 'Groupe',
+                                  de: 'Gruppe',
+                                  ja: 'グループ',
+                                )
+                              : openHandLocalizedText(
+                                  context,
+                                  zh: '联系人',
+                                  zhHant: '聯絡人',
+                                  en: 'Contact',
+                                  fr: 'Contact',
+                                  de: 'Kontakt',
+                                  ja: '連絡先',
+                                ),
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: colors.primary,
+                            fontWeight: FontWeight.w600,
                           ),
-                    style: theme.textTheme.bodySmall?.copyWith(
-                      color: colors.onPrimaryContainer.withValues(alpha: 0.78),
-                    ),
-                  ),
-                  const SizedBox(height: 8),
-                  SelectableText(
-                    '${_displayDingTalkDetailLabel(context, '会话标识')} · ${conversation.id}',
-                    maxLines: 1,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.onPrimaryContainer.withValues(alpha: 0.72),
-                    ),
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: SelectableText(
+                          'ID: ${conversation.id}',
+                          maxLines: 1,
+                          style: theme.textTheme.bodySmall?.copyWith(
+                            color: colors.onSurfaceVariant,
+                            fontFamily: 'monospace',
+                          ),
+                        ),
+                      ),
+                    ],
                   ),
                 ],
               ),
             ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-class _DingTalkDetailSection extends StatelessWidget {
-  const _DingTalkDetailSection({
-    required this.label,
-    required this.value,
-    required this.icon,
-  });
-
-  final String label;
-  final Object? value;
-  final IconData icon;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    final itemCount = _dingtalkDetailItemCount(value);
-    return Material(
-      color: colors.surfaceContainerLow,
-      shadowColor: Colors.transparent,
-      borderRadius: BorderRadius.circular(18),
-      clipBehavior: Clip.antiAlias,
-      child: Padding(
-        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
-        child: Column(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Row(
-              children: [
-                DecoratedBox(
-                  decoration: BoxDecoration(
-                    color: colors.secondaryContainer,
-                    borderRadius: BorderRadius.circular(11),
-                  ),
-                  child: Padding(
-                    padding: const EdgeInsets.all(8),
-                    child: Icon(
-                      icon,
-                      size: 19,
-                      color: colors.onSecondaryContainer,
-                    ),
-                  ),
-                ),
-                const SizedBox(width: 10),
-                Expanded(
-                  child: Text(
-                    _displayDingTalkDetailLabel(context, label),
-                    style: theme.textTheme.titleMedium,
-                  ),
-                ),
-                Text(
-                  _dingtalkDetailCountLabel(context, itemCount),
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: colors.onSurfaceVariant,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 13),
-            _DingTalkDetailValue(value: value),
           ],
         ),
       ),
@@ -13208,41 +13251,39 @@ class _DingTalkDetailField extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 220, maxWidth: 470),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.surface.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(12),
-          border: Border.all(
-            color: colors.outlineVariant.withValues(alpha: 0.6),
-          ),
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.3),
         ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                _displayDingTalkDetailLabel(context, label),
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelMedium?.copyWith(
-                  color: colors.onSurfaceVariant,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(height: 4),
-              SelectableText(
-                _formatDingTalkDetailValue(context, value),
-                style: theme.textTheme.bodyMedium?.copyWith(
-                  color: colors.onSurface,
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-            ],
+      ),
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Text(
+            _displayDingTalkDetailLabel(context, label),
+            maxLines: 1,
+            overflow: TextOverflow.ellipsis,
+            style: theme.textTheme.labelSmall?.copyWith(
+              color: colors.onSurfaceVariant.withValues(alpha: 0.85),
+              fontWeight: FontWeight.w500,
+            ),
           ),
-        ),
+          const SizedBox(height: 3),
+          SelectableText(
+            _formatDingTalkDetailValue(context, value),
+            maxLines: 2,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              color: colors.onSurface,
+              fontWeight: FontWeight.w600,
+              fontSize: 13,
+            ),
+          ),
+        ],
       ),
     );
   }
