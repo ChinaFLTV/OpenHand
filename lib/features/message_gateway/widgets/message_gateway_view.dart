@@ -12294,28 +12294,31 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                 ),
                                           ),
                                         )
-                                      : ListView(
+                                      : ListView.builder(
                                           key: ValueKey<String>(selected.id),
                                           controller: _messagesScrollController,
+                                          keyboardDismissBehavior:
+                                              ScrollViewKeyboardDismissBehavior
+                                                  .onDrag,
+                                          cacheExtent: 320,
                                           padding: const EdgeInsets.fromLTRB(
                                             20,
                                             18,
                                             20,
                                             12,
                                           ),
-                                          children: [
-                                            for (final message
-                                                in selected.messages)
-                                              KeyedSubtree(
-                                                key: ValueKey<String>(
-                                                  message.id,
-                                                ),
-                                                child: _DingTalkMessageBubble(
-                                                  message: message,
-                                                  mine: _isMine(message),
-                                                ),
+                                          itemCount: selected.messages.length,
+                                          itemBuilder: (context, index) {
+                                            final message =
+                                                selected.messages[index];
+                                            return RepaintBoundary(
+                                              key: ValueKey<String>(message.id),
+                                              child: _DingTalkMessageBubble(
+                                                message: message,
+                                                mine: _isMine(message),
                                               ),
-                                          ],
+                                            );
+                                          },
                                         ),
                                 ),
                                 Padding(

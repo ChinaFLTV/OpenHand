@@ -920,8 +920,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkGatewayMessage message,
   ) {
     if (conversation.messages.any((item) => item.id == message.id)) return;
-    conversation.messages.add(message);
-    conversation.messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    final last = conversation.messages.isEmpty
+        ? null
+        : conversation.messages.last;
+    if (last == null || !message.createdAt.isBefore(last.createdAt)) {
+      conversation.messages.add(message);
+    } else {
+      conversation.messages
+        ..add(message)
+        ..sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    }
     _queuePersist();
   }
 
@@ -956,6 +964,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> _drainPersistQueue() async {
+    // 让出当前帧，避免消息到达时复制大量历史消息阻塞会话切换和滚动。
+    await Future<void>.delayed(Duration.zero);
     while (_persistQueued) {
       _persistQueued = false;
       final conversations = _conversations.values
