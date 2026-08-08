@@ -17,12 +17,62 @@ class DingTalkConversationTarget {
     required this.title,
     required this.type,
     this.subtitle = '',
+    this.aliases = const <String>[],
+    this.userId = '',
+    this.openDingTalkId = '',
   });
+
+  factory DingTalkConversationTarget.fromJson(Map<String, Object?> json) {
+    final id = '${json['id'] ?? ''}'.trim();
+    final title = '${json['title'] ?? ''}'.trim();
+    if (id.isEmpty || title.isEmpty) {
+      throw const FormatException('钉钉会话目标数据不完整。');
+    }
+    return DingTalkConversationTarget(
+      id: id,
+      title: title,
+      type: DingTalkConversationType.values.firstWhere(
+        (item) => item.name == '${json['type'] ?? ''}',
+        orElse: () => DingTalkConversationType.direct,
+      ),
+      subtitle: '${json['subtitle'] ?? ''}'.trim(),
+      aliases: _stringList(json['aliases']),
+      userId: '${json['user_id'] ?? ''}'.trim(),
+      openDingTalkId: '${json['open_dingtalk_id'] ?? ''}'.trim(),
+    );
+  }
 
   final String id;
   final String title;
   final DingTalkConversationType type;
   final String subtitle;
+  final List<String> aliases;
+  final String userId;
+  final String openDingTalkId;
+
+  Iterable<String> get identifiers sync* {
+    yield id;
+    if (userId.isNotEmpty) yield userId;
+    if (openDingTalkId.isNotEmpty) yield openDingTalkId;
+    yield* aliases;
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'title': title,
+    'type': type.name,
+    'subtitle': subtitle,
+    'aliases': aliases,
+    'user_id': userId,
+    'open_dingtalk_id': openDingTalkId,
+  };
+
+  static List<String> _stringList(Object? value) => stringListFromValue(value)
+      .map((item) => item.trim())
+      .where((item) => item.isNotEmpty)
+      .toSet()
+      .take(8)
+      .toList(growable: false);
 }
 
 class DingTalkGatewaySettings {
@@ -38,6 +88,8 @@ class DingTalkGatewaySettings {
     this.allowedMemoryIds = const <String>[],
     this.allowedInstructionIds = const <String>[],
     this.allowedKnowledgeBaseSourceIds = const <String>[],
+    this.allowedGroupTargets = const <DingTalkConversationTarget>[],
+    this.allowedContactTargets = const <DingTalkConversationTarget>[],
   });
 
   factory DingTalkGatewaySettings.fromJson(Map<String, Object?> json) {
@@ -60,6 +112,14 @@ class DingTalkGatewaySettings {
       allowedKnowledgeBaseSourceIds: _stringList(
         json['allowed_knowledge_base_source_ids'],
       ),
+      allowedGroupTargets: _targetList(
+        json['allowed_group_targets'],
+        DingTalkConversationType.group,
+      ),
+      allowedContactTargets: _targetList(
+        json['allowed_contact_targets'],
+        DingTalkConversationType.direct,
+      ),
     ).normalized();
   }
 
@@ -74,6 +134,8 @@ class DingTalkGatewaySettings {
   final List<String> allowedMemoryIds;
   final List<String> allowedInstructionIds;
   final List<String> allowedKnowledgeBaseSourceIds;
+  final List<DingTalkConversationTarget> allowedGroupTargets;
+  final List<DingTalkConversationTarget> allowedContactTargets;
 
   DingTalkGatewaySettings normalized({
     Iterable<String>? availableMcpServerNames,
@@ -110,6 +172,8 @@ class DingTalkGatewaySettings {
       allowedKnowledgeBaseSourceIds,
       availableKnowledgeBaseSourceIds,
     ),
+    allowedGroupTargets: _normalizeTargets(allowedGroupTargets),
+    allowedContactTargets: _normalizeTargets(allowedContactTargets),
   );
 
   DingTalkGatewaySettings copyWith({
@@ -124,6 +188,8 @@ class DingTalkGatewaySettings {
     List<String>? allowedMemoryIds,
     List<String>? allowedInstructionIds,
     List<String>? allowedKnowledgeBaseSourceIds,
+    List<DingTalkConversationTarget>? allowedGroupTargets,
+    List<DingTalkConversationTarget>? allowedContactTargets,
   }) => DingTalkGatewaySettings(
     pollIntervalSeconds: pollIntervalSeconds ?? this.pollIntervalSeconds,
     reminderMode: reminderMode ?? this.reminderMode,
@@ -137,6 +203,8 @@ class DingTalkGatewaySettings {
     allowedInstructionIds: allowedInstructionIds ?? this.allowedInstructionIds,
     allowedKnowledgeBaseSourceIds:
         allowedKnowledgeBaseSourceIds ?? this.allowedKnowledgeBaseSourceIds,
+    allowedGroupTargets: allowedGroupTargets ?? this.allowedGroupTargets,
+    allowedContactTargets: allowedContactTargets ?? this.allowedContactTargets,
   );
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -151,6 +219,12 @@ class DingTalkGatewaySettings {
     'allowed_memory_ids': allowedMemoryIds,
     'allowed_instruction_ids': allowedInstructionIds,
     'allowed_knowledge_base_source_ids': allowedKnowledgeBaseSourceIds,
+    'allowed_group_targets': allowedGroupTargets
+        .map((item) => item.toJson())
+        .toList(growable: false),
+    'allowed_contact_targets': allowedContactTargets
+        .map((item) => item.toJson())
+        .toList(growable: false),
   };
 
   static List<String> _stringList(Object? value) {
@@ -173,6 +247,61 @@ class DingTalkGatewaySettings {
         .where((item) => item.isNotEmpty)
         .toSet();
     return normalized.where(allowed.contains).toList(growable: false);
+  }
+
+  static List<DingTalkConversationTarget> _targetList(
+    Object? value,
+    DingTalkConversationType expectedType,
+  ) {
+    if (value is! List) return const <DingTalkConversationTarget>[];
+    final result = <DingTalkConversationTarget>[];
+    final seen = <String>{};
+    for (final item in value.take(128)) {
+      if (item is! Map) continue;
+      try {
+        final target = DingTalkConversationTarget.fromJson(
+          stringKeyedMapFromValue(item),
+        );
+        if (target.type == expectedType && seen.add(target.id)) {
+          result.add(target);
+        }
+      } on FormatException {
+        continue;
+      }
+    }
+    return result;
+  }
+
+  static List<DingTalkConversationTarget> _normalizeTargets(
+    Iterable<DingTalkConversationTarget> values,
+  ) {
+    final result = <DingTalkConversationTarget>[];
+    final seen = <String>{};
+    for (final target in values.take(128)) {
+      final id = target.id.trim();
+      final title = target.title.trim();
+      if (id.isEmpty || title.isEmpty || !seen.add('${target.type.name}:$id')) {
+        continue;
+      }
+      final aliases = target.aliases
+          .map((item) => item.trim())
+          .where((item) => item.isNotEmpty && item != id)
+          .toSet()
+          .take(8)
+          .toList(growable: false);
+      result.add(
+        DingTalkConversationTarget(
+          id: id,
+          title: title,
+          type: target.type,
+          subtitle: target.subtitle.trim(),
+          aliases: aliases,
+          userId: target.userId.trim(),
+          openDingTalkId: target.openDingTalkId.trim(),
+        ),
+      );
+    }
+    return result;
   }
 }
 
@@ -199,6 +328,7 @@ class DingTalkGatewayMessage {
     this.conversationTitle = '',
     this.fromSelf = false,
     this.failed = false,
+    this.mentionedCurrentUser = false,
   });
 
   factory DingTalkGatewayMessage.fromJson(Map<String, Object?> json) {
@@ -229,6 +359,7 @@ class DingTalkGatewayMessage {
       conversationTitle: '${json['conversation_title'] ?? ''}',
       fromSelf: boolFromValue(json['from_self']),
       failed: boolFromValue(json['failed']),
+      mentionedCurrentUser: boolFromValue(json['mentioned_current_user']),
     );
   }
 
@@ -243,6 +374,7 @@ class DingTalkGatewayMessage {
   final String conversationTitle;
   final bool fromSelf;
   final bool failed;
+  final bool mentionedCurrentUser;
 
   bool get isAssistant => role == DingTalkGatewayMessageRole.assistant;
 
@@ -258,6 +390,7 @@ class DingTalkGatewayMessage {
     'conversation_title': conversationTitle,
     'from_self': fromSelf,
     'failed': failed,
+    'mentioned_current_user': mentionedCurrentUser,
   };
 }
 
@@ -267,6 +400,8 @@ class DingTalkConversation {
     required this.type,
     required this.title,
     List<DingTalkGatewayMessage> messages = const <DingTalkGatewayMessage>[],
+    this.directUserId,
+    this.directOpenDingTalkId,
   }) : messages = List<DingTalkGatewayMessage>.from(messages);
 
   factory DingTalkConversation.fromJson(Map<String, Object?> json) {
@@ -300,6 +435,10 @@ class DingTalkConversation {
       type: type,
       title: title,
       messages: messages,
+      directUserId: nullIfBlank('${json['direct_user_id'] ?? ''}'),
+      directOpenDingTalkId: nullIfBlank(
+        '${json['direct_open_dingtalk_id'] ?? ''}',
+      ),
     );
     final sessionId = '${json['ai_session_id'] ?? ''}'.trim();
     conversation.aiSessionId = sessionId.isEmpty ? null : sessionId;
@@ -311,12 +450,16 @@ class DingTalkConversation {
   String title;
   final List<DingTalkGatewayMessage> messages;
   String? aiSessionId;
+  String? directUserId;
+  String? directOpenDingTalkId;
 
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
     'type': type.name,
     'title': title,
     'ai_session_id': aiSessionId,
+    'direct_user_id': directUserId,
+    'direct_open_dingtalk_id': directOpenDingTalkId,
     'messages': messages.map((item) => item.toJson()).toList(growable: false),
   };
 

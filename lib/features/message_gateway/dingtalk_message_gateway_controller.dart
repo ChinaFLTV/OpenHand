@@ -185,6 +185,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       id: target.id,
       type: target.type,
       title: target.title,
+      directUserId: target.userId.trim().isEmpty ? null : target.userId.trim(),
+      directOpenDingTalkId: target.openDingTalkId.trim().isEmpty
+          ? null
+          : target.openDingTalkId.trim(),
     );
     _queuePersist();
     _notify();
@@ -513,17 +517,34 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _remember(message.id);
       return;
     }
+    final allowedTarget = _allowedTargetFor(message);
+    if (allowedTarget == null) {
+      _remember(message.id);
+      return;
+    }
     _remember(message.id);
+    final conversationId =
+        message.conversationType == DingTalkConversationType.group
+        ? message.conversationId
+        : allowedTarget.id;
     final conversation = _conversations.putIfAbsent(
-      message.conversationId,
+      conversationId,
       () => DingTalkConversation(
-        id: message.conversationId,
+        id: conversationId,
         type: message.conversationType,
-        title: message.conversationTitle.trim().isNotEmpty
+        title: allowedTarget.title.trim().isNotEmpty
+            ? allowedTarget.title
+            : message.conversationTitle.trim().isNotEmpty
             ? message.conversationTitle
             : message.senderName.trim().isEmpty
             ? '钉钉会话'
             : message.senderName,
+        directUserId: allowedTarget.userId.trim().isEmpty
+            ? null
+            : allowedTarget.userId.trim(),
+        directOpenDingTalkId: allowedTarget.openDingTalkId.trim().isEmpty
+            ? null
+            : allowedTarget.openDingTalkId.trim(),
       ),
     );
     _appendMessage(conversation, message);
@@ -533,6 +554,27 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     unawaited(_enqueueAiResponse(conversation, message.content));
     _notify();
+  }
+
+  DingTalkConversationTarget? _allowedTargetFor(
+    DingTalkGatewayMessage message,
+  ) {
+    if (message.conversationType == DingTalkConversationType.group) {
+      if (!message.mentionedCurrentUser) return null;
+      final conversationId = message.conversationId.trim();
+      for (final target in _settings.allowedGroupTargets) {
+        if (target.identifiers.contains(conversationId)) return target;
+      }
+      return null;
+    }
+    final candidates = <String>{
+      message.senderId.trim(),
+      message.conversationId.trim(),
+    }..remove('');
+    for (final target in _settings.allowedContactTargets) {
+      if (target.identifiers.any(candidates.contains)) return target;
+    }
+    return null;
   }
 
   void _schedulePolling({bool immediate = false}) {
@@ -913,6 +955,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               messages: List<DingTalkGatewayMessage>.from(
                 conversation.messages,
               ),
+              directUserId: conversation.directUserId,
+              directOpenDingTalkId: conversation.directOpenDingTalkId,
             )..aiSessionId = conversation.aiSessionId;
             return copy;
           })

@@ -124,6 +124,172 @@ String _gatewaySelectedCount(BuildContext context, int selected, int total) {
   );
 }
 
+String _dingtalkAllowlistText(
+  BuildContext context,
+  String key, {
+  DingTalkConversationType? type,
+  int? count,
+}) {
+  final isGroup = type == DingTalkConversationType.group;
+  switch (key) {
+    case 'group_title':
+      return openHandLocalizedText(
+        context,
+        zh: '允许响应的群聊',
+        zhHant: '允許回應的群聊',
+        en: 'Allowed groups',
+        fr: 'Groupes autorisés',
+        de: 'Zulässige Gruppen',
+        ja: '応答を許可するグループ',
+      );
+    case 'contact_title':
+      return openHandLocalizedText(
+        context,
+        zh: '允许响应的联系人',
+        zhHant: '允許回應的聯絡人',
+        en: 'Allowed contacts',
+        fr: 'Contacts autorisés',
+        de: 'Zulässige Kontakte',
+        ja: '応答を許可する連絡先',
+      );
+    case 'group_subtitle':
+      return openHandLocalizedText(
+        context,
+        zh: '仅名单内群聊且消息 @ 当前钉钉账号时才会触发 AI 响应。',
+        zhHant: '僅名單內群聊且訊息 @ 目前釘釘帳號時才會觸發 AI 回應。',
+        en: 'Respond only to @ mentions from groups on this list.',
+        fr: 'Répondre uniquement aux mentions @ des groupes autorisés.',
+        de: 'Nur auf @-Erwähnungen aus diesen Gruppen antworten.',
+        ja: 'このリストのグループからの @ メンションだけに応答します。',
+      );
+    case 'contact_subtitle':
+      return openHandLocalizedText(
+        context,
+        zh: '仅名单内联系人的单聊消息会触发 AI 响应。',
+        zhHant: '僅名單內聯絡人的單聊訊息會觸發 AI 回應。',
+        en: 'Respond only to direct messages from contacts on this list.',
+        fr: 'Répondre uniquement aux messages directs des contacts autorisés.',
+        de: 'Nur auf Direktnachrichten dieser Kontakte antworten.',
+        ja: 'このリストの連絡先からのダイレクトメッセージだけに応答します。',
+      );
+    case 'group_empty':
+      return openHandLocalizedText(
+        context,
+        zh: '尚未配置群聊，所有群聊消息均忽略。',
+        zhHant: '尚未配置群聊，所有群聊訊息均忽略。',
+        en: 'No groups configured; all group messages are ignored.',
+        fr: 'Aucun groupe configuré ; tous les messages de groupe sont ignorés.',
+        de: 'Keine Gruppen konfiguriert; Gruppennachrichten werden ignoriert.',
+        ja: 'グループ未設定のため、すべてのグループメッセージを無視します。',
+      );
+    case 'contact_empty':
+      return openHandLocalizedText(
+        context,
+        zh: '尚未配置联系人，所有单聊消息均忽略。',
+        zhHant: '尚未配置聯絡人，所有單聊訊息均忽略。',
+        en: 'No contacts configured; all direct messages are ignored.',
+        fr: 'Aucun contact configuré ; tous les messages directs sont ignorés.',
+        de: 'Keine Kontakte konfiguriert; Direktnachrichten werden ignoriert.',
+        ja: '連絡先未設定のため、すべてのダイレクトメッセージを無視します。',
+      );
+    case 'add':
+      return openHandLocalizedText(
+        context,
+        zh: isGroup ? '添加群聊' : '添加联系人',
+        zhHant: isGroup ? '新增群聊' : '新增聯絡人',
+        en: isGroup ? 'Add group' : 'Add contact',
+        fr: isGroup ? 'Ajouter un groupe' : 'Ajouter un contact',
+        de: isGroup ? 'Gruppe hinzufügen' : 'Kontakt hinzufügen',
+        ja: isGroup ? 'グループを追加' : '連絡先を追加',
+      );
+    case 'picker_title':
+      return openHandLocalizedText(
+        context,
+        zh: isGroup ? '选择允许响应的群聊' : '选择允许响应的联系人',
+        zhHant: isGroup ? '選擇允許回應的群聊' : '選擇允許回應的聯絡人',
+        en: isGroup ? 'Choose allowed groups' : 'Choose allowed contacts',
+        fr: isGroup
+            ? 'Choisir les groupes autorisés'
+            : 'Choisir les contacts autorisés',
+        de: isGroup
+            ? 'Zulässige Gruppen auswählen'
+            : 'Zulässige Kontakte auswählen',
+        ja: isGroup ? '許可するグループを選択' : '許可する連絡先を選択',
+      );
+    case 'selected':
+      return openHandLocalizedText(
+        context,
+        zh: '已选 ${count ?? 0}',
+        zhHant: '已選 ${count ?? 0}',
+        en: 'Selected ${count ?? 0}',
+        fr: 'Sélectionnés : ${count ?? 0}',
+        de: 'Ausgewählt: ${count ?? 0}',
+        ja: '選択済み ${count ?? 0}',
+      );
+    case 'search_label':
+      return openHandLocalizedText(
+        context,
+        zh: isGroup ? '搜索群聊名称' : '搜索联系人姓名',
+        zhHant: isGroup ? '搜尋群聊名稱' : '搜尋聯絡人姓名',
+        en: isGroup ? 'Search group name' : 'Search contact name',
+        fr: isGroup ? 'Rechercher un groupe' : 'Rechercher un contact',
+        de: isGroup ? 'Gruppennamen suchen' : 'Kontaktnamen suchen',
+        ja: isGroup ? 'グループ名を検索' : '連絡先名を検索',
+      );
+    case 'search_hint':
+      return openHandLocalizedText(
+        context,
+        zh: '输入关键词快速匹配',
+        zhHant: '輸入關鍵詞快速匹配',
+        en: 'Type a keyword to search',
+        fr: 'Saisissez un mot-clé',
+        de: 'Suchbegriff eingeben',
+        ja: 'キーワードを入力して検索',
+      );
+    case 'search_start':
+      return openHandLocalizedText(
+        context,
+        zh: '输入关键词开始搜索',
+        zhHant: '輸入關鍵詞開始搜尋',
+        en: 'Type a keyword to search',
+        fr: 'Saisissez un mot-clé pour rechercher',
+        de: 'Suchbegriff eingeben',
+        ja: 'キーワードを入力して検索',
+      );
+    case 'no_results':
+      return openHandLocalizedText(
+        context,
+        zh: '暂无匹配结果',
+        zhHant: '暫無匹配結果',
+        en: 'No matches',
+        fr: 'Aucun résultat',
+        de: 'Keine Treffer',
+        ja: '一致する結果はありません',
+      );
+    case 'apply':
+      return openHandLocalizedText(
+        context,
+        zh: '应用选择',
+        zhHant: '套用選擇',
+        en: 'Apply selection',
+        fr: 'Appliquer',
+        de: 'Auswahl anwenden',
+        ja: '選択を適用',
+      );
+    case 'cancel':
+      return openHandLocalizedText(
+        context,
+        zh: '取消',
+        zhHant: '取消',
+        en: 'Cancel',
+        fr: 'Annuler',
+        de: 'Abbrechen',
+        ja: 'キャンセル',
+      );
+  }
+  return key;
+}
+
 /// 网关详情弹窗走 expandToMax（固定尺寸），不套用统一档位——档位是上限语义。
 const double _kGatewayDetailDialogWidth = 860;
 const double _kGatewayDetailDialogHeight = 760;
@@ -15035,6 +15201,370 @@ class _DingTalkAddConversationDialogState
   }
 }
 
+class _DingTalkTargetAllowlistField extends StatelessWidget {
+  const _DingTalkTargetAllowlistField({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    required this.targets,
+    required this.emptyLabel,
+    required this.addLabel,
+    required this.onAdd,
+    required this.onRemove,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final List<DingTalkConversationTarget> targets;
+  final String emptyLabel;
+  final String addLabel;
+  final VoidCallback onAdd;
+  final ValueChanged<DingTalkConversationTarget> onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(17),
+      shadowColor: Colors.transparent,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: theme.colorScheme.primaryContainer,
+                    borderRadius: BorderRadius.circular(12),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(9),
+                    child: Icon(
+                      icon,
+                      size: 20,
+                      color: theme.colorScheme.onPrimaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 11),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(title, style: theme.textTheme.titleSmall),
+                      const SizedBox(height: 3),
+                      Text(
+                        subtitle,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                FilledButton.tonalIcon(
+                  onPressed: onAdd,
+                  icon: const Icon(Icons.add_rounded, size: 18),
+                  label: Text(addLabel),
+                  style: FilledButton.styleFrom(
+                    visualDensity: VisualDensity.compact,
+                    shadowColor: Colors.transparent,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 11),
+            if (targets.isEmpty)
+              Text(
+                emptyLabel,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              )
+            else
+              Wrap(
+                spacing: 7,
+                runSpacing: 7,
+                children: [
+                  ...targets
+                      .take(6)
+                      .map(
+                        (target) => ConstrainedBox(
+                          constraints: const BoxConstraints(maxWidth: 220),
+                          child: InputChip(
+                            label: Text(
+                              target.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            avatar: Icon(
+                              target.type == DingTalkConversationType.group
+                                  ? Icons.groups_rounded
+                                  : Icons.person_rounded,
+                              size: 17,
+                            ),
+                            onDeleted: () => onRemove(target),
+                            deleteIcon: const Icon(
+                              Icons.close_rounded,
+                              size: 16,
+                            ),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        ),
+                      ),
+                  if (targets.length > 6)
+                    InputChip(
+                      label: Text('+${targets.length - 6}'),
+                      onPressed: onAdd,
+                      materialTapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                ],
+              ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkAllowlistPickerDialog extends StatefulWidget {
+  const _DingTalkAllowlistPickerDialog({
+    required this.title,
+    required this.icon,
+    required this.type,
+    required this.selected,
+    required this.controller,
+  });
+
+  final String title;
+  final IconData icon;
+  final DingTalkConversationType type;
+  final List<DingTalkConversationTarget> selected;
+  final DingTalkMessageGatewayController controller;
+
+  @override
+  State<_DingTalkAllowlistPickerDialog> createState() =>
+      _DingTalkAllowlistPickerDialogState();
+}
+
+class _DingTalkAllowlistPickerDialogState
+    extends State<_DingTalkAllowlistPickerDialog> {
+  late final TextEditingController _queryController = TextEditingController();
+  late final Map<String, DingTalkConversationTarget> _selected = {
+    for (final target in widget.selected) target.id: target,
+  };
+  Timer? _searchDebounce;
+  List<DingTalkConversationTarget> _results =
+      const <DingTalkConversationTarget>[];
+  bool _searching = false;
+  int _searchGeneration = 0;
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: double.infinity,
+      height: 560,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(widget.icon, color: theme.colorScheme.primary),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(widget.title, style: theme.textTheme.titleLarge),
+                ),
+                Text(
+                  _dingtalkAllowlistText(
+                    context,
+                    'selected',
+                    count: _selected.length,
+                  ),
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            TextField(
+              controller: _queryController,
+              autofocus: true,
+              onChanged: _scheduleSearch,
+              decoration: InputDecoration(
+                labelText: _dingtalkAllowlistText(
+                  context,
+                  'search_label',
+                  type: widget.type,
+                ),
+                hintText: _dingtalkAllowlistText(
+                  context,
+                  'search_hint',
+                  type: widget.type,
+                ),
+                prefixIcon: const Icon(Icons.search_rounded),
+                suffixIcon: _searching
+                    ? const Padding(
+                        padding: EdgeInsets.all(14),
+                        child: SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        ),
+                      )
+                    : null,
+              ),
+            ),
+            const SizedBox(height: 10),
+            if (_selected.isNotEmpty)
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxHeight: 82),
+                child: SingleChildScrollView(
+                  child: Wrap(
+                    spacing: 6,
+                    runSpacing: 6,
+                    children: _selected.values
+                        .map(
+                          (target) => InputChip(
+                            label: Text(target.title),
+                            onDeleted: () =>
+                                setState(() => _selected.remove(target.id)),
+                            materialTapTargetSize:
+                                MaterialTapTargetSize.shrinkWrap,
+                          ),
+                        )
+                        .toList(growable: false),
+                  ),
+                ),
+              ),
+            const SizedBox(height: 8),
+            Expanded(
+              child: _results.isEmpty
+                  ? Center(
+                      child: Text(
+                        _queryController.text.trim().isEmpty
+                            ? _dingtalkAllowlistText(
+                                context,
+                                'search_start',
+                                type: widget.type,
+                              )
+                            : _dingtalkAllowlistText(context, 'no_results'),
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : Material(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(16),
+                      shadowColor: Colors.transparent,
+                      child: ListView.separated(
+                        padding: const EdgeInsets.all(8),
+                        itemCount: _results.length,
+                        separatorBuilder: (_, index) =>
+                            const SizedBox(height: 2),
+                        itemBuilder: (context, index) {
+                          final target = _results[index];
+                          final selected = _selected.containsKey(target.id);
+                          return ListTile(
+                            dense: true,
+                            selected: selected,
+                            selectedTileColor:
+                                theme.colorScheme.primaryContainer,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            leading: Icon(widget.icon),
+                            title: Text(target.title),
+                            subtitle: target.subtitle.trim().isEmpty
+                                ? null
+                                : Text(
+                                    target.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                            trailing: Icon(
+                              selected
+                                  ? Icons.check_circle_rounded
+                                  : Icons.add_circle_outline_rounded,
+                              color: selected
+                                  ? theme.colorScheme.primary
+                                  : theme.colorScheme.onSurfaceVariant,
+                            ),
+                            onTap: () => setState(() {
+                              if (selected) {
+                                _selected.remove(target.id);
+                              } else {
+                                _selected[target.id] = target;
+                              }
+                            }),
+                          );
+                        },
+                      ),
+                    ),
+            ),
+            const SizedBox(height: 12),
+            OpenHandDialogSaveActions(
+              busy: false,
+              cancelLabel: _dingtalkAllowlistText(context, 'cancel'),
+              confirmLabel: _dingtalkAllowlistText(context, 'apply'),
+              onConfirm: () => Navigator.of(
+                context,
+              ).pop(_selected.values.toList(growable: false)),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _scheduleSearch(String value) {
+    _searchDebounce?.cancel();
+    final keyword = value.trim();
+    if (keyword.isEmpty) {
+      setState(() {
+        _results = const <DingTalkConversationTarget>[];
+        _searching = false;
+      });
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 260), () {
+      unawaited(_search(keyword));
+    });
+  }
+
+  Future<void> _search(String keyword) async {
+    final generation = ++_searchGeneration;
+    setState(() => _searching = true);
+    final results = await widget.controller.searchTargets(
+      type: widget.type,
+      query: keyword,
+    );
+    if (!mounted || generation != _searchGeneration) return;
+    setState(() {
+      _results = results;
+      _searching = false;
+    });
+  }
+}
+
 class _DingTalkSettingsDialog extends StatefulWidget {
   const _DingTalkSettingsDialog({required this.controller});
   final DingTalkMessageGatewayController controller;
@@ -15079,6 +15609,14 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       .settings
       .allowedKnowledgeBaseSourceIds
       .toSet();
+  late List<DingTalkConversationTarget> _allowedGroups =
+      List<DingTalkConversationTarget>.from(
+        widget.controller.settings.allowedGroupTargets,
+      );
+  late List<DingTalkConversationTarget> _allowedContacts =
+      List<DingTalkConversationTarget>.from(
+        widget.controller.settings.allowedContactTargets,
+      );
   bool _refreshingResources = false;
   bool _saving = false;
 
@@ -15204,6 +15742,68 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       text: '完全访问仅关闭审批弹窗，工作目录边界仍然有效。',
                     ),
                   ],
+                  const SizedBox(height: 12),
+                  _DingTalkTargetAllowlistField(
+                    icon: Icons.groups_rounded,
+                    title: _dingtalkAllowlistText(context, 'group_title'),
+                    subtitle: _dingtalkAllowlistText(context, 'group_subtitle'),
+                    targets: _allowedGroups,
+                    emptyLabel: _dingtalkAllowlistText(context, 'group_empty'),
+                    addLabel: _dingtalkAllowlistText(
+                      context,
+                      'add',
+                      type: DingTalkConversationType.group,
+                    ),
+                    onAdd: () => _selectAllowedTargets(
+                      type: DingTalkConversationType.group,
+                      title: _dingtalkAllowlistText(
+                        context,
+                        'picker_title',
+                        type: DingTalkConversationType.group,
+                      ),
+                      icon: Icons.groups_rounded,
+                      selected: _allowedGroups,
+                    ),
+                    onRemove: (target) => setState(
+                      () => _allowedGroups.removeWhere(
+                        (item) => item.id == target.id,
+                      ),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _DingTalkTargetAllowlistField(
+                    icon: Icons.person_rounded,
+                    title: _dingtalkAllowlistText(context, 'contact_title'),
+                    subtitle: _dingtalkAllowlistText(
+                      context,
+                      'contact_subtitle',
+                    ),
+                    targets: _allowedContacts,
+                    emptyLabel: _dingtalkAllowlistText(
+                      context,
+                      'contact_empty',
+                    ),
+                    addLabel: _dingtalkAllowlistText(
+                      context,
+                      'add',
+                      type: DingTalkConversationType.direct,
+                    ),
+                    onAdd: () => _selectAllowedTargets(
+                      type: DingTalkConversationType.direct,
+                      title: _dingtalkAllowlistText(
+                        context,
+                        'picker_title',
+                        type: DingTalkConversationType.direct,
+                      ),
+                      icon: Icons.person_rounded,
+                      selected: _allowedContacts,
+                    ),
+                    onRemove: (target) => setState(
+                      () => _allowedContacts.removeWhere(
+                        (item) => item.id == target.id,
+                      ),
+                    ),
+                  ),
                   const SizedBox(height: 12),
                   _DingTalkSettingsCard(
                     icon: Icons.auto_awesome_rounded,
@@ -15452,6 +16052,36 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
     if (result != null && mounted) setState(() => apply(result));
   }
 
+  Future<void> _selectAllowedTargets({
+    required DingTalkConversationType type,
+    required String title,
+    required IconData icon,
+    required List<DingTalkConversationTarget> selected,
+  }) async {
+    final result = await showAnimatedDialog<List<DingTalkConversationTarget>>(
+      context: context,
+      builder: (_) => buildOpenHandDialog(
+        maxWidth: kOpenHandDialogWidthStandard,
+        maxHeight: kOpenHandDialogHeightFull,
+        child: _DingTalkAllowlistPickerDialog(
+          title: title,
+          icon: icon,
+          type: type,
+          selected: selected,
+          controller: widget.controller,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      if (type == DingTalkConversationType.group) {
+        _allowedGroups = result;
+      } else {
+        _allowedContacts = result;
+      }
+    });
+  }
+
   Future<void> _selectModel() async {
     final current = _splitModelKey(_modelKey);
     final selected = await showModelSearchSelector(
@@ -15495,6 +16125,8 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
           allowedKnowledgeBaseSourceIds: _knowledgeSources.toList(
             growable: false,
           ),
+          allowedGroupTargets: _allowedGroups,
+          allowedContactTargets: _allowedContacts,
         ),
       );
       if (mounted) Navigator.of(context).pop();

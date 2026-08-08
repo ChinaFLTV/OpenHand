@@ -127,6 +127,8 @@ class DingTalkMessageGatewayStore {
             type: conversation.type,
             title: conversation.title,
             messages: messages,
+            directUserId: conversation.directUserId,
+            directOpenDingTalkId: conversation.directOpenDingTalkId,
           )..aiSessionId = conversation.aiSessionId;
           return copy;
         })

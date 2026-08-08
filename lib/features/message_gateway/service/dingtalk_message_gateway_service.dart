@@ -93,12 +93,12 @@ class DingTalkMessageGatewayService {
     try {
       process = await startTrackedProcessBounded(
         executable,
-        // 同时覆盖全部单聊与群聊，按 DWS 规范组合两个原始 EventKey。
+        // 仅监听 @ 当前账号的群消息与全部单聊，群聊未 @ 时不触发响应。
         const <String>[
           'event',
           'consume',
+          'user_im_message_receive_at',
           'user_im_message_receive_o2o_all',
-          'user_im_message_receive_group_all',
           '--flatten',
           '--format',
           'ndjson',
@@ -419,7 +419,7 @@ class DingTalkMessageGatewayService {
       'json',
     ]);
     final messages = <DingTalkGatewayMessage>[
-      ..._parseMessages(mentions),
+      ..._parseMessages(mentions, mentionedCurrentUser: true),
       ..._parseMessages(all),
     ];
     final allMap = _asMap(all);
@@ -463,15 +463,23 @@ class DingTalkMessageGatewayService {
     required String text,
     required String uuid,
   }) async {
+    final directOpenId = conversation.directOpenDingTalkId?.trim() ?? '';
     final targetFlag = conversation.type == DingTalkConversationType.group
         ? '--group'
+        : directOpenId.isNotEmpty
+        ? '--open-dingtalk-id'
         : '--user';
+    final target = conversation.type == DingTalkConversationType.group
+        ? conversation.id
+        : directOpenId.isNotEmpty
+        ? directOpenId
+        : (conversation.directUserId ?? conversation.id);
     await _runJson(<String>[
       'chat',
       'message',
       'send',
       targetFlag,
-      conversation.id,
+      target,
       '--text',
       text,
       '--uuid',
@@ -652,7 +660,7 @@ class DingTalkMessageGatewayService {
         'user',
         'get',
         '--ids',
-        conversation.id,
+        conversation.directUserId ?? conversation.id,
         '--format',
         'json',
       ]);
@@ -711,15 +719,23 @@ class DingTalkMessageGatewayService {
   Future<Object?> _loadConversationInfo(
     DingTalkConversation conversation,
   ) async {
+    final directOpenId = conversation.directOpenDingTalkId?.trim() ?? '';
     final primaryFlag = conversation.type == DingTalkConversationType.group
         ? '--group'
+        : directOpenId.isNotEmpty
+        ? '--open-dingtalk-id'
         : '--user';
+    final primaryTarget = conversation.type == DingTalkConversationType.group
+        ? conversation.id
+        : directOpenId.isNotEmpty
+        ? directOpenId
+        : (conversation.directUserId ?? conversation.id);
     try {
       return await _runJson(<String>[
         'chat',
         'conversation-info',
         primaryFlag,
-        conversation.id,
+        primaryTarget,
         '--format',
         'json',
       ]);
@@ -730,7 +746,7 @@ class DingTalkMessageGatewayService {
             'chat',
             'conversation-info',
             '--open-dingtalk-id',
-            conversation.id,
+            directOpenId.isNotEmpty ? directOpenId : conversation.id,
             '--format',
             'json',
           ]);
@@ -1149,7 +1165,10 @@ class DingTalkMessageGatewayService {
     return const <String, Object?>{};
   }
 
-  List<DingTalkGatewayMessage> _parseMessages(Object? raw) {
+  List<DingTalkGatewayMessage> _parseMessages(
+    Object? raw, {
+    bool mentionedCurrentUser = false,
+  }) {
     final values = <Object?>[];
     void collect(Object? value) {
       if (value is List) {
@@ -1211,17 +1230,20 @@ class DingTalkMessageGatewayService {
                 ]),
               )?.toLocal() ??
               DateTime.now(),
-          senderName: _first(map, const <String>[
+          senderName: _eventString(map, const <String>[
             'senderName',
             'senderNick',
             'sender_name',
             'nick',
+            'sender',
           ]),
-          senderId: _first(map, const <String>[
+          senderId: _eventString(map, const <String>[
             'senderId',
             'senderUserId',
             'senderOpenDingTalkId',
             'sender_id',
+            'sender_open_dingtalk_id',
+            'sender',
           ]),
           conversationTitle: _first(map, const <String>[
             'conversationTitle',
@@ -1229,6 +1251,10 @@ class DingTalkMessageGatewayService {
             'title',
           ]),
           fromSelf: _asBool(map['isSelf']) || _asBool(map['isMine']),
+          mentionedCurrentUser:
+              mentionedCurrentUser ||
+              _asBool(map['mentionedCurrentUser']) ||
+              _asBool(map['mentioned_current_user']),
         ),
       );
     }
@@ -1282,10 +1308,21 @@ class DingTalkMessageGatewayService {
       'eventId',
     ]);
     if (messageId.isEmpty) return null;
+    final mentionedCurrentUser =
+        _eventString(map, const <String>[
+          'event_key',
+          'eventKey',
+          'rule_type',
+          'ruleType',
+          'type',
+        ]).toLowerCase().contains('receive_at') ||
+        _asBool(map['mentionedCurrentUser']) ||
+        _asBool(map['mentioned_current_user']);
     final conversationType =
         chatType.contains('group') ||
             chatType == '2' ||
             eventType.contains('group') ||
+            eventType.contains('receive_at') ||
             eventType == '2' ||
             _asBool(map['is_group']) ||
             _asBool(map['isGroup'])
@@ -1327,6 +1364,7 @@ class DingTalkMessageGatewayService {
           _asBool(map['is_self']) ||
           _asBool(map['isMine']) ||
           _asBool(map['is_self_loop']),
+      mentionedCurrentUser: mentionedCurrentUser,
     );
   }
 
@@ -1399,6 +1437,16 @@ class DingTalkMessageGatewayService {
       }
       if (value is! Map) return;
       final map = _asMap(value);
+      final userId = type == DingTalkConversationType.direct
+          ? _first(map, const <String>['userId', 'user_id'])
+          : '';
+      final openDingTalkId = type == DingTalkConversationType.direct
+          ? _first(map, const <String>[
+              'openDingTalkId',
+              'openDingtalkId',
+              'open_dingtalk_id',
+            ])
+          : '';
       final id = type == DingTalkConversationType.group
           ? _first(map, const <String>[
               'openConversationId',
@@ -1406,13 +1454,11 @@ class DingTalkMessageGatewayService {
               'conversation_id',
               'id',
             ])
-          : _first(map, const <String>[
-              'userId',
-              'user_id',
-              'openDingTalkId',
-              'open_dingtalk_id',
-              'id',
-            ]);
+          : userId.isNotEmpty
+          ? userId
+          : openDingTalkId.isNotEmpty
+          ? openDingTalkId
+          : '';
       final title = type == DingTalkConversationType.group
           ? _first(map, const <String>['name', 'groupName', 'title'])
           : _first(map, const <String>['name', 'nick', 'userName', 'title']);
@@ -1428,6 +1474,11 @@ class DingTalkMessageGatewayService {
               'department',
               'description',
             ]),
+            aliases: <String>{userId, openDingTalkId}
+                .where((item) => item.isNotEmpty && item != id)
+                .toList(growable: false),
+            userId: userId,
+            openDingTalkId: openDingTalkId,
           ),
         );
       }
@@ -1459,7 +1510,8 @@ class DingTalkMessageGatewayService {
   String _first(Map<String, Object?> map, List<String> keys) {
     for (final key in keys) {
       final value = map[key];
-      if (value != null && '$value'.trim().isNotEmpty) return '$value'.trim();
+      final text = '$value'.trim();
+      if (value != null && text.isNotEmpty && text != 'null') return text;
     }
     return '';
   }
