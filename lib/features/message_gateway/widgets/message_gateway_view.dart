@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
@@ -39,6 +40,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/runtime_log_dialog.dart';
+import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -12031,6 +12033,8 @@ class _DingTalkMessagesDialog extends StatefulWidget {
 
 class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const Duration _maxVoiceDuration = Duration(minutes: 2);
+  static const Duration _voiceVisualInterval = Duration(milliseconds: 160);
+  static const int _voiceWaveformSampleCount = 40;
   static const int _maxUploadBytes = 512 * 1024 * 1024;
   final TextEditingController _input = TextEditingController();
   final ScrollController _messagesScrollController = ScrollController();
@@ -12045,8 +12049,20 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   String? _voiceConversationId;
   bool _recordingVoice = false;
   bool _voiceRecorderStarted = false;
-  bool _stopVoiceRequested = false;
-  Timer? _voiceMaxDurationTimer;
+  bool _voicePaused = false;
+  bool _voiceControlBusy = false;
+  Duration _voiceElapsed = Duration.zero;
+  DateTime? _voiceSegmentStartedAt;
+  Timer? _voiceVisualTimer;
+  StreamSubscription<Amplitude>? _voiceAmplitudeSubscription;
+  final List<double> _voiceLevels = List<double>.filled(
+    _voiceWaveformSampleCount,
+    0.08,
+  );
+  final ValueNotifier<_DingTalkVoiceVisualState> _voiceVisual =
+      ValueNotifier<_DingTalkVoiceVisualState>(
+        _DingTalkVoiceVisualState.initial,
+      );
 
   @override
   void initState() {
@@ -12059,7 +12075,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   void dispose() {
     widget.controller.removeListener(_handleControllerChanged);
     _refreshTimer?.cancel();
-    _voiceMaxDurationTimer?.cancel();
+    _voiceVisualTimer?.cancel();
+    unawaited(_voiceAmplitudeSubscription?.cancel());
     final recorder = _voiceRecorder;
     _voiceRecorder = null;
     _voiceRecorderStarted = false;
@@ -12068,6 +12085,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     }
     _input.dispose();
     _messagesScrollController.dispose();
+    _voiceVisual.dispose();
     super.dispose();
   }
 
@@ -12353,45 +12371,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                           },
                                         ),
                                 ),
-                                Padding(
-                                  padding: const EdgeInsets.fromLTRB(
-                                    16,
-                                    8,
-                                    16,
-                                    16,
-                                  ),
-                                  child: Row(
-                                    crossAxisAlignment: CrossAxisAlignment.end,
-                                    children: [
-                                      Expanded(
-                                        child: TextField(
-                                          controller: _input,
-                                          minLines: 1,
-                                          maxLines: 4,
-                                          textInputAction:
-                                              TextInputAction.newline,
-                                          decoration: const InputDecoration(
-                                            hintText: '以当前钉钉身份发送消息',
-                                            isDense: true,
-                                            contentPadding:
-                                                EdgeInsets.symmetric(
-                                                  horizontal: 16,
-                                                  vertical: 13,
-                                                ),
-                                          ),
-                                          onSubmitted: (_) =>
-                                              _sendOrStop(selected),
-                                        ),
-                                      ),
-                                      const SizedBox(width: 10),
-                                      _buildFileButton(selected),
-                                      const SizedBox(width: 6),
-                                      _buildVoiceButton(selected),
-                                      const SizedBox(width: 8),
-                                      _buildSendButton(selected),
-                                    ],
-                                  ),
-                                ),
+                                _buildComposer(selected),
                               ],
                             ),
                     ),
@@ -12402,6 +12382,79 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
           ),
         );
       },
+    );
+  }
+
+  Widget _buildComposer(DingTalkConversation conversation) {
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
+      child: AnimatedSwitcher(
+        duration: openHandMotionDuration(context, kOpenHandMotion220),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        layoutBuilder: (current, previous) => Stack(
+          alignment: Alignment.bottomCenter,
+          children: <Widget>[...previous, if (current != null) current],
+        ),
+        child: _recordingVoice
+            ? _buildVoiceRecordingComposer()
+            : _buildTextComposer(conversation),
+      ),
+    );
+  }
+
+  Widget _buildTextComposer(DingTalkConversation conversation) {
+    return Row(
+      key: const ValueKey<String>('dingtalk-text-composer'),
+      crossAxisAlignment: CrossAxisAlignment.end,
+      children: [
+        Expanded(
+          child: TextField(
+            controller: _input,
+            minLines: 1,
+            maxLines: 4,
+            textInputAction: TextInputAction.newline,
+            decoration: const InputDecoration(
+              hintText: '以当前钉钉身份发送消息',
+              isDense: true,
+              contentPadding: EdgeInsets.symmetric(
+                horizontal: 16,
+                vertical: 13,
+              ),
+            ),
+            onSubmitted: (_) => _sendOrStop(conversation),
+          ),
+        ),
+        const SizedBox(width: 10),
+        _buildFileButton(conversation),
+        const SizedBox(width: 6),
+        _buildVoiceButton(conversation),
+        const SizedBox(width: 8),
+        _buildSendButton(conversation),
+      ],
+    );
+  }
+
+  Widget _buildVoiceRecordingComposer() {
+    return ValueListenableBuilder<_DingTalkVoiceVisualState>(
+      key: const ValueKey<String>('dingtalk-voice-composer'),
+      valueListenable: _voiceVisual,
+      builder: (context, visual, _) => Row(
+        children: [
+          Expanded(
+            child: _DingTalkVoiceRecordingPanel(
+              visual: visual,
+              maxDuration: _maxVoiceDuration,
+            ),
+          ),
+          const SizedBox(width: 10),
+          _buildVoiceCancelButton(),
+          const SizedBox(width: 6),
+          _buildVoicePauseButton(),
+          const SizedBox(width: 8),
+          _buildVoiceSendButton(),
+        ],
+      ),
     );
   }
 
@@ -12444,6 +12497,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   void _selectConversation(String id) {
     if (_selectedId == id) return;
+    if (_recordingVoice && _voiceConversationId != id) {
+      _cancelVoiceRecording();
+    }
     setState(() {
       _selectedId = id;
       _input.clear();
@@ -12520,12 +12576,17 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final enabled =
         !widget.controller.isSending &&
         !widget.controller.isConversationResponding(conversation.id);
-    return IconButton.filledTonal(
-      tooltip: '发送文件',
-      onPressed: enabled
-          ? () => unawaited(_pickAndSendFile(conversation))
-          : null,
-      icon: const Icon(Icons.attach_file_rounded),
+    return SizedBox(
+      width: 124,
+      height: 48,
+      child: FilledButton.icon(
+        style: _composerButtonStyle(),
+        onPressed: enabled
+            ? () => unawaited(_pickAndSendFile(conversation))
+            : null,
+        icon: const Icon(Icons.attach_file_rounded),
+        label: const Text('发送文件'),
+      ),
     );
   }
 
@@ -12533,42 +12594,80 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final enabled =
         !widget.controller.isSending &&
         !widget.controller.isConversationResponding(conversation.id);
-    final colors = Theme.of(context).colorScheme;
-    return Semantics(
-      button: true,
-      label: _recordingVoice ? '松开发送语音' : '按住录制语音',
-      child: GestureDetector(
-        behavior: HitTestBehavior.opaque,
-        onLongPressStart: enabled
-            ? (_) => unawaited(_startVoiceRecording(conversation))
+    return SizedBox(
+      width: 124,
+      height: 48,
+      child: FilledButton.icon(
+        style: _composerButtonStyle(),
+        onPressed: enabled
+            ? () => unawaited(_startVoiceRecording(conversation))
             : null,
-        onLongPressEnd: enabled
-            ? (_) => unawaited(_finishVoiceRecording())
-            : null,
-        onLongPressCancel: enabled ? _cancelVoiceRecording : null,
-        onTap: enabled
-            ? () => showOpenHandInfoSnack(context, '按住麦克风按钮录音，松开后立即发送。')
-            : null,
-        child: AnimatedContainer(
-          duration: openHandMotionDuration(context, kOpenHandMotion180),
-          width: 48,
-          height: 48,
-          decoration: BoxDecoration(
-            color: _recordingVoice
-                ? colors.errorContainer
-                : colors.secondaryContainer,
-            borderRadius: BorderRadius.circular(16),
-            border: Border.all(
-              color: _recordingVoice ? colors.error : colors.outlineVariant,
-            ),
-          ),
-          child: Icon(
-            _recordingVoice ? Icons.mic_rounded : Icons.mic_none_rounded,
-            color: _recordingVoice
-                ? colors.onErrorContainer
-                : colors.onSecondaryContainer,
-          ),
+        icon: const Icon(Icons.mic_none_rounded),
+        label: const Text('发送语音'),
+      ),
+    );
+  }
+
+  ButtonStyle _composerButtonStyle() {
+    return FilledButton.styleFrom(
+      minimumSize: const Size(124, 48),
+      padding: const EdgeInsets.symmetric(horizontal: 12),
+    );
+  }
+
+  Widget _buildVoiceCancelButton() {
+    return SizedBox(
+      width: 108,
+      height: 48,
+      child: FilledButton.tonalIcon(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(108, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
         ),
+        onPressed: _voiceControlBusy ? null : _cancelVoiceRecording,
+        icon: const Icon(Icons.close_rounded),
+        label: const Text('取消录制'),
+      ),
+    );
+  }
+
+  Widget _buildVoicePauseButton() {
+    return SizedBox(
+      width: 108,
+      height: 48,
+      child: FilledButton.tonalIcon(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(108, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 10),
+        ),
+        onPressed: !_voiceRecorderStarted || _voiceControlBusy
+            ? null
+            : () => unawaited(_toggleVoicePause()),
+        icon: Icon(
+          _voicePaused ? Icons.play_arrow_rounded : Icons.pause_rounded,
+        ),
+        label: Text(_voicePaused ? '继续录制' : '暂停录制'),
+      ),
+    );
+  }
+
+  Widget _buildVoiceSendButton() {
+    return SizedBox(
+      width: 124,
+      height: 48,
+      child: FilledButton.icon(
+        style: _composerButtonStyle(),
+        onPressed: !_voiceRecorderStarted || _voiceControlBusy
+            ? null
+            : () => unawaited(_finishVoiceRecording()),
+        icon: _voiceControlBusy
+            ? const SizedBox(
+                width: 18,
+                height: 18,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.send_rounded),
+        label: Text(_voiceControlBusy ? '正在发送' : '停止并发送'),
       ),
     );
   }
@@ -12606,12 +12705,14 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   Future<void> _startVoiceRecording(DingTalkConversation conversation) async {
     if (_recordingVoice || !mounted) return;
     final recorder = AudioRecorder();
+    _resetVoiceVisual();
     setState(() {
       _recordingVoice = true;
       _voiceRecorder = recorder;
       _voiceRecorderStarted = false;
+      _voicePaused = false;
+      _voiceControlBusy = false;
       _voiceConversationId = conversation.id;
-      _stopVoiceRequested = false;
     });
     try {
       if (!await recorder.hasPermission()) {
@@ -12643,47 +12744,141 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         ),
         path: path,
       );
-      _voiceRecorderStarted = true;
+      if (!mounted || !identical(_voiceRecorder, recorder)) {
+        await _cancelAndDisposeRecorder(recorder);
+        return;
+      }
       _voicePath = path;
-      _voiceMaxDurationTimer?.cancel();
-      _voiceMaxDurationTimer = Timer(
-        _maxVoiceDuration,
-        () => unawaited(_finishVoiceRecording()),
-      );
-      if (_stopVoiceRequested) await _finishVoiceRecording();
+      _voiceRecorderStarted = true;
+      _voicePaused = false;
+      _voiceElapsed = Duration.zero;
+      _voiceSegmentStartedAt = DateTime.now();
+      _voiceAmplitudeSubscription?.cancel();
+      _voiceAmplitudeSubscription = recorder
+          .onAmplitudeChanged(const Duration(milliseconds: 120))
+          .listen(
+            (amplitude) {
+              if (!mounted || !identical(_voiceRecorder, recorder)) return;
+              _voiceLevels
+                ..removeAt(0)
+                ..add(_voiceLevelFromAmplitude(amplitude));
+              _publishVoiceVisual();
+            },
+            onError: (Object error, StackTrace stack) {
+              silentLog('dingtalk_gateway', '读取钉钉语音波形', error, stack);
+            },
+          );
+      _startVoiceVisualTicker();
+      if (mounted) setState(() {});
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '录制钉钉语音', error, stack);
-      _voiceMaxDurationTimer?.cancel();
-      _voiceMaxDurationTimer = null;
+      _voiceVisualTimer?.cancel();
+      _voiceVisualTimer = null;
+      await _voiceAmplitudeSubscription?.cancel();
+      _voiceAmplitudeSubscription = null;
       await _cancelAndDisposeRecorder(recorder);
+      if (!identical(_voiceRecorder, recorder)) return;
       if (mounted) {
         setState(() {
           _recordingVoice = false;
           _voiceRecorder = null;
           _voiceRecorderStarted = false;
+          _voicePaused = false;
+          _voiceControlBusy = false;
+          _voiceSegmentStartedAt = null;
           _voicePath = null;
           _voiceConversationId = null;
         });
+        _resetVoiceVisual();
         showOpenHandErrorSnack(context, '$error');
       }
     }
   }
 
-  Future<void> _finishVoiceRecording() async {
+  void _startVoiceVisualTicker() {
+    _voiceVisualTimer?.cancel();
+    _voiceVisualTimer = Timer.periodic(_voiceVisualInterval, (_) {
+      if (!mounted || !_recordingVoice) return;
+      _publishVoiceVisual();
+      if (_currentVoiceElapsed() >= _maxVoiceDuration &&
+          !_voiceControlBusy &&
+          _voiceRecorderStarted) {
+        unawaited(_finishVoiceRecording());
+      }
+    });
+    _publishVoiceVisual();
+  }
+
+  Duration _currentVoiceElapsed() {
+    final segmentStartedAt = _voiceSegmentStartedAt;
+    if (segmentStartedAt == null || _voicePaused) return _voiceElapsed;
+    return _voiceElapsed + DateTime.now().difference(segmentStartedAt);
+  }
+
+  double _voiceLevelFromAmplitude(Amplitude amplitude) {
+    final current = amplitude.current.isFinite ? amplitude.current : -60.0;
+    return ((current + 60) / 60).clamp(0.08, 1.0).toDouble();
+  }
+
+  void _publishVoiceVisual() {
+    final elapsed = _currentVoiceElapsed();
+    _voiceVisual.value = _DingTalkVoiceVisualState(
+      elapsed: elapsed,
+      levels: List<double>.unmodifiable(_voiceLevels),
+      ready: _voiceRecorderStarted,
+      paused: _voicePaused,
+    );
+  }
+
+  void _resetVoiceVisual() {
+    _voiceElapsed = Duration.zero;
+    _voiceSegmentStartedAt = null;
+    _voicePaused = false;
+    for (var index = 0; index < _voiceLevels.length; index++) {
+      _voiceLevels[index] = 0.08;
+    }
+    _voiceVisual.value = _DingTalkVoiceVisualState.initial;
+  }
+
+  Future<void> _toggleVoicePause() async {
     final recorder = _voiceRecorder;
-    if (recorder == null || !_voiceRecorderStarted) {
-      _stopVoiceRequested = true;
+    if (recorder == null || !_voiceRecorderStarted || _voiceControlBusy) {
       return;
     }
-    _voiceMaxDurationTimer?.cancel();
-    _voiceMaxDurationTimer = null;
+    if (mounted) setState(() => _voiceControlBusy = true);
+    try {
+      if (_voicePaused) {
+        await recorder.resume();
+        _voiceSegmentStartedAt = DateTime.now();
+        _voicePaused = false;
+      } else {
+        final elapsed = _currentVoiceElapsed();
+        await recorder.pause();
+        _voiceElapsed = elapsed;
+        _voiceSegmentStartedAt = null;
+        _voicePaused = true;
+      }
+      _publishVoiceVisual();
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '暂停或继续钉钉语音', error, stack);
+      if (mounted) showOpenHandErrorSnack(context, '调整录音状态失败：$error');
+    } finally {
+      if (mounted) setState(() => _voiceControlBusy = false);
+    }
+  }
+
+  Future<void> _finishVoiceRecording() async {
+    final recorder = _voiceRecorder;
+    if (recorder == null || !_voiceRecorderStarted || _voiceControlBusy) {
+      return;
+    }
+    if (mounted) setState(() => _voiceControlBusy = true);
+    _voiceVisualTimer?.cancel();
+    _voiceVisualTimer = null;
+    await _voiceAmplitudeSubscription?.cancel();
+    _voiceAmplitudeSubscription = null;
     final conversationId = _voiceConversationId;
     final fallbackPath = _voicePath;
-    _voiceRecorder = null;
-    _voiceRecorderStarted = false;
-    _voicePath = null;
-    _voiceConversationId = null;
-    if (mounted) setState(() => _recordingVoice = false);
     try {
       String? recordedPath;
       try {
@@ -12701,23 +12896,41 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         if (mounted) showOpenHandErrorSnack(context, '没有录到有效语音内容。');
         return;
       }
+      if (!mounted || !identical(_voiceRecorder, recorder)) return;
       await widget.controller.sendAudio(conversationId, recordedPath);
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '发送录制语音', error, stack);
       if (mounted) showOpenHandErrorSnack(context, '发送语音失败：$error');
+    } finally {
+      _voiceRecorder = null;
+      _voiceRecorderStarted = false;
+      _voicePaused = false;
+      _voiceControlBusy = false;
+      _voicePath = null;
+      _voiceConversationId = null;
+      _voiceSegmentStartedAt = null;
+      if (mounted) {
+        setState(() => _recordingVoice = false);
+        _resetVoiceVisual();
+      }
     }
   }
 
   void _cancelVoiceRecording() {
     final recorder = _voiceRecorder;
-    _voiceMaxDurationTimer?.cancel();
-    _voiceMaxDurationTimer = null;
+    _voiceVisualTimer?.cancel();
+    _voiceVisualTimer = null;
+    unawaited(_voiceAmplitudeSubscription?.cancel());
+    _voiceAmplitudeSubscription = null;
     _voiceRecorder = null;
     _voiceRecorderStarted = false;
+    _voicePaused = false;
+    _voiceControlBusy = false;
     _voicePath = null;
     _voiceConversationId = null;
-    _stopVoiceRequested = false;
+    _voiceSegmentStartedAt = null;
     if (mounted) setState(() => _recordingVoice = false);
+    _resetVoiceVisual();
     if (recorder != null) {
       unawaited(_cancelAndDisposeRecorder(recorder));
     }
@@ -12841,6 +13054,161 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
 enum _DingTalkConversationMenuAction { details, delete }
 
+class _DingTalkVoiceVisualState {
+  const _DingTalkVoiceVisualState({
+    required this.elapsed,
+    required this.levels,
+    required this.ready,
+    required this.paused,
+  });
+
+  static const _DingTalkVoiceVisualState initial = _DingTalkVoiceVisualState(
+    elapsed: Duration.zero,
+    levels: <double>[],
+    ready: false,
+    paused: false,
+  );
+
+  final Duration elapsed;
+  final List<double> levels;
+  final bool ready;
+  final bool paused;
+}
+
+class _DingTalkVoiceRecordingPanel extends StatelessWidget {
+  const _DingTalkVoiceRecordingPanel({
+    required this.visual,
+    required this.maxDuration,
+  });
+
+  final _DingTalkVoiceVisualState visual;
+  final Duration maxDuration;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final status = !visual.ready
+        ? '正在准备麦克风…'
+        : visual.paused
+        ? '录音已暂停'
+        : '正在录制语音';
+    return Container(
+      height: 48,
+      padding: const EdgeInsets.symmetric(horizontal: 14),
+      decoration: BoxDecoration(
+        color: colors.errorContainer.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.error.withValues(alpha: 0.42)),
+      ),
+      child: Row(
+        children: [
+          Icon(
+            visual.paused ? Icons.pause_circle_rounded : Icons.mic_rounded,
+            size: 22,
+            color: colors.error,
+          ),
+          const SizedBox(width: 10),
+          SizedBox(
+            width: 92,
+            child: Text(
+              status,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                color: colors.onErrorContainer,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+          const SizedBox(width: 10),
+          Expanded(
+            child: RepaintBoundary(
+              child: CustomPaint(
+                painter: _DingTalkVoiceWavePainter(
+                  levels: visual.levels,
+                  color: colors.error,
+                  trackColor: colors.error.withValues(alpha: 0.2),
+                ),
+                size: const Size(double.infinity, 28),
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Text(
+            '${_formatDingTalkVoiceDuration(visual.elapsed)} / ${_formatDingTalkVoiceDuration(maxDuration)}',
+            style: Theme.of(context).textTheme.labelMedium?.copyWith(
+              color: colors.onErrorContainer,
+              fontFeatures: const [FontFeature.tabularFigures()],
+              fontWeight: FontWeight.w700,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DingTalkVoiceWavePainter extends CustomPainter {
+  const _DingTalkVoiceWavePainter({
+    required this.levels,
+    required this.color,
+    required this.trackColor,
+  });
+
+  final List<double> levels;
+  final Color color;
+  final Color trackColor;
+
+  @override
+  void paint(Canvas canvas, Size size) {
+    final count = levels.isEmpty ? 40 : levels.length;
+    const gap = 3.0;
+    final barWidth = ((size.width - (count - 1) * gap) / count)
+        .clamp(1.0, 5.0)
+        .toDouble();
+    final trackPaint = Paint()
+      ..color = trackColor
+      ..strokeWidth = barWidth
+      ..strokeCap = StrokeCap.round;
+    final valuePaint = Paint()
+      ..color = color
+      ..strokeWidth = barWidth
+      ..strokeCap = StrokeCap.round;
+    for (var index = 0; index < count; index++) {
+      final x = barWidth / 2 + index * (barWidth + gap);
+      final level = levels.isEmpty
+          ? 0.08
+          : levels[index].clamp(0.08, 1.0).toDouble();
+      final trackTop = size.height * 0.38;
+      final trackBottom = size.height * 0.62;
+      canvas.drawLine(Offset(x, trackTop), Offset(x, trackBottom), trackPaint);
+      final halfHeight = (size.height * 0.45 * level)
+          .clamp(2.0, size.height)
+          .toDouble();
+      final center = size.height / 2;
+      canvas.drawLine(
+        Offset(x, center - halfHeight),
+        Offset(x, center + halfHeight),
+        valuePaint,
+      );
+    }
+  }
+
+  @override
+  bool shouldRepaint(covariant _DingTalkVoiceWavePainter oldDelegate) {
+    return oldDelegate.levels != levels ||
+        oldDelegate.color != color ||
+        oldDelegate.trackColor != trackColor;
+  }
+}
+
+String _formatDingTalkVoiceDuration(Duration duration) {
+  final seconds = duration.inSeconds.clamp(0, 5999);
+  final minutes = seconds ~/ 60;
+  final remainder = seconds % 60;
+  return '${minutes.toString().padLeft(2, '0')}:${remainder.toString().padLeft(2, '0')}';
+}
+
 class _DingTalkRespondingIndicator extends StatelessWidget {
   const _DingTalkRespondingIndicator();
 
@@ -12872,7 +13240,10 @@ class _DingTalkMessageBubble extends StatefulWidget {
 
 class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const double _maxBubbleWidth = 560;
+  static const int _maxClipboardImageBytes = 64 * kBytesPerMiB;
+  static const Duration _mediaClipboardTimeout = Duration(seconds: 15);
   bool _hovered = false;
+  bool _copyingMedia = false;
 
   @override
   Widget build(BuildContext context) {
@@ -12895,6 +13266,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         !widget.mine &&
         widget.message.conversationType == DingTalkConversationType.group &&
         senderName.isNotEmpty;
+    final previewableMedia = widget.message.media
+        .where((item) => item.kind.isPreviewable)
+        .toList(growable: false);
+    final showText = previewableMedia.isEmpty;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
       duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -12933,32 +13308,33 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     ),
                   ),
                 ),
-              Container(
-                constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: bubbleColor,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(17),
-                    topRight: const Radius.circular(17),
-                    bottomLeft: Radius.circular(widget.mine ? 17 : 5),
-                    bottomRight: Radius.circular(widget.mine ? 5 : 17),
+              if (showText)
+                Container(
+                  constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
+                  margin: const EdgeInsets.only(bottom: 6),
+                  padding: const EdgeInsets.symmetric(
+                    horizontal: 14,
+                    vertical: 10,
+                  ),
+                  decoration: BoxDecoration(
+                    color: bubbleColor,
+                    borderRadius: BorderRadius.only(
+                      topLeft: const Radius.circular(17),
+                      topRight: const Radius.circular(17),
+                      bottomLeft: Radius.circular(widget.mine ? 17 : 5),
+                      bottomRight: Radius.circular(widget.mine ? 5 : 17),
+                    ),
+                  ),
+                  child: Text(
+                    widget.message.content,
+                    style: theme.textTheme.bodyMedium?.copyWith(
+                      color: foreground,
+                    ),
                   ),
                 ),
-                child: Text(
-                  widget.message.content,
-                  style: theme.textTheme.bodyMedium?.copyWith(
-                    color: foreground,
-                  ),
-                ),
-              ),
-              if (widget.message.media.isNotEmpty)
+              if (previewableMedia.isNotEmpty)
                 _DingTalkMediaRail(
-                  media: widget.message.media,
+                  media: previewableMedia,
                   mine: widget.mine,
                   onRetry: widget.onRetryMedia,
                 ),
@@ -13005,23 +13381,44 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                                     : TextDirection.ltr,
                                 children: [
                                   IconButton(
-                                    tooltip: '复制消息',
+                                    tooltip: previewableMedia.isNotEmpty
+                                        ? '复制媒体文件'
+                                        : '复制消息',
                                     visualDensity: VisualDensity.compact,
                                     padding: EdgeInsets.zero,
                                     constraints: const BoxConstraints.tightFor(
                                       width: 28,
                                       height: 28,
                                     ),
-                                    onPressed: () =>
-                                        copyOpenHandTextToClipboard(
-                                          context: context,
-                                          text: widget.message.content,
-                                          logTag: 'dingtalk_gateway',
-                                        ),
-                                    icon: const Icon(
-                                      Icons.copy_rounded,
-                                      size: 16,
-                                    ),
+                                    onPressed: _copyingMedia
+                                        ? null
+                                        : () => previewableMedia.isNotEmpty
+                                              ? unawaited(
+                                                  _copyMediaFiles(
+                                                    context,
+                                                    previewableMedia,
+                                                  ),
+                                                )
+                                              : () => unawaited(
+                                                  copyOpenHandTextToClipboard(
+                                                    context: context,
+                                                    text:
+                                                        widget.message.content,
+                                                    logTag: 'dingtalk_gateway',
+                                                  ),
+                                                ),
+                                    icon: _copyingMedia
+                                        ? const SizedBox(
+                                            width: 15,
+                                            height: 15,
+                                            child: CircularProgressIndicator(
+                                              strokeWidth: 2,
+                                            ),
+                                          )
+                                        : const Icon(
+                                            Icons.copy_rounded,
+                                            size: 16,
+                                          ),
                                   ),
                                   const SizedBox(width: 8),
                                   Text(
@@ -13050,6 +13447,58 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         ),
       ),
     );
+  }
+
+  Future<void> _copyMediaFiles(
+    BuildContext context,
+    List<DingTalkGatewayMedia> media,
+  ) async {
+    if (_copyingMedia) return;
+    if (mounted) setState(() => _copyingMedia = true);
+    try {
+      final paths = <String>[];
+      for (final item in media) {
+        final path = item.localPath.trim();
+        if (path.isEmpty || !await File(path).exists()) continue;
+        paths.add(path);
+      }
+      if (paths.isEmpty) {
+        widget.onRetryMedia?.call();
+        throw const FileSystemException('媒体文件尚未准备完成。');
+      }
+      if (paths.length == 1 &&
+          media.length == 1 &&
+          media.single.kind == DingTalkMediaKind.image) {
+        final file = File(paths.single);
+        final size = await file.length();
+        if (size <= _maxClipboardImageBytes) {
+          await Pasteboard.writeImage(
+            await readBoundedFileBytes(
+              file,
+              maxBytes: _maxClipboardImageBytes,
+              idleTimeout: _mediaClipboardTimeout,
+              totalTimeout: _mediaClipboardTimeout,
+            ),
+          ).timeout(_mediaClipboardTimeout);
+          if (context.mounted) {
+            showOpenHandSuccessSnack(context, '图片已复制到剪贴板。');
+          }
+          return;
+        }
+      }
+      final copied = await Pasteboard.writeFiles(
+        paths,
+      ).timeout(_mediaClipboardTimeout);
+      if (!copied) throw const FileSystemException('系统不支持复制媒体文件。');
+      if (context.mounted) {
+        showOpenHandSuccessSnack(context, '媒体文件已复制到剪贴板。');
+      }
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '复制媒体文件', error, stack);
+      if (context.mounted) showOpenHandErrorSnack(context, '复制媒体文件失败：$error');
+    } finally {
+      if (mounted) setState(() => _copyingMedia = false);
+    }
   }
 }
 

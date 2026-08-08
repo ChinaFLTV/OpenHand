@@ -48,5 +48,19 @@ void main() {
       DingTalkMediaKindX.fromFileName('archive.zip'),
       DingTalkMediaKind.file,
     );
+    expect(DingTalkMediaKind.image.isPreviewable, isTrue);
+    expect(DingTalkMediaKind.video.isPreviewable, isTrue);
+    expect(DingTalkMediaKind.audio.isPreviewable, isTrue);
+    expect(DingTalkMediaKind.file.isPreviewable, isFalse);
+  });
+
+  test('旧格式 fileId 媒体字段可以恢复', () {
+    final media = DingTalkGatewayMedia.fromJson(const <String, Object?>{
+      'file_id': 'file-1',
+      'file_name': 'report.pdf',
+    });
+    expect(media.resourceId, 'file-1');
+    expect(media.resourceType, DingTalkMediaResourceType.fileId);
+    expect(media.kind, DingTalkMediaKind.file);
   });
 }

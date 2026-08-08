@@ -18,6 +18,8 @@ enum DingTalkMediaResourceType { mediaId, fileId }
 extension DingTalkMediaKindX on DingTalkMediaKind {
   String get storageValue => name;
 
+  bool get isPreviewable => this != DingTalkMediaKind.file;
+
   static DingTalkMediaKind fromStorage(Object? value) {
     final normalized = '${value ?? ''}'.trim().toLowerCase();
     if (normalized.contains('image') ||
