@@ -11461,7 +11461,8 @@ String _messageGatewayWaitingForTrafficLabel(BuildContext context) {
 class _DingTalkGatewayCard extends StatelessWidget {
   const _DingTalkGatewayCard({required this.controller});
 
-  static const double _iconSize = 13;
+  // 使用显式居中约束，避免 46px 卡片的紧约束把 SVG 强制拉伸到满尺寸。
+  static const double _iconSize = 24;
 
   final MessageGatewayController controller;
 
@@ -11497,6 +11498,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                                 color: theme.colorScheme.primaryContainer,
                                 borderRadius: BorderRadius.circular(18),
                               ),
+                              alignment: Alignment.center,
                               child: SvgPicture.asset(
                                 'assets/icons/plugins/dingtalk-workspace-cli.svg',
                                 width: _iconSize,
