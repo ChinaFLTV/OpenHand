@@ -142,11 +142,13 @@ class DingTalkMessageGatewayService {
       <String, Future<String?>>{};
   List<AiDingTalkDwsCommand>? _dwsCommandCatalog;
   DateTime? _dwsCommandCatalogLoadedAt;
+  String? _dwsCommandCatalogError;
   int _runtimeLogSequence = 0;
 
   List<String> get runtimeLogs => _runtimeLogs.snapshot();
   int get runtimeLogRevision => _runtimeLogs.revision;
   Stream<String> get runtimeLogStream => _runtimeLogController.stream;
+  String? get dwsCommandCatalogError => _dwsCommandCatalogError;
 
   String get mediaCacheDirectoryPath =>
       p.join(OpenHandPaths.defaultMessageGatewayDirectoryPath(), 'media');
@@ -162,6 +164,7 @@ class DingTalkMessageGatewayService {
         DateTime.now().difference(loadedAt) < const Duration(minutes: 10)) {
       return cached;
     }
+    _dwsCommandCatalogError = null;
     try {
       final raw = await _runJson(const <String>[
         'schema',
@@ -172,61 +175,60 @@ class DingTalkMessageGatewayService {
       ], timeout: const Duration(seconds: 45));
       final root = _asMap(raw);
       final products = root['products'];
+      if (products is! List) {
+        throw const FormatException('DWS 返回的命令目录缺少 products 字段。');
+      }
       final result = <AiDingTalkDwsCommand>[];
-      if (products is List) {
-        for (final productValue in products) {
-          if (productValue is! Map) continue;
-          final product = _asMap(productValue);
-          final productId = _first(product, const <String>['id', 'product_id']);
-          if (productId.isEmpty ||
-              productId == 'chat' ||
-              productId == 'event') {
+      for (final productValue in products) {
+        if (productValue is! Map) continue;
+        final product = _asMap(productValue);
+        final productId = _first(product, const <String>['id', 'product_id']);
+        if (productId.isEmpty || productId == 'chat' || productId == 'event') {
+          continue;
+        }
+        final productName = _first(product, const <String>[
+          'name',
+          'display',
+          'description',
+        ]);
+        final tools = product['tools'];
+        if (tools is! List) continue;
+        for (final toolValue in tools) {
+          if (toolValue is! Map) continue;
+          final tool = _asMap(toolValue);
+          final cliPath = _first(tool, const <String>[
+            'cli_path',
+            'primary_cli_path',
+          ]);
+          final declaredName = _first(tool, const <String>['name', 'cli_name']);
+          final name = declaredName.isEmpty
+              ? cliPath.split(' ').last
+              : declaredName;
+          if (cliPath.isEmpty || name.isEmpty) continue;
+          try {
+            result.add(
+              AiDingTalkDwsCommand.fromJson(<String, Object?>{
+                'product_id': productId,
+                'product_name': productName,
+                'cli_path': cliPath,
+                'name': name,
+                'description': tool['description'] ?? tool['title'] ?? '',
+                'summary': tool['agent_summary'] ?? tool['summary'] ?? '',
+                'effect': tool['effect'] ?? 'read',
+                'risk': tool['risk'] ?? 'low',
+                'confirmation': tool['confirmation'] ?? 'not_required',
+                'parameters': tool['parameters'],
+                'positionals': tool['positionals'],
+                'examples': tool['examples'],
+              }),
+            );
+          } on FormatException {
             continue;
           }
-          final productName = _first(product, const <String>[
-            'name',
-            'display',
-            'description',
-          ]);
-          final tools = product['tools'];
-          if (tools is! List) continue;
-          for (final toolValue in tools) {
-            if (toolValue is! Map) continue;
-            final tool = _asMap(toolValue);
-            final cliPath = _first(tool, const <String>[
-              'cli_path',
-              'primary_cli_path',
-            ]);
-            final declaredName = _first(tool, const <String>[
-              'name',
-              'cli_name',
-            ]);
-            final name = declaredName.isEmpty
-                ? cliPath.split(' ').last
-                : declaredName;
-            if (cliPath.isEmpty || name.isEmpty) continue;
-            try {
-              result.add(
-                AiDingTalkDwsCommand.fromJson(<String, Object?>{
-                  'product_id': productId,
-                  'product_name': productName,
-                  'cli_path': cliPath,
-                  'name': name,
-                  'description': tool['description'] ?? tool['title'] ?? '',
-                  'summary': tool['agent_summary'] ?? tool['summary'] ?? '',
-                  'effect': tool['effect'] ?? 'read',
-                  'risk': tool['risk'] ?? 'low',
-                  'confirmation': tool['confirmation'] ?? 'not_required',
-                  'parameters': tool['parameters'],
-                  'positionals': tool['positionals'],
-                  'examples': tool['examples'],
-                }),
-              );
-            } on FormatException {
-              continue;
-            }
-          }
         }
+      }
+      if (products.isNotEmpty && result.isEmpty) {
+        throw const FormatException('DWS 命令目录未包含可用命令。');
       }
       final deduped = <String, AiDingTalkDwsCommand>{
         for (final command in result) command.cliPath: command,
@@ -235,9 +237,13 @@ class DingTalkMessageGatewayService {
         ..sort((a, b) => a.cliPath.compareTo(b.cliPath));
       _dwsCommandCatalog = List<AiDingTalkDwsCommand>.unmodifiable(catalog);
       _dwsCommandCatalogLoadedAt = DateTime.now();
+      _dwsCommandCatalogError = null;
       _logRuntime('SUCCESS', '已加载 ${catalog.length} 个钉钉 DWS 扩展命令。');
       return _dwsCommandCatalog!;
     } catch (error, stack) {
+      _dwsCommandCatalogError = _safeProcessLogLine(
+        error.toString().replaceFirst('FormatException: ', ''),
+      );
       _logRuntime('ERROR', '加载钉钉 DWS 扩展命令失败：$error');
       silentLog('dingtalk_gateway', '加载 DWS 命令目录', error, stack);
       return cached ?? const <AiDingTalkDwsCommand>[];
@@ -1796,7 +1802,10 @@ class DingTalkMessageGatewayService {
         timeout: timeout ?? _commandTimeout,
         tag: 'dingtalk_gateway.command',
         workingDirectory: workingDirectory,
-        maxCapturedLinesPerStream: 4096,
+        // Schema 是多行 JSON，命令目录可能超过四万行，且描述行可能超过
+        // 默认 4,000 字符；截断行或丢弃前面的行都会破坏整体 JSON。
+        maxCapturedLinesPerStream: 65536,
+        maxLineCharacters: 64 * 1024,
         onStdoutLine: (line) {
           final trimmed = line.trimLeft();
           final isStructured =

@@ -114,6 +114,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool _usingPollingFallback = false;
   bool _initialized = false;
   bool _disposed = false;
+  bool _notificationQueued = false;
   DingTalkWriteApprovalHandler? _writeApprovalHandler;
   bool _isAuthenticating = false;
   bool _isPolling = false;
@@ -139,6 +140,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get warningMessage => _warningMessage;
   String? get deviceUrl => _deviceUrl;
+  String? get dwsCommandCatalogError => _service.dwsCommandCatalogError;
   String get deviceCode {
     final value = _deviceUrl;
     if (value == null) return '';
@@ -1772,7 +1774,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   void _notify() {
-    if (!_disposed) notifyListeners();
+    if (_disposed || _notificationQueued) return;
+    // dws 运行日志使用同步广播流，设置弹窗挂载/构建期间可能立即触发
+    // 通知。合并到微任务，避免 Flutter 在 build 阶段标记组件重建。
+    _notificationQueued = true;
+    scheduleMicrotask(() {
+      _notificationQueued = false;
+      if (!_disposed) notifyListeners();
+    });
   }
 
   Future<void> shutdown() async {

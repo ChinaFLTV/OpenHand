@@ -16936,7 +16936,12 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     totalCount: _dwsCatalog.length,
                     refreshing: _dwsCatalogLoading,
                     onRefresh: () => _loadDwsCatalog(forceRefresh: true),
-                    onTap: _dwsCatalog.isEmpty && _dwsCatalogError != null
+                    onTap: _dwsCatalogLoading
+                        ? () => showOpenHandInfoSnack(
+                            context,
+                            'DWS 命令目录正在加载，请稍候。',
+                          )
+                        : _dwsCatalog.isEmpty
                         ? () => _loadDwsCatalog(forceRefresh: true)
                         : _selectDwsCommands,
                   ),
@@ -17138,13 +17143,19 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       setState(() {
         _dwsCatalog = catalog;
         _dwsCommands.retainAll(available);
-        if (catalog.isEmpty && !widget.controller.isInstalled) {
-          _dwsCatalogError = '未找到 dws，请先在插件板块安装后重试。';
+        if (catalog.isEmpty) {
+          final serviceError = widget.controller.dwsCommandCatalogError;
+          _dwsCatalogError = serviceError == null || serviceError.isEmpty
+              ? widget.controller.isInstalled
+                    ? 'dws 未返回可用命令，请点击刷新重试。'
+                    : '未找到 dws，请先在插件板块安装后重试。'
+              : 'DWS 命令目录加载失败：$serviceError。可点击刷新重试。';
         }
       });
     } catch (error) {
       if (mounted) {
-        setState(() => _dwsCatalogError = 'DWS 命令目录加载失败，可点击刷新重试。');
+        final message = error.toString().replaceFirst('FormatException: ', '');
+        setState(() => _dwsCatalogError = 'DWS 命令目录加载失败：$message。可点击刷新重试。');
       }
       silentLog('message_gateway', '加载钉钉 DWS 命令目录', error, StackTrace.current);
     } finally {
@@ -17153,6 +17164,14 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   }
 
   Future<void> _selectDwsCommands() async {
+    if (_dwsCatalogLoading) {
+      showOpenHandInfoSnack(context, 'DWS 命令目录正在加载，请稍候。');
+      return;
+    }
+    if (_dwsCatalog.isEmpty) {
+      await _loadDwsCatalog(forceRefresh: true);
+      if (!mounted || _dwsCatalog.isEmpty) return;
+    }
     final options = _dwsCatalog
         .map(
           (item) => _DingTalkResourceOption(
