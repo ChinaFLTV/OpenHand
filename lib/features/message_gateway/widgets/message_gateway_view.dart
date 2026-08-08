@@ -13244,6 +13244,15 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const Duration _mediaClipboardTimeout = Duration(seconds: 15);
   bool _hovered = false;
   bool _copyingMedia = false;
+  int _actionsTransitionId = 0;
+
+  void _setHovered(bool hovered) {
+    if (_hovered == hovered) return;
+    setState(() {
+      _hovered = hovered;
+      _actionsTransitionId++;
+    });
+  }
 
   @override
   Widget build(BuildContext context) {
@@ -13284,8 +13293,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       child: Align(
         alignment: alignment,
         child: MouseRegion(
-          onEnter: (_) => setState(() => _hovered = true),
-          onExit: (_) => setState(() => _hovered = false),
+          onEnter: (_) => _setHovered(true),
+          onExit: (_) => _setHovered(false),
           child: Column(
             crossAxisAlignment: crossAxis,
             children: [
@@ -13356,7 +13365,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 ),
                 child: _hovered
                     ? Row(
-                        key: const ValueKey<String>('message-actions-visible'),
+                        key: ValueKey<int>(_actionsTransitionId),
                         mainAxisSize: MainAxisSize.min,
                         textDirection: widget.mine
                             ? TextDirection.rtl
@@ -13436,8 +13445,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                           ),
                         ],
                       )
-                    : const SizedBox(
-                        key: ValueKey<String>('message-actions-hidden'),
+                    : SizedBox(
+                        key: ValueKey<int>(_actionsTransitionId),
                         height: 0,
                       ),
               ),
