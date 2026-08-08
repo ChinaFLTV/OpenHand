@@ -63,6 +63,7 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
     _lastRevision = widget.revision();
     widget.listenable.addListener(_refresh);
     _refreshTimer = Timer.periodic(_refreshInterval, (_) => _refresh());
+    _scheduleFollow();
   }
 
   @override
