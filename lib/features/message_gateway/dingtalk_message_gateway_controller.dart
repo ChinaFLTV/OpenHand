@@ -1,9 +1,11 @@
 import 'dart:async';
 import 'dart:collection';
 import 'dart:convert';
+import 'dart:io';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
+import 'package:path/path.dart' as p;
 import 'package:uuid/uuid.dart';
 
 import '../../app/model/app_info.dart';
@@ -29,14 +31,23 @@ typedef DingTalkWriteApprovalHandler =
     );
 
 class _QueuedDingTalkResponse {
-  _QueuedDingTalkResponse(this.content, Completer<void> completer)
-    : waiters = <Completer<void>>[completer];
+  _QueuedDingTalkResponse(
+    this.content,
+    this.sourceMessageId,
+    Completer<void> completer,
+  ) : waiters = <Completer<void>>[completer];
 
   String content;
+  String sourceMessageId;
   final List<Completer<void>> waiters;
 
-  void merge(String nextContent, Completer<void> completer) {
+  void merge(
+    String nextContent,
+    String nextSourceMessageId,
+    Completer<void> completer,
+  ) {
     content = '$content\n\n$nextContent';
+    sourceMessageId = nextSourceMessageId;
     waiters.add(completer);
   }
 
@@ -68,6 +79,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   static const Uuid _uuid = Uuid();
+  static const int _mediaCacheConcurrency = 3;
   static const int _maxSeenIds = 2000;
   static const Duration _queryWindow = Duration(minutes: 10);
   final AiSessionController _sessionController;
@@ -90,6 +102,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Set<String> _seenMessageIds = <String>{};
   final Map<String, (DateTime, List<DingTalkConversationTarget>)>
   _targetSearchCache = <String, (DateTime, List<DingTalkConversationTarget>)>{};
+  final Map<String, Future<DingTalkGatewayMessage>> _mediaHydrationTasks =
+      <String, Future<DingTalkGatewayMessage>>{};
   Timer? _pollTimer;
   StreamSubscription<DingTalkGatewayMessage>? _eventSubscription;
   Future<void>? _persistInFlight;
@@ -241,6 +255,108 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     _responseInFlight.remove(conversationId);
     _notify();
+  }
+
+  bool isMessageMediaCaching(String messageId) =>
+      _mediaHydrationTasks.containsKey(messageId);
+
+  /// 确保指定会话中的媒体文件已落地到本地缓存。缓存被用户清理或路径失效时，
+  /// 下一次访问会重新调用 dws 下载。
+  Future<DingTalkGatewayMessage?> ensureMessageMediaCached({
+    required String conversationId,
+    required String messageId,
+  }) async {
+    final conversation = _conversations[conversationId];
+    if (conversation == null) return null;
+    final message = conversation.messages
+        .where((item) => item.id == messageId)
+        .firstOrNull;
+    if (message == null || message.media.isEmpty) return message;
+    final active = _mediaHydrationTasks[message.id];
+    if (active != null) return active;
+    final task = _hydrateMessageMedia(conversation, message);
+    _mediaHydrationTasks[message.id] = task;
+    try {
+      return await task;
+    } finally {
+      if (identical(_mediaHydrationTasks[message.id], task)) {
+        _mediaHydrationTasks.remove(message.id);
+      }
+    }
+  }
+
+  Future<DingTalkGatewayMessage> _hydrateMessageMedia(
+    DingTalkConversation conversation,
+    DingTalkGatewayMessage message,
+  ) async {
+    var changed = false;
+    final media = <DingTalkGatewayMedia>[];
+    for (final item in message.media) {
+      final currentPath = item.localPath.trim();
+      if (currentPath.isNotEmpty) {
+        try {
+          if (await File(currentPath).exists()) {
+            media.add(item);
+            continue;
+          }
+        } catch (_) {}
+      }
+      if (item.resourceId.startsWith('local-')) {
+        media.add(item.copyWith(localPath: ''));
+        changed = true;
+        continue;
+      }
+      final path = await _service.ensureMediaCached(item);
+      if (path == null || path.trim().isEmpty) {
+        media.add(item.copyWith(localPath: ''));
+      } else {
+        media.add(item.copyWith(localPath: path));
+      }
+      changed = true;
+    }
+    if (!changed) return message;
+    final hydrated = message.copyWith(media: media);
+    final index = conversation.messages.indexWhere(
+      (item) => item.id == message.id,
+    );
+    if (index >= 0) {
+      conversation.messages[index] = hydrated;
+      _queuePersist();
+      _notify();
+    }
+    return hydrated;
+  }
+
+  Future<void> ensureConversationMediaCached(String conversationId) async {
+    final conversation = _conversations[conversationId];
+    if (conversation == null) return;
+    final messages = conversation.messages
+        .where((message) => message.media.isNotEmpty)
+        .toList(growable: false);
+    if (messages.isEmpty) return;
+    var nextIndex = 0;
+    Future<void> worker() async {
+      while (true) {
+        final index = nextIndex++;
+        if (index >= messages.length) return;
+        final message = messages[index];
+        try {
+          await ensureMessageMediaCached(
+            conversationId: conversationId,
+            messageId: message.id,
+          );
+        } catch (error, stack) {
+          silentLog('dingtalk_gateway', '加载钉钉会话媒体', error, stack);
+        }
+      }
+    }
+
+    final workerCount = messages.length < _mediaCacheConcurrency
+        ? messages.length
+        : _mediaCacheConcurrency;
+    await Future.wait<void>(
+      List<Future<void>>.generate(workerCount, (_) => worker()),
+    );
   }
 
   Future<Object?> loadConversationDetails(String conversationId) async {
@@ -425,20 +541,18 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       return false;
     }
     _isSending = true;
-    _appendMessage(
-      conversation,
-      DingTalkGatewayMessage(
-        id: 'local-${_uuid.v4()}',
-        conversationId: conversation.id,
-        conversationType: conversation.type,
-        role: DingTalkGatewayMessageRole.user,
-        content: content,
-        createdAt: DateTime.now(),
-        senderName: _authStatus.identity.label,
-        senderId: _authStatus.identity.userId,
-        fromSelf: true,
-      ),
+    final localMessage = DingTalkGatewayMessage(
+      id: 'local-${_uuid.v4()}',
+      conversationId: conversation.id,
+      conversationType: conversation.type,
+      role: DingTalkGatewayMessageRole.user,
+      content: content,
+      createdAt: DateTime.now(),
+      senderName: _authStatus.identity.label,
+      senderId: _authStatus.identity.userId,
+      fromSelf: true,
     );
+    _appendMessage(conversation, localMessage);
     _notify();
     try {
       await _service.send(
@@ -446,7 +560,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         text: content,
         uuid: _uuid.v4(),
       );
-      await _enqueueAiResponse(conversation, content);
+      await _enqueueAiResponse(
+        conversation,
+        content,
+        sourceMessageId: localMessage.id,
+      );
       return true;
     } catch (error, stack) {
       _setError('发送钉钉消息', error, stack);
@@ -456,6 +574,75 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _notify();
     }
   }
+
+  Future<bool> sendFile(
+    String conversationId,
+    String filePath, {
+    bool audio = false,
+  }) async {
+    final conversation = _conversations[conversationId];
+    final normalizedPath = filePath.trim();
+    if (conversation == null ||
+        normalizedPath.isEmpty ||
+        _isSending ||
+        !isAuthorized) {
+      return false;
+    }
+    final file = File(normalizedPath);
+    if (!await file.exists()) return false;
+    final rawName = p.basename(normalizedPath).trim();
+    final name = rawName.isEmpty ? (audio ? '语音.m4a' : '文件') : rawName;
+    final kind = audio
+        ? DingTalkMediaKind.audio
+        : DingTalkMediaKindX.fromFileName(name);
+    final stat = await file.stat();
+    final message = DingTalkGatewayMessage(
+      id: 'local-${_uuid.v4()}',
+      conversationId: conversation.id,
+      conversationType: conversation.type,
+      role: DingTalkGatewayMessageRole.user,
+      content: audio ? '[语音] $name' : '[文件] $name',
+      createdAt: DateTime.now(),
+      senderName: _authStatus.identity.label,
+      senderId: _authStatus.identity.userId,
+      media: <DingTalkGatewayMedia>[
+        DingTalkGatewayMedia(
+          resourceId: 'local-${_uuid.v4()}',
+          kind: kind,
+          name: name,
+          sizeBytes: stat.size,
+          localPath: normalizedPath,
+        ),
+      ],
+      fromSelf: true,
+    );
+    _isSending = true;
+    _appendMessage(conversation, message);
+    _notify();
+    try {
+      await _service.sendFile(
+        conversation: conversation,
+        filePath: normalizedPath,
+        audio: audio,
+        uuid: _uuid.v4(),
+      );
+      await _enqueueAiResponse(
+        conversation,
+        message.content,
+        sourceMessageId: message.id,
+      );
+      return true;
+    } catch (error, stack) {
+      _setError(audio ? '发送钉钉语音' : '发送钉钉文件', error, stack);
+      return false;
+    } finally {
+      _isSending = false;
+      _notify();
+    }
+  }
+
+  Future<bool> sendAudio(String conversationId, String filePath) =>
+      sendFile(conversationId, filePath, audio: true);
 
   Future<void> _pollOnce() async {
     if (!_isPolling || _pollInFlight || !isAuthorized || _disposed) return;
@@ -567,8 +754,33 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (_settings.reminderMode == DingTalkReminderMode.sound) {
       unawaited(SystemSound.play(SystemSoundType.alert));
     }
-    unawaited(_enqueueAiResponse(conversation, message.content));
+    unawaited(_cacheAndEnqueueIncomingMessage(conversation, message));
     _notify();
+  }
+
+  Future<void> _cacheAndEnqueueIncomingMessage(
+    DingTalkConversation conversation,
+    DingTalkGatewayMessage message,
+  ) async {
+    try {
+      final hydrated = await ensureMessageMediaCached(
+        conversationId: conversation.id,
+        messageId: message.id,
+      );
+      final effective = hydrated ?? message;
+      await _enqueueAiResponse(
+        conversation,
+        effective.content,
+        sourceMessageId: effective.id,
+      );
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '准备钉钉媒体消息', error, stack);
+      await _enqueueAiResponse(
+        conversation,
+        message.content,
+        sourceMessageId: message.id,
+      );
+    }
   }
 
   DingTalkConversationTarget? _allowedTargetFor(
@@ -604,6 +816,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void> _respondWithAi(
     DingTalkConversation conversation,
     String content,
+    String sourceMessageId,
   ) async {
     if (!_responseInFlight.add(conversation.id)) return;
     _notify();
@@ -706,6 +919,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         conversation.aiSessionId = sessionId;
       }
       if (sessionId == null) return;
+      final attachmentPaths = _attachmentPathsForTurn(
+        conversation,
+        sourceMessageId,
+      );
       await _sessionController.updateSessionFullAccessPermission(
         sessionId,
         _settings.fullAccessPermission,
@@ -817,6 +1034,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           content: content,
           model: model,
           runtimeContext: runtimeContext,
+          attachmentFilePaths: attachmentPaths,
           denyCommandRules: _settingsController.aiDenyCommandRules,
           requireWriteCommandConfirmation: requireWriteConfirmation,
           confirmWriteCommand: requireWriteConfirmation
@@ -858,6 +1076,38 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _responseInFlight.remove(conversation.id);
       _notify();
     }
+  }
+
+  List<String> _attachmentPathsForTurn(
+    DingTalkConversation conversation,
+    String sourceMessageId,
+  ) {
+    var endIndex = conversation.messages.indexWhere(
+      (message) => message.id == sourceMessageId,
+    );
+    if (endIndex < 0) endIndex = conversation.messages.length - 1;
+    if (endIndex < 0) return const <String>[];
+    final selected = <String>[];
+    for (var index = endIndex; index >= 0; index--) {
+      final message = conversation.messages[index];
+      if (message.isAssistant) break;
+      if (message.role != DingTalkGatewayMessageRole.user) continue;
+      for (final media in message.media.reversed) {
+        final path = media.localPath.trim();
+        if (path.isEmpty || !File(path).existsSync()) continue;
+        try {
+          if (File(path).lengthSync() > aiMessageAttachmentMaxFileBytes) {
+            continue;
+          }
+        } catch (_) {
+          continue;
+        }
+        if (!selected.contains(path)) selected.add(path);
+        if (selected.length >= 6) break;
+      }
+      if (selected.length >= 6) break;
+    }
+    return selected.reversed.toList(growable: false);
   }
 
   static const Set<String> _terminalToolEchoStatuses = <String>{
@@ -1122,21 +1372,28 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<void> _enqueueAiResponse(
     DingTalkConversation conversation,
-    String content,
-  ) {
+    String content, {
+    String? sourceMessageId,
+  }) {
     final normalized = content.trim();
     if (normalized.isEmpty || _disposed) return Future<void>.value();
     final completer = Completer<void>();
+    final requestedSourceId = sourceMessageId?.trim() ?? '';
+    final sourceId = requestedSourceId.isEmpty
+        ? conversation.messages.isEmpty
+              ? ''
+              : conversation.messages.last.id
+        : requestedSourceId;
     final queue = _responseQueues.putIfAbsent(
       conversation.id,
       () => Queue<_QueuedDingTalkResponse>(),
     );
     if (queue.length >= _maxQueuedResponsesPerConversation) {
       // 极端突发消息时合并队尾，保留全部内容并限制内存增长。
-      queue.last.merge(normalized, completer);
+      queue.last.merge(normalized, sourceId, completer);
       _warningMessage = '钉钉会话消息过多，已将突发消息合并后依次处理。';
     } else {
-      queue.add(_QueuedDingTalkResponse(normalized, completer));
+      queue.add(_QueuedDingTalkResponse(normalized, sourceId, completer));
     }
     _notify();
     if (_responseDraining.add(conversation.id)) {
@@ -1155,7 +1412,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       while (!_disposed && queue.isNotEmpty) {
         final item = queue.removeFirst();
         try {
-          await _respondWithAi(conversation, item.content);
+          await _respondWithAi(
+            conversation,
+            item.content,
+            item.sourceMessageId,
+          );
         } catch (error, stack) {
           silentLog('dingtalk_gateway', '处理钉钉消息队列', error, stack);
         } finally {

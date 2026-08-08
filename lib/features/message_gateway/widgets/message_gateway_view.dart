@@ -5,7 +5,9 @@ import 'dart:math' as math;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
+import 'package:record/record.dart';
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/openhand_scroll_physics.dart';
@@ -21,6 +23,7 @@ import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/frame_coalesced_rebuild.dart';
+import '../../../shared/ui/media_preview_dialog.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
@@ -12027,15 +12030,23 @@ class _DingTalkMessagesDialog extends StatefulWidget {
 }
 
 class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
+  static const Duration _maxVoiceDuration = Duration(minutes: 2);
+  static const int _maxUploadBytes = 512 * 1024 * 1024;
   final TextEditingController _input = TextEditingController();
   final ScrollController _messagesScrollController = ScrollController();
   Timer? _refreshTimer;
   int? _refreshIntervalSeconds;
   bool _followScheduled = false;
   String? _selectedId;
-  String? _pendingSelectedId;
   bool _autoFollow = true;
   bool _closing = false;
+  AudioRecorder? _voiceRecorder;
+  String? _voicePath;
+  String? _voiceConversationId;
+  bool _recordingVoice = false;
+  bool _voiceRecorderStarted = false;
+  bool _stopVoiceRequested = false;
+  Timer? _voiceMaxDurationTimer;
 
   @override
   void initState() {
@@ -12048,6 +12059,13 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   void dispose() {
     widget.controller.removeListener(_handleControllerChanged);
     _refreshTimer?.cancel();
+    _voiceMaxDurationTimer?.cancel();
+    final recorder = _voiceRecorder;
+    _voiceRecorder = null;
+    _voiceRecorderStarted = false;
+    if (recorder != null) {
+      unawaited(_cancelAndDisposeRecorder(recorder));
+    }
     _input.dispose();
     _messagesScrollController.dispose();
     super.dispose();
@@ -12062,12 +12080,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       listenable: widget.controller,
       builder: (context, _) {
         final conversations = widget.controller.conversations;
-        final selected =
-            conversations.where((item) => item.id == _selectedId).firstOrNull ??
-            (conversations.isEmpty ? null : conversations.first);
-        if (selected != null && _selectedId != selected.id) {
-          _deferSelection(selected.id);
-        }
+        // 初次打开只展示空状态，必须由用户明确点击会话后再进入消息内容。
+        final selected = conversations
+            .where((item) => item.id == _selectedId)
+            .firstOrNull;
         _scheduleAutoFollow();
         return SizedBox(
           width: double.infinity,
@@ -12316,6 +12332,22 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                               child: _DingTalkMessageBubble(
                                                 message: message,
                                                 mine: _isMine(message),
+                                                onRetryMedia:
+                                                    message.media.any(
+                                                      (item) => item.localPath
+                                                          .trim()
+                                                          .isEmpty,
+                                                    )
+                                                    ? () => unawaited(
+                                                        widget.controller
+                                                            .ensureMessageMediaCached(
+                                                              conversationId:
+                                                                  selected.id,
+                                                              messageId:
+                                                                  message.id,
+                                                            ),
+                                                      )
+                                                    : null,
                                               ),
                                             );
                                           },
@@ -12352,6 +12384,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                         ),
                                       ),
                                       const SizedBox(width: 10),
+                                      _buildFileButton(selected),
+                                      const SizedBox(width: 6),
+                                      _buildVoiceButton(selected),
+                                      const SizedBox(width: 8),
                                       _buildSendButton(selected),
                                     ],
                                   ),
@@ -12406,26 +12442,13 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     _ensureRefreshTimer();
   }
 
-  void _deferSelection(String id) {
-    if (_pendingSelectedId == id) return;
-    _pendingSelectedId = id;
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      _pendingSelectedId = null;
-      if (!mounted || _selectedId == id) return;
-      setState(() {
-        _selectedId = id;
-        _input.clear();
-      });
-      _scheduleAutoFollow(force: true);
-    });
-  }
-
   void _selectConversation(String id) {
     if (_selectedId == id) return;
     setState(() {
       _selectedId = id;
       _input.clear();
     });
+    unawaited(widget.controller.ensureConversationMediaCached(id));
     _scheduleAutoFollow(force: true);
   }
 
@@ -12485,12 +12508,232 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         label: AnimatedSwitcher(
           duration: openHandMotionDuration(context, kOpenHandMotion180),
           child: Text(
-            responding ? '停止响应' : '发送',
+            responding ? '停止响应' : '普通发送',
             key: ValueKey<bool>(responding),
           ),
         ),
       ),
     );
+  }
+
+  Widget _buildFileButton(DingTalkConversation conversation) {
+    final enabled =
+        !widget.controller.isSending &&
+        !widget.controller.isConversationResponding(conversation.id);
+    return IconButton.filledTonal(
+      tooltip: '发送文件',
+      onPressed: enabled
+          ? () => unawaited(_pickAndSendFile(conversation))
+          : null,
+      icon: const Icon(Icons.attach_file_rounded),
+    );
+  }
+
+  Widget _buildVoiceButton(DingTalkConversation conversation) {
+    final enabled =
+        !widget.controller.isSending &&
+        !widget.controller.isConversationResponding(conversation.id);
+    final colors = Theme.of(context).colorScheme;
+    return Semantics(
+      button: true,
+      label: _recordingVoice ? '松开发送语音' : '按住录制语音',
+      child: GestureDetector(
+        behavior: HitTestBehavior.opaque,
+        onLongPressStart: enabled
+            ? (_) => unawaited(_startVoiceRecording(conversation))
+            : null,
+        onLongPressEnd: enabled
+            ? (_) => unawaited(_finishVoiceRecording())
+            : null,
+        onLongPressCancel: enabled ? _cancelVoiceRecording : null,
+        onTap: enabled
+            ? () => showOpenHandInfoSnack(context, '按住麦克风按钮录音，松开后立即发送。')
+            : null,
+        child: AnimatedContainer(
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
+          width: 48,
+          height: 48,
+          decoration: BoxDecoration(
+            color: _recordingVoice
+                ? colors.errorContainer
+                : colors.secondaryContainer,
+            borderRadius: BorderRadius.circular(16),
+            border: Border.all(
+              color: _recordingVoice ? colors.error : colors.outlineVariant,
+            ),
+          ),
+          child: Icon(
+            _recordingVoice ? Icons.mic_rounded : Icons.mic_none_rounded,
+            color: _recordingVoice
+                ? colors.onErrorContainer
+                : colors.onSecondaryContainer,
+          ),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _pickAndSendFile(DingTalkConversation conversation) async {
+    try {
+      final picked = await openFile();
+      if (!mounted || picked == null) return;
+      final path = picked.path.trim();
+      if (path.isEmpty) return;
+      final file = File(path);
+      final exists = await file.exists();
+      if (!mounted) return;
+      if (!exists) {
+        showOpenHandErrorSnack(context, '所选文件不存在或已被移动。');
+        return;
+      }
+      final size = await file.length();
+      if (!mounted) return;
+      if (size <= 0) {
+        showOpenHandErrorSnack(context, '不能发送空文件。');
+        return;
+      }
+      if (size > _maxUploadBytes) {
+        showOpenHandErrorSnack(context, '文件超过 512MB 上限，无法发送。');
+        return;
+      }
+      await widget.controller.sendFile(conversation.id, path);
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '选择钉钉发送文件', error, stack);
+      if (mounted) showOpenHandErrorSnack(context, '选择文件失败：$error');
+    }
+  }
+
+  Future<void> _startVoiceRecording(DingTalkConversation conversation) async {
+    if (_recordingVoice || !mounted) return;
+    final recorder = AudioRecorder();
+    setState(() {
+      _recordingVoice = true;
+      _voiceRecorder = recorder;
+      _voiceRecorderStarted = false;
+      _voiceConversationId = conversation.id;
+      _stopVoiceRequested = false;
+    });
+    try {
+      if (!await recorder.hasPermission()) {
+        throw StateError('未获得麦克风权限，请在系统设置中允许 OpenHand 使用麦克风。');
+      }
+      if (!mounted || !identical(_voiceRecorder, recorder)) {
+        await _cancelAndDisposeRecorder(recorder);
+        return;
+      }
+      final directory = Directory(
+        p.join(OpenHandPaths.defaultCacheDirectoryPath(), 'dingtalk_voice'),
+      );
+      await directory.create(recursive: true);
+      if (!mounted || !identical(_voiceRecorder, recorder)) {
+        await _cancelAndDisposeRecorder(recorder);
+        return;
+      }
+      final path = p.join(
+        directory.path,
+        'voice-${DateTime.now().microsecondsSinceEpoch}.m4a',
+      );
+      await recorder.start(
+        const RecordConfig(
+          bitRate: 64000,
+          sampleRate: 16000,
+          numChannels: 1,
+          noiseSuppress: true,
+          echoCancel: true,
+        ),
+        path: path,
+      );
+      _voiceRecorderStarted = true;
+      _voicePath = path;
+      _voiceMaxDurationTimer?.cancel();
+      _voiceMaxDurationTimer = Timer(
+        _maxVoiceDuration,
+        () => unawaited(_finishVoiceRecording()),
+      );
+      if (_stopVoiceRequested) await _finishVoiceRecording();
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '录制钉钉语音', error, stack);
+      _voiceMaxDurationTimer?.cancel();
+      _voiceMaxDurationTimer = null;
+      await _cancelAndDisposeRecorder(recorder);
+      if (mounted) {
+        setState(() {
+          _recordingVoice = false;
+          _voiceRecorder = null;
+          _voiceRecorderStarted = false;
+          _voicePath = null;
+          _voiceConversationId = null;
+        });
+        showOpenHandErrorSnack(context, '$error');
+      }
+    }
+  }
+
+  Future<void> _finishVoiceRecording() async {
+    final recorder = _voiceRecorder;
+    if (recorder == null || !_voiceRecorderStarted) {
+      _stopVoiceRequested = true;
+      return;
+    }
+    _voiceMaxDurationTimer?.cancel();
+    _voiceMaxDurationTimer = null;
+    final conversationId = _voiceConversationId;
+    final fallbackPath = _voicePath;
+    _voiceRecorder = null;
+    _voiceRecorderStarted = false;
+    _voicePath = null;
+    _voiceConversationId = null;
+    if (mounted) setState(() => _recordingVoice = false);
+    try {
+      String? recordedPath;
+      try {
+        recordedPath = await recorder.stop() ?? fallbackPath;
+      } finally {
+        try {
+          await recorder.dispose();
+        } catch (error, stack) {
+          silentLog('dingtalk_gateway', '释放钉钉语音录音器', error, stack);
+        }
+      }
+      if (conversationId == null || recordedPath == null) return;
+      final file = File(recordedPath);
+      if (!await file.exists() || await file.length() <= 0) {
+        if (mounted) showOpenHandErrorSnack(context, '没有录到有效语音内容。');
+        return;
+      }
+      await widget.controller.sendAudio(conversationId, recordedPath);
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '发送录制语音', error, stack);
+      if (mounted) showOpenHandErrorSnack(context, '发送语音失败：$error');
+    }
+  }
+
+  void _cancelVoiceRecording() {
+    final recorder = _voiceRecorder;
+    _voiceMaxDurationTimer?.cancel();
+    _voiceMaxDurationTimer = null;
+    _voiceRecorder = null;
+    _voiceRecorderStarted = false;
+    _voicePath = null;
+    _voiceConversationId = null;
+    _stopVoiceRequested = false;
+    if (mounted) setState(() => _recordingVoice = false);
+    if (recorder != null) {
+      unawaited(_cancelAndDisposeRecorder(recorder));
+    }
+  }
+
+  Future<void> _cancelAndDisposeRecorder(AudioRecorder recorder) async {
+    try {
+      await recorder.cancel();
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '取消钉钉语音录制', error, stack);
+    }
+    try {
+      await recorder.dispose();
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '释放钉钉语音录音器', error, stack);
+    }
   }
 
   void _sendOrStop(DingTalkConversation conversation) {
@@ -12613,10 +12856,15 @@ class _DingTalkRespondingIndicator extends StatelessWidget {
 }
 
 class _DingTalkMessageBubble extends StatefulWidget {
-  const _DingTalkMessageBubble({required this.message, required this.mine});
+  const _DingTalkMessageBubble({
+    required this.message,
+    required this.mine,
+    this.onRetryMedia,
+  });
 
   final DingTalkGatewayMessage message;
   final bool mine;
+  final VoidCallback? onRetryMedia;
 
   @override
   State<_DingTalkMessageBubble> createState() => _DingTalkMessageBubbleState();
@@ -12708,6 +12956,12 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   ),
                 ),
               ),
+              if (widget.message.media.isNotEmpty)
+                _DingTalkMediaRail(
+                  media: widget.message.media,
+                  mine: widget.mine,
+                  onRetry: widget.onRetryMedia,
+                ),
               AnimatedSwitcher(
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
                 switchInCurve: Curves.easeOutCubic,
@@ -12797,6 +13051,176 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       ),
     );
   }
+}
+
+class _DingTalkMediaRail extends StatelessWidget {
+  const _DingTalkMediaRail({
+    required this.media,
+    required this.mine,
+    this.onRetry,
+  });
+
+  final List<DingTalkGatewayMedia> media;
+  final bool mine;
+  final VoidCallback? onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: mine ? Alignment.centerRight : Alignment.centerLeft,
+      child: ConstrainedBox(
+        constraints: const BoxConstraints(maxWidth: 560),
+        child: Padding(
+          padding: const EdgeInsets.only(bottom: 6),
+          child: Wrap(
+            alignment: mine ? WrapAlignment.end : WrapAlignment.start,
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              for (final item in media)
+                _DingTalkMediaTile(media: item, onRetry: onRetry),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkMediaTile extends StatelessWidget {
+  const _DingTalkMediaTile({required this.media, this.onRetry});
+
+  final DingTalkGatewayMedia media;
+  final VoidCallback? onRetry;
+
+  Future<void> _open(BuildContext context) async {
+    final path = media.localPath.trim();
+    if (path.isEmpty || !await File(path).exists()) {
+      onRetry?.call();
+      return;
+    }
+    if (media.kind == DingTalkMediaKind.file) {
+      final opened = await openLocalPathWithSystemApp(
+        path,
+        tag: 'dingtalk_gateway',
+      );
+      if (!opened && context.mounted) {
+        showOpenHandErrorSnack(context, '无法打开该文件。');
+      }
+      return;
+    }
+    if (!context.mounted) return;
+    final kind = switch (media.kind) {
+      DingTalkMediaKind.image => MediaPreviewKind.image,
+      DingTalkMediaKind.video => MediaPreviewKind.video,
+      DingTalkMediaKind.audio => MediaPreviewKind.audio,
+      DingTalkMediaKind.file => MediaPreviewKind.audio,
+    };
+    unawaited(
+      showAnimatedDialog<void>(
+        context: context,
+        builder: (_) => MediaPreviewDialog.file(
+          filePath: path,
+          title: media.displayName,
+          mimeType: media.mimeType.isEmpty ? null : media.mimeType,
+          kind: kind,
+        ),
+      ),
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final path = media.localPath.trim();
+    // 构建阶段不做同步磁盘访问，避免会话切换或滚动时阻塞 UI 线程；
+    // 实际打开与图片解码失败会走异步兜底并提供重试入口。
+    final available = path.isNotEmpty;
+    if (available && media.kind == DingTalkMediaKind.image) {
+      return Tooltip(
+        message: media.displayName,
+        child: Material(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(14),
+          clipBehavior: Clip.antiAlias,
+          child: InkWell(
+            onTap: () => unawaited(_open(context)),
+            child: SizedBox(
+              width: 190,
+              height: 142,
+              child: Image.file(
+                File(path),
+                fit: BoxFit.cover,
+                cacheWidth: 380,
+                errorBuilder: (_, _, _) => _missingContent(context),
+              ),
+            ),
+          ),
+        ),
+      );
+    }
+    return Material(
+      color: available
+          ? colors.surfaceContainerHighest
+          : colors.surfaceContainerLow,
+      borderRadius: BorderRadius.circular(14),
+      child: InkWell(
+        onTap: () => unawaited(_open(context)),
+        borderRadius: BorderRadius.circular(14),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Icon(
+                available ? _iconForMedia(media.kind) : Icons.cloud_off_rounded,
+                size: 22,
+                color: available ? colors.primary : colors.onSurfaceVariant,
+              ),
+              const SizedBox(width: 8),
+              ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: 260),
+                child: Text(
+                  available ? media.displayName : '媒体加载失败，点击重试',
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.labelLarge?.copyWith(
+                    fontWeight: FontWeight.w600,
+                    color: colors.onSurface,
+                  ),
+                ),
+              ),
+              if (!available) ...[
+                const SizedBox(width: 4),
+                Icon(Icons.refresh_rounded, size: 17, color: colors.primary),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  Widget _missingContent(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return ColoredBox(
+      color: colors.surfaceContainerHighest,
+      child: Center(
+        child: IconButton(
+          tooltip: '重新加载媒体',
+          onPressed: onRetry,
+          icon: const Icon(Icons.refresh_rounded),
+        ),
+      ),
+    );
+  }
+
+  IconData _iconForMedia(DingTalkMediaKind kind) => switch (kind) {
+    DingTalkMediaKind.image => Icons.image_outlined,
+    DingTalkMediaKind.video => Icons.videocam_outlined,
+    DingTalkMediaKind.audio => Icons.audiotrack_outlined,
+    DingTalkMediaKind.file => Icons.insert_drive_file_outlined,
+  };
 }
 
 class _DingTalkConversationDetailsDialog extends StatelessWidget {

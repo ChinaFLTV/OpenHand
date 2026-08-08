@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/foundation.dart';
+import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -8,6 +9,172 @@ import '../../../shared/util/input_value_parsing.dart';
 enum DingTalkConversationType { group, direct }
 
 enum DingTalkGatewayMessageRole { user, assistant }
+
+/// 钉钉消息中的媒体资源类型。file 覆盖钉钉文件、压缩包等非预览资源。
+enum DingTalkMediaKind { image, video, audio, file }
+
+enum DingTalkMediaResourceType { mediaId, fileId }
+
+extension DingTalkMediaKindX on DingTalkMediaKind {
+  String get storageValue => name;
+
+  static DingTalkMediaKind fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim().toLowerCase();
+    if (normalized.contains('image') ||
+        normalized.contains('photo') ||
+        normalized.contains('picture')) {
+      return DingTalkMediaKind.image;
+    }
+    if (normalized.contains('video')) return DingTalkMediaKind.video;
+    if (normalized.contains('audio') || normalized.contains('voice')) {
+      return DingTalkMediaKind.audio;
+    }
+    return DingTalkMediaKind.file;
+  }
+
+  static DingTalkMediaKind fromFileName(String value) {
+    return switch (p.extension(value).toLowerCase()) {
+      '.png' ||
+      '.jpg' ||
+      '.jpeg' ||
+      '.gif' ||
+      '.webp' ||
+      '.bmp' ||
+      '.heic' ||
+      '.svg' => DingTalkMediaKind.image,
+      '.mp4' ||
+      '.mov' ||
+      '.m4v' ||
+      '.webm' ||
+      '.mkv' ||
+      '.avi' => DingTalkMediaKind.video,
+      '.mp3' ||
+      '.wav' ||
+      '.m4a' ||
+      '.aac' ||
+      '.ogg' ||
+      '.opus' ||
+      '.flac' => DingTalkMediaKind.audio,
+      _ => DingTalkMediaKind.file,
+    };
+  }
+}
+
+@immutable
+class DingTalkGatewayMedia {
+  const DingTalkGatewayMedia({
+    required this.resourceId,
+    this.messageId = '',
+    this.conversationId = '',
+    this.resourceType = DingTalkMediaResourceType.mediaId,
+    this.kind = DingTalkMediaKind.file,
+    this.name = '',
+    this.mimeType = '',
+    this.sizeBytes = 0,
+    this.durationMs,
+    this.localPath = '',
+  });
+
+  factory DingTalkGatewayMedia.fromJson(Map<String, Object?> json) {
+    final resourceId =
+        '${json['resource_id'] ?? json['media_id'] ?? json['file_id'] ?? ''}'
+            .trim();
+    if (resourceId.isEmpty) {
+      throw const FormatException('钉钉媒体资源标识不完整。');
+    }
+    final rawType =
+        '${json['resource_type'] ?? (json['file_id'] != null ? 'fileId' : 'mediaId')}'
+            .trim()
+            .toLowerCase();
+    return DingTalkGatewayMedia(
+      resourceId: resourceId,
+      messageId: '${json['message_id'] ?? ''}'.trim(),
+      conversationId: '${json['conversation_id'] ?? ''}'.trim(),
+      resourceType: rawType == 'fileid'
+          ? DingTalkMediaResourceType.fileId
+          : DingTalkMediaResourceType.mediaId,
+      kind: DingTalkMediaKindX.fromStorage(json['kind'] ?? json['media_type']),
+      name: '${json['name'] ?? json['file_name'] ?? ''}'.trim(),
+      mimeType: '${json['mime_type'] ?? json['mimeType'] ?? ''}'.trim(),
+      sizeBytes: _nonNegativeInt(json['size_bytes'] ?? json['size']),
+      durationMs: _nullableNonNegativeInt(
+        json['duration_ms'] ?? json['duration'],
+      ),
+      localPath: '${json['local_path'] ?? ''}'.trim(),
+    );
+  }
+
+  final String resourceId;
+  final String messageId;
+  final String conversationId;
+  final DingTalkMediaResourceType resourceType;
+  final DingTalkMediaKind kind;
+  final String name;
+  final String mimeType;
+  final int sizeBytes;
+  final int? durationMs;
+  final String localPath;
+
+  bool get isCached => localPath.trim().isNotEmpty;
+
+  String get displayName {
+    final normalized = name.trim();
+    if (normalized.isNotEmpty) return normalized;
+    return switch (kind) {
+      DingTalkMediaKind.image => '图片',
+      DingTalkMediaKind.video => '视频',
+      DingTalkMediaKind.audio => '语音',
+      DingTalkMediaKind.file => '文件',
+    };
+  }
+
+  DingTalkGatewayMedia copyWith({
+    String? resourceId,
+    String? messageId,
+    String? conversationId,
+    DingTalkMediaResourceType? resourceType,
+    DingTalkMediaKind? kind,
+    String? name,
+    String? mimeType,
+    int? sizeBytes,
+    int? durationMs,
+    String? localPath,
+  }) {
+    return DingTalkGatewayMedia(
+      resourceId: resourceId ?? this.resourceId,
+      messageId: messageId ?? this.messageId,
+      conversationId: conversationId ?? this.conversationId,
+      resourceType: resourceType ?? this.resourceType,
+      kind: kind ?? this.kind,
+      name: name ?? this.name,
+      mimeType: mimeType ?? this.mimeType,
+      sizeBytes: sizeBytes ?? this.sizeBytes,
+      durationMs: durationMs ?? this.durationMs,
+      localPath: localPath ?? this.localPath,
+    );
+  }
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'resource_id': resourceId,
+    'message_id': messageId,
+    'conversation_id': conversationId,
+    'resource_type': resourceType.name,
+    'kind': kind.storageValue,
+    'name': name,
+    'mime_type': mimeType,
+    'size_bytes': sizeBytes,
+    'duration_ms': durationMs,
+    'local_path': localPath,
+  };
+
+  static int _nonNegativeInt(Object? value) =>
+      _nullableNonNegativeInt(value) ?? 0;
+
+  static int? _nullableNonNegativeInt(Object? value) {
+    final parsed = int.tryParse('$value');
+    return parsed != null && parsed >= 0 ? parsed : null;
+  }
+}
 
 enum DingTalkReminderMode { none, inApp, sound }
 
@@ -384,6 +551,7 @@ class DingTalkGatewayMessage {
     this.senderName = '',
     this.senderId = '',
     this.conversationTitle = '',
+    this.media = const <DingTalkGatewayMedia>[],
     this.fromSelf = false,
     this.failed = false,
     this.mentionedCurrentUser = false,
@@ -415,6 +583,7 @@ class DingTalkGatewayMessage {
       senderName: '${json['sender_name'] ?? ''}',
       senderId: '${json['sender_id'] ?? ''}',
       conversationTitle: '${json['conversation_title'] ?? ''}',
+      media: _mediaList(json['media']),
       fromSelf: boolFromValue(json['from_self']),
       failed: boolFromValue(json['failed']),
       mentionedCurrentUser: boolFromValue(json['mentioned_current_user']),
@@ -430,11 +599,33 @@ class DingTalkGatewayMessage {
   final String senderName;
   final String senderId;
   final String conversationTitle;
+  final List<DingTalkGatewayMedia> media;
   final bool fromSelf;
   final bool failed;
   final bool mentionedCurrentUser;
 
   bool get isAssistant => role == DingTalkGatewayMessageRole.assistant;
+
+  DingTalkGatewayMessage copyWith({
+    String? content,
+    List<DingTalkGatewayMedia>? media,
+  }) {
+    return DingTalkGatewayMessage(
+      id: id,
+      conversationId: conversationId,
+      conversationType: conversationType,
+      role: role,
+      content: content ?? this.content,
+      createdAt: createdAt,
+      senderName: senderName,
+      senderId: senderId,
+      conversationTitle: conversationTitle,
+      media: media ?? this.media,
+      fromSelf: fromSelf,
+      failed: failed,
+      mentionedCurrentUser: mentionedCurrentUser,
+    );
+  }
 
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
@@ -446,10 +637,31 @@ class DingTalkGatewayMessage {
     'sender_name': senderName,
     'sender_id': senderId,
     'conversation_title': conversationTitle,
+    'media': media.map((item) => item.toJson()).toList(growable: false),
     'from_self': fromSelf,
     'failed': failed,
     'mentioned_current_user': mentionedCurrentUser,
   };
+
+  static List<DingTalkGatewayMedia> _mediaList(Object? raw) {
+    if (raw is! List) return const <DingTalkGatewayMedia>[];
+    final result = <DingTalkGatewayMedia>[];
+    final seen = <String>{};
+    for (final item in raw.take(12)) {
+      if (item is! Map) continue;
+      try {
+        final media = DingTalkGatewayMedia.fromJson(
+          stringKeyedMapFromValue(item),
+        );
+        if (seen.add('${media.resourceType.name}:${media.resourceId}')) {
+          result.add(media);
+        }
+      } on FormatException {
+        continue;
+      }
+    }
+    return result.toList(growable: false);
+  }
 }
 
 class DingTalkConversation {

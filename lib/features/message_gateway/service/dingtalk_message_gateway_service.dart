@@ -3,6 +3,10 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:crypto/crypto.dart';
+import 'package:path/path.dart' as p;
+
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
@@ -52,8 +56,12 @@ class DingTalkMessageGatewayService {
   static const Duration _authTimeout = Duration(minutes: 15);
   static const Duration _eventProcessStartTimeout = Duration(seconds: 10);
   static const Duration _eventReadyTimeout = Duration(seconds: 30);
+  static const Duration _mediaDownloadTimeout = Duration(minutes: 3);
   static const int _batchSize = 30;
   static const int _detailConcurrency = 4;
+  static const int _maxMediaCacheFiles = 512;
+  static const int _maxMediaCacheBytes = 1024 * 1024 * 1024;
+  static const int _maxMediaFileBytes = 512 * 1024 * 1024;
   Process? _authProcess;
   Process? _eventProcess;
   StreamController<DingTalkGatewayMessage>? _eventController;
@@ -70,11 +78,16 @@ class DingTalkMessageGatewayService {
   );
   final StreamController<String> _runtimeLogController =
       StreamController<String>.broadcast(sync: true);
+  final Map<String, Future<String?>> _mediaDownloadTasks =
+      <String, Future<String?>>{};
   int _runtimeLogSequence = 0;
 
   List<String> get runtimeLogs => _runtimeLogs.snapshot();
   int get runtimeLogRevision => _runtimeLogs.revision;
   Stream<String> get runtimeLogStream => _runtimeLogController.stream;
+
+  String get mediaCacheDirectoryPath =>
+      p.join(OpenHandPaths.defaultMessageGatewayDirectoryPath(), 'media');
 
   void clearRuntimeLogs() => _runtimeLogs.clear();
 
@@ -272,6 +285,149 @@ class DingTalkMessageGatewayService {
     }
     if (process != null) _logRuntime('SUCCESS', '钉钉实时事件监听已停止。');
     await controller?.close();
+  }
+
+  /// 将钉钉消息中的媒体资源下载到确定性本地缓存。缓存文件不存在时会自动重取，
+  /// 同一资源并发请求会合并为一次 dws 调用，避免切换会话时重复下载。
+  Future<String?> ensureMediaCached(DingTalkGatewayMedia media) async {
+    final resourceId = media.resourceId.trim();
+    if (resourceId.isEmpty) return null;
+    final taskKey = '${media.resourceType.name}:$resourceId';
+    final active = _mediaDownloadTasks[taskKey];
+    if (active != null) return active;
+    final task = _ensureMediaCached(media);
+    _mediaDownloadTasks[taskKey] = task;
+    try {
+      return await task;
+    } finally {
+      if (identical(_mediaDownloadTasks[taskKey], task)) {
+        _mediaDownloadTasks.remove(taskKey);
+      }
+    }
+  }
+
+  Future<String?> _ensureMediaCached(DingTalkGatewayMedia media) async {
+    final directory = Directory(mediaCacheDirectoryPath);
+    await directory.create(recursive: true);
+    final extension = _mediaCacheExtension(media);
+    final filename = '${_stableMediaCacheName(media)}$extension';
+    final output = File(p.join(directory.path, filename));
+    try {
+      if (await output.exists() && await output.length() > 0) {
+        return output.path;
+      }
+      if (await output.exists()) await output.delete();
+      if (media.resourceType == DingTalkMediaResourceType.mediaId &&
+          (media.messageId.trim().isEmpty ||
+              media.conversationId.trim().isEmpty)) {
+        _logRuntime('WARN', '钉钉媒体缺少消息或会话上下文，暂不下载：${media.displayName}。');
+        return null;
+      }
+      final args = <String>[
+        'chat',
+        '+messages-resource-download',
+        '--resource-id',
+        media.resourceId.trim(),
+        '--output',
+        filename,
+        '--format',
+        'json',
+      ];
+      if (media.resourceType == DingTalkMediaResourceType.mediaId) {
+        args.addAll(<String>[
+          '--message-id',
+          media.messageId,
+          '--open-conversation-id',
+          media.conversationId,
+        ]);
+      } else {
+        args.addAll(<String>['--type', 'fileId']);
+      }
+      await _runJson(
+        args,
+        workingDirectory: directory.path,
+        timeout: _mediaDownloadTimeout,
+      );
+      if (!await output.exists()) {
+        throw StateError('钉钉媒体下载完成但未找到本地文件。');
+      }
+      final outputBytes = await output.length();
+      if (outputBytes <= 0) {
+        throw StateError('钉钉媒体下载完成但文件为空。');
+      }
+      if (outputBytes > _maxMediaFileBytes) {
+        await output.delete();
+        throw StateError('钉钉媒体超过 512MB 本地缓存上限。');
+      }
+      _logRuntime('SUCCESS', '钉钉媒体已缓存：${media.displayName}。');
+      unawaited(_pruneMediaCache(directory));
+      return output.path;
+    } catch (error, stack) {
+      // dws 超时或中断时可能留下半截文件，不能让下一次请求误认为缓存有效。
+      try {
+        if (await output.exists()) await output.delete();
+      } catch (cleanupError, cleanupStack) {
+        silentLog(
+          'dingtalk_gateway',
+          '清理损坏的钉钉媒体缓存',
+          cleanupError,
+          cleanupStack,
+        );
+      }
+      _logRuntime('WARN', '缓存钉钉媒体失败：${media.displayName}。');
+      silentLog('dingtalk_gateway', '缓存钉钉媒体', error, stack);
+      return null;
+    }
+  }
+
+  String _stableMediaCacheName(DingTalkGatewayMedia media) {
+    final raw = '${media.resourceType.name}:${media.resourceId}';
+    final digest = sha256.convert(utf8.encode(raw)).toString();
+    return 'media-${digest.substring(0, 24)}';
+  }
+
+  String _mediaCacheExtension(DingTalkGatewayMedia media) {
+    final source = p.extension(media.name.trim()).toLowerCase();
+    if (RegExp(r'^\.[a-z0-9]{1,8}$').hasMatch(source)) return source;
+    return switch (media.kind) {
+      DingTalkMediaKind.image => '.jpg',
+      DingTalkMediaKind.video => '.mp4',
+      DingTalkMediaKind.audio => '.m4a',
+      DingTalkMediaKind.file => '.bin',
+    };
+  }
+
+  Future<void> _pruneMediaCache(Directory directory) async {
+    try {
+      final files = await directory
+          .list(followLinks: false)
+          .where((entity) => entity is File)
+          .cast<File>()
+          .take(_maxMediaCacheFiles + 128)
+          .toList();
+      final entries = <(File, int, DateTime)>[];
+      var totalBytes = 0;
+      for (final file in files) {
+        try {
+          final stat = await file.stat();
+          totalBytes += stat.size;
+          entries.add((file, stat.size, stat.modified));
+        } catch (_) {}
+      }
+      entries.sort((a, b) => a.$3.compareTo(b.$3));
+      while (entries.length > _maxMediaCacheFiles ||
+          totalBytes > _maxMediaCacheBytes) {
+        final entry = entries.removeAt(0);
+        totalBytes -= entry.$2;
+        try {
+          await entry.$1.delete();
+        } catch (error, stack) {
+          silentLog('dingtalk_gateway', '清理钉钉媒体缓存', error, stack);
+        }
+      }
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '扫描钉钉媒体缓存', error, stack);
+    }
   }
 
   Future<String?> executable() async {
@@ -542,6 +698,45 @@ class DingTalkMessageGatewayService {
     required String text,
     required String uuid,
   }) async {
+    await _runJson(<String>[
+      'chat',
+      'message',
+      'send',
+      ..._targetArguments(conversation),
+      '--text',
+      text,
+      '--uuid',
+      uuid,
+      '--format',
+      'json',
+    ]);
+  }
+
+  Future<void> sendFile({
+    required DingTalkConversation conversation,
+    required String filePath,
+    required String uuid,
+    bool audio = false,
+  }) async {
+    final normalizedPath = filePath.trim();
+    if (normalizedPath.isEmpty) throw const FormatException('文件路径为空。');
+    await _runJson(<String>[
+      'chat',
+      'message',
+      'send',
+      ..._targetArguments(conversation),
+      '--msg-type',
+      audio ? 'audio' : 'file',
+      '--file-path',
+      normalizedPath,
+      '--uuid',
+      uuid,
+      '--format',
+      'json',
+    ]);
+  }
+
+  List<String> _targetArguments(DingTalkConversation conversation) {
     final directOpenId = conversation.directOpenDingTalkId?.trim() ?? '';
     final targetFlag = conversation.type == DingTalkConversationType.group
         ? '--group'
@@ -553,19 +748,7 @@ class DingTalkMessageGatewayService {
         : directOpenId.isNotEmpty
         ? directOpenId
         : (conversation.directUserId ?? conversation.id);
-    await _runJson(<String>[
-      'chat',
-      'message',
-      'send',
-      targetFlag,
-      target,
-      '--text',
-      text,
-      '--uuid',
-      uuid,
-      '--format',
-      'json',
-    ]);
+    return <String>[targetFlag, target];
   }
 
   /// 查询会话及其关联资料。返回原始 JSON，调用方负责结构化展示字段。
@@ -1254,7 +1437,11 @@ class DingTalkMessageGatewayService {
     return path;
   }
 
-  Future<Object?> _runJson(List<String> arguments) async {
+  Future<Object?> _runJson(
+    List<String> arguments, {
+    String? workingDirectory,
+    Duration? timeout,
+  }) async {
     final operation = arguments.take(3).join(' ');
     _logRuntime('INFO', '执行 dws：$operation。');
     late final String executable;
@@ -1269,8 +1456,9 @@ class DingTalkMessageGatewayService {
       result = await runTrackedProcessWithLineLogging(
         executable,
         arguments,
-        timeout: _commandTimeout,
+        timeout: timeout ?? _commandTimeout,
         tag: 'dingtalk_gateway.command',
+        workingDirectory: workingDirectory,
         maxCapturedLinesPerStream: 4096,
         onStdoutLine: (line) {
           final trimmed = line.trimLeft();
@@ -1346,6 +1534,16 @@ class DingTalkMessageGatewayService {
         return;
       }
       if (value is Map) {
+        final map = _asMap(value);
+        final hasMessageIdentity = _first(map, const <String>[
+          'openMessageId',
+          'messageId',
+          'id',
+        ]).isNotEmpty;
+        if (hasMessageIdentity) {
+          values.add(value);
+          return;
+        }
         for (final key in const <String>[
           'messages',
           'items',
@@ -1376,7 +1574,17 @@ class DingTalkMessageGatewayService {
         'conversationId',
         'conversation_id',
       ]);
-      if (id.isEmpty || content.isEmpty || conversationId.isEmpty) continue;
+      final media = _extractMedia(map)
+          .map(
+            (item) =>
+                item.copyWith(messageId: id, conversationId: conversationId),
+          )
+          .toList(growable: false);
+      if (id.isEmpty ||
+          (content.isEmpty && media.isEmpty) ||
+          conversationId.isEmpty) {
+        continue;
+      }
       final typeText = _first(map, const <String>[
         'conversationType',
         'conversation_type',
@@ -1390,7 +1598,7 @@ class DingTalkMessageGatewayService {
               ? DingTalkConversationType.group
               : DingTalkConversationType.direct,
           role: DingTalkGatewayMessageRole.user,
-          content: content,
+          content: content.isEmpty ? _mediaSummary(media) : content,
           createdAt:
               DateTime.tryParse(
                 _first(map, const <String>[
@@ -1420,6 +1628,7 @@ class DingTalkMessageGatewayService {
             'groupName',
             'title',
           ]),
+          media: media,
           fromSelf: _asBool(map['isSelf']) || _asBool(map['isMine']),
           mentionedCurrentUser:
               mentionedCurrentUser ||
@@ -1458,7 +1667,6 @@ class DingTalkMessageGatewayService {
       'open_conversation_id',
       'chat_id',
     ]);
-    if (content.isEmpty || conversationId.isEmpty) return null;
     final chatType = _eventString(map, const <String>[
       'chat_type',
       'chatType',
@@ -1478,7 +1686,16 @@ class DingTalkMessageGatewayService {
       'event_id',
       'eventId',
     ]);
-    if (messageId.isEmpty) return null;
+    if (messageId.isEmpty || conversationId.isEmpty) return null;
+    final media = _extractMedia(map)
+        .map(
+          (item) => item.copyWith(
+            messageId: messageId,
+            conversationId: conversationId,
+          ),
+        )
+        .toList(growable: false);
+    if (content.isEmpty && media.isEmpty) return null;
     final mentionedCurrentUser =
         _eventString(map, const <String>[
           'event_key',
@@ -1504,7 +1721,7 @@ class DingTalkMessageGatewayService {
       conversationId: conversationId,
       conversationType: conversationType,
       role: DingTalkGatewayMessageRole.user,
-      content: content,
+      content: content.isEmpty ? _mediaSummary(media) : content,
       createdAt: _eventDateTime(map),
       senderName: _eventString(map, const <String>[
         'sender_name',
@@ -1530,6 +1747,7 @@ class DingTalkMessageGatewayService {
         'groupName',
         'title',
       ]),
+      media: media,
       fromSelf:
           _asBool(map['isSelf']) ||
           _asBool(map['is_self']) ||
@@ -1664,11 +1882,172 @@ class DingTalkMessageGatewayService {
 
   String _content(Map<String, Object?> map) {
     final value = map['content'] ?? map['text'] ?? map['msgContent'];
-    if (value is String) return value.trim();
+    if (value is String) {
+      final raw = value.trim();
+      if (raw.startsWith('{') || raw.startsWith('[')) {
+        final decoded = _decodeJson(raw);
+        if (decoded is Map) return _content(_asMap(decoded));
+      }
+      return raw;
+    }
     if (value is Map) {
       return '${value['text'] ?? value['content'] ?? ''}'.trim();
     }
     return '';
+  }
+
+  List<DingTalkGatewayMedia> _extractMedia(Map<String, Object?> map) {
+    final result = <DingTalkGatewayMedia>[];
+    final seen = <String>{};
+
+    void addCandidate({
+      required String resourceId,
+      required DingTalkMediaResourceType resourceType,
+      required Object? type,
+      required Object? name,
+      required Object? mimeType,
+      required Object? size,
+      required Object? duration,
+    }) {
+      final normalizedId = resourceId.trim();
+      if (normalizedId.isEmpty || result.length >= 12) return;
+      final key = '${resourceType.name}:$normalizedId';
+      if (!seen.add(key)) return;
+      final rawName = '$name'.trim();
+      final mime = '$mimeType'.trim();
+      var kind = DingTalkMediaKindX.fromStorage(type);
+      if (kind == DingTalkMediaKind.file && rawName.isNotEmpty) {
+        kind = DingTalkMediaKindX.fromFileName(rawName);
+      }
+      if (kind == DingTalkMediaKind.file && mime.isNotEmpty) {
+        kind = DingTalkMediaKindX.fromStorage(mime);
+      }
+      result.add(
+        DingTalkGatewayMedia(
+          resourceId: normalizedId,
+          resourceType: resourceType,
+          kind: kind,
+          name: rawName,
+          mimeType: mime,
+          sizeBytes: int.tryParse('$size') ?? 0,
+          durationMs: int.tryParse('$duration'),
+        ),
+      );
+    }
+
+    void visit(Object? value, {int depth = 0}) {
+      if (depth > 6 || result.length >= 12 || value == null) return;
+      if (value is String) {
+        final raw = value.trim();
+        if (raw.startsWith('{') || raw.startsWith('[')) {
+          final decoded = _decodeJson(raw);
+          if (decoded is Map || decoded is List) {
+            visit(decoded, depth: depth + 1);
+          }
+        }
+        final match = RegExp(
+          r'''(?:media[_-]?id|file[_-]?id)\s*["'=:]\s*["']?([^,"'\s}]+)''',
+          caseSensitive: false,
+        ).firstMatch(raw);
+        if (match != null) {
+          final isFile =
+              raw.toLowerCase().contains('fileid') ||
+              raw.toLowerCase().contains('file_id');
+          addCandidate(
+            resourceId: match.group(1) ?? '',
+            resourceType: isFile
+                ? DingTalkMediaResourceType.fileId
+                : DingTalkMediaResourceType.mediaId,
+            type: null,
+            name: null,
+            mimeType: null,
+            size: null,
+            duration: null,
+          );
+        }
+        return;
+      }
+      if (value is List) {
+        for (final item in value) {
+          visit(item, depth: depth + 1);
+          if (result.length >= 12) break;
+        }
+        return;
+      }
+      if (value is! Map) return;
+      final current = _asMap(value);
+      final mediaId = _first(current, const <String>[
+        'mediaId',
+        'media_id',
+        'downloadCode',
+        'download_code',
+      ]);
+      final fileId = _first(current, const <String>['fileId', 'file_id']);
+      if (mediaId.isNotEmpty || fileId.isNotEmpty) {
+        addCandidate(
+          resourceId: mediaId.isNotEmpty ? mediaId : fileId,
+          resourceType: mediaId.isNotEmpty
+              ? DingTalkMediaResourceType.mediaId
+              : DingTalkMediaResourceType.fileId,
+          type: _first(current, const <String>[
+            'messageType',
+            'msgType',
+            'msgtype',
+            'msg_type',
+            'mediaType',
+            'media_type',
+            'type',
+          ]),
+          name: _first(current, const <String>[
+            'fileName',
+            'filename',
+            'file_name',
+            'name',
+            'title',
+          ]),
+          mimeType: _first(current, const <String>[
+            'mimeType',
+            'mime_type',
+            'contentType',
+          ]),
+          size:
+              current['sizeBytes'] ?? current['size_bytes'] ?? current['size'],
+          duration:
+              current['durationMs'] ??
+              current['duration_ms'] ??
+              current['duration'],
+        );
+      }
+      for (final key in const <String>[
+        'content',
+        'msgContent',
+        'messageContent',
+        'body',
+        'payload',
+        'message',
+        'media',
+        'image',
+        'photo',
+        'video',
+        'audio',
+        'voice',
+        'file',
+        'attachment',
+        'attachments',
+      ]) {
+        visit(current[key], depth: depth + 1);
+      }
+    }
+
+    // 资源字段既可能位于 content 内，也可能直接位于事件顶层；统一从根节点扫描，
+    // 同时通过 seen 去重，避免同一媒体被重复附加。
+    visit(map);
+    return result;
+  }
+
+  String _mediaSummary(List<DingTalkGatewayMedia> media) {
+    if (media.isEmpty) return '媒体消息';
+    return media.map((item) => '[${item.displayName}]').join(' ');
   }
 
   String _formatChatDateTime(DateTime value) {
