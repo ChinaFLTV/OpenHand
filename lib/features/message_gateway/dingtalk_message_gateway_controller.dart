@@ -1,5 +1,6 @@
 import 'dart:async';
 import 'dart:collection';
+import 'dart:convert';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -8,6 +9,8 @@ import 'package:uuid/uuid.dart';
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/text_clip.dart';
 import '../ai/index.dart';
 import '../instructions/index.dart';
 import '../knowledge_base/index.dart';
@@ -707,82 +710,412 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         sessionId,
         _settings.fullAccessPermission,
       );
-      final requireWriteConfirmation =
-          AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
-            templateId: templateId,
-            fullAccessPermission: _settings.fullAccessPermission,
-            globalConfirmationEnabled:
-                _settingsController.aiWriteCommandConfirmationEnabled,
-          );
-      final sent = await _sessionController.sendMessage(
-        sessionId: sessionId,
-        content: content,
-        model: model,
-        runtimeContext: runtimeContext,
-        denyCommandRules: _settingsController.aiDenyCommandRules,
-        requireWriteCommandConfirmation: requireWriteConfirmation,
-        confirmWriteCommand: requireWriteConfirmation
-            ? (request) {
-                if (_settingsController.aiAllowCommandRules.any(
-                  (rule) => rule.matches(request.command),
-                )) {
-                  return Future<BashCommandApprovalDecision>.value(
-                    BashCommandApprovalDecision.approved,
-                  );
-                }
-                final handler = _writeApprovalHandler;
-                if (handler == null) {
-                  return Future<BashCommandApprovalDecision>.value(
-                    BashCommandApprovalDecision.rejected,
-                  );
-                }
-                return handler(sessionId!, request);
-              }
-            : null,
-        userMessageMetadata: const <String, Object?>{
-          'sent_via': 'dingtalk_gateway',
-        },
-      );
-      if (!sent) return;
-      final session = _sessionController.sessions.cast<AiSession?>().firstWhere(
-        (item) => item?.id == sessionId,
-        orElse: () => null,
-      );
-      AiSessionMessage? assistant;
-      if (session != null) {
-        for (final item in session.messages.reversed) {
-          if (item.kind == AiSessionMessageKind.assistant &&
-              item.content.trim().isNotEmpty) {
-            assistant = item;
-            break;
-          }
+      AiSession? sessionBeforeEcho;
+      for (final candidate in _sessionController.sessions) {
+        if (candidate.id == sessionId) {
+          sessionBeforeEcho = candidate;
+          break;
         }
       }
-      if (assistant == null) return;
-      if (!identical(_conversations[conversation.id], conversation)) return;
-      final reply = assistant.content.trim();
-      _appendMessage(
-        conversation,
-        DingTalkGatewayMessage(
-          id: 'assistant-${assistant.id}',
-          conversationId: conversation.id,
-          conversationType: conversation.type,
-          role: DingTalkGatewayMessageRole.assistant,
-          content: reply,
-          createdAt: assistant.createdAt,
-        ),
-      );
-      await _service.send(
-        conversation: conversation,
-        text: reply,
-        uuid: _uuid.v4(),
-      );
+      final baselineMessageIds = sessionBeforeEcho == null
+          ? <String>{}
+          : sessionBeforeEcho.messages.map((message) => message.id).toSet();
+      final selectedEchoTypes = _settings.responseEchoTypes.toSet();
+      final echoedMessageIds = <String>{};
+      var allowFinalResponseEcho = false;
+      var echoTail = Future<void>.value();
+
+      AiSession? currentSession() {
+        for (final item in _sessionController.sessions) {
+          if (item.id == sessionId) return item;
+        }
+        return null;
+      }
+
+      void queueEchoes(AiSession session) {
+        final candidates = <AiSessionMessage>[];
+        for (final message in session.messages) {
+          if (baselineMessageIds.contains(message.id) ||
+              echoedMessageIds.contains(message.id)) {
+            continue;
+          }
+          final type = _completedEchoTypeOf(message, session.messages);
+          if (type == null || !selectedEchoTypes.contains(type)) continue;
+          if (type == DingTalkResponseEchoType.finalResponse &&
+              !allowFinalResponseEcho) {
+            continue;
+          }
+          candidates.add(message);
+        }
+        if (allowFinalResponseEcho) {
+          AiSessionMessage? latestAssistant;
+          for (final message in candidates.reversed) {
+            if (message.kind == AiSessionMessageKind.assistant &&
+                _completedEchoTypeOf(message, session.messages) ==
+                    DingTalkResponseEchoType.finalResponse) {
+              latestAssistant = message;
+              break;
+            }
+          }
+          candidates.removeWhere(
+            (message) =>
+                message.kind == AiSessionMessageKind.assistant &&
+                _completedEchoTypeOf(message, session.messages) ==
+                    DingTalkResponseEchoType.finalResponse &&
+                message.id != latestAssistant?.id,
+          );
+        }
+        final candidateOrder = <String, int>{
+          for (var index = 0; index < candidates.length; index++)
+            candidates[index].id: index,
+        };
+        candidates.sort((a, b) {
+          final time = _echoCompletionTime(a).compareTo(_echoCompletionTime(b));
+          return time == 0
+              ? candidateOrder[a.id]!.compareTo(candidateOrder[b.id]!)
+              : time;
+        });
+        for (final message in candidates) {
+          final type = _completedEchoTypeOf(message, session.messages);
+          if (type == null || !echoedMessageIds.add(message.id)) continue;
+          final text = _echoTextForMessage(message, session.messages);
+          if (text.trim().isEmpty) {
+            echoedMessageIds.remove(message.id);
+            continue;
+          }
+          echoTail = echoTail.then((_) async {
+            try {
+              await _sendDingTalkEcho(
+                conversation: conversation,
+                source: message,
+                text: text,
+              );
+            } catch (error, stack) {
+              silentLog('dingtalk_gateway', '同步钉钉 AI 过程消息', error, stack);
+            }
+          });
+        }
+      }
+
+      void onSessionChanged() {
+        if (_disposed) return;
+        final session = currentSession();
+        if (session != null) queueEchoes(session);
+      }
+
+      _sessionController.addListener(onSessionChanged);
+      try {
+        final requireWriteConfirmation =
+            AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
+              templateId: templateId,
+              fullAccessPermission: _settings.fullAccessPermission,
+              globalConfirmationEnabled:
+                  _settingsController.aiWriteCommandConfirmationEnabled,
+            );
+        final sent = await _sessionController.sendMessage(
+          sessionId: sessionId,
+          content: content,
+          model: model,
+          runtimeContext: runtimeContext,
+          denyCommandRules: _settingsController.aiDenyCommandRules,
+          requireWriteCommandConfirmation: requireWriteConfirmation,
+          confirmWriteCommand: requireWriteConfirmation
+              ? (request) {
+                  if (_settingsController.aiAllowCommandRules.any(
+                    (rule) => rule.matches(request.command),
+                  )) {
+                    return Future<BashCommandApprovalDecision>.value(
+                      BashCommandApprovalDecision.approved,
+                    );
+                  }
+                  final handler = _writeApprovalHandler;
+                  if (handler == null) {
+                    return Future<BashCommandApprovalDecision>.value(
+                      BashCommandApprovalDecision.rejected,
+                    );
+                  }
+                  return handler(sessionId!, request);
+                }
+              : null,
+          userMessageMetadata: const <String, Object?>{
+            'sent_via': 'dingtalk_gateway',
+          },
+        );
+        if (sent) {
+          allowFinalResponseEcho = true;
+          final session = currentSession();
+          if (session != null) queueEchoes(session);
+        }
+        await echoTail;
+        if (!sent) return;
+      } finally {
+        _sessionController.removeListener(onSessionChanged);
+        await echoTail;
+      }
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '生成钉钉 AI 回复', error, stack);
     } finally {
       _responseInFlight.remove(conversation.id);
       _notify();
     }
+  }
+
+  static const Set<String> _terminalToolEchoStatuses = <String>{
+    'success',
+    'failed',
+    'cancelled',
+    'denied',
+    'rejected',
+    'timed_out',
+    'invalid_arguments',
+    'blocked',
+  };
+  static const int _maxDingTalkEchoCharacters = 12000;
+  static const int _maxDingTalkToolCellCharacters = 900;
+  static const int _maxDingTalkToolFormattingCharacters = 12000;
+
+  DingTalkResponseEchoType? _completedEchoTypeOf(
+    AiSessionMessage message,
+    List<AiSessionMessage> sessionMessages,
+  ) {
+    if (message.isDeleted || message.content.trim().isEmpty) return null;
+    if (message.metadata[aiSessionMessageMetadataStreamingKey] == true) {
+      return null;
+    }
+    if (message.metadata[aiSessionGoalEvaluationMessageMetadataKey] == true) {
+      return null;
+    }
+    return switch (message.kind) {
+      AiSessionMessageKind.reasoning => DingTalkResponseEchoType.thinking,
+      AiSessionMessageKind.status => DingTalkResponseEchoType.process,
+      AiSessionMessageKind.assistant =>
+        _isIntermediateAssistantMessage(message, sessionMessages)
+            ? DingTalkResponseEchoType.process
+            : DingTalkResponseEchoType.finalResponse,
+      AiSessionMessageKind.toolCall || AiSessionMessageKind.hook =>
+        _terminalToolEchoStatuses.contains(
+              '${message.metadata['tool_execution_status'] ?? message.metadata['tool_status'] ?? message.metadata['status'] ?? ''}'
+                  .trim()
+                  .toLowerCase(),
+            )
+            ? DingTalkResponseEchoType.toolCall
+            : null,
+      _ => null,
+    };
+  }
+
+  bool _isIntermediateAssistantMessage(
+    AiSessionMessage message,
+    List<AiSessionMessage> sessionMessages,
+  ) {
+    final index = sessionMessages.indexWhere((item) => item.id == message.id);
+    if (index < 0) return false;
+    return sessionMessages
+        .skip(index + 1)
+        .any(
+          (item) =>
+              !item.isDeleted &&
+              (item.kind == AiSessionMessageKind.toolCall ||
+                  item.kind == AiSessionMessageKind.hook),
+        );
+  }
+
+  Future<void> _sendDingTalkEcho({
+    required DingTalkConversation conversation,
+    required AiSessionMessage source,
+    required String text,
+  }) async {
+    if (_disposed ||
+        !identical(_conversations[conversation.id], conversation)) {
+      return;
+    }
+    final normalized = clipTextByCodeUnits(
+      text.trim(),
+      _maxDingTalkEchoCharacters,
+      suffix: '\n\n…内容已截断',
+    );
+    if (normalized.isEmpty) return;
+    await _service
+        .send(conversation: conversation, text: normalized, uuid: _uuid.v4())
+        .timeout(const Duration(seconds: 30));
+    if (_disposed ||
+        !identical(_conversations[conversation.id], conversation)) {
+      return;
+    }
+    _appendMessage(
+      conversation,
+      DingTalkGatewayMessage(
+        id: 'assistant-${source.id}',
+        conversationId: conversation.id,
+        conversationType: conversation.type,
+        role: DingTalkGatewayMessageRole.assistant,
+        content: normalized,
+        createdAt: source.createdAt,
+      ),
+    );
+    _notify();
+  }
+
+  String _echoTextForMessage(
+    AiSessionMessage message,
+    List<AiSessionMessage> sessionMessages,
+  ) {
+    if (message.kind == AiSessionMessageKind.toolCall ||
+        message.kind == AiSessionMessageKind.hook) {
+      return _formatDingTalkToolEcho(message, sessionMessages);
+    }
+    return message.content.trim();
+  }
+
+  String _formatDingTalkToolEcho(
+    AiSessionMessage call,
+    List<AiSessionMessage> sessionMessages,
+  ) {
+    final metadata = call.metadata;
+    final toolCallId = _boundedToolValue(metadata['tool_call_id'] ?? call.id);
+    final toolName = _boundedToolValue(metadata['tool_name'] ?? '工具');
+    final arguments = _toolArgumentsValue(metadata);
+    final matchingResult = _matchingToolResult(call, sessionMessages);
+    final response = _toolResponseValue(metadata, matchingResult);
+    final status =
+        '${metadata['tool_execution_status'] ?? metadata['tool_status'] ?? metadata['status'] ?? ''}'
+            .trim()
+            .toLowerCase();
+    final durationMs = _toolDurationMilliseconds(call);
+    final statusLabel = switch (status) {
+      'success' => '成功',
+      'timed_out' => '超时',
+      'cancelled' => '已取消',
+      'denied' || 'rejected' => '已拒绝',
+      'invalid_arguments' => '参数无效',
+      'blocked' => '已阻止',
+      'failed' => '失败',
+      _ => status.isEmpty ? '未知' : status,
+    };
+    final durationLabel = durationMs <= 0
+        ? '—'
+        : durationMs >= 1000
+        ? '${(durationMs / 1000).toStringAsFixed(2)} 秒'
+        : '$durationMs 毫秒';
+    return '''### 工具调用结果 · $toolName
+
+| 项目 | 内容 |
+| --- | --- |
+| 工具调用 ID | ${_markdownTableCell(toolCallId)} |
+| 工具参数 | ${_markdownTableCell(arguments)} |
+| 工具响应结果 | ${_markdownTableCell(response)} |
+| 调用结果 | ${_markdownTableCell(statusLabel)} |
+| 调用耗时 | ${_markdownTableCell(durationLabel)} |''';
+  }
+
+  AiSessionMessage? _matchingToolResult(
+    AiSessionMessage call,
+    List<AiSessionMessage> sessionMessages,
+  ) {
+    final id = '${call.metadata['tool_call_id'] ?? ''}'.trim();
+    if (id.isEmpty) return null;
+    for (final message in sessionMessages.reversed) {
+      if (message.isDeleted || !message.kind.isToolResultKind) continue;
+      if ('${message.metadata['tool_call_id'] ?? ''}'.trim() == id) {
+        return message;
+      }
+    }
+    return null;
+  }
+
+  String _toolArgumentsValue(Map<String, Object?> metadata) {
+    final raw = metadata['tool_arguments'] ?? metadata['tool_calls'];
+    if (raw == null) return '{}';
+    if (raw is String && raw.trim().isEmpty) return '{}';
+    return _prettyToolValue(raw);
+  }
+
+  String _toolResponseValue(
+    Map<String, Object?> metadata,
+    AiSessionMessage? matchingResult,
+  ) {
+    final candidates = <Object?>[
+      metadata['tool_execution_result'],
+      metadata['result_text'],
+      metadata['tool_execution_stdout'],
+      metadata['tool_execution_stderr'],
+      matchingResult?.content,
+    ];
+    for (final candidate in candidates) {
+      final value = _prettyToolValue(candidate);
+      if (value.trim().isNotEmpty) return value;
+    }
+    return '—';
+  }
+
+  String _prettyToolValue(Object? raw) {
+    if (raw == null) return '';
+    var value = raw is String ? raw.trim() : '';
+    if (value.length > _maxDingTalkToolFormattingCharacters) {
+      value = clipTextByCodeUnits(
+        value,
+        _maxDingTalkToolFormattingCharacters,
+        suffix: '…',
+      );
+    }
+    if (value.isEmpty && raw is! String) {
+      try {
+        value = prettyPrintJson(raw);
+      } catch (_) {
+        value = '$raw';
+      }
+    } else if (value.isNotEmpty) {
+      try {
+        value = prettyPrintJson(jsonDecode(value));
+      } catch (_) {
+        // 普通文本不是 JSON，直接保留。
+      }
+    }
+    return _boundedToolValue(value);
+  }
+
+  String _boundedToolValue(Object? raw) {
+    final value = '$raw'.trim();
+    return clipTextByCodeUnits(
+      value,
+      _maxDingTalkToolCellCharacters,
+      suffix: '…',
+    );
+  }
+
+  DateTime _echoCompletionTime(AiSessionMessage message) {
+    if (message.kind == AiSessionMessageKind.toolCall ||
+        message.kind == AiSessionMessageKind.hook) {
+      return utcDateTimeFromValue(
+            message.metadata['tool_execution_finished_at'],
+          ) ??
+          message.createdAt;
+    }
+    return message.createdAt;
+  }
+
+  String _markdownTableCell(String value) {
+    return value
+        .replaceAll('`', 'ˋ')
+        .replaceAll('|', '\\|')
+        .replaceAll(RegExp(r'[\r\n]+'), ' ↵ ')
+        .trim();
+  }
+
+  int _toolDurationMilliseconds(AiSessionMessage call) {
+    final metadata = call.metadata;
+    final stored = intFromValue(
+      metadata['tool_execution_duration_ms'] ??
+          metadata['tool_execution_elapsed_ms'],
+      fallback: 0,
+    );
+    if (stored > 0) return stored;
+    final started = utcDateTimeFromValue(metadata['tool_execution_started_at']);
+    final finished = utcDateTimeFromValue(
+      metadata['tool_execution_finished_at'],
+    );
+    if (started == null || finished == null) return 0;
+    return finished.difference(started).inMilliseconds.clamp(0, 86400000);
   }
 
   static const int _maxQueuedResponsesPerConversation = 256;

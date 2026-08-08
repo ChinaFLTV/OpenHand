@@ -11,6 +11,28 @@ enum DingTalkGatewayMessageRole { user, assistant }
 
 enum DingTalkReminderMode { none, inApp, sound }
 
+/// 允许同步回显到钉钉的 AI 消息卡片类型。
+enum DingTalkResponseEchoType {
+  thinking('thinking'),
+  process('process'),
+  toolCall('tool_call'),
+  finalResponse('final_response');
+
+  const DingTalkResponseEchoType(this.storageValue);
+
+  final String storageValue;
+
+  static DingTalkResponseEchoType? fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim().toLowerCase();
+    for (final item in values) {
+      if (item.storageValue == normalized || item.name == normalized) {
+        return item;
+      }
+    }
+    return null;
+  }
+}
+
 class DingTalkConversationTarget {
   const DingTalkConversationTarget({
     required this.id,
@@ -90,6 +112,9 @@ class DingTalkGatewaySettings {
     this.allowedKnowledgeBaseSourceIds = const <String>[],
     this.allowedGroupTargets = const <DingTalkConversationTarget>[],
     this.allowedContactTargets = const <DingTalkConversationTarget>[],
+    this.responseEchoTypes = const <DingTalkResponseEchoType>[
+      DingTalkResponseEchoType.finalResponse,
+    ],
   });
 
   factory DingTalkGatewaySettings.fromJson(Map<String, Object?> json) {
@@ -120,6 +145,7 @@ class DingTalkGatewaySettings {
         json['allowed_contact_targets'],
         DingTalkConversationType.direct,
       ),
+      responseEchoTypes: _responseEchoTypeList(json['response_echo_types']),
     ).normalized();
   }
 
@@ -136,6 +162,7 @@ class DingTalkGatewaySettings {
   final List<String> allowedKnowledgeBaseSourceIds;
   final List<DingTalkConversationTarget> allowedGroupTargets;
   final List<DingTalkConversationTarget> allowedContactTargets;
+  final List<DingTalkResponseEchoType> responseEchoTypes;
 
   DingTalkGatewaySettings normalized({
     Iterable<String>? availableMcpServerNames,
@@ -174,6 +201,7 @@ class DingTalkGatewaySettings {
     ),
     allowedGroupTargets: _normalizeTargets(allowedGroupTargets),
     allowedContactTargets: _normalizeTargets(allowedContactTargets),
+    responseEchoTypes: _normalizeResponseEchoTypes(responseEchoTypes),
   );
 
   DingTalkGatewaySettings copyWith({
@@ -190,6 +218,7 @@ class DingTalkGatewaySettings {
     List<String>? allowedKnowledgeBaseSourceIds,
     List<DingTalkConversationTarget>? allowedGroupTargets,
     List<DingTalkConversationTarget>? allowedContactTargets,
+    List<DingTalkResponseEchoType>? responseEchoTypes,
   }) => DingTalkGatewaySettings(
     pollIntervalSeconds: pollIntervalSeconds ?? this.pollIntervalSeconds,
     reminderMode: reminderMode ?? this.reminderMode,
@@ -205,6 +234,7 @@ class DingTalkGatewaySettings {
         allowedKnowledgeBaseSourceIds ?? this.allowedKnowledgeBaseSourceIds,
     allowedGroupTargets: allowedGroupTargets ?? this.allowedGroupTargets,
     allowedContactTargets: allowedContactTargets ?? this.allowedContactTargets,
+    responseEchoTypes: responseEchoTypes ?? this.responseEchoTypes,
   );
 
   Map<String, Object?> toJson() => <String, Object?>{
@@ -225,6 +255,9 @@ class DingTalkGatewaySettings {
     'allowed_contact_targets': allowedContactTargets
         .map((item) => item.toJson())
         .toList(growable: false),
+    'response_echo_types': responseEchoTypes
+        .map((item) => item.storageValue)
+        .toList(growable: false),
   };
 
   static List<String> _stringList(Object? value) {
@@ -234,6 +267,31 @@ class DingTalkGatewaySettings {
         .toSet()
         .take(256)
         .toList(growable: false);
+  }
+
+  static List<DingTalkResponseEchoType> _responseEchoTypeList(Object? value) {
+    final rawValues = value is List ? value : <Object?>[value];
+    final result = <DingTalkResponseEchoType>[];
+    final seen = <DingTalkResponseEchoType>{};
+    for (final raw in rawValues.take(8)) {
+      final type = DingTalkResponseEchoType.fromStorage(raw);
+      if (type != null && seen.add(type)) result.add(type);
+    }
+    return result;
+  }
+
+  static List<DingTalkResponseEchoType> _normalizeResponseEchoTypes(
+    Iterable<DingTalkResponseEchoType> values,
+  ) {
+    final result = <DingTalkResponseEchoType>[];
+    final seen = <DingTalkResponseEchoType>{};
+    for (final type in values) {
+      if (seen.add(type)) result.add(type);
+    }
+    if (result.isEmpty) {
+      result.add(DingTalkResponseEchoType.finalResponse);
+    }
+    return result.toList(growable: false);
   }
 
   static List<String> _normalizeSelection(

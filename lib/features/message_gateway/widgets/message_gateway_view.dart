@@ -15652,6 +15652,11 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       );
   late DingTalkReminderMode _reminderMode =
       widget.controller.settings.reminderMode;
+  late final Set<DingTalkResponseEchoType> _responseEchoTypes = widget
+      .controller
+      .settings
+      .responseEchoTypes
+      .toSet();
   late String _modelKey = widget.controller.settings.responseModelKey;
   late bool _fullAccessPermission =
       widget.controller.settings.fullAccessPermission;
@@ -15749,6 +15754,45 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     ],
                     onChanged: (value) => setState(
                       () => _reminderMode = value ?? DingTalkReminderMode.inApp,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _DingTalkSettingsCard(
+                    icon: Icons.reply_all_rounded,
+                    title: '响应消息类型',
+                    subtitle: '选择同步回显到钉钉的 AI 消息；至少保留一项，工具调用仅在执行终态回显。',
+                    child: Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      children: DingTalkResponseEchoType.values
+                          .map(
+                            (type) => FilterChip(
+                              avatar: Icon(
+                                _responseEchoTypeIcon(type),
+                                size: 18,
+                              ),
+                              label: Text(_responseEchoTypeLabel(type)),
+                              selected: _responseEchoTypes.contains(type),
+                              onSelected: (selected) {
+                                if (!selected &&
+                                    _responseEchoTypes.length == 1) {
+                                  showOpenHandInfoSnack(
+                                    context,
+                                    '响应消息类型至少保留一项。',
+                                  );
+                                  return;
+                                }
+                                setState(() {
+                                  if (selected) {
+                                    _responseEchoTypes.add(type);
+                                  } else {
+                                    _responseEchoTypes.remove(type);
+                                  }
+                                });
+                              },
+                            ),
+                          )
+                          .toList(growable: false),
                     ),
                   ),
                   const SizedBox(height: 14),
@@ -16193,6 +16237,9 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
           ),
           allowedGroupTargets: _allowedGroups,
           allowedContactTargets: _allowedContacts,
+          responseEchoTypes: DingTalkResponseEchoType.values
+              .where(_responseEchoTypes.contains)
+              .toList(growable: false),
         ),
       );
       if (mounted) Navigator.of(context).pop();
@@ -16223,6 +16270,22 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
         ? (key.substring(0, index), key.substring(index + 2))
         : ('', '');
   }
+
+  String _responseEchoTypeLabel(DingTalkResponseEchoType type) =>
+      switch (type) {
+        DingTalkResponseEchoType.thinking => '思考',
+        DingTalkResponseEchoType.process => '过程响应',
+        DingTalkResponseEchoType.toolCall => '工具调用',
+        DingTalkResponseEchoType.finalResponse => '正式响应',
+      };
+
+  IconData _responseEchoTypeIcon(DingTalkResponseEchoType type) =>
+      switch (type) {
+        DingTalkResponseEchoType.thinking => Icons.psychology_alt_rounded,
+        DingTalkResponseEchoType.process => Icons.route_rounded,
+        DingTalkResponseEchoType.toolCall => Icons.build_circle_rounded,
+        DingTalkResponseEchoType.finalResponse => Icons.mark_chat_read_rounded,
+      };
 }
 
 class _DingTalkSettingsCard extends StatelessWidget {
