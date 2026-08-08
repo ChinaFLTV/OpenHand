@@ -15773,6 +15773,15 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                               ),
                               label: Text(_responseEchoTypeLabel(type)),
                               selected: _responseEchoTypes.contains(type),
+                              // 选中态不显示 RawChip 默认的头像压暗层，避免鼠标移动
+                              // 触发重绘时图标短暂出现灰色背景。
+                              showCheckmark: false,
+                              color: WidgetStateProperty.resolveWith<Color?>(
+                                (states) =>
+                                    states.contains(WidgetState.selected)
+                                    ? theme.colorScheme.primaryContainer
+                                    : theme.colorScheme.surfaceContainerHigh,
+                              ),
                               onSelected: (selected) {
                                 if (!selected &&
                                     _responseEchoTypes.length == 1) {
