@@ -77,13 +77,46 @@ class DingTalkMessageGatewayService {
     late final StreamSubscription<String> stdoutSub;
     late final StreamSubscription<String> stderrSub;
     var opened = false;
+    String? authorizationCode;
+    String? pendingUrl;
+
+    Future<void> openPendingUrl() async {
+      if (opened || pendingUrl == null) return;
+      final rawUrl = pendingUrl!;
+      final code = authorizationCode;
+      var url = rawUrl;
+      if (code != null && code.isNotEmpty) {
+        final parsed = Uri.tryParse(rawUrl);
+        if (parsed != null) {
+          final query = <String, String>{
+            ...parsed.queryParameters,
+            'user_code': code,
+          };
+          url = parsed.replace(queryParameters: query).toString();
+        }
+      }
+      opened = true;
+      await onDeviceUrl(url);
+    }
+
     void consume(String line) {
       output.writeln(line);
       if (opened) return;
+      final code = RegExp(
+        r'authorization\s+code\s*:\s*([A-Za-z0-9]+(?:-[A-Za-z0-9]+)?)',
+        caseSensitive: false,
+      ).firstMatch(line)?.group(1);
+      if (code != null && code.trim().isNotEmpty) {
+        authorizationCode = code.trim();
+      }
       final url = RegExp(r'https?://[^\s]+').firstMatch(line)?.group(0);
-      if (url == null) return;
-      opened = true;
-      unawaited(onDeviceUrl(url));
+      if (url != null) {
+        pendingUrl = url.replaceAll(RegExp(r'[),.]+$'), '');
+      }
+      if (pendingUrl != null &&
+          (authorizationCode != null || pendingUrl!.contains('user_code='))) {
+        unawaited(openPendingUrl());
+      }
     }
 
     stdoutSub = process.stdout
