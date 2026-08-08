@@ -128,22 +128,24 @@ class OpenHandConsoleLogPanel extends StatelessWidget {
           ? Center(child: emptyPlaceholder)
           : NotificationListener<ScrollNotification>(
               onNotification: onNotification,
-              child: ListView.builder(
-                controller: controller,
-                padding: padding,
-                itemCount: lineCount,
-                itemBuilder: (listContext, index) {
-                  final line = lineAt(index);
-                  final text = Text(
-                    line,
-                    style: _consoleLogTextStyle(_consoleLogLineColor(line)),
-                  );
-                  if (lineSpacing <= 0) return text;
-                  return Padding(
-                    padding: EdgeInsets.only(bottom: lineSpacing),
-                    child: text,
-                  );
-                },
+              child: SelectionArea(
+                child: ListView.builder(
+                  controller: controller,
+                  padding: padding,
+                  itemCount: lineCount,
+                  itemBuilder: (listContext, index) {
+                    final line = lineAt(index);
+                    final text = Text(
+                      line,
+                      style: _consoleLogTextStyle(_consoleLogLineColor(line)),
+                    );
+                    if (lineSpacing <= 0) return text;
+                    return Padding(
+                      padding: EdgeInsets.only(bottom: lineSpacing),
+                      child: text,
+                    );
+                  },
+                ),
               ),
             ),
     );
