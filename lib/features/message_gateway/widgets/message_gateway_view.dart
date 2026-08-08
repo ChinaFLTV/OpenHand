@@ -12391,6 +12391,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
 }
 
 class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
+  static const double _maxBubbleWidth = 560;
   bool _hovered = false;
 
   @override
@@ -12409,6 +12410,11 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final crossAxis = widget.mine
         ? CrossAxisAlignment.end
         : CrossAxisAlignment.start;
+    final senderName = widget.message.senderName.trim();
+    final showSenderName =
+        !widget.mine &&
+        widget.message.conversationType == DingTalkConversationType.group &&
+        senderName.isNotEmpty;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
       duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -12428,18 +12434,27 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           child: Column(
             crossAxisAlignment: crossAxis,
             children: [
-              if (!widget.mine && widget.message.senderName.trim().isNotEmpty)
+              if (showSenderName)
                 Padding(
-                  padding: const EdgeInsets.only(left: 4, bottom: 3),
-                  child: Text(
-                    widget.message.senderName,
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
+                  padding: const EdgeInsets.only(bottom: 4),
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(
+                      maxWidth: _maxBubbleWidth,
+                    ),
+                    child: Text(
+                      senderName,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontSize: 11,
+                        fontWeight: FontWeight.w500,
+                      ),
                     ),
                   ),
                 ),
               Container(
-                constraints: const BoxConstraints(maxWidth: 560),
+                constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
                 margin: const EdgeInsets.only(bottom: 6),
                 padding: const EdgeInsets.symmetric(
                   horizontal: 14,
