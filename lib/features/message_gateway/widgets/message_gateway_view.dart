@@ -15830,11 +15830,11 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       icon: Icons.groups_rounded,
                       selected: _allowedGroups,
                     ),
-                    onRemove: (target) => setState(
-                      () => _allowedGroups.removeWhere(
-                        (item) => item.id == target.id,
-                      ),
-                    ),
+                    onRemove: (target) => setState(() {
+                      _allowedGroups = _allowedGroups
+                          .where((item) => item.id != target.id)
+                          .toList(growable: true);
+                    }),
                   ),
                   const SizedBox(height: 12),
                   _DingTalkTargetAllowlistField(
@@ -15864,11 +15864,11 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       icon: Icons.person_rounded,
                       selected: _allowedContacts,
                     ),
-                    onRemove: (target) => setState(
-                      () => _allowedContacts.removeWhere(
-                        (item) => item.id == target.id,
-                      ),
-                    ),
+                    onRemove: (target) => setState(() {
+                      _allowedContacts = _allowedContacts
+                          .where((item) => item.id != target.id)
+                          .toList(growable: true);
+                    }),
                   ),
                   const SizedBox(height: 12),
                   _DingTalkSettingsCard(
@@ -16141,9 +16141,9 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
     if (result == null || !mounted) return;
     setState(() {
       if (type == DingTalkConversationType.group) {
-        _allowedGroups = result;
+        _allowedGroups = List<DingTalkConversationTarget>.from(result);
       } else {
-        _allowedContacts = result;
+        _allowedContacts = List<DingTalkConversationTarget>.from(result);
       }
     });
   }
