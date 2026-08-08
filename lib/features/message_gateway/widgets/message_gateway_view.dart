@@ -12584,8 +12584,24 @@ class _DingTalkConversationDetailsDialogState
             const SizedBox(height: 4),
             Text(
               widget.conversation.type == DingTalkConversationType.group
-                  ? '群聊详情'
-                  : '联系人详情',
+                  ? openHandLocalizedText(
+                      context,
+                      zh: '群聊详情',
+                      zhHant: '群聊詳情',
+                      en: 'Group details',
+                      fr: 'Détails du groupe',
+                      de: 'Gruppendetails',
+                      ja: 'グループ詳細',
+                    )
+                  : openHandLocalizedText(
+                      context,
+                      zh: '联系人详情',
+                      zhHant: '聯絡人詳情',
+                      en: 'Contact details',
+                      fr: 'Détails du contact',
+                      de: 'Kontaktdetails',
+                      ja: '連絡先の詳細',
+                    ),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colors.onSurfaceVariant,
               ),
@@ -12601,14 +12617,30 @@ class _DingTalkConversationDetailsDialogState
                   if (snapshot.hasError) {
                     return _DingTalkDetailsStateMessage(
                       icon: Icons.error_outline_rounded,
-                      text: '读取详情失败：${snapshot.error}',
+                      text: openHandLocalizedText(
+                        context,
+                        zh: '读取详情失败，请稍后重试。',
+                        zhHant: '讀取詳情失敗，請稍後重試。',
+                        en: 'Unable to load details. Try again later.',
+                        fr: 'Impossible de charger les détails. Réessayez plus tard.',
+                        de: 'Details konnten nicht geladen werden. Bitte später erneut versuchen.',
+                        ja: '詳細を読み込めません。後でもう一度お試しください。',
+                      ),
                     );
                   }
                   final value = snapshot.data;
                   if (value == null) {
-                    return const _DingTalkDetailsStateMessage(
+                    return _DingTalkDetailsStateMessage(
                       icon: Icons.info_outline_rounded,
-                      text: '暂无可用详情',
+                      text: openHandLocalizedText(
+                        context,
+                        zh: '暂无可用详情',
+                        zhHant: '暫無可用詳情',
+                        en: 'No details are available.',
+                        fr: 'Aucun détail disponible.',
+                        de: 'Keine Details verfügbar.',
+                        ja: '利用できる詳細はありません。',
+                      ),
                     );
                   }
                   return _DingTalkDetailsView(
@@ -12679,25 +12711,223 @@ class _DingTalkDetailsView extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final rawSections = _dingtalkDetailEntries(value);
-    final sections = rawSections.isEmpty
-        ? <MapEntry<String, Object?>>[MapEntry('详情', value)]
-        : rawSections;
+    final document = _buildDingTalkDetailDocument(value);
+    final sections = <Widget>[
+      _DingTalkDetailIdentityCard(conversation: conversation),
+      if (document.conversation.isNotEmpty)
+        _DingTalkDetailSection(
+          label: '会话概览',
+          value: document.conversation,
+          icon: Icons.forum_rounded,
+        ),
+      if (document.contact.isNotEmpty)
+        _DingTalkDetailSection(
+          label: '联系人资料',
+          value: document.contact,
+          icon: Icons.person_rounded,
+        ),
+      if (document.members.isNotEmpty)
+        _DingTalkMemberSection(members: document.members),
+    ];
     return ListView.separated(
       padding: const EdgeInsets.fromLTRB(2, 2, 4, 18),
-      itemCount: sections.length + 1,
+      itemCount: sections.length,
       separatorBuilder: (_, index) => const SizedBox(height: 12),
-      itemBuilder: (context, index) {
-        if (index == 0) {
-          return _DingTalkDetailIdentityCard(conversation: conversation);
-        }
-        final entry = sections[index - 1];
-        return _DingTalkDetailSection(
-          label: entry.key,
-          value: entry.value,
-          icon: _dingtalkDetailIcon(entry.key),
-        );
-      },
+      itemBuilder: (context, index) => sections[index],
+    );
+  }
+}
+
+class _DingTalkDetailDocument {
+  const _DingTalkDetailDocument({
+    required this.conversation,
+    required this.contact,
+    required this.members,
+  });
+
+  final Map<String, Object?> conversation;
+  final Map<String, Object?> contact;
+  final List<Map<String, Object?>> members;
+}
+
+_DingTalkDetailDocument _buildDingTalkDetailDocument(Object value) {
+  final conversationPayload = _findDingTalkDetailValue(value, const <String>{
+    '会话信息',
+    'conversationInfo',
+    'conversation_info',
+  });
+  final contactPayload = _findDingTalkDetailValue(value, const <String>{
+    '联系人信息',
+    'contactInfo',
+    'contact_info',
+    'user',
+  });
+  final membersPayload = _findDingTalkDetailValue(value, const <String>{
+    '群成员',
+    'members',
+    'memberList',
+  });
+  final conversationValue = _unwrapDingTalkDetailValue(
+    _findDingTalkDetailValue(conversationPayload, const <String>{
+          'conversationInfo',
+          'conversation_info',
+        }) ??
+        conversationPayload,
+  );
+  final contactValue = _unwrapDingTalkDetailValue(contactPayload);
+  return _DingTalkDetailDocument(
+    conversation: _humanizeDingTalkMap(conversationValue),
+    contact: _humanizeDingTalkMap(contactValue),
+    members: _collectDingTalkMembers(membersPayload),
+  );
+}
+
+class _DingTalkMemberSection extends StatelessWidget {
+  const _DingTalkMemberSection({required this.members});
+
+  final List<Map<String, Object?>> members;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Material(
+      color: colors.surfaceContainerLow,
+      shadowColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.secondaryContainer,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      Icons.people_alt_rounded,
+                      size: 19,
+                      color: colors.onSecondaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _displayDingTalkDetailLabel(context, '群成员'),
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                Text(
+                  _dingtalkDetailCountLabel(context, members.length, unit: '人'),
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 12),
+            for (var index = 0; index < members.length; index++) ...[
+              if (index > 0) const SizedBox(height: 8),
+              _DingTalkMemberCard(details: members[index]),
+            ],
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkMemberCard extends StatelessWidget {
+  const _DingTalkMemberCard({required this.details});
+
+  final Map<String, Object?> details;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final name = '${details['姓名'] ?? ''}'.trim();
+    final role = '${details['群内角色'] ?? ''}'.trim();
+    final fields = Map<String, Object?>.from(details)
+      ..remove('姓名')
+      ..remove('群内角色');
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.7)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                CircleAvatar(
+                  radius: 18,
+                  backgroundColor: colors.primaryContainer,
+                  child: Icon(
+                    Icons.person_rounded,
+                    size: 20,
+                    color: colors.onPrimaryContainer,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    name.isEmpty
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '未命名成员',
+                            zhHant: '未命名成員',
+                            en: 'Unnamed member',
+                            fr: 'Membre sans nom',
+                            de: 'Unbenanntes Mitglied',
+                            ja: '名前なしのメンバー',
+                          )
+                        : name,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                if (role.isNotEmpty)
+                  Container(
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 9,
+                      vertical: 5,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.tertiaryContainer,
+                      borderRadius: BorderRadius.circular(9),
+                    ),
+                    child: Text(
+                      _dingtalkRoleLabel(context, role),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onTertiaryContainer,
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ),
+              ],
+            ),
+            if (fields.isNotEmpty) ...[
+              const SizedBox(height: 10),
+              _DingTalkDetailValue(value: fields),
+            ],
+          ],
+        ),
+      ),
     );
   }
 }
@@ -12756,14 +12986,32 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
                   ),
                   const SizedBox(height: 5),
                   Text(
-                    isGroup ? '群聊 · 钉钉会话' : '私聊 · 钉钉联系人',
+                    isGroup
+                        ? openHandLocalizedText(
+                            context,
+                            zh: '群聊 · 钉钉会话',
+                            zhHant: '群聊 · 釘釘會話',
+                            en: 'Group chat · DingTalk conversation',
+                            fr: 'Groupe · conversation DingTalk',
+                            de: 'Gruppe · DingTalk-Unterhaltung',
+                            ja: 'グループ · DingTalk 会話',
+                          )
+                        : openHandLocalizedText(
+                            context,
+                            zh: '私聊 · 钉钉联系人',
+                            zhHant: '私聊 · 釘釘聯絡人',
+                            en: 'Direct chat · DingTalk contact',
+                            fr: 'Direct · contact DingTalk',
+                            de: 'Direkt · DingTalk-Kontakt',
+                            ja: 'ダイレクト · DingTalk 連絡先',
+                          ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colors.onPrimaryContainer.withValues(alpha: 0.78),
                     ),
                   ),
                   const SizedBox(height: 8),
                   SelectableText(
-                    conversation.id,
+                    '${_displayDingTalkDetailLabel(context, '会话标识')} · ${conversation.id}',
                     maxLines: 1,
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: colors.onPrimaryContainer.withValues(alpha: 0.72),
@@ -12824,12 +13072,12 @@ class _DingTalkDetailSection extends StatelessWidget {
                 const SizedBox(width: 10),
                 Expanded(
                   child: Text(
-                    _displayDingTalkDetailLabel(label),
+                    _displayDingTalkDetailLabel(context, label),
                     style: theme.textTheme.titleMedium,
                   ),
                 ),
                 Text(
-                  '$itemCount 项',
+                  _dingtalkDetailCountLabel(context, itemCount),
                   style: theme.textTheme.labelMedium?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -12887,7 +13135,7 @@ class _DingTalkDetailValue extends StatelessWidget {
           for (var index = 0; index < list.length; index++) ...[
             if (index > 0) const SizedBox(height: 8),
             _DingTalkDetailNestedSection(
-              label: '第 ${index + 1} 项',
+              label: _dingtalkDetailIndexLabel(context, index),
               value: list[index],
             ),
           ],
@@ -12926,12 +13174,15 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
               children: [
                 Expanded(
                   child: Text(
-                    _displayDingTalkDetailLabel(label),
+                    _displayDingTalkDetailLabel(context, label),
                     style: theme.textTheme.titleSmall,
                   ),
                 ),
                 Text(
-                  '${_dingtalkDetailItemCount(value)} 项',
+                  _dingtalkDetailCountLabel(
+                    context,
+                    _dingtalkDetailItemCount(value),
+                  ),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colors.onSurfaceVariant,
                   ),
@@ -12973,7 +13224,7 @@ class _DingTalkDetailField extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(
-                _displayDingTalkDetailLabel(label),
+                _displayDingTalkDetailLabel(context, label),
                 maxLines: 1,
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.labelMedium?.copyWith(
@@ -12983,7 +13234,7 @@ class _DingTalkDetailField extends StatelessWidget {
               ),
               const SizedBox(height: 4),
               SelectableText(
-                _formatDingTalkDetailValue(value),
+                _formatDingTalkDetailValue(context, value),
                 style: theme.textTheme.bodyMedium?.copyWith(
                   color: colors.onSurface,
                   fontWeight: FontWeight.w600,
@@ -12995,6 +13246,219 @@ class _DingTalkDetailField extends StatelessWidget {
       ),
     );
   }
+}
+
+const Set<String> _dingtalkProtocolDetailKeys = <String>{
+  'arguments',
+  'code',
+  'data',
+  'errorCode',
+  'errorMsg',
+  'friendly_hint',
+  'hasMore',
+  'message',
+  'nextCursor',
+  'next_cursor',
+  'requestId',
+  'request_id',
+  'result',
+  'status',
+  'success',
+};
+
+const Set<String> _dingtalkMemberDetailKeys = <String>{
+  'memberAvatarMediaId',
+  'memberDingtalkId',
+  'memberEmpName',
+  'memberGroupNick',
+  'memberNick',
+  'memberRoleDesc',
+  'memberRoleType',
+  'openDingtalkId',
+};
+
+Object? _findDingTalkDetailValue(Object? value, Set<String> keys) {
+  if (value is Map) {
+    for (final entry in value.entries) {
+      if (keys.contains('${entry.key}')) return entry.value;
+    }
+    for (final entry in value.entries) {
+      final found = _findDingTalkDetailValue(entry.value, keys);
+      if (found != null) return found;
+    }
+  } else if (value is List) {
+    for (final item in value) {
+      final found = _findDingTalkDetailValue(item, keys);
+      if (found != null) return found;
+    }
+  }
+  return null;
+}
+
+Object? _unwrapDingTalkDetailValue(Object? value) {
+  var current = value;
+  for (var depth = 0; depth < 5; depth++) {
+    if (current is! Map) return current;
+    final map = stringKeyedMapFromValue(current);
+    final nested = map['result'] ?? map['data'];
+    final meaningful = map.keys.where(
+      (key) => !_dingtalkProtocolDetailKeys.contains(key),
+    );
+    if (nested != null && meaningful.isEmpty) {
+      current = nested;
+      continue;
+    }
+    return current;
+  }
+  return current;
+}
+
+Map<String, Object?> _humanizeDingTalkMap(
+  Object? value, {
+  bool member = false,
+}) {
+  final unwrapped = _unwrapDingTalkDetailValue(value);
+  final source = unwrapped is List
+      ? unwrapped.whereType<Map>().firstOrNull
+      : unwrapped;
+  if (source is! Map) return <String, Object?>{};
+  final raw = stringKeyedMapFromValue(source);
+  final result = <String, Object?>{};
+  String? preferredName;
+  if (member) {
+    for (final key in const <String>[
+      'memberNick',
+      'memberEmpName',
+      'name',
+      'nick',
+      'userName',
+      'displayName',
+    ]) {
+      final candidate = '${raw[key] ?? ''}'.trim();
+      if (candidate.isNotEmpty) {
+        preferredName = candidate;
+        break;
+      }
+    }
+  }
+  var extraIndex = 0;
+  for (final entry in raw.entries) {
+    final key = entry.key;
+    final normalizedKey = key.trim();
+    if (normalizedKey.isEmpty ||
+        _dingtalkProtocolDetailKeys.contains(normalizedKey) ||
+        entry.value == null) {
+      continue;
+    }
+    if (member &&
+        const <String>{
+          'memberNick',
+          'memberEmpName',
+          'name',
+          'nick',
+          'userName',
+          'displayName',
+        }.contains(normalizedKey)) {
+      continue;
+    }
+    if (normalizedKey == 'memberAvatarMediaId' ||
+        normalizedKey == 'avatarMediaId') {
+      continue;
+    }
+    final label = _canonicalDingTalkDetailLabel(normalizedKey);
+    final valueToShow = _sanitizeDingTalkDetailValue(entry.value);
+    if (valueToShow is Map && valueToShow.isEmpty) continue;
+    if (valueToShow is String && valueToShow.trim().isEmpty) continue;
+    var displayLabel = label;
+    if (result.containsKey(displayLabel)) {
+      extraIndex += 1;
+      displayLabel = '$label $extraIndex';
+    }
+    result[displayLabel] = valueToShow;
+  }
+  if (preferredName != null) {
+    return <String, Object?>{'姓名': preferredName, ...result};
+  }
+  return result;
+}
+
+Object? _sanitizeDingTalkDetailValue(Object? value) {
+  if (value is Map) return _humanizeDingTalkMap(value);
+  if (value is List) {
+    return value
+        .map(_sanitizeDingTalkDetailValue)
+        .where((item) => item != null)
+        .toList(growable: false);
+  }
+  return value;
+}
+
+String _canonicalDingTalkDetailLabel(String key) {
+  const labels = <String, String>{
+    'corpId': '企业标识',
+    'corpName': '企业名称',
+    'createAt': '创建时间',
+    'extension': '其他资料',
+    'newCSpaceIdIM': '钉盘空间标识',
+    'memberCount': '成员数量',
+    'memberDingtalkId': '钉钉账号',
+    'memberEmpName': '姓名',
+    'memberGroupNick': '群内昵称',
+    'memberNick': '姓名',
+    'memberRoleDesc': '群内角色',
+    'memberRoleType': '角色类型',
+    'mobile': '手机号',
+    'email': '邮箱',
+    'openConversationId': '会话标识',
+    'openDingtalkId': '钉钉用户标识',
+    'orgName': '组织',
+    'ownerNick': '群主',
+    'position': '职位',
+    'remark': '备注',
+    'singleChat': '聊天类型',
+    'status': '状态',
+    'title': '群聊名称',
+    'departmentName': '部门',
+    'department': '部门',
+    'name': '姓名',
+    'nick': '姓名',
+    'userName': '姓名',
+    'displayName': '姓名',
+    'userId': '钉钉用户标识',
+    'unionId': '钉钉用户标识',
+  };
+  return labels[key] ?? '其他资料';
+}
+
+List<Map<String, Object?>> _collectDingTalkMembers(Object? value) {
+  final collected = <Map<String, Object?>>[];
+  void visit(Object? current) {
+    if (current is Map) {
+      final map = stringKeyedMapFromValue(current);
+      if (map.keys.any(_dingtalkMemberDetailKeys.contains)) {
+        final details = _humanizeDingTalkMap(map, member: true);
+        if (details.isNotEmpty) collected.add(details);
+        return;
+      }
+      for (final item in map.values) {
+        visit(item);
+      }
+    } else if (current is List) {
+      for (final item in current) {
+        visit(item);
+      }
+    }
+  }
+
+  visit(value);
+  final seen = <String>{};
+  return collected
+      .where((item) {
+        final identity = '${item['钉钉用户标识'] ?? item['姓名'] ?? ''}'.trim();
+        if (identity.isEmpty || !seen.add(identity)) return false;
+        return true;
+      })
+      .toList(growable: false);
 }
 
 List<MapEntry<String, Object?>> _dingtalkDetailEntries(Object? value) {
@@ -13012,43 +13476,399 @@ int _dingtalkDetailItemCount(Object? value) {
   return 1;
 }
 
-String _displayDingTalkDetailLabel(String value) {
-  const labels = <String, String>{
-    'corpId': '企业 ID',
-    'corpName': '企业名称',
-    'createAt': '创建时间',
-    'conversationInfo': '会话信息',
-    'newCSpaceIdIM': '钉盘空间 ID',
-    'extension': '扩展信息',
-    'errorCode': '错误码',
-    'errorMsg': '错误信息',
-    'hasMore': '还有更多',
-    'nextCursor': '下一页游标',
-    'members': '成员列表',
-    'result': '返回结果',
-    'data': '数据',
-  };
-  final translated = labels[value];
-  return translated == null ? value : '$translated · $value';
+String _displayDingTalkDetailLabel(BuildContext context, String value) {
+  switch (value) {
+    case '会话概览':
+      return openHandLocalizedText(
+        context,
+        zh: '会话概览',
+        zhHant: '會話概覽',
+        en: 'Conversation overview',
+        fr: 'Aperçu de la conversation',
+        de: 'Gesprächsübersicht',
+        ja: '会話の概要',
+      );
+    case '联系人资料':
+      return openHandLocalizedText(
+        context,
+        zh: '联系人资料',
+        zhHant: '聯絡人資料',
+        en: 'Contact profile',
+        fr: 'Profil du contact',
+        de: 'Kontaktprofil',
+        ja: '連絡先プロフィール',
+      );
+    case '群成员':
+      return openHandLocalizedText(
+        context,
+        zh: '群成员',
+        zhHant: '群成員',
+        en: 'Group members',
+        fr: 'Membres du groupe',
+        de: 'Gruppenmitglieder',
+        ja: 'グループメンバー',
+      );
+    case '人':
+      return openHandLocalizedText(
+        context,
+        zh: '人',
+        zhHant: '人',
+        en: 'people',
+        fr: 'personnes',
+        de: 'Personen',
+        ja: '人',
+      );
+    case '项':
+      return openHandLocalizedText(
+        context,
+        zh: '项',
+        zhHant: '項',
+        en: 'items',
+        fr: 'éléments',
+        de: 'Einträge',
+        ja: '項目',
+      );
+    case '企业标识':
+      return openHandLocalizedText(
+        context,
+        zh: '企业标识',
+        zhHant: '企業標識',
+        en: 'Organization ID',
+        fr: 'Identifiant de l’organisation',
+        de: 'Organisations-ID',
+        ja: '組織 ID',
+      );
+    case '企业名称':
+      return openHandLocalizedText(
+        context,
+        zh: '企业名称',
+        zhHant: '企業名稱',
+        en: 'Organization name',
+        fr: 'Nom de l’organisation',
+        de: 'Organisationsname',
+        ja: '組織名',
+      );
+    case '创建时间':
+      return openHandLocalizedText(
+        context,
+        zh: '创建时间',
+        zhHant: '建立時間',
+        en: 'Created',
+        fr: 'Créé le',
+        de: 'Erstellt',
+        ja: '作成日時',
+      );
+    case '钉盘空间标识':
+      return openHandLocalizedText(
+        context,
+        zh: '钉盘空间标识',
+        zhHant: '釘盤空間標識',
+        en: 'DingDrive space ID',
+        fr: 'Identifiant d’espace DingDrive',
+        de: 'DingDrive-Space-ID',
+        ja: 'DingDrive スペース ID',
+      );
+    case '成员数量':
+      return openHandLocalizedText(
+        context,
+        zh: '成员数量',
+        zhHant: '成員數量',
+        en: 'Member count',
+        fr: 'Nombre de membres',
+        de: 'Mitgliederzahl',
+        ja: 'メンバー数',
+      );
+    case '会话标识':
+      return openHandLocalizedText(
+        context,
+        zh: '会话标识',
+        zhHant: '會話標識',
+        en: 'Conversation ID',
+        fr: 'Identifiant de conversation',
+        de: 'Gesprächs-ID',
+        ja: '会話 ID',
+      );
+    case '群主':
+      return openHandLocalizedText(
+        context,
+        zh: '群主',
+        zhHant: '群主',
+        en: 'Owner',
+        fr: 'Propriétaire',
+        de: 'Eigentümer',
+        ja: 'オーナー',
+      );
+    case '群聊名称':
+      return openHandLocalizedText(
+        context,
+        zh: '群聊名称',
+        zhHant: '群聊名稱',
+        en: 'Group name',
+        fr: 'Nom du groupe',
+        de: 'Gruppenname',
+        ja: 'グループ名',
+      );
+    case '聊天类型':
+      return openHandLocalizedText(
+        context,
+        zh: '聊天类型',
+        zhHant: '聊天類型',
+        en: 'Chat type',
+        fr: 'Type de conversation',
+        de: 'Gesprächstyp',
+        ja: 'チャットタイプ',
+      );
+    case '姓名':
+      return openHandLocalizedText(
+        context,
+        zh: '姓名',
+        zhHant: '姓名',
+        en: 'Name',
+        fr: 'Nom',
+        de: 'Name',
+        ja: '名前',
+      );
+    case '群内昵称':
+      return openHandLocalizedText(
+        context,
+        zh: '群内昵称',
+        zhHant: '群內暱稱',
+        en: 'Group nickname',
+        fr: 'Surnom dans le groupe',
+        de: 'Gruppenname',
+        ja: 'グループ内のニックネーム',
+      );
+    case '群内角色':
+      return openHandLocalizedText(
+        context,
+        zh: '群内角色',
+        zhHant: '群內角色',
+        en: 'Group role',
+        fr: 'Rôle dans le groupe',
+        de: 'Gruppenrolle',
+        ja: 'グループ内の役割',
+      );
+    case '角色类型':
+      return openHandLocalizedText(
+        context,
+        zh: '角色类型',
+        zhHant: '角色類型',
+        en: 'Role type',
+        fr: 'Type de rôle',
+        de: 'Rollentyp',
+        ja: '役割タイプ',
+      );
+    case '钉钉账号':
+      return openHandLocalizedText(
+        context,
+        zh: '钉钉账号',
+        zhHant: '釘釘帳號',
+        en: 'DingTalk account',
+        fr: 'Compte DingTalk',
+        de: 'DingTalk-Konto',
+        ja: 'DingTalk アカウント',
+      );
+    case '钉钉用户标识':
+      return openHandLocalizedText(
+        context,
+        zh: '钉钉用户标识',
+        zhHant: '釘釘使用者標識',
+        en: 'DingTalk user ID',
+        fr: 'Identifiant utilisateur DingTalk',
+        de: 'DingTalk-Benutzer-ID',
+        ja: 'DingTalk ユーザー ID',
+      );
+    case '组织':
+      return openHandLocalizedText(
+        context,
+        zh: '组织',
+        zhHant: '組織',
+        en: 'Organization',
+        fr: 'Organisation',
+        de: 'Organisation',
+        ja: '組織',
+      );
+    case '部门':
+      return openHandLocalizedText(
+        context,
+        zh: '部门',
+        zhHant: '部門',
+        en: 'Department',
+        fr: 'Département',
+        de: 'Abteilung',
+        ja: '部署',
+      );
+    case '职位':
+      return openHandLocalizedText(
+        context,
+        zh: '职位',
+        zhHant: '職位',
+        en: 'Position',
+        fr: 'Poste',
+        de: 'Position',
+        ja: '役職',
+      );
+    case '手机号':
+      return openHandLocalizedText(
+        context,
+        zh: '手机号',
+        zhHant: '手機號碼',
+        en: 'Phone',
+        fr: 'Téléphone',
+        de: 'Telefon',
+        ja: '電話番号',
+      );
+    case '邮箱':
+      return openHandLocalizedText(
+        context,
+        zh: '邮箱',
+        zhHant: '電子郵件',
+        en: 'Email',
+        fr: 'E-mail',
+        de: 'E-Mail',
+        ja: 'メール',
+      );
+    case '备注':
+      return openHandLocalizedText(
+        context,
+        zh: '备注',
+        zhHant: '備註',
+        en: 'Note',
+        fr: 'Note',
+        de: 'Notiz',
+        ja: 'メモ',
+      );
+    case '状态':
+      return openHandLocalizedText(
+        context,
+        zh: '状态',
+        zhHant: '狀態',
+        en: 'Status',
+        fr: 'Statut',
+        de: 'Status',
+        ja: 'ステータス',
+      );
+    case '其他资料':
+      return openHandLocalizedText(
+        context,
+        zh: '其他资料',
+        zhHant: '其他資料',
+        en: 'Additional details',
+        fr: 'Informations complémentaires',
+        de: 'Zusätzliche Angaben',
+        ja: 'その他の詳細',
+      );
+    case '值':
+      return openHandLocalizedText(
+        context,
+        zh: '值',
+        zhHant: '值',
+        en: 'Value',
+        fr: 'Valeur',
+        de: 'Wert',
+        ja: '値',
+      );
+    default:
+      return value;
+  }
 }
 
-IconData _dingtalkDetailIcon(String label) {
-  final normalized = label.toLowerCase();
-  if (normalized.contains('成员') || normalized.contains('联系人')) {
-    return Icons.people_alt_rounded;
-  }
-  if (normalized.contains('会话')) return Icons.forum_rounded;
-  if (normalized.contains('扩展') || normalized.contains('extension')) {
-    return Icons.extension_rounded;
-  }
-  return Icons.data_object_rounded;
+String _dingtalkDetailCountLabel(
+  BuildContext context,
+  int count, {
+  String unit = '项',
+}) {
+  return '$count ${_displayDingTalkDetailLabel(context, unit)}';
 }
 
-String _formatDingTalkDetailValue(Object? value) {
-  if (value == null) return '未返回';
-  if (value is bool) return value ? '是' : '否';
+String _dingtalkDetailIndexLabel(BuildContext context, int index) {
+  final item = _displayDingTalkDetailLabel(context, '项');
+  final number = index + 1;
+  return openHandIsChineseLocale(context) ? '第 $number $item' : '$item $number';
+}
+
+String _dingtalkRoleLabel(BuildContext context, String value) {
+  switch (value) {
+    case '群主':
+      return openHandLocalizedText(
+        context,
+        zh: '群主',
+        zhHant: '群主',
+        en: 'Owner',
+        fr: 'Propriétaire',
+        de: 'Eigentümer',
+        ja: 'オーナー',
+      );
+    case '管理员':
+      return openHandLocalizedText(
+        context,
+        zh: '管理员',
+        zhHant: '管理員',
+        en: 'Administrator',
+        fr: 'Administrateur',
+        de: 'Administrator',
+        ja: '管理者',
+      );
+    case '成员':
+      return openHandLocalizedText(
+        context,
+        zh: '成员',
+        zhHant: '成員',
+        en: 'Member',
+        fr: 'Membre',
+        de: 'Mitglied',
+        ja: 'メンバー',
+      );
+    default:
+      return value;
+  }
+}
+
+String _formatDingTalkDetailValue(BuildContext context, Object? value) {
+  if (value == null) {
+    return openHandLocalizedText(
+      context,
+      zh: '未返回',
+      zhHant: '未返回',
+      en: 'Not returned',
+      fr: 'Non renseigné',
+      de: 'Nicht zurückgegeben',
+      ja: '未返却',
+    );
+  }
+  if (value is bool) {
+    return value
+        ? openHandLocalizedText(
+            context,
+            zh: '是',
+            zhHant: '是',
+            en: 'Yes',
+            fr: 'Oui',
+            de: 'Ja',
+            ja: 'はい',
+          )
+        : openHandLocalizedText(
+            context,
+            zh: '否',
+            zhHant: '否',
+            en: 'No',
+            fr: 'Non',
+            de: 'Nein',
+            ja: 'いいえ',
+          );
+  }
   final text = '$value'.trim();
-  return text.isEmpty ? '空' : text;
+  return text.isEmpty
+      ? openHandLocalizedText(
+          context,
+          zh: '空',
+          zhHant: '空',
+          en: 'Empty',
+          fr: 'Vide',
+          de: 'Leer',
+          ja: '空',
+        )
+      : text;
 }
 
 class _DingTalkAddConversationDialog extends StatefulWidget {
