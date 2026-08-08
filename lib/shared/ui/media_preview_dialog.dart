@@ -361,6 +361,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                             : () => _copyToClipboard(context),
                         icon: const Icon(Icons.content_copy_outlined),
                       ),
+                      const SizedBox(width: 8),
                       IconButton(
                         tooltip: l10n.commonClose,
                         onPressed: () => Navigator.of(context).pop(),
