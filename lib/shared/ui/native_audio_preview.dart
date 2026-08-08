@@ -1199,20 +1199,19 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                 Positioned.fill(
                   child: IgnorePointer(
                     ignoring: !_loading,
-                    // 不加载时停掉子树 ticker：遮罩仍留在树上以便淡出，但
-                    // 转圈不该在看不见的时候一直烧帧。
-                    child: TickerMode(
-                      enabled: _loading,
-                      child: AnimatedOpacity(
-                        opacity: _loading ? 1 : 0,
-                        duration: openHandMotionDuration(
-                          context,
-                          kOpenHandMotion200,
-                        ),
-                        curve: Curves.easeOutCubic,
-                        child: ColoredBox(
-                          color: colorScheme.surface.withValues(alpha: 0.60),
-                          child: Center(
+                    child: AnimatedOpacity(
+                      opacity: _loading ? 1 : 0,
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion200,
+                      ),
+                      curve: Curves.easeOutCubic,
+                      child: ColoredBox(
+                        color: colorScheme.surface.withValues(alpha: 0.60),
+                        child: Center(
+                          // 只停用转圈自身的 ticker，不能包裹 AnimatedOpacity。
+                          child: TickerMode(
+                            enabled: _loading,
                             child: CircularProgressIndicator(
                               color: colorScheme.primary,
                               strokeWidth: 2.6,
