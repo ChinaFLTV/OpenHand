@@ -12792,15 +12792,8 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return Container(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.35),
-        ),
-      ),
-      padding: const EdgeInsets.all(16),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 4),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -12809,7 +12802,7 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
               Container(
                 padding: const EdgeInsets.all(6),
                 decoration: BoxDecoration(
-                  color: colors.primaryContainer.withValues(alpha: 0.6),
+                  color: colors.primaryContainer.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8),
                 ),
                 child: Icon(
@@ -12818,32 +12811,39 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
                   color: colors.onPrimaryContainer,
                 ),
               ),
-              const SizedBox(width: 8),
+              const SizedBox(width: 10),
               Expanded(
                 child: Text(
                   _displayDingTalkDetailLabel(context, title),
-                  style: theme.textTheme.titleSmall?.copyWith(
+                  style: theme.textTheme.titleMedium?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
                 decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(10),
+                  color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(20),
                 ),
                 child: Text(
                   badge,
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colors.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          const SizedBox(height: 16),
           child,
+          const SizedBox(height: 8),
+          Divider(
+            color: colors.outlineVariant.withValues(alpha: 0.3),
+            thickness: 1,
+            height: 24,
+          ),
         ],
       ),
     );
@@ -13041,111 +13041,88 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final isGroup = conversation.type == DingTalkConversationType.group;
-    return Container(
-      decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colors.primaryContainer.withValues(alpha: 0.7),
-            colors.surfaceContainer,
-          ],
-        ),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colors.primary.withValues(alpha: 0.2),
-        ),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
-        child: Row(
-          children: [
-            Container(
-              decoration: BoxDecoration(
-                color: colors.primary,
-                borderRadius: BorderRadius.circular(14),
-                boxShadow: [
-                  BoxShadow(
-                    color: colors.primary.withValues(alpha: 0.25),
-                    blurRadius: 8,
-                    offset: const Offset(0, 2),
-                  ),
-                ],
-              ),
-              padding: const EdgeInsets.all(12),
-              child: Icon(
-                isGroup ? Icons.groups_rounded : Icons.person_rounded,
-                size: 24,
-                color: colors.onPrimary,
-              ),
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            decoration: BoxDecoration(
+              color: colors.primaryContainer.withValues(alpha: 0.8),
+              borderRadius: BorderRadius.circular(16),
             ),
-            const SizedBox(width: 14),
-            Expanded(
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    conversation.title,
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                    style: theme.textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.w700,
+            padding: const EdgeInsets.all(14),
+            child: Icon(
+              isGroup ? Icons.groups_rounded : Icons.person_rounded,
+              size: 28,
+              color: colors.onPrimaryContainer,
+            ),
+          ),
+          const SizedBox(width: 16),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  conversation.title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.headlineSmall?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Container(
+                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: colors.secondaryContainer.withValues(alpha: 0.5),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        isGroup
+                            ? openHandLocalizedText(
+                                context,
+                                zh: '群聊',
+                                zhHant: '群聊',
+                                en: 'Group',
+                                fr: 'Groupe',
+                                de: 'Gruppe',
+                                ja: 'グループ',
+                              )
+                            : openHandLocalizedText(
+                                context,
+                                zh: '联系人',
+                                zhHant: '聯絡人',
+                                en: 'Contact',
+                                fr: 'Contact',
+                                de: 'Kontakt',
+                                ja: '連絡先',
+                              ),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.onSecondaryContainer,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
                     ),
-                  ),
-                  const SizedBox(height: 5),
-                  Row(
-                    children: [
-                      Container(
-                        padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2.5),
-                        decoration: BoxDecoration(
-                          color: colors.primary.withValues(alpha: 0.12),
-                          borderRadius: BorderRadius.circular(6),
-                        ),
-                        child: Text(
-                          isGroup
-                              ? openHandLocalizedText(
-                                  context,
-                                  zh: '群聊',
-                                  zhHant: '群聊',
-                                  en: 'Group',
-                                  fr: 'Groupe',
-                                  de: 'Gruppe',
-                                  ja: 'グループ',
-                                )
-                              : openHandLocalizedText(
-                                  context,
-                                  zh: '联系人',
-                                  zhHant: '聯絡人',
-                                  en: 'Contact',
-                                  fr: 'Contact',
-                                  de: 'Kontakt',
-                                  ja: '連絡先',
-                                ),
-                          style: theme.textTheme.labelSmall?.copyWith(
-                            color: colors.primary,
-                            fontWeight: FontWeight.w700,
-                          ),
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: SelectableText(
+                        'ID: ${conversation.id}',
+                        maxLines: 1,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant.withValues(alpha: 0.8),
+                          fontFamily: 'monospace',
+                          fontSize: 12,
                         ),
                       ),
-                      const SizedBox(width: 8),
-                      Expanded(
-                        child: SelectableText(
-                          'ID: ${conversation.id}',
-                          maxLines: 1,
-                          style: theme.textTheme.bodySmall?.copyWith(
-                            color: colors.onSurfaceVariant.withValues(alpha: 0.8),
-                            fontFamily: 'monospace',
-                            fontSize: 12,
-                          ),
-                        ),
-                      ),
-                    ],
-                  ),
-                ],
-              ),
+                    ),
+                  ],
+                ),
+              ],
             ),
-          ],
-        ),
+          ),
+        ],
       ),
     );
   }
