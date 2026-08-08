@@ -1749,11 +1749,13 @@ class AiSessionController extends ChangeNotifier {
         final currentSession = currentSessionId == null
             ? null
             : _sessionsById[currentSessionId];
-        if (currentSession == null || currentSession.isDingTalkGatewaySession) {
-          _currentSessionId = _sessions
-              .where((session) => !session.isDingTalkGatewaySession)
-              .firstOrNull
-              ?.id;
+        // 冷启动保持“未选择会话”状态，避免自动打开持久化列表中的第一条。
+        // 仅当已有选择失效，或误指向钉钉内部会话时清空选择；用户主动点击
+        // 或新建会话仍由 selectSession/createSession 负责更新当前会话。
+        if (currentSessionId != null &&
+            (currentSession == null ||
+                currentSession.isDingTalkGatewaySession)) {
+          _currentSessionId = null;
         }
         final editingMessageId = _editingMessageId;
         if (editingMessageId != null &&
