@@ -396,15 +396,19 @@ class _PluginCard extends StatelessWidget {
                             color: theme.colorScheme.primaryContainer,
                             borderRadius: BorderRadius.circular(18),
                           ),
-                          child: SvgPicture.asset(
-                            pluginIconAsset,
-                            width: _kPluginIconSize,
-                            height: _kPluginIconSize,
-                            colorFilter: ColorFilter.mode(
-                              theme.colorScheme.onPrimaryContainer,
-                              BlendMode.srcIn,
+                          child: Center(
+                            child: SizedBox(
+                              width: _kPluginIconSize,
+                              height: _kPluginIconSize,
+                              child: SvgPicture.asset(
+                                pluginIconAsset,
+                                colorFilter: ColorFilter.mode(
+                                  theme.colorScheme.onPrimaryContainer,
+                                  BlendMode.srcIn,
+                                ),
+                                semanticsLabel: plugin.name,
+                              ),
                             ),
-                            semanticsLabel: plugin.name,
                           ),
                         ),
                         Positioned(
