@@ -195,19 +195,30 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> cancelAuthorization() async {
-    await _service.cancelAuthorization();
+    // 取消授权与轮询互斥：先释放定时器，避免注销过程中继续查询消息。
+    stopPolling();
+    try {
+      await _service.cancelAuthorization();
+    } catch (error, stack) {
+      _setError('取消钉钉设备流授权', error, stack);
+    }
     _isAuthenticating = false;
     _notify();
   }
 
   Future<void> logout() async {
+    // 立即停止轮询，即使底层注销命令失败也不留下后台定时任务。
+    final profile = _authStatus.identity.profile;
+    stopPolling();
+    _authStatus = const DingTalkAuthStatus(authenticated: false);
+    _notify();
     try {
-      await _service.logout(profile: _authStatus.identity.profile);
-      _authStatus = const DingTalkAuthStatus(authenticated: false);
-      stopPolling();
+      await _service.logout(profile: profile);
       _clearError();
     } catch (error, stack) {
       _setError('取消钉钉授权', error, stack);
+    } finally {
+      await refreshAuthStatus();
     }
     _notify();
   }
