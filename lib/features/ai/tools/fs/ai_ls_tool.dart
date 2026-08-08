@@ -21,7 +21,13 @@ class AiLsTool extends AiTool {
     final args = context.decodedArguments;
     final startedAt = Stopwatch()..start();
     final rawPath = AiToolUtils.readString(args['path']);
-    final path = AiToolUtils.resolvePath(rawPath);
+    final path = AiToolUtils.resolvePathForContext(context, rawPath);
+    final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
+      context: context,
+      toolName: 'LS',
+      path: path,
+    );
+    if (boundaryError != null) return boundaryError;
     final pathType = await probeFileSystemEntityType(path, followLinks: true);
     if (pathType == FileSystemEntityType.notFound) {
       return AiToolUtils.invalidResult('LS', '目录不存在：$path');

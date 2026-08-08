@@ -231,6 +231,7 @@ class AiBashBackgroundTool extends AiTool {
       cmd: cmd,
       cwd: cwd,
       dangerouslyDisableSandbox:
+          context.metadata['source'] != 'dingtalk_gateway' &&
           AiToolUtils.readBool(args['dangerouslyDisableSandbox']) == true,
     );
     Future<void> closeLaunchProxy(String reason) {

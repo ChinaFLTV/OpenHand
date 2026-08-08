@@ -33,7 +33,13 @@ class AiEditTool extends AiTool {
     );
     if (payloadSizeValidation != null) return payloadSizeValidation;
 
-    final filePath = AiToolUtils.resolvePath(rawFilePath);
+    final filePath = AiToolUtils.resolvePathForContext(context, rawFilePath);
+    final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
+      context: context,
+      toolName: 'Edit',
+      path: filePath,
+    );
+    if (boundaryError != null) return boundaryError;
     final notebookValidation = AiToolUtils.validateNotebookTextMutation(
       toolName: 'Edit',
       filePath: filePath,

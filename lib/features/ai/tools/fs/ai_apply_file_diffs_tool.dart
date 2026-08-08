@@ -78,7 +78,14 @@ class AiApplyFileDiffsTool extends AiTool {
           'diffs[$i] missing file_path.',
         );
       }
-      final filePath = AiToolUtils.resolvePath(rawPath);
+      final filePath = AiToolUtils.resolvePathForContext(context, rawPath);
+      final boundaryError =
+          await AiToolUtils.validatePathWithinWorkingDirectory(
+            context: context,
+            toolName: 'ApplyFileDiffs',
+            path: filePath,
+          );
+      if (boundaryError != null) return boundaryError;
       final notebookValidation = AiToolUtils.validateNotebookTextMutation(
         toolName: 'ApplyFileDiffs',
         filePath: filePath,

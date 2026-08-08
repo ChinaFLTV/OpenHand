@@ -25,7 +25,16 @@ class AiNotebookEditTool extends AiTool {
         'NotebookEdit requires a non-empty notebook_path.',
       );
     }
-    final notebookPath = AiToolUtils.resolvePath(rawNotebookPath);
+    final notebookPath = AiToolUtils.resolvePathForContext(
+      context,
+      rawNotebookPath,
+    );
+    final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
+      context: context,
+      toolName: 'NotebookEdit',
+      path: notebookPath,
+    );
+    if (boundaryError != null) return boundaryError;
     if (p.extension(notebookPath).toLowerCase() != '.ipynb') {
       return AiToolUtils.invalidResult(
         'NotebookEdit',

@@ -53,7 +53,13 @@ class AiReadTool extends AiTool {
     if (rawFilePath.isEmpty) {
       return AiToolUtils.invalidResult('Read', 'Read 需要非空 file_path。');
     }
-    final filePath = AiToolUtils.resolvePath(rawFilePath);
+    final filePath = AiToolUtils.resolvePathForContext(context, rawFilePath);
+    final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
+      context: context,
+      toolName: 'Read',
+      path: filePath,
+    );
+    if (boundaryError != null) return boundaryError;
     if (_isBlockedDeviceReadPath(filePath)) {
       return AiToolUtils.invalidResult(
         'Read',

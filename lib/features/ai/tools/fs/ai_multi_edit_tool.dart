@@ -23,7 +23,13 @@ class AiMultiEditTool extends AiTool {
         'MultiEdit requires a non-empty file_path.',
       );
     }
-    final filePath = AiToolUtils.resolvePath(rawFilePath);
+    final filePath = AiToolUtils.resolvePathForContext(context, rawFilePath);
+    final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
+      context: context,
+      toolName: 'MultiEdit',
+      path: filePath,
+    );
+    if (boundaryError != null) return boundaryError;
     final notebookValidation = AiToolUtils.validateNotebookTextMutation(
       toolName: 'MultiEdit',
       filePath: filePath,

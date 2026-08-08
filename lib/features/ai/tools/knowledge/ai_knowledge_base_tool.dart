@@ -68,10 +68,25 @@ class AiKnowledgeSearchTool extends AiTool {
         'query 超过 $kAiKnowledgeSearchMaxQueryCharacters 个字符上限。',
       );
     }
-    final sourceIds = _stringList(
+    var sourceIds = _stringList(
       args['source_ids'],
       maxItems: kAiKnowledgeSearchMaxSourceIds + 1,
     );
+    final allowedSourceIds = _dingtalkAllowedSourceIds(context);
+    if (allowedSourceIds != null) {
+      if (allowedSourceIds.isEmpty) {
+        return AiToolUtils.invalidResult('KnowledgeSearch', '钉钉网关未启用任何知识库资源。');
+      }
+      sourceIds = sourceIds.isEmpty
+          ? allowedSourceIds
+          : sourceIds.where(allowedSourceIds.contains).toList(growable: false);
+      if (sourceIds.isEmpty) {
+        return AiToolUtils.invalidResult(
+          'KnowledgeSearch',
+          '请求的知识库资源不在钉钉网关允许范围内。',
+        );
+      }
+    }
     if (sourceIds.length > kAiKnowledgeSearchMaxSourceIds) {
       return AiToolUtils.invalidResult(
         'KnowledgeSearch',
@@ -292,6 +307,18 @@ class AiKnowledgeReadTool extends AiTool {
     final chunkId = AiToolUtils.readString(args['chunk_id']);
     final sourceId = AiToolUtils.readString(args['source_id']);
     final aroundChunkId = AiToolUtils.readString(args['around_chunk_id']);
+    final allowedSourceIds = _dingtalkAllowedSourceIds(context);
+    if (allowedSourceIds != null) {
+      if (allowedSourceIds.isEmpty) {
+        return AiToolUtils.invalidResult('KnowledgeRead', '钉钉网关未启用任何知识库资源。');
+      }
+      if (sourceId.isNotEmpty && !allowedSourceIds.contains(sourceId)) {
+        return AiToolUtils.invalidResult(
+          'KnowledgeRead',
+          '请求的知识库资源不在钉钉网关允许范围内。',
+        );
+      }
+    }
     if (chunkId.isEmpty && sourceId.isEmpty && aroundChunkId.isEmpty) {
       return AiToolUtils.invalidResult(
         'KnowledgeRead',
@@ -362,8 +389,21 @@ class AiKnowledgeReadTool extends AiTool {
       return _knowledgeFailedResult('KnowledgeRead', sw);
     }
     if (rows == null) return cancelledResult();
+    final visibleRows = allowedSourceIds == null
+        ? rows
+        : rows
+              .where(
+                (row) =>
+                    allowedSourceIds.contains(_stringValue(row['source_id'])),
+              )
+              .toList(growable: false);
+    if (allowedSourceIds != null &&
+        visibleRows.isEmpty &&
+        (chunkId.isNotEmpty || aroundChunkId.isNotEmpty)) {
+      return AiToolUtils.invalidResult('KnowledgeRead', '请求的知识库内容不在钉钉网关允许范围内。');
+    }
     final includeContent = chunkId.isNotEmpty || aroundChunkId.isNotEmpty;
-    final hits = rows
+    final hits = visibleRows
         .map((row) => _readHitJson(row, includeContent: includeContent))
         .toList(growable: false);
     final output = hits.isEmpty
@@ -399,9 +439,8 @@ class AiKnowledgeReadTool extends AiTool {
       rerank: <String, Object?>{
         'mode': 'none',
         'strategy': 'preserve_chunk_order',
-        'candidate_count': rows.length,
+        'candidate_count': visibleRows.length,
         'kept_count': hits.length,
-        'discarded_count': 0,
       },
     );
     return AiToolUtils.simpleSuccessResult(
@@ -415,6 +454,13 @@ class AiKnowledgeReadTool extends AiTool {
       metadata: metadata,
     );
   }
+}
+
+List<String>? _dingtalkAllowedSourceIds(AiToolExecutionContext context) {
+  if (!context.metadata.containsKey('dingtalk_allowed_knowledge_source_ids')) {
+    return null;
+  }
+  return _stringList(context.metadata['dingtalk_allowed_knowledge_source_ids']);
 }
 
 Future<List<Map<String, Object?>>> _loadSearchCandidates(

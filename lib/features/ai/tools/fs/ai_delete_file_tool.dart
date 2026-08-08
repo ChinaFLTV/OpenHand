@@ -41,9 +41,13 @@ class AiDeleteFileTool extends AiTool {
       return AiToolUtils.invalidResult('DeleteFile', '必须提供 file_path。');
     }
 
-    final filePath =
-        AiToolUtils.requireAbsoluteFilePath(rawPath) ??
-        AiToolUtils.resolvePath(rawPath);
+    final filePath = AiToolUtils.resolvePathForContext(context, rawPath);
+    final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
+      context: context,
+      toolName: 'DeleteFile',
+      path: filePath,
+    );
+    if (boundaryError != null) return boundaryError;
 
     // 禁止删除根路径、系统目录及其内部文件。
     if (_isUnsafePath(filePath)) {

@@ -34,9 +34,16 @@ class AiReadLintsTool extends AiTool {
     final startedAt = Stopwatch()..start();
 
     final paths = _parsePaths(args['paths']);
-    final workingDirectory = AiToolUtils.resolvePath(
+    final workingDirectory = AiToolUtils.resolvePathForContext(
+      context,
       AiToolUtils.readString(args['working_directory']),
     );
+    final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
+      context: context,
+      toolName: 'ReadLints',
+      path: workingDirectory,
+    );
+    if (boundaryError != null) return boundaryError;
 
     try {
       final output = await _runAnalyze(

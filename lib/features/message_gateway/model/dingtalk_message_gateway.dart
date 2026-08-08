@@ -1,4 +1,9 @@
+import 'dart:io';
+
 import 'package:flutter/foundation.dart';
+
+import '../../../app/support/openhand_paths.dart';
+import '../../../shared/util/input_value_parsing.dart';
 
 enum DingTalkConversationType { group, direct }
 
@@ -25,6 +30,14 @@ class DingTalkGatewaySettings {
     this.pollIntervalSeconds = 3,
     this.reminderMode = DingTalkReminderMode.inApp,
     this.responseModelKey = '',
+    this.workingDirectory = '',
+    this.fullAccessPermission = false,
+    this.templateId = 'default',
+    this.allowedMcpServerNames = const <String>[],
+    this.allowedSkillNames = const <String>[],
+    this.allowedMemoryIds = const <String>[],
+    this.allowedInstructionIds = const <String>[],
+    this.allowedKnowledgeBaseSourceIds = const <String>[],
   });
 
   factory DingTalkGatewaySettings.fromJson(Map<String, Object?> json) {
@@ -37,34 +50,130 @@ class DingTalkGatewaySettings {
           int.tryParse('${json['poll_interval_seconds'] ?? 3}') ?? 3,
       reminderMode: mode,
       responseModelKey: '${json['response_model_key'] ?? ''}',
+      workingDirectory: '${json['working_directory'] ?? ''}',
+      fullAccessPermission: boolFromValue(json['full_access_permission']),
+      templateId: '${json['template_id'] ?? 'default'}',
+      allowedMcpServerNames: _stringList(json['allowed_mcp_server_names']),
+      allowedSkillNames: _stringList(json['allowed_skill_names']),
+      allowedMemoryIds: _stringList(json['allowed_memory_ids']),
+      allowedInstructionIds: _stringList(json['allowed_instruction_ids']),
+      allowedKnowledgeBaseSourceIds: _stringList(
+        json['allowed_knowledge_base_source_ids'],
+      ),
     ).normalized();
   }
 
   final int pollIntervalSeconds;
   final DingTalkReminderMode reminderMode;
   final String responseModelKey;
+  final String workingDirectory;
+  final bool fullAccessPermission;
+  final String templateId;
+  final List<String> allowedMcpServerNames;
+  final List<String> allowedSkillNames;
+  final List<String> allowedMemoryIds;
+  final List<String> allowedInstructionIds;
+  final List<String> allowedKnowledgeBaseSourceIds;
 
-  DingTalkGatewaySettings normalized() => DingTalkGatewaySettings(
+  DingTalkGatewaySettings normalized({
+    Iterable<String>? availableMcpServerNames,
+    Iterable<String>? availableSkillNames,
+    Iterable<String>? availableMemoryIds,
+    Iterable<String>? availableInstructionIds,
+    Iterable<String>? availableKnowledgeBaseSourceIds,
+  }) => DingTalkGatewaySettings(
     pollIntervalSeconds: pollIntervalSeconds.clamp(3, 300).toInt(),
     reminderMode: reminderMode,
     responseModelKey: responseModelKey.trim(),
+    workingDirectory: Directory(
+      OpenHandPaths.normalizePath(
+        workingDirectory,
+        defaultPath: OpenHandPaths.applicationDirectoryPath(),
+      ),
+    ).absolute.path,
+    fullAccessPermission: fullAccessPermission,
+    templateId: templateId.trim().isEmpty ? 'default' : templateId.trim(),
+    allowedMcpServerNames: _normalizeSelection(
+      allowedMcpServerNames,
+      availableMcpServerNames,
+    ),
+    allowedSkillNames: _normalizeSelection(
+      allowedSkillNames,
+      availableSkillNames,
+    ),
+    allowedMemoryIds: _normalizeSelection(allowedMemoryIds, availableMemoryIds),
+    allowedInstructionIds: _normalizeSelection(
+      allowedInstructionIds,
+      availableInstructionIds,
+    ),
+    allowedKnowledgeBaseSourceIds: _normalizeSelection(
+      allowedKnowledgeBaseSourceIds,
+      availableKnowledgeBaseSourceIds,
+    ),
   );
 
   DingTalkGatewaySettings copyWith({
     int? pollIntervalSeconds,
     DingTalkReminderMode? reminderMode,
     String? responseModelKey,
+    String? workingDirectory,
+    bool? fullAccessPermission,
+    String? templateId,
+    List<String>? allowedMcpServerNames,
+    List<String>? allowedSkillNames,
+    List<String>? allowedMemoryIds,
+    List<String>? allowedInstructionIds,
+    List<String>? allowedKnowledgeBaseSourceIds,
   }) => DingTalkGatewaySettings(
     pollIntervalSeconds: pollIntervalSeconds ?? this.pollIntervalSeconds,
     reminderMode: reminderMode ?? this.reminderMode,
     responseModelKey: responseModelKey ?? this.responseModelKey,
+    workingDirectory: workingDirectory ?? this.workingDirectory,
+    fullAccessPermission: fullAccessPermission ?? this.fullAccessPermission,
+    templateId: templateId ?? this.templateId,
+    allowedMcpServerNames: allowedMcpServerNames ?? this.allowedMcpServerNames,
+    allowedSkillNames: allowedSkillNames ?? this.allowedSkillNames,
+    allowedMemoryIds: allowedMemoryIds ?? this.allowedMemoryIds,
+    allowedInstructionIds: allowedInstructionIds ?? this.allowedInstructionIds,
+    allowedKnowledgeBaseSourceIds:
+        allowedKnowledgeBaseSourceIds ?? this.allowedKnowledgeBaseSourceIds,
   );
 
   Map<String, Object?> toJson() => <String, Object?>{
     'poll_interval_seconds': pollIntervalSeconds,
     'reminder_mode': reminderMode.name,
     'response_model_key': responseModelKey,
+    'working_directory': workingDirectory,
+    'full_access_permission': fullAccessPermission,
+    'template_id': templateId,
+    'allowed_mcp_server_names': allowedMcpServerNames,
+    'allowed_skill_names': allowedSkillNames,
+    'allowed_memory_ids': allowedMemoryIds,
+    'allowed_instruction_ids': allowedInstructionIds,
+    'allowed_knowledge_base_source_ids': allowedKnowledgeBaseSourceIds,
   };
+
+  static List<String> _stringList(Object? value) {
+    return stringListFromValue(value)
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet()
+        .take(256)
+        .toList(growable: false);
+  }
+
+  static List<String> _normalizeSelection(
+    Iterable<String> values,
+    Iterable<String>? available,
+  ) {
+    final normalized = _stringList(values);
+    if (available == null) return normalized;
+    final allowed = available
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toSet();
+    return normalized.where(allowed.contains).toList(growable: false);
+  }
 }
 
 class DingTalkIdentity {

@@ -22,9 +22,16 @@ class AiGlobTool extends AiTool {
     if (pattern.isEmpty) {
       return AiToolUtils.invalidResult('Glob', 'Glob 需要 pattern。');
     }
-    final rootPath = AiToolUtils.resolvePath(
+    final rootPath = AiToolUtils.resolvePathForContext(
+      context,
       AiToolUtils.readString(args['path']),
     );
+    final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
+      context: context,
+      toolName: 'Glob',
+      path: rootPath,
+    );
+    if (boundaryError != null) return boundaryError;
     FileSystemEntityType rootEntity;
     try {
       rootEntity = await FileSystemEntity.type(

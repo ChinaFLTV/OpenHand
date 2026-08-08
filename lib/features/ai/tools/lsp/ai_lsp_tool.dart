@@ -54,7 +54,13 @@ class AiLspTool extends AiTool {
       );
     }
 
-    final resolvedPath = AiToolUtils.resolvePath(filePath);
+    final resolvedPath = AiToolUtils.resolvePathForContext(context, filePath);
+    final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
+      context: context,
+      toolName: 'LSP',
+      path: resolvedPath,
+    );
+    if (boundaryError != null) return boundaryError;
     final line = AiToolUtils.readInt(args['line']);
     final character = AiToolUtils.readInt(args['character']);
     if (line == null || line <= 0 || character == null || character <= 0) {

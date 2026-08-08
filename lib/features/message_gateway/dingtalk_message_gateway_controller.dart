@@ -6,9 +6,10 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
-import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../ai/index.dart';
+import '../instructions/index.dart';
+import '../knowledge_base/index.dart';
 import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../skills/index.dart';
@@ -24,6 +25,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkMessageGatewayService? service,
   }) : _sessionController = dependencies.sessionController,
        _settingsController = dependencies.settingsController,
+       _skillsController = dependencies.skillsController,
+       _mcpController = dependencies.mcpController,
+       _memoryController = dependencies.memoryController,
+       _instructionsController = dependencies.instructionsController,
+       _knowledgeBaseController = dependencies.knowledgeBaseController,
        _appInfo = dependencies.appInfo,
        _store = store ?? DingTalkMessageGatewayStore(),
        _service = service ?? DingTalkMessageGatewayService();
@@ -33,6 +39,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const Duration _queryWindow = Duration(minutes: 10);
   final AiSessionController _sessionController;
   final SettingsController _settingsController;
+  final SkillsController _skillsController;
+  final McpController _mcpController;
+  final MemoryController _memoryController;
+  final InstructionsController _instructionsController;
+  final KnowledgeBaseController? _knowledgeBaseController;
   final AppInfo _appInfo;
   final DingTalkMessageGatewayStore _store;
   final DingTalkMessageGatewayService _service;
@@ -78,6 +89,21 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   DingTalkGatewaySettings get settings => _settings;
   List<AiModelConfig> get aiModels =>
       List<AiModelConfig>.unmodifiable(_settingsController.aiModels);
+  List<AiThreadTemplate> get templates => List<AiThreadTemplate>.unmodifiable(
+    _sessionController.availableTemplates,
+  );
+  List<McpServer> get mcpServers =>
+      List<McpServer>.unmodifiable(_mcpController.runtimeServers);
+  List<LocalSkill> get skills =>
+      List<LocalSkill>.unmodifiable(_skillsController.skills);
+  List<UserMemoryEntry> get memories =>
+      List<UserMemoryEntry>.unmodifiable(_memoryController.entries);
+  List<UserInstructionEntry> get instructions =>
+      List<UserInstructionEntry>.unmodifiable(_instructionsController.entries);
+  List<KnowledgeSource> get knowledgeSources =>
+      List<KnowledgeSource>.unmodifiable(
+        _knowledgeBaseController?.sources ?? const <KnowledgeSource>[],
+      );
   List<DingTalkConversation> get conversations {
     final values = _conversations.values.toList(growable: false);
     return values..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -124,7 +150,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void> initialize() async {
     if (_initialized || _disposed) return;
     try {
-      _settings = (await _store.load()).normalized();
+      _settings = _normalizeSettings(await _store.load());
       await refreshAuthStatus();
     } catch (error, stack) {
       _setError('初始化钉钉消息网关', error, stack);
@@ -187,10 +213,41 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> updateSettings(DingTalkGatewaySettings value) async {
-    final normalized = value.normalized();
+    final normalized = _normalizeSettings(value);
     await _store.save(normalized);
+    if (_settings.templateId != normalized.templateId) {
+      for (final conversation in _conversations.values) {
+        conversation.aiSessionId = null;
+      }
+    }
     _settings = normalized;
     if (_isPolling) _schedulePolling();
+    _notify();
+  }
+
+  /// 刷新设置弹窗使用的资源目录。资源控制器各自负责并发与持久化，
+  /// 这里仅预热 MCP 工具目录并清理已删除资源的历史选择。
+  Future<void> refreshResourceCatalogs() async {
+    final refreshTasks = <Future<void>>[
+      _skillsController.refresh(),
+      _memoryController.refresh(),
+      _instructionsController.refresh(),
+      if (_knowledgeBaseController != null)
+        _knowledgeBaseController.initialize(),
+    ];
+    try {
+      await Future.wait<void>(refreshTasks).timeout(const Duration(seconds: 8));
+    } on TimeoutException {
+      // 资源目录刷新有界等待，已完成的控制器快照仍可继续使用。
+    }
+    await _mcpController.ensureRuntimeToolCatalogs(
+      maxWait: const Duration(seconds: 6),
+    );
+    final normalized = _normalizeSettings(_settings);
+    if (normalized.toJson().toString() != _settings.toJson().toString()) {
+      await _store.save(normalized);
+      _settings = normalized;
+    }
     _notify();
   }
 
@@ -315,29 +372,81 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final templates = _sessionController.availableTemplates;
     try {
       if (model == null || templates.isEmpty) return;
+      await _mcpController.ensureRuntimeToolCatalogs(
+        maxWait: const Duration(seconds: 6),
+      );
+      final selectedTemplate = templates.where(
+        (item) => item.id == _settings.templateId,
+      );
+      final templateId = selectedTemplate.isNotEmpty
+          ? selectedTemplate.first.id
+          : templates.any((item) => item.id == 'default')
+          ? 'default'
+          : templates.first.id;
+      final selectedMcp = _mcpController.runtimeServers
+          .where(
+            (server) => _settings.allowedMcpServerNames.contains(server.name),
+          )
+          .toList(growable: false);
+      final selectedSkills = _skillsController.skills
+          .where((skill) => _settings.allowedSkillNames.contains(skill.name))
+          .toList(growable: false);
+      final selectedMemoryIds = _settings.allowedMemoryIds.toSet();
+      final selectedMemory = _settingsController.memoryEnabled
+          ? (await _memoryController.trustedEntriesSnapshot().timeout(
+                      const Duration(seconds: 5),
+                      onTimeout: () => null,
+                    ) ??
+                    const <UserMemoryEntry>[])
+                .where((entry) => selectedMemoryIds.contains(entry.id))
+                .toList(growable: false)
+          : const <UserMemoryEntry>[];
+      final selectedInstructions = _instructionsController.entries
+          .where((entry) => _settings.allowedInstructionIds.contains(entry.id))
+          .toList(growable: false);
+      final knowledgeBaseController = _knowledgeBaseController;
+      final selectedKnowledgeSourceIds = knowledgeBaseController == null
+          ? const <String>[]
+          : _settings.allowedKnowledgeBaseSourceIds
+                .where(
+                  (id) => knowledgeBaseController.sources.any(
+                    (source) => source.id == id,
+                  ),
+                )
+                .toList(growable: false);
+      final builtinToolConfigs = selectedKnowledgeSourceIds.isEmpty
+          ? const <AiBuiltinToolConfig>[]
+          : _knowledgeBuiltinToolConfigs();
       final runtimeContext = buildAiSessionRuntimeContext(
         settingsController: _settingsController,
         appInfo: _appInfo,
         appThemeBrightness: _settingsController.themeMode.name,
         localNow: DateTime.now().toLocal(),
-        workingDirectory: OpenHandPaths.applicationDirectoryPath(),
-        memoryEntries: const <UserMemoryEntry>[],
+        workingDirectory: _settings.workingDirectory,
+        memoryEntries: selectedMemory,
         allowCommandRules: _settingsController.aiAllowCommandRules,
-        availableSkills: const <LocalSkill>[],
-        availableMcpServers: const <McpServer>[],
-        mcpToolCatalogsByServerName: const <String, McpToolCatalog>{},
-        builtinToolConfigs: const <AiBuiltinToolConfig>[],
-        templateId: templates.first.id,
-        toolExecutionMetadata: const <String, Object?>{
+        availableSkills: selectedSkills,
+        availableMcpServers: selectedMcp,
+        mcpToolCatalogsByServerName: <String, McpToolCatalog>{
+          for (final server in selectedMcp)
+            server.name: _mcpController.toolCatalogFor(server.name),
+        },
+        builtinToolConfigs: builtinToolConfigs,
+        userInstructions: selectedInstructions,
+        templateId: templateId,
+        toolExecutionMetadata: <String, Object?>{
           'source': 'dingtalk_gateway',
+          'dingtalk_working_directory_boundary': _settings.workingDirectory,
+          'dingtalk_allowed_knowledge_source_ids': selectedKnowledgeSourceIds,
         },
       );
       var sessionId = conversation.aiSessionId;
       if (sessionId == null) {
         final created = await _sessionController.createSession(
-          templateId: templates.first.id,
+          templateId: templateId,
           runtimeContext: runtimeContext,
           title: '钉钉 · ${conversation.title}',
+          fullAccessPermission: _settings.fullAccessPermission,
           initialModelProviderConfigId: model.id,
           initialModelId: model.modelId,
           metadata: <String, Object?>{
@@ -349,12 +458,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         conversation.aiSessionId = sessionId;
       }
       if (sessionId == null) return;
+      await _sessionController.updateSessionFullAccessPermission(
+        sessionId,
+        _settings.fullAccessPermission,
+      );
       final sent = await _sessionController.sendMessage(
         sessionId: sessionId,
         content: content,
         model: model,
         runtimeContext: runtimeContext,
-        requireWriteCommandConfirmation: false,
+        requireWriteCommandConfirmation: !_settings.fullAccessPermission,
+        confirmWriteCommand: _settings.fullAccessPermission
+            ? null
+            : (_) async => BashCommandApprovalDecision.rejected,
         userMessageMetadata: const <String, Object?>{
           'sent_via': 'dingtalk_gateway',
         },
@@ -414,6 +530,43 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
     }
     return _settingsController.selectedAiModel;
+  }
+
+  DingTalkGatewaySettings _normalizeSettings(DingTalkGatewaySettings value) {
+    return value.normalized(
+      availableMcpServerNames: _mcpController.runtimeServers.isEmpty
+          ? null
+          : _mcpController.runtimeServers.map((server) => server.name),
+      availableSkillNames: _skillsController.skills.isEmpty
+          ? null
+          : _skillsController.skills.map((skill) => skill.name),
+      availableMemoryIds: _memoryController.entries.isEmpty
+          ? null
+          : _memoryController.entries.map((entry) => entry.id),
+      availableInstructionIds: _instructionsController.entries.isEmpty
+          ? null
+          : _instructionsController.entries.map((entry) => entry.id),
+      availableKnowledgeBaseSourceIds:
+          _knowledgeBaseController == null ||
+              _knowledgeBaseController.sources.isEmpty
+          ? null
+          : _knowledgeBaseController.sources.map((source) => source.id),
+    );
+  }
+
+  List<AiBuiltinToolConfig> _knowledgeBuiltinToolConfigs() {
+    final configured = _settingsController.builtinToolConfigs;
+    final source = configured.isEmpty
+        ? AiBuiltinToolConfig.defaults()
+        : configured;
+    return source
+        .where(
+          (config) =>
+              config.kind == AiBuiltinToolKind.knowledgeSearch ||
+              config.kind == AiBuiltinToolKind.knowledgeRead,
+        )
+        .map((config) => config.copyWith(enabled: true))
+        .toList(growable: false);
   }
 
   bool _isSelf(DingTalkGatewayMessage message) {

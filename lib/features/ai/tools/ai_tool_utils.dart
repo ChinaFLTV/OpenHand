@@ -74,6 +74,78 @@ class AiToolUtils {
     return p.normalize(p.join(defaultWorkingDirectory(), normalizedInput));
   }
 
+  static String resolvePathForContext(
+    AiToolExecutionContext context,
+    String rawPath,
+  ) {
+    final trimmed = rawPath.trim();
+    final boundary = context.metadata['dingtalk_working_directory_boundary'];
+    if (boundary is String &&
+        boundary.trim().isNotEmpty &&
+        (trimmed.isEmpty || !p.isAbsolute(trimmed))) {
+      final root = OpenHandPaths.normalizePath(
+        boundary,
+        defaultPath: defaultWorkingDirectory(),
+      );
+      if (trimmed.isEmpty) return root;
+      if (trimmed == '~') return OpenHandPaths.homeDirectoryPath();
+      return p.normalize(p.join(root, trimmed));
+    }
+    return resolvePath(trimmed);
+  }
+
+  /// 钉钉网关会把工作目录写入工具元数据。文件类工具在真正访问磁盘前
+  /// 统一调用此校验，防止绝对路径、`..` 或符号链接绕过工作区边界。
+  static Future<AiToolExecutionResult?> validatePathWithinWorkingDirectory({
+    required AiToolExecutionContext context,
+    required String toolName,
+    required String path,
+  }) async {
+    final rawBoundary = context.metadata['dingtalk_working_directory_boundary'];
+    if (rawBoundary is! String || rawBoundary.trim().isEmpty) return null;
+    final boundary = OpenHandPaths.normalizePath(
+      rawBoundary,
+      defaultPath: defaultWorkingDirectory(),
+    );
+    final candidate = resolvePath(path);
+    if (!_isPathInside(boundary, candidate)) {
+      return invalidResult(toolName, '钉钉网关仅允许访问工作目录内路径：$boundary。');
+    }
+    final resolvedBoundary = await _resolveExistingPath(boundary);
+    final resolvedCandidate = await _resolveExistingPath(candidate);
+    if (resolvedBoundary != null &&
+        resolvedCandidate != null &&
+        !_isPathInside(resolvedBoundary, resolvedCandidate)) {
+      return invalidResult(toolName, '拒绝通过符号链接访问工作目录之外的路径。');
+    }
+    return null;
+  }
+
+  static bool _isPathInside(String root, String target) {
+    final normalizedRoot = p.normalize(root);
+    final normalizedTarget = p.normalize(target);
+    return p.equals(normalizedRoot, normalizedTarget) ||
+        p.isWithin(normalizedRoot, normalizedTarget);
+  }
+
+  static Future<String?> _resolveExistingPath(String path) async {
+    var current = p.normalize(path);
+    for (var depth = 0; depth < _maxSymbolicLinkDepth; depth += 1) {
+      try {
+        final type = await FileSystemEntity.type(current, followLinks: false);
+        if (type != FileSystemEntityType.notFound) {
+          return await File(current).resolveSymbolicLinks();
+        }
+      } catch (_) {
+        return null;
+      }
+      final parent = p.dirname(current);
+      if (parent == current) return null;
+      current = parent;
+    }
+    return null;
+  }
+
   static String readString(Object? value, {String fallback = ''}) {
     return optionalStringFromValue(value) ??
         (optionalStringFromValue(fallback) ?? '');

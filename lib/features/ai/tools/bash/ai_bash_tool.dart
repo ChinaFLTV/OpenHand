@@ -101,6 +101,7 @@ class AiBashTool extends AiTool {
       toolCallId: context.toolCall.id,
       forceWriteConfirmation: forceWriteConfirmation,
       dangerouslyDisableSandbox:
+          context.metadata['source'] != 'dingtalk_gateway' &&
           AiToolUtils.readBool(args['dangerouslyDisableSandbox']) == true,
     );
     final bashMetadata = <String, Object?>{

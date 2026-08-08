@@ -24,7 +24,13 @@ class AiWriteTool extends AiTool {
     }
     // Resolve relative paths to absolute using the working directory rather
     // than hard-rejecting them — models sometimes omit the leading '/'.
-    final filePath = AiToolUtils.resolvePath(rawFilePath);
+    final filePath = AiToolUtils.resolvePathForContext(context, rawFilePath);
+    final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
+      context: context,
+      toolName: 'Write',
+      path: filePath,
+    );
+    if (boundaryError != null) return boundaryError;
     final content = '${args['content'] ?? ''}';
 
     final contentSizeValidation = AiToolUtils.validateGeneratedTextPayloadSize(

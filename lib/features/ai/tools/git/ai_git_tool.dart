@@ -26,9 +26,16 @@ class AiGitTool extends AiTool {
     final startedAt = Stopwatch()..start();
 
     final operation = AiToolUtils.readString(args['operation']);
-    final workingDirectory = AiToolUtils.resolvePath(
+    final workingDirectory = AiToolUtils.resolvePathForContext(
+      context,
       AiToolUtils.readString(args['working_directory']),
     );
+    final boundaryError = await AiToolUtils.validatePathWithinWorkingDirectory(
+      context: context,
+      toolName: 'Git',
+      path: workingDirectory,
+    );
+    if (boundaryError != null) return boundaryError;
     if (operation.isEmpty) {
       return _invalidArgumentsResult(
         operation: operation,

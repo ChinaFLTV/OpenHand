@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/openhand_scroll_physics.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
@@ -12192,137 +12193,408 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   late final TextEditingController _intervalController = TextEditingController(
     text: '${widget.controller.settings.pollIntervalSeconds}',
   );
+  late final TextEditingController _workingDirectoryController =
+      TextEditingController(
+        text: widget.controller.settings.workingDirectory.isEmpty
+            ? OpenHandPaths.applicationDirectoryPath()
+            : widget.controller.settings.workingDirectory,
+      );
   late DingTalkReminderMode _reminderMode =
       widget.controller.settings.reminderMode;
   late String _modelKey = widget.controller.settings.responseModelKey;
+  late bool _fullAccessPermission =
+      widget.controller.settings.fullAccessPermission;
+  late String _templateId = widget.controller.settings.templateId;
+  late Set<String> _mcpServers = widget
+      .controller
+      .settings
+      .allowedMcpServerNames
+      .toSet();
+  late Set<String> _skills = widget.controller.settings.allowedSkillNames
+      .toSet();
+  late Set<String> _memories = widget.controller.settings.allowedMemoryIds
+      .toSet();
+  late Set<String> _instructions = widget
+      .controller
+      .settings
+      .allowedInstructionIds
+      .toSet();
+  late Set<String> _knowledgeSources = widget
+      .controller
+      .settings
+      .allowedKnowledgeBaseSourceIds
+      .toSet();
+  bool _refreshingResources = false;
   bool _saving = false;
 
   @override
   void dispose() {
     _intervalController.dispose();
+    _workingDirectoryController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
     final model = _modelLabel();
-    return Padding(
-      padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
-      child: Column(
-        mainAxisSize: MainAxisSize.min,
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Icon(Icons.tune_rounded),
-              const SizedBox(width: 10),
-              Text('钉钉网关设置', style: Theme.of(context).textTheme.titleLarge),
-            ],
-          ),
-          const SizedBox(height: 22),
-          TextField(
-            controller: _intervalController,
-            keyboardType: TextInputType.number,
-            decoration: const InputDecoration(
-              labelText: '轮询间隔（秒）',
-              helperText: '最小 3 秒，保存后立即生效',
+    final theme = Theme.of(context);
+    return SizedBox(
+      width: double.infinity,
+      height: 720,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.tune_rounded, color: theme.colorScheme.primary),
+                const SizedBox(width: 10),
+                Text('钉钉网关设置', style: theme.textTheme.titleLarge),
+              ],
             ),
-          ),
-          const SizedBox(height: 16),
-          DropdownButtonFormField<DingTalkReminderMode>(
-            initialValue: _reminderMode,
-            decoration: const InputDecoration(labelText: '提醒方式'),
-            items: const [
-              DropdownMenuItem(
-                value: DingTalkReminderMode.none,
-                child: Text('不提醒'),
-              ),
-              DropdownMenuItem(
-                value: DingTalkReminderMode.inApp,
-                child: Text('应用内提醒'),
-              ),
-              DropdownMenuItem(
-                value: DingTalkReminderMode.sound,
-                child: Text('应用内提醒并播放声音'),
-              ),
-            ],
-            onChanged: (value) => setState(
-              () => _reminderMode = value ?? DingTalkReminderMode.inApp,
-            ),
-          ),
-          const SizedBox(height: 16),
-          Material(
-            color: Theme.of(context).colorScheme.surfaceContainerHighest,
-            shadowColor: Colors.transparent,
-            borderRadius: BorderRadius.circular(18),
-            child: InkWell(
-              borderRadius: BorderRadius.circular(18),
-              hoverColor: Colors.transparent,
-              focusColor: Colors.transparent,
-              highlightColor: Theme.of(
-                context,
-              ).colorScheme.primary.withValues(alpha: 0.06),
-              onTap: _selectModel,
-              child: Padding(
-                padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
-                child: Row(
-                  children: [
-                    Container(
-                      width: 40,
-                      height: 40,
-                      decoration: BoxDecoration(
-                        color: Theme.of(context).colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(13),
-                      ),
-                      child: Icon(
-                        Icons.auto_awesome_rounded,
-                        color: Theme.of(context).colorScheme.onPrimaryContainer,
-                      ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(right: 4, bottom: 14),
+                children: [
+                  TextField(
+                    controller: _intervalController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '轮询间隔（秒）',
+                      helperText: '最小 3 秒，保存后立即生效',
+                      prefixIcon: Icon(Icons.schedule_rounded),
                     ),
-                    const SizedBox(width: 12),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '响应模型',
-                            style: Theme.of(context).textTheme.titleMedium,
-                          ),
-                          const SizedBox(height: 4),
-                          Text(
-                            model.isEmpty ? '跟随当前默认模型' : model,
-                            maxLines: 1,
-                            overflow: TextOverflow.ellipsis,
-                            style: Theme.of(context).textTheme.bodyMedium
-                                ?.copyWith(
-                                  color: Theme.of(
-                                    context,
-                                  ).colorScheme.onSurfaceVariant,
-                                ),
-                          ),
-                        ],
-                      ),
+                  ),
+                  const SizedBox(height: 14),
+                  DropdownButtonFormField<DingTalkReminderMode>(
+                    initialValue: _reminderMode,
+                    decoration: const InputDecoration(
+                      labelText: '提醒方式',
+                      prefixIcon: Icon(Icons.notifications_active_rounded),
                     ),
-                    const SizedBox(width: 12),
-                    Icon(
-                      Icons.chevron_right_rounded,
-                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    items: const [
+                      DropdownMenuItem(
+                        value: DingTalkReminderMode.none,
+                        child: Text('不提醒'),
+                      ),
+                      DropdownMenuItem(
+                        value: DingTalkReminderMode.inApp,
+                        child: Text('应用内提醒'),
+                      ),
+                      DropdownMenuItem(
+                        value: DingTalkReminderMode.sound,
+                        child: Text('应用内提醒并播放声音'),
+                      ),
+                    ],
+                    onChanged: (value) => setState(
+                      () => _reminderMode = value ?? DingTalkReminderMode.inApp,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _DingTalkSettingsCard(
+                    icon: Icons.folder_open_rounded,
+                    title: '工作目录',
+                    subtitle: 'Agent 只能读写此目录及其子目录',
+                    child: Row(
+                      children: [
+                        Expanded(
+                          child: TextField(
+                            controller: _workingDirectoryController,
+                            decoration: const InputDecoration(
+                              hintText: '输入绝对路径或 ~/workspace',
+                              isDense: true,
+                            ),
+                          ),
+                        ),
+                        const SizedBox(width: 8),
+                        IconButton.filledTonal(
+                          tooltip: '选择目录',
+                          onPressed: _pickWorkingDirectory,
+                          icon: const Icon(Icons.drive_file_move_rounded),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _DingTalkSettingsCard(
+                    icon: Icons.admin_panel_settings_rounded,
+                    title: '审批模式',
+                    subtitle: _fullAccessPermission
+                        ? '完全访问：执行操作无需审批确认'
+                        : '默认权限：写操作会被安全拦截并提示切换到应用内会话审批',
+                    child: SegmentedButton<bool>(
+                      segments: const [
+                        ButtonSegment<bool>(
+                          value: false,
+                          icon: Icon(Icons.verified_user_rounded),
+                          label: Text('默认权限'),
+                        ),
+                        ButtonSegment<bool>(
+                          value: true,
+                          icon: Icon(Icons.lock_open_rounded),
+                          label: Text('完全访问'),
+                        ),
+                      ],
+                      selected: <bool>{_fullAccessPermission},
+                      onSelectionChanged: (value) =>
+                          setState(() => _fullAccessPermission = value.first),
+                    ),
+                  ),
+                  if (_fullAccessPermission) ...[
+                    const SizedBox(height: 8),
+                    const _DingTalkInfoBanner(
+                      icon: Icons.warning_amber_rounded,
+                      text: '完全访问仅关闭审批弹窗，工作目录边界仍然有效。',
                     ),
                   ],
-                ),
+                  const SizedBox(height: 12),
+                  _DingTalkSettingsCard(
+                    icon: Icons.auto_awesome_rounded,
+                    title: 'Agent 提示词模板',
+                    subtitle: '选择钉钉消息会话使用的线程模板',
+                    child: DropdownButtonFormField<String>(
+                      initialValue:
+                          _availableTemplateIds().contains(_templateId)
+                          ? _templateId
+                          : _availableTemplateIds().firstOrNull,
+                      isExpanded: true,
+                      decoration: const InputDecoration(isDense: true),
+                      items: widget.controller.templates
+                          .map(
+                            (item) => DropdownMenuItem<String>(
+                              value: item.id,
+                              child: Text(
+                                item.name,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                          )
+                          .toList(growable: false),
+                      onChanged: (value) =>
+                          setState(() => _templateId = value ?? 'default'),
+                    ),
+                  ),
+                  const SizedBox(height: 12),
+                  _DingTalkResourceField(
+                    icon: Icons.hub_rounded,
+                    title: '可用的 MCP',
+                    selectedCount: _mcpServers.length,
+                    totalCount: widget.controller.mcpServers.length,
+                    refreshing: _refreshingResources,
+                    onRefresh: _refreshResources,
+                    onTap: () => _selectResources(
+                      title: '选择 MCP Server',
+                      icon: Icons.hub_rounded,
+                      options: widget.controller.mcpServers
+                          .map(
+                            (item) => _DingTalkResourceOption(
+                              id: item.name,
+                              title: item.name,
+                              subtitle: item.summary,
+                              icon: Icons.hub_rounded,
+                            ),
+                          )
+                          .toList(growable: false),
+                      selected: _mcpServers,
+                      apply: (value) => _mcpServers = value,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _DingTalkResourceField(
+                    icon: Icons.auto_fix_high_rounded,
+                    title: '技能',
+                    selectedCount: _skills.length,
+                    totalCount: widget.controller.skills.length,
+                    refreshing: _refreshingResources,
+                    onRefresh: _refreshResources,
+                    onTap: () => _selectResources(
+                      title: '选择技能',
+                      icon: Icons.auto_fix_high_rounded,
+                      options: widget.controller.skills
+                          .map(
+                            (item) => _DingTalkResourceOption(
+                              id: item.name,
+                              title: item.name,
+                              subtitle: item.description,
+                              icon: Icons.auto_fix_high_rounded,
+                            ),
+                          )
+                          .toList(growable: false),
+                      selected: _skills,
+                      apply: (value) => _skills = value,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _DingTalkResourceField(
+                    icon: Icons.psychology_alt_rounded,
+                    title: '记忆',
+                    selectedCount: _memories.length,
+                    totalCount: widget.controller.memories.length,
+                    refreshing: _refreshingResources,
+                    onRefresh: _refreshResources,
+                    onTap: () => _selectResources(
+                      title: '选择记忆',
+                      icon: Icons.psychology_alt_rounded,
+                      options: widget.controller.memories
+                          .map(
+                            (item) => _DingTalkResourceOption(
+                              id: item.id,
+                              title: item.displayTitle,
+                              subtitle: item.preview,
+                              icon: Icons.psychology_alt_rounded,
+                            ),
+                          )
+                          .toList(growable: false),
+                      selected: _memories,
+                      apply: (value) => _memories = value,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _DingTalkResourceField(
+                    icon: Icons.rule_rounded,
+                    title: '指令',
+                    selectedCount: _instructions.length,
+                    totalCount: widget.controller.instructions.length,
+                    refreshing: _refreshingResources,
+                    onRefresh: _refreshResources,
+                    onTap: () => _selectResources(
+                      title: '选择指令',
+                      icon: Icons.rule_rounded,
+                      options: widget.controller.instructions
+                          .map(
+                            (item) => _DingTalkResourceOption(
+                              id: item.id,
+                              title: item.name,
+                              subtitle: item.description,
+                              icon: Icons.rule_rounded,
+                            ),
+                          )
+                          .toList(growable: false),
+                      selected: _instructions,
+                      apply: (value) => _instructions = value,
+                    ),
+                  ),
+                  const SizedBox(height: 10),
+                  _DingTalkResourceField(
+                    icon: Icons.menu_book_rounded,
+                    title: '知识库',
+                    selectedCount: _knowledgeSources.length,
+                    totalCount: widget.controller.knowledgeSources.length,
+                    refreshing: _refreshingResources,
+                    onRefresh: _refreshResources,
+                    onTap: () => _selectResources(
+                      title: '选择知识库',
+                      icon: Icons.menu_book_rounded,
+                      options: widget.controller.knowledgeSources
+                          .map(
+                            (item) => _DingTalkResourceOption(
+                              id: item.id,
+                              title: item.title,
+                              subtitle: item.status,
+                              icon: Icons.menu_book_rounded,
+                            ),
+                          )
+                          .toList(growable: false),
+                      selected: _knowledgeSources,
+                      apply: (value) => _knowledgeSources = value,
+                    ),
+                  ),
+                  const SizedBox(height: 14),
+                  _DingTalkSettingsCard(
+                    icon: Icons.auto_awesome_rounded,
+                    title: '响应模型',
+                    subtitle: model.isEmpty ? '跟随当前默认模型' : model,
+                    onTap: _selectModel,
+                    trailing: const Icon(Icons.chevron_right_rounded),
+                  ),
+                ],
               ),
             ),
-          ),
-          const SizedBox(height: 18),
-          OpenHandDialogSaveActions(
-            busy: _saving,
-            cancelLabel: '取消',
-            confirmLabel: '保存设置',
-            onConfirm: _save,
-          ),
-        ],
+            OpenHandDialogSaveActions(
+              busy: _saving,
+              cancelLabel: '取消',
+              confirmLabel: '保存设置',
+              onConfirm: _save,
+            ),
+          ],
+        ),
       ),
     );
+  }
+
+  List<String> _availableTemplateIds() => widget.controller.templates
+      .map((item) => item.id)
+      .toList(growable: false);
+
+  Future<void> _pickWorkingDirectory() async {
+    final selected = await getDirectoryPath(
+      initialDirectory: _workingDirectoryController.text.trim().isEmpty
+          ? null
+          : _workingDirectoryController.text.trim(),
+    );
+    if (selected != null && mounted) {
+      _workingDirectoryController.text = selected;
+    }
+  }
+
+  Future<void> _refreshResources() async {
+    if (_refreshingResources) return;
+    setState(() => _refreshingResources = true);
+    try {
+      await widget.controller.refreshResourceCatalogs();
+      if (!mounted) return;
+      final availableMcp = widget.controller.mcpServers
+          .map((item) => item.name)
+          .toSet();
+      final availableSkills = widget.controller.skills
+          .map((item) => item.name)
+          .toSet();
+      final availableMemories = widget.controller.memories
+          .map((item) => item.id)
+          .toSet();
+      final availableInstructions = widget.controller.instructions
+          .map((item) => item.id)
+          .toSet();
+      final availableKnowledge = widget.controller.knowledgeSources
+          .map((item) => item.id)
+          .toSet();
+      setState(() {
+        _mcpServers.retainAll(availableMcp);
+        _skills.retainAll(availableSkills);
+        _memories.retainAll(availableMemories);
+        _instructions.retainAll(availableInstructions);
+        _knowledgeSources.retainAll(availableKnowledge);
+      });
+    } catch (error) {
+      if (mounted) showOpenHandErrorSnack(context, '刷新资源失败：$error');
+    } finally {
+      if (mounted) setState(() => _refreshingResources = false);
+    }
+  }
+
+  Future<void> _selectResources({
+    required String title,
+    required IconData icon,
+    required List<_DingTalkResourceOption> options,
+    required Set<String> selected,
+    required void Function(Set<String>) apply,
+  }) async {
+    final result = await showAnimatedDialog<Set<String>>(
+      context: context,
+      builder: (_) => buildOpenHandDialog(
+        maxWidth: kOpenHandDialogWidthStandard,
+        maxHeight: kOpenHandDialogHeightFull,
+        child: _DingTalkResourcePickerDialog(
+          title: title,
+          icon: icon,
+          options: options,
+          selected: selected,
+        ),
+      ),
+    );
+    if (result != null && mounted) setState(() => apply(result));
   }
 
   Future<void> _selectModel() async {
@@ -12340,6 +12612,17 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
 
   Future<void> _save() async {
     final seconds = int.tryParse(_intervalController.text.trim()) ?? 3;
+    final rawDirectory = _workingDirectoryController.text.trim();
+    final workingDirectory = Directory(
+      OpenHandPaths.normalizePath(
+        rawDirectory,
+        defaultPath: OpenHandPaths.applicationDirectoryPath(),
+      ),
+    ).absolute.path;
+    if (!await Directory(workingDirectory).exists()) {
+      if (mounted) showOpenHandErrorSnack(context, '工作目录不存在，请选择有效目录。');
+      return;
+    }
     setState(() => _saving = true);
     try {
       await widget.controller.updateSettings(
@@ -12347,6 +12630,16 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
           pollIntervalSeconds: seconds,
           reminderMode: _reminderMode,
           responseModelKey: _modelKey,
+          workingDirectory: workingDirectory,
+          fullAccessPermission: _fullAccessPermission,
+          templateId: _templateId,
+          allowedMcpServerNames: _mcpServers.toList(growable: false),
+          allowedSkillNames: _skills.toList(growable: false),
+          allowedMemoryIds: _memories.toList(growable: false),
+          allowedInstructionIds: _instructions.toList(growable: false),
+          allowedKnowledgeBaseSourceIds: _knowledgeSources.toList(
+            growable: false,
+          ),
         ),
       );
       if (mounted) Navigator.of(context).pop();
@@ -12371,5 +12664,374 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
     return index > 0
         ? (key.substring(0, index), key.substring(index + 2))
         : ('', '');
+  }
+}
+
+class _DingTalkSettingsCard extends StatelessWidget {
+  const _DingTalkSettingsCard({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.child,
+    this.trailing,
+    this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final Widget? child;
+  final Widget? trailing;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final content = Padding(
+      padding: const EdgeInsets.fromLTRB(14, 13, 12, 13),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: theme.colorScheme.primaryContainer,
+                  borderRadius: BorderRadius.circular(12),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(9),
+                  child: Icon(
+                    icon,
+                    size: 20,
+                    color: theme.colorScheme.onPrimaryContainer,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 3),
+                    Text(
+                      subtitle,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              if (trailing != null) trailing!,
+            ],
+          ),
+          if (child != null) ...[const SizedBox(height: 11), child!],
+        ],
+      ),
+    );
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      shadowColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(17),
+      child: onTap == null
+          ? content
+          : InkWell(
+              borderRadius: BorderRadius.circular(17),
+              hoverColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              onTap: onTap,
+              child: content,
+            ),
+    );
+  }
+}
+
+class _DingTalkInfoBanner extends StatelessWidget {
+  const _DingTalkInfoBanner({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.tertiaryContainer.withValues(alpha: 0.65),
+        borderRadius: BorderRadius.circular(13),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+        child: Row(
+          children: [
+            Icon(icon, size: 18, color: colors.onTertiaryContainer),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Text(
+                text,
+                style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                  color: colors.onTertiaryContainer,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkResourceField extends StatelessWidget {
+  const _DingTalkResourceField({
+    required this.icon,
+    required this.title,
+    required this.selectedCount,
+    required this.totalCount,
+    required this.refreshing,
+    required this.onRefresh,
+    required this.onTap,
+  });
+
+  final IconData icon;
+  final String title;
+  final int selectedCount;
+  final int totalCount;
+  final bool refreshing;
+  final VoidCallback onRefresh;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      shadowColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(16),
+      child: InkWell(
+        borderRadius: BorderRadius.circular(16),
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
+        onTap: onTap,
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(14, 11, 8, 11),
+          child: Row(
+            children: [
+              Icon(icon, color: theme.colorScheme.primary),
+              const SizedBox(width: 11),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(title, style: theme.textTheme.titleSmall),
+                    const SizedBox(height: 3),
+                    Text(
+                      '已选 $selectedCount/$totalCount（默认全不选）',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: theme.colorScheme.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: '刷新 $title',
+                onPressed: refreshing ? null : onRefresh,
+                icon: refreshing
+                    ? const SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : const Icon(Icons.refresh_rounded),
+              ),
+              const Icon(Icons.chevron_right_rounded),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkResourceOption {
+  const _DingTalkResourceOption({
+    required this.id,
+    required this.title,
+    required this.subtitle,
+    required this.icon,
+  });
+
+  final String id;
+  final String title;
+  final String subtitle;
+  final IconData icon;
+}
+
+class _DingTalkResourcePickerDialog extends StatefulWidget {
+  const _DingTalkResourcePickerDialog({
+    required this.title,
+    required this.icon,
+    required this.options,
+    required this.selected,
+  });
+
+  final String title;
+  final IconData icon;
+  final List<_DingTalkResourceOption> options;
+  final Set<String> selected;
+
+  @override
+  State<_DingTalkResourcePickerDialog> createState() =>
+      _DingTalkResourcePickerDialogState();
+}
+
+class _DingTalkResourcePickerDialogState
+    extends State<_DingTalkResourcePickerDialog> {
+  late final Set<String> _selected = widget.selected.toSet();
+  final TextEditingController _searchController = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _searchController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final query = _query.trim().toLowerCase();
+    final options = query.isEmpty
+        ? widget.options
+        : widget.options
+              .where(
+                (item) =>
+                    item.title.toLowerCase().contains(query) ||
+                    item.subtitle.toLowerCase().contains(query),
+              )
+              .toList(growable: false);
+    return SizedBox(
+      width: double.infinity,
+      height: 560,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(widget.icon, color: theme.colorScheme.primary),
+                const SizedBox(width: 9),
+                Text(widget.title, style: theme.textTheme.titleLarge),
+                const Spacer(),
+                Text(
+                  '已选 ${_selected.length}',
+                  style: theme.textTheme.bodySmall,
+                ),
+              ],
+            ),
+            const SizedBox(height: 14),
+            TextField(
+              controller: _searchController,
+              onChanged: (value) => setState(() => _query = value),
+              decoration: const InputDecoration(
+                prefixIcon: Icon(Icons.search_rounded),
+                hintText: '搜索资源',
+              ),
+            ),
+            const SizedBox(height: 8),
+            Row(
+              children: [
+                TextButton.icon(
+                  onPressed: widget.options.isEmpty
+                      ? null
+                      : () => setState(
+                          () => _selected.addAll(
+                            widget.options.map((item) => item.id),
+                          ),
+                        ),
+                  icon: const Icon(Icons.done_all_rounded),
+                  label: const Text('全选'),
+                ),
+                TextButton.icon(
+                  onPressed: _selected.isEmpty
+                      ? null
+                      : () => setState(() => _selected.clear()),
+                  icon: const Icon(Icons.remove_done_rounded),
+                  label: const Text('清空'),
+                ),
+              ],
+            ),
+            const SizedBox(height: 2),
+            Expanded(
+              child: options.isEmpty
+                  ? Center(
+                      child: Text(
+                        widget.options.isEmpty ? '暂无可用资源' : '没有匹配项',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    )
+                  : ListView.separated(
+                      itemCount: options.length,
+                      separatorBuilder: (_, index) => const SizedBox(height: 4),
+                      itemBuilder: (context, index) {
+                        final option = options[index];
+                        final isSelected = _selected.contains(option.id);
+                        return Material(
+                          color: isSelected
+                              ? theme.colorScheme.primaryContainer.withValues(
+                                  alpha: 0.5,
+                                )
+                              : theme.colorScheme.surfaceContainerHighest,
+                          borderRadius: BorderRadius.circular(13),
+                          child: CheckboxListTile(
+                            value: isSelected,
+                            onChanged: (value) => setState(() {
+                              if (value == true) {
+                                _selected.add(option.id);
+                              } else {
+                                _selected.remove(option.id);
+                              }
+                            }),
+                            secondary: Icon(option.icon),
+                            title: Text(
+                              option.title,
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                            subtitle: option.subtitle.trim().isEmpty
+                                ? null
+                                : Text(
+                                    option.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                            controlAffinity: ListTileControlAffinity.trailing,
+                            contentPadding: const EdgeInsets.only(
+                              left: 12,
+                              right: 8,
+                            ),
+                          ),
+                        );
+                      },
+                    ),
+            ),
+            const SizedBox(height: 10),
+            OpenHandDialogSaveActions(
+              busy: false,
+              cancelLabel: '取消',
+              confirmLabel: '应用选择',
+              onConfirm: () => Navigator.of(context).pop(_selected),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
