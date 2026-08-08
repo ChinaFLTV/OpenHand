@@ -12058,6 +12058,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   final List<double> _voiceLevels = List<double>.filled(
     _voiceWaveformSampleCount,
     0.08,
+    growable: true,
   );
   final ValueNotifier<_DingTalkVoiceVisualState> _voiceVisual =
       ValueNotifier<_DingTalkVoiceVisualState>(
