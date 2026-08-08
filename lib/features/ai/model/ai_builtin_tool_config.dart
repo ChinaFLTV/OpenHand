@@ -868,6 +868,7 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.todoWrite:
       case AiBuiltinToolKind.toolSearch:
       case AiBuiltinToolKind.dingTalkToolSearch:
+      case AiBuiltinToolKind.dingtalkDws:
       case AiBuiltinToolKind.knowledgeSearch:
       case AiBuiltinToolKind.knowledgeRead:
       case AiBuiltinToolKind.machineTerminalRead:
@@ -892,7 +893,6 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.askUserChoice:
       case AiBuiltinToolKind.skillManager:
       case AiBuiltinToolKind.memory:
-      case AiBuiltinToolKind.dingtalkDws:
       default:
         return AiBuiltinToolLoadStrategy.lazy;
     }

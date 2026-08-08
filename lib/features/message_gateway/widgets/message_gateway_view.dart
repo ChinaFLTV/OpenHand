@@ -16934,6 +16934,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     title: '拓展能力 · 钉钉 DWS',
                     selectedCount: _dwsCommands.length,
                     totalCount: _dwsCatalog.length,
+                    selectionNote: '勾选后直接注入提示词',
                     refreshing: _dwsCatalogLoading,
                     onRefresh: () => _loadDwsCatalog(forceRefresh: true),
                     onTap: _dwsCatalogLoading
@@ -17179,6 +17180,10 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
             title: item.cliPath,
             subtitle: '${item.productName} · ${item.description}',
             icon: Icons.extension_rounded,
+            groupKey: item.productId,
+            groupTitle: item.productName.isEmpty
+                ? item.productId
+                : item.productName,
           ),
         )
         .toList(growable: false);
@@ -17187,6 +17192,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       icon: Icons.extension_rounded,
       options: options,
       selected: _dwsCommands,
+      selectionHint: '勾选的能力会作为内建工具直接注入提示词；未勾选能力不会加载。',
       apply: (value) => _dwsCommands = value,
     );
   }
@@ -17196,6 +17202,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
     required IconData icon,
     required List<_DingTalkResourceOption> options,
     required Set<String> selected,
+    String? selectionHint,
     required void Function(Set<String>) apply,
   }) async {
     final result = await showAnimatedDialog<Set<String>>(
@@ -17208,6 +17215,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
           icon: icon,
           options: options,
           selected: selected,
+          selectionHint: selectionHint,
         ),
       ),
     );
@@ -17465,6 +17473,7 @@ class _DingTalkResourceField extends StatelessWidget {
     required this.title,
     required this.selectedCount,
     required this.totalCount,
+    this.selectionNote,
     required this.refreshing,
     required this.onRefresh,
     required this.onTap,
@@ -17474,6 +17483,7 @@ class _DingTalkResourceField extends StatelessWidget {
   final String title;
   final int selectedCount;
   final int totalCount;
+  final String? selectionNote;
   final bool refreshing;
   final VoidCallback onRefresh;
   final VoidCallback onTap;
@@ -17503,7 +17513,9 @@ class _DingTalkResourceField extends StatelessWidget {
                     Text(title, style: theme.textTheme.titleSmall),
                     const SizedBox(height: 3),
                     Text(
-                      '已选 $selectedCount/$totalCount（默认全不选）',
+                      selectionNote == null
+                          ? '已选 $selectedCount/$totalCount（默认全不选）'
+                          : '已选 $selectedCount/$totalCount · $selectionNote',
                       style: theme.textTheme.bodySmall?.copyWith(
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
@@ -17554,12 +17566,16 @@ class _DingTalkResourceOption {
     required this.title,
     required this.subtitle,
     required this.icon,
+    this.groupKey,
+    this.groupTitle,
   });
 
   final String id;
   final String title;
   final String subtitle;
   final IconData icon;
+  final String? groupKey;
+  final String? groupTitle;
 }
 
 class _DingTalkResourcePickerDialog extends StatefulWidget {
@@ -17568,12 +17584,14 @@ class _DingTalkResourcePickerDialog extends StatefulWidget {
     required this.icon,
     required this.options,
     required this.selected,
+    this.selectionHint,
   });
 
   final String title;
   final IconData icon;
   final List<_DingTalkResourceOption> options;
   final Set<String> selected;
+  final String? selectionHint;
 
   @override
   State<_DingTalkResourcePickerDialog> createState() =>
@@ -17583,6 +17601,12 @@ class _DingTalkResourcePickerDialog extends StatefulWidget {
 class _DingTalkResourcePickerDialogState
     extends State<_DingTalkResourcePickerDialog> {
   late final Set<String> _selected = widget.selected.toSet();
+  late final Set<String> _expandedGroups = widget.options
+      .where((item) => item.groupKey != null)
+      .map((item) => item.groupKey!)
+      .take(1)
+      .toSet();
+  final Set<String> _expandedBranches = <String>{};
   final TextEditingController _searchController = TextEditingController();
   String _query = '';
 
@@ -17605,6 +17629,7 @@ class _DingTalkResourcePickerDialogState
                     item.subtitle.toLowerCase().contains(query),
               )
               .toList(growable: false);
+    final isTree = widget.options.any((item) => item.groupKey != null);
     return SizedBox(
       width: double.infinity,
       height: 560,
@@ -17630,6 +17655,15 @@ class _DingTalkResourcePickerDialogState
                 hintText: '搜索资源',
               ),
             ),
+            if (widget.selectionHint?.trim().isNotEmpty == true) ...[
+              const SizedBox(height: 8),
+              Text(
+                widget.selectionHint!,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.onSurfaceVariant,
+                ),
+              ),
+            ],
             const SizedBox(height: 8),
             Row(
               children: [
@@ -17673,58 +17707,9 @@ class _DingTalkResourcePickerDialogState
                         ),
                       ),
                     )
-                  : ListView.separated(
-                      itemCount: options.length,
-                      separatorBuilder: (_, index) => const SizedBox(height: 4),
-                      itemBuilder: (context, index) {
-                        final option = options[index];
-                        final isSelected = _selected.contains(option.id);
-                        return Material(
-                          color: isSelected
-                              ? theme.colorScheme.primaryContainer.withValues(
-                                  alpha: 0.5,
-                                )
-                              : theme.colorScheme.surfaceContainerHighest,
-                          borderRadius: BorderRadius.circular(13),
-                          shadowColor: Colors.transparent,
-                          surfaceTintColor: Colors.transparent,
-                          child: CheckboxListTile(
-                            value: isSelected,
-                            onChanged: (value) => setState(() {
-                              if (value == true) {
-                                _selected.add(option.id);
-                              } else {
-                                _selected.remove(option.id);
-                              }
-                            }),
-                            secondary: Icon(option.icon),
-                            title: Text(
-                              option.title,
-                              maxLines: 1,
-                              overflow: TextOverflow.ellipsis,
-                            ),
-                            subtitle: option.subtitle.trim().isEmpty
-                                ? null
-                                : Text(
-                                    option.subtitle,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                            controlAffinity: ListTileControlAffinity.trailing,
-                            overlayColor: const WidgetStatePropertyAll(
-                              Colors.transparent,
-                            ),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(13),
-                            ),
-                            contentPadding: const EdgeInsets.only(
-                              left: 12,
-                              right: 8,
-                            ),
-                          ),
-                        );
-                      },
-                    ),
+                  : isTree
+                  ? _buildTreeOptions(context, options)
+                  : _buildFlatOptions(context, options),
             ),
             const SizedBox(height: 10),
             OpenHandDialogSaveActions(
@@ -17735,6 +17720,278 @@ class _DingTalkResourcePickerDialogState
             ),
           ],
         ),
+      ),
+    );
+  }
+
+  Widget _buildFlatOptions(
+    BuildContext context,
+    List<_DingTalkResourceOption> options,
+  ) {
+    return ListView.separated(
+      itemCount: options.length,
+      separatorBuilder: (_, index) => const SizedBox(height: 4),
+      itemBuilder: (context, index) =>
+          _buildOptionTile(context, options[index]),
+    );
+  }
+
+  Widget _buildTreeOptions(
+    BuildContext context,
+    List<_DingTalkResourceOption> options,
+  ) {
+    final groups = <String, List<_DingTalkResourceOption>>{};
+    for (final option in options) {
+      final key = option.groupKey;
+      if (key == null || key.isEmpty) continue;
+      groups.putIfAbsent(key, () => <_DingTalkResourceOption>[]).add(option);
+    }
+    final rows =
+        <
+          ({
+            int level,
+            String key,
+            String title,
+            List<_DingTalkResourceOption> children,
+            _DingTalkResourceOption? option,
+            bool expanded,
+          })
+        >[];
+    final searching = _query.trim().isNotEmpty;
+    for (final entry in groups.entries) {
+      final first = entry.value.first;
+      final groupTitle = first.groupTitle?.trim().isNotEmpty == true
+          ? first.groupTitle!.trim()
+          : entry.key;
+      final groupExpanded = searching || _expandedGroups.contains(entry.key);
+      rows.add((
+        level: 0,
+        key: entry.key,
+        title: groupTitle,
+        children: entry.value,
+        option: null,
+        expanded: groupExpanded,
+      ));
+      if (!groupExpanded) continue;
+
+      final branches = <String, List<_DingTalkResourceOption>>{};
+      final directChildren = <_DingTalkResourceOption>[];
+      for (final option in entry.value) {
+        final segments = option.title
+            .trim()
+            .split(RegExp(r'\s+'))
+            .where((item) => item.isNotEmpty)
+            .toList(growable: false);
+        if (segments.length < 3) {
+          directChildren.add(option);
+        } else {
+          branches
+              .putIfAbsent(segments[1], () => <_DingTalkResourceOption>[])
+              .add(option);
+        }
+      }
+      for (final option in directChildren) {
+        rows.add((
+          level: 1,
+          key: '',
+          title: '',
+          children: directChildren,
+          option: option,
+          expanded: false,
+        ));
+      }
+      for (final branch in branches.entries) {
+        final branchKey = '${entry.key}/${branch.key}';
+        final branchExpanded =
+            searching || _expandedBranches.contains(branchKey);
+        rows.add((
+          level: 1,
+          key: branchKey,
+          title: branch.key,
+          children: branch.value,
+          option: null,
+          expanded: branchExpanded,
+        ));
+        if (!branchExpanded) continue;
+        rows.addAll(
+          branch.value.map(
+            (option) => (
+              level: 2,
+              key: '',
+              title: '',
+              children: branch.value,
+              option: option,
+              expanded: false,
+            ),
+          ),
+        );
+      }
+    }
+    return ListView.separated(
+      itemCount: rows.length,
+      separatorBuilder: (_, index) => const SizedBox(height: 4),
+      itemBuilder: (context, index) {
+        final row = rows[index];
+        final option = row.option;
+        if (option != null) {
+          return Padding(
+            padding: EdgeInsets.only(left: row.level * 28),
+            child: _buildOptionTile(context, option),
+          );
+        }
+        return Padding(
+          padding: EdgeInsets.only(
+            left: row.level * 28,
+            top: index == 0 ? 0 : 4,
+          ),
+          child: _buildTreeNodeHeader(
+            context,
+            nodeKey: row.key,
+            title: row.title,
+            children: row.children,
+            expanded: row.expanded,
+            level: row.level,
+          ),
+        );
+      },
+    );
+  }
+
+  Widget _buildTreeNodeHeader(
+    BuildContext context, {
+    required String nodeKey,
+    required String title,
+    required List<_DingTalkResourceOption> children,
+    required bool expanded,
+    required int level,
+  }) {
+    final theme = Theme.of(context);
+    final selectedCount = children
+        .where((option) => _selected.contains(option.id))
+        .length;
+    final bool? groupSelected = selectedCount == 0
+        ? false
+        : selectedCount == children.length
+        ? true
+        : null;
+    final searching = _query.trim().isNotEmpty;
+    void toggleExpanded() {
+      setState(() {
+        final target = level == 0 ? _expandedGroups : _expandedBranches;
+        if (expanded) {
+          target.remove(nodeKey);
+        } else {
+          target.add(nodeKey);
+        }
+      });
+    }
+
+    return Material(
+      color: theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(14),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
+        child: Row(
+          children: [
+            IconButton(
+              tooltip: searching
+                  ? '搜索结果已自动展开'
+                  : expanded
+                  ? '收起 $title'
+                  : '展开 $title',
+              onPressed: searching ? null : toggleExpanded,
+              icon: AnimatedRotation(
+                turns: expanded ? 0.25 : 0,
+                duration: const Duration(milliseconds: 180),
+                curve: Curves.easeOutCubic,
+                child: const Icon(Icons.keyboard_arrow_right_rounded),
+              ),
+            ),
+            Expanded(
+              child: InkWell(
+                borderRadius: BorderRadius.circular(10),
+                onTap: searching ? null : toggleExpanded,
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(vertical: 5),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        title,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleSmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                      const SizedBox(height: 2),
+                      Text(
+                        level == 0
+                            ? '${nodeKey.split('/').first} · ${searching ? '匹配' : ''}${children.length} 项能力 · 已选 $selectedCount'
+                            : '${searching ? '匹配 ' : ''}${children.length} 项命令 · 已选 $selectedCount',
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+            ),
+            Checkbox(
+              value: groupSelected,
+              tristate: true,
+              onChanged: (value) => setState(() {
+                if (value == true) {
+                  _selected.addAll(children.map((item) => item.id));
+                } else {
+                  _selected.removeAll(children.map((item) => item.id));
+                }
+              }),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildOptionTile(
+    BuildContext context,
+    _DingTalkResourceOption option,
+  ) {
+    final theme = Theme.of(context);
+    final isSelected = _selected.contains(option.id);
+    return Material(
+      color: isSelected
+          ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
+          : theme.colorScheme.surfaceContainerHighest,
+      borderRadius: BorderRadius.circular(13),
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
+      child: CheckboxListTile(
+        value: isSelected,
+        onChanged: (value) => setState(() {
+          if (value == true) {
+            _selected.add(option.id);
+          } else {
+            _selected.remove(option.id);
+          }
+        }),
+        secondary: Icon(option.icon),
+        title: Text(option.title, maxLines: 1, overflow: TextOverflow.ellipsis),
+        subtitle: option.subtitle.trim().isEmpty
+            ? null
+            : Text(
+                option.subtitle,
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
+        controlAffinity: ListTileControlAffinity.trailing,
+        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
+        contentPadding: const EdgeInsets.only(left: 12, right: 8),
       ),
     );
   }

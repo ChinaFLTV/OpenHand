@@ -920,7 +920,6 @@ class AiToolRuntimeService {
   ) {
     final commands = runtimeContext.availableDingTalkDwsCommands
         .where((item) => item.cliPath.trim().isNotEmpty)
-        .take(946)
         .toList(growable: false);
     final deferredTools = <String, AiResolvedTool>{};
     final deferredDefinitions = <String, AiToolDefinition>{};
@@ -946,6 +945,9 @@ class AiToolRuntimeService {
         builtinKind: AiBuiltinToolKind.dingtalkDws,
         dingtalkDwsCommand: command,
       );
+      // 网关设置中勾选的 DWS 能力属于显式启用项：直接注册到当前工具目录，
+      // 让其 Schema 随提示词模板加载；仅未勾选的能力不进入本次会话。
+      builder.register(resolved);
       deferredTools[name] = resolved;
       deferredDefinitions[name] = definition;
     }
