@@ -12776,6 +12776,20 @@ class _DingTalkDetailsView extends StatelessWidget {
               child: _DingTalkDetailGrid(data: document.profile),
             ),
           ],
+          for (final entry in document.supplemental.entries)
+            if (_dingtalkDetailHasContent(entry.value)) ...[
+              const SizedBox(height: 12),
+              _DingTalkDetailCardGroup(
+                title: entry.key,
+                icon: _dingtalkDetailSectionIcon(entry.key),
+                maxContentHeight: _dingtalkDetailSectionMaxHeight(entry.key),
+                badge: _dingtalkDetailCountLabel(
+                  context,
+                  _dingtalkDetailItemCount(entry.value),
+                ),
+                child: _DingTalkDetailValue(value: entry.value),
+              ),
+            ],
           if (document.members.isNotEmpty) ...[
             const SizedBox(height: 12),
             _DingTalkDetailCardGroup(
@@ -12967,37 +12981,57 @@ class _DingTalkDetailDocument {
     required this.contact,
     required this.profile,
     required this.members,
+    required this.supplemental,
   });
 
   final Map<String, Object?> conversation;
   final Map<String, Object?> contact;
   final Map<String, Object?> profile;
   final List<Map<String, Object?>> members;
+  final Map<String, Object?> supplemental;
 }
 
 _DingTalkDetailDocument _buildDingTalkDetailDocument(Object value) {
-  final conversationPayload = _findDingTalkDetailValue(value, const <String>{
+  final root = stringKeyedMapFromValue(value);
+  Object? payload(String name, Set<String> aliases) {
+    for (final key in aliases) {
+      if (root.containsKey(key)) return root[key];
+    }
+    return null;
+  }
+
+  final conversationPayload = payload('会话信息', const <String>{
     '会话信息',
     'conversationInfo',
     'conversation_info',
   });
-  final contactPayload = _findDingTalkDetailValue(value, const <String>{
+  final contactPayload = payload('联系人信息', const <String>{
     '联系人信息',
     'contactInfo',
     'contact_info',
     'user',
   });
-  final membersPayload = _findDingTalkDetailValue(value, const <String>{
+  final membersPayload = payload('群成员', const <String>{
     '群成员',
     'members',
     'memberList',
   });
-  final memberProfilesPayload = _findDingTalkDetailValue(value, const <String>{
+  final memberProfilesPayload = payload('群成员资料', const <String>{
     '群成员资料',
     'memberProfiles',
     'member_profiles',
   });
-  final profilePayload = _findDingTalkDetailValue(value, const <String>{
+  final memberDetailsPayload = payload('群成员详情', const <String>{
+    '群成员详情',
+    'memberDetails',
+    'member_details',
+  });
+  final memberRolesPayload = payload('群成员身份', const <String>{
+    '群成员身份',
+    'memberRoles',
+    'member_roles',
+  });
+  final profilePayload = payload('员工档案', const <String>{
     '员工档案',
     '联系人档案',
     'profile',
@@ -13013,6 +13047,21 @@ _DingTalkDetailDocument _buildDingTalkDetailDocument(Object value) {
   );
   final contactValue = _unwrapDingTalkDetailValue(contactPayload);
   final profileValue = _unwrapDingTalkDetailValue(profilePayload);
+  final supplemental = <String, Object?>{};
+  for (final key in const <String>[
+    '群聊设置',
+    '禁言配置',
+    '群机器人',
+    '群身份',
+    '可见花名册字段',
+    '部门资料',
+    '关注状态',
+  ]) {
+    final raw = payload(key, <String>{key});
+    if (raw != null) {
+      supplemental[key] = _humanizeDingTalkValue(raw);
+    }
+  }
   return _DingTalkDetailDocument(
     conversation: _humanizeDingTalkMap(conversationValue),
     contact: _humanizeDingTalkMap(contactValue),
@@ -13020,7 +13069,10 @@ _DingTalkDetailDocument _buildDingTalkDetailDocument(Object value) {
     members: _mergeDingTalkMembers(
       _collectDingTalkMembers(membersPayload),
       _collectDingTalkMembers(memberProfilesPayload),
+      _collectDingTalkMembers(memberDetailsPayload),
+      _collectDingTalkMembers(memberRolesPayload),
     ),
+    supplemental: supplemental,
   );
 }
 
@@ -13383,7 +13435,11 @@ class _DingTalkDetailField extends StatelessWidget {
                 ),
                 const SizedBox(height: 5),
                 SelectableText(
-                  _formatDingTalkDetailValue(context, value),
+                  _formatDingTalkDetailValue(
+                    context,
+                    value,
+                    label: _displayDingTalkDetailLabel(context, label),
+                  ),
                   maxLines: 3,
                   style: theme.textTheme.bodyMedium?.copyWith(
                     color: colors.onSurface,
@@ -13414,7 +13470,6 @@ const Set<String> _dingtalkProtocolDetailKeys = <String>{
   'requestId',
   'request_id',
   'result',
-  'status',
   'success',
 };
 
@@ -13424,6 +13479,7 @@ const Set<String> _dingtalkMemberIdentityKeys = <String>{
   'memberNick',
   'memberUserId',
   'member_user_id',
+  'openDingTalkId',
   'openDingtalkId',
   'orgUserId',
   'org_user_id',
@@ -13498,6 +13554,7 @@ Map<String, Object?> _humanizeDingTalkMap(
     for (final key in const <String>[
       'memberNick',
       'memberEmpName',
+      'memberGroupNick',
       'orgUserName',
       'name',
       'nick',
@@ -13532,10 +13589,6 @@ Map<String, Object?> _humanizeDingTalkMap(
         }.contains(normalizedKey)) {
       continue;
     }
-    if (normalizedKey == 'memberAvatarMediaId' ||
-        normalizedKey == 'avatarMediaId') {
-      continue;
-    }
     final label = _canonicalDingTalkDetailLabel(normalizedKey);
     final valueToShow = _sanitizeDingTalkDetailValue(entry.value);
     if (valueToShow is Map && valueToShow.isEmpty) continue;
@@ -13564,10 +13617,54 @@ Object? _sanitizeDingTalkDetailValue(Object? value) {
   return value;
 }
 
+Object? _humanizeDingTalkValue(Object? value) {
+  final unwrapped = _unwrapDingTalkDetailValue(value);
+  if (unwrapped is Map) return _humanizeDingTalkMap(unwrapped);
+  if (unwrapped is List) {
+    return unwrapped
+        .map(_humanizeDingTalkValue)
+        .where((item) => _dingtalkDetailHasContent(item))
+        .toList(growable: false);
+  }
+  return unwrapped;
+}
+
+bool _dingtalkDetailHasContent(Object? value) {
+  if (value == null) return false;
+  if (value is String) return value.trim().isNotEmpty;
+  if (value is Map) return value.isNotEmpty;
+  if (value is List) return value.isNotEmpty;
+  return true;
+}
+
+IconData _dingtalkDetailSectionIcon(String title) {
+  return switch (title) {
+    '群聊设置' => Icons.tune_rounded,
+    '禁言配置' => Icons.volume_off_rounded,
+    '群机器人' => Icons.smart_toy_rounded,
+    '群身份' || '群成员身份' => Icons.workspace_premium_rounded,
+    '可见花名册字段' || '员工档案' => Icons.badge_rounded,
+    '部门资料' => Icons.account_tree_rounded,
+    '关注状态' => Icons.star_rounded,
+    _ => Icons.info_outline_rounded,
+  };
+}
+
+double? _dingtalkDetailSectionMaxHeight(String title) {
+  return switch (title) {
+    '群机器人' || '群身份' || '可见花名册字段' || '部门资料' => 440,
+    _ => null,
+  };
+}
+
 String _canonicalDingTalkDetailLabel(String key) {
   const labels = <String, String>{
     'active': '是否激活',
     'avatarUrl': '头像地址',
+    'avatarMediaId': '头像媒体标识',
+    'botCode': '机器人编码',
+    'botName': '机器人名称',
+    'botOpenDingTalkId': '机器人账号',
     'corpId': '企业标识',
     'corpName': '企业名称',
     'createAt': '创建时间',
@@ -13575,10 +13672,13 @@ String _canonicalDingTalkDetailLabel(String key) {
     'deptId': '部门标识',
     'deptName': '部门',
     'depts': '所属部门',
+    'departmentId': '部门标识',
+    'departmentName': '部门',
     'description': '描述',
     'displayName': '姓名',
     'email': '邮箱',
     'employeeStatus': '员工状态',
+    'employeeType': '员工类型',
     'extension': '扩展属性',
     'fieldCode': '字段标识',
     'field_code': '字段标识',
@@ -13592,31 +13692,58 @@ String _canonicalDingTalkDetailLabel(String key) {
     'isBoss': '企业负责人',
     'isHide': '是否隐藏',
     'isLeader': '主管权限',
+    'isFollowing': '是否特别关注',
+    'isMuted': '是否被禁言',
+    'isNotDisturb': '是否免打扰',
+    'isPinned': '是否置顶',
+    'isTop': '是否置顶',
     'jobNumber': '工号',
     'newCSpaceIdIM': '钉盘空间标识',
     'memberCount': '成员数量',
     'memberDingtalkId': '钉钉账号',
+    'memberAvatarMediaId': '头像媒体标识',
     'memberEmpName': '姓名',
     'memberGroupNick': '群内昵称',
     'memberNick': '姓名',
     'memberRoleDesc': '群内角色',
     'memberRoleType': '角色类型',
     'memberUserId': '成员账号',
+    'muteAllMembers': '全员禁言白名单',
+    'muteMembers': '禁言成员',
+    'muteTime': '操作时间',
     'mobile': '手机号',
     'orgId': '组织标识',
     'orgMasterDisplayName': '直属主管',
     'orgMasterUserId': '直属主管标识',
     'openConversationId': '会话标识',
+    'openDingTalkId': '钉钉用户标识',
     'openDingtalkId': '钉钉用户标识',
     'orgName': '组织',
     'orgEmployeeModel': '组织资料',
     'orgUserId': '钉钉用户标识',
     'orgUserName': '姓名',
     'ownerNick': '群主',
+    'parentId': '上级部门标识',
+    'parentDeptId': '上级部门标识',
     'position': '职位',
     'remark': '备注',
     'singleChat': '聊天类型',
     'status': '状态',
+    'roleId': '群身份标识',
+    'roleName': '群身份名称',
+    'openRoleId': '群身份标识',
+    'robotCode': '机器人编码',
+    'robotName': '机器人名称',
+    'groupNick': '个人群昵称',
+    'groupRemark': '群备注',
+    'top': '是否置顶',
+    'unreadCount': '未读消息数',
+    'deptUserCount': '部门人数',
+    'order': '排序值',
+    'createDeptGroup': '是否创建部门群',
+    'directSubdepartments': '直属子部门',
+    'departmentInfo': '部门详情',
+    'roles': '群身份',
     'title': '群聊名称',
     'value': '字段内容',
     'fieldList': '字段列表',
@@ -13626,7 +13753,6 @@ String _canonicalDingTalkDetailLabel(String key) {
     'user_id': '钉钉用户标识',
     'org_user_id': '钉钉用户标识',
     'org_user_name': '姓名',
-    'departmentName': '部门',
     'department': '部门',
     'name': '姓名',
     'nick': '姓名',
@@ -13634,7 +13760,27 @@ String _canonicalDingTalkDetailLabel(String key) {
     'userId': '钉钉用户标识',
     'unionId': '钉钉用户标识',
   };
-  return labels[key] ?? '补充信息';
+  final translated = labels[key];
+  if (translated != null) return translated;
+  if (key.contains(RegExp(r'[\u4e00-\u9fff]'))) return key;
+  return '扩展字段 · ${_splitDingTalkIdentifier(key)}';
+}
+
+String _splitDingTalkIdentifier(String key) {
+  final separated = key
+      .replaceAll(RegExp(r'([a-z0-9])([A-Z])'), r'$1 $2')
+      .replaceAll('_', ' ')
+      .replaceAll('-', ' ')
+      .trim();
+  if (separated.isEmpty) return key;
+  return separated
+      .split(RegExp(r'\s+'))
+      .map(
+        (word) => word.isEmpty
+            ? word
+            : '${word[0].toUpperCase()}${word.substring(1)}',
+      )
+      .join(' ');
 }
 
 List<Map<String, Object?>> _collectDingTalkMembers(Object? value) {
@@ -13661,8 +13807,9 @@ List<Map<String, Object?>> _collectDingTalkMembers(Object? value) {
   final seen = <String>{};
   return collected
       .where((item) {
-        final identity = '${item['钉钉用户标识'] ?? item['姓名'] ?? ''}'.trim();
-        if (identity.isEmpty || !seen.add(identity)) return false;
+        final identities = _dingtalkMemberIdentities(item);
+        if (identities.isEmpty || identities.any(seen.contains)) return false;
+        seen.addAll(identities);
         return true;
       })
       .toList(growable: false);
@@ -13670,37 +13817,61 @@ List<Map<String, Object?>> _collectDingTalkMembers(Object? value) {
 
 List<Map<String, Object?>> _mergeDingTalkMembers(
   List<Map<String, Object?>> base,
-  List<Map<String, Object?>> profiles,
-) {
-  if (profiles.isEmpty) return base;
+  List<Map<String, Object?>> profiles, [
+  List<Map<String, Object?>> details = const <Map<String, Object?>>[],
+  List<Map<String, Object?>> roles = const <Map<String, Object?>>[],
+]) {
+  if (profiles.isEmpty && details.isEmpty && roles.isEmpty) return base;
   final merged = base.map(Map<String, Object?>.from).toList(growable: true);
   final indexes = <String, int>{};
   for (var index = 0; index < merged.length; index++) {
-    final identity = _dingtalkMemberIdentity(merged[index]);
-    if (identity.isNotEmpty) indexes[identity] = index;
+    for (final identity in _dingtalkMemberIdentities(merged[index])) {
+      indexes[identity] = index;
+    }
   }
-  for (final profile in profiles) {
-    final identity = _dingtalkMemberIdentity(profile);
-    final existingIndex = indexes[identity];
-    if (identity.isEmpty || existingIndex == null) {
+  for (final profile in <Map<String, Object?>>[
+    ...profiles,
+    ...details,
+    ...roles,
+  ]) {
+    final identities = _dingtalkMemberIdentities(profile);
+    final existingIndex = identities
+        .map((id) => indexes[id])
+        .nonNulls
+        .firstOrNull;
+    if (existingIndex == null) {
       merged.add(profile);
-      if (identity.isNotEmpty) indexes[identity] = merged.length - 1;
+      for (final identity in identities) {
+        indexes[identity] = merged.length - 1;
+      }
       continue;
     }
     merged[existingIndex] = <String, Object?>{
       ...merged[existingIndex],
       ...profile,
     };
+    for (final identity in _dingtalkMemberIdentities(merged[existingIndex])) {
+      indexes[identity] = existingIndex;
+    }
   }
   return merged;
 }
 
-String _dingtalkMemberIdentity(Map<String, Object?> details) {
-  for (final key in const <String>['钉钉用户标识', '钉钉账号', '成员账号', '姓名']) {
-    final value = '${details[key] ?? ''}'.trim();
-    if (value.isNotEmpty) return value;
+Set<String> _dingtalkMemberIdentities(Map<String, Object?> details) {
+  final identities = <String>{};
+  for (final entry in details.entries) {
+    if (entry.key.startsWith('钉钉用户标识') ||
+        entry.key.startsWith('钉钉账号') ||
+        entry.key.startsWith('成员账号')) {
+      final value = '${entry.value ?? ''}'.trim();
+      if (value.isNotEmpty) identities.add(value);
+    }
   }
-  return '';
+  if (identities.isEmpty) {
+    final name = '${details['姓名'] ?? ''}'.trim();
+    if (name.isNotEmpty) identities.add(name);
+  }
+  return identities;
 }
 
 bool _dingtalkIsCompound(Object? value) => value is Map || value is List;
@@ -13755,6 +13926,55 @@ String _dingtalkConversationIdLabel(BuildContext context, String id) {
 const Map<String, ({String zhHant, String en, String fr, String de, String ja})>
 _dingtalkExtendedDetailLabels =
     <String, ({String zhHant, String en, String fr, String de, String ja})>{
+      '群聊设置': (
+        zhHant: '群聊設定',
+        en: 'Group settings',
+        fr: 'Paramètres du groupe',
+        de: 'Gruppeneinstellungen',
+        ja: 'グループ設定',
+      ),
+      '禁言配置': (
+        zhHant: '禁言設定',
+        en: 'Mute settings',
+        fr: 'Paramètres de sourdine',
+        de: 'Stummschaltung',
+        ja: 'ミュート設定',
+      ),
+      '群机器人': (
+        zhHant: '群機器人',
+        en: 'Group bots',
+        fr: 'Robots du groupe',
+        de: 'Gruppen-Bots',
+        ja: 'グループボット',
+      ),
+      '群身份': (
+        zhHant: '群身份',
+        en: 'Group roles',
+        fr: 'Rôles du groupe',
+        de: 'Gruppenrollen',
+        ja: 'グループロール',
+      ),
+      '可见花名册字段': (
+        zhHant: '可見花名冊欄位',
+        en: 'Visible roster fields',
+        fr: 'Champs du registre visibles',
+        de: 'Sichtbare Personalfelder',
+        ja: '閲覧可能な名簿項目',
+      ),
+      '部门资料': (
+        zhHant: '部門資料',
+        en: 'Department details',
+        fr: 'Détails du service',
+        de: 'Abteilungsdetails',
+        ja: '部署の詳細',
+      ),
+      '关注状态': (
+        zhHant: '關注狀態',
+        en: 'Following status',
+        fr: 'Statut de suivi',
+        de: 'Beobachtungsstatus',
+        ja: 'フォロー状態',
+      ),
       '员工档案': (
         zhHant: '員工檔案',
         en: 'Employee profile',
@@ -13951,6 +14171,265 @@ _dingtalkExtendedDetailLabels =
         de: 'Geschlecht',
         ja: '性別',
       ),
+      '员工类型': (
+        zhHant: '員工類型',
+        en: 'Employee type',
+        fr: 'Type d’employé',
+        de: 'Beschäftigungsart',
+        ja: '雇用形態',
+      ),
+      '是否特别关注': (
+        zhHant: '是否特別關注',
+        en: 'Specially followed',
+        fr: 'Suivi spécial',
+        de: 'Besonders beobachtet',
+        ja: '特別フォロー',
+      ),
+      '是否被禁言': (
+        zhHant: '是否被禁言',
+        en: 'Muted',
+        fr: 'Mis en sourdine',
+        de: 'Stummgeschaltet',
+        ja: 'ミュート中',
+      ),
+      '是否免打扰': (
+        zhHant: '是否免打擾',
+        en: 'Do not disturb',
+        fr: 'Ne pas déranger',
+        de: 'Nicht stören',
+        ja: '通知オフ',
+      ),
+      '是否置顶': (
+        zhHant: '是否置頂',
+        en: 'Pinned',
+        fr: 'Épinglé',
+        de: 'Angeheftet',
+        ja: 'ピン留め',
+      ),
+      '全员禁言白名单': (
+        zhHant: '全員禁言白名單',
+        en: 'Mute-all allowlist',
+        fr: 'Liste autorisée en sourdine globale',
+        de: 'Ausnahmen bei globaler Stummschaltung',
+        ja: '全員ミュートの許可リスト',
+      ),
+      '禁言成员': (
+        zhHant: '禁言成員',
+        en: 'Muted members',
+        fr: 'Membres en sourdine',
+        de: 'Stummgeschaltete Mitglieder',
+        ja: 'ミュート中のメンバー',
+      ),
+      '操作时间': (
+        zhHant: '操作時間',
+        en: 'Operation time',
+        fr: 'Heure de l’opération',
+        de: 'Vorgangszeit',
+        ja: '操作時刻',
+      ),
+      '群身份标识': (
+        zhHant: '群身份標識',
+        en: 'Group role ID',
+        fr: 'Identifiant du rôle de groupe',
+        de: 'Gruppenrollen-ID',
+        ja: 'グループロール ID',
+      ),
+      '群身份名称': (
+        zhHant: '群身份名稱',
+        en: 'Group role name',
+        fr: 'Nom du rôle de groupe',
+        de: 'Name der Gruppenrolle',
+        ja: 'グループロール名',
+      ),
+      '机器人编码': (
+        zhHant: '機器人編碼',
+        en: 'Bot code',
+        fr: 'Code du robot',
+        de: 'Bot-Code',
+        ja: 'ボットコード',
+      ),
+      '机器人名称': (
+        zhHant: '機器人名稱',
+        en: 'Bot name',
+        fr: 'Nom du robot',
+        de: 'Bot-Name',
+        ja: 'ボット名',
+      ),
+      '机器人账号': (
+        zhHant: '機器人帳號',
+        en: 'Bot account',
+        fr: 'Compte du robot',
+        de: 'Bot-Konto',
+        ja: 'ボットアカウント',
+      ),
+      '个人群昵称': (
+        zhHant: '個人群暱稱',
+        en: 'Personal group nickname',
+        fr: 'Surnom personnel dans le groupe',
+        de: 'Persönlicher Gruppenname',
+        ja: '個人グループニックネーム',
+      ),
+      '群备注': (
+        zhHant: '群備註',
+        en: 'Group note',
+        fr: 'Note du groupe',
+        de: 'Gruppennotiz',
+        ja: 'グループメモ',
+      ),
+      '上级部门标识': (
+        zhHant: '上級部門標識',
+        en: 'Parent department ID',
+        fr: 'Identifiant du service parent',
+        de: 'ID der übergeordneten Abteilung',
+        ja: '上位部署 ID',
+      ),
+      '部门人数': (
+        zhHant: '部門人數',
+        en: 'Department members',
+        fr: 'Effectif du service',
+        de: 'Abteilungsmitglieder',
+        ja: '部署の人数',
+      ),
+      '直属子部门': (
+        zhHant: '直屬子部門',
+        en: 'Direct subdepartments',
+        fr: 'Sous-services directs',
+        de: 'Direkte Unterabteilungen',
+        ja: '直属の下位部署',
+      ),
+      '部门详情': (
+        zhHant: '部門詳情',
+        en: 'Department profile',
+        fr: 'Profil du service',
+        de: 'Abteilungsprofil',
+        ja: '部署プロフィール',
+      ),
+      '未读消息数': (
+        zhHant: '未讀訊息數',
+        en: 'Unread messages',
+        fr: 'Messages non lus',
+        de: 'Ungelesene Nachrichten',
+        ja: '未読メッセージ数',
+      ),
+      '排序值': (
+        zhHant: '排序值',
+        en: 'Sort order',
+        fr: 'Ordre de tri',
+        de: 'Sortierreihenfolge',
+        ja: '並び順',
+      ),
+      '是否创建部门群': (
+        zhHant: '是否建立部門群',
+        en: 'Department group enabled',
+        fr: 'Groupe de service activé',
+        de: 'Abteilungsgruppe aktiviert',
+        ja: '部署グループの有効化',
+      ),
+      '头像媒体标识': (
+        zhHant: '頭像媒體標識',
+        en: 'Avatar media ID',
+        fr: 'Identifiant média de l’avatar',
+        de: 'Avatar-Medien-ID',
+        ja: 'アバターメディア ID',
+      ),
+      '未知': (
+        zhHant: '未知',
+        en: 'Unknown',
+        fr: 'Inconnu',
+        de: 'Unbekannt',
+        ja: '不明',
+      ),
+      '全职': (
+        zhHant: '全職',
+        en: 'Full-time',
+        fr: 'Temps plein',
+        de: 'Vollzeit',
+        ja: '正社員',
+      ),
+      '兼职': (
+        zhHant: '兼職',
+        en: 'Part-time',
+        fr: 'Temps partiel',
+        de: 'Teilzeit',
+        ja: 'パートタイム',
+      ),
+      '实习': (
+        zhHant: '實習',
+        en: 'Intern',
+        fr: 'Stagiaire',
+        de: 'Praktikum',
+        ja: 'インターン',
+      ),
+      '劳务派遣': (
+        zhHant: '勞務派遣',
+        en: 'Dispatched worker',
+        fr: 'Travailleur détaché',
+        de: 'Leiharbeit',
+        ja: '派遣社員',
+      ),
+      '退休返聘': (
+        zhHant: '退休返聘',
+        en: 'Retiree rehire',
+        fr: 'Retraité réembauché',
+        de: 'Weiterbeschäftigter Rentner',
+        ja: '再雇用',
+      ),
+      '劳务外包': (
+        zhHant: '勞務外包',
+        en: 'Outsourced worker',
+        fr: 'Travailleur externalisé',
+        de: 'Outsourcing-Mitarbeiter',
+        ja: '業務委託',
+      ),
+      '待入职': (
+        zhHant: '待入職',
+        en: 'Pending onboarding',
+        fr: 'Intégration en attente',
+        de: 'Eintritt ausstehend',
+        ja: '入社待ち',
+      ),
+      '试用': (
+        zhHant: '試用',
+        en: 'Probation',
+        fr: 'Période d’essai',
+        de: 'Probezeit',
+        ja: '試用期間',
+      ),
+      '正式': (
+        zhHant: '正式',
+        en: 'Regular employee',
+        fr: 'Titulaire',
+        de: 'Festangestellt',
+        ja: '正規社員',
+      ),
+      '离职': (
+        zhHant: '離職',
+        en: 'Left company',
+        fr: 'A quitté l’entreprise',
+        de: 'Ausgeschieden',
+        ja: '退職',
+      ),
+      '待离职': (
+        zhHant: '待離職',
+        en: 'Leaving pending',
+        fr: 'Départ en attente',
+        de: 'Austritt ausstehend',
+        ja: '退職待ち',
+      ),
+      '试岗': (
+        zhHant: '試崗',
+        en: 'Trial assignment',
+        fr: 'Poste d’essai',
+        de: 'Erprobungsphase',
+        ja: '試用勤務',
+      ),
+      '已退休': (
+        zhHant: '已退休',
+        en: 'Retired',
+        fr: 'Retraité',
+        de: 'Ruhestand',
+        ja: '退職済み',
+      ),
     };
 
 String _displayDingTalkDetailLabel(BuildContext context, String value) {
@@ -13965,6 +14444,11 @@ String _displayDingTalkDetailLabel(BuildContext context, String value) {
       de: extended.de,
       ja: extended.ja,
     );
+  }
+  const dynamicPrefix = '扩展字段 · ';
+  if (value.startsWith(dynamicPrefix)) {
+    final suffix = value.substring(dynamicPrefix.length);
+    return '${openHandLocalizedText(context, zh: '扩展字段', zhHant: '擴展欄位', en: 'Extended field', fr: 'Champ étendu', de: 'Erweitertes Feld', ja: '拡張フィールド')} · $suffix';
   }
   switch (value) {
     case '会话概览':
@@ -14313,7 +14797,11 @@ String _dingtalkRoleLabel(BuildContext context, String value) {
   }
 }
 
-String _formatDingTalkDetailValue(BuildContext context, Object? value) {
+String _formatDingTalkDetailValue(
+  BuildContext context,
+  Object? value, {
+  String? label,
+}) {
   if (value == null) {
     return openHandLocalizedText(
       context,
@@ -14345,6 +14833,39 @@ String _formatDingTalkDetailValue(BuildContext context, Object? value) {
             de: 'Nein',
             ja: 'いいえ',
           );
+  }
+  if (value is num && label != null) {
+    if (label == '员工类型' || label == 'Employee type') {
+      const values = <int, String>{
+        0: '未知',
+        1: '全职',
+        2: '兼职',
+        3: '实习',
+        4: '劳务派遣',
+        5: '退休返聘',
+        6: '劳务外包',
+      };
+      final translated = values[value.toInt()];
+      if (translated != null) {
+        return _displayDingTalkDetailLabel(context, translated);
+      }
+    }
+    if (label == '员工状态' || label == 'Employment status') {
+      const values = <int, String>{
+        -1: '未知',
+        1: '待入职',
+        2: '试用',
+        3: '正式',
+        4: '离职',
+        5: '待离职',
+        6: '试岗',
+        7: '已退休',
+      };
+      final translated = values[value.toInt()];
+      if (translated != null) {
+        return _displayDingTalkDetailLabel(context, translated);
+      }
+    }
   }
   final text = '$value'.trim();
   return text.isEmpty
