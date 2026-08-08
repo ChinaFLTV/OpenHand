@@ -19,6 +19,7 @@ import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/frame_coalesced_rebuild.dart';
+import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
@@ -39,8 +40,10 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/rolling_hash.dart';
 import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/timer_safety.dart';
+import '../dingtalk_message_gateway_controller.dart';
 import '../message_gateway_controller.dart';
 import '../message_gateway_errors.dart';
+import '../model/dingtalk_message_gateway.dart';
 import '../model/web_message_platform_config.dart';
 import '../service/web_message_platform_service.dart';
 
@@ -240,7 +243,11 @@ class _MessageGatewayViewState extends State<MessageGatewayView>
     }
     return ListView(
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
-      children: [_WebPlatformServiceCard(controller: controller)],
+      children: [
+        _WebPlatformServiceCard(controller: controller),
+        const SizedBox(height: 14),
+        _DingTalkGatewayCard(controller: controller),
+      ],
     );
   }
 }
@@ -11447,4 +11454,657 @@ String _messageGatewayWaitingForTrafficLabel(BuildContext context) {
     de: 'Warten auf Datenverkehr',
     ja: 'トラフィック待機中',
   );
+}
+
+class _DingTalkGatewayCard extends StatelessWidget {
+  const _DingTalkGatewayCard({required this.controller});
+
+  final MessageGatewayController controller;
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: controller.dingtalk,
+      builder: (context, _) {
+        final ding = controller.dingtalk;
+        final theme = Theme.of(context);
+        final statusColor = ding.isAuthorized
+            ? OpenHandStatusColors.success
+            : theme.colorScheme.onSurfaceVariant;
+        return Card(
+          elevation: 0,
+          clipBehavior: Clip.antiAlias,
+          child: Padding(
+            padding: const EdgeInsets.all(18),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                LayoutBuilder(
+                  builder: (context, constraints) {
+                    final title = Row(
+                      children: [
+                        Stack(
+                          clipBehavior: Clip.none,
+                          children: [
+                            Container(
+                              width: 46,
+                              height: 46,
+                              decoration: BoxDecoration(
+                                color: theme.colorScheme.primaryContainer,
+                                borderRadius: BorderRadius.circular(18),
+                              ),
+                              child: Icon(
+                                Icons.forum_rounded,
+                                color: theme.colorScheme.onPrimaryContainer,
+                              ),
+                            ),
+                            Positioned(
+                              right: -2,
+                              bottom: -2,
+                              child: _StatusDot(color: statusColor),
+                            ),
+                          ],
+                        ),
+                        const SizedBox(width: 14),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                'DingTalk',
+                                style: theme.textTheme.titleLarge,
+                              ),
+                              const SizedBox(height: 6),
+                              Text(
+                                '钉钉消息接入与 OpenHand AI 会话',
+                                style: theme.textTheme.bodyMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ],
+                    );
+                    final actions = Wrap(
+                      spacing: 8,
+                      runSpacing: 8,
+                      alignment: WrapAlignment.end,
+                      children: [
+                        _DingTalkActionButton(
+                          tooltip: ding.isAuthenticating
+                              ? '取消设备流授权'
+                              : ding.isAuthorized
+                              ? '取消钉钉授权'
+                              : '登录授权',
+                          icon: ding.isAuthenticating
+                              ? Icons.close_rounded
+                              : ding.isAuthorized
+                              ? Icons.logout_rounded
+                              : Icons.login_rounded,
+                          onPressed: ding.isAuthenticating
+                              ? () => ding.cancelAuthorization()
+                              : () => _toggleDingTalkAuth(context, ding),
+                        ),
+                        _DingTalkActionButton(
+                          tooltip: ding.isPolling ? '停止消息轮询' : '启动消息轮询',
+                          icon: ding.isPolling
+                              ? Icons.pause_rounded
+                              : Icons.play_arrow_rounded,
+                          onPressed: ding.isAuthorized
+                              ? () => ding.isPolling
+                                    ? ding.stopPolling()
+                                    : ding.startPolling()
+                              : null,
+                          filled: ding.isPolling,
+                        ),
+                        _DingTalkActionButton(
+                          tooltip: '消息列表',
+                          icon: Icons.forum_outlined,
+                          onPressed: () => _showDingTalkMessages(context, ding),
+                        ),
+                        _DingTalkActionButton(
+                          tooltip: '网关设置',
+                          icon: Icons.tune_rounded,
+                          onPressed: () => _showDingTalkSettings(context, ding),
+                        ),
+                      ],
+                    );
+                    if (constraints.maxWidth < 760) {
+                      return Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [title, const SizedBox(height: 14), actions],
+                      );
+                    }
+                    return Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: title),
+                        const SizedBox(width: 18),
+                        Flexible(
+                          child: Align(
+                            alignment: Alignment.topRight,
+                            child: actions,
+                          ),
+                        ),
+                      ],
+                    );
+                  },
+                ),
+                const SizedBox(height: 16),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    _InfoChip(
+                      icon: Icons.verified_user_outlined,
+                      label: ding.isAuthorized
+                          ? '已授权${ding.authStatus.identity.label.isEmpty ? '' : ' · ${ding.authStatus.identity.label}'}'
+                          : '未授权',
+                    ),
+                    _InfoChip(
+                      icon: Icons.sync_rounded,
+                      label: ding.isPolling
+                          ? '轮询中 · ${ding.settings.pollIntervalSeconds}s'
+                          : '轮询已停止',
+                    ),
+                    _InfoChip(
+                      icon: Icons.forum_outlined,
+                      label: '会话 ${ding.conversations.length}',
+                    ),
+                    if (ding.unreadCount > 0)
+                      _InfoChip(
+                        icon: Icons.mark_email_unread_outlined,
+                        label: '未读 ${ding.unreadCount}',
+                      ),
+                    if (ding.warningMessage != null)
+                      _InfoChip(
+                        icon: Icons.info_outline_rounded,
+                        label: ding.warningMessage!,
+                      ),
+                  ],
+                ),
+                if (ding.errorMessage != null) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    ding.errorMessage!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.error,
+                    ),
+                  ),
+                ],
+                if (ding.isAuthenticating && ding.deviceUrl != null) ...[
+                  const SizedBox(height: 12),
+                  SelectableText(
+                    ding.deviceCode.isEmpty
+                        ? '已打开钉钉授权页，请在浏览器完成授权。'
+                        : '设备码：${ding.deviceCode}（请在浏览器完成授权）',
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  SelectableText(
+                    ding.deviceUrl!,
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.primary,
+                    ),
+                  ),
+                ],
+                if (!ding.isInstalled) ...[
+                  const SizedBox(height: 12),
+                  Text(
+                    '未检测到 dws，请先在插件板块安装 DingTalk Workspace CLI。',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: theme.colorScheme.onSurfaceVariant,
+                    ),
+                  ),
+                ],
+              ],
+            ),
+          ),
+        );
+      },
+    );
+  }
+}
+
+class _DingTalkActionButton extends StatelessWidget {
+  const _DingTalkActionButton({
+    required this.tooltip,
+    required this.icon,
+    required this.onPressed,
+    this.filled = false,
+  });
+
+  final String tooltip;
+  final IconData icon;
+  final VoidCallback? onPressed;
+  final bool filled;
+
+  @override
+  Widget build(BuildContext context) {
+    final child = Icon(icon);
+    return Tooltip(
+      message: tooltip,
+      child: filled
+          ? IconButton.filled(
+              tooltip: tooltip,
+              onPressed: onPressed,
+              icon: child,
+            )
+          : IconButton.filledTonal(
+              tooltip: tooltip,
+              onPressed: onPressed,
+              icon: child,
+            ),
+    );
+  }
+}
+
+Future<void> _toggleDingTalkAuth(
+  BuildContext context,
+  DingTalkMessageGatewayController controller,
+) async {
+  if (controller.isAuthorized) {
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: '取消钉钉授权',
+      message: '将退出当前钉钉账号并停止消息轮询。',
+      confirmLabel: '确认取消授权',
+      destructive: true,
+      icon: const Icon(Icons.logout_rounded),
+    );
+    if (confirmed && context.mounted) await controller.logout();
+    return;
+  }
+  await controller.authorize((url) async {
+    final executable = Platform.isMacOS
+        ? 'open'
+        : Platform.isWindows
+        ? 'rundll32.exe'
+        : 'xdg-open';
+    final args = Platform.isWindows
+        ? <String>['url.dll,FileProtocolHandler', url]
+        : <String>[url];
+    final opened = await runDetachedSystemOpen(
+      executable,
+      args,
+      tag: 'dingtalk.auth.browser',
+    );
+    if (!opened && context.mounted) {
+      showOpenHandInfoSnack(context, '无法打开默认浏览器，请复制授权地址完成登录。');
+    }
+  });
+}
+
+Future<void> _showDingTalkMessages(
+  BuildContext context,
+  DingTalkMessageGatewayController controller,
+) async {
+  await showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => buildOpenHandDialog(
+      maxWidth: kOpenHandDialogWidthPanel,
+      maxHeight: kOpenHandDialogHeightFull,
+      child: _DingTalkMessagesDialog(controller: controller),
+    ),
+  );
+}
+
+Future<void> _showDingTalkSettings(
+  BuildContext context,
+  DingTalkMessageGatewayController controller,
+) async {
+  await showAnimatedDialog<void>(
+    context: context,
+    builder: (_) => buildOpenHandDialog(
+      maxWidth: kOpenHandDialogWidthStandard,
+      child: _DingTalkSettingsDialog(controller: controller),
+    ),
+  );
+}
+
+class _DingTalkMessagesDialog extends StatefulWidget {
+  const _DingTalkMessagesDialog({required this.controller});
+  final DingTalkMessageGatewayController controller;
+
+  @override
+  State<_DingTalkMessagesDialog> createState() =>
+      _DingTalkMessagesDialogState();
+}
+
+class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
+  final TextEditingController _input = TextEditingController();
+  String? _selectedId;
+
+  @override
+  void initState() {
+    super.initState();
+    widget.controller.markAllRead();
+  }
+
+  @override
+  void dispose() {
+    _input.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return ListenableBuilder(
+      listenable: widget.controller,
+      builder: (context, _) {
+        final conversations = widget.controller.conversations;
+        final selected =
+            conversations.where((item) => item.id == _selectedId).firstOrNull ??
+            (conversations.isEmpty ? null : conversations.first);
+        if (selected != null && _selectedId != selected.id) {
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) setState(() => _selectedId = selected.id);
+          });
+        }
+        return SizedBox(
+          width: double.infinity,
+          height: 680,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Padding(
+                padding: const EdgeInsets.fromLTRB(20, 18, 20, 14),
+                child: Row(
+                  children: [
+                    const Icon(Icons.forum_rounded),
+                    const SizedBox(width: 10),
+                    Text('钉钉消息', style: Theme.of(context).textTheme.titleLarge),
+                    const Spacer(),
+                    IconButton(
+                      tooltip: '关闭',
+                      onPressed: () => Navigator.of(context).pop(),
+                      icon: const Icon(Icons.close_rounded),
+                    ),
+                  ],
+                ),
+              ),
+              const Divider(height: 1),
+              Expanded(
+                child: Row(
+                  children: [
+                    SizedBox(
+                      width: 270,
+                      child: conversations.isEmpty
+                          ? const Center(child: Text('暂无消息会话'))
+                          : ListView.separated(
+                              padding: const EdgeInsets.all(12),
+                              itemCount: conversations.length,
+                              separatorBuilder: (_, index) =>
+                                  const SizedBox(height: 6),
+                              itemBuilder: (context, index) {
+                                final item = conversations[index];
+                                final active = item.id == selected?.id;
+                                return ListTile(
+                                  selected: active,
+                                  shape: RoundedRectangleBorder(
+                                    borderRadius: BorderRadius.circular(14),
+                                  ),
+                                  leading: Icon(
+                                    item.type == DingTalkConversationType.group
+                                        ? Icons.groups_rounded
+                                        : Icons.person_rounded,
+                                  ),
+                                  title: Text(
+                                    item.title,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  subtitle: Text(
+                                    item.preview,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                                  onTap: () =>
+                                      setState(() => _selectedId = item.id),
+                                );
+                              },
+                            ),
+                    ),
+                    const VerticalDivider(width: 1),
+                    Expanded(
+                      child: selected == null
+                          ? const Center(child: Text('选择左侧会话开始交流'))
+                          : Column(
+                              children: [
+                                Expanded(
+                                  child: ListView.builder(
+                                    padding: const EdgeInsets.fromLTRB(
+                                      20,
+                                      18,
+                                      20,
+                                      12,
+                                    ),
+                                    itemCount: selected.messages.length,
+                                    itemBuilder: (context, index) {
+                                      final message = selected.messages[index];
+                                      final assistant = message.isAssistant;
+                                      return Align(
+                                        alignment: assistant
+                                            ? Alignment.centerRight
+                                            : Alignment.centerLeft,
+                                        child: Container(
+                                          constraints: const BoxConstraints(
+                                            maxWidth: 560,
+                                          ),
+                                          margin: const EdgeInsets.only(
+                                            bottom: 10,
+                                          ),
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 14,
+                                            vertical: 10,
+                                          ),
+                                          decoration: BoxDecoration(
+                                            color: assistant
+                                                ? Theme.of(
+                                                    context,
+                                                  ).colorScheme.primaryContainer
+                                                : Theme.of(context)
+                                                      .colorScheme
+                                                      .surfaceContainerHighest,
+                                            borderRadius: BorderRadius.circular(
+                                              16,
+                                            ),
+                                          ),
+                                          child: Text(message.content),
+                                        ),
+                                      );
+                                    },
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    16,
+                                    8,
+                                    16,
+                                    16,
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Expanded(
+                                        child: TextField(
+                                          controller: _input,
+                                          minLines: 1,
+                                          maxLines: 4,
+                                          decoration: const InputDecoration(
+                                            hintText: '以当前钉钉身份发送消息',
+                                          ),
+                                          onSubmitted: (_) => _send(selected),
+                                        ),
+                                      ),
+                                      const SizedBox(width: 10),
+                                      IconButton.filled(
+                                        tooltip: '发送',
+                                        onPressed: widget.controller.isSending
+                                            ? null
+                                            : () => _send(selected),
+                                        icon: const Icon(Icons.send_rounded),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ],
+                            ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        );
+      },
+    );
+  }
+
+  void _send(DingTalkConversation conversation) {
+    final text = _input.text.trim();
+    if (text.isEmpty) return;
+    _input.clear();
+    unawaited(widget.controller.sendMessage(conversation.id, text));
+  }
+}
+
+class _DingTalkSettingsDialog extends StatefulWidget {
+  const _DingTalkSettingsDialog({required this.controller});
+  final DingTalkMessageGatewayController controller;
+
+  @override
+  State<_DingTalkSettingsDialog> createState() =>
+      _DingTalkSettingsDialogState();
+}
+
+class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
+  late final TextEditingController _intervalController = TextEditingController(
+    text: '${widget.controller.settings.pollIntervalSeconds}',
+  );
+  late DingTalkReminderMode _reminderMode =
+      widget.controller.settings.reminderMode;
+  late String _modelKey = widget.controller.settings.responseModelKey;
+  bool _saving = false;
+
+  @override
+  void dispose() {
+    _intervalController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final model = _modelLabel();
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              const Icon(Icons.tune_rounded),
+              const SizedBox(width: 10),
+              Text('钉钉网关设置', style: Theme.of(context).textTheme.titleLarge),
+            ],
+          ),
+          const SizedBox(height: 22),
+          TextField(
+            controller: _intervalController,
+            keyboardType: TextInputType.number,
+            decoration: const InputDecoration(
+              labelText: '轮询间隔（秒）',
+              helperText: '最小 3 秒，保存后立即生效',
+            ),
+          ),
+          const SizedBox(height: 16),
+          DropdownButtonFormField<DingTalkReminderMode>(
+            initialValue: _reminderMode,
+            decoration: const InputDecoration(labelText: '提醒方式'),
+            items: const [
+              DropdownMenuItem(
+                value: DingTalkReminderMode.none,
+                child: Text('不提醒'),
+              ),
+              DropdownMenuItem(
+                value: DingTalkReminderMode.inApp,
+                child: Text('应用内提醒'),
+              ),
+              DropdownMenuItem(
+                value: DingTalkReminderMode.sound,
+                child: Text('应用内提醒并播放声音'),
+              ),
+            ],
+            onChanged: (value) => setState(
+              () => _reminderMode = value ?? DingTalkReminderMode.inApp,
+            ),
+          ),
+          const SizedBox(height: 16),
+          ListTile(
+            contentPadding: EdgeInsets.zero,
+            leading: const Icon(Icons.auto_awesome_rounded),
+            title: const Text('响应模型'),
+            subtitle: Text(model.isEmpty ? '跟随当前默认模型' : model),
+            trailing: const Icon(Icons.chevron_right_rounded),
+            onTap: _selectModel,
+          ),
+          const SizedBox(height: 18),
+          OpenHandDialogSaveActions(
+            busy: _saving,
+            cancelLabel: '取消',
+            confirmLabel: '保存设置',
+            onConfirm: _save,
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _selectModel() async {
+    final current = _splitModelKey(_modelKey);
+    final selected = await showModelSearchSelector(
+      context: context,
+      models: widget.controller.aiModels,
+      selectedConfigId: current.$1,
+      selectedModelId: current.$2,
+    );
+    if (selected != null && mounted) {
+      setState(() => _modelKey = '${selected.$1}::${selected.$2}');
+    }
+  }
+
+  Future<void> _save() async {
+    final seconds = int.tryParse(_intervalController.text.trim()) ?? 3;
+    setState(() => _saving = true);
+    try {
+      await widget.controller.updateSettings(
+        DingTalkGatewaySettings(
+          pollIntervalSeconds: seconds,
+          reminderMode: _reminderMode,
+          responseModelKey: _modelKey,
+        ),
+      );
+      if (mounted) Navigator.of(context).pop();
+    } catch (error) {
+      if (mounted) showOpenHandErrorSnack(context, '保存设置失败：$error');
+    } finally {
+      if (mounted) setState(() => _saving = false);
+    }
+  }
+
+  String _modelLabel() {
+    final key = _splitModelKey(_modelKey);
+    if (key.$1.isEmpty || key.$2.isEmpty) return '';
+    for (final model in widget.controller.aiModels) {
+      if (model.id == key.$1) return '${model.providerLabel} / ${key.$2}';
+    }
+    return '${key.$1} / ${key.$2}';
+  }
+
+  (String, String) _splitModelKey(String key) {
+    final index = key.indexOf('::');
+    return index > 0
+        ? (key.substring(0, index), key.substring(index + 2))
+        : ('', '');
+  }
 }

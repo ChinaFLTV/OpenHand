@@ -18,6 +18,7 @@ import '../plugin_service/index.dart';
 import '../skills/index.dart';
 import 'data/message_gateway_store.dart';
 import 'data/web_gateway_ops_store.dart';
+import 'dingtalk_message_gateway_controller.dart';
 import 'message_gateway_dependencies.dart';
 import 'message_gateway_errors.dart';
 import 'model/web_message_platform_config.dart';
@@ -93,7 +94,8 @@ class MessageGatewayController extends ManagedChangeNotifier {
        _memoryController = dependencies.memoryController,
        _instructionsController = dependencies.instructionsController,
        _store = store ?? MessageGatewayStore(),
-       _service = service ?? WebMessagePlatformService(dependencies) {
+       _service = service ?? WebMessagePlatformService(dependencies),
+       _dingtalkController = DingTalkMessageGatewayController(dependencies) {
     _logSub = _service.logStream.listen((_) => _scheduleLogNotify());
   }
 
@@ -106,6 +108,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
   final InstructionsController _instructionsController;
   final MessageGatewayStore _store;
   final WebMessagePlatformService _service;
+  final DingTalkMessageGatewayController _dingtalkController;
   late final StreamSubscription<WebGatewayLogEntry> _logSub;
   Future<void>? _shutdownFuture;
   Future<void>? _resourceShutdownFuture;
@@ -145,6 +148,7 @@ class MessageGatewayController extends ManagedChangeNotifier {
   String? get errorMessage => _errorMessage;
   WebGatewayRuntimeState get runtimeState => _service.state;
   bool get isRunning => _service.isRunning;
+  DingTalkMessageGatewayController get dingtalk => _dingtalkController;
 
   void clearError() {
     if (_errorMessage == null) return;
@@ -296,6 +300,11 @@ class MessageGatewayController extends ManagedChangeNotifier {
         _hasTrustedSnapshot = false;
         _errorMessage = _reportMessageGatewayFailure('加载消息网关配置', error, stack);
         return;
+      }
+      try {
+        await _dingtalkController.initialize();
+      } catch (error, stack) {
+        silentLog('message_gateway', '初始化钉钉消息网关', error, stack);
       }
       if (_config.autoStartOnLaunch && !_service.isRunning) {
         final startupConfig = _config.copyWith(enabled: true);
@@ -662,6 +671,12 @@ class MessageGatewayController extends ManagedChangeNotifier {
         timeout: runtimeCleanupTimeout,
         onError: (error, stack) =>
             silentLog('message_gateway', '关闭消息网关服务', error, stack),
+      ),
+      runAsyncCleanupBounded(
+        _dingtalkController.shutdown,
+        timeout: runtimeCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('message_gateway', '关闭钉钉消息网关', error, stack),
       ),
     ]).then<void>((_) {});
     super.dispose();
