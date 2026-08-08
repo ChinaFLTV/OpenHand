@@ -12628,46 +12628,68 @@ class _DingTalkConversationDetailsDialogState
             ),
             const SizedBox(height: 12),
             Expanded(
-              child: FutureBuilder<Object?>(
-                future: _details,
-                builder: (context, snapshot) {
-                  if (snapshot.connectionState != ConnectionState.done) {
-                    return const Center(child: CircularProgressIndicator());
-                  }
-                  if (snapshot.hasError) {
-                    return _DingTalkDetailsStateMessage(
-                      icon: Icons.error_outline_rounded,
-                      text: openHandLocalizedText(
-                        context,
-                        zh: '读取详情失败，请稍后重试。',
-                        zhHant: '讀取詳情失敗，請稍後重試。',
-                        en: 'Unable to load details. Try again later.',
-                        fr: 'Impossible de charger les détails. Réessayez plus tard.',
-                        de: 'Details konnten nicht geladen werden. Bitte später erneut versuchen.',
-                        ja: '詳細を読み込めません。後でもう一度お試しください。',
-                      ),
+              child: AnimatedSwitcher(
+                duration: openHandMotionDurationMs(context, 240),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SlideTransition(
+                    position: Tween<Offset>(
+                      begin: const Offset(0, 0.025),
+                      end: Offset.zero,
+                    ).animate(animation),
+                    child: child,
+                  ),
+                ),
+                child: FutureBuilder<Object?>(
+                  key: const ValueKey('details-future'),
+                  future: _details,
+                  builder: (context, snapshot) {
+                    if (snapshot.connectionState != ConnectionState.done) {
+                      return const Center(
+                        key: ValueKey('details-loading'),
+                        child: CircularProgressIndicator(),
+                      );
+                    }
+                    if (snapshot.hasError) {
+                      return _DingTalkDetailsStateMessage(
+                        key: const ValueKey('details-error'),
+                        icon: Icons.error_outline_rounded,
+                        text: openHandLocalizedText(
+                          context,
+                          zh: '读取详情失败，请稍后重试。',
+                          zhHant: '讀取詳情失敗，請稍後重試。',
+                          en: 'Unable to load details. Try again later.',
+                          fr: 'Impossible de charger les détails. Réessayez plus tard.',
+                          de: 'Details konnten nicht geladen werden. Bitte später erneut versuchen.',
+                          ja: '詳細を読み込めません。後でもう一度お試しください。',
+                        ),
+                      );
+                    }
+                    final value = snapshot.data;
+                    if (value == null) {
+                      return _DingTalkDetailsStateMessage(
+                        key: const ValueKey('details-empty'),
+                        icon: Icons.info_outline_rounded,
+                        text: openHandLocalizedText(
+                          context,
+                          zh: '暂无可用详情',
+                          zhHant: '暫無可用詳情',
+                          en: 'No details are available.',
+                          fr: 'Aucun détail disponible.',
+                          de: 'Keine Details verfügbar.',
+                          ja: '利用できる詳細はありません。',
+                        ),
+                      );
+                    }
+                    return _DingTalkDetailsView(
+                      key: const ValueKey('details-loaded'),
+                      value: value,
+                      conversation: widget.conversation,
                     );
-                  }
-                  final value = snapshot.data;
-                  if (value == null) {
-                    return _DingTalkDetailsStateMessage(
-                      icon: Icons.info_outline_rounded,
-                      text: openHandLocalizedText(
-                        context,
-                        zh: '暂无可用详情',
-                        zhHant: '暫無可用詳情',
-                        en: 'No details are available.',
-                        fr: 'Aucun détail disponible.',
-                        de: 'Keine Details verfügbar.',
-                        ja: '利用できる詳細はありません。',
-                      ),
-                    );
-                  }
-                  return _DingTalkDetailsView(
-                    value: value,
-                    conversation: widget.conversation,
-                  );
-                },
+                  },
+                ),
               ),
             ),
           ],
@@ -12698,7 +12720,11 @@ class _DingTalkConversationDetailsDialogState
 }
 
 class _DingTalkDetailsStateMessage extends StatelessWidget {
-  const _DingTalkDetailsStateMessage({required this.icon, required this.text});
+  const _DingTalkDetailsStateMessage({
+    super.key,
+    required this.icon,
+    required this.text,
+  });
 
   final IconData icon;
   final String text;
@@ -12724,7 +12750,11 @@ class _DingTalkDetailsStateMessage extends StatelessWidget {
 }
 
 class _DingTalkDetailsView extends StatelessWidget {
-  const _DingTalkDetailsView({required this.value, required this.conversation});
+  const _DingTalkDetailsView({
+    super.key,
+    required this.value,
+    required this.conversation,
+  });
 
   final Object value;
   final DingTalkConversation conversation;
@@ -12732,94 +12762,93 @@ class _DingTalkDetailsView extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final document = _buildDingTalkDetailDocument(value);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.fromLTRB(2, 2, 4, 18),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _DingTalkDetailIdentityCard(conversation: conversation),
-          if (document.conversation.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _DingTalkDetailCardGroup(
-              title: '会话概览',
-              icon: Icons.forum_rounded,
-              badge: _dingtalkDetailCountLabel(
-                context,
-                document.conversation.length,
-              ),
-              child: _DingTalkDetailGrid(data: document.conversation),
+    final sections = <Widget>[
+      _DingTalkDetailIdentityCard(conversation: conversation),
+      if (document.conversation.isNotEmpty)
+        _DingTalkDetailCardGroup(
+          title: '会话概览',
+          icon: Icons.forum_rounded,
+          badge: _dingtalkDetailCountLabel(
+            context,
+            document.conversation.length,
+          ),
+          child: _DingTalkDetailGrid(data: document.conversation),
+        ),
+      if (document.contact.isNotEmpty)
+        _DingTalkDetailCardGroup(
+          title: '联系人资料',
+          icon: Icons.person_rounded,
+          badge: _dingtalkDetailCountLabel(context, document.contact.length),
+          child: _DingTalkDetailGrid(data: document.contact),
+        ),
+      if (document.profile.isNotEmpty)
+        _DingTalkDetailCardGroup(
+          title: '员工档案',
+          icon: Icons.badge_rounded,
+          maxContentHeight: 460,
+          badge: _dingtalkDetailCountLabel(context, document.profile.length),
+          child: _DingTalkDetailGrid(data: document.profile),
+        ),
+      for (final entry in document.supplemental.entries)
+        if (_dingtalkDetailHasContent(entry.value))
+          _DingTalkDetailCardGroup(
+            title: entry.key,
+            icon: _dingtalkDetailSectionIcon(entry.key),
+            maxContentHeight: _dingtalkDetailSectionMaxHeight(entry.key),
+            badge: _dingtalkDetailCountLabel(
+              context,
+              _dingtalkDetailItemCount(entry.value),
             ),
-          ],
-          if (document.contact.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _DingTalkDetailCardGroup(
-              title: '联系人资料',
-              icon: Icons.person_rounded,
-              badge: _dingtalkDetailCountLabel(
-                context,
-                document.contact.length,
+            child: _DingTalkDetailValue(value: entry.value),
+          ),
+    ];
+    return CustomScrollView(
+      key: const PageStorageKey<String>('dingtalk-details'),
+      physics: kOpenHandClampingPhysics,
+      slivers: [
+        SliverPadding(
+          padding: const EdgeInsets.fromLTRB(2, 2, 4, 18),
+          sliver: SliverList.builder(
+            itemCount: sections.length,
+            itemBuilder: (context, index) => Padding(
+              padding: EdgeInsets.only(
+                bottom: index == sections.length - 1 ? 0 : 12,
               ),
-              child: _DingTalkDetailGrid(data: document.contact),
+              child: sections[index],
             ),
-          ],
-          if (document.profile.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _DingTalkDetailCardGroup(
-              title: '员工档案',
-              icon: Icons.badge_rounded,
-              maxContentHeight: 460,
-              badge: _dingtalkDetailCountLabel(
-                context,
-                document.profile.length,
-              ),
-              child: _DingTalkDetailGrid(data: document.profile),
-            ),
-          ],
-          for (final entry in document.supplemental.entries)
-            if (_dingtalkDetailHasContent(entry.value)) ...[
-              const SizedBox(height: 12),
-              _DingTalkDetailCardGroup(
-                title: entry.key,
-                icon: _dingtalkDetailSectionIcon(entry.key),
-                maxContentHeight: _dingtalkDetailSectionMaxHeight(entry.key),
+          ),
+        ),
+        if (document.members.isNotEmpty)
+          SliverPadding(
+            padding: const EdgeInsets.only(left: 2, right: 4, bottom: 18),
+            sliver: SliverToBoxAdapter(
+              child: _DingTalkDetailCardGroup(
+                title: '群成员',
+                icon: Icons.people_alt_rounded,
                 badge: _dingtalkDetailCountLabel(
                   context,
-                  _dingtalkDetailItemCount(entry.value),
+                  document.members.length,
+                  unit: '人',
                 ),
-                child: _DingTalkDetailValue(value: entry.value),
-              ),
-            ],
-          if (document.members.isNotEmpty) ...[
-            const SizedBox(height: 12),
-            _DingTalkDetailCardGroup(
-              title: '群成员',
-              icon: Icons.people_alt_rounded,
-              badge: _dingtalkDetailCountLabel(
-                context,
-                document.members.length,
-                unit: '人',
-              ),
-              child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 480),
-                child: Scrollbar(
-                  child: ListView.separated(
-                    shrinkWrap: true,
-                    primary: false,
-                    physics: kOpenHandClampingPhysics,
-                    padding: const EdgeInsets.only(right: 4),
-                    itemCount: document.members.length,
-                    separatorBuilder: (context, index) =>
-                        const SizedBox(height: 10),
-                    itemBuilder: (context, index) =>
-                        _DingTalkMemberCard(details: document.members[index]),
-                  ),
+                child: Column(
+                  children: [
+                    for (
+                      var index = 0;
+                      index < document.members.length;
+                      index++
+                    )
+                      Padding(
+                        padding: EdgeInsets.only(top: index == 0 ? 0 : 10),
+                        child: _DingTalkMemberCard(
+                          details: document.members[index],
+                        ),
+                      ),
+                  ],
                 ),
               ),
             ),
-          ],
-        ],
-      ),
+          ),
+      ],
     );
   }
 }
@@ -12845,11 +12874,15 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
     final colors = theme.colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLowest.withValues(alpha: 0.84),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.62),
-        ),
+        color: colors.surfaceContainerLowest.withValues(alpha: 0.92),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.08),
+            blurRadius: 22,
+            offset: const Offset(0, 8),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
@@ -13094,9 +13127,20 @@ class _DingTalkMemberCard extends StatelessWidget {
 
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: accent.withValues(alpha: 0.18)),
+        gradient: LinearGradient(
+          colors: [
+            colors.surfaceContainerHighest.withValues(alpha: 0.86),
+            colors.primaryContainer.withValues(alpha: 0.42),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(16),
+        boxShadow: [
+          BoxShadow(
+            color: colors.shadow.withValues(alpha: 0.07),
+            blurRadius: 16,
+            offset: const Offset(0, 5),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
@@ -13175,11 +13219,22 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
     final isGroup = conversation.type == DingTalkConversationType.group;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(16),
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.58),
+        gradient: LinearGradient(
+          colors: [
+            colors.primaryContainer.withValues(alpha: 0.92),
+            colors.tertiaryContainer.withValues(alpha: 0.78),
+          ],
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
         ),
+        borderRadius: BorderRadius.circular(20),
+        boxShadow: [
+          BoxShadow(
+            color: colors.primary.withValues(alpha: 0.18),
+            blurRadius: 24,
+            offset: const Offset(0, 10),
+          ),
+        ],
       ),
       child: Padding(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
@@ -13365,17 +13420,21 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
             ],
           ),
           const SizedBox(height: 10),
-          if (_dingtalkDetailNeedsOwnScroll(value))
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 360),
-              child: SingleChildScrollView(
-                primary: false,
-                padding: const EdgeInsets.only(right: 4),
-                child: content,
-              ),
-            )
-          else
-            content,
+          AnimatedSize(
+            duration: openHandMotionDurationMs(context, 220),
+            curve: Curves.easeOutCubic,
+            alignment: Alignment.topCenter,
+            child: _dingtalkDetailNeedsOwnScroll(value)
+                ? ConstrainedBox(
+                    constraints: const BoxConstraints(maxHeight: 360),
+                    child: SingleChildScrollView(
+                      primary: false,
+                      padding: const EdgeInsets.only(right: 4),
+                      child: content,
+                    ),
+                  )
+                : content,
+          ),
         ],
       ),
     );
