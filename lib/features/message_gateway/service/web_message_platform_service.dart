@@ -87,6 +87,7 @@ class _WebWriteApprovalRequest {
     required this.createdAt,
     required this.expiresAt,
     required this.completer,
+    required this.source,
   });
 
   final String id;
@@ -96,6 +97,7 @@ class _WebWriteApprovalRequest {
   final bool isWriteCommand;
   final DateTime createdAt;
   final DateTime expiresAt;
+  final String source;
   final Completer<BashCommandApprovalDecision> completer;
 
   Map<String, Object?> toJson() {
@@ -107,6 +109,7 @@ class _WebWriteApprovalRequest {
       'is_write_command': isWriteCommand,
       'created_at': createdAt.toUtc().toIso8601String(),
       'expires_at': expiresAt.toUtc().toIso8601String(),
+      'source': source,
     };
   }
 }
@@ -130,6 +133,7 @@ class WebWriteApprovalRequest {
     required this.isWriteCommand,
     required this.createdAt,
     required this.expiresAt,
+    this.source = 'web',
   });
 
   factory WebWriteApprovalRequest._fromInternal(
@@ -143,6 +147,7 @@ class WebWriteApprovalRequest {
       isWriteCommand: approval.isWriteCommand,
       createdAt: approval.createdAt,
       expiresAt: approval.expiresAt,
+      source: approval.source,
     );
   }
 
@@ -153,6 +158,7 @@ class WebWriteApprovalRequest {
   final bool isWriteCommand;
   final DateTime createdAt;
   final DateTime expiresAt;
+  final String source;
 
   BashCommandApprovalRequest toBashCommandApprovalRequest() {
     return BashCommandApprovalRequest(
@@ -7264,6 +7270,7 @@ class WebMessagePlatformService {
       createdAt: createdAt,
       expiresAt: createdAt.add(timeout),
       completer: completer,
+      source: source,
     );
     _pendingWriteApprovals[approval.id] = approval;
     _sessionController.setSessionAwaitingApproval(sessionId);

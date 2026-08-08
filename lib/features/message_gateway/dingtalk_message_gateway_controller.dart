@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:collection';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter/services.dart';
@@ -17,6 +18,31 @@ import 'data/dingtalk_message_gateway_store.dart';
 import 'message_gateway_dependencies.dart';
 import 'model/dingtalk_message_gateway.dart';
 import 'service/dingtalk_message_gateway_service.dart';
+
+typedef DingTalkWriteApprovalHandler =
+    Future<BashCommandApprovalDecision> Function(
+      String sessionId,
+      BashCommandApprovalRequest request,
+    );
+
+class _QueuedDingTalkResponse {
+  _QueuedDingTalkResponse(this.content, Completer<void> completer)
+    : waiters = <Completer<void>>[completer];
+
+  String content;
+  final List<Completer<void>> waiters;
+
+  void merge(String nextContent, Completer<void> completer) {
+    content = '$content\n\n$nextContent';
+    waiters.add(completer);
+  }
+
+  void complete() {
+    for (final waiter in waiters) {
+      if (!waiter.isCompleted) waiter.complete();
+    }
+  }
+}
 
 class DingTalkMessageGatewayController extends ChangeNotifier {
   DingTalkMessageGatewayController(
@@ -50,6 +76,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Map<String, DingTalkConversation> _conversations =
       <String, DingTalkConversation>{};
   final Set<String> _responseInFlight = <String>{};
+  final Map<String, Queue<_QueuedDingTalkResponse>> _responseQueues =
+      <String, Queue<_QueuedDingTalkResponse>>{};
+  final Set<String> _responseDraining = <String>{};
   final Set<String> _seenMessageIds = <String>{};
   final Map<String, (DateTime, List<DingTalkConversationTarget>)>
   _targetSearchCache = <String, (DateTime, List<DingTalkConversationTarget>)>{};
@@ -60,6 +89,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool _pollInFlight = false;
   bool _initialized = false;
   bool _disposed = false;
+  DingTalkWriteApprovalHandler? _writeApprovalHandler;
   bool _isAuthenticating = false;
   bool _isPolling = false;
   bool _isSending = false;
@@ -90,6 +120,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   DingTalkAuthStatus get authStatus => _authStatus;
   DingTalkGatewaySettings get settings => _settings;
+
+  /// 由应用层注入审批弹窗协调器，控制器本身不持有 BuildContext。
+  set writeApprovalHandler(DingTalkWriteApprovalHandler? handler) {
+    _writeApprovalHandler = handler;
+  }
+
   List<AiModelConfig> get aiModels =>
       List<AiModelConfig>.unmodifiable(_settingsController.aiModels);
   AiModelConfig? get activeAiModel => _settingsController.selectedAiModel;
@@ -164,6 +200,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final conversation = _conversations[conversationId];
     final sessionId = conversation?.aiSessionId;
     return _responseInFlight.contains(conversationId) ||
+        (_responseQueues[conversationId]?.isNotEmpty ?? false) ||
         (sessionId != null && _sessionController.canStopResponding(sessionId));
   }
 
@@ -172,6 +209,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final sessionId = conversation?.aiSessionId;
     if (sessionId != null && _sessionController.canStopResponding(sessionId)) {
       await _sessionController.stopResponding(sessionId);
+    }
+    final queue = _responseQueues.remove(conversationId);
+    if (queue != null) {
+      for (final item in queue) {
+        item.complete();
+      }
     }
     _responseInFlight.remove(conversationId);
     _notify();
@@ -374,7 +417,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         text: content,
         uuid: _uuid.v4(),
       );
-      await _respondWithAi(conversation, content);
+      await _enqueueAiResponse(conversation, content);
       return true;
     } catch (error, stack) {
       _setError('发送钉钉消息', error, stack);
@@ -417,7 +460,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         if (_settings.reminderMode == DingTalkReminderMode.sound) {
           unawaited(SystemSound.play(SystemSoundType.alert));
         }
-        unawaited(_respondWithAi(conversation, message.content));
+        unawaited(_enqueueAiResponse(conversation, message.content));
       }
       _clearError();
     } catch (error, stack) {
@@ -445,9 +488,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   ) async {
     if (!_responseInFlight.add(conversation.id)) return;
     _notify();
-    final model = _resolveModel();
-    final templates = _sessionController.availableTemplates;
     try {
+      final model = _resolveModel();
+      final templates = _sessionController.availableTemplates;
       if (model == null || templates.isEmpty) return;
       await _mcpController.ensureRuntimeToolCatalogs(
         maxWait: const Duration(seconds: 6),
@@ -527,11 +570,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           initialModelProviderConfigId: model.id,
           initialModelId: model.modelId,
           metadata: <String, Object?>{
+            'created_via': 'dingtalk_gateway',
             'dingtalk_conversation_id': conversation.id,
           },
+          selectAfterCreate: false,
         );
         if (!created) return;
-        sessionId = _sessionController.currentSessionId;
+        for (final candidate in _sessionController.sessions.reversed) {
+          if (candidate.isDingTalkGatewaySession &&
+              candidate.metadata['dingtalk_conversation_id'] ==
+                  conversation.id) {
+            sessionId = candidate.id;
+            break;
+          }
+        }
         conversation.aiSessionId = sessionId;
       }
       if (sessionId == null) return;
@@ -539,15 +591,38 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         sessionId,
         _settings.fullAccessPermission,
       );
+      final requireWriteConfirmation =
+          AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
+            templateId: templateId,
+            fullAccessPermission: _settings.fullAccessPermission,
+            globalConfirmationEnabled:
+                _settingsController.aiWriteCommandConfirmationEnabled,
+          );
       final sent = await _sessionController.sendMessage(
         sessionId: sessionId,
         content: content,
         model: model,
         runtimeContext: runtimeContext,
-        requireWriteCommandConfirmation: !_settings.fullAccessPermission,
-        confirmWriteCommand: _settings.fullAccessPermission
-            ? null
-            : (_) async => BashCommandApprovalDecision.rejected,
+        denyCommandRules: _settingsController.aiDenyCommandRules,
+        requireWriteCommandConfirmation: requireWriteConfirmation,
+        confirmWriteCommand: requireWriteConfirmation
+            ? (request) {
+                if (_settingsController.aiAllowCommandRules.any(
+                  (rule) => rule.matches(request.command),
+                )) {
+                  return Future<BashCommandApprovalDecision>.value(
+                    BashCommandApprovalDecision.approved,
+                  );
+                }
+                final handler = _writeApprovalHandler;
+                if (handler == null) {
+                  return Future<BashCommandApprovalDecision>.value(
+                    BashCommandApprovalDecision.rejected,
+                  );
+                }
+                return handler(sessionId!, request);
+              }
+            : null,
         userMessageMetadata: const <String, Object?>{
           'sent_via': 'dingtalk_gateway',
         },
@@ -590,6 +665,61 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       silentLog('dingtalk_gateway', '生成钉钉 AI 回复', error, stack);
     } finally {
       _responseInFlight.remove(conversation.id);
+      _notify();
+    }
+  }
+
+  static const int _maxQueuedResponsesPerConversation = 256;
+
+  Future<void> _enqueueAiResponse(
+    DingTalkConversation conversation,
+    String content,
+  ) {
+    final normalized = content.trim();
+    if (normalized.isEmpty || _disposed) return Future<void>.value();
+    final completer = Completer<void>();
+    final queue = _responseQueues.putIfAbsent(
+      conversation.id,
+      () => Queue<_QueuedDingTalkResponse>(),
+    );
+    if (queue.length >= _maxQueuedResponsesPerConversation) {
+      // 极端突发消息时合并队尾，保留全部内容并限制内存增长。
+      queue.last.merge(normalized, completer);
+      _warningMessage = '钉钉会话消息过多，已将突发消息合并后依次处理。';
+    } else {
+      queue.add(_QueuedDingTalkResponse(normalized, completer));
+    }
+    _notify();
+    if (_responseDraining.add(conversation.id)) {
+      unawaited(_drainResponseQueue(conversation));
+    }
+    return completer.future;
+  }
+
+  Future<void> _drainResponseQueue(DingTalkConversation conversation) async {
+    final queue = _responseQueues[conversation.id];
+    if (queue == null) {
+      _responseDraining.remove(conversation.id);
+      return;
+    }
+    try {
+      while (!_disposed && queue.isNotEmpty) {
+        final item = queue.removeFirst();
+        try {
+          await _respondWithAi(conversation, item.content);
+        } catch (error, stack) {
+          silentLog('dingtalk_gateway', '处理钉钉消息队列', error, stack);
+        } finally {
+          item.complete();
+        }
+      }
+    } finally {
+      _responseDraining.remove(conversation.id);
+      if (queue.isEmpty) {
+        _responseQueues.remove(conversation.id);
+      } else if (!_disposed && _responseDraining.add(conversation.id)) {
+        unawaited(_drainResponseQueue(conversation));
+      }
       _notify();
     }
   }
@@ -747,6 +877,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (_disposed) return;
     _pollTimer?.cancel();
     _pollTimer = null;
+    for (final queue in _responseQueues.values) {
+      for (final item in queue) {
+        item.complete();
+      }
+    }
+    _responseQueues.clear();
+    _responseDraining.clear();
+    _writeApprovalHandler = null;
     final persist = _persistInFlight;
     if (persist != null) {
       await persist.timeout(const Duration(seconds: 10), onTimeout: () {});

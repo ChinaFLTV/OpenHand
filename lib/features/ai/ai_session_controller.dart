@@ -1746,9 +1746,14 @@ class AiSessionController extends ChangeNotifier {
         // 冷启动后立刻继续生效。
         _rehydrateThrottleOverrides();
         final currentSessionId = _currentSessionId;
-        if (currentSessionId == null ||
-            !_sessionsById.containsKey(currentSessionId)) {
-          _currentSessionId = null;
+        final currentSession = currentSessionId == null
+            ? null
+            : _sessionsById[currentSessionId];
+        if (currentSession == null || currentSession.isDingTalkGatewaySession) {
+          _currentSessionId = _sessions
+              .where((session) => !session.isDingTalkGatewaySession)
+              .firstOrNull
+              ?.id;
         }
         final editingMessageId = _editingMessageId;
         if (editingMessageId != null &&
@@ -1787,6 +1792,7 @@ class AiSessionController extends ChangeNotifier {
     String initialModelId = '',
     Map<String, Object?>? metadata,
     bool awaitStartHook = true,
+    bool selectAfterCreate = true,
   }) async {
     _captureLatestRuntimeContext(runtimeContext);
     if (isSending) {
@@ -1800,6 +1806,7 @@ class AiSessionController extends ChangeNotifier {
         initialModelId: initialModelId,
         metadata: metadata,
         awaitStartHook: awaitStartHook,
+        selectAfterCreate: selectAfterCreate,
       );
     }
     return _enqueueOperation(
@@ -1813,6 +1820,7 @@ class AiSessionController extends ChangeNotifier {
         initialModelId: initialModelId,
         metadata: metadata,
         awaitStartHook: awaitStartHook,
+        selectAfterCreate: selectAfterCreate,
       ),
     );
   }
@@ -2645,6 +2653,7 @@ class AiSessionController extends ChangeNotifier {
     required String initialModelId,
     Map<String, Object?>? metadata,
     required bool awaitStartHook,
+    required bool selectAfterCreate,
   }) async {
     final template = _templateRepository.resolveTemplate(templateId);
     if (!template.isSupportedOnPlatform(defaultTargetPlatform)) {
@@ -2701,8 +2710,10 @@ class AiSessionController extends ChangeNotifier {
     if (!committed) {
       return false;
     }
-    _currentSessionId = session.id;
-    _editingMessageId = null;
+    if (selectAfterCreate) {
+      _currentSessionId = session.id;
+      _editingMessageId = null;
+    }
     final startHookFuture = _emitSessionStartHook(
       session: session,
       source: 'startup',

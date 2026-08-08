@@ -96,6 +96,13 @@ class MessageGatewayController extends ManagedChangeNotifier {
        _store = store ?? MessageGatewayStore(),
        _service = service ?? WebMessagePlatformService(dependencies),
        _dingtalkController = DingTalkMessageGatewayController(dependencies) {
+    _dingtalkController.writeApprovalHandler = (sessionId, request) {
+      return requestWriteApproval(
+        sessionId: sessionId,
+        request: request,
+        source: 'dingtalk_gateway',
+      );
+    };
     _logSub = _service.logStream.listen((_) => _scheduleLogNotify());
   }
 

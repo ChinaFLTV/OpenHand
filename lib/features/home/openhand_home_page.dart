@@ -398,6 +398,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   String? _scheduledWriteApprovalDialogId;
   String? _presentingWriteApprovalDialogId;
   String? _presentingWriteApprovalSessionId;
+  String? _presentingWriteApprovalSource;
   OpenHandDialogSession<BashCommandApprovalDecision>? _writeApprovalSession;
   bool _suppressWriteApprovalDialogResponse = false;
   AiSessionMode _detachedComposerMode = AiSessionMode.chat;
@@ -791,7 +792,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   List<AiSession> _navigationSessions(AiSessionController sessionController) {
-    final sessions = sessionController.sessions;
+    final sessions = sessionController.sessions
+        .where((session) => !session.isDingTalkGatewaySession)
+        .toList(growable: false);
     if (sessions.length <= _navigationSessionLimit) {
       return sessions;
     }
@@ -809,7 +812,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     for (final sessionId in retainedIds) {
       if (visibleIds.contains(sessionId)) continue;
       final session = sessionController.sessionById(sessionId);
-      if (session == null) continue;
+      if (session == null || session.isDingTalkGatewaySession) continue;
       final isCurrent = sessionId == sessionController.currentSessionId;
       if (isCurrent ||
           _displaySendPhaseForSession(sessionController, sessionId) !=
@@ -841,7 +844,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   }
 
   void _loadMoreNavigationSessions() {
-    final sessionCount = context.read<AiSessionController>().sessions.length;
+    final sessionCount = context
+        .read<AiSessionController>()
+        .sessions
+        .where((session) => !session.isDingTalkGatewaySession)
+        .length;
     if (_navigationSessionLimit >= sessionCount) return;
     setState(() {
       _navigationSessionLimit = math.min(
@@ -1395,7 +1402,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   void _dismissWriteApprovalDialogIfSessionChanged(String? currentSessionId) {
     final presentingSessionId = _presentingWriteApprovalSessionId;
     if (presentingSessionId == null ||
-        presentingSessionId == currentSessionId) {
+        presentingSessionId == currentSessionId ||
+        _presentingWriteApprovalSource == 'dingtalk_gateway') {
       return;
     }
     _suppressWriteApprovalDialogResponse = true;
@@ -1435,12 +1443,13 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (_scheduledWriteApprovalDialogId != null) {
       return;
     }
-    final currentSessionId = _observedSessionController?.currentSessionId;
-    if (currentSessionId == null || currentSessionId.isEmpty) {
-      return;
-    }
     for (final approval in approvals) {
-      if (approval.sessionId != currentSessionId) {
+      final isDingTalkApproval = approval.source == 'dingtalk_gateway';
+      final currentSessionId = _observedSessionController?.currentSessionId;
+      if (!isDingTalkApproval &&
+          (currentSessionId == null ||
+              currentSessionId.isEmpty ||
+              approval.sessionId != currentSessionId)) {
         continue;
       }
       if (_handledWriteApprovalDialogIds.contains(approval.id)) {
@@ -1472,7 +1481,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         _handledWriteApprovalDialogIds.contains(approval.id)) {
       return;
     }
-    if (_observedSessionController?.currentSessionId != approval.sessionId) {
+    if (approval.source != 'dingtalk_gateway' &&
+        _observedSessionController?.currentSessionId != approval.sessionId) {
       return;
     }
     if (!gatewayController.pendingWriteApprovals.any(
@@ -1483,6 +1493,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
     _presentingWriteApprovalDialogId = approval.id;
     _presentingWriteApprovalSessionId = approval.sessionId;
+    _presentingWriteApprovalSource = approval.source;
     _suppressWriteApprovalDialogResponse = false;
     _handledWriteApprovalDialogIds.add(approval.id);
     var responseAttempted = false;
@@ -1539,6 +1550,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       if (_presentingWriteApprovalSessionId == approval.sessionId) {
         _presentingWriteApprovalSessionId = null;
+      }
+      if (_presentingWriteApprovalSource == approval.source) {
+        _presentingWriteApprovalSource = null;
       }
       if (identical(_writeApprovalSession, dialogSession)) {
         _writeApprovalSession = null;
@@ -3135,7 +3149,9 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   Future<void> _cycleSessionSelection(int delta) async {
     final sessionController = context.read<AiSessionController>();
-    final sessions = sessionController.sessions;
+    final sessions = sessionController.sessions
+        .where((session) => !session.isDingTalkGatewaySession)
+        .toList(growable: false);
     if (sessions.isEmpty) {
       return;
     }
@@ -9514,8 +9530,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                             ),
                             currentSessionId:
                                 sessionController.currentSessionId,
-                            totalSessionCount:
-                                sessionController.sessions.length,
+                            totalSessionCount: sessionController.sessions
+                                .where(
+                                  (session) =>
+                                      !session.isDingTalkGatewaySession,
+                                )
+                                .length,
                             harnessInsertionIndex:
                                 _navigationHarnessInsertionIndex(sessions),
                           );

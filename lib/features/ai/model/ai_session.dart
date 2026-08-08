@@ -782,6 +782,11 @@ class AiSession {
   final AiSessionMessageLoadState messageLoadState;
   final int messageWindowStartIndex;
   final int messageTotalCount;
+
+  /// 是否由钉钉消息网关创建。此类会话仅供网关复用，不显示在普通线程导航中。
+  bool get isDingTalkGatewaySession =>
+      metadata['created_via'] == 'dingtalk_gateway' ||
+      metadata.containsKey('dingtalk_conversation_id');
   // 派生自 [messages] 的 O(N) 缓存。刻意不用 `late final` 字段初始化器：
   // 那样每个 copyWith 产出的新实例都会在首次访问时重跑全量扫描，而
   // 绝大多数 copyWith（改标题 / 统计 / 错误 / 流式节流等）并不改动
