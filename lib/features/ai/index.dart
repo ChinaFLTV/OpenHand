@@ -18,6 +18,7 @@ export 'model/ai_context_usage.dart';
 export 'model/ai_cost_breakdown.dart';
 export 'model/ai_creation_mode.dart';
 export 'model/ai_deny_command_rule.dart';
+export 'model/ai_dingtalk_dws_command.dart';
 export 'model/ai_endpoint_override.dart';
 export 'model/ai_input_cache_policy.dart';
 export 'model/ai_lsp_backend_catalog.dart';
@@ -99,7 +100,9 @@ export 'service/workspace/ai_workspace_instruction_service.dart';
 // 工具
 export 'tools/ai_tool_execution_context.dart';
 export 'tools/android_reverse_adb_command_guard.dart';
+export 'tools/dingtalk/ai_dingtalk_dws_tool.dart';
 export 'tools/planning/ai_ask_user_choice_tool.dart';
+export 'tools/search/ai_dingtalk_tool_search_tool.dart';
 export 'tools/search/ai_tool_search_tool.dart';
 
 // 工具函数

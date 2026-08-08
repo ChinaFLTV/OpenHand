@@ -302,6 +302,7 @@ class DingTalkGatewaySettings {
     this.allowedMemoryIds = const <String>[],
     this.allowedInstructionIds = const <String>[],
     this.allowedKnowledgeBaseSourceIds = const <String>[],
+    this.allowedDingTalkDwsCommandIds = const <String>[],
     this.allowedGroupTargets = const <DingTalkConversationTarget>[],
     this.allowedContactTargets = const <DingTalkConversationTarget>[],
     this.responseEchoTypes = const <DingTalkResponseEchoType>[
@@ -329,6 +330,10 @@ class DingTalkGatewaySettings {
       allowedKnowledgeBaseSourceIds: _stringList(
         json['allowed_knowledge_base_source_ids'],
       ),
+      allowedDingTalkDwsCommandIds: _stringList(
+        json['allowed_dingtalk_dws_command_ids'],
+        limit: 1024,
+      ),
       allowedGroupTargets: _targetList(
         json['allowed_group_targets'],
         DingTalkConversationType.group,
@@ -352,6 +357,7 @@ class DingTalkGatewaySettings {
   final List<String> allowedMemoryIds;
   final List<String> allowedInstructionIds;
   final List<String> allowedKnowledgeBaseSourceIds;
+  final List<String> allowedDingTalkDwsCommandIds;
   final List<DingTalkConversationTarget> allowedGroupTargets;
   final List<DingTalkConversationTarget> allowedContactTargets;
   final List<DingTalkResponseEchoType> responseEchoTypes;
@@ -362,6 +368,7 @@ class DingTalkGatewaySettings {
     Iterable<String>? availableMemoryIds,
     Iterable<String>? availableInstructionIds,
     Iterable<String>? availableKnowledgeBaseSourceIds,
+    Iterable<String>? availableDingTalkDwsCommandIds,
   }) => DingTalkGatewaySettings(
     pollIntervalSeconds: pollIntervalSeconds.clamp(3, 300).toInt(),
     reminderMode: reminderMode,
@@ -391,6 +398,11 @@ class DingTalkGatewaySettings {
       allowedKnowledgeBaseSourceIds,
       availableKnowledgeBaseSourceIds,
     ),
+    allowedDingTalkDwsCommandIds: _normalizeSelection(
+      allowedDingTalkDwsCommandIds,
+      availableDingTalkDwsCommandIds,
+      limit: 1024,
+    ),
     allowedGroupTargets: _normalizeTargets(allowedGroupTargets),
     allowedContactTargets: _normalizeTargets(allowedContactTargets),
     responseEchoTypes: _normalizeResponseEchoTypes(responseEchoTypes),
@@ -408,6 +420,7 @@ class DingTalkGatewaySettings {
     List<String>? allowedMemoryIds,
     List<String>? allowedInstructionIds,
     List<String>? allowedKnowledgeBaseSourceIds,
+    List<String>? allowedDingTalkDwsCommandIds,
     List<DingTalkConversationTarget>? allowedGroupTargets,
     List<DingTalkConversationTarget>? allowedContactTargets,
     List<DingTalkResponseEchoType>? responseEchoTypes,
@@ -424,6 +437,8 @@ class DingTalkGatewaySettings {
     allowedInstructionIds: allowedInstructionIds ?? this.allowedInstructionIds,
     allowedKnowledgeBaseSourceIds:
         allowedKnowledgeBaseSourceIds ?? this.allowedKnowledgeBaseSourceIds,
+    allowedDingTalkDwsCommandIds:
+        allowedDingTalkDwsCommandIds ?? this.allowedDingTalkDwsCommandIds,
     allowedGroupTargets: allowedGroupTargets ?? this.allowedGroupTargets,
     allowedContactTargets: allowedContactTargets ?? this.allowedContactTargets,
     responseEchoTypes: responseEchoTypes ?? this.responseEchoTypes,
@@ -441,6 +456,7 @@ class DingTalkGatewaySettings {
     'allowed_memory_ids': allowedMemoryIds,
     'allowed_instruction_ids': allowedInstructionIds,
     'allowed_knowledge_base_source_ids': allowedKnowledgeBaseSourceIds,
+    'allowed_dingtalk_dws_command_ids': allowedDingTalkDwsCommandIds,
     'allowed_group_targets': allowedGroupTargets
         .map((item) => item.toJson())
         .toList(growable: false),
@@ -452,12 +468,12 @@ class DingTalkGatewaySettings {
         .toList(growable: false),
   };
 
-  static List<String> _stringList(Object? value) {
+  static List<String> _stringList(Object? value, {int limit = 256}) {
     return stringListFromValue(value)
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)
         .toSet()
-        .take(256)
+        .take(limit)
         .toList(growable: false);
   }
 
@@ -488,9 +504,10 @@ class DingTalkGatewaySettings {
 
   static List<String> _normalizeSelection(
     Iterable<String> values,
-    Iterable<String>? available,
-  ) {
-    final normalized = _stringList(values);
+    Iterable<String>? available, {
+    int limit = 256,
+  }) {
+    final normalized = _stringList(values, limit: limit);
     if (available == null) return normalized;
     final allowed = available
         .map((item) => item.trim())

@@ -30,6 +30,7 @@ import '../../../memory/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_builtin_tool_config.dart';
 import '../../model/ai_deny_command_rule.dart';
+import '../../model/ai_dingtalk_dws_command.dart';
 import '../../model/ai_model_config.dart';
 import '../../model/ai_session_runtime_context.dart';
 import '../../tools/ai_tool_registry.dart';
@@ -193,7 +194,10 @@ class AiResolvedToolCatalog {
     final normalizedName = normalizeAsciiLookupKey(name);
     if (normalizedName.isEmpty) return null;
     for (final tool in toolsByName.values) {
-      if (tool.builtinKind != AiBuiltinToolKind.toolSearch) continue;
+      if (tool.builtinKind != AiBuiltinToolKind.toolSearch &&
+          tool.builtinKind != AiBuiltinToolKind.dingTalkToolSearch) {
+        continue;
+      }
       final direct = tool.toolSearchDeferredTools[name];
       if (direct != null) return direct;
       for (final entry in tool.toolSearchDeferredTools.entries) {
@@ -231,6 +235,8 @@ class AiResolvedTool {
     this.builtinConfig,
     this.toolSearchDeferredToolDefinitions = const <String, AiToolDefinition>{},
     this.toolSearchDeferredTools = const <String, AiResolvedTool>{},
+    this.dingtalkDwsCommand,
+    this.dingtalkDwsCommands = const <AiDingTalkDwsCommand>[],
   });
 
   final String name;
@@ -250,6 +256,8 @@ class AiResolvedTool {
 
   /// 以可调用名称索引的延迟工具完整元数据。
   final Map<String, AiResolvedTool> toolSearchDeferredTools;
+  final AiDingTalkDwsCommand? dingtalkDwsCommand;
+  final List<AiDingTalkDwsCommand> dingtalkDwsCommands;
 
   AiResolvedTool withToolSearchDeferredTools({
     required Map<String, AiToolDefinition> definitions,
@@ -264,6 +272,8 @@ class AiResolvedTool {
       mcpTool: mcpTool,
       skill: skill,
       builtinConfig: builtinConfig,
+      dingtalkDwsCommand: dingtalkDwsCommand,
+      dingtalkDwsCommands: dingtalkDwsCommands,
       toolSearchDeferredToolDefinitions:
           Map<String, AiToolDefinition>.unmodifiable(definitions),
       toolSearchDeferredTools: Map<String, AiResolvedTool>.unmodifiable(tools),
@@ -325,6 +335,8 @@ enum AiBuiltinToolKind {
   machineTerminalWrite,
   machineTerminalExec,
   machineTerminalControl,
+  dingTalkToolSearch,
+  dingtalkDws,
 }
 
 class AiToolExecutionResult {
@@ -513,6 +525,7 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.machineTerminalWrite,
         AiBuiltinToolKind.machineTerminalExec,
         AiBuiltinToolKind.machineTerminalControl,
+        AiBuiltinToolKind.dingtalkDws,
         AiBuiltinToolKind.edit,
         AiBuiltinToolKind.multiEdit,
         AiBuiltinToolKind.applyFileDiffs,
@@ -768,6 +781,10 @@ class AiToolRuntimeService {
     final result = <AiResolvedTool>[];
     for (final cfg in sortedConfigs) {
       if (!cfg.enabled) continue;
+      if (cfg.kind == AiBuiltinToolKind.dingTalkToolSearch ||
+          cfg.kind == AiBuiltinToolKind.dingtalkDws) {
+        continue;
+      }
       final baseTool = toolByKind[cfg.kind];
       if (baseTool == null) continue;
       final overrideName = nullIfBlank(cfg.displayName);
@@ -791,6 +808,8 @@ class AiToolRuntimeService {
             mcpTool: baseTool.mcpTool,
             skill: baseTool.skill,
             builtinConfig: cfg,
+            dingtalkDwsCommand: baseTool.dingtalkDwsCommand,
+            dingtalkDwsCommands: baseTool.dingtalkDwsCommands,
             toolSearchDeferredToolDefinitions:
                 baseTool.toolSearchDeferredToolDefinitions,
             toolSearchDeferredTools: baseTool.toolSearchDeferredTools,
@@ -816,6 +835,8 @@ class AiToolRuntimeService {
           source: baseTool.source,
           builtinKind: baseTool.builtinKind,
           builtinConfig: cfg,
+          dingtalkDwsCommand: baseTool.dingtalkDwsCommand,
+          dingtalkDwsCommands: baseTool.dingtalkDwsCommands,
         ),
       );
     }
@@ -890,6 +911,88 @@ class AiToolRuntimeService {
       if (!_isBuiltinAllowedForTemplate(tool, effectiveTemplateId)) continue;
       builder.register(tool);
     }
+    _registerDingTalkDwsTools(builder, runtimeContext);
+  }
+
+  void _registerDingTalkDwsTools(
+    _ToolCatalogBuilder builder,
+    AiSessionRuntimeContext runtimeContext,
+  ) {
+    final commands = runtimeContext.availableDingTalkDwsCommands
+        .where((item) => item.cliPath.trim().isNotEmpty)
+        .take(946)
+        .toList(growable: false);
+    final deferredTools = <String, AiResolvedTool>{};
+    final deferredDefinitions = <String, AiToolDefinition>{};
+    final usedToolNames = <String>{};
+    for (final command in commands) {
+      final name = dingtalkDwsToolName(command, usedNames: usedToolNames);
+      final definition = AiToolDefinition(
+        name: name,
+        description:
+            '${command.description.isEmpty ? command.summary : command.description}\n'
+            'DWS 命令：${command.cliPath}；产品：${command.productName}；效果：${command.effect}；风险：${command.risk}。',
+        parameters: <String, Object?>{
+          'type': 'object',
+          'properties': command.parameters,
+          'required': command.requiredParameterNames,
+          'additionalProperties': false,
+        },
+      );
+      final resolved = AiResolvedTool(
+        name: name,
+        definition: definition,
+        source: AiRuntimeToolSource.builtin,
+        builtinKind: AiBuiltinToolKind.dingtalkDws,
+        dingtalkDwsCommand: command,
+      );
+      deferredTools[name] = resolved;
+      deferredDefinitions[name] = definition;
+    }
+    const searchDefinition = AiToolDefinition(
+      name: 'DingTalkToolSearchTool',
+      description:
+          '按关键词搜索当前钉钉网关已启用的 DWS 扩展工具。支持 select:精确名称、关键词和 +必含词；只返回工具 Schema，不执行命令。',
+      parameters: <String, Object?>{
+        'type': 'object',
+        'properties': <String, Object?>{
+          'query': <String, Object?>{
+            'type': 'string',
+            'description': '搜索词或 select:工具名，不能为空。',
+          },
+          'max_results': <String, Object?>{
+            'type': 'integer',
+            'minimum': 1,
+            'maximum': 12,
+          },
+          'tool_name': <String, Object?>{
+            'type': 'string',
+            'description': '搜索结果中的精确 DWS 工具名。执行时与 arguments 一起提供。',
+          },
+          'arguments': <String, Object?>{
+            'type': 'object',
+            'description': '目标 DWS 工具的参数对象。',
+            'additionalProperties': true,
+          },
+        },
+        'required': <String>['query'],
+        'additionalProperties': false,
+      },
+    );
+    builder.register(
+      AiResolvedTool(
+        name: searchDefinition.name,
+        definition: searchDefinition,
+        source: AiRuntimeToolSource.builtin,
+        builtinKind: AiBuiltinToolKind.dingTalkToolSearch,
+        dingtalkDwsCommands: commands,
+        toolSearchDeferredToolDefinitions:
+            Map<String, AiToolDefinition>.unmodifiable(deferredDefinitions),
+        toolSearchDeferredTools: Map<String, AiResolvedTool>.unmodifiable(
+          deferredTools,
+        ),
+      ),
+    );
   }
 
   /// 把已就绪的 MCP 目录并入装配结果：透传告警、记录服务端说明并注册工具。
@@ -1153,6 +1256,93 @@ class AiToolRuntimeService {
             ...delegatedResult.metadata,
             'tool_search_gateway': true,
             'tool_search_gateway_tool_name': deferredTool.definition.name,
+          },
+        );
+      }
+    }
+    if (resolvedTool.builtinKind == AiBuiltinToolKind.dingTalkToolSearch) {
+      executionCatalog = _toolSearchCatalogForTemplate(
+        catalog: catalog,
+        toolSearch: resolvedTool,
+        metadata: metadata,
+      );
+      resolvedTool = executionCatalog.find(toolCall.name) ?? resolvedTool;
+      final gatewayArguments = AiToolUtils.decodeArguments(
+        toolCall.arguments,
+        parameters: resolvedTool.definition.parameters,
+      );
+      final deferredToolName = AiToolUtils.readString(
+        gatewayArguments['tool_name'],
+      );
+      if (deferredToolName.isNotEmpty) {
+        final deferredTool = executionCatalog.findDeferredTool(
+          deferredToolName,
+        );
+        if (deferredTool == null ||
+            deferredTool.builtinKind != AiBuiltinToolKind.dingtalkDws) {
+          return AiToolUtils.invalidResult(
+            'DingTalkToolSearchTool',
+            '钉钉 DWS 工具不可用：$deferredToolName。请先搜索并使用已返回的精确工具名。',
+          );
+        }
+        final delegatedArguments = _toolSearchDelegatedArguments(
+          gatewayArguments['arguments'],
+        );
+        if (delegatedArguments == null) {
+          return AiToolUtils.invalidResult(
+            'DingTalkToolSearchTool',
+            '`arguments` 必须是符合目标工具 Schema 的 JSON 对象。',
+          );
+        }
+        final delegatedToolCall = AiToolCall(
+          id: toolCall.id,
+          name: deferredTool.definition.name,
+          arguments: jsonEncode(delegatedArguments),
+        );
+        final delegatedResult = await execute(
+          sessionId: sessionId,
+          catalog: AiResolvedToolCatalog(
+            definitions: <AiToolDefinition>[deferredTool.definition],
+            toolsByName: <String, AiResolvedTool>{
+              deferredTool.definition.name: deferredTool,
+            },
+            notices: executionCatalog.notices,
+            mcpServerInstructionsByName:
+                executionCatalog.mcpServerInstructionsByName,
+          ),
+          toolCall: delegatedToolCall,
+          model: model,
+          previouslyReadFiles: previouslyReadFiles,
+          denyCommandRules: denyCommandRules,
+          requireWriteCommandConfirmation: requireWriteCommandConfirmation,
+          confirmWriteCommand: confirmWriteCommand,
+          cancelSignal: cancelSignal,
+          onBashUpdate: onBashUpdate,
+          metadata: <String, Object?>{
+            ...metadata,
+            'dingtalk_tool_search_gateway': true,
+            'dingtalk_tool_search_gateway_tool_name':
+                deferredTool.definition.name,
+          },
+        );
+        return AiToolExecutionResult(
+          status: delegatedResult.status,
+          command: delegatedResult.command,
+          workingDirectory: delegatedResult.workingDirectory,
+          stdout: delegatedResult.stdout,
+          stderr: delegatedResult.stderr,
+          durationMs: delegatedResult.durationMs,
+          resultText: delegatedResult.resultText,
+          exitCode: delegatedResult.exitCode,
+          matchedRuleId: delegatedResult.matchedRuleId,
+          matchedRulePattern: delegatedResult.matchedRulePattern,
+          isWriteCommand: delegatedResult.isWriteCommand,
+          writeAnalysisReason: delegatedResult.writeAnalysisReason,
+          metadata: <String, Object?>{
+            ...delegatedResult.metadata,
+            'dingtalk_tool_search_gateway': true,
+            'dingtalk_tool_search_gateway_tool_name':
+                deferredTool.definition.name,
           },
         );
       }

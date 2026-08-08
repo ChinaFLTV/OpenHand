@@ -18,6 +18,7 @@ import 'ai_tool.dart';
 import 'ai_tool_execution_context.dart';
 import 'bash/ai_bash_background_tool.dart';
 import 'bash/ai_bash_tool.dart';
+import 'dingtalk/ai_dingtalk_dws_tool.dart';
 import 'fs/ai_apply_file_diffs_tool.dart';
 import 'fs/ai_delete_file_tool.dart';
 import 'fs/ai_edit_tool.dart';
@@ -37,6 +38,7 @@ import 'planning/ai_exit_plan_mode_tool.dart';
 import 'planning/ai_task_tool.dart';
 import 'planning/ai_todo_write_tool.dart';
 import 'search/ai_codebase_search_tool.dart';
+import 'search/ai_dingtalk_tool_search_tool.dart';
 import 'search/ai_grep_tool.dart';
 import 'search/ai_tool_search_tool.dart';
 import 'skill/ai_skill_manager_tool.dart';
@@ -86,6 +88,8 @@ class AiToolRegistry {
       )
       ..register(AiKnowledgeReadTool())
       ..register(AiToolSearchTool())
+      ..register(AiDingTalkToolSearchTool())
+      ..register(AiDingTalkDwsTool())
       ..register(AiAskUserChoiceTool());
   }
 
@@ -154,10 +158,8 @@ class AiToolRegistry {
             parentContext,
             subContext,
             observer: subToolExecutionObserver,
-            unsupportedError:
-                '不支持的数字员工工具：${subContext.toolCall.name}',
-            unavailableError:
-                '数字员工工具不可用：${subContext.toolCall.name}',
+            unsupportedError: '不支持的数字员工工具：${subContext.toolCall.name}',
+            unavailableError: '数字员工工具不可用：${subContext.toolCall.name}',
           ),
         );
         registry.register(tool);
@@ -201,8 +203,7 @@ class AiToolRegistry {
         subContext,
         observer: subToolExecutionObserver,
         unsupportedError: '不支持的子工具：${subContext.toolCall.name}',
-        unavailableError:
-            '子智能体上下文中不可用的工具：${subContext.toolCall.name}',
+        unavailableError: '子智能体上下文中不可用的工具：${subContext.toolCall.name}',
       ),
     );
     registry.register(taskTool);

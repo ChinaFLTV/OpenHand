@@ -492,6 +492,8 @@ class _BuiltinToolTile extends StatelessWidget {
       AiBuiltinToolKind.askUserChoice => Icons.quiz_outlined,
       AiBuiltinToolKind.skillManager => Icons.auto_stories_rounded,
       AiBuiltinToolKind.toolSearch => Icons.search_rounded,
+      AiBuiltinToolKind.dingTalkToolSearch => Icons.extension_rounded,
+      AiBuiltinToolKind.dingtalkDws => Icons.extension_rounded,
       AiBuiltinToolKind.memory => Icons.psychology_rounded,
       AiBuiltinToolKind.knowledgeSearch => Icons.library_books_outlined,
       AiBuiltinToolKind.knowledgeRead => Icons.menu_book_outlined,

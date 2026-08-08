@@ -10,6 +10,7 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
+import '../../ai/index.dart';
 import '../../plugin_service/index.dart';
 import '../model/dingtalk_message_gateway.dart';
 
@@ -18,6 +19,26 @@ class DingTalkGatewayQueryResult {
 
   final List<DingTalkGatewayMessage> messages;
   final String? warning;
+}
+
+class DingTalkDwsCommandExecution {
+  const DingTalkDwsCommandExecution({
+    required this.command,
+    required this.workingDirectory,
+    required this.stdout,
+    required this.stderr,
+    required this.exitCode,
+    required this.timedOut,
+    required this.durationMs,
+  });
+
+  final String command;
+  final String workingDirectory;
+  final String stdout;
+  final String stderr;
+  final int exitCode;
+  final bool timedOut;
+  final int durationMs;
 }
 
 /// dws 返回的业务错误。可选详情接口失败时由调用方按错误类别降级处理。
@@ -119,6 +140,8 @@ class DingTalkMessageGatewayService {
       StreamController<String>.broadcast(sync: true);
   final Map<String, Future<String?>> _mediaDownloadTasks =
       <String, Future<String?>>{};
+  List<AiDingTalkDwsCommand>? _dwsCommandCatalog;
+  DateTime? _dwsCommandCatalogLoadedAt;
   int _runtimeLogSequence = 0;
 
   List<String> get runtimeLogs => _runtimeLogs.snapshot();
@@ -127,6 +150,133 @@ class DingTalkMessageGatewayService {
 
   String get mediaCacheDirectoryPath =>
       p.join(OpenHandPaths.defaultMessageGatewayDirectoryPath(), 'media');
+
+  Future<List<AiDingTalkDwsCommand>> loadDwsCommandCatalog({
+    bool forceRefresh = false,
+  }) async {
+    final cached = _dwsCommandCatalog;
+    final loadedAt = _dwsCommandCatalogLoadedAt;
+    if (!forceRefresh &&
+        cached != null &&
+        loadedAt != null &&
+        DateTime.now().difference(loadedAt) < const Duration(minutes: 10)) {
+      return cached;
+    }
+    try {
+      final raw = await _runJson(const <String>[
+        'schema',
+        '--all',
+        '--compact',
+        '--format',
+        'json',
+      ], timeout: const Duration(seconds: 45));
+      final root = _asMap(raw);
+      final products = root['products'];
+      final result = <AiDingTalkDwsCommand>[];
+      if (products is List) {
+        for (final productValue in products) {
+          if (productValue is! Map) continue;
+          final product = _asMap(productValue);
+          final productId = _first(product, const <String>['id', 'product_id']);
+          if (productId.isEmpty ||
+              productId == 'chat' ||
+              productId == 'event') {
+            continue;
+          }
+          final productName = _first(product, const <String>[
+            'name',
+            'display',
+            'description',
+          ]);
+          final tools = product['tools'];
+          if (tools is! List) continue;
+          for (final toolValue in tools) {
+            if (toolValue is! Map) continue;
+            final tool = _asMap(toolValue);
+            final cliPath = _first(tool, const <String>[
+              'cli_path',
+              'primary_cli_path',
+            ]);
+            final declaredName = _first(tool, const <String>[
+              'name',
+              'cli_name',
+            ]);
+            final name = declaredName.isEmpty
+                ? cliPath.split(' ').last
+                : declaredName;
+            if (cliPath.isEmpty || name.isEmpty) continue;
+            try {
+              result.add(
+                AiDingTalkDwsCommand.fromJson(<String, Object?>{
+                  'product_id': productId,
+                  'product_name': productName,
+                  'cli_path': cliPath,
+                  'name': name,
+                  'description': tool['description'] ?? tool['title'] ?? '',
+                  'summary': tool['agent_summary'] ?? tool['summary'] ?? '',
+                  'effect': tool['effect'] ?? 'read',
+                  'risk': tool['risk'] ?? 'low',
+                  'confirmation': tool['confirmation'] ?? 'not_required',
+                  'parameters': tool['parameters'],
+                  'positionals': tool['positionals'],
+                  'examples': tool['examples'],
+                }),
+              );
+            } on FormatException {
+              continue;
+            }
+          }
+        }
+      }
+      final deduped = <String, AiDingTalkDwsCommand>{
+        for (final command in result) command.cliPath: command,
+      };
+      final catalog = deduped.values.toList(growable: false)
+        ..sort((a, b) => a.cliPath.compareTo(b.cliPath));
+      _dwsCommandCatalog = List<AiDingTalkDwsCommand>.unmodifiable(catalog);
+      _dwsCommandCatalogLoadedAt = DateTime.now();
+      _logRuntime('SUCCESS', '已加载 ${catalog.length} 个钉钉 DWS 扩展命令。');
+      return _dwsCommandCatalog!;
+    } catch (error, stack) {
+      _logRuntime('ERROR', '加载钉钉 DWS 扩展命令失败：$error');
+      silentLog('dingtalk_gateway', '加载 DWS 命令目录', error, stack);
+      return cached ?? const <AiDingTalkDwsCommand>[];
+    }
+  }
+
+  Future<DingTalkDwsCommandExecution> executeDwsCommand({
+    required AiDingTalkDwsCommand command,
+    required List<String> arguments,
+    required String workingDirectory,
+    Future<void>? cancelSignal,
+  }) async {
+    final startedAt = Stopwatch()..start();
+    final executable = await _requireExecutable();
+    final processArguments = <String>[...command.cliPath.split(RegExp(r'\s+'))];
+    processArguments.addAll(arguments);
+    processArguments.addAll(const <String>['--format', 'json']);
+    final result = await runTrackedProcessWithLineLogging(
+      executable,
+      processArguments,
+      timeout: const Duration(minutes: 2),
+      workingDirectory: workingDirectory,
+      tag: 'dingtalk_gateway.dws_tool',
+      maxCapturedLinesPerStream: 4096,
+      onStdoutLine: (_) {},
+      onStderrLine: (line) =>
+          _logRuntime('WARN', 'DWS 扩展命令：${_safeProcessLogLine(line)}'),
+      onTimeout: () => _logRuntime('ERROR', 'DWS 扩展命令执行超时：${command.cliPath}。'),
+    );
+    return DingTalkDwsCommandExecution(
+      command: processArguments.join(' '),
+      workingDirectory: workingDirectory,
+      stdout: result.stdout,
+      stderr: result.stderr,
+      exitCode: result.exitCode,
+      timedOut: result.timedOut,
+      durationMs: startedAt.elapsedMilliseconds,
+    );
+  }
 
   void clearRuntimeLogs() => _runtimeLogs.clear();
 

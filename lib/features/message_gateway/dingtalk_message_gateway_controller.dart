@@ -178,6 +178,33 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       List<KnowledgeSource>.unmodifiable(
         _knowledgeBaseController?.sources ?? const <KnowledgeSource>[],
       );
+  Future<List<AiDingTalkDwsCommand>> loadDwsCommandCatalog({
+    bool forceRefresh = false,
+  }) => _service.loadDwsCommandCatalog(forceRefresh: forceRefresh);
+
+  Future<Object?> _executeDwsCommandForAi({
+    required AiDingTalkDwsCommand command,
+    required Map<String, Object?> arguments,
+    required String workingDirectory,
+    Future<void>? cancelSignal,
+  }) async {
+    final result = await _service.executeDwsCommand(
+      command: command,
+      arguments: AiDingTalkDwsTool.buildCliArguments(command, arguments),
+      workingDirectory: workingDirectory,
+      cancelSignal: cancelSignal,
+    );
+    return <String, Object?>{
+      'command': result.command,
+      'working_directory': result.workingDirectory,
+      'stdout': result.stdout,
+      'stderr': result.stderr,
+      'exit_code': result.exitCode,
+      'timed_out': result.timedOut,
+      'duration_ms': result.durationMs,
+    };
+  }
+
   List<DingTalkConversation> get conversations {
     final values = _conversations.values.toList(growable: false);
     return values..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
@@ -1007,6 +1034,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final builtinToolConfigs = selectedKnowledgeSourceIds.isEmpty
           ? const <AiBuiltinToolConfig>[]
           : _knowledgeBuiltinToolConfigs();
+      final dwsCatalog = _settings.allowedDingTalkDwsCommandIds.isEmpty
+          ? const <AiDingTalkDwsCommand>[]
+          : (await _service.loadDwsCommandCatalog())
+                .where(
+                  (command) => _settings.allowedDingTalkDwsCommandIds.contains(
+                    command.cliPath,
+                  ),
+                )
+                .toList(growable: false);
       final runtimeContext = buildAiSessionRuntimeContext(
         settingsController: _settingsController,
         appInfo: _appInfo,
@@ -1017,6 +1053,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         allowCommandRules: _settingsController.aiAllowCommandRules,
         availableSkills: selectedSkills,
         availableMcpServers: selectedMcp,
+        availableDingTalkDwsCommands: dwsCatalog,
         mcpToolCatalogsByServerName: <String, McpToolCatalog>{
           for (final server in selectedMcp)
             server.name: _mcpController.toolCatalogFor(server.name),
@@ -1028,6 +1065,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           'source': 'dingtalk_gateway',
           'dingtalk_working_directory_boundary': _settings.workingDirectory,
           'dingtalk_allowed_knowledge_source_ids': selectedKnowledgeSourceIds,
+          'dingtalk_dws_executor': _executeDwsCommandForAi,
+          'dingtalk_dws_selected_command_count': dwsCatalog.length,
         },
       );
       var sessionId = conversation.aiSessionId;

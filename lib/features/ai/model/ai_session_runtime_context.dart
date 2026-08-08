@@ -8,6 +8,7 @@ import '../../skills/index.dart';
 import 'ai_allow_command_rule.dart';
 import 'ai_auto_title_fetch_mode.dart';
 import 'ai_builtin_tool_config.dart';
+import 'ai_dingtalk_dws_command.dart';
 import 'ai_message_content_format.dart';
 import 'ai_request_timeout_policy.dart';
 import 'ai_sandbox_settings.dart';
@@ -167,6 +168,7 @@ class AiSessionRuntimeContext {
     AiSandboxSettings? sandboxSettings,
     this.availableSkills = const <LocalSkill>[],
     this.availableMcpServers = const <McpServer>[],
+    this.availableDingTalkDwsCommands = const <AiDingTalkDwsCommand>[],
     this.mcpToolCatalogsByServerName = const <String, McpToolCatalog>{},
     this.mcpLazyLoadingMode = McpLazyLoadingMode.auto,
     this.mcpLazyLoadingThresholdTokens = 16000,
@@ -544,6 +546,7 @@ class AiSessionRuntimeContext {
   final AiSandboxSettings sandboxSettings;
   final List<LocalSkill> availableSkills;
   final List<McpServer> availableMcpServers;
+  final List<AiDingTalkDwsCommand> availableDingTalkDwsCommands;
   final Map<String, McpToolCatalog> mcpToolCatalogsByServerName;
 
   /// MCP 工具懒加载模式（disabled / auto / enabled）。
@@ -662,6 +665,8 @@ class AiSessionRuntimeContext {
       'available_mcp_server_names': availableMcpServers
           .map((item) => item.name)
           .toList(growable: false),
+      'available_dingtalk_dws_command_count':
+          availableDingTalkDwsCommands.length,
       'mcp_tool_catalog_snapshot_count': mcpToolCatalogsByServerName.length,
       'mcp_tool_catalog_ready_count': mcpToolCatalogsByServerName.values
           .where((catalog) => catalog.status == McpToolCatalogStatus.ready)

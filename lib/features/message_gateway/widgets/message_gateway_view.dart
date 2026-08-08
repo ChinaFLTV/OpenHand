@@ -48,6 +48,7 @@ import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/rolling_hash.dart';
 import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/timer_safety.dart';
+import '../../ai/index.dart';
 import '../../knowledge_base/index.dart';
 import '../dingtalk_message_gateway_controller.dart';
 import '../message_gateway_controller.dart';
@@ -16618,6 +16619,11 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       .settings
       .allowedKnowledgeBaseSourceIds
       .toSet();
+  late Set<String> _dwsCommands = widget
+      .controller
+      .settings
+      .allowedDingTalkDwsCommandIds
+      .toSet();
   late List<DingTalkConversationTarget> _allowedGroups =
       List<DingTalkConversationTarget>.from(
         widget.controller.settings.allowedGroupTargets,
@@ -16627,7 +16633,16 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
         widget.controller.settings.allowedContactTargets,
       );
   bool _refreshingResources = false;
+  List<AiDingTalkDwsCommand> _dwsCatalog = const <AiDingTalkDwsCommand>[];
+  bool _dwsCatalogLoading = false;
+  String? _dwsCatalogError;
   bool _saving = false;
+
+  @override
+  void initState() {
+    super.initState();
+    unawaited(_loadDwsCatalog());
+  }
 
   @override
   void dispose() {
@@ -16915,6 +16930,25 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                   ),
                   const SizedBox(height: 10),
                   _DingTalkResourceField(
+                    icon: Icons.extension_rounded,
+                    title: '拓展能力 · 钉钉 DWS',
+                    selectedCount: _dwsCommands.length,
+                    totalCount: _dwsCatalog.length,
+                    refreshing: _dwsCatalogLoading,
+                    onRefresh: () => _loadDwsCatalog(forceRefresh: true),
+                    onTap: _dwsCatalog.isEmpty && _dwsCatalogError != null
+                        ? () => _loadDwsCatalog(forceRefresh: true)
+                        : _selectDwsCommands,
+                  ),
+                  if (_dwsCatalogError != null) ...[
+                    const SizedBox(height: 6),
+                    _DingTalkInfoBanner(
+                      icon: Icons.info_outline_rounded,
+                      text: _dwsCatalogError!,
+                    ),
+                  ],
+                  const SizedBox(height: 10),
+                  _DingTalkResourceField(
                     icon: Icons.auto_fix_high_rounded,
                     title: '技能',
                     selectedCount: _skills.length,
@@ -17079,11 +17113,63 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
         _instructions.retainAll(availableInstructions);
         _knowledgeSources.retainAll(availableKnowledge);
       });
+      await _loadDwsCatalog(forceRefresh: true);
     } catch (error) {
       if (mounted) showOpenHandErrorSnack(context, '刷新资源失败：$error');
     } finally {
       if (mounted) setState(() => _refreshingResources = false);
     }
+  }
+
+  Future<void> _loadDwsCatalog({bool forceRefresh = false}) async {
+    if (_dwsCatalogLoading) return;
+    if (mounted) {
+      setState(() {
+        _dwsCatalogLoading = true;
+        _dwsCatalogError = null;
+      });
+    }
+    try {
+      final catalog = await widget.controller.loadDwsCommandCatalog(
+        forceRefresh: forceRefresh,
+      );
+      if (!mounted) return;
+      final available = catalog.map((item) => item.cliPath).toSet();
+      setState(() {
+        _dwsCatalog = catalog;
+        _dwsCommands.retainAll(available);
+        if (catalog.isEmpty && !widget.controller.isInstalled) {
+          _dwsCatalogError = '未找到 dws，请先在插件板块安装后重试。';
+        }
+      });
+    } catch (error) {
+      if (mounted) {
+        setState(() => _dwsCatalogError = 'DWS 命令目录加载失败，可点击刷新重试。');
+      }
+      silentLog('message_gateway', '加载钉钉 DWS 命令目录', error, StackTrace.current);
+    } finally {
+      if (mounted) setState(() => _dwsCatalogLoading = false);
+    }
+  }
+
+  Future<void> _selectDwsCommands() async {
+    final options = _dwsCatalog
+        .map(
+          (item) => _DingTalkResourceOption(
+            id: item.cliPath,
+            title: item.cliPath,
+            subtitle: '${item.productName} · ${item.description}',
+            icon: Icons.extension_rounded,
+          ),
+        )
+        .toList(growable: false);
+    await _selectResources(
+      title: '选择钉钉 DWS 拓展能力',
+      icon: Icons.extension_rounded,
+      options: options,
+      selected: _dwsCommands,
+      apply: (value) => _dwsCommands = value,
+    );
   }
 
   Future<void> _selectResources({
@@ -17182,6 +17268,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
           allowedKnowledgeBaseSourceIds: _knowledgeSources.toList(
             growable: false,
           ),
+          allowedDingTalkDwsCommandIds: _dwsCommands.toList(growable: false),
           allowedGroupTargets: _allowedGroups,
           allowedContactTargets: _allowedContacts,
           responseEchoTypes: DingTalkResponseEchoType.values

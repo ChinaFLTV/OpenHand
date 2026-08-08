@@ -779,6 +779,8 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.taskOutput || AiBuiltinToolKind.taskStop => 85,
       AiBuiltinToolKind.bash => 90,
       AiBuiltinToolKind.bashBackground => 95,
+      AiBuiltinToolKind.dingTalkToolSearch => 13,
+      AiBuiltinToolKind.dingtalkDws => 100,
       _ => 100,
     };
   }
@@ -793,6 +795,7 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.task => 10,
       AiBuiltinToolKind.todoWrite => 11,
       AiBuiltinToolKind.toolSearch => 12,
+      AiBuiltinToolKind.dingTalkToolSearch => 13,
       AiBuiltinToolKind.glob => 20,
       AiBuiltinToolKind.grep => 21,
       AiBuiltinToolKind.ls => 22,
@@ -819,6 +822,7 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.taskStop => 81,
       AiBuiltinToolKind.bash => 90,
       AiBuiltinToolKind.bashBackground => 91,
+      AiBuiltinToolKind.dingtalkDws => 100,
       AiBuiltinToolKind.agentList => 200,
       AiBuiltinToolKind.agentDetail => 201,
       AiBuiltinToolKind.agentActivityLog => 202,
@@ -863,6 +867,7 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.edit:
       case AiBuiltinToolKind.todoWrite:
       case AiBuiltinToolKind.toolSearch:
+      case AiBuiltinToolKind.dingTalkToolSearch:
       case AiBuiltinToolKind.knowledgeSearch:
       case AiBuiltinToolKind.knowledgeRead:
       case AiBuiltinToolKind.machineTerminalRead:
@@ -887,6 +892,7 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.askUserChoice:
       case AiBuiltinToolKind.skillManager:
       case AiBuiltinToolKind.memory:
+      case AiBuiltinToolKind.dingtalkDws:
       default:
         return AiBuiltinToolLoadStrategy.lazy;
     }

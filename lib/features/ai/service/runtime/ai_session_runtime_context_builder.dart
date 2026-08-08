@@ -9,6 +9,7 @@ import '../../../memory/index.dart';
 import '../../../skills/index.dart';
 import '../../model/ai_allow_command_rule.dart';
 import '../../model/ai_builtin_tool_config.dart';
+import '../../model/ai_dingtalk_dws_command.dart';
 import '../../model/ai_session_runtime_context.dart';
 
 /// 设置项到 [AiSessionRuntimeContext] 的唯一映射。
@@ -29,6 +30,8 @@ AiSessionRuntimeContext buildAiSessionRuntimeContext({
   required List<AiAllowCommandRule> allowCommandRules,
   required List<LocalSkill> availableSkills,
   required List<McpServer> availableMcpServers,
+  List<AiDingTalkDwsCommand> availableDingTalkDwsCommands =
+      const <AiDingTalkDwsCommand>[],
   required Map<String, McpToolCatalog> mcpToolCatalogsByServerName,
   required List<AiBuiltinToolConfig> builtinToolConfigs,
   AiRepositorySnapshot? repositorySnapshot,
@@ -144,6 +147,7 @@ AiSessionRuntimeContext buildAiSessionRuntimeContext({
     sandboxSettings: settingsController.aiSandboxSettings,
     availableSkills: availableSkills,
     availableMcpServers: availableMcpServers,
+    availableDingTalkDwsCommands: availableDingTalkDwsCommands,
     mcpToolCatalogsByServerName: mcpToolCatalogsByServerName,
     builtinToolConfigs: builtinToolConfigs,
     workspaceInstructionDocuments: workspaceInstructionDocuments,
