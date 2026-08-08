@@ -13360,10 +13360,13 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
     final content = _DingTalkDetailValue(value: value);
     return Container(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerLow.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.52),
+        color: colors.surfaceContainerHigh.withValues(alpha: 0.35),
+        borderRadius: BorderRadius.circular(16),
+        border: Border(
+          left: BorderSide(
+            color: colors.primary.withValues(alpha: 0.4),
+            width: 3.5,
+          ),
         ),
       ),
       padding: const EdgeInsets.all(12),
@@ -13453,11 +13456,8 @@ class _DingTalkDetailField extends StatelessWidget {
     final colors = theme.colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHigh.withValues(alpha: 0.55),
+        color: colors.surfaceContainerHigh.withValues(alpha: 0.3),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.48),
-        ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 10),
       child: Row(
