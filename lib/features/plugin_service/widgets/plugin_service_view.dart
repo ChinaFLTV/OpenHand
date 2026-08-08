@@ -47,6 +47,7 @@ const String _playwrightMcpServerName = 'Playwright MCP';
 const String _pluginIconAssetDirectory = 'assets/icons/plugins';
 const String _pluginFallbackIconAsset =
     '$_pluginIconAssetDirectory/blutter.svg';
+const double _kPluginIconSize = 21;
 
 String _pluginIconAssetPath(String pluginId) {
   return switch (pluginId) {
@@ -397,8 +398,8 @@ class _PluginCard extends StatelessWidget {
                           ),
                           child: SvgPicture.asset(
                             pluginIconAsset,
-                            width: 28,
-                            height: 28,
+                            width: _kPluginIconSize,
+                            height: _kPluginIconSize,
                             colorFilter: ColorFilter.mode(
                               theme.colorScheme.onPrimaryContainer,
                               BlendMode.srcIn,
