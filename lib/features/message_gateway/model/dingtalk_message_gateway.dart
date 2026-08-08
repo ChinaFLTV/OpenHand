@@ -10,6 +10,29 @@ enum DingTalkConversationType { group, direct }
 
 enum DingTalkGatewayMessageRole { user, assistant }
 
+enum DingTalkGatewayEventType { message, read, recall, reaction }
+
+@immutable
+class DingTalkGatewayEvent {
+  const DingTalkGatewayEvent({
+    required this.type,
+    required this.messageId,
+    required this.conversationId,
+    required this.conversationType,
+    this.message,
+    this.reaction = '',
+    this.reactionRemoved = false,
+  });
+
+  final DingTalkGatewayEventType type;
+  final String messageId;
+  final String conversationId;
+  final DingTalkConversationType conversationType;
+  final DingTalkGatewayMessage? message;
+  final String reaction;
+  final bool reactionRemoved;
+}
+
 /// 钉钉消息中的媒体资源类型。file 覆盖钉钉文件、压缩包等非预览资源。
 enum DingTalkMediaKind { image, video, audio, file }
 
@@ -557,6 +580,9 @@ class DingTalkGatewayMessage {
     this.fromSelf = false,
     this.failed = false,
     this.mentionedCurrentUser = false,
+    this.readByPeer = false,
+    this.recalled = false,
+    this.reactions = const <String>[],
   });
 
   factory DingTalkGatewayMessage.fromJson(Map<String, Object?> json) {
@@ -589,6 +615,13 @@ class DingTalkGatewayMessage {
       fromSelf: boolFromValue(json['from_self']),
       failed: boolFromValue(json['failed']),
       mentionedCurrentUser: boolFromValue(json['mentioned_current_user']),
+      readByPeer: boolFromValue(
+        json['read_by_peer'] ?? json['is_read'] ?? json['read'],
+      ),
+      recalled: boolFromValue(
+        json['recalled'] ?? json['is_recalled'] ?? json['recall'],
+      ),
+      reactions: _reactionList(json['reactions'] ?? json['reaction']),
     );
   }
 
@@ -605,15 +638,22 @@ class DingTalkGatewayMessage {
   final bool fromSelf;
   final bool failed;
   final bool mentionedCurrentUser;
+  final bool readByPeer;
+  final bool recalled;
+  final List<String> reactions;
 
   bool get isAssistant => role == DingTalkGatewayMessageRole.assistant;
 
   DingTalkGatewayMessage copyWith({
+    String? id,
     String? content,
     List<DingTalkGatewayMedia>? media,
+    bool? readByPeer,
+    bool? recalled,
+    List<String>? reactions,
   }) {
     return DingTalkGatewayMessage(
-      id: id,
+      id: id ?? this.id,
       conversationId: conversationId,
       conversationType: conversationType,
       role: role,
@@ -626,6 +666,9 @@ class DingTalkGatewayMessage {
       fromSelf: fromSelf,
       failed: failed,
       mentionedCurrentUser: mentionedCurrentUser,
+      readByPeer: readByPeer ?? this.readByPeer,
+      recalled: recalled ?? this.recalled,
+      reactions: reactions ?? this.reactions,
     );
   }
 
@@ -643,6 +686,9 @@ class DingTalkGatewayMessage {
     'from_self': fromSelf,
     'failed': failed,
     'mentioned_current_user': mentionedCurrentUser,
+    'read_by_peer': readByPeer,
+    'recalled': recalled,
+    'reactions': reactions,
   };
 
   static List<DingTalkGatewayMedia> _mediaList(Object? raw) {
@@ -663,6 +709,51 @@ class DingTalkGatewayMessage {
       }
     }
     return result.toList(growable: false);
+  }
+
+  static List<String> _reactionList(Object? raw) {
+    final result = <String>[];
+
+    void visit(Object? value) {
+      if (value is List) {
+        for (final item in value) {
+          visit(item);
+        }
+        return;
+      }
+      if (value is Map) {
+        final map = stringKeyedMapFromValue(value);
+        for (final key in const <String>[
+          'emoji',
+          'emoji_code',
+          'emojiCode',
+          'reaction',
+          'reaction_text',
+          'reactionText',
+          'reaction_name',
+          'reactionName',
+          'reaction_type',
+          'reactionType',
+          'type',
+          'value',
+          'content',
+        ]) {
+          final candidate = map[key];
+          if (candidate is String && candidate.trim().isNotEmpty) {
+            visit(candidate);
+            return;
+          }
+        }
+        return;
+      }
+      final text = '$value'.trim();
+      if (text.isNotEmpty && text != 'null' && !result.contains(text)) {
+        result.add(text);
+      }
+    }
+
+    visit(raw);
+    return result.take(12).toList(growable: false);
   }
 }
 

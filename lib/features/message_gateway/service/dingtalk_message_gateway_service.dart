@@ -51,6 +51,32 @@ class DingTalkGatewayCommandException implements Exception {
   String toString() => message;
 }
 
+class _DingTalkEventSubscriptionSpec {
+  const _DingTalkEventSubscriptionSpec({
+    required this.arguments,
+    required this.required,
+    required this.label,
+  });
+
+  final List<String> arguments;
+  final bool required;
+  final String label;
+}
+
+class _DingTalkEventProcessHandle {
+  _DingTalkEventProcessHandle({
+    required this.process,
+    required this.required,
+    required this.label,
+  });
+
+  final Process process;
+  final bool required;
+  final String label;
+  StreamSubscription<String>? stdoutSubscription;
+  StreamSubscription<String>? stderrSubscription;
+}
+
 class DingTalkMessageGatewayService {
   static const Duration _commandTimeout = Duration(seconds: 25);
   static const Duration _authTimeout = Duration(minutes: 15);
@@ -62,12 +88,25 @@ class DingTalkMessageGatewayService {
   static const int _maxMediaCacheFiles = 512;
   static const int _maxMediaCacheBytes = 1024 * 1024 * 1024;
   static const int _maxMediaFileBytes = 512 * 1024 * 1024;
+  static const List<String> _messageEventKeys = <String>[
+    'user_im_message_receive_at',
+    'user_im_message_receive_o2o_all',
+  ];
+  static const List<String> _directStatusEventKeys = <String>[
+    'user_im_message_read_o2o',
+    'user_im_message_recall_o2o',
+    'user_im_message_reaction_o2o',
+  ];
+  static const List<String> _groupStatusEventKeys = <String>[
+    'user_im_message_read_group',
+    'user_im_message_recall_group',
+    'user_im_message_reaction_group',
+  ];
   Process? _authProcess;
-  Process? _eventProcess;
-  StreamController<DingTalkGatewayMessage>? _eventController;
-  StreamSubscription<String>? _eventStdoutSubscription;
-  StreamSubscription<String>? _eventStderrSubscription;
-  Future<Stream<DingTalkGatewayMessage>>? _eventStartFuture;
+  final List<_DingTalkEventProcessHandle> _eventProcesses =
+      <_DingTalkEventProcessHandle>[];
+  StreamController<DingTalkGatewayEvent>? _eventController;
+  Future<Stream<DingTalkGatewayEvent>>? _eventStartFuture;
   int _eventGeneration = 0;
   String? _executable;
   bool _authCancelled = false;
@@ -119,45 +158,148 @@ class DingTalkMessageGatewayService {
 
   String? get cachedExecutable => _executable;
 
-  Future<Stream<DingTalkGatewayMessage>> startEventSubscription() {
+  Future<Stream<DingTalkGatewayEvent>> startEventSubscription({
+    Iterable<DingTalkConversationTarget> targets =
+        const <DingTalkConversationTarget>[],
+  }) {
     final current = _eventController;
     if (current != null) {
-      return Future<Stream<DingTalkGatewayMessage>>.value(current.stream);
+      return Future<Stream<DingTalkGatewayEvent>>.value(current.stream);
     }
-    final pending = _eventStartFuture;
+    final Future<Stream<DingTalkGatewayEvent>>? pending = _eventStartFuture;
     if (pending != null) return pending;
-    final future = _startEventSubscription();
+    final future = _startEventSubscription(targets: targets);
     _eventStartFuture = future;
     return future.whenComplete(() {
       if (identical(_eventStartFuture, future)) _eventStartFuture = null;
     });
   }
 
-  Future<Stream<DingTalkGatewayMessage>> _startEventSubscription() async {
+  Future<Stream<DingTalkGatewayEvent>> _startEventSubscription({
+    required Iterable<DingTalkConversationTarget> targets,
+  }) async {
     final generation = _eventGeneration;
     final executable = await _requireExecutable();
     _logRuntime('INFO', '启动钉钉实时事件监听。');
     if (generation != _eventGeneration) {
       throw StateError('钉钉实时事件监听已取消。');
     }
-    final controller = StreamController<DingTalkGatewayMessage>();
-    final ready = Completer<void>();
+    final controller = StreamController<DingTalkGatewayEvent>();
     _eventController = controller;
-    Process? process;
     try {
-      process = await startTrackedProcessBounded(
-        executable,
-        // 仅监听 @ 当前账号的群消息与全部单聊，群聊未 @ 时不触发响应。
-        const <String>[
+      final specs = _eventSubscriptionSpecs(targets);
+      await _startEventProcess(
+        executable: executable,
+        spec: specs.first,
+        generation: generation,
+      );
+      await Future.wait<void>(
+        specs.skip(1).map((spec) async {
+          try {
+            await _startEventProcess(
+              executable: executable,
+              spec: spec,
+              generation: generation,
+            );
+          } catch (error, stack) {
+            _logRuntime('WARN', '实时事件${spec.label}监听启动失败，已跳过该目标。');
+            silentLog(
+              'dingtalk_gateway',
+              '启动实时事件${spec.label}监听',
+              error,
+              stack,
+            );
+          }
+        }),
+      );
+      if (generation != _eventGeneration) {
+        throw StateError('钉钉实时事件监听已取消。');
+      }
+      return controller.stream;
+    } catch (_) {
+      _logRuntime('ERROR', '启动钉钉实时事件监听失败。');
+      await stopEventSubscription();
+      rethrow;
+    }
+  }
+
+  List<_DingTalkEventSubscriptionSpec> _eventSubscriptionSpecs(
+    Iterable<DingTalkConversationTarget> targets,
+  ) {
+    final specs = <_DingTalkEventSubscriptionSpec>[
+      const _DingTalkEventSubscriptionSpec(
+        arguments: <String>[
           'event',
           'consume',
-          'user_im_message_receive_at',
-          'user_im_message_receive_o2o_all',
+          ..._messageEventKeys,
           '--flatten',
           '--format',
           'ndjson',
           '--ephemeral',
         ],
+        required: true,
+        label: '消息',
+      ),
+    ];
+    final seen = <String>{};
+    for (final target in targets) {
+      final id = target.id.trim();
+      if (id.isEmpty) continue;
+      final isGroup = target.type == DingTalkConversationType.group;
+      final targetFlag = isGroup
+          ? '--group'
+          : target.openDingTalkId.trim().isNotEmpty
+          ? '--open-dingtalk-id'
+          : '--user';
+      final targetValue = isGroup
+          ? id
+          : target.openDingTalkId.trim().isNotEmpty
+          ? target.openDingTalkId.trim()
+          : target.userId.trim().isNotEmpty
+          ? target.userId.trim()
+          : id;
+      if (targetValue.isEmpty) continue;
+      final key = '${target.type.name}:$targetFlag:$targetValue';
+      if (!seen.add(key)) continue;
+      final eventKeys = isGroup
+          ? _groupStatusEventKeys
+          : _directStatusEventKeys;
+      specs.add(
+        _DingTalkEventSubscriptionSpec(
+          arguments: <String>[
+            'event',
+            'consume',
+            ...eventKeys,
+            targetFlag,
+            targetValue,
+            '--flatten',
+            '--format',
+            'ndjson',
+            '--ephemeral',
+          ],
+          required: false,
+          label: '${isGroup ? '群聊' : '单聊'} $targetValue',
+        ),
+      );
+    }
+    if (specs.length > 1) {
+      _logRuntime('INFO', '已为 ${specs.length - 1} 个会话目标订阅状态事件。');
+    }
+    return specs;
+  }
+
+  Future<void> _startEventProcess({
+    required String executable,
+    required _DingTalkEventSubscriptionSpec spec,
+    required int generation,
+  }) async {
+    final ready = Completer<void>();
+    Process? process;
+    _DingTalkEventProcessHandle? handle;
+    try {
+      process = await startTrackedProcessBounded(
+        executable,
+        spec.arguments,
         timeout: _eventProcessStartTimeout,
         tag: 'dingtalk.event.consume',
         startInNewProcessGroup: true,
@@ -167,24 +309,31 @@ class DingTalkMessageGatewayService {
           process,
           gracefulTimeout: const Duration(seconds: 2),
         );
-        await controller.close();
         throw StateError('钉钉实时事件监听已取消。');
       }
-      _eventProcess = process;
-      _logRuntime('INFO', '实时事件监听进程已启动（PID ${process.pid}）。');
-      _eventStdoutSubscription = process.stdout
+      handle = _DingTalkEventProcessHandle(
+        process: process,
+        required: spec.required,
+        label: spec.label,
+      );
+      _eventProcesses.add(handle);
+      _logRuntime('INFO', '实时事件${spec.label}进程已启动（PID ${process.pid}）。');
+      handle.stdoutSubscription = process.stdout
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen(
             (line) {
-              _logRuntime('DEBUG', '实时事件标准输出一行（${line.length} 字符）。');
-              _consumeEventLine(line);
+              _logRuntime(
+                'DEBUG',
+                '实时事件${spec.label}标准输出一行（${line.length} 字符）。',
+              );
+              _consumeEventLine(line, generation);
             },
             onError: (Object error, StackTrace stack) {
               if (!ready.isCompleted) ready.completeError(error, stack);
             },
           );
-      _eventStderrSubscription = process.stderr
+      handle.stderrSubscription = process.stderr
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen(
@@ -194,12 +343,12 @@ class DingTalkMessageGatewayService {
                   !normalized.contains('[event] ready')) {
                 _logRuntime(
                   'WARN',
-                  '实时事件标准错误：${_safeProcessLogLine(normalized)}',
+                  '实时事件${spec.label}标准错误：${_safeProcessLogLine(normalized)}',
                 );
               }
               if (normalized.contains('[event] ready')) {
                 if (!ready.isCompleted) ready.complete();
-                _logRuntime('SUCCESS', '实时事件监听已就绪。');
+                _logRuntime('SUCCESS', '实时事件${spec.label}监听已就绪。');
               } else if (normalized.startsWith('Error:') &&
                   !ready.isCompleted) {
                 ready.completeError(StateError(normalized));
@@ -209,81 +358,85 @@ class DingTalkMessageGatewayService {
               if (!ready.isCompleted) ready.completeError(error, stack);
             },
           );
-      unawaited(_watchEventProcess(process, ready, generation));
+      unawaited(_watchEventProcess(handle, ready, generation));
       await ready.future.timeout(_eventReadyTimeout);
-      if (generation != _eventGeneration) {
-        throw StateError('钉钉实时事件监听已取消。');
-      }
-      return controller.stream;
     } catch (_) {
-      _logRuntime('ERROR', '启动钉钉实时事件监听失败。');
-      if (generation == _eventGeneration) {
-        await stopEventSubscription();
-      } else {
-        if (process != null && identical(_eventProcess, process)) {
-          _eventProcess = null;
-          await terminateTrackedProcessTree(
-            process,
-            gracefulTimeout: const Duration(seconds: 2),
-          );
-        }
-        await controller.close();
+      if (handle != null) {
+        _eventProcesses.remove(handle);
+        await handle.stdoutSubscription?.cancel();
+        await handle.stderrSubscription?.cancel();
+      }
+      if (process != null) {
+        await terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: const Duration(seconds: 2),
+        );
       }
       rethrow;
     }
   }
 
   Future<void> _watchEventProcess(
-    Process process,
+    _DingTalkEventProcessHandle handle,
     Completer<void> ready,
     int generation,
   ) async {
+    final process = handle.process;
     final exitCode = await process.exitCode;
     if (!ready.isCompleted) {
-      ready.completeError(StateError('钉钉实时事件监听进程提前退出（退出码 $exitCode）。'));
+      ready.completeError(
+        StateError('钉钉实时事件${handle.label}进程提前退出（退出码 $exitCode）。'),
+      );
     }
-    if (generation != _eventGeneration || !identical(_eventProcess, process)) {
+    if (generation != _eventGeneration || !_eventProcesses.contains(handle)) {
       return;
     }
     if (exitCode != 0) {
-      _logRuntime('ERROR', '实时事件监听进程退出，退出码 $exitCode。');
-      silentLog('dingtalk_gateway', '实时事件监听进程退出', StateError('退出码 $exitCode'));
+      _logRuntime(
+        handle.required ? 'ERROR' : 'WARN',
+        '实时事件${handle.label}进程退出，退出码 $exitCode。',
+      );
+      silentLog(
+        'dingtalk_gateway',
+        '实时事件${handle.label}进程退出',
+        StateError('退出码 $exitCode'),
+      );
     } else {
-      _logRuntime('INFO', '实时事件监听进程已退出。');
+      _logRuntime('INFO', '实时事件${handle.label}进程已退出。');
     }
-    _eventProcess = null;
-    final controller = _eventController;
-    _eventController = null;
-    final stdoutSubscription = _eventStdoutSubscription;
-    final stderrSubscription = _eventStderrSubscription;
-    _eventStdoutSubscription = null;
-    _eventStderrSubscription = null;
-    await stdoutSubscription?.cancel();
-    await stderrSubscription?.cancel();
-    await controller?.close();
+    _eventProcesses.remove(handle);
+    await handle.stdoutSubscription?.cancel();
+    await handle.stderrSubscription?.cancel();
+    if (handle.required) {
+      await stopEventSubscription();
+    }
   }
 
   Future<void> stopEventSubscription() async {
     _eventGeneration++;
     _eventStartFuture = null;
-    final process = _eventProcess;
-    _eventProcess = null;
+    final processes = List<_DingTalkEventProcessHandle>.from(_eventProcesses);
+    _eventProcesses.clear();
     final controller = _eventController;
     _eventController = null;
-    final stdoutSubscription = _eventStdoutSubscription;
-    final stderrSubscription = _eventStderrSubscription;
-    _eventStdoutSubscription = null;
-    _eventStderrSubscription = null;
-    await stdoutSubscription?.cancel();
-    await stderrSubscription?.cancel();
-    if (process != null) {
+    await Future.wait<void>(
+      processes.map((handle) async {
+        await handle.stdoutSubscription?.cancel();
+        await handle.stderrSubscription?.cancel();
+      }),
+    );
+    if (processes.isNotEmpty) {
       _logRuntime('INFO', '正在停止钉钉实时事件监听。');
-      await terminateTrackedProcessTree(
-        process,
-        gracefulTimeout: const Duration(seconds: 2),
+      await Future.wait<void>(
+        processes.map(
+          (handle) => terminateTrackedProcessTree(
+            handle.process,
+            gracefulTimeout: const Duration(seconds: 2),
+          ),
+        ),
       );
+      _logRuntime('SUCCESS', '钉钉实时事件监听已停止。');
     }
-    if (process != null) _logRuntime('SUCCESS', '钉钉实时事件监听已停止。');
     await controller?.close();
   }
 
@@ -693,12 +846,12 @@ class DingTalkMessageGatewayService {
     return _parseTargets(decoded, type: type);
   }
 
-  Future<void> send({
+  Future<String?> send({
     required DingTalkConversation conversation,
     required String text,
     required String uuid,
   }) async {
-    await _runJson(<String>[
+    final result = await _runJson(<String>[
       'chat',
       'message',
       'send',
@@ -710,9 +863,10 @@ class DingTalkMessageGatewayService {
       '--format',
       'json',
     ]);
+    return _sentMessageId(result);
   }
 
-  Future<void> sendFile({
+  Future<String?> sendFile({
     required DingTalkConversation conversation,
     required String filePath,
     required String uuid,
@@ -720,7 +874,7 @@ class DingTalkMessageGatewayService {
   }) async {
     final normalizedPath = filePath.trim();
     if (normalizedPath.isEmpty) throw const FormatException('文件路径为空。');
-    await _runJson(<String>[
+    final result = await _runJson(<String>[
       'chat',
       'message',
       'send',
@@ -734,6 +888,39 @@ class DingTalkMessageGatewayService {
       '--format',
       'json',
     ]);
+    return _sentMessageId(result);
+  }
+
+  String? _sentMessageId(Object? value) {
+    String find(Object? current, int depth) {
+      if (depth > 4) return '';
+      if (current is List) {
+        for (final item in current) {
+          final id = find(item, depth + 1);
+          if (id.isNotEmpty) return id;
+        }
+        return '';
+      }
+      if (current is! Map) return '';
+      final map = _asMap(current);
+      for (final key in const <String>[
+        'open_message_id',
+        'openMessageId',
+        'message_id',
+        'messageId',
+      ]) {
+        final id = '${map[key] ?? ''}'.trim();
+        if (id.isNotEmpty && id != 'null') return id;
+      }
+      for (final child in map.values) {
+        final id = find(child, depth + 1);
+        if (id.isNotEmpty) return id;
+      }
+      return '';
+    }
+
+    final id = find(value, 0);
+    return id.isEmpty ? null : id;
   }
 
   List<String> _targetArguments(DingTalkConversation conversation) {
@@ -1640,7 +1827,7 @@ class DingTalkMessageGatewayService {
     return result;
   }
 
-  void _consumeEventLine(String line) {
+  void _consumeEventLine(String line, int generation) {
     final text = line.trim();
     if (text.isEmpty || !(text.startsWith('{') || text.startsWith('['))) {
       return;
@@ -1652,14 +1839,23 @@ class DingTalkMessageGatewayService {
       _logRuntime('WARN', '实时事件输出不是有效 JSON，已忽略。');
       return;
     }
-    final message = _parseEventMessage(decoded);
-    if (message != null) _eventController?.add(message);
+    final event = _parseEvent(decoded);
+    if (event != null && generation == _eventGeneration) {
+      _eventController?.add(event);
+    }
   }
 
-  DingTalkGatewayMessage? _parseEventMessage(Object? raw) {
+  DingTalkGatewayEvent? _parseEvent(Object? raw) {
     if (raw is! Map) return null;
     final map = _asMap(raw);
-    final content = _content(map);
+    final eventKey = _eventString(map, const <String>[
+      'event_key',
+      'eventKey',
+      'event_type',
+      'eventType',
+      'type',
+    ]).toLowerCase();
+    final eventType = _eventTypeFromKey(eventKey);
     final conversationId = _eventString(map, const <String>[
       'conversation_id',
       'conversationId',
@@ -1673,20 +1869,66 @@ class DingTalkMessageGatewayService {
       'conversation_type',
       'conversationType',
     ]).toLowerCase();
-    final eventType = _eventString(map, const <String>[
-      'event_type',
-      'eventType',
-      'type',
-    ]).toLowerCase();
-    final messageId = _eventString(map, const <String>[
+    var messageId = _eventString(map, const <String>[
       'message_id',
       'messageId',
       'openMessageId',
       'open_message_id',
-      'event_id',
-      'eventId',
+      'msg_id',
+      'msgId',
     ]);
+    if (messageId.isEmpty && eventType == DingTalkGatewayEventType.message) {
+      messageId = _eventString(map, const <String>['event_id', 'eventId']);
+    }
     if (messageId.isEmpty || conversationId.isEmpty) return null;
+    final conversationType =
+        chatType.contains('group') ||
+            chatType == '2' ||
+            eventKey.contains('group') ||
+            eventKey.contains('receive_at') ||
+            _asBool(map['is_group']) ||
+            _asBool(map['isGroup'])
+        ? DingTalkConversationType.group
+        : DingTalkConversationType.direct;
+    if (eventType != DingTalkGatewayEventType.message) {
+      if (eventType == DingTalkGatewayEventType.reaction) {
+        final reaction = _eventReaction(map);
+        if (reaction.isEmpty) return null;
+        final action = _eventString(map, const <String>[
+          'action',
+          'operation',
+          'operation_type',
+          'operationType',
+          'reaction_action',
+          'reactionAction',
+          'reaction_status',
+          'reactionStatus',
+          'status',
+        ]).toLowerCase();
+        return DingTalkGatewayEvent(
+          type: eventType,
+          messageId: messageId,
+          conversationId: conversationId,
+          conversationType: conversationType,
+          reaction: reaction,
+          reactionRemoved:
+              _asBool(map['removed']) ||
+              _asBool(map['is_removed']) ||
+              action.contains('remove') ||
+              action.contains('delete') ||
+              action.contains('cancel') ||
+              action.contains('revoke') ||
+              action.contains('撤回'),
+        );
+      }
+      return DingTalkGatewayEvent(
+        type: eventType,
+        messageId: messageId,
+        conversationId: conversationId,
+        conversationType: conversationType,
+      );
+    }
+    final content = _content(map);
     final media = _extractMedia(map)
         .map(
           (item) => item.copyWith(
@@ -1706,17 +1948,7 @@ class DingTalkMessageGatewayService {
         ]).toLowerCase().contains('receive_at') ||
         _asBool(map['mentionedCurrentUser']) ||
         _asBool(map['mentioned_current_user']);
-    final conversationType =
-        chatType.contains('group') ||
-            chatType == '2' ||
-            eventType.contains('group') ||
-            eventType.contains('receive_at') ||
-            eventType == '2' ||
-            _asBool(map['is_group']) ||
-            _asBool(map['isGroup'])
-        ? DingTalkConversationType.group
-        : DingTalkConversationType.direct;
-    return DingTalkGatewayMessage(
+    final message = DingTalkGatewayMessage(
       id: messageId,
       conversationId: conversationId,
       conversationType: conversationType,
@@ -1755,9 +1987,85 @@ class DingTalkMessageGatewayService {
           _asBool(map['is_self_loop']),
       mentionedCurrentUser: mentionedCurrentUser,
     );
+    return DingTalkGatewayEvent(
+      type: DingTalkGatewayEventType.message,
+      messageId: messageId,
+      conversationId: conversationId,
+      conversationType: conversationType,
+      message: message,
+    );
   }
 
-  String _eventString(Map<String, Object?> map, List<String> keys) {
+  DingTalkGatewayEventType _eventTypeFromKey(String key) {
+    if (key.contains('reaction')) return DingTalkGatewayEventType.reaction;
+    if (key.contains('recall')) return DingTalkGatewayEventType.recall;
+    if (key.contains('read')) return DingTalkGatewayEventType.read;
+    return DingTalkGatewayEventType.message;
+  }
+
+  String _eventReaction(Map<String, Object?> map, {int depth = 0}) {
+    for (final key in const <String>[
+      'emoji',
+      'emoji_code',
+      'emojiCode',
+      'reaction',
+      'reaction_text',
+      'reactionText',
+      'reaction_name',
+      'reactionName',
+      'reaction_type',
+      'reactionType',
+      'reaction_content',
+      'reactionContent',
+    ]) {
+      final value = map[key];
+      if (value is String && value.trim().isNotEmpty) {
+        return _normalizeReaction(value);
+      }
+      if (value is Map) {
+        final nested = _eventReaction(_asMap(value), depth: depth + 1);
+        if (nested.isNotEmpty) return nested;
+      }
+      if (value is List) {
+        for (final item in value) {
+          if (item is Map) {
+            final nested = _eventReaction(_asMap(item), depth: depth + 1);
+            if (nested.isNotEmpty) return nested;
+          } else if (item is String && item.trim().isNotEmpty) {
+            return _normalizeReaction(item);
+          }
+        }
+      }
+    }
+    if (depth >= 3) return '';
+    for (final value in map.values) {
+      if (value is Map) {
+        final nested = _eventReaction(_asMap(value), depth: depth + 1);
+        if (nested.isNotEmpty) return nested;
+      }
+    }
+    return '';
+  }
+
+  String _normalizeReaction(String value) {
+    final normalized = value.trim();
+    final mapped = switch (normalized.toLowerCase()) {
+      'like' || 'thumb_up' || 'thumbup' => '👍',
+      'heart' || 'love' => '❤️',
+      'laugh' || 'joy' => '😂',
+      'surprise' || 'wow' => '😮',
+      'sad' => '😢',
+      'angry' => '😡',
+      _ => normalized,
+    };
+    return String.fromCharCodes(mapped.runes.take(24));
+  }
+
+  String _eventString(
+    Map<String, Object?> map,
+    List<String> keys, {
+    int depth = 0,
+  }) {
     for (final key in keys) {
       final value = map[key];
       if (value is Map) {
@@ -1780,6 +2088,12 @@ class DingTalkMessageGatewayService {
       if (value is List || value == null) continue;
       final text = '$value'.trim();
       if (text.isNotEmpty && text != 'null') return text;
+    }
+    if (depth >= 3) return '';
+    for (final value in map.values) {
+      if (value is! Map) continue;
+      final nested = _eventString(_asMap(value), keys, depth: depth + 1);
+      if (nested.isNotEmpty) return nested;
     }
     return '';
   }

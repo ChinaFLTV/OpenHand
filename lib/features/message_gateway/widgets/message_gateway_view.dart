@@ -13259,10 +13259,18 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final bubbleColor = widget.mine
+    final baseBubbleColor = widget.mine
         ? colors.primaryContainer
         : colors.surfaceContainerHighest;
-    final foreground = widget.mine
+    final bubbleColor = widget.message.recalled
+        ? Color.alphaBlend(
+            colors.surface.withValues(alpha: 0.46),
+            baseBubbleColor,
+          )
+        : baseBubbleColor;
+    final foreground = widget.message.recalled
+        ? colors.onSurfaceVariant.withValues(alpha: 0.72)
+        : widget.mine
         ? colors.onPrimaryContainer
         : colors.onSurface;
     final alignment = widget.mine
@@ -13335,125 +13343,172 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                       bottomRight: Radius.circular(widget.mine ? 5 : 17),
                     ),
                   ),
-                  child: Text(
-                    widget.message.content,
-                    style: theme.textTheme.bodyMedium?.copyWith(
-                      color: foreground,
-                    ),
-                  ),
-                ),
-              if (previewableMedia.isNotEmpty)
-                _DingTalkMediaRail(
-                  media: previewableMedia,
-                  mine: widget.mine,
-                  onRetry: widget.onRetryMedia,
-                ),
-              AnimatedSwitcher(
-                duration: openHandMotionDuration(context, kOpenHandMotion180),
-                switchInCurve: Curves.easeOutCubic,
-                switchOutCurve: Curves.easeInCubic,
-                layoutBuilder: (current, previous) => Align(
-                  alignment: alignment,
-                  child: Stack(
-                    alignment: widget.mine
-                        ? Alignment.centerRight
-                        : Alignment.centerLeft,
-                    children: <Widget>[
-                      ...previous,
-                      if (current != null) current,
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        widget.message.content,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: foreground,
+                        ),
+                      ),
+                      if (widget.message.reactions.isNotEmpty)
+                        _buildReactionRow(context, foreground),
+                      if (widget.message.recalled) _buildRecalledLabel(context),
                     ],
                   ),
                 ),
-                child: _hovered
-                    ? Row(
-                        key: ValueKey<int>(_actionsTransitionId),
-                        mainAxisSize: MainAxisSize.min,
-                        textDirection: widget.mine
-                            ? TextDirection.rtl
-                            : TextDirection.ltr,
-                        children: [
-                          DecoratedBox(
+              if (previewableMedia.isNotEmpty)
+                Opacity(
+                  opacity: widget.message.recalled ? 0.62 : 1,
+                  child: _DingTalkMediaRail(
+                    media: previewableMedia,
+                    mine: widget.mine,
+                    onRetry: widget.onRetryMedia,
+                  ),
+                ),
+              if (previewableMedia.isNotEmpty &&
+                  widget.message.reactions.isNotEmpty)
+                _buildReactionRow(context, colors.onSurface),
+              if (previewableMedia.isNotEmpty && widget.message.recalled)
+                _buildRecalledLabel(context),
+              Row(
+                mainAxisSize: MainAxisSize.min,
+                textDirection: widget.mine
+                    ? TextDirection.rtl
+                    : TextDirection.ltr,
+                children: [
+                  AnimatedSwitcher(
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion180,
+                    ),
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    child: _hovered
+                        ? DecoratedBox(
+                            key: ValueKey<int>(_actionsTransitionId),
                             decoration: BoxDecoration(
                               color: colors.surfaceContainerHighest.withValues(
                                 alpha: 0.72,
                               ),
                               borderRadius: BorderRadius.circular(10),
                             ),
-                            child: Padding(
-                              padding: const EdgeInsets.symmetric(
-                                horizontal: 6,
-                                vertical: 2,
+                            child: IconButton(
+                              tooltip: previewableMedia.isNotEmpty
+                                  ? '复制媒体文件'
+                                  : '复制消息',
+                              visualDensity: VisualDensity.compact,
+                              padding: EdgeInsets.zero,
+                              constraints: const BoxConstraints.tightFor(
+                                width: 32,
+                                height: 28,
                               ),
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                textDirection: widget.mine
-                                    ? TextDirection.rtl
-                                    : TextDirection.ltr,
-                                children: [
-                                  IconButton(
-                                    tooltip: previewableMedia.isNotEmpty
-                                        ? '复制媒体文件'
-                                        : '复制消息',
-                                    visualDensity: VisualDensity.compact,
-                                    padding: EdgeInsets.zero,
-                                    constraints: const BoxConstraints.tightFor(
-                                      width: 28,
-                                      height: 28,
-                                    ),
-                                    onPressed: _copyingMedia
-                                        ? null
-                                        : () => previewableMedia.isNotEmpty
-                                              ? unawaited(
-                                                  _copyMediaFiles(
-                                                    context,
-                                                    previewableMedia,
-                                                  ),
-                                                )
-                                              : () => unawaited(
-                                                  copyOpenHandTextToClipboard(
-                                                    context: context,
-                                                    text:
-                                                        widget.message.content,
-                                                    logTag: 'dingtalk_gateway',
-                                                  ),
-                                                ),
-                                    icon: _copyingMedia
-                                        ? const SizedBox(
-                                            width: 15,
-                                            height: 15,
-                                            child: CircularProgressIndicator(
-                                              strokeWidth: 2,
+                              onPressed: _copyingMedia
+                                  ? null
+                                  : () => previewableMedia.isNotEmpty
+                                        ? unawaited(
+                                            _copyMediaFiles(
+                                              context,
+                                              previewableMedia,
                                             ),
                                           )
-                                        : const Icon(
-                                            Icons.copy_rounded,
-                                            size: 16,
+                                        : unawaited(
+                                            copyOpenHandTextToClipboard(
+                                              context: context,
+                                              text: widget.message.content,
+                                              logTag: 'dingtalk_gateway',
+                                            ),
                                           ),
-                                  ),
-                                  const SizedBox(width: 8),
-                                  Text(
-                                    formatYearMonthDayHm(
-                                      widget.message.createdAt.toLocal(),
-                                    ),
-                                    style: theme.textTheme.labelSmall?.copyWith(
-                                      color: colors.onSurfaceVariant,
-                                    ),
-                                  ),
-                                  const SizedBox(width: 2),
-                                ],
-                              ),
+                              icon: _copyingMedia
+                                  ? const SizedBox(
+                                      width: 15,
+                                      height: 15,
+                                      child: CircularProgressIndicator(
+                                        strokeWidth: 2,
+                                      ),
+                                    )
+                                  : const Icon(Icons.copy_rounded, size: 16),
                             ),
+                          )
+                        : SizedBox(
+                            key: ValueKey<int>(_actionsTransitionId),
+                            height: 28,
                           ),
-                        ],
-                      )
-                    : SizedBox(
-                        key: ValueKey<int>(_actionsTransitionId),
-                        height: 0,
+                  ),
+                  if (_hovered) const SizedBox(width: 6),
+                  Text(
+                    formatYearMonthDayHm(widget.message.createdAt.toLocal()),
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                  if (widget.mine && widget.message.readByPeer) ...[
+                    const SizedBox(width: 6),
+                    Text(
+                      '已读',
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.primary,
+                        fontWeight: FontWeight.w600,
                       ),
+                    ),
+                  ],
+                ],
               ),
               const SizedBox(height: 7),
             ],
           ),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildReactionRow(BuildContext context, Color foreground) {
+    final theme = Theme.of(context);
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 8),
+      child: Wrap(
+        spacing: 6,
+        runSpacing: 4,
+        children: [
+          for (final reaction in widget.message.reactions)
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.surface.withValues(alpha: 0.48),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: colors.outlineVariant.withValues(alpha: 0.58),
+                ),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                child: Text(
+                  reaction,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: foreground,
+                    fontSize: 15,
+                    height: 1.05,
+                  ),
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildRecalledLabel(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(top: 6),
+      child: Text(
+        '消息已撤回',
+        style: Theme.of(context).textTheme.labelSmall?.copyWith(
+          color: colors.onSurfaceVariant.withValues(alpha: 0.72),
+          fontStyle: FontStyle.italic,
         ),
       ),
     );
