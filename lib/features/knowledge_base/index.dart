@@ -8,6 +8,13 @@ export 'model/knowledge_source.dart';
 export 'model/knowledge_vector_distribution.dart';
 export 'widgets/knowledge_base_view.dart' show KnowledgeBaseView;
 export 'widgets/knowledge_dialog_widgets.dart'
-    show localizedKnowledgeSourceKind, localizedKnowledgeSourceStatus;
+    show
+        KnowledgeDialogKeyValueList,
+        KnowledgeDialogNotice,
+        KnowledgeDialogNoticeTone,
+        KnowledgeDialogSection,
+        KnowledgeDialogTextBox,
+        localizedKnowledgeSourceKind,
+        localizedKnowledgeSourceStatus;
 export 'widgets/knowledge_retrieval_detail_dialog.dart'
     show showKnowledgeRetrievalDetailDialog;
