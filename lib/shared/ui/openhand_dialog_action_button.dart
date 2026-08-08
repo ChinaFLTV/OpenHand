@@ -97,7 +97,7 @@ class OpenHandDialogSaveActions extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         OpenHandDialogBusyBar(busy: busy),
-        const SizedBox(height: 16),
+        const SizedBox(height: 22),
         Row(
           mainAxisAlignment: MainAxisAlignment.center,
           children: [

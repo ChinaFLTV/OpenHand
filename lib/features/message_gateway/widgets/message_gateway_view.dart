@@ -11461,7 +11461,7 @@ String _messageGatewayWaitingForTrafficLabel(BuildContext context) {
 class _DingTalkGatewayCard extends StatelessWidget {
   const _DingTalkGatewayCard({required this.controller});
 
-  static const double _iconSize = 17;
+  static const double _iconSize = 13;
 
   final MessageGatewayController controller;
 
@@ -12609,11 +12609,9 @@ class _DingTalkConversationDetailsDialogState
                       text: '暂无可用详情',
                     );
                   }
-                  return ListView(
-                    padding: const EdgeInsets.only(right: 4, bottom: 12),
-                    children: [
-                      _DingTalkDetailNode(label: '完整信息', value: value),
-                    ],
+                  return _DingTalkDetailsView(
+                    value: value,
+                    conversation: widget.conversation,
                   );
                 },
               ),
@@ -12671,8 +12669,238 @@ class _DingTalkDetailsStateMessage extends StatelessWidget {
   }
 }
 
-class _DingTalkDetailNode extends StatelessWidget {
-  const _DingTalkDetailNode({required this.label, required this.value});
+class _DingTalkDetailsView extends StatelessWidget {
+  const _DingTalkDetailsView({required this.value, required this.conversation});
+
+  final Object value;
+  final DingTalkConversation conversation;
+
+  @override
+  Widget build(BuildContext context) {
+    final rawSections = _dingtalkDetailEntries(value);
+    final sections = rawSections.isEmpty
+        ? <MapEntry<String, Object?>>[MapEntry('详情', value)]
+        : rawSections;
+    return ListView.separated(
+      padding: const EdgeInsets.fromLTRB(2, 2, 4, 18),
+      itemCount: sections.length + 1,
+      separatorBuilder: (_, index) => const SizedBox(height: 12),
+      itemBuilder: (context, index) {
+        if (index == 0) {
+          return _DingTalkDetailIdentityCard(conversation: conversation);
+        }
+        final entry = sections[index - 1];
+        return _DingTalkDetailSection(
+          label: entry.key,
+          value: entry.value,
+          icon: _dingtalkDetailIcon(entry.key),
+        );
+      },
+    );
+  }
+}
+
+class _DingTalkDetailIdentityCard extends StatelessWidget {
+  const _DingTalkDetailIdentityCard({required this.conversation});
+
+  final DingTalkConversation conversation;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final isGroup = conversation.type == DingTalkConversationType.group;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          colors: [
+            colors.primaryContainer,
+            colors.primaryContainer.withValues(alpha: 0.62),
+          ],
+        ),
+        borderRadius: BorderRadius.circular(18),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 15, 16, 14),
+        child: Row(
+          children: [
+            DecoratedBox(
+              decoration: BoxDecoration(
+                color: colors.surface.withValues(alpha: 0.72),
+                borderRadius: BorderRadius.circular(14),
+              ),
+              child: Padding(
+                padding: const EdgeInsets.all(12),
+                child: Icon(
+                  isGroup ? Icons.groups_rounded : Icons.person_rounded,
+                  size: 26,
+                  color: colors.onPrimaryContainer,
+                ),
+              ),
+            ),
+            const SizedBox(width: 12),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    conversation.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleMedium?.copyWith(
+                      color: colors.onPrimaryContainer,
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const SizedBox(height: 5),
+                  Text(
+                    isGroup ? '群聊 · 钉钉会话' : '私聊 · 钉钉联系人',
+                    style: theme.textTheme.bodySmall?.copyWith(
+                      color: colors.onPrimaryContainer.withValues(alpha: 0.78),
+                    ),
+                  ),
+                  const SizedBox(height: 8),
+                  SelectableText(
+                    conversation.id,
+                    maxLines: 1,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onPrimaryContainer.withValues(alpha: 0.72),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkDetailSection extends StatelessWidget {
+  const _DingTalkDetailSection({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final Object? value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final itemCount = _dingtalkDetailItemCount(value);
+    return Material(
+      color: colors.surfaceContainerLow,
+      shadowColor: Colors.transparent,
+      borderRadius: BorderRadius.circular(18),
+      clipBehavior: Clip.antiAlias,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                DecoratedBox(
+                  decoration: BoxDecoration(
+                    color: colors.secondaryContainer,
+                    borderRadius: BorderRadius.circular(11),
+                  ),
+                  child: Padding(
+                    padding: const EdgeInsets.all(8),
+                    child: Icon(
+                      icon,
+                      size: 19,
+                      color: colors.onSecondaryContainer,
+                    ),
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    _displayDingTalkDetailLabel(label),
+                    style: theme.textTheme.titleMedium,
+                  ),
+                ),
+                Text(
+                  '$itemCount 项',
+                  style: theme.textTheme.labelMedium?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
+            ),
+            const SizedBox(height: 13),
+            _DingTalkDetailValue(value: value),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkDetailValue extends StatelessWidget {
+  const _DingTalkDetailValue({required this.value});
+
+  final Object? value;
+
+  @override
+  Widget build(BuildContext context) {
+    if (value is Map) {
+      final entries = _dingtalkDetailEntries(value);
+      final simple = entries
+          .where((entry) => !_dingtalkIsCompound(entry.value))
+          .toList(growable: false);
+      final compound = entries
+          .where((entry) => _dingtalkIsCompound(entry.value))
+          .toList(growable: false);
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          if (simple.isNotEmpty)
+            Wrap(
+              spacing: 10,
+              runSpacing: 10,
+              children: [
+                for (final entry in simple)
+                  _DingTalkDetailField(label: entry.key, value: entry.value),
+              ],
+            ),
+          for (final entry in compound) ...[
+            if (simple.isNotEmpty) const SizedBox(height: 12),
+            _DingTalkDetailNestedSection(label: entry.key, value: entry.value),
+          ],
+        ],
+      );
+    }
+    if (value is List) {
+      final list = value as List;
+      return Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          for (var index = 0; index < list.length; index++) ...[
+            if (index > 0) const SizedBox(height: 8),
+            _DingTalkDetailNestedSection(
+              label: '第 ${index + 1} 项',
+              value: list[index],
+            ),
+          ],
+        ],
+      );
+    }
+    return _DingTalkDetailField(label: '值', value: value);
+  }
+}
+
+class _DingTalkDetailNestedSection extends StatelessWidget {
+  const _DingTalkDetailNestedSection({
+    required this.label,
+    required this.value,
+  });
 
   final String label;
   final Object? value;
@@ -12681,79 +12909,144 @@ class _DingTalkDetailNode extends StatelessWidget {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    if (value is Map) {
-      final map = (value as Map).entries.toList(growable: false);
-      return _DingTalkDetailsSection(
-        title: '$label · ${map.length} 项',
-        children: [
-          for (final entry in map)
-            _DingTalkDetailNode(label: '${entry.key}', value: entry.value),
-        ],
-      );
-    }
-    if (value is List) {
-      final list = value as List;
-      return _DingTalkDetailsSection(
-        title: '$label · ${list.length} 项',
-        children: [
-          for (var index = 0; index < list.length; index++)
-            _DingTalkDetailNode(label: '[$index]', value: list[index]),
-        ],
-      );
-    }
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-      child: Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SizedBox(
-            width: 150,
-            child: Text(
-              label,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
-              ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.58),
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.7)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(12, 11, 12, 12),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    _displayDingTalkDetailLabel(label),
+                    style: theme.textTheme.titleSmall,
+                  ),
+                ),
+                Text(
+                  '${_dingtalkDetailItemCount(value)} 项',
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                  ),
+                ),
+              ],
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: SelectableText(
-              value == null ? 'null' : '$value',
-              style: theme.textTheme.bodyMedium,
-            ),
-          ),
-        ],
+            const SizedBox(height: 9),
+            _DingTalkDetailValue(value: value),
+          ],
+        ),
       ),
     );
   }
 }
 
-class _DingTalkDetailsSection extends StatelessWidget {
-  const _DingTalkDetailsSection({required this.title, required this.children});
+class _DingTalkDetailField extends StatelessWidget {
+  const _DingTalkDetailField({required this.label, required this.value});
 
-  final String title;
-  final List<Widget> children;
+  final String label;
+  final Object? value;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    return Container(
-      margin: const EdgeInsets.only(bottom: 8),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(14),
-        border: Border.all(color: theme.colorScheme.outlineVariant),
-      ),
-      child: ExpansionTile(
-        initiallyExpanded: true,
-        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
-        childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
-        title: Text(title, style: theme.textTheme.titleSmall),
-        children: children,
+    final colors = theme.colorScheme;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 220, maxWidth: 470),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surface.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(12),
+          border: Border.all(
+            color: colors.outlineVariant.withValues(alpha: 0.6),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 10, 12, 11),
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                _displayDingTalkDetailLabel(label),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(height: 4),
+              SelectableText(
+                _formatDingTalkDetailValue(value),
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  color: colors.onSurface,
+                  fontWeight: FontWeight.w600,
+                ),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
+}
+
+List<MapEntry<String, Object?>> _dingtalkDetailEntries(Object? value) {
+  if (value is! Map) return const <MapEntry<String, Object?>>[];
+  return value.entries
+      .map((entry) => MapEntry('${entry.key}', entry.value))
+      .toList(growable: false);
+}
+
+bool _dingtalkIsCompound(Object? value) => value is Map || value is List;
+
+int _dingtalkDetailItemCount(Object? value) {
+  if (value is Map) return value.length;
+  if (value is List) return value.length;
+  return 1;
+}
+
+String _displayDingTalkDetailLabel(String value) {
+  const labels = <String, String>{
+    'corpId': '企业 ID',
+    'corpName': '企业名称',
+    'createAt': '创建时间',
+    'conversationInfo': '会话信息',
+    'newCSpaceIdIM': '钉盘空间 ID',
+    'extension': '扩展信息',
+    'errorCode': '错误码',
+    'errorMsg': '错误信息',
+    'hasMore': '还有更多',
+    'nextCursor': '下一页游标',
+    'members': '成员列表',
+    'result': '返回结果',
+    'data': '数据',
+  };
+  final translated = labels[value];
+  return translated == null ? value : '$translated · $value';
+}
+
+IconData _dingtalkDetailIcon(String label) {
+  final normalized = label.toLowerCase();
+  if (normalized.contains('成员') || normalized.contains('联系人')) {
+    return Icons.people_alt_rounded;
+  }
+  if (normalized.contains('会话')) return Icons.forum_rounded;
+  if (normalized.contains('扩展') || normalized.contains('extension')) {
+    return Icons.extension_rounded;
+  }
+  return Icons.data_object_rounded;
+}
+
+String _formatDingTalkDetailValue(Object? value) {
+  if (value == null) return '未返回';
+  if (value is bool) return value ? '是' : '否';
+  final text = '$value'.trim();
+  return text.isEmpty ? '空' : text;
 }
 
 class _DingTalkAddConversationDialog extends StatefulWidget {
@@ -13624,7 +13917,18 @@ class _DingTalkResourceField extends StatelessWidget {
                       )
                     : const Icon(Icons.refresh_rounded),
               ),
-              const Icon(Icons.chevron_right_rounded),
+              const SizedBox(width: 4),
+              IconButton.filledTonal(
+                tooltip: '查看 $title详情',
+                onPressed: onTap,
+                style: IconButton.styleFrom(
+                  fixedSize: const Size(40, 40),
+                  padding: EdgeInsets.zero,
+                  shape: const CircleBorder(),
+                  shadowColor: Colors.transparent,
+                ),
+                icon: const Icon(Icons.chevron_right_rounded),
+              ),
             ],
           ),
         ),
@@ -13747,7 +14051,7 @@ class _DingTalkResourcePickerDialogState
                 ),
               ],
             ),
-            const SizedBox(height: 2),
+            const SizedBox(height: 14),
             Expanded(
               child: options.isEmpty
                   ? Center(
