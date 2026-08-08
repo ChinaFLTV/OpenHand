@@ -675,7 +675,7 @@ class DingTalkMessageGatewayService {
         <Future<MapEntry<String, Object?>?>>[
           _loadDetail('会话信息', () => _loadConversationInfo(conversation)),
           _loadDetail('联系人信息', () => _loadContact(conversation)),
-          _loadDetail('可见花名册字段', _loadRosterFields),
+          if (!_rosterAccessDenied) _loadDetail('可见花名册字段', _loadRosterFields),
           _loadDetail(
             '特别关注列表',
             () => _runJson(const <String>[
@@ -724,7 +724,13 @@ class DingTalkMessageGatewayService {
       final value = await loader();
       return MapEntry<String, Object?>(name, value);
     } catch (error, stack) {
-      if (error is DingTalkGatewayCommandException && error.isBusinessError) {
+      final normalizedError = _normalizeCommandException(error);
+      if (normalizedError?.isPermissionDenied == true &&
+          (name.contains('花名册') || name.contains('联系人档案'))) {
+        _rosterAccessDenied = true;
+      }
+      if (normalizedError?.isBusinessError == true ||
+          _looksLikeBusinessError(error)) {
         return null;
       }
       silentLog('dingtalk_gateway', '读取$name', error, stack);
@@ -754,8 +760,17 @@ class DingTalkMessageGatewayService {
           'json',
         ]);
       } catch (fallbackError, fallbackStack) {
-        silentLog('dingtalk_gateway', '按标识读取联系人', error, stack);
-        silentLog('dingtalk_gateway', '按名称读取联系人', fallbackError, fallbackStack);
+        if (!_looksLikeBusinessError(error)) {
+          silentLog('dingtalk_gateway', '按标识读取联系人', error, stack);
+        }
+        if (!_looksLikeBusinessError(fallbackError)) {
+          silentLog(
+            'dingtalk_gateway',
+            '按名称读取联系人',
+            fallbackError,
+            fallbackStack,
+          );
+        }
         rethrow;
       }
     }
@@ -771,8 +786,8 @@ class DingTalkMessageGatewayService {
         '--format',
         'json',
       ]);
-    } on DingTalkGatewayCommandException catch (error) {
-      if (error.isPermissionDenied) _rosterAccessDenied = true;
+    } catch (error) {
+      if (_isPermissionDeniedError(error)) _rosterAccessDenied = true;
       rethrow;
     }
   }
@@ -789,10 +804,47 @@ class DingTalkMessageGatewayService {
         '--format',
         'json',
       ]);
-    } on DingTalkGatewayCommandException catch (error) {
-      if (error.isPermissionDenied) _rosterAccessDenied = true;
+    } catch (error) {
+      if (_isPermissionDeniedError(error)) _rosterAccessDenied = true;
       rethrow;
     }
+  }
+
+  bool _isPermissionDeniedError(Object error) {
+    final normalized = _normalizeCommandException(error);
+    if (normalized != null) return normalized.isPermissionDenied;
+    final text = '$error';
+    return text.contains('无花名册管理权限') ||
+        text.contains('权限不足') ||
+        text.contains('无权限') ||
+        text.contains('server_error_code') && text.contains('2001');
+  }
+
+  bool _looksLikeBusinessError(Object error) {
+    if (error is DingTalkGatewayCommandException) {
+      return error.isBusinessError;
+    }
+    final text = '$error';
+    return text.contains('"category"') &&
+        (text.contains('"reason"') || text.contains('server_error_code'));
+  }
+
+  DingTalkGatewayCommandException? _normalizeCommandException(Object error) {
+    if (error is DingTalkGatewayCommandException) return error;
+    final text = '$error';
+    final start = text.indexOf('{');
+    if (start < 0) return null;
+    final payload = _asMap(_decodeJson(text.substring(start)));
+    final details = _asMap(payload['error']);
+    if (details.isEmpty) return null;
+    final message = details['message']?.toString().trim();
+    return DingTalkGatewayCommandException(
+      message: message == null || message.isEmpty ? 'dws 业务调用失败。' : message,
+      category: details['category']?.toString(),
+      reason: details['reason']?.toString(),
+      serverCode: details['server_error_code']?.toString(),
+      operation: details['operation']?.toString(),
+    );
   }
 
   Future<Object?> _loadConversationInfo(
@@ -830,13 +882,17 @@ class DingTalkMessageGatewayService {
             'json',
           ]);
         } catch (fallbackError, fallbackStack) {
-          silentLog('dingtalk_gateway', '读取会话基础信息', error, stack);
-          silentLog(
-            'dingtalk_gateway',
-            '读取会话基础信息备用标识',
-            fallbackError,
-            fallbackStack,
-          );
+          if (!_looksLikeBusinessError(error)) {
+            silentLog('dingtalk_gateway', '读取会话基础信息', error, stack);
+          }
+          if (!_looksLikeBusinessError(fallbackError)) {
+            silentLog(
+              'dingtalk_gateway',
+              '读取会话基础信息备用标识',
+              fallbackError,
+              fallbackStack,
+            );
+          }
           rethrow;
         }
       }
@@ -957,7 +1013,7 @@ class DingTalkMessageGatewayService {
     try {
       return await _runJson(arguments);
     } catch (error, stack) {
-      if (error is DingTalkGatewayCommandException && error.isBusinessError) {
+      if (_looksLikeBusinessError(error)) {
         return null;
       }
       silentLog('dingtalk_gateway', name, error, stack);
@@ -980,8 +1036,7 @@ class DingTalkMessageGatewayService {
         try {
           results[index] = await action(values[index]);
         } catch (error, stack) {
-          if (error is DingTalkGatewayCommandException &&
-              error.isBusinessError) {
+          if (_looksLikeBusinessError(error)) {
             continue;
           }
           silentLog('dingtalk_gateway', onError, error, stack);
