@@ -159,6 +159,8 @@ class DingTalkMessageGatewayService {
   }) async {
     final startText = start.toIso8601String();
     final endText = end.toIso8601String();
+    final allStartText = _formatChatDateTime(start);
+    final allEndText = _formatChatDateTime(end);
     final mentions = await _runJson(<String>[
       'chat',
       'message',
@@ -179,9 +181,9 @@ class DingTalkMessageGatewayService {
       'message',
       'list-all',
       '--start',
-      startText,
+      allStartText,
       '--end',
-      endText,
+      allEndText,
       '--limit',
       '50',
       '--cursor',
@@ -360,6 +362,13 @@ class DingTalkMessageGatewayService {
       return '${value['text'] ?? value['content'] ?? ''}'.trim();
     }
     return '';
+  }
+
+  String _formatChatDateTime(DateTime value) {
+    final local = value.toLocal();
+    String two(int number) => number.toString().padLeft(2, '0');
+    return '${local.year}-${two(local.month)}-${two(local.day)} '
+        '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
   }
 
   String _first(Map<String, Object?> map, List<String> keys) {
