@@ -49,14 +49,171 @@ class DingTalkGatewayCommandException implements Exception {
 class DingTalkMessageGatewayService {
   static const Duration _commandTimeout = Duration(seconds: 25);
   static const Duration _authTimeout = Duration(minutes: 15);
+  static const Duration _eventProcessStartTimeout = Duration(seconds: 10);
+  static const Duration _eventReadyTimeout = Duration(seconds: 30);
   static const int _batchSize = 30;
   static const int _detailConcurrency = 4;
   Process? _authProcess;
+  Process? _eventProcess;
+  StreamController<DingTalkGatewayMessage>? _eventController;
+  StreamSubscription<String>? _eventStdoutSubscription;
+  StreamSubscription<String>? _eventStderrSubscription;
+  Future<Stream<DingTalkGatewayMessage>>? _eventStartFuture;
+  int _eventGeneration = 0;
   String? _executable;
   bool _authCancelled = false;
   bool _rosterAccessDenied = false;
 
   String? get cachedExecutable => _executable;
+
+  Future<Stream<DingTalkGatewayMessage>> startEventSubscription() {
+    final current = _eventController;
+    if (current != null) {
+      return Future<Stream<DingTalkGatewayMessage>>.value(current.stream);
+    }
+    final pending = _eventStartFuture;
+    if (pending != null) return pending;
+    final future = _startEventSubscription();
+    _eventStartFuture = future;
+    return future.whenComplete(() {
+      if (identical(_eventStartFuture, future)) _eventStartFuture = null;
+    });
+  }
+
+  Future<Stream<DingTalkGatewayMessage>> _startEventSubscription() async {
+    final generation = _eventGeneration;
+    final executable = await _requireExecutable();
+    if (generation != _eventGeneration) {
+      throw StateError('钉钉实时事件监听已取消。');
+    }
+    final controller = StreamController<DingTalkGatewayMessage>();
+    final ready = Completer<void>();
+    _eventController = controller;
+    Process? process;
+    try {
+      process = await startTrackedProcessBounded(
+        executable,
+        // 同时覆盖全部单聊与群聊，按 DWS 规范组合两个原始 EventKey。
+        const <String>[
+          'event',
+          'consume',
+          'user_im_message_receive_o2o_all',
+          'user_im_message_receive_group_all',
+          '--flatten',
+          '--format',
+          'ndjson',
+          '--ephemeral',
+        ],
+        timeout: _eventProcessStartTimeout,
+        tag: 'dingtalk.event.consume',
+        startInNewProcessGroup: true,
+      );
+      if (generation != _eventGeneration) {
+        await terminateTrackedProcessTree(
+          process,
+          gracefulTimeout: const Duration(seconds: 2),
+        );
+        await controller.close();
+        throw StateError('钉钉实时事件监听已取消。');
+      }
+      _eventProcess = process;
+      _eventStdoutSubscription = process.stdout
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(
+            _consumeEventLine,
+            onError: (Object error, StackTrace stack) {
+              if (!ready.isCompleted) ready.completeError(error, stack);
+            },
+          );
+      _eventStderrSubscription = process.stderr
+          .transform(utf8.decoder)
+          .transform(const LineSplitter())
+          .listen(
+            (line) {
+              final normalized = line.trim();
+              if (normalized.contains('[event] ready')) {
+                if (!ready.isCompleted) ready.complete();
+              } else if (normalized.startsWith('Error:') &&
+                  !ready.isCompleted) {
+                ready.completeError(StateError(normalized));
+              }
+            },
+            onError: (Object error, StackTrace stack) {
+              if (!ready.isCompleted) ready.completeError(error, stack);
+            },
+          );
+      unawaited(_watchEventProcess(process, ready, generation));
+      await ready.future.timeout(_eventReadyTimeout);
+      if (generation != _eventGeneration) {
+        throw StateError('钉钉实时事件监听已取消。');
+      }
+      return controller.stream;
+    } catch (_) {
+      if (generation == _eventGeneration) {
+        await stopEventSubscription();
+      } else {
+        if (process != null && identical(_eventProcess, process)) {
+          _eventProcess = null;
+          await terminateTrackedProcessTree(
+            process,
+            gracefulTimeout: const Duration(seconds: 2),
+          );
+        }
+        await controller.close();
+      }
+      rethrow;
+    }
+  }
+
+  Future<void> _watchEventProcess(
+    Process process,
+    Completer<void> ready,
+    int generation,
+  ) async {
+    final exitCode = await process.exitCode;
+    if (!ready.isCompleted) {
+      ready.completeError(StateError('钉钉实时事件监听进程提前退出（退出码 $exitCode）。'));
+    }
+    if (generation != _eventGeneration || !identical(_eventProcess, process)) {
+      return;
+    }
+    if (exitCode != 0) {
+      silentLog('dingtalk_gateway', '实时事件监听进程退出', StateError('退出码 $exitCode'));
+    }
+    _eventProcess = null;
+    final controller = _eventController;
+    _eventController = null;
+    final stdoutSubscription = _eventStdoutSubscription;
+    final stderrSubscription = _eventStderrSubscription;
+    _eventStdoutSubscription = null;
+    _eventStderrSubscription = null;
+    await stdoutSubscription?.cancel();
+    await stderrSubscription?.cancel();
+    await controller?.close();
+  }
+
+  Future<void> stopEventSubscription() async {
+    _eventGeneration++;
+    _eventStartFuture = null;
+    final process = _eventProcess;
+    _eventProcess = null;
+    final controller = _eventController;
+    _eventController = null;
+    final stdoutSubscription = _eventStdoutSubscription;
+    final stderrSubscription = _eventStderrSubscription;
+    _eventStdoutSubscription = null;
+    _eventStderrSubscription = null;
+    await stdoutSubscription?.cancel();
+    await stderrSubscription?.cancel();
+    if (process != null) {
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: const Duration(seconds: 2),
+      );
+    }
+    await controller?.close();
+  }
 
   Future<String?> executable() async {
     return _executable ??= await resolvePluginDingtalkWorkspaceCliExecutable();
@@ -1076,6 +1233,153 @@ class DingTalkMessageGatewayService {
       );
     }
     return result;
+  }
+
+  void _consumeEventLine(String line) {
+    final text = line.trim();
+    if (text.isEmpty || !(text.startsWith('{') || text.startsWith('['))) {
+      return;
+    }
+    Object? decoded;
+    try {
+      decoded = jsonDecode(text);
+    } catch (_) {
+      return;
+    }
+    final message = _parseEventMessage(decoded);
+    if (message != null) _eventController?.add(message);
+  }
+
+  DingTalkGatewayMessage? _parseEventMessage(Object? raw) {
+    if (raw is! Map) return null;
+    final map = _asMap(raw);
+    final content = _content(map);
+    final conversationId = _eventString(map, const <String>[
+      'conversation_id',
+      'conversationId',
+      'openConversationId',
+      'open_conversation_id',
+      'chat_id',
+    ]);
+    if (content.isEmpty || conversationId.isEmpty) return null;
+    final chatType = _eventString(map, const <String>[
+      'chat_type',
+      'chatType',
+      'conversation_type',
+      'conversationType',
+    ]).toLowerCase();
+    final eventType = _eventString(map, const <String>[
+      'event_type',
+      'eventType',
+      'type',
+    ]).toLowerCase();
+    final messageId = _eventString(map, const <String>[
+      'message_id',
+      'messageId',
+      'openMessageId',
+      'open_message_id',
+      'event_id',
+      'eventId',
+    ]);
+    if (messageId.isEmpty) return null;
+    final conversationType =
+        chatType.contains('group') ||
+            chatType == '2' ||
+            eventType.contains('group') ||
+            eventType == '2' ||
+            _asBool(map['is_group']) ||
+            _asBool(map['isGroup'])
+        ? DingTalkConversationType.group
+        : DingTalkConversationType.direct;
+    return DingTalkGatewayMessage(
+      id: messageId,
+      conversationId: conversationId,
+      conversationType: conversationType,
+      role: DingTalkGatewayMessageRole.user,
+      content: content,
+      createdAt: _eventDateTime(map),
+      senderName: _eventString(map, const <String>[
+        'sender_name',
+        'senderName',
+        'sender_nick',
+        'senderNick',
+        'sender',
+        'nick',
+        'name',
+      ]),
+      senderId: _eventString(map, const <String>[
+        'sender_open_dingtalk_id',
+        'senderOpenDingTalkId',
+        'sender_user_id',
+        'senderUserId',
+        'sender_id',
+        'sender',
+      ]),
+      conversationTitle: _eventString(map, const <String>[
+        'conversation_title',
+        'conversationTitle',
+        'group_name',
+        'groupName',
+        'title',
+      ]),
+      fromSelf:
+          _asBool(map['isSelf']) ||
+          _asBool(map['is_self']) ||
+          _asBool(map['isMine']) ||
+          _asBool(map['is_self_loop']),
+    );
+  }
+
+  String _eventString(Map<String, Object?> map, List<String> keys) {
+    for (final key in keys) {
+      final value = map[key];
+      if (value is Map) {
+        final nested = _asMap(value);
+        final nestedValue = _eventString(nested, const <String>[
+          'nick',
+          'name',
+          'title',
+          'displayName',
+          'id',
+          'userId',
+          'user_id',
+          'openDingTalkId',
+          'open_dingtalk_id',
+          'value',
+        ]);
+        if (nestedValue.isNotEmpty) return nestedValue;
+        continue;
+      }
+      if (value is List || value == null) continue;
+      final text = '$value'.trim();
+      if (text.isNotEmpty && text != 'null') return text;
+    }
+    return '';
+  }
+
+  DateTime _eventDateTime(Map<String, Object?> map) {
+    final value =
+        map['create_time'] ??
+        map['createTime'] ??
+        map['created_at'] ??
+        map['createdAt'] ??
+        map['event_time'] ??
+        map['timestamp'];
+    if (value is num) {
+      final milliseconds = value.abs() < 100000000000
+          ? value.toInt() * 1000
+          : value.toInt();
+      return DateTime.fromMillisecondsSinceEpoch(milliseconds).toLocal();
+    }
+    final text = '$value'.trim();
+    final numeric = num.tryParse(text);
+    if (numeric != null) {
+      final milliseconds = numeric.abs() < 100000000000
+          ? numeric.toInt() * 1000
+          : numeric.toInt();
+      return DateTime.fromMillisecondsSinceEpoch(milliseconds).toLocal();
+    }
+    return DateTime.tryParse(text)?.toLocal() ?? DateTime.now();
   }
 
   List<DingTalkConversationTarget> _parseTargets(

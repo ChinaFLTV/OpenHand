@@ -83,10 +83,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Map<String, (DateTime, List<DingTalkConversationTarget>)>
   _targetSearchCache = <String, (DateTime, List<DingTalkConversationTarget>)>{};
   Timer? _pollTimer;
+  StreamSubscription<DingTalkGatewayMessage>? _eventSubscription;
   Future<void>? _persistInFlight;
   bool _persistQueued = false;
   Object? _persistenceError;
   bool _pollInFlight = false;
+  bool _usingPollingFallback = false;
   bool _initialized = false;
   bool _disposed = false;
   DingTalkWriteApprovalHandler? _writeApprovalHandler;
@@ -107,6 +109,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool get isAuthenticating => _isAuthenticating;
   bool get isAuthorized => _authStatus.authenticated;
   bool get isPolling => _isPolling;
+  bool get isRealtimeListening => _isPolling && _eventSubscription != null;
+  bool get isPollingFallback => _isPolling && _usingPollingFallback;
   bool get isSending => _isSending;
   int get unreadCount => _unreadCount;
   String? get errorMessage => _errorMessage;
@@ -262,7 +266,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void> refreshAuthStatus() async {
     try {
       _authStatus = await _service.authStatus();
-      if (!_authStatus.authenticated && _isPolling) stopPolling();
+      if (!_authStatus.authenticated && _isPolling) {
+        unawaited(stopPolling());
+      }
       _clearError();
     } catch (error, stack) {
       _setError('读取钉钉授权状态', error, stack);
@@ -295,7 +301,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<void> cancelAuthorization() async {
     // 取消授权与轮询互斥：先释放定时器，避免注销过程中继续查询消息。
-    stopPolling();
+    await stopPolling();
     try {
       await _service.cancelAuthorization();
     } catch (error, stack) {
@@ -308,7 +314,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void> logout() async {
     // 立即停止轮询，即使底层注销命令失败也不留下后台定时任务。
     final profile = _authStatus.identity.profile;
-    stopPolling();
+    await stopPolling();
     _authStatus = const DingTalkAuthStatus(authenticated: false);
     _notify();
     try {
@@ -337,7 +343,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (persistenceError != null) {
       throw StateError('保存钉钉网关设置失败：$persistenceError');
     }
-    if (_isPolling) _schedulePolling();
+    if (_isPolling && _usingPollingFallback) _schedulePolling();
     _notify();
   }
 
@@ -372,16 +378,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   void startPolling() {
     if (_isPolling || !isAuthorized) return;
     _isPolling = true;
+    _usingPollingFallback = false;
+    _warningMessage = null;
     _lastPollAt = DateTime.now().subtract(_queryWindow);
-    _schedulePolling(immediate: true);
     _notify();
+    unawaited(_startEventListening());
   }
 
-  void stopPolling() {
+  Future<void> stopPolling() async {
     _isPolling = false;
+    _usingPollingFallback = false;
     _pollTimer?.cancel();
     _pollTimer = null;
     _notify();
+    await _stopEventListening();
   }
 
   Future<void> pollNow() => _pollOnce();
@@ -437,40 +447,92 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _lastPollAt = now.subtract(const Duration(seconds: 2));
       _warningMessage = result.warning;
       for (final message in result.messages) {
-        if (_seenMessageIds.contains(message.id)) continue;
-        if (_isSelf(message)) {
-          _remember(message.id);
-          continue;
-        }
-        _remember(message.id);
-        final conversation = _conversations.putIfAbsent(
-          message.conversationId,
-          () => DingTalkConversation(
-            id: message.conversationId,
-            type: message.conversationType,
-            title: message.conversationTitle.trim().isNotEmpty
-                ? message.conversationTitle
-                : message.senderName.trim().isEmpty
-                ? '钉钉会话'
-                : message.senderName,
-          ),
-        );
-        _appendMessage(conversation, message);
-        _unreadCount += 1;
-        if (_settings.reminderMode == DingTalkReminderMode.sound) {
-          unawaited(SystemSound.play(SystemSoundType.alert));
-        }
-        unawaited(_enqueueAiResponse(conversation, message.content));
+        _handleIncomingMessage(message);
       }
       _clearError();
     } catch (error, stack) {
       _setError('轮询钉钉消息', error, stack);
       await refreshAuthStatus();
-      if (!isAuthorized) stopPolling();
+      if (!isAuthorized) await stopPolling();
     } finally {
       _pollInFlight = false;
       _notify();
     }
+  }
+
+  Future<void> _startEventListening() async {
+    try {
+      final stream = await _service.startEventSubscription();
+      if (!_isPolling || _disposed) {
+        await _service.stopEventSubscription();
+        return;
+      }
+      _eventSubscription = stream.listen(
+        _handleIncomingMessage,
+        onError: (Object error, StackTrace stack) {
+          silentLog('dingtalk_gateway', '实时事件监听异常', error, stack);
+          unawaited(_fallbackToPolling());
+        },
+        onDone: () {
+          unawaited(_fallbackToPolling());
+        },
+      );
+      _usingPollingFallback = false;
+      _clearError();
+      _warningMessage = null;
+      _notify();
+    } catch (error, stack) {
+      if (!_isPolling || _disposed) return;
+      silentLog('dingtalk_gateway', '启动实时事件监听', error, stack);
+      await _fallbackToPolling();
+    }
+  }
+
+  Future<void> _fallbackToPolling() async {
+    if (!_isPolling || _disposed || _usingPollingFallback) return;
+    _usingPollingFallback = true;
+    await _stopEventListening();
+    if (!_isPolling || _disposed) return;
+    _warningMessage = '实时事件监听暂不可用，已启用有界轮询兜底。';
+    _clearError();
+    _schedulePolling(immediate: true);
+    _notify();
+  }
+
+  Future<void> _stopEventListening() async {
+    final subscription = _eventSubscription;
+    _eventSubscription = null;
+    await subscription?.cancel();
+    await _service.stopEventSubscription();
+  }
+
+  void _handleIncomingMessage(DingTalkGatewayMessage message) {
+    if (!_isPolling || _disposed) return;
+    if (_seenMessageIds.contains(message.id)) return;
+    if (_isSelf(message)) {
+      _remember(message.id);
+      return;
+    }
+    _remember(message.id);
+    final conversation = _conversations.putIfAbsent(
+      message.conversationId,
+      () => DingTalkConversation(
+        id: message.conversationId,
+        type: message.conversationType,
+        title: message.conversationTitle.trim().isNotEmpty
+            ? message.conversationTitle
+            : message.senderName.trim().isEmpty
+            ? '钉钉会话'
+            : message.senderName,
+      ),
+    );
+    _appendMessage(conversation, message);
+    _unreadCount += 1;
+    if (_settings.reminderMode == DingTalkReminderMode.sound) {
+      unawaited(SystemSound.play(SystemSoundType.alert));
+    }
+    unawaited(_enqueueAiResponse(conversation, message.content));
+    _notify();
   }
 
   void _schedulePolling({bool immediate = false}) {
@@ -877,6 +939,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (_disposed) return;
     _pollTimer?.cancel();
     _pollTimer = null;
+    await _stopEventListening();
     for (final queue in _responseQueues.values) {
       for (final item in queue) {
         item.complete();

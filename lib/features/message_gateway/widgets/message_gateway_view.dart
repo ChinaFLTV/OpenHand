@@ -11559,7 +11559,11 @@ class _DingTalkGatewayCard extends StatelessWidget {
                               : () => _toggleDingTalkAuth(context, ding),
                         ),
                         _DingTalkActionButton(
-                          tooltip: ding.isPolling ? '停止消息轮询' : '启动消息轮询',
+                          tooltip: ding.isPolling
+                              ? ding.isRealtimeListening
+                                    ? '停止实时消息监听'
+                                    : '停止轮询兜底'
+                              : '启动实时消息监听',
                           icon: ding.isPolling
                               ? Icons.pause_rounded
                               : Icons.play_arrow_rounded,
@@ -11617,8 +11621,12 @@ class _DingTalkGatewayCard extends StatelessWidget {
                     _InfoChip(
                       icon: Icons.sync_rounded,
                       label: ding.isPolling
-                          ? '轮询中 · ${ding.settings.pollIntervalSeconds}s'
-                          : '轮询已停止',
+                          ? ding.isRealtimeListening
+                                ? '实时监听中'
+                                : ding.isPollingFallback
+                                ? '轮询兜底 · ${ding.settings.pollIntervalSeconds}s'
+                                : '正在连接实时监听'
+                          : '实时监听已停止',
                     ),
                     _InfoChip(
                       icon: Icons.forum_outlined,
@@ -11719,7 +11727,7 @@ Future<void> _toggleDingTalkAuth(
     final confirmed = await showOpenHandConfirmDialog(
       context: context,
       title: '取消钉钉授权',
-      message: '将退出当前钉钉账号并停止消息轮询。',
+      message: '将退出当前钉钉账号并停止消息监听。',
       confirmLabel: '确认取消授权',
       destructive: true,
       icon: const Icon(Icons.logout_rounded),
@@ -15054,8 +15062,8 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     controller: _intervalController,
                     keyboardType: TextInputType.number,
                     decoration: const InputDecoration(
-                      labelText: '轮询间隔（秒）',
-                      helperText: '最小 3 秒，保存后立即生效',
+                      labelText: '兜底轮询间隔（秒）',
+                      helperText: '实时事件不可用时使用，最小 3 秒，保存后立即生效',
                       prefixIcon: Icon(Icons.schedule_rounded),
                     ),
                   ),
