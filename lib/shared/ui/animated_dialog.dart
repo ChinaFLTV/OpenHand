@@ -2030,27 +2030,50 @@ class _OpenHandEscapeDismissScopeState
     final navigator = route.navigator ?? Navigator.maybeOf(context);
     if (navigator == null) return false;
     _dismissRequested = true;
-    unawaited(
-      navigator
-          .maybePop()
-          .then((handled) {
-            if (!handled || route.isCurrent) {
-              _dismissRequested = false;
-            }
-          })
-          .catchError((Object error, StackTrace stackTrace) {
-            _dismissRequested = false;
-            FlutterError.reportError(
-              FlutterErrorDetails(
-                exception: error,
-                stack: stackTrace,
-                library: 'OpenHand 弹窗',
-                context: ErrorDescription('关闭弹窗时'),
-              ),
-            );
-          }),
-    );
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !_dismissRequested) return;
+      if (!route.isActive || !route.isCurrent) {
+        _dismissRequested = false;
+        return;
+      }
+      unawaited(_popAfterFrame(navigator, route));
+    });
     return true;
+  }
+
+  Future<void> _popAfterFrame(
+    NavigatorState navigator,
+    ModalRoute<Object?> route,
+  ) async {
+    try {
+      final handled = await navigator.maybePop();
+      if (!mounted) return;
+      if (!handled) {
+        _dismissRequested = false;
+        return;
+      }
+      if (!route.isActive || !route.isCurrent) {
+        _dismissRequested = false;
+        return;
+      }
+      final animation = route.animation;
+      if (animation == null ||
+          (animation.status != AnimationStatus.reverse &&
+              animation.status != AnimationStatus.dismissed)) {
+        _dismissRequested = false;
+        return;
+      }
+      void onStatus(AnimationStatus status) {
+        if (status != AnimationStatus.dismissed && route.isActive) return;
+        animation.removeStatusListener(onStatus);
+        if (mounted) _dismissRequested = false;
+      }
+
+      animation.addStatusListener(onStatus);
+    } catch (error, stackTrace) {
+      _dismissRequested = false;
+      silentLog('dialog', '关闭弹窗时导航器状态异常', error, stackTrace);
+    }
   }
 
   @override

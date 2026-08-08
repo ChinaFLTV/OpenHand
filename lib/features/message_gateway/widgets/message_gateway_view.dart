@@ -11783,6 +11783,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   String? _selectedId;
   String? _pendingSelectedId;
   bool _autoFollow = true;
+  bool _closing = false;
 
   @override
   void initState() {
@@ -11858,7 +11859,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                     const SizedBox(width: 8),
                     IconButton(
                       tooltip: '关闭',
-                      onPressed: () => Navigator.of(context).pop(),
+                      onPressed: _close,
                       icon: const Icon(Icons.close_rounded),
                     ),
                   ],
@@ -12109,6 +12110,26 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       if (!mounted) return;
       setState(() {});
       _scheduleAutoFollow();
+    });
+  }
+
+  void _close() {
+    if (_closing) return;
+    _closing = true;
+    final navigator = Navigator.of(context);
+    final route = ModalRoute.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !navigator.mounted || route == null) return;
+      if (!route.isActive || !route.isCurrent) {
+        _closing = false;
+        return;
+      }
+      try {
+        navigator.pop();
+      } catch (error, stack) {
+        _closing = false;
+        silentLog('message_gateway', '关闭钉钉消息弹窗', error, stack);
+      }
     });
   }
 
@@ -12473,6 +12494,7 @@ class _DingTalkConversationDetailsDialogState
     extends State<_DingTalkConversationDetailsDialog> {
   late final Future<Object?> _details = widget.controller
       .loadConversationDetails(widget.conversation.id);
+  bool _closing = false;
 
   @override
   Widget build(BuildContext context) {
@@ -12505,7 +12527,7 @@ class _DingTalkConversationDetailsDialogState
                 ),
                 IconButton(
                   tooltip: '关闭',
-                  onPressed: () => Navigator.of(context).pop(),
+                  onPressed: _close,
                   icon: const Icon(Icons.close_rounded),
                 ),
               ],
@@ -12553,6 +12575,26 @@ class _DingTalkConversationDetailsDialogState
         ),
       ),
     );
+  }
+
+  void _close() {
+    if (_closing) return;
+    _closing = true;
+    final navigator = Navigator.of(context);
+    final route = ModalRoute.of(context);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (!mounted || !navigator.mounted || route == null) return;
+      if (!route.isActive || !route.isCurrent) {
+        _closing = false;
+        return;
+      }
+      try {
+        navigator.pop();
+      } catch (error, stack) {
+        _closing = false;
+        silentLog('message_gateway', '关闭钉钉详情弹窗', error, stack);
+      }
+    });
   }
 }
 
