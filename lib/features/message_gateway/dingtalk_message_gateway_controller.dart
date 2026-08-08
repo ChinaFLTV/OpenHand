@@ -58,7 +58,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
        _knowledgeBaseController = dependencies.knowledgeBaseController,
        _appInfo = dependencies.appInfo,
        _store = store ?? DingTalkMessageGatewayStore(),
-       _service = service ?? DingTalkMessageGatewayService();
+       _service = service ?? DingTalkMessageGatewayService() {
+    _runtimeLogSubscription = _service.runtimeLogStream.listen((_) {
+      _notify();
+    });
+  }
 
   static const Uuid _uuid = Uuid();
   static const int _maxSeenIds = 2000;
@@ -73,6 +77,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final AppInfo _appInfo;
   final DingTalkMessageGatewayStore _store;
   final DingTalkMessageGatewayService _service;
+  StreamSubscription<String>? _runtimeLogSubscription;
   final Map<String, DingTalkConversation> _conversations =
       <String, DingTalkConversation>{};
   final Set<String> _responseInFlight = <String>{};
@@ -124,6 +129,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   DingTalkAuthStatus get authStatus => _authStatus;
   DingTalkGatewaySettings get settings => _settings;
+  List<String> get runtimeLogs => _service.runtimeLogs;
+  int get runtimeLogRevision => _service.runtimeLogRevision;
+
+  void clearRuntimeLogs() {
+    _service.clearRuntimeLogs();
+    _notify();
+  }
 
   /// 由应用层注入审批弹窗协调器，控制器本身不持有 BuildContext。
   set writeApprovalHandler(DingTalkWriteApprovalHandler? handler) {
@@ -992,6 +1004,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _responseQueues.clear();
     _responseDraining.clear();
     _writeApprovalHandler = null;
+    await _runtimeLogSubscription?.cancel();
+    _runtimeLogSubscription = null;
     final persist = _persistInFlight;
     if (persist != null) {
       await persist.timeout(const Duration(seconds: 10), onTimeout: () {});

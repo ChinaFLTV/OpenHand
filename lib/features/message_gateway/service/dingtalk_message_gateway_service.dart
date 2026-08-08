@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/bounded_log_buffer.dart';
 import '../../plugin_service/index.dart';
 import '../model/dingtalk_message_gateway.dart';
 
@@ -63,6 +64,45 @@ class DingTalkMessageGatewayService {
   String? _executable;
   bool _authCancelled = false;
   bool _rosterAccessDenied = false;
+  final BoundedLogBuffer _runtimeLogs = BoundedLogBuffer(
+    maxLines: 3000,
+    maxCharacters: 300000,
+  );
+  final StreamController<String> _runtimeLogController =
+      StreamController<String>.broadcast(sync: true);
+  int _runtimeLogSequence = 0;
+
+  List<String> get runtimeLogs => _runtimeLogs.snapshot();
+  int get runtimeLogRevision => _runtimeLogs.revision;
+  Stream<String> get runtimeLogStream => _runtimeLogController.stream;
+
+  void clearRuntimeLogs() => _runtimeLogs.clear();
+
+  void _logRuntime(String level, String message) {
+    final normalized = message.trim();
+    if (normalized.isEmpty) return;
+    final stamp = DateTime.now().toLocal().toIso8601String();
+    final line = '[$stamp] [$level] [$_runtimeLogSequence] $normalized';
+    _runtimeLogSequence += 1;
+    _runtimeLogs.add(line);
+    if (!_runtimeLogController.isClosed) {
+      _runtimeLogController.add(line);
+    }
+  }
+
+  String _safeProcessLogLine(String line) {
+    var value = line.trim();
+    if (value.length > 2000) value = '${value.substring(0, 2000)}…';
+    // dws 输出可能包含授权码、令牌或密钥，日志只保留诊断所需的结构。
+    value = value.replaceAll(
+      RegExp(
+        r'''((?:access[_-]?token|refresh[_-]?token|client[_-]?secret|authorization|user[_-]?code|secret)\s*[:=]\s*)([^,\s}"']+)''',
+        caseSensitive: false,
+      ),
+      r'$1<已脱敏>',
+    );
+    return value;
+  }
 
   String? get cachedExecutable => _executable;
 
@@ -83,6 +123,7 @@ class DingTalkMessageGatewayService {
   Future<Stream<DingTalkGatewayMessage>> _startEventSubscription() async {
     final generation = _eventGeneration;
     final executable = await _requireExecutable();
+    _logRuntime('INFO', '启动钉钉实时事件监听。');
     if (generation != _eventGeneration) {
       throw StateError('钉钉实时事件监听已取消。');
     }
@@ -117,11 +158,15 @@ class DingTalkMessageGatewayService {
         throw StateError('钉钉实时事件监听已取消。');
       }
       _eventProcess = process;
+      _logRuntime('INFO', '实时事件监听进程已启动（PID ${process.pid}）。');
       _eventStdoutSubscription = process.stdout
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen(
-            _consumeEventLine,
+            (line) {
+              _logRuntime('DEBUG', '实时事件标准输出一行（${line.length} 字符）。');
+              _consumeEventLine(line);
+            },
             onError: (Object error, StackTrace stack) {
               if (!ready.isCompleted) ready.completeError(error, stack);
             },
@@ -132,8 +177,16 @@ class DingTalkMessageGatewayService {
           .listen(
             (line) {
               final normalized = line.trim();
+              if (normalized.isNotEmpty &&
+                  !normalized.contains('[event] ready')) {
+                _logRuntime(
+                  'WARN',
+                  '实时事件标准错误：${_safeProcessLogLine(normalized)}',
+                );
+              }
               if (normalized.contains('[event] ready')) {
                 if (!ready.isCompleted) ready.complete();
+                _logRuntime('SUCCESS', '实时事件监听已就绪。');
               } else if (normalized.startsWith('Error:') &&
                   !ready.isCompleted) {
                 ready.completeError(StateError(normalized));
@@ -150,6 +203,7 @@ class DingTalkMessageGatewayService {
       }
       return controller.stream;
     } catch (_) {
+      _logRuntime('ERROR', '启动钉钉实时事件监听失败。');
       if (generation == _eventGeneration) {
         await stopEventSubscription();
       } else {
@@ -179,7 +233,10 @@ class DingTalkMessageGatewayService {
       return;
     }
     if (exitCode != 0) {
+      _logRuntime('ERROR', '实时事件监听进程退出，退出码 $exitCode。');
       silentLog('dingtalk_gateway', '实时事件监听进程退出', StateError('退出码 $exitCode'));
+    } else {
+      _logRuntime('INFO', '实时事件监听进程已退出。');
     }
     _eventProcess = null;
     final controller = _eventController;
@@ -207,11 +264,13 @@ class DingTalkMessageGatewayService {
     await stdoutSubscription?.cancel();
     await stderrSubscription?.cancel();
     if (process != null) {
+      _logRuntime('INFO', '正在停止钉钉实时事件监听。');
       await terminateTrackedProcessTree(
         process,
         gracefulTimeout: const Duration(seconds: 2),
       );
     }
+    if (process != null) _logRuntime('SUCCESS', '钉钉实时事件监听已停止。');
     await controller?.close();
   }
 
@@ -250,7 +309,14 @@ class DingTalkMessageGatewayService {
   }) async {
     _authCancelled = false;
     _rosterAccessDenied = false;
-    final executable = await _requireExecutable();
+    _logRuntime('INFO', '启动钉钉设备流授权。');
+    late final String executable;
+    try {
+      executable = await _requireExecutable();
+    } catch (error) {
+      _logRuntime('ERROR', '启动授权失败，未找到 dws：$error');
+      rethrow;
+    }
     final process = await startTrackedProcessBounded(
       executable,
       const <String>[
@@ -266,6 +332,7 @@ class DingTalkMessageGatewayService {
       startInNewProcessGroup: true,
     );
     _authProcess = process;
+    _logRuntime('INFO', '钉钉设备流授权进程已启动（PID ${process.pid}）。');
     final output = StringBuffer();
     late final StreamSubscription<String> stdoutSub;
     late final StreamSubscription<String> stderrSub;
@@ -316,8 +383,12 @@ class DingTalkMessageGatewayService {
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(
-          consume,
+          (line) {
+            _logRuntime('DEBUG', '授权标准输出：${_safeProcessLogLine(line)}');
+            consume(line);
+          },
           onError: (Object error, StackTrace stack) {
+            _logRuntime('ERROR', '读取授权标准输出失败：$error');
             silentLog('dingtalk_gateway', '读取授权输出', error, stack);
           },
         );
@@ -325,8 +396,12 @@ class DingTalkMessageGatewayService {
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(
-          consume,
+          (line) {
+            _logRuntime('WARN', '授权标准错误：${_safeProcessLogLine(line)}');
+            consume(line);
+          },
           onError: (Object error, StackTrace stack) {
+            _logRuntime('ERROR', '读取授权标准错误失败：$error');
             silentLog('dingtalk_gateway', '读取授权错误输出', error, stack);
           },
         );
@@ -342,6 +417,7 @@ class DingTalkMessageGatewayService {
         },
       );
       if (exitCode != 0) {
+        _logRuntime('ERROR', '钉钉设备流授权进程退出，退出码 $exitCode。');
         if (_authCancelled) return authStatus();
         throw StateError(
           output.toString().trim().isEmpty
@@ -349,6 +425,7 @@ class DingTalkMessageGatewayService {
               : output.toString().trim(),
         );
       }
+      _logRuntime('SUCCESS', '钉钉设备流授权进程已完成。');
       return await authStatus();
     } finally {
       _authProcess = null;
@@ -359,6 +436,7 @@ class DingTalkMessageGatewayService {
 
   Future<void> cancelAuthorization() async {
     _authCancelled = true;
+    _logRuntime('WARN', '正在取消钉钉设备流授权。');
     final process = _authProcess;
     _authProcess = null;
     if (process != null) {
@@ -367,6 +445,7 @@ class DingTalkMessageGatewayService {
         gracefulTimeout: const Duration(seconds: 1),
       );
     }
+    _logRuntime('INFO', '钉钉设备流授权已取消。');
   }
 
   Future<DingTalkAuthStatus> logout({String? profile}) async {
@@ -1121,22 +1200,58 @@ class DingTalkMessageGatewayService {
   }
 
   Future<Object?> _runJson(List<String> arguments) async {
-    final executable = await _requireExecutable();
-    final result = await runTrackedProcessWithLineLogging(
-      executable,
-      arguments,
-      timeout: _commandTimeout,
-      tag: 'dingtalk_gateway.command',
-      maxCapturedLinesPerStream: 4096,
+    final operation = arguments.take(3).join(' ');
+    _logRuntime('INFO', '执行 dws：$operation。');
+    late final String executable;
+    try {
+      executable = await _requireExecutable();
+    } catch (error) {
+      _logRuntime('ERROR', '未找到 dws，无法执行：$error');
+      rethrow;
+    }
+    late final TrackedProcessLineLogResult result;
+    try {
+      result = await runTrackedProcessWithLineLogging(
+        executable,
+        arguments,
+        timeout: _commandTimeout,
+        tag: 'dingtalk_gateway.command',
+        maxCapturedLinesPerStream: 4096,
+        onStdoutLine: (line) {
+          final trimmed = line.trimLeft();
+          final isStructured =
+              trimmed.startsWith('{') || trimmed.startsWith('[');
+          _logRuntime(
+            'DEBUG',
+            isStructured
+                ? 'dws 返回结构化输出（${line.length} 字符）。'
+                : 'dws 标准输出：${_safeProcessLogLine(line)}',
+          );
+        },
+        onStderrLine: (line) =>
+            _logRuntime('WARN', 'dws 标准错误：${_safeProcessLogLine(line)}'),
+        onTimeout: () => _logRuntime('ERROR', 'dws 执行超时：$operation。'),
+      );
+    } catch (error) {
+      _logRuntime('ERROR', 'dws 启动或执行异常：$error');
+      rethrow;
+    }
+    _logRuntime(
+      result.exitCode == 0 ? 'SUCCESS' : 'ERROR',
+      'dws 执行结束：$operation，退出码 ${result.exitCode}。',
     );
     final decoded = _decodeJson(result.stdout);
     final payload = _asMap(decoded);
     final error = _asMap(payload['error']);
+    if (result.stdout.trim().isNotEmpty && decoded is Map && payload.isEmpty) {
+      _logRuntime('WARN', 'dws 返回内容无法解析为有效 JSON。');
+    }
     if (result.exitCode != 0 || error.isNotEmpty) {
       final message =
           error['message']?.toString().trim().ifEmpty('dws 执行失败。') ??
           payload['message']?.toString().trim().ifEmpty('dws 执行失败。') ??
           result.stderr.trim().ifEmpty('dws 执行失败。');
+      _logRuntime('ERROR', 'dws 业务调用失败：${_safeProcessLogLine(message)}');
       throw DingTalkGatewayCommandException(
         message: message,
         category: error['category']?.toString(),
@@ -1270,6 +1385,7 @@ class DingTalkMessageGatewayService {
     try {
       decoded = jsonDecode(text);
     } catch (_) {
+      _logRuntime('WARN', '实时事件输出不是有效 JSON，已忽略。');
       return;
     }
     final message = _parseEventMessage(decoded);

@@ -21,6 +21,7 @@ import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_typography.dart';
+import '../../../shared/ui/runtime_log_dialog.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/user_failure_message.dart';
@@ -586,6 +587,20 @@ class _PluginCard extends StatelessWidget {
             onPressed: isBusy ? null : () => _doUpdate(context),
             icon: const Icon(Icons.system_update_alt_rounded, size: 18),
           ),
+        // 运行日志：放在卸载按钮左侧，未安装插件也保留入口用于查看诊断信息。
+        IconButton.filledTonal(
+          tooltip: openHandLocalizedText(
+            context,
+            zh: '查看运行日志',
+            zhHant: '查看運行日誌',
+            en: 'View runtime logs',
+            fr: 'Voir les journaux d’exécution',
+            de: 'Laufzeitprotokolle anzeigen',
+            ja: '実行ログを表示',
+          ),
+          onPressed: () => _showPluginLogs(context),
+          icon: const Icon(Icons.article_outlined, size: 18),
+        ),
         // 卸载
         if (plugin.isInstalled && plugin.supportsUninstall)
           IconButton.filledTonal(
@@ -783,6 +798,44 @@ class _PluginCard extends StatelessWidget {
     showAnimatedDialog(
       context: context,
       builder: (ctx) => _PluginDetailDialog(plugin: plugin),
+    );
+  }
+
+  void _showPluginLogs(BuildContext context) {
+    final title = openHandLocalizedText(
+      context,
+      zh: '${plugin.name} 运行日志',
+      zhHant: '${plugin.name} 運行日誌',
+      en: '${plugin.name} runtime logs',
+      fr: 'Journaux d’exécution de ${plugin.name}',
+      de: '${plugin.name}-Laufzeitprotokolle',
+      ja: '${plugin.name} の実行ログ',
+    );
+    showOpenHandRuntimeLogDialog(
+      context: context,
+      title: title,
+      listenable: controller,
+      logs: () {
+        final logs = controller.logsForPlugin(plugin.id);
+        final current = controller.pluginById(plugin.id) ?? plugin;
+        if (!current.isInstalled) {
+          return <String>[
+            '[ERROR] ${current.name} 尚未安装，暂无核心组件运行日志。',
+            '[ERROR] 请先安装并启用该插件后再查看运行状态。',
+            ...logs,
+          ];
+        }
+        if (!current.enabled) {
+          return <String>['[WARN] ${current.name} 当前已禁用，运行时不会产生新的日志。', ...logs];
+        }
+        if (logs.isNotEmpty) return logs;
+        return <String>['[INFO] ${current.name} 当前没有可用的运行日志。'];
+      },
+      revision: () =>
+          controller.pluginLogRevision(plugin.id) +
+          controller.operationLogRevision,
+      clearLogs: () => controller.clearPluginLogs(plugin.id),
+      fileNamePrefix: 'openhand-plugin-${plugin.id}',
     );
   }
 

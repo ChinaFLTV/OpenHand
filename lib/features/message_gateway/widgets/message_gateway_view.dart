@@ -35,6 +35,7 @@ import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
+import '../../../shared/ui/runtime_log_dialog.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -11752,6 +11753,20 @@ class _DingTalkGatewayCard extends StatelessWidget {
                           onPressed: () => _showDingTalkMessages(context, ding),
                         ),
                         _DingTalkActionButton(
+                          tooltip: openHandLocalizedText(
+                            context,
+                            zh: '查看运行日志',
+                            zhHant: '查看運行日誌',
+                            en: 'View runtime logs',
+                            fr: 'Voir les journaux d’exécution',
+                            de: 'Laufzeitprotokolle anzeigen',
+                            ja: '実行ログを表示',
+                          ),
+                          icon: Icons.article_outlined,
+                          onPressed: () =>
+                              _showDingTalkRuntimeLogs(context, ding),
+                        ),
+                        _DingTalkActionButton(
                           tooltip: '网关设置',
                           icon: Icons.tune_rounded,
                           onPressed: () => _showDingTalkSettings(context, ding),
@@ -11951,6 +11966,54 @@ Future<void> _showDingTalkSettings(
       maxWidth: kOpenHandDialogWidthStandard,
       child: _DingTalkSettingsDialog(controller: controller),
     ),
+  );
+}
+
+Future<void> _showDingTalkRuntimeLogs(
+  BuildContext context,
+  DingTalkMessageGatewayController controller,
+) {
+  return showOpenHandRuntimeLogDialog(
+    context: context,
+    title: openHandLocalizedText(
+      context,
+      zh: '钉钉消息平台运行日志',
+      zhHant: '釘釘消息平台運行日誌',
+      en: 'DingTalk message platform runtime logs',
+      fr: 'Journaux d’exécution de la plateforme DingTalk',
+      de: 'Laufzeitprotokolle der DingTalk-Nachrichtenplattform',
+      ja: 'DingTalkメッセージプラットフォームの実行ログ',
+    ),
+    listenable: controller,
+    logs: () {
+      final logs = controller.runtimeLogs;
+      if (!controller.isInstalled) {
+        return <String>[
+          '[ERROR] 未检测到 dws，钉钉消息平台尚未安装底层组件。',
+          '[ERROR] 请在插件板块安装 DingTalk Workspace CLI 后重试。',
+          ...logs,
+        ];
+      }
+      if (!controller.isAuthorized) {
+        return <String>[
+          '[ERROR] 当前钉钉账号尚未完成授权，消息监听无法启动。',
+          '[WARN] 完成设备流授权后，重新启动消息监听即可继续。',
+          ...logs,
+        ];
+      }
+      if (!controller.isPolling) {
+        return <String>[
+          '[ERROR] 消息监听当前未运行。',
+          '[WARN] 启动消息监听后将持续记录 dws 执行日志。',
+          ...logs,
+        ];
+      }
+      if (logs.isNotEmpty) return logs;
+      return const <String>['[INFO] 当前暂无 dws 输出，等待下一次事件或命令。'];
+    },
+    revision: () => controller.runtimeLogRevision,
+    clearLogs: controller.clearRuntimeLogs,
+    fileNamePrefix: 'openhand-dingtalk-runtime',
   );
 }
 

@@ -58,6 +58,9 @@ class PluginServiceController extends ManagedChangeNotifier {
   final OpenHandSingleFlight<void> _refreshAllPluginsFlight =
       OpenHandSingleFlight<void>();
   final BoundedLogBuffer _operationLogs = BoundedLogBuffer();
+  final Map<String, BoundedLogBuffer> _pluginLogs =
+      <String, BoundedLogBuffer>{};
+  String? _activePluginLogId;
   final ChangePulse _operationSuccessPulse = ChangePulse();
   final Set<Future<void>> _activeOperations = <Future<void>>{};
   Future<void>? _shutdownFuture;
@@ -73,6 +76,20 @@ class PluginServiceController extends ManagedChangeNotifier {
   ValueListenable<int> get operationSuccessSignal =>
       _operationSuccessPulse.listenable;
   String? get lastSuccessfulPluginId => _lastSuccessfulPluginId;
+
+  List<String> logsForPlugin(String pluginId) {
+    return _pluginLogs[pluginId]?.snapshot() ?? const <String>[];
+  }
+
+  int pluginLogRevision(String pluginId) =>
+      _pluginLogs[pluginId]?.revision ?? 0;
+
+  void clearPluginLogs(String pluginId) {
+    final logs = _pluginLogs[pluginId];
+    if (logs == null || logs.isEmpty) return;
+    logs.clear();
+    notifyListeners();
+  }
 
   PluginInfo? pluginById(String id) {
     for (final p in _plugins) {
@@ -566,13 +583,22 @@ class PluginServiceController extends ManagedChangeNotifier {
   }) async {
     _isOperating = true;
     _errorMessage = null;
+    _activePluginLogId = pluginId;
     _operationLogs.clear();
+    final operationLabel = switch (transientStatus) {
+      PluginStatus.installing => '安装',
+      PluginStatus.updating => '更新',
+      PluginStatus.uninstalling => '卸载',
+      _ => '管理',
+    };
+    _addLog('[INFO] 开始$operationLabel 插件操作。');
     _updatePluginStatus(pluginId, transientStatus);
     notifyListeners();
     try {
       final result = await operation();
       if (isDisposed) return false;
       if (result.success) {
+        _addLog('[SUCCESS] 插件操作命令已完成，正在校验运行状态。');
         await _refreshAllPlugins();
         if (isDisposed) return false;
         final expectedVersion = result.newVersion?.trim();
@@ -587,6 +613,7 @@ class PluginServiceController extends ManagedChangeNotifier {
           return false;
         }
         _lastSuccessfulPluginId = pluginId;
+        _addLog('[SUCCESS] 插件操作完成，运行状态校验通过。');
         _operationSuccessPulse.emit();
         return true;
       }
@@ -602,6 +629,7 @@ class PluginServiceController extends ManagedChangeNotifier {
               ja: 'プラグイン操作に失敗しました。',
             ),
       );
+      _addLog('[ERROR] 插件操作失败：${result.message ?? '未提供失败原因'}');
       return false;
     } catch (error, stack) {
       silentLog('plugin_service', '执行插件生命周期操作', error, stack);
@@ -620,9 +648,11 @@ class PluginServiceController extends ManagedChangeNotifier {
           ),
         ),
       );
+      _addLog('[ERROR] 插件操作异常：$error');
       return false;
     } finally {
       _isOperating = false;
+      _activePluginLogId = null;
       notifyListeners();
     }
   }
@@ -758,6 +788,10 @@ class PluginServiceController extends ManagedChangeNotifier {
   void _addLog(String line) {
     if (isDisposed) return;
     _operationLogs.add(line);
+    final pluginId = _activePluginLogId;
+    if (pluginId != null && pluginId.trim().isNotEmpty) {
+      _pluginLogs.putIfAbsent(pluginId, () => BoundedLogBuffer()).add(line);
+    }
     notifyListeners();
   }
 

@@ -47,10 +47,26 @@ const double kOpenHandConsoleLogLineHeight = 1.5;
 /// 判定顺序为失败 → 成功 → 方括号提示 → 正文；失败优先，避免
 /// `[npm] ✗ failed` 这类同时命中多条时被标成提示色。
 Color _consoleLogLineColor(String line) {
-  if (line.contains('✗') || line.toLowerCase().contains('error')) {
+  final lower = line.toLowerCase();
+  if (line.contains('✗') ||
+      lower.contains('error') ||
+      lower.contains('[error]') ||
+      line.contains('错误')) {
     return OpenHandConsolePalette.error;
   }
-  if (line.contains('✓')) return OpenHandConsolePalette.success;
+  if (line.contains('✓') ||
+      lower.contains('[success]') ||
+      line.contains('成功')) {
+    return OpenHandConsolePalette.success;
+  }
+  if (lower.contains('[warn') ||
+      lower.contains('warning') ||
+      line.contains('警告')) {
+    return OpenHandConsolePalette.warning;
+  }
+  if (lower.contains('[debug]') || line.contains('调试')) {
+    return OpenHandConsolePalette.muted;
+  }
   if (line.startsWith('[') && line.contains(']')) {
     return OpenHandConsolePalette.notice;
   }
