@@ -54,6 +54,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Map<String, (DateTime, List<DingTalkConversationTarget>)>
   _targetSearchCache = <String, (DateTime, List<DingTalkConversationTarget>)>{};
   Timer? _pollTimer;
+  Future<void>? _persistInFlight;
+  bool _persistQueued = false;
+  Object? _persistenceError;
   bool _pollInFlight = false;
   bool _initialized = false;
   bool _disposed = false;
@@ -89,6 +92,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   DingTalkGatewaySettings get settings => _settings;
   List<AiModelConfig> get aiModels =>
       List<AiModelConfig>.unmodifiable(_settingsController.aiModels);
+  AiModelConfig? get activeAiModel => _settingsController.selectedAiModel;
   List<AiThreadTemplate> get templates => List<AiThreadTemplate>.unmodifiable(
     _sessionController.availableTemplates,
   );
@@ -136,14 +140,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   void openConversation(DingTalkConversationTarget target) {
-    _conversations.putIfAbsent(
-      target.id,
-      () => DingTalkConversation(
-        id: target.id,
-        type: target.type,
-        title: target.title,
-      ),
+    if (_conversations.containsKey(target.id)) return;
+    _conversations[target.id] = DingTalkConversation(
+      id: target.id,
+      type: target.type,
+      title: target.title,
     );
+    _queuePersist();
     _notify();
   }
 
@@ -153,6 +156,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (conversation == null) return;
     await stopConversationResponse(conversationId);
     _conversations.remove(conversationId);
+    _queuePersist();
     _notify();
   }
 
@@ -182,7 +186,27 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void> initialize() async {
     if (_initialized || _disposed) return;
     try {
-      _settings = _normalizeSettings(await _store.load());
+      final snapshot = await _store.loadSnapshot();
+      _settings = _normalizeSettings(snapshot.settings);
+      _conversations
+        ..clear()
+        ..addEntries(
+          snapshot.conversations
+              .where((conversation) => conversation.id.trim().isNotEmpty)
+              .map((conversation) => MapEntry(conversation.id, conversation)),
+        );
+      _seenMessageIds.clear();
+      final persistedMessages = <DingTalkGatewayMessage>[];
+      for (final conversation in _conversations.values) {
+        persistedMessages.addAll(conversation.messages);
+      }
+      persistedMessages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+      final firstSeenIndex = persistedMessages.length > _maxSeenIds
+          ? persistedMessages.length - _maxSeenIds
+          : 0;
+      for (final message in persistedMessages.skip(firstSeenIndex)) {
+        _remember(message.id);
+      }
       await refreshAuthStatus();
     } catch (error, stack) {
       _setError('初始化钉钉消息网关', error, stack);
@@ -257,13 +281,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<void> updateSettings(DingTalkGatewaySettings value) async {
     final normalized = _normalizeSettings(value);
-    await _store.save(normalized);
     if (_settings.templateId != normalized.templateId) {
       for (final conversation in _conversations.values) {
         conversation.aiSessionId = null;
       }
     }
     _settings = normalized;
+    _queuePersist();
+    final task = _persistInFlight;
+    if (task != null) await task;
+    final persistenceError = _persistenceError;
+    if (persistenceError != null) {
+      throw StateError('保存钉钉网关设置失败：$persistenceError');
+    }
     if (_isPolling) _schedulePolling();
     _notify();
   }
@@ -288,8 +318,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     final normalized = _normalizeSettings(_settings);
     if (normalized.toJson().toString() != _settings.toJson().toString()) {
-      await _store.save(normalized);
       _settings = normalized;
+      _queuePersist();
+      final task = _persistInFlight;
+      if (task != null) await task;
     }
     _notify();
   }
@@ -332,6 +364,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         createdAt: DateTime.now(),
         senderName: _authStatus.identity.label,
         senderId: _authStatus.identity.userId,
+        fromSelf: true,
       ),
     );
     _notify();
@@ -616,7 +649,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   bool _isSelf(DingTalkGatewayMessage message) {
-    if (message.fromSelf) return true;
+    if (message.isAssistant || message.fromSelf) return true;
     final sender = message.senderId.trim();
     final current = _authStatus.identity.userId.trim();
     final profile = _authStatus.identity.profile.trim();
@@ -627,10 +660,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     final senderName = message.senderName.trim();
     final identityName = _authStatus.identity.name.trim();
+    final identityLabel = _authStatus.identity.label.trim();
     return senderName.isNotEmpty &&
-        identityName.isNotEmpty &&
-        senderName == identityName;
+        ((identityName.isNotEmpty && senderName == identityName) ||
+            (identityLabel.isNotEmpty && senderName == identityLabel));
   }
+
+  bool isMessageFromCurrentUser(DingTalkGatewayMessage message) =>
+      _isSelf(message);
 
   void _appendMessage(
     DingTalkConversation conversation,
@@ -639,6 +676,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (conversation.messages.any((item) => item.id == message.id)) return;
     conversation.messages.add(message);
     conversation.messages.sort((a, b) => a.createdAt.compareTo(b.createdAt));
+    _queuePersist();
   }
 
   void markAllRead() {
@@ -660,15 +698,60 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   void _clearError() => _errorMessage = null;
+
+  void _queuePersist() {
+    if (_disposed) return;
+    _persistQueued = true;
+    _persistenceError = null;
+    if (_persistInFlight != null) return;
+    final task = _drainPersistQueue();
+    _persistInFlight = task;
+    unawaited(task);
+  }
+
+  Future<void> _drainPersistQueue() async {
+    while (_persistQueued) {
+      _persistQueued = false;
+      final conversations = _conversations.values
+          .map((conversation) {
+            final copy = DingTalkConversation(
+              id: conversation.id,
+              type: conversation.type,
+              title: conversation.title,
+              messages: List<DingTalkGatewayMessage>.from(
+                conversation.messages,
+              ),
+            )..aiSessionId = conversation.aiSessionId;
+            return copy;
+          })
+          .toList(growable: false);
+      try {
+        await _store
+            .saveSnapshot(settings: _settings, conversations: conversations)
+            .timeout(const Duration(seconds: 10));
+      } catch (error, stack) {
+        _persistenceError = error;
+        _setError('保存钉钉网关数据', error, stack);
+        break;
+      }
+    }
+    _persistInFlight = null;
+    if (_persistQueued && !_disposed) _queuePersist();
+  }
+
   void _notify() {
     if (!_disposed) notifyListeners();
   }
 
   Future<void> shutdown() async {
     if (_disposed) return;
-    _disposed = true;
     _pollTimer?.cancel();
     _pollTimer = null;
+    final persist = _persistInFlight;
+    if (persist != null) {
+      await persist.timeout(const Duration(seconds: 10), onTimeout: () {});
+    }
+    _disposed = true;
     await _service.cancelAuthorization();
   }
 

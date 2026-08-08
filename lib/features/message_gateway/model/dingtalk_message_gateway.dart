@@ -201,6 +201,37 @@ class DingTalkGatewayMessage {
     this.failed = false,
   });
 
+  factory DingTalkGatewayMessage.fromJson(Map<String, Object?> json) {
+    final id = '${json['id'] ?? ''}'.trim();
+    final conversationId = '${json['conversation_id'] ?? ''}'.trim();
+    final content = '${json['content'] ?? ''}';
+    final createdAt = DateTime.tryParse('${json['created_at'] ?? ''}');
+    if (id.isEmpty || conversationId.isEmpty || createdAt == null) {
+      throw const FormatException('钉钉消息数据不完整。');
+    }
+    final type = DingTalkConversationType.values.firstWhere(
+      (item) => item.name == '${json['conversation_type'] ?? ''}',
+      orElse: () => DingTalkConversationType.direct,
+    );
+    final role = DingTalkGatewayMessageRole.values.firstWhere(
+      (item) => item.name == '${json['role'] ?? ''}',
+      orElse: () => DingTalkGatewayMessageRole.user,
+    );
+    return DingTalkGatewayMessage(
+      id: id,
+      conversationId: conversationId,
+      conversationType: type,
+      role: role,
+      content: content,
+      createdAt: createdAt,
+      senderName: '${json['sender_name'] ?? ''}',
+      senderId: '${json['sender_id'] ?? ''}',
+      conversationTitle: '${json['conversation_title'] ?? ''}',
+      fromSelf: boolFromValue(json['from_self']),
+      failed: boolFromValue(json['failed']),
+    );
+  }
+
   final String id;
   final String conversationId;
   final DingTalkConversationType conversationType;
@@ -214,6 +245,20 @@ class DingTalkGatewayMessage {
   final bool failed;
 
   bool get isAssistant => role == DingTalkGatewayMessageRole.assistant;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'conversation_id': conversationId,
+    'conversation_type': conversationType.name,
+    'role': role.name,
+    'content': content,
+    'created_at': createdAt.toIso8601String(),
+    'sender_name': senderName,
+    'sender_id': senderId,
+    'conversation_title': conversationTitle,
+    'from_self': fromSelf,
+    'failed': failed,
+  };
 }
 
 class DingTalkConversation {
@@ -224,11 +269,56 @@ class DingTalkConversation {
     List<DingTalkGatewayMessage> messages = const <DingTalkGatewayMessage>[],
   }) : messages = List<DingTalkGatewayMessage>.from(messages);
 
+  factory DingTalkConversation.fromJson(Map<String, Object?> json) {
+    final id = '${json['id'] ?? ''}'.trim();
+    final title = '${json['title'] ?? ''}'.trim();
+    if (id.isEmpty || title.isEmpty) {
+      throw const FormatException('钉钉会话数据不完整。');
+    }
+    final type = DingTalkConversationType.values.firstWhere(
+      (item) => item.name == '${json['type'] ?? ''}',
+      orElse: () => DingTalkConversationType.direct,
+    );
+    final rawMessages = json['messages'];
+    final messages = rawMessages is List
+        ? rawMessages
+              .whereType<Map>()
+              .map((item) {
+                try {
+                  return DingTalkGatewayMessage.fromJson(
+                    stringKeyedMapFromValue(item),
+                  );
+                } catch (_) {
+                  return null;
+                }
+              })
+              .whereType<DingTalkGatewayMessage>()
+              .toList(growable: false)
+        : const <DingTalkGatewayMessage>[];
+    final conversation = DingTalkConversation(
+      id: id,
+      type: type,
+      title: title,
+      messages: messages,
+    );
+    final sessionId = '${json['ai_session_id'] ?? ''}'.trim();
+    conversation.aiSessionId = sessionId.isEmpty ? null : sessionId;
+    return conversation;
+  }
+
   final String id;
   final DingTalkConversationType type;
   String title;
   final List<DingTalkGatewayMessage> messages;
   String? aiSessionId;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'type': type.name,
+    'title': title,
+    'ai_session_id': aiSessionId,
+    'messages': messages.map((item) => item.toJson()).toList(growable: false),
+  };
 
   DateTime get updatedAt => messages.isEmpty
       ? DateTime.fromMillisecondsSinceEpoch(0)

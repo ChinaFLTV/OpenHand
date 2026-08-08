@@ -11461,6 +11461,8 @@ String _messageGatewayWaitingForTrafficLabel(BuildContext context) {
 class _DingTalkGatewayCard extends StatelessWidget {
   const _DingTalkGatewayCard({required this.controller});
 
+  static const double _iconSize = 17;
+
   final MessageGatewayController controller;
 
   @override
@@ -11497,8 +11499,8 @@ class _DingTalkGatewayCard extends StatelessWidget {
                               ),
                               child: SvgPicture.asset(
                                 'assets/icons/plugins/dingtalk-workspace-cli.svg',
-                                width: 22.5,
-                                height: 22.5,
+                                width: _iconSize,
+                                height: _iconSize,
                               ),
                             ),
                             Positioned(
@@ -11898,70 +11900,77 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                   final item = conversations[index];
                                   final active = item.id == selected?.id;
                                   return Builder(
-                                    builder: (itemContext) => GestureDetector(
-                                      onDoubleTap: () => _showConversationMenu(
-                                        itemContext,
-                                        item,
-                                      ),
-                                      child: Material(
-                                        color: active
-                                            ? colors.primaryContainer
-                                                  .withValues(alpha: 0.72)
-                                            : Colors.transparent,
+                                    builder: (itemContext) => Material(
+                                      color: active
+                                          ? colors.primaryContainer.withValues(
+                                              alpha: 0.72,
+                                            )
+                                          : Colors.transparent,
+                                      borderRadius: BorderRadius.circular(12),
+                                      shadowColor: Colors.transparent,
+                                      child: InkWell(
                                         borderRadius: BorderRadius.circular(12),
-                                        child: InkWell(
-                                          borderRadius: BorderRadius.circular(
-                                            12,
+                                        hoverColor: colors
+                                            .surfaceContainerHighest
+                                            .withValues(alpha: 0.55),
+                                        focusColor: Colors.transparent,
+                                        onTap: () =>
+                                            _selectConversation(item.id),
+                                        onDoubleTap: () =>
+                                            _showConversationMenu(
+                                              itemContext,
+                                              item,
+                                            ),
+                                        onLongPress: () =>
+                                            _showConversationMenu(
+                                              itemContext,
+                                              item,
+                                            ),
+                                        onSecondaryTap: () =>
+                                            _showConversationMenu(
+                                              itemContext,
+                                              item,
+                                            ),
+                                        child: Padding(
+                                          padding: const EdgeInsets.symmetric(
+                                            horizontal: 10,
+                                            vertical: 6,
                                           ),
-                                          hoverColor: colors
-                                              .surfaceContainerHighest
-                                              .withValues(alpha: 0.55),
-                                          focusColor: Colors.transparent,
-                                          onTap: () =>
-                                              _selectConversation(item.id),
-                                          child: Padding(
-                                            padding: const EdgeInsets.symmetric(
-                                              horizontal: 10,
-                                              vertical: 8,
-                                            ),
-                                            child: Row(
-                                              children: [
-                                                Icon(
-                                                  item.type ==
-                                                          DingTalkConversationType
-                                                              .group
-                                                      ? Icons.groups_rounded
-                                                      : Icons.person_rounded,
-                                                  size: 19,
-                                                  color: active
-                                                      ? colors
-                                                            .onPrimaryContainer
-                                                      : colors.onSurfaceVariant,
+                                          child: Row(
+                                            children: [
+                                              Icon(
+                                                item.type ==
+                                                        DingTalkConversationType
+                                                            .group
+                                                    ? Icons.groups_rounded
+                                                    : Icons.person_rounded,
+                                                size: 19,
+                                                color: active
+                                                    ? colors.onPrimaryContainer
+                                                    : colors.onSurfaceVariant,
+                                              ),
+                                              const SizedBox(width: 9),
+                                              Expanded(
+                                                child: Text(
+                                                  item.title,
+                                                  maxLines: 1,
+                                                  overflow:
+                                                      TextOverflow.ellipsis,
+                                                  style: theme
+                                                      .textTheme
+                                                      .titleSmall
+                                                      ?.copyWith(
+                                                        color: active
+                                                            ? colors
+                                                                  .onPrimaryContainer
+                                                            : colors.onSurface,
+                                                        fontWeight: active
+                                                            ? FontWeight.w700
+                                                            : FontWeight.w600,
+                                                      ),
                                                 ),
-                                                const SizedBox(width: 9),
-                                                Expanded(
-                                                  child: Text(
-                                                    item.title,
-                                                    maxLines: 1,
-                                                    overflow:
-                                                        TextOverflow.ellipsis,
-                                                    style: theme
-                                                        .textTheme
-                                                        .titleSmall
-                                                        ?.copyWith(
-                                                          color: active
-                                                              ? colors
-                                                                    .onPrimaryContainer
-                                                              : colors
-                                                                    .onSurface,
-                                                          fontWeight: active
-                                                              ? FontWeight.w700
-                                                              : FontWeight.w600,
-                                                        ),
-                                                  ),
-                                                ),
-                                              ],
-                                            ),
+                                              ),
+                                            ],
                                           ),
                                         ),
                                       ),
@@ -12078,6 +12087,12 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                               TextInputAction.newline,
                                           decoration: const InputDecoration(
                                             hintText: '以当前钉钉身份发送消息',
+                                            isDense: true,
+                                            contentPadding:
+                                                EdgeInsets.symmetric(
+                                                  horizontal: 16,
+                                                  vertical: 13,
+                                                ),
                                           ),
                                           onSubmitted: (_) =>
                                               _sendOrStop(selected),
@@ -12162,12 +12177,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   }
 
   bool _isMine(DingTalkGatewayMessage message) {
-    if (message.isAssistant || message.fromSelf) return true;
-    final senderId = message.senderId.trim();
-    final identityId = widget.controller.authStatus.identity.userId.trim();
-    return senderId.isNotEmpty &&
-        identityId.isNotEmpty &&
-        senderId == identityId;
+    return widget.controller.isMessageFromCurrentUser(message);
   }
 
   void _scheduleAutoFollow({bool force = false}) {
@@ -12198,8 +12208,13 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     );
     final enabled = responding || !widget.controller.isSending;
     return SizedBox(
+      width: 124,
       height: 48,
       child: FilledButton.icon(
+        style: FilledButton.styleFrom(
+          minimumSize: const Size(124, 48),
+          padding: const EdgeInsets.symmetric(horizontal: 12),
+        ),
         onPressed: !enabled
             ? null
             : responding
@@ -12441,25 +12456,57 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                             ? TextDirection.rtl
                             : TextDirection.ltr,
                         children: [
-                          IconButton(
-                            tooltip: '复制消息',
-                            visualDensity: VisualDensity.compact,
-                            onPressed: () => copyOpenHandTextToClipboard(
-                              context: context,
-                              text: widget.message.content,
-                              logTag: 'dingtalk_gateway',
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: colors.surfaceContainerHighest.withValues(
+                                alpha: 0.72,
+                              ),
+                              borderRadius: BorderRadius.circular(10),
                             ),
-                            icon: const Icon(Icons.copy_rounded, size: 16),
+                            child: Padding(
+                              padding: const EdgeInsets.symmetric(
+                                horizontal: 6,
+                                vertical: 2,
+                              ),
+                              child: Row(
+                                mainAxisSize: MainAxisSize.min,
+                                textDirection: widget.mine
+                                    ? TextDirection.rtl
+                                    : TextDirection.ltr,
+                                children: [
+                                  IconButton(
+                                    tooltip: '复制消息',
+                                    visualDensity: VisualDensity.compact,
+                                    padding: EdgeInsets.zero,
+                                    constraints: const BoxConstraints.tightFor(
+                                      width: 28,
+                                      height: 28,
+                                    ),
+                                    onPressed: () =>
+                                        copyOpenHandTextToClipboard(
+                                          context: context,
+                                          text: widget.message.content,
+                                          logTag: 'dingtalk_gateway',
+                                        ),
+                                    icon: const Icon(
+                                      Icons.copy_rounded,
+                                      size: 16,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 8),
+                                  Text(
+                                    formatYearMonthDayHm(
+                                      widget.message.createdAt.toLocal(),
+                                    ),
+                                    style: theme.textTheme.labelSmall?.copyWith(
+                                      color: colors.onSurfaceVariant,
+                                    ),
+                                  ),
+                                  const SizedBox(width: 2),
+                                ],
+                              ),
+                            ),
                           ),
-                          Text(
-                            formatYearMonthDayHm(
-                              widget.message.createdAt.toLocal(),
-                            ),
-                            style: theme.textTheme.labelSmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                          const SizedBox(width: 4),
                         ],
                       )
                     : const SizedBox(
@@ -13223,7 +13270,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                   _DingTalkSettingsCard(
                     icon: Icons.auto_awesome_rounded,
                     title: '响应模型',
-                    subtitle: model.isEmpty ? '跟随当前默认模型' : model,
+                    subtitle: model,
                     onTap: _selectModel,
                     trailing: const Icon(Icons.chevron_right_rounded),
                   ),
@@ -13370,7 +13417,12 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
 
   String _modelLabel() {
     final key = _splitModelKey(_modelKey);
-    if (key.$1.isEmpty || key.$2.isEmpty) return '';
+    if (key.$1.isEmpty || key.$2.isEmpty) {
+      final active = widget.controller.activeAiModel;
+      return active == null
+          ? '跟随当前活跃模型 · 暂无可用模型'
+          : '跟随当前活跃模型 · ${active.providerLabel} / ${active.displayName}';
+    }
     for (final model in widget.controller.aiModels) {
       if (model.id == key.$1) return '${model.providerLabel} / ${key.$2}';
     }
@@ -13555,9 +13607,15 @@ class _DingTalkResourceField extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton(
+              IconButton.filledTonal(
                 tooltip: '刷新 $title',
                 onPressed: refreshing ? null : onRefresh,
+                style: IconButton.styleFrom(
+                  fixedSize: const Size(40, 40),
+                  padding: EdgeInsets.zero,
+                  shape: const CircleBorder(),
+                  shadowColor: Colors.transparent,
+                ),
                 icon: refreshing
                     ? const SizedBox(
                         width: 18,
@@ -13646,10 +13704,6 @@ class _DingTalkResourcePickerDialogState
                 const SizedBox(width: 9),
                 Text(widget.title, style: theme.textTheme.titleLarge),
                 const Spacer(),
-                Text(
-                  '已选 ${_selected.length}',
-                  style: theme.textTheme.bodySmall,
-                ),
               ],
             ),
             const SizedBox(height: 14),
@@ -13664,7 +13718,15 @@ class _DingTalkResourcePickerDialogState
             const SizedBox(height: 8),
             Row(
               children: [
-                TextButton.icon(
+                Text(
+                  '已选 ${_selected.length}',
+                  style: theme.textTheme.bodySmall?.copyWith(
+                    color: theme.colorScheme.onSurfaceVariant,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+                const Spacer(),
+                FilledButton.tonalIcon(
                   onPressed: widget.options.isEmpty
                       ? null
                       : () => setState(
@@ -13675,7 +13737,8 @@ class _DingTalkResourcePickerDialogState
                   icon: const Icon(Icons.done_all_rounded),
                   label: const Text('全选'),
                 ),
-                TextButton.icon(
+                const SizedBox(width: 8),
+                OutlinedButton.icon(
                   onPressed: _selected.isEmpty
                       ? null
                       : () => setState(() => _selected.clear()),
@@ -13708,6 +13771,8 @@ class _DingTalkResourcePickerDialogState
                                 )
                               : theme.colorScheme.surfaceContainerHighest,
                           borderRadius: BorderRadius.circular(13),
+                          shadowColor: Colors.transparent,
+                          surfaceTintColor: Colors.transparent,
                           child: CheckboxListTile(
                             value: isSelected,
                             onChanged: (value) => setState(() {
@@ -13731,6 +13796,12 @@ class _DingTalkResourcePickerDialogState
                                     overflow: TextOverflow.ellipsis,
                                   ),
                             controlAffinity: ListTileControlAffinity.trailing,
+                            overlayColor: const WidgetStatePropertyAll(
+                              Colors.transparent,
+                            ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(13),
+                            ),
                             contentPadding: const EdgeInsets.only(
                               left: 12,
                               right: 8,
