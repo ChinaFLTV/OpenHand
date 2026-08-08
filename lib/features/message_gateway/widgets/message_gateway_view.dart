@@ -12961,22 +12961,21 @@ class _DingTalkMemberCard extends StatelessWidget {
 
     return Container(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.15),
+        borderRadius: BorderRadius.circular(10),
       ),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             children: [
               CircleAvatar(
-                radius: 16,
-                backgroundColor: colors.primaryContainer,
+                radius: 14,
+                backgroundColor: colors.primaryContainer.withValues(alpha: 0.8),
                 child: Icon(
                   Icons.person_rounded,
-                  size: 18,
+                  size: 16,
                   color: colors.onPrimaryContainer,
                 ),
               ),
@@ -13008,21 +13007,22 @@ class _DingTalkMemberCard extends StatelessWidget {
                     vertical: 3,
                   ),
                   decoration: BoxDecoration(
-                    color: colors.tertiaryContainer.withValues(alpha: 0.8),
+                    color: colors.tertiaryContainer.withValues(alpha: 0.6),
                     borderRadius: BorderRadius.circular(6),
                   ),
                   child: Text(
                     _dingtalkRoleLabel(context, role),
                     style: theme.textTheme.labelSmall?.copyWith(
                       color: colors.onTertiaryContainer,
-                      fontWeight: FontWeight.w600,
+                      fontWeight: FontWeight.w700,
+                      fontSize: 11,
                     ),
                   ),
                 ),
             ],
           ),
           if (fields.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            const SizedBox(height: 12),
             _DingTalkDetailGrid(data: fields),
           ],
         ],
@@ -13196,11 +13196,11 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
     final colors = theme.colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.25),
+        color: colors.surfaceContainerLowest.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.3)),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.15)),
       ),
-      padding: const EdgeInsets.all(12),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
@@ -13209,22 +13209,23 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
               Icon(
                 Icons.account_tree_rounded,
                 size: 16,
-                color: colors.primary.withValues(alpha: 0.8),
+                color: colors.primary.withValues(alpha: 0.7),
               ),
-              const SizedBox(width: 6),
+              const SizedBox(width: 8),
               Expanded(
                 child: Text(
                   _displayDingTalkDetailLabel(context, label),
                   style: theme.textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.w600,
+                    fontWeight: FontWeight.w700,
+                    color: colors.onSurface.withValues(alpha: 0.9),
                   ),
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
+                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
                 decoration: BoxDecoration(
-                  color: colors.surfaceContainerHighest.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(8),
+                  color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
+                  borderRadius: BorderRadius.circular(12),
                 ),
                 child: Text(
                   _dingtalkDetailCountLabel(
@@ -13234,12 +13235,13 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: colors.onSurfaceVariant,
                     fontSize: 11,
+                    fontWeight: FontWeight.w600,
                   ),
                 ),
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          const SizedBox(height: 12),
           _DingTalkDetailValue(value: value),
         ],
       ),
@@ -13259,13 +13261,10 @@ class _DingTalkDetailField extends StatelessWidget {
     final colors = theme.colorScheme;
     return Container(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.3),
-        ),
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.2),
+        borderRadius: BorderRadius.circular(8),
       ),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         mainAxisSize: MainAxisSize.min,
@@ -13275,11 +13274,11 @@ class _DingTalkDetailField extends StatelessWidget {
             maxLines: 1,
             overflow: TextOverflow.ellipsis,
             style: theme.textTheme.labelSmall?.copyWith(
-              color: colors.onSurfaceVariant.withValues(alpha: 0.85),
-              fontWeight: FontWeight.w500,
+              color: colors.onSurfaceVariant.withValues(alpha: 0.8),
+              fontWeight: FontWeight.w600,
             ),
           ),
-          const SizedBox(height: 3),
+          const SizedBox(height: 4),
           SelectableText(
             _formatDingTalkDetailValue(context, value),
             maxLines: 2,
