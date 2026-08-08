@@ -11497,8 +11497,8 @@ class _DingTalkGatewayCard extends StatelessWidget {
                               ),
                               child: SvgPicture.asset(
                                 'assets/icons/plugins/dingtalk-workspace-cli.svg',
-                                width: 30,
-                                height: 30,
+                                width: 22.5,
+                                height: 22.5,
                               ),
                             ),
                             Positioned(
