@@ -12626,21 +12626,35 @@ class _DingTalkConversationDetailsDialog extends StatelessWidget {
   }
 }
 
-class _DingTalkDetailsView extends StatelessWidget {
+class _DingTalkDetailsView extends StatefulWidget {
   const _DingTalkDetailsView({required this.value, required this.conversation});
 
   final Object value;
   final DingTalkConversation conversation;
 
   @override
+  State<_DingTalkDetailsView> createState() => _DingTalkDetailsViewState();
+}
+
+class _DingTalkDetailsViewState extends State<_DingTalkDetailsView> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
-    final document = _buildDingTalkDetailDocument(value);
+    final document = _buildDingTalkDetailDocument(widget.value);
     final sections = <Widget>[
-      _DingTalkDetailIdentityCard(conversation: conversation),
+      _DingTalkDetailIdentityCard(conversation: widget.conversation),
       if (document.conversation.isNotEmpty)
         _DingTalkDetailCardGroup(
           title: '会话概览',
           icon: Icons.forum_rounded,
+          parentScrollController: _scrollController,
           badge: _dingtalkDetailCountLabel(
             context,
             document.conversation.length,
@@ -12651,6 +12665,7 @@ class _DingTalkDetailsView extends StatelessWidget {
         _DingTalkDetailCardGroup(
           title: '联系人资料',
           icon: Icons.person_rounded,
+          parentScrollController: _scrollController,
           badge: _dingtalkDetailCountLabel(context, document.contact.length),
           child: _DingTalkDetailGrid(data: document.contact),
         ),
@@ -12658,6 +12673,7 @@ class _DingTalkDetailsView extends StatelessWidget {
         _DingTalkDetailCardGroup(
           title: '员工档案',
           icon: Icons.badge_rounded,
+          parentScrollController: _scrollController,
           badge: _dingtalkDetailCountLabel(context, document.profile.length),
           child: _DingTalkDetailGrid(data: document.profile),
         ),
@@ -12667,6 +12683,7 @@ class _DingTalkDetailsView extends StatelessWidget {
             title: entry.key,
             icon: _dingtalkDetailSectionIcon(entry.key),
             maxContentHeight: _dingtalkDetailSectionMaxHeight(entry.key),
+            parentScrollController: _scrollController,
             badge: _dingtalkDetailCountLabel(
               context,
               _dingtalkDetailItemCount(entry.value),
@@ -12675,6 +12692,7 @@ class _DingTalkDetailsView extends StatelessWidget {
           ),
     ];
     return SingleChildScrollView(
+      controller: _scrollController,
       key: const PageStorageKey<String>('dingtalk-details'),
       physics: kOpenHandClampingPhysics,
       padding: const EdgeInsets.fromLTRB(2, 2, 4, 18),
@@ -12694,6 +12712,7 @@ class _DingTalkDetailsView extends StatelessWidget {
               title: '群成员',
               icon: Icons.people_alt_rounded,
               maxContentHeight: 440,
+              parentScrollController: _scrollController,
               badge: _dingtalkDetailCountLabel(
                 context,
                 document.members.length,
@@ -12725,6 +12744,7 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
     required this.badge,
     required this.child,
     this.maxContentHeight,
+    this.parentScrollController,
   });
 
   final String title;
@@ -12732,6 +12752,7 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
   final String badge;
   final Widget child;
   final double? maxContentHeight;
+  final ScrollController? parentScrollController;
 
   @override
   Widget build(BuildContext context) {
@@ -12798,11 +12819,27 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
             if (maxContentHeight != null)
               ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: maxContentHeight!),
-                child: SingleChildScrollView(
-                  primary: false,
-                  physics: kOpenHandClampingPhysics,
-                  padding: const EdgeInsets.only(right: 4),
-                  child: child,
+                child: NotificationListener<OverscrollNotification>(
+                  onNotification: (notification) {
+                    final parent = parentScrollController;
+                    if (parent == null || !parent.hasClients) return false;
+                    final position = parent.position;
+                    final target = (position.pixels + notification.overscroll)
+                        .clamp(
+                          position.minScrollExtent,
+                          position.maxScrollExtent,
+                        )
+                        .toDouble();
+                    if ((target - position.pixels).abs() < 0.5) return false;
+                    parent.jumpTo(target);
+                    return true;
+                  },
+                  child: SingleChildScrollView(
+                    primary: false,
+                    physics: kOpenHandClampingPhysics,
+                    padding: const EdgeInsets.only(right: 4),
+                    child: child,
+                  ),
                 ),
               )
             else
@@ -13302,16 +13339,7 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
             duration: openHandMotionDurationMs(context, 220),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,
-            child: _dingtalkDetailNeedsOwnScroll(value)
-                ? ConstrainedBox(
-                    constraints: const BoxConstraints(maxHeight: 360),
-                    child: SingleChildScrollView(
-                      primary: false,
-                      padding: const EdgeInsets.only(right: 4),
-                      child: content,
-                    ),
-                  )
-                : content,
+            child: content,
           ),
         ],
       ),
@@ -13762,12 +13790,6 @@ int _dingtalkDetailItemCount(Object? value) {
   if (value is Map) return value.length;
   if (value is List) return value.length;
   return 1;
-}
-
-bool _dingtalkDetailNeedsOwnScroll(Object? value) {
-  if (value is List) return value.length > 4;
-  if (value is Map) return value.length > 6;
-  return false;
 }
 
 String _dingtalkConversationIdLabel(BuildContext context, String id) {
