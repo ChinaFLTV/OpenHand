@@ -11473,8 +11473,12 @@ class _DingTalkGatewayCard extends StatelessWidget {
       builder: (context, _) {
         final ding = controller.dingtalk;
         final theme = Theme.of(context);
-        final statusColor = ding.isAuthorized
+        final statusColor = ding.isAuthenticating
+            ? theme.colorScheme.primary
+            : ding.isPolling
             ? OpenHandStatusColors.success
+            : ding.isAuthorized
+            ? OpenHandStatusColors.warning
             : theme.colorScheme.onSurfaceVariant;
         return Card(
           elevation: 0,
@@ -12588,7 +12592,8 @@ class _DingTalkConversationDetailsDialogState
                       ),
                       const SizedBox(height: 2),
                       Text(
-                        widget.conversation.type == DingTalkConversationType.group
+                        widget.conversation.type ==
+                                DingTalkConversationType.group
                             ? openHandLocalizedText(
                                 context,
                                 zh: '群聊详情',
@@ -12739,7 +12744,10 @@ class _DingTalkDetailsView extends StatelessWidget {
             _DingTalkDetailCardGroup(
               title: '会话概览',
               icon: Icons.forum_rounded,
-              badge: _dingtalkDetailCountLabel(context, document.conversation.length),
+              badge: _dingtalkDetailCountLabel(
+                context,
+                document.conversation.length,
+              ),
               child: _DingTalkDetailGrid(data: document.conversation),
             ),
           ],
@@ -12748,7 +12756,10 @@ class _DingTalkDetailsView extends StatelessWidget {
             _DingTalkDetailCardGroup(
               title: '联系人资料',
               icon: Icons.person_rounded,
-              badge: _dingtalkDetailCountLabel(context, document.contact.length),
+              badge: _dingtalkDetailCountLabel(
+                context,
+                document.contact.length,
+              ),
               child: _DingTalkDetailGrid(data: document.contact),
             ),
           ],
@@ -12757,15 +12768,19 @@ class _DingTalkDetailsView extends StatelessWidget {
             _DingTalkDetailCardGroup(
               title: '群成员',
               icon: Icons.people_alt_rounded,
-              badge: _dingtalkDetailCountLabel(context, document.members.length, unit: '人'),
+              badge: _dingtalkDetailCountLabel(
+                context,
+                document.members.length,
+                unit: '人',
+              ),
               child: ListView.separated(
                 shrinkWrap: true,
                 physics: const NeverScrollableScrollPhysics(),
                 itemCount: document.members.length,
-                separatorBuilder: (context, index) => const SizedBox(height: 10),
-                itemBuilder: (context, index) => _DingTalkMemberCard(
-                  details: document.members[index],
-                ),
+                separatorBuilder: (context, index) =>
+                    const SizedBox(height: 10),
+                itemBuilder: (context, index) =>
+                    _DingTalkMemberCard(details: document.members[index]),
               ),
             ),
           ],
@@ -12805,11 +12820,7 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
                   color: colors.primaryContainer.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(8),
                 ),
-                child: Icon(
-                  icon,
-                  size: 16,
-                  color: colors.onPrimaryContainer,
-                ),
+                child: Icon(icon, size: 16, color: colors.onPrimaryContainer),
               ),
               const SizedBox(width: 10),
               Expanded(
@@ -12821,7 +12832,10 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 10,
+                  vertical: 4,
+                ),
                 decoration: BoxDecoration(
                   color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(20),
@@ -12858,8 +12872,12 @@ class _DingTalkDetailGrid extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final entries = data.entries.toList(growable: false);
-    final simpleEntries = entries.where((e) => !_dingtalkIsCompound(e.value)).toList();
-    final compoundEntries = entries.where((e) => _dingtalkIsCompound(e.value)).toList();
+    final simpleEntries = entries
+        .where((e) => !_dingtalkIsCompound(e.value))
+        .toList();
+    final compoundEntries = entries
+        .where((e) => _dingtalkIsCompound(e.value))
+        .toList();
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -12868,7 +12886,9 @@ class _DingTalkDetailGrid extends StatelessWidget {
           LayoutBuilder(
             builder: (context, constraints) {
               final crossAxisCount = constraints.maxWidth > 520 ? 3 : 2;
-              final width = (constraints.maxWidth - (crossAxisCount - 1) * 10) / crossAxisCount;
+              final width =
+                  (constraints.maxWidth - (crossAxisCount - 1) * 10) /
+                  crossAxisCount;
               return Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -12888,10 +12908,7 @@ class _DingTalkDetailGrid extends StatelessWidget {
         if (compoundEntries.isNotEmpty) ...[
           if (simpleEntries.isNotEmpty) const SizedBox(height: 12),
           for (final entry in compoundEntries) ...[
-            _DingTalkDetailNestedSection(
-              label: entry.key,
-              value: entry.value,
-            ),
+            _DingTalkDetailNestedSection(label: entry.key, value: entry.value),
             const SizedBox(height: 10),
           ],
         ],
@@ -13074,7 +13091,10 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
                 Row(
                   children: [
                     Container(
-                      padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 8,
+                        vertical: 3,
+                      ),
                       decoration: BoxDecoration(
                         color: colors.secondaryContainer.withValues(alpha: 0.5),
                         borderRadius: BorderRadius.circular(6),
@@ -13198,7 +13218,9 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
       decoration: BoxDecoration(
         color: colors.surfaceContainerLowest.withValues(alpha: 0.6),
         borderRadius: BorderRadius.circular(12),
-        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.15)),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.15),
+        ),
       ),
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       child: Column(
@@ -13222,7 +13244,10 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
                 ),
               ),
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2.5),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 8,
+                  vertical: 2.5,
+                ),
                 decoration: BoxDecoration(
                   color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
                   borderRadius: BorderRadius.circular(12),
