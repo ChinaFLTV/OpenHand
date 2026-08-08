@@ -17307,20 +17307,19 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
             },
             detailSections: <String, String>{
               if (item.summary.trim().isNotEmpty) '能力摘要': item.summary,
-              if (item.parameters.isNotEmpty)
-                '参数说明': item.parameters.entries
-                    .map((entry) {
-                      final schema = stringKeyedMapFromValue(entry.value);
-                      final type = '${schema['type'] ?? 'string'}';
-                      final required = schema['required'] == true ? '必填' : '可选';
-                      final description = '${schema['description'] ?? ''}'
-                          .trim();
-                      return '${entry.key} · $type · $required'
-                          '${description.isEmpty ? '' : '：$description'}';
-                    })
-                    .join('\n'),
-              if (item.examples.isNotEmpty) '调用示例': item.examples.join('\n'),
             },
+            detailParameters: item.parameters.entries
+                .map((entry) {
+                  final schema = stringKeyedMapFromValue(entry.value);
+                  return (
+                    name: entry.key,
+                    type: '${schema['type'] ?? 'string'}',
+                    requirement: schema['required'] == true ? '必填' : '可选',
+                    description: '${schema['description'] ?? ''}'.trim(),
+                  );
+                })
+                .toList(growable: false),
+            detailExamples: item.examples,
           ),
         )
         .toList(growable: false);
@@ -17697,6 +17696,13 @@ class _DingTalkResourceField extends StatelessWidget {
   }
 }
 
+typedef _DingTalkResourceParameterDetail = ({
+  String name,
+  String type,
+  String requirement,
+  String description,
+});
+
 class _DingTalkResourceOption {
   const _DingTalkResourceOption({
     required this.id,
@@ -17708,6 +17714,8 @@ class _DingTalkResourceOption {
     this.detailDescription = '',
     this.detailFields = const <String, String>{},
     this.detailSections = const <String, String>{},
+    this.detailParameters = const <_DingTalkResourceParameterDetail>[],
+    this.detailExamples = const <String>[],
   });
 
   final String id;
@@ -17719,6 +17727,8 @@ class _DingTalkResourceOption {
   final String detailDescription;
   final Map<String, String> detailFields;
   final Map<String, String> detailSections;
+  final List<_DingTalkResourceParameterDetail> detailParameters;
+  final List<String> detailExamples;
 }
 
 class _DingTalkResourceDetailsDialog extends StatelessWidget {
@@ -17741,6 +17751,11 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
     final sections = option.detailSections.entries
         .where((entry) => entry.value.trim().isNotEmpty)
         .toList(growable: false);
+    final parameters = option.detailParameters;
+    final examples = option.detailExamples
+        .map((item) => item.trim())
+        .where((item) => item.isNotEmpty)
+        .toList(growable: false);
     final typeLabel = option.detailFields['资源类型']?.trim().isNotEmpty == true
         ? option.detailFields['资源类型']!.trim()
         : option.groupTitle?.trim().isNotEmpty == true
@@ -17760,13 +17775,11 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                   width: 48,
                   height: 48,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: [
-                        colors.primaryContainer,
-                        colors.tertiaryContainer,
-                      ],
-                    ),
+                    color: colors.primaryContainer,
                     borderRadius: BorderRadius.circular(15),
+                    border: Border.all(
+                      color: colors.outlineVariant.withValues(alpha: 0.5),
+                    ),
                   ),
                   child: Icon(option.icon, color: colors.onPrimaryContainer),
                 ),
@@ -17811,7 +17824,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
             const SizedBox(height: 16),
             Expanded(
               child: ListView(
-                padding: const EdgeInsets.only(right: 4, bottom: 8),
+                padding: const EdgeInsets.only(right: 4, bottom: 4),
                 children: [
                   _buildDetailSection(
                     context,
@@ -17885,16 +17898,15 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                       content: section.value,
                     ),
                   ],
+                  if (parameters.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _buildParameterSection(context, parameters),
+                  ],
+                  if (examples.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    _buildCodeExampleSection(context, examples),
+                  ],
                 ],
-              ),
-            ),
-            const SizedBox(height: 10),
-            Align(
-              alignment: Alignment.centerRight,
-              child: FilledButton.icon(
-                onPressed: () => Navigator.of(context).pop(),
-                icon: const Icon(Icons.done_rounded),
-                label: const Text('完成'),
               ),
             ),
           ],
@@ -17940,6 +17952,228 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
           ),
         ],
       ),
+    );
+  }
+
+  Widget _buildParameterSection(
+    BuildContext context,
+    List<_DingTalkResourceParameterDetail> parameters,
+  ) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final borderColor = colors.outlineVariant.withValues(alpha: 0.65);
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: borderColor),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(Icons.table_rows_rounded, size: 18, color: colors.primary),
+              const SizedBox(width: 7),
+              Text(
+                '参数说明',
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+              const Spacer(),
+              Text(
+                '${parameters.length} 项',
+                style: theme.textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 12),
+          LayoutBuilder(
+            builder: (context, constraints) {
+              final tableWidth = math.max(constraints.maxWidth, 660.0);
+              return SingleChildScrollView(
+                scrollDirection: Axis.horizontal,
+                child: SizedBox(
+                  width: tableWidth,
+                  child: ClipRRect(
+                    borderRadius: BorderRadius.circular(11),
+                    child: Table(
+                      border: TableBorder(
+                        top: BorderSide(color: borderColor),
+                        bottom: BorderSide(color: borderColor),
+                        left: BorderSide(color: borderColor),
+                        right: BorderSide(color: borderColor),
+                        horizontalInside: BorderSide(color: borderColor),
+                        verticalInside: BorderSide(color: borderColor),
+                      ),
+                      columnWidths: const <int, TableColumnWidth>{
+                        0: FixedColumnWidth(150),
+                        1: FixedColumnWidth(92),
+                        2: FixedColumnWidth(72),
+                        3: FlexColumnWidth(),
+                      },
+                      defaultVerticalAlignment:
+                          TableCellVerticalAlignment.middle,
+                      children: [
+                        TableRow(
+                          decoration: BoxDecoration(
+                            color: colors.surfaceContainerHighest,
+                          ),
+                          children: const [
+                            _DingTalkParameterTableCell('参数名', header: true),
+                            _DingTalkParameterTableCell('类型', header: true),
+                            _DingTalkParameterTableCell('要求', header: true),
+                            _DingTalkParameterTableCell('说明', header: true),
+                          ],
+                        ),
+                        for (var index = 0; index < parameters.length; index++)
+                          TableRow(
+                            decoration: BoxDecoration(
+                              color: index.isOdd
+                                  ? colors.surfaceContainerHighest.withValues(
+                                      alpha: 0.35,
+                                    )
+                                  : colors.surface,
+                            ),
+                            children: [
+                              _DingTalkParameterTableCell(
+                                parameters[index].name,
+                                monospace: true,
+                              ),
+                              _DingTalkParameterTableCell(
+                                parameters[index].type,
+                                monospace: true,
+                              ),
+                              _DingTalkParameterTableCell(
+                                parameters[index].requirement,
+                              ),
+                              _DingTalkParameterTableCell(
+                                parameters[index].description.isEmpty
+                                    ? '—'
+                                    : parameters[index].description,
+                              ),
+                            ],
+                          ),
+                      ],
+                    ),
+                  ),
+                ),
+              );
+            },
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildCodeExampleSection(BuildContext context, List<String> examples) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final content = examples.join('\n\n');
+    return Container(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.65),
+        ),
+      ),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.stretch,
+          children: [
+            Container(
+              color: colors.surfaceContainerHighest,
+              padding: const EdgeInsets.fromLTRB(14, 8, 8, 8),
+              child: Row(
+                children: [
+                  Icon(Icons.terminal_rounded, size: 18, color: colors.primary),
+                  const SizedBox(width: 7),
+                  Text(
+                    '调用示例',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                  const Spacer(),
+                  Text(
+                    'Shell',
+                    style: theme.textTheme.labelMedium?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontFamily: kOpenHandMonospaceFontFamily,
+                    ),
+                  ),
+                  const SizedBox(width: 4),
+                  IconButton(
+                    tooltip: '复制调用示例',
+                    onPressed: () => unawaited(
+                      copyOpenHandTextToClipboard(
+                        context: context,
+                        text: content,
+                        logTag: 'message_gateway',
+                        logAction: '复制钉钉DWS调用示例',
+                      ),
+                    ),
+                    style: IconButton.styleFrom(
+                      fixedSize: const Size(34, 34),
+                      padding: EdgeInsets.zero,
+                      backgroundColor: Colors.transparent,
+                      shadowColor: Colors.transparent,
+                    ),
+                    icon: const Icon(Icons.copy_all_rounded, size: 18),
+                  ),
+                ],
+              ),
+            ),
+            Divider(height: 1, color: colors.outlineVariant),
+            SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              padding: const EdgeInsets.all(14),
+              child: SelectableText(
+                content,
+                style: theme.textTheme.bodyMedium?.copyWith(
+                  height: 1.55,
+                  fontFamily: kOpenHandMonospaceFontFamily,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkParameterTableCell extends StatelessWidget {
+  const _DingTalkParameterTableCell(
+    this.text, {
+    this.header = false,
+    this.monospace = false,
+  });
+
+  final String text;
+  final bool header;
+  final bool monospace;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final style = theme.textTheme.bodySmall?.copyWith(
+      height: 1.4,
+      fontWeight: header ? FontWeight.w800 : FontWeight.w500,
+      color: header ? theme.colorScheme.onSurfaceVariant : null,
+      fontFamily: monospace ? kOpenHandMonospaceFontFamily : null,
+    );
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
+      child: header
+          ? Text(text, style: style)
+          : SelectableText(text, style: style),
     );
   }
 }
