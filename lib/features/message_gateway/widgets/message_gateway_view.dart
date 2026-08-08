@@ -12270,17 +12270,29 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     BuildContext itemContext,
     DingTalkConversation conversation,
   ) async {
+    final isGroup = conversation.type == DingTalkConversationType.group;
+    final detailsLabel = openHandLocalizedText(
+      context,
+      zh: isGroup ? '群聊详情' : '联系人详情',
+      zhHant: isGroup ? '群聊詳情' : '聯絡人詳情',
+      en: isGroup ? 'Group details' : 'Contact details',
+      fr: isGroup ? 'Détails du groupe' : 'Détails du contact',
+      de: isGroup ? 'Gruppendetails' : 'Kontaktdetails',
+      ja: isGroup ? 'グループ詳細' : '連絡先の詳細',
+    );
     final action =
         await showAnimatedAnchoredPopupMenu<_DingTalkConversationMenuAction>(
           context: itemContext,
           position: PopupMenuPosition.under,
           items: [
-            const PopupMenuItem(
+            PopupMenuItem(
               value: _DingTalkConversationMenuAction.details,
               child: ListTile(
                 dense: true,
-                leading: Icon(Icons.info_outline_rounded),
-                title: Text('群聊/联系人详情'),
+                leading: Icon(
+                  isGroup ? Icons.groups_rounded : Icons.person_rounded,
+                ),
+                title: Text(detailsLabel),
               ),
             ),
             PopupMenuItem(
