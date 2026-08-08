@@ -12744,7 +12744,6 @@ class _DingTalkDetailsView extends StatelessWidget {
             _DingTalkDetailCardGroup(
               title: '会话概览',
               icon: Icons.forum_rounded,
-              maxContentHeight: 286,
               badge: _dingtalkDetailCountLabel(
                 context,
                 document.conversation.length,
@@ -12757,7 +12756,6 @@ class _DingTalkDetailsView extends StatelessWidget {
             _DingTalkDetailCardGroup(
               title: '联系人资料',
               icon: Icons.person_rounded,
-              maxContentHeight: 286,
               badge: _dingtalkDetailCountLabel(
                 context,
                 document.contact.length,
@@ -12770,7 +12768,7 @@ class _DingTalkDetailsView extends StatelessWidget {
             _DingTalkDetailCardGroup(
               title: '员工档案',
               icon: Icons.badge_rounded,
-              maxContentHeight: 300,
+              maxContentHeight: 420,
               badge: _dingtalkDetailCountLabel(
                 context,
                 document.profile.length,
@@ -12789,7 +12787,7 @@ class _DingTalkDetailsView extends StatelessWidget {
                 unit: '人',
               ),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxHeight: 320),
+                constraints: const BoxConstraints(maxHeight: 480),
                 child: Scrollbar(
                   child: ListView.separated(
                     shrinkWrap: true,
@@ -12835,14 +12833,6 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow.withValues(alpha: 0.86),
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            accent.withValues(alpha: 0.12),
-            colors.surfaceContainerLow.withValues(alpha: 0.82),
-          ],
-        ),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: accent.withValues(alpha: 0.22)),
       ),
@@ -13128,14 +13118,7 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
     final accent = colors.primary;
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          begin: Alignment.topLeft,
-          end: Alignment.bottomRight,
-          colors: [
-            colors.primaryContainer.withValues(alpha: 0.62),
-            colors.surfaceContainerLow.withValues(alpha: 0.72),
-          ],
-        ),
+        color: colors.primaryContainer.withValues(alpha: 0.62),
         borderRadius: BorderRadius.circular(24),
         border: Border.all(color: accent.withValues(alpha: 0.25)),
       ),
@@ -13352,7 +13335,7 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
           const SizedBox(height: 12),
           if (_dingtalkDetailNeedsOwnScroll(value))
             ConstrainedBox(
-              constraints: const BoxConstraints(maxHeight: 240),
+              constraints: const BoxConstraints(maxHeight: 360),
               child: SingleChildScrollView(
                 primary: false,
                 padding: const EdgeInsets.only(right: 4),
