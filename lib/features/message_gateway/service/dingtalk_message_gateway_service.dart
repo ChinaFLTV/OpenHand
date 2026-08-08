@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math' as math;
 
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
@@ -291,27 +292,25 @@ class DingTalkMessageGatewayService {
   Future<Object?> conversationDetails({
     required DingTalkConversation conversation,
   }) async {
-    final conversationArgs = <String>[
-      'chat',
-      'conversation-info',
-      conversation.type == DingTalkConversationType.group
-          ? '--group'
-          : '--open-dingtalk-id',
-      conversation.id,
-      '--format',
-      'json',
-    ];
-    final details = await _runJson(conversationArgs);
+    final details = await _loadConversationInfo(conversation);
     final result = <String, Object?>{'会话信息': details};
     if (conversation.type == DingTalkConversationType.group) {
+      Object? members;
       try {
-        result['群成员'] = await _loadAllGroupMembers(conversation.id);
+        members = await _loadAllGroupMembers(conversation.id);
+        result['群成员'] = members;
       } catch (error, stack) {
         silentLog('dingtalk_gateway', '读取群成员详情', error, stack);
       }
+      final memberUserIds = _extractUserIds(members);
+      if (memberUserIds.isNotEmpty) {
+        final memberProfiles = await _loadUserDetails(memberUserIds);
+        if (memberProfiles != null) result['群成员资料'] = memberProfiles;
+      }
     } else {
+      Object? contact;
       try {
-        result['联系人信息'] = await _runJson(<String>[
+        contact = await _runJson(<String>[
           'contact',
           'user',
           'get',
@@ -320,9 +319,10 @@ class DingTalkMessageGatewayService {
           '--format',
           'json',
         ]);
+        result['联系人信息'] = contact;
       } catch (error, stack) {
         try {
-          result['联系人信息'] = await _runJson(<String>[
+          contact = await _runJson(<String>[
             'contact',
             '+lookup',
             '--name',
@@ -330,6 +330,7 @@ class DingTalkMessageGatewayService {
             '--format',
             'json',
           ]);
+          result['联系人信息'] = contact;
         } catch (fallbackError, fallbackStack) {
           silentLog(
             'dingtalk_gateway',
@@ -340,8 +341,153 @@ class DingTalkMessageGatewayService {
           silentLog('dingtalk_gateway', '联系人详情查询失败', error, stack);
         }
       }
+      final staffId = _extractFirstStaffId(contact);
+      if (staffId.isNotEmpty) {
+        try {
+          result['联系人档案'] = await _runJson(<String>[
+            'contact',
+            'user',
+            'profile',
+            'get',
+            '--staff-id',
+            staffId,
+            '--format',
+            'json',
+          ]);
+        } catch (error, stack) {
+          // 花名册需要额外权限，没有权限时仍展示通讯录基础资料。
+          silentLog('dingtalk_gateway', '读取联系人档案', error, stack);
+        }
+      }
     }
     return result;
+  }
+
+  Future<Object?> _loadConversationInfo(
+    DingTalkConversation conversation,
+  ) async {
+    final primaryFlag = conversation.type == DingTalkConversationType.group
+        ? '--group'
+        : '--user';
+    try {
+      return await _runJson(<String>[
+        'chat',
+        'conversation-info',
+        primaryFlag,
+        conversation.id,
+        '--format',
+        'json',
+      ]);
+    } catch (error, stack) {
+      if (conversation.type == DingTalkConversationType.direct) {
+        try {
+          return await _runJson(<String>[
+            'chat',
+            'conversation-info',
+            '--open-dingtalk-id',
+            conversation.id,
+            '--format',
+            'json',
+          ]);
+        } catch (fallbackError, fallbackStack) {
+          silentLog('dingtalk_gateway', '读取会话基础信息', error, stack);
+          silentLog(
+            'dingtalk_gateway',
+            '读取会话基础信息备用标识',
+            fallbackError,
+            fallbackStack,
+          );
+          rethrow;
+        }
+      }
+      rethrow;
+    }
+  }
+
+  Future<Object?> _loadUserDetails(List<String> userIds) async {
+    final pages = <Object?>[];
+    for (var offset = 0; offset < userIds.length; offset += 30) {
+      final end = math.min(offset + 30, userIds.length);
+      try {
+        pages.add(
+          await _runJson(<String>[
+            'contact',
+            'user',
+            'get',
+            '--ids',
+            userIds.sublist(offset, end).join(','),
+            '--format',
+            'json',
+          ]),
+        );
+      } catch (error, stack) {
+        silentLog('dingtalk_gateway', '读取群成员组织资料', error, stack);
+      }
+    }
+    if (pages.isEmpty) return null;
+    return pages.length == 1 ? pages.first : <String, Object?>{'pages': pages};
+  }
+
+  List<String> _extractUserIds(Object? value) {
+    final ids = <String>{};
+    void visit(Object? current) {
+      if (ids.length >= 300) return;
+      if (current is Map) {
+        final map = _asMap(current);
+        for (final key in const <String>[
+          'userId',
+          'user_id',
+          'orgUserId',
+          'org_user_id',
+          'memberUserId',
+          'member_user_id',
+        ]) {
+          final id = '${map[key] ?? ''}'.trim();
+          if (id.isNotEmpty) ids.add(id);
+        }
+        for (final item in map.values) {
+          visit(item);
+        }
+      } else if (current is List) {
+        for (final item in current) {
+          visit(item);
+        }
+      }
+    }
+
+    visit(value);
+    return ids.toList(growable: false);
+  }
+
+  String _extractFirstUserId(Object? value) {
+    return _extractUserIds(value).firstOrNull ?? '';
+  }
+
+  String _extractFirstStaffId(Object? value) {
+    String? found;
+    void visit(Object? current) {
+      if (found != null) return;
+      if (current is Map) {
+        final map = _asMap(current);
+        for (final key in const <String>['staffId', 'staff_id']) {
+          final candidate = '${map[key] ?? ''}'.trim();
+          if (candidate.isNotEmpty) {
+            found = candidate;
+            return;
+          }
+        }
+        for (final item in map.values) {
+          visit(item);
+        }
+      } else if (current is List) {
+        for (final item in current) {
+          visit(item);
+        }
+      }
+    }
+
+    visit(value);
+    return found ?? _extractFirstUserId(value);
   }
 
   Future<Object?> _loadAllGroupMembers(String conversationId) async {
