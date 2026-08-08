@@ -11776,22 +11776,35 @@ class _DingTalkMessagesDialog extends StatefulWidget {
 
 class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   final TextEditingController _input = TextEditingController();
+  final ScrollController _messagesScrollController = ScrollController();
+  Timer? _refreshTimer;
+  int? _refreshIntervalSeconds;
+  bool _followScheduled = false;
   String? _selectedId;
+  String? _pendingSelectedId;
+  bool _autoFollow = true;
 
   @override
   void initState() {
     super.initState();
     widget.controller.markAllRead();
+    widget.controller.addListener(_handleControllerChanged);
   }
 
   @override
   void dispose() {
+    widget.controller.removeListener(_handleControllerChanged);
+    _refreshTimer?.cancel();
     _input.dispose();
+    _messagesScrollController.dispose();
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    _ensureRefreshTimer();
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
@@ -11800,10 +11813,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
             conversations.where((item) => item.id == _selectedId).firstOrNull ??
             (conversations.isEmpty ? null : conversations.first);
         if (selected != null && _selectedId != selected.id) {
-          WidgetsBinding.instance.addPostFrameCallback((_) {
-            if (mounted) setState(() => _selectedId = selected.id);
-          });
+          _deferSelection(selected.id);
         }
+        _scheduleAutoFollow();
         return SizedBox(
           width: double.infinity,
           height: 680,
@@ -11818,6 +11830,26 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                     const SizedBox(width: 10),
                     Text('钉钉消息', style: Theme.of(context).textTheme.titleLarge),
                     const Spacer(),
+                    IconButton.filledTonal(
+                      tooltip: _autoFollow ? '关闭自动滚动到底部' : '开启自动滚动到底部',
+                      onPressed: () {
+                        setState(() => _autoFollow = !_autoFollow);
+                        if (_autoFollow) _scheduleAutoFollow(force: true);
+                      },
+                      icon: AnimatedSwitcher(
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion180,
+                        ),
+                        child: Icon(
+                          _autoFollow
+                              ? Icons.vertical_align_bottom_rounded
+                              : Icons.pause_rounded,
+                          key: ValueKey<bool>(_autoFollow),
+                        ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
                     IconButton.filledTonal(
                       tooltip: '新建会话',
                       onPressed: _addConversation,
@@ -11837,42 +11869,106 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                 child: Row(
                   children: [
                     SizedBox(
-                      width: 270,
-                      child: conversations.isEmpty
-                          ? const Center(child: Text('暂无消息会话'))
-                          : ListView.separated(
-                              padding: const EdgeInsets.all(12),
-                              itemCount: conversations.length,
-                              separatorBuilder: (_, index) =>
-                                  const SizedBox(height: 6),
-                              itemBuilder: (context, index) {
-                                final item = conversations[index];
-                                final active = item.id == selected?.id;
-                                return ListTile(
-                                  selected: active,
-                                  shape: RoundedRectangleBorder(
-                                    borderRadius: BorderRadius.circular(14),
+                      width: 248,
+                      child: DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colors.surfaceContainerLow,
+                        ),
+                        child: conversations.isEmpty
+                            ? Center(
+                                child: Text(
+                                  '暂无消息会话',
+                                  style: theme.textTheme.bodyMedium?.copyWith(
+                                    color: colors.onSurfaceVariant,
                                   ),
-                                  leading: Icon(
-                                    item.type == DingTalkConversationType.group
-                                        ? Icons.groups_rounded
-                                        : Icons.person_rounded,
-                                  ),
-                                  title: Text(
-                                    item.title,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  subtitle: Text(
-                                    item.preview,
-                                    maxLines: 1,
-                                    overflow: TextOverflow.ellipsis,
-                                  ),
-                                  onTap: () =>
-                                      setState(() => _selectedId = item.id),
-                                );
-                              },
-                            ),
+                                ),
+                              )
+                            : ListView.separated(
+                                padding: const EdgeInsets.fromLTRB(
+                                  10,
+                                  10,
+                                  10,
+                                  12,
+                                ),
+                                itemCount: conversations.length,
+                                separatorBuilder: (_, index) =>
+                                    const SizedBox(height: 4),
+                                itemBuilder: (context, index) {
+                                  final item = conversations[index];
+                                  final active = item.id == selected?.id;
+                                  return Builder(
+                                    builder: (itemContext) => GestureDetector(
+                                      onDoubleTap: () => _showConversationMenu(
+                                        itemContext,
+                                        item,
+                                      ),
+                                      child: Material(
+                                        color: active
+                                            ? colors.primaryContainer
+                                                  .withValues(alpha: 0.72)
+                                            : Colors.transparent,
+                                        borderRadius: BorderRadius.circular(12),
+                                        child: InkWell(
+                                          borderRadius: BorderRadius.circular(
+                                            12,
+                                          ),
+                                          hoverColor: colors
+                                              .surfaceContainerHighest
+                                              .withValues(alpha: 0.55),
+                                          focusColor: Colors.transparent,
+                                          onTap: () =>
+                                              _selectConversation(item.id),
+                                          child: Padding(
+                                            padding: const EdgeInsets.symmetric(
+                                              horizontal: 10,
+                                              vertical: 8,
+                                            ),
+                                            child: Row(
+                                              children: [
+                                                Icon(
+                                                  item.type ==
+                                                          DingTalkConversationType
+                                                              .group
+                                                      ? Icons.groups_rounded
+                                                      : Icons.person_rounded,
+                                                  size: 19,
+                                                  color: active
+                                                      ? colors
+                                                            .onPrimaryContainer
+                                                      : colors.onSurfaceVariant,
+                                                ),
+                                                const SizedBox(width: 9),
+                                                Expanded(
+                                                  child: Text(
+                                                    item.title,
+                                                    maxLines: 1,
+                                                    overflow:
+                                                        TextOverflow.ellipsis,
+                                                    style: theme
+                                                        .textTheme
+                                                        .titleSmall
+                                                        ?.copyWith(
+                                                          color: active
+                                                              ? colors
+                                                                    .onPrimaryContainer
+                                                              : colors
+                                                                    .onSurface,
+                                                          fontWeight: active
+                                                              ? FontWeight.w700
+                                                              : FontWeight.w600,
+                                                        ),
+                                                  ),
+                                                ),
+                                              ],
+                                            ),
+                                          ),
+                                        ),
+                                      ),
+                                    ),
+                                  );
+                                },
+                              ),
+                      ),
                     ),
                     const VerticalDivider(width: 1),
                     Expanded(
@@ -11880,50 +11976,87 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                           ? const Center(child: Text('选择左侧会话开始交流'))
                           : Column(
                               children: [
-                                Expanded(
-                                  child: ListView.builder(
-                                    padding: const EdgeInsets.fromLTRB(
-                                      20,
-                                      18,
-                                      20,
-                                      12,
-                                    ),
-                                    itemCount: selected.messages.length,
-                                    itemBuilder: (context, index) {
-                                      final message = selected.messages[index];
-                                      final assistant = message.isAssistant;
-                                      return Align(
-                                        alignment: assistant
-                                            ? Alignment.centerRight
-                                            : Alignment.centerLeft,
-                                        child: Container(
-                                          constraints: const BoxConstraints(
-                                            maxWidth: 560,
-                                          ),
-                                          margin: const EdgeInsets.only(
-                                            bottom: 10,
-                                          ),
-                                          padding: const EdgeInsets.symmetric(
-                                            horizontal: 14,
-                                            vertical: 10,
-                                          ),
-                                          decoration: BoxDecoration(
-                                            color: assistant
-                                                ? Theme.of(
-                                                    context,
-                                                  ).colorScheme.primaryContainer
-                                                : Theme.of(context)
-                                                      .colorScheme
-                                                      .surfaceContainerHighest,
-                                            borderRadius: BorderRadius.circular(
-                                              16,
-                                            ),
-                                          ),
-                                          child: Text(message.content),
-                                        ),
-                                      );
-                                    },
+                                Container(
+                                  padding: const EdgeInsets.fromLTRB(
+                                    18,
+                                    12,
+                                    18,
+                                    10,
                                   ),
+                                  decoration: BoxDecoration(
+                                    border: Border(
+                                      bottom: BorderSide(
+                                        color: colors.outlineVariant.withValues(
+                                          alpha: 0.55,
+                                        ),
+                                      ),
+                                    ),
+                                  ),
+                                  child: Row(
+                                    children: [
+                                      Icon(
+                                        selected.type ==
+                                                DingTalkConversationType.group
+                                            ? Icons.groups_rounded
+                                            : Icons.person_rounded,
+                                        size: 19,
+                                        color: colors.primary,
+                                      ),
+                                      const SizedBox(width: 8),
+                                      Expanded(
+                                        child: Text(
+                                          selected.title,
+                                          maxLines: 1,
+                                          overflow: TextOverflow.ellipsis,
+                                          style: theme.textTheme.titleMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                      ),
+                                      if (widget.controller
+                                          .isConversationResponding(
+                                            selected.id,
+                                          ))
+                                        const _DingTalkRespondingIndicator(),
+                                    ],
+                                  ),
+                                ),
+                                Expanded(
+                                  child: selected.messages.isEmpty
+                                      ? Center(
+                                          child: Text(
+                                            '暂无消息，发送一条消息开始交流',
+                                            style: theme.textTheme.bodyMedium
+                                                ?.copyWith(
+                                                  color:
+                                                      colors.onSurfaceVariant,
+                                                ),
+                                          ),
+                                        )
+                                      : ListView(
+                                          key: ValueKey<String>(selected.id),
+                                          controller: _messagesScrollController,
+                                          padding: const EdgeInsets.fromLTRB(
+                                            20,
+                                            18,
+                                            20,
+                                            12,
+                                          ),
+                                          children: [
+                                            for (final message
+                                                in selected.messages)
+                                              KeyedSubtree(
+                                                key: ValueKey<String>(
+                                                  message.id,
+                                                ),
+                                                child: _DingTalkMessageBubble(
+                                                  message: message,
+                                                  mine: _isMine(message),
+                                                ),
+                                              ),
+                                          ],
+                                        ),
                                 ),
                                 Padding(
                                   padding: const EdgeInsets.fromLTRB(
@@ -11933,26 +12066,24 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                     16,
                                   ),
                                   child: Row(
+                                    crossAxisAlignment: CrossAxisAlignment.end,
                                     children: [
                                       Expanded(
                                         child: TextField(
                                           controller: _input,
                                           minLines: 1,
                                           maxLines: 4,
+                                          textInputAction:
+                                              TextInputAction.newline,
                                           decoration: const InputDecoration(
                                             hintText: '以当前钉钉身份发送消息',
                                           ),
-                                          onSubmitted: (_) => _send(selected),
+                                          onSubmitted: (_) =>
+                                              _sendOrStop(selected),
                                         ),
                                       ),
                                       const SizedBox(width: 10),
-                                      IconButton.filled(
-                                        tooltip: '发送',
-                                        onPressed: widget.controller.isSending
-                                            ? null
-                                            : () => _send(selected),
-                                        icon: const Icon(Icons.send_rounded),
-                                      ),
+                                      _buildSendButton(selected),
                                     ],
                                   ),
                                 ),
@@ -11969,11 +12100,188 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     );
   }
 
-  void _send(DingTalkConversation conversation) {
+  void _ensureRefreshTimer() {
+    final seconds = widget.controller.settings.pollIntervalSeconds;
+    if (_refreshIntervalSeconds == seconds && _refreshTimer != null) return;
+    _refreshTimer?.cancel();
+    _refreshIntervalSeconds = seconds;
+    _refreshTimer = Timer.periodic(Duration(seconds: seconds), (_) {
+      if (!mounted) return;
+      setState(() {});
+      _scheduleAutoFollow();
+    });
+  }
+
+  void _handleControllerChanged() {
+    if (!mounted) return;
+    _ensureRefreshTimer();
+  }
+
+  void _deferSelection(String id) {
+    if (_pendingSelectedId == id) return;
+    _pendingSelectedId = id;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _pendingSelectedId = null;
+      if (!mounted || _selectedId == id) return;
+      setState(() {
+        _selectedId = id;
+        _input.clear();
+      });
+      _scheduleAutoFollow(force: true);
+    });
+  }
+
+  void _selectConversation(String id) {
+    if (_selectedId == id) return;
+    setState(() {
+      _selectedId = id;
+      _input.clear();
+    });
+    _scheduleAutoFollow(force: true);
+  }
+
+  bool _isMine(DingTalkGatewayMessage message) {
+    if (message.isAssistant || message.fromSelf) return true;
+    final senderId = message.senderId.trim();
+    final identityId = widget.controller.authStatus.identity.userId.trim();
+    return senderId.isNotEmpty &&
+        identityId.isNotEmpty &&
+        senderId == identityId;
+  }
+
+  void _scheduleAutoFollow({bool force = false}) {
+    if (!force && !_autoFollow) return;
+    if (_followScheduled) return;
+    _followScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _followScheduled = false;
+      if (!mounted ||
+          !(_autoFollow || force) ||
+          !_messagesScrollController.hasClients) {
+        return;
+      }
+      final position = _messagesScrollController.position;
+      final target = position.maxScrollExtent;
+      if ((target - position.pixels).abs() < 1) return;
+      _messagesScrollController.animateTo(
+        target,
+        duration: openHandMotionDuration(context, kOpenHandMotion260),
+        curve: Curves.easeOutCubic,
+      );
+    });
+  }
+
+  Widget _buildSendButton(DingTalkConversation conversation) {
+    final responding = widget.controller.isConversationResponding(
+      conversation.id,
+    );
+    final enabled = responding || !widget.controller.isSending;
+    return SizedBox(
+      height: 48,
+      child: FilledButton.icon(
+        onPressed: !enabled
+            ? null
+            : responding
+            ? () => unawaited(
+                widget.controller.stopConversationResponse(conversation.id),
+              )
+            : () => _sendOrStop(conversation),
+        icon: AnimatedSwitcher(
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
+          child: Icon(
+            responding ? Icons.stop_rounded : Icons.arrow_upward_rounded,
+            key: ValueKey<bool>(responding),
+          ),
+        ),
+        label: AnimatedSwitcher(
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
+          child: Text(
+            responding ? '停止响应' : '发送',
+            key: ValueKey<bool>(responding),
+          ),
+        ),
+      ),
+    );
+  }
+
+  void _sendOrStop(DingTalkConversation conversation) {
+    if (widget.controller.isConversationResponding(conversation.id)) {
+      unawaited(widget.controller.stopConversationResponse(conversation.id));
+      return;
+    }
     final text = _input.text.trim();
     if (text.isEmpty) return;
     _input.clear();
     unawaited(widget.controller.sendMessage(conversation.id, text));
+  }
+
+  Future<void> _showConversationMenu(
+    BuildContext itemContext,
+    DingTalkConversation conversation,
+  ) async {
+    final action =
+        await showAnimatedAnchoredPopupMenu<_DingTalkConversationMenuAction>(
+          context: itemContext,
+          position: PopupMenuPosition.under,
+          items: [
+            const PopupMenuItem(
+              value: _DingTalkConversationMenuAction.details,
+              child: ListTile(
+                dense: true,
+                leading: Icon(Icons.info_outline_rounded),
+                title: Text('群聊/联系人详情'),
+              ),
+            ),
+            PopupMenuItem(
+              value: _DingTalkConversationMenuAction.delete,
+              child: ListTile(
+                dense: true,
+                leading: const Icon(Icons.delete_outline_rounded),
+                title: Text(
+                  '删除会话',
+                  style: TextStyle(color: Theme.of(context).colorScheme.error),
+                ),
+              ),
+            ),
+          ],
+        );
+    if (!mounted || action == null) return;
+    if (action == _DingTalkConversationMenuAction.details) {
+      await _showConversationDetails(conversation);
+      return;
+    }
+    final confirmed = await showOpenHandConfirmDialog(
+      context: context,
+      title: '删除本地会话',
+      message: '仅从 OpenHand 移除“${conversation.title}”，不会删除钉钉群聊或联系人。',
+      confirmLabel: '确认删除',
+      destructive: true,
+      icon: const Icon(Icons.delete_outline_rounded),
+    );
+    if (!confirmed || !mounted) return;
+    await widget.controller.deleteConversation(conversation.id);
+    if (!mounted) return;
+    final next = widget.controller.conversations.firstOrNull;
+    setState(() {
+      _selectedId = next?.id;
+      _input.clear();
+    });
+  }
+
+  Future<void> _showConversationDetails(
+    DingTalkConversation conversation,
+  ) async {
+    await showAnimatedDialog<void>(
+      context: context,
+      builder: (_) => buildOpenHandDialog(
+        maxWidth: _kGatewayDetailDialogWidth,
+        maxHeight: _kGatewayDetailDialogHeight,
+        child: _DingTalkConversationDetailsDialog(
+          controller: widget.controller,
+          conversation: conversation,
+        ),
+      ),
+    );
   }
 
   Future<void> _addConversation() async {
@@ -11988,6 +12296,374 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     if (target == null || !mounted) return;
     widget.controller.openConversation(target);
     setState(() => _selectedId = target.id);
+  }
+}
+
+enum _DingTalkConversationMenuAction { details, delete }
+
+class _DingTalkRespondingIndicator extends StatelessWidget {
+  const _DingTalkRespondingIndicator();
+
+  @override
+  Widget build(BuildContext context) {
+    final color = Theme.of(context).colorScheme.primary;
+    return SizedBox(
+      width: 16,
+      height: 16,
+      child: CircularProgressIndicator(strokeWidth: 2, color: color),
+    );
+  }
+}
+
+class _DingTalkMessageBubble extends StatefulWidget {
+  const _DingTalkMessageBubble({required this.message, required this.mine});
+
+  final DingTalkGatewayMessage message;
+  final bool mine;
+
+  @override
+  State<_DingTalkMessageBubble> createState() => _DingTalkMessageBubbleState();
+}
+
+class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
+  bool _hovered = false;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final bubbleColor = widget.mine
+        ? colors.primaryContainer
+        : colors.surfaceContainerHighest;
+    final foreground = widget.mine
+        ? colors.onPrimaryContainer
+        : colors.onSurface;
+    final alignment = widget.mine
+        ? Alignment.centerRight
+        : Alignment.centerLeft;
+    final crossAxis = widget.mine
+        ? CrossAxisAlignment.end
+        : CrossAxisAlignment.start;
+    return TweenAnimationBuilder<double>(
+      tween: Tween<double>(begin: 0, end: 1),
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      curve: Curves.easeOutCubic,
+      builder: (context, value, child) => Opacity(
+        opacity: value,
+        child: Transform.translate(
+          offset: Offset((widget.mine ? 1 : -1) * (1 - value) * 12, 0),
+          child: child,
+        ),
+      ),
+      child: Align(
+        alignment: alignment,
+        child: MouseRegion(
+          onEnter: (_) => setState(() => _hovered = true),
+          onExit: (_) => setState(() => _hovered = false),
+          child: Column(
+            crossAxisAlignment: crossAxis,
+            children: [
+              if (!widget.mine && widget.message.senderName.trim().isNotEmpty)
+                Padding(
+                  padding: const EdgeInsets.only(left: 4, bottom: 3),
+                  child: Text(
+                    widget.message.senderName,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                ),
+              Container(
+                constraints: const BoxConstraints(maxWidth: 560),
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: bubbleColor,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(17),
+                    topRight: const Radius.circular(17),
+                    bottomLeft: Radius.circular(widget.mine ? 17 : 5),
+                    bottomRight: Radius.circular(widget.mine ? 5 : 17),
+                  ),
+                ),
+                child: Text(
+                  widget.message.content,
+                  style: theme.textTheme.bodyMedium?.copyWith(
+                    color: foreground,
+                  ),
+                ),
+              ),
+              AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                layoutBuilder: (current, previous) => Align(
+                  alignment: alignment,
+                  child: Stack(
+                    alignment: widget.mine
+                        ? Alignment.centerRight
+                        : Alignment.centerLeft,
+                    children: <Widget>[
+                      ...previous,
+                      if (current != null) current,
+                    ],
+                  ),
+                ),
+                child: _hovered
+                    ? Row(
+                        key: const ValueKey<String>('message-actions-visible'),
+                        mainAxisSize: MainAxisSize.min,
+                        textDirection: widget.mine
+                            ? TextDirection.rtl
+                            : TextDirection.ltr,
+                        children: [
+                          IconButton(
+                            tooltip: '复制消息',
+                            visualDensity: VisualDensity.compact,
+                            onPressed: () => copyOpenHandTextToClipboard(
+                              context: context,
+                              text: widget.message.content,
+                              logTag: 'dingtalk_gateway',
+                            ),
+                            icon: const Icon(Icons.copy_rounded, size: 16),
+                          ),
+                          Text(
+                            formatYearMonthDayHm(
+                              widget.message.createdAt.toLocal(),
+                            ),
+                            style: theme.textTheme.labelSmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                          const SizedBox(width: 4),
+                        ],
+                      )
+                    : const SizedBox(
+                        key: ValueKey<String>('message-actions-hidden'),
+                        height: 0,
+                      ),
+              ),
+              const SizedBox(height: 7),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkConversationDetailsDialog extends StatefulWidget {
+  const _DingTalkConversationDetailsDialog({
+    required this.controller,
+    required this.conversation,
+  });
+
+  final DingTalkMessageGatewayController controller;
+  final DingTalkConversation conversation;
+
+  @override
+  State<_DingTalkConversationDetailsDialog> createState() =>
+      _DingTalkConversationDetailsDialogState();
+}
+
+class _DingTalkConversationDetailsDialogState
+    extends State<_DingTalkConversationDetailsDialog> {
+  late final Future<Object?> _details = widget.controller
+      .loadConversationDetails(widget.conversation.id);
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return SizedBox(
+      width: double.infinity,
+      height: 690,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(
+                  widget.conversation.type == DingTalkConversationType.group
+                      ? Icons.groups_rounded
+                      : Icons.person_rounded,
+                  color: colors.primary,
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Text(
+                    widget.conversation.title,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.titleLarge,
+                  ),
+                ),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 4),
+            Text(
+              widget.conversation.type == DingTalkConversationType.group
+                  ? '群聊详情'
+                  : '联系人详情',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Expanded(
+              child: FutureBuilder<Object?>(
+                future: _details,
+                builder: (context, snapshot) {
+                  if (snapshot.connectionState != ConnectionState.done) {
+                    return const Center(child: CircularProgressIndicator());
+                  }
+                  if (snapshot.hasError) {
+                    return _DingTalkDetailsStateMessage(
+                      icon: Icons.error_outline_rounded,
+                      text: '读取详情失败：${snapshot.error}',
+                    );
+                  }
+                  final value = snapshot.data;
+                  if (value == null) {
+                    return const _DingTalkDetailsStateMessage(
+                      icon: Icons.info_outline_rounded,
+                      text: '暂无可用详情',
+                    );
+                  }
+                  return ListView(
+                    padding: const EdgeInsets.only(right: 4, bottom: 12),
+                    children: [
+                      _DingTalkDetailNode(label: '完整信息', value: value),
+                    ],
+                  );
+                },
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkDetailsStateMessage extends StatelessWidget {
+  const _DingTalkDetailsStateMessage({required this.icon, required this.text});
+
+  final IconData icon;
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Center(
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 34, color: colors.onSurfaceVariant),
+          const SizedBox(height: 10),
+          Text(
+            text,
+            textAlign: TextAlign.center,
+            style: TextStyle(color: colors.onSurfaceVariant),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DingTalkDetailNode extends StatelessWidget {
+  const _DingTalkDetailNode({required this.label, required this.value});
+
+  final String label;
+  final Object? value;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    if (value is Map) {
+      final map = (value as Map).entries.toList(growable: false);
+      return _DingTalkDetailsSection(
+        title: '$label · ${map.length} 项',
+        children: [
+          for (final entry in map)
+            _DingTalkDetailNode(label: '${entry.key}', value: entry.value),
+        ],
+      );
+    }
+    if (value is List) {
+      final list = value as List;
+      return _DingTalkDetailsSection(
+        title: '$label · ${list.length} 项',
+        children: [
+          for (var index = 0; index < list.length; index++)
+            _DingTalkDetailNode(label: '[$index]', value: list[index]),
+        ],
+      );
+    }
+    return Padding(
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SizedBox(
+            width: 150,
+            child: Text(
+              label,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: SelectableText(
+              value == null ? 'null' : '$value',
+              style: theme.textTheme.bodyMedium,
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _DingTalkDetailsSection extends StatelessWidget {
+  const _DingTalkDetailsSection({required this.title, required this.children});
+
+  final String title;
+  final List<Widget> children;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      margin: const EdgeInsets.only(bottom: 8),
+      decoration: BoxDecoration(
+        color: theme.colorScheme.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(14),
+        border: Border.all(color: theme.colorScheme.outlineVariant),
+      ),
+      child: ExpansionTile(
+        initiallyExpanded: true,
+        tilePadding: const EdgeInsets.symmetric(horizontal: 12),
+        childrenPadding: const EdgeInsets.fromLTRB(8, 0, 8, 8),
+        title: Text(title, style: theme.textTheme.titleSmall),
+        children: children,
+      ),
+    );
   }
 }
 

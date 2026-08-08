@@ -287,6 +287,101 @@ class DingTalkMessageGatewayService {
     ]);
   }
 
+  /// 查询会话及其关联资料。返回原始 JSON，调用方负责完整展示字段。
+  Future<Object?> conversationDetails({
+    required DingTalkConversation conversation,
+  }) async {
+    final conversationArgs = <String>[
+      'chat',
+      'conversation-info',
+      conversation.type == DingTalkConversationType.group
+          ? '--group'
+          : '--open-dingtalk-id',
+      conversation.id,
+      '--format',
+      'json',
+    ];
+    final details = await _runJson(conversationArgs);
+    final result = <String, Object?>{'会话信息': details};
+    if (conversation.type == DingTalkConversationType.group) {
+      try {
+        result['群成员'] = await _loadAllGroupMembers(conversation.id);
+      } catch (error, stack) {
+        silentLog('dingtalk_gateway', '读取群成员详情', error, stack);
+      }
+    } else {
+      try {
+        result['联系人信息'] = await _runJson(<String>[
+          'contact',
+          'user',
+          'get',
+          '--ids',
+          conversation.id,
+          '--format',
+          'json',
+        ]);
+      } catch (error, stack) {
+        try {
+          result['联系人信息'] = await _runJson(<String>[
+            'contact',
+            '+lookup',
+            '--name',
+            conversation.title,
+            '--format',
+            'json',
+          ]);
+        } catch (fallbackError, fallbackStack) {
+          silentLog(
+            'dingtalk_gateway',
+            '读取联系人详情',
+            fallbackError,
+            fallbackStack,
+          );
+          silentLog('dingtalk_gateway', '联系人详情查询失败', error, stack);
+        }
+      }
+    }
+    return result;
+  }
+
+  Future<Object?> _loadAllGroupMembers(String conversationId) async {
+    const maxPages = 100;
+    final pages = <Object?>[];
+    var cursor = '0';
+    for (var pageIndex = 0; pageIndex < maxPages; pageIndex++) {
+      final page = await _runJson(<String>[
+        'chat',
+        'group',
+        'members',
+        '--id',
+        conversationId,
+        '--cursor',
+        cursor,
+        '--format',
+        'json',
+      ]);
+      pages.add(page);
+      final map = _asMap(page);
+      final data = _asMap(map['data']);
+      final result = _asMap(map['result']);
+      final hasMore =
+          _asBool(map['hasMore']) ||
+          _asBool(data['hasMore']) ||
+          _asBool(result['hasMore']);
+      final nextCursor = _firstValues(<Object?>[
+        map['nextCursor'],
+        map['next_cursor'],
+        data['nextCursor'],
+        data['next_cursor'],
+        result['nextCursor'],
+        result['next_cursor'],
+      ]);
+      if (!hasMore || nextCursor.isEmpty || nextCursor == cursor) break;
+      cursor = nextCursor;
+    }
+    return pages.length == 1 ? pages.first : <String, Object?>{'pages': pages};
+  }
+
   Future<String> _requireExecutable() async {
     final path = await executable();
     if (path == null || path.trim().isEmpty) {
@@ -494,6 +589,13 @@ class DingTalkMessageGatewayService {
   String _first(Map<String, Object?> map, List<String> keys) {
     for (final key in keys) {
       final value = map[key];
+      if (value != null && '$value'.trim().isNotEmpty) return '$value'.trim();
+    }
+    return '';
+  }
+
+  String _firstValues(Iterable<Object?> values) {
+    for (final value in values) {
       if (value != null && '$value'.trim().isNotEmpty) return '$value'.trim();
     }
     return '';

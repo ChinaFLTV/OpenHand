@@ -147,6 +147,38 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _notify();
   }
 
+  /// 只移除 OpenHand 本地会话，不影响钉钉侧真实群聊或联系人。
+  Future<void> deleteConversation(String conversationId) async {
+    final conversation = _conversations[conversationId];
+    if (conversation == null) return;
+    await stopConversationResponse(conversationId);
+    _conversations.remove(conversationId);
+    _notify();
+  }
+
+  bool isConversationResponding(String conversationId) {
+    final conversation = _conversations[conversationId];
+    final sessionId = conversation?.aiSessionId;
+    return _responseInFlight.contains(conversationId) ||
+        (sessionId != null && _sessionController.canStopResponding(sessionId));
+  }
+
+  Future<void> stopConversationResponse(String conversationId) async {
+    final conversation = _conversations[conversationId];
+    final sessionId = conversation?.aiSessionId;
+    if (sessionId != null && _sessionController.canStopResponding(sessionId)) {
+      await _sessionController.stopResponding(sessionId);
+    }
+    _responseInFlight.remove(conversationId);
+    _notify();
+  }
+
+  Future<Object?> loadConversationDetails(String conversationId) async {
+    final conversation = _conversations[conversationId];
+    if (conversation == null) return null;
+    return _service.conversationDetails(conversation: conversation);
+  }
+
   Future<void> initialize() async {
     if (_initialized || _disposed) return;
     try {
@@ -379,6 +411,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     String content,
   ) async {
     if (!_responseInFlight.add(conversation.id)) return;
+    _notify();
     final model = _resolveModel();
     final templates = _sessionController.availableTemplates;
     try {
@@ -502,6 +535,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         }
       }
       if (assistant == null) return;
+      if (!identical(_conversations[conversation.id], conversation)) return;
       final reply = assistant.content.trim();
       _appendMessage(
         conversation,
@@ -523,6 +557,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       silentLog('dingtalk_gateway', '生成钉钉 AI 回复', error, stack);
     } finally {
       _responseInFlight.remove(conversation.id);
+      _notify();
     }
   }
 
