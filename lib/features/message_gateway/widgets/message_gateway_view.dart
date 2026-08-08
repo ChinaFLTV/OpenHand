@@ -50,6 +50,7 @@ import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../../knowledge_base/index.dart';
+import '../../mcp/index.dart';
 import '../dingtalk_message_gateway_controller.dart';
 import '../message_gateway_controller.dart';
 import '../message_gateway_errors.dart';
@@ -16579,6 +16580,23 @@ class _DingTalkSettingsDialog extends StatefulWidget {
       _DingTalkSettingsDialogState();
 }
 
+String _dingtalkSafeMcpEndpoint(McpServer item) {
+  if (item.type == McpServerType.stdio) {
+    return <String>[
+      item.command.trim(),
+      ...item.args,
+    ].where((value) => value.trim().isNotEmpty).join(' ');
+  }
+  final rawUrl = item.url.trim();
+  final uri = Uri.tryParse(rawUrl);
+  if (uri == null || uri.host.isEmpty) {
+    return rawUrl;
+  }
+  final authority = uri.hasPort ? '${uri.host}:${uri.port}' : uri.host;
+  final path = uri.path.isEmpty ? '/' : uri.path;
+  return '${uri.scheme}://$authority$path';
+}
+
 class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   late final TextEditingController _intervalController = TextEditingController(
     text: '${widget.controller.settings.pollIntervalSeconds}',
@@ -16921,6 +16939,25 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                               title: item.name,
                               subtitle: item.summary,
                               icon: Icons.hub_rounded,
+                              detailDescription:
+                                  '通过 ${item.type.transportValue} 连接的 MCP 服务，可按当前钉钉会话配置注入模型工具上下文。',
+                              detailFields: <String, String>{
+                                '资源类型': 'MCP Server',
+                                '传输方式': item.type.transportValue,
+                                '启用状态': item.enabled ? '已启用' : '未启用',
+                                '自动探测': item.probeEnabled ? '已开启' : '已关闭',
+                                '模板范围': item.visibleTemplateIds == null
+                                    ? '全部模板'
+                                    : item.visibleTemplateIds!.join('、'),
+                                '请求头数量': '${item.headers.length}',
+                                '环境变量数量': '${item.environment.length}',
+                              },
+                              detailSections: <String, String>{
+                                if (_dingtalkSafeMcpEndpoint(
+                                  item,
+                                ).trim().isNotEmpty)
+                                  '连接信息': _dingtalkSafeMcpEndpoint(item),
+                              },
                             ),
                           )
                           .toList(growable: false),
@@ -16971,6 +17008,20 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                               title: item.name,
                               subtitle: item.description,
                               icon: Icons.auto_fix_high_rounded,
+                              detailDescription: item.description,
+                              detailFields: <String, String>{
+                                '资源类型': '技能',
+                                '技能目录': item.displayDirectoryPath,
+                                '清单文件': item.manifestPath,
+                                '图标状态': item.hasIcon || item.hasEmojiIcon
+                                    ? '已配置'
+                                    : '未配置',
+                              },
+                              detailSections: <String, String>{
+                                if (item.defaultPrompt?.trim().isNotEmpty ==
+                                    true)
+                                  '默认提示词': item.defaultPrompt!.trim(),
+                              },
                             ),
                           )
                           .toList(growable: false),
@@ -16996,6 +17047,20 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                               title: item.displayTitle,
                               subtitle: item.preview,
                               icon: Icons.psychology_alt_rounded,
+                              detailDescription: item.preview,
+                              detailFields: <String, String>{
+                                '资源类型': '记忆',
+                                '记忆类型': item.type,
+                                '创建时间': formatYearMonthDayHm(
+                                  item.createdAt.toLocal(),
+                                ),
+                                '标签': item.tags.isEmpty
+                                    ? '无'
+                                    : item.tags.join('、'),
+                              },
+                              detailSections: <String, String>{
+                                '记忆内容': item.content,
+                              },
                             ),
                           )
                           .toList(growable: false),
@@ -17021,6 +17086,23 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                               title: item.name,
                               subtitle: item.description,
                               icon: Icons.rule_rounded,
+                              detailDescription: item.description,
+                              detailFields: <String, String>{
+                                '资源类型': '用户指令',
+                                '版本': item.version,
+                                '启用状态': item.enabled ? '已启用' : '未启用',
+                                '适用场景': item.applyTo,
+                                '任务类型': item.taskTypes.join('、'),
+                                '关键词': item.keywords.join('、'),
+                                '更新时间': formatYearMonthDayHm(
+                                  item.updatedAt.toLocal(),
+                                ),
+                              },
+                              detailSections: <String, String>{
+                                '指令正文': item.body,
+                                if (item.notes.isNotEmpty)
+                                  '备注': item.notes.join('\n'),
+                              },
                             ),
                           )
                           .toList(growable: false),
@@ -17046,6 +17128,33 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                               title: item.title,
                               subtitle: item.status,
                               icon: Icons.menu_book_rounded,
+                              detailDescription:
+                                  '已导入应用知识库的 ${item.kind} 资源，可为钉钉会话提供检索增强上下文。',
+                              detailFields: <String, String>{
+                                '资源类型': '知识库',
+                                '内容类型': item.kind,
+                                '索引状态': item.status,
+                                'MIME 类型': item.mimeType,
+                                '文件大小': formatByteSize(item.sizeBytes),
+                                '导入时间': formatYearMonthDayHm(
+                                  item.importedAt.toLocal(),
+                                ),
+                                '索引时间': item.indexedAt == null
+                                    ? '尚未索引'
+                                    : formatYearMonthDayHm(
+                                        item.indexedAt!.toLocal(),
+                                      ),
+                              },
+                              detailSections: <String, String>{
+                                if (item.originalPath.trim().isNotEmpty)
+                                  '原始路径': item.originalPath,
+                                if (item.storedPath.trim().isNotEmpty)
+                                  '存储路径': item.storedPath,
+                                if (item.contentHash.trim().isNotEmpty)
+                                  '内容摘要': item.contentHash,
+                                if (item.errorMessage.trim().isNotEmpty)
+                                  '异常信息': item.errorMessage,
+                              },
                             ),
                           )
                           .toList(growable: false),
@@ -17184,6 +17293,34 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
             groupTitle: item.productName.isEmpty
                 ? item.productId
                 : item.productName,
+            detailDescription: item.description.trim().isEmpty
+                ? item.summary
+                : item.description,
+            detailFields: <String, String>{
+              '资源类型': '钉钉 DWS 内建工具',
+              '所属产品': item.productName,
+              '命令路径': item.cliPath,
+              '执行效果': item.effect,
+              '风险等级': item.risk,
+              '确认策略': item.confirmation,
+              '参数数量': '${item.parameters.length}',
+            },
+            detailSections: <String, String>{
+              if (item.summary.trim().isNotEmpty) '能力摘要': item.summary,
+              if (item.parameters.isNotEmpty)
+                '参数说明': item.parameters.entries
+                    .map((entry) {
+                      final schema = stringKeyedMapFromValue(entry.value);
+                      final type = '${schema['type'] ?? 'string'}';
+                      final required = schema['required'] == true ? '必填' : '可选';
+                      final description = '${schema['description'] ?? ''}'
+                          .trim();
+                      return '${entry.key} · $type · $required'
+                          '${description.isEmpty ? '' : '：$description'}';
+                    })
+                    .join('\n'),
+              if (item.examples.isNotEmpty) '调用示例': item.examples.join('\n'),
+            },
           ),
         )
         .toList(growable: false);
@@ -17568,6 +17705,9 @@ class _DingTalkResourceOption {
     required this.icon,
     this.groupKey,
     this.groupTitle,
+    this.detailDescription = '',
+    this.detailFields = const <String, String>{},
+    this.detailSections = const <String, String>{},
   });
 
   final String id;
@@ -17576,6 +17716,232 @@ class _DingTalkResourceOption {
   final IconData icon;
   final String? groupKey;
   final String? groupTitle;
+  final String detailDescription;
+  final Map<String, String> detailFields;
+  final Map<String, String> detailSections;
+}
+
+class _DingTalkResourceDetailsDialog extends StatelessWidget {
+  const _DingTalkResourceDetailsDialog({required this.option});
+
+  final _DingTalkResourceOption option;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final description = option.detailDescription.trim().isNotEmpty
+        ? option.detailDescription.trim()
+        : option.subtitle.trim().isNotEmpty
+        ? option.subtitle.trim()
+        : '暂无详细介绍。';
+    final fields = option.detailFields.entries
+        .where((entry) => entry.value.trim().isNotEmpty)
+        .toList(growable: false);
+    final sections = option.detailSections.entries
+        .where((entry) => entry.value.trim().isNotEmpty)
+        .toList(growable: false);
+    final typeLabel = option.detailFields['资源类型']?.trim().isNotEmpty == true
+        ? option.detailFields['资源类型']!.trim()
+        : option.groupTitle?.trim().isNotEmpty == true
+        ? option.groupTitle!.trim()
+        : '资源详情';
+    return SizedBox(
+      width: double.infinity,
+      height: 580,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Container(
+                  width: 48,
+                  height: 48,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: [
+                        colors.primaryContainer,
+                        colors.tertiaryContainer,
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(15),
+                  ),
+                  child: Icon(option.icon, color: colors.onPrimaryContainer),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        option.title,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      const SizedBox(height: 3),
+                      Text(
+                        typeLabel,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.primary,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                IconButton(
+                  tooltip: '关闭详情',
+                  onPressed: () => Navigator.of(context).pop(),
+                  style: IconButton.styleFrom(
+                    backgroundColor: Colors.transparent,
+                    hoverColor: Colors.transparent,
+                    focusColor: Colors.transparent,
+                    highlightColor: Colors.transparent,
+                    shadowColor: Colors.transparent,
+                  ),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 16),
+            Expanded(
+              child: ListView(
+                padding: const EdgeInsets.only(right: 4, bottom: 8),
+                children: [
+                  _buildDetailSection(
+                    context,
+                    icon: Icons.subject_rounded,
+                    title: '详细介绍',
+                    content: description,
+                  ),
+                  if (fields.isNotEmpty) ...[
+                    const SizedBox(height: 12),
+                    Text(
+                      '关键信息',
+                      style: theme.textTheme.titleSmall?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 8),
+                    LayoutBuilder(
+                      builder: (context, constraints) {
+                        final width = constraints.maxWidth < 520
+                            ? constraints.maxWidth
+                            : (constraints.maxWidth - 10) / 2;
+                        return Wrap(
+                          spacing: 10,
+                          runSpacing: 10,
+                          children: fields
+                              .map(
+                                (entry) => SizedBox(
+                                  width: width,
+                                  child: Container(
+                                    padding: const EdgeInsets.all(12),
+                                    decoration: BoxDecoration(
+                                      color: colors.surfaceContainerHighest,
+                                      borderRadius: BorderRadius.circular(13),
+                                    ),
+                                    child: Column(
+                                      crossAxisAlignment:
+                                          CrossAxisAlignment.start,
+                                      children: [
+                                        Text(
+                                          entry.key,
+                                          style: theme.textTheme.labelMedium
+                                              ?.copyWith(
+                                                color: colors.onSurfaceVariant,
+                                                fontWeight: FontWeight.w700,
+                                              ),
+                                        ),
+                                        const SizedBox(height: 4),
+                                        SelectableText(
+                                          entry.value,
+                                          style: theme.textTheme.bodyMedium
+                                              ?.copyWith(
+                                                fontWeight: FontWeight.w600,
+                                              ),
+                                        ),
+                                      ],
+                                    ),
+                                  ),
+                                ),
+                              )
+                              .toList(growable: false),
+                        );
+                      },
+                    ),
+                  ],
+                  for (final section in sections) ...[
+                    const SizedBox(height: 12),
+                    _buildDetailSection(
+                      context,
+                      icon: Icons.layers_rounded,
+                      title: section.key,
+                      content: section.value,
+                    ),
+                  ],
+                ],
+              ),
+            ),
+            const SizedBox(height: 10),
+            Align(
+              alignment: Alignment.centerRight,
+              child: FilledButton.icon(
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.done_rounded),
+                label: const Text('完成'),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  Widget _buildDetailSection(
+    BuildContext context, {
+    required IconData icon,
+    required String title,
+    required String content,
+  }) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Container(
+      padding: const EdgeInsets.all(14),
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: BorderRadius.circular(15),
+        border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.5)),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(icon, size: 18, color: colors.primary),
+              const SizedBox(width: 7),
+              Text(
+                title,
+                style: theme.textTheme.titleSmall?.copyWith(
+                  fontWeight: FontWeight.w800,
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 9),
+          SelectableText(
+            content,
+            style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
+          ),
+        ],
+      ),
+    );
+  }
 }
 
 class _DingTalkResourcePickerDialog extends StatefulWidget {
@@ -17614,6 +17980,34 @@ class _DingTalkResourcePickerDialogState
   void dispose() {
     _searchController.dispose();
     super.dispose();
+  }
+
+  Future<void> _showOptionDetails(
+    BuildContext context,
+    _DingTalkResourceOption option,
+  ) async {
+    await showAnimatedDialog<void>(
+      context: context,
+      builder: (_) => buildOpenHandDialog(
+        maxWidth: kOpenHandDialogWidthStandard,
+        maxHeight: kOpenHandDialogHeightFull,
+        child: _DingTalkResourceDetailsDialog(option: option),
+      ),
+    );
+  }
+
+  ButtonStyle _transparentIconButtonStyle(ThemeData theme) {
+    return IconButton.styleFrom(
+      foregroundColor: theme.colorScheme.onSurfaceVariant,
+      backgroundColor: Colors.transparent,
+      hoverColor: Colors.transparent,
+      focusColor: Colors.transparent,
+      highlightColor: Colors.transparent,
+      shadowColor: Colors.transparent,
+      padding: EdgeInsets.zero,
+      fixedSize: const Size(38, 38),
+      splashFactory: NoSplash.splashFactory,
+    ).copyWith(overlayColor: const WidgetStatePropertyAll(Colors.transparent));
   }
 
   @override
@@ -17875,6 +18269,26 @@ class _DingTalkResourcePickerDialogState
         ? true
         : null;
     final searching = _query.trim().isNotEmpty;
+    final nodeOption = _DingTalkResourceOption(
+      id: nodeKey,
+      title: title,
+      subtitle: level == 0 ? 'DWS 产品能力分类' : 'DWS 命令域',
+      icon: level == 0 ? Icons.folder_copy_rounded : Icons.account_tree_rounded,
+      detailDescription: level == 0
+          ? '该产品下的钉钉 DWS 拓展能力集合。'
+          : '该命令域下的钉钉 DWS 能力集合。',
+      detailFields: <String, String>{
+        '资源类型': level == 0 ? 'DWS 产品' : 'DWS 命令域',
+        '层级': level == 0 ? '产品' : '命令域',
+        '能力数量': '${children.length}',
+        '已选择': '$selectedCount',
+      },
+      detailSections: <String, String>{
+        '包含能力':
+            children.take(60).map((item) => item.title).join('\n') +
+            (children.length > 60 ? '\n……另有 ${children.length - 60} 项' : ''),
+      },
+    );
     void toggleExpanded() {
       setState(() {
         final target = level == 0 ? _expandedGroups : _expandedBranches;
@@ -17889,6 +18303,8 @@ class _DingTalkResourcePickerDialogState
     return Material(
       color: theme.colorScheme.surfaceContainerHighest,
       borderRadius: BorderRadius.circular(14),
+      shadowColor: Colors.transparent,
+      surfaceTintColor: Colors.transparent,
       child: Padding(
         padding: const EdgeInsets.fromLTRB(8, 6, 8, 6),
         child: Row(
@@ -17900,6 +18316,7 @@ class _DingTalkResourcePickerDialogState
                   ? '收起 $title'
                   : '展开 $title',
               onPressed: searching ? null : toggleExpanded,
+              style: _transparentIconButtonStyle(theme),
               icon: AnimatedRotation(
                 turns: expanded ? 0.25 : 0,
                 duration: const Duration(milliseconds: 180),
@@ -17910,6 +18327,10 @@ class _DingTalkResourcePickerDialogState
             Expanded(
               child: InkWell(
                 borderRadius: BorderRadius.circular(10),
+                hoverColor: Colors.transparent,
+                focusColor: Colors.transparent,
+                splashColor: Colors.transparent,
+                highlightColor: Colors.transparent,
                 onTap: searching ? null : toggleExpanded,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(vertical: 5),
@@ -17940,9 +18361,17 @@ class _DingTalkResourcePickerDialogState
                 ),
               ),
             ),
+            IconButton(
+              tooltip: '查看详情',
+              onPressed: () =>
+                  unawaited(_showOptionDetails(context, nodeOption)),
+              style: _transparentIconButtonStyle(theme),
+              icon: const Icon(Icons.info_outline_rounded),
+            ),
             Checkbox(
               value: groupSelected,
               tristate: true,
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
               onChanged: (value) => setState(() {
                 if (value == true) {
                   _selected.addAll(children.map((item) => item.id));
@@ -17963,6 +18392,16 @@ class _DingTalkResourcePickerDialogState
   ) {
     final theme = Theme.of(context);
     final isSelected = _selected.contains(option.id);
+    void toggleSelected(bool? value) {
+      setState(() {
+        if (value == true) {
+          _selected.add(option.id);
+        } else {
+          _selected.remove(option.id);
+        }
+      });
+    }
+
     return Material(
       color: isSelected
           ? theme.colorScheme.primaryContainer.withValues(alpha: 0.5)
@@ -17970,16 +18409,13 @@ class _DingTalkResourcePickerDialogState
       borderRadius: BorderRadius.circular(13),
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
-      child: CheckboxListTile(
-        value: isSelected,
-        onChanged: (value) => setState(() {
-          if (value == true) {
-            _selected.add(option.id);
-          } else {
-            _selected.remove(option.id);
-          }
-        }),
-        secondary: Icon(option.icon),
+      child: ListTile(
+        onTap: () => toggleSelected(!isSelected),
+        hoverColor: Colors.transparent,
+        focusColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        selectedTileColor: Colors.transparent,
+        leading: Icon(option.icon),
         title: Text(option.title, maxLines: 1, overflow: TextOverflow.ellipsis),
         subtitle: option.subtitle.trim().isEmpty
             ? null
@@ -17988,10 +18424,24 @@ class _DingTalkResourcePickerDialogState
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
               ),
-        controlAffinity: ListTileControlAffinity.trailing,
-        overlayColor: const WidgetStatePropertyAll(Colors.transparent),
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(13)),
         contentPadding: const EdgeInsets.only(left: 12, right: 8),
+        trailing: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            IconButton(
+              tooltip: '查看详情',
+              onPressed: () => unawaited(_showOptionDetails(context, option)),
+              style: _transparentIconButtonStyle(theme),
+              icon: const Icon(Icons.info_outline_rounded),
+            ),
+            Checkbox(
+              value: isSelected,
+              onChanged: toggleSelected,
+              overlayColor: const WidgetStatePropertyAll(Colors.transparent),
+            ),
+          ],
+        ),
       ),
     );
   }
