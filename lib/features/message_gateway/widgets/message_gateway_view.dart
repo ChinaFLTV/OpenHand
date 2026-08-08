@@ -11478,8 +11478,6 @@ class _DingTalkGatewayCard extends StatelessWidget {
             ? theme.colorScheme.primary
             : ding.isPolling
             ? OpenHandStatusColors.success
-            : ding.isAuthorized
-            ? OpenHandStatusColors.warning
             : theme.colorScheme.onSurfaceVariant;
         return Card(
           elevation: 0,
@@ -11523,7 +11521,15 @@ class _DingTalkGatewayCard extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               Text(
-                                'DingTalk',
+                                openHandLocalizedText(
+                                  context,
+                                  zh: '钉钉消息平台',
+                                  zhHant: '釘釘訊息平台',
+                                  en: 'DingTalk Message Platform',
+                                  fr: 'Plateforme de messages DingTalk',
+                                  de: 'DingTalk-Nachrichtenplattform',
+                                  ja: 'DingTalk メッセージプラットフォーム',
+                                ),
                                 style: theme.textTheme.titleLarge,
                               ),
                               const SizedBox(height: 6),
