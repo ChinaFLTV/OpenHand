@@ -235,6 +235,35 @@ class DingTalkMessageGatewayService {
     return DingTalkGatewayQueryResult(messages: messages, warning: warning);
   }
 
+  Future<List<DingTalkConversationTarget>> searchTargets({
+    required DingTalkConversationType type,
+    required String query,
+  }) async {
+    final keyword = query.trim();
+    if (keyword.isEmpty) return const <DingTalkConversationTarget>[];
+    final arguments = type == DingTalkConversationType.group
+        ? <String>[
+            'chat',
+            '+chat-search',
+            '--query',
+            keyword,
+            '--limit',
+            '20',
+            '--format',
+            'json',
+          ]
+        : <String>[
+            'contact',
+            '+search-user',
+            '--query',
+            keyword,
+            '--format',
+            'json',
+          ];
+    final decoded = await _runJson(arguments);
+    return _parseTargets(decoded, type: type);
+  }
+
   Future<void> send({
     required DingTalkConversation conversation,
     required String text,
@@ -385,6 +414,64 @@ class DingTalkMessageGatewayService {
         ),
       );
     }
+    return result;
+  }
+
+  List<DingTalkConversationTarget> _parseTargets(
+    Object? raw, {
+    required DingTalkConversationType type,
+  }) {
+    final result = <DingTalkConversationTarget>[];
+    final seen = <String>{};
+    void visit(Object? value, int depth) {
+      if (depth > 4 || result.length >= 50) return;
+      if (value is List) {
+        for (final item in value) {
+          visit(item, depth + 1);
+          if (result.length >= 50) return;
+        }
+        return;
+      }
+      if (value is! Map) return;
+      final map = _asMap(value);
+      final id = type == DingTalkConversationType.group
+          ? _first(map, const <String>[
+              'openConversationId',
+              'conversationId',
+              'conversation_id',
+              'id',
+            ])
+          : _first(map, const <String>[
+              'userId',
+              'user_id',
+              'openDingTalkId',
+              'open_dingtalk_id',
+              'id',
+            ]);
+      final title = type == DingTalkConversationType.group
+          ? _first(map, const <String>['name', 'groupName', 'title'])
+          : _first(map, const <String>['name', 'nick', 'userName', 'title']);
+      if (id.isNotEmpty && title.isNotEmpty && seen.add(id)) {
+        result.add(
+          DingTalkConversationTarget(
+            id: id,
+            title: title,
+            type: type,
+            subtitle: _first(map, const <String>[
+              'subtitle',
+              'departmentName',
+              'department',
+              'description',
+            ]),
+          ),
+        );
+      }
+      for (final child in map.values) {
+        if (child is Map || child is List) visit(child, depth + 1);
+      }
+    }
+
+    visit(raw, 0);
     return result;
   }
 

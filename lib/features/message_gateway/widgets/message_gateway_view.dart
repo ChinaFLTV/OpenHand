@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/flutter_svg.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/openhand_scroll_physics.dart';
@@ -11493,9 +11494,10 @@ class _DingTalkGatewayCard extends StatelessWidget {
                                 color: theme.colorScheme.primaryContainer,
                                 borderRadius: BorderRadius.circular(18),
                               ),
-                              child: Icon(
-                                Icons.forum_rounded,
-                                color: theme.colorScheme.onPrimaryContainer,
+                              child: SvgPicture.asset(
+                                'assets/icons/plugins/dingtalk-workspace-cli.svg',
+                                width: 30,
+                                height: 30,
                               ),
                             ),
                             Positioned(
@@ -11540,8 +11542,8 @@ class _DingTalkGatewayCard extends StatelessWidget {
                           icon: ding.isAuthenticating
                               ? Icons.close_rounded
                               : ding.isAuthorized
-                              ? Icons.logout_rounded
-                              : Icons.login_rounded,
+                              ? Icons.person_remove_rounded
+                              : Icons.verified_user_rounded,
                           onPressed: ding.isAuthenticating
                               ? () => ding.cancelAuthorization()
                               : () => _toggleDingTalkAuth(context, ding),
@@ -11560,7 +11562,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                         ),
                         _DingTalkActionButton(
                           tooltip: '消息列表',
-                          icon: Icons.forum_outlined,
+                          icon: Icons.inbox_rounded,
                           onPressed: () => _showDingTalkMessages(context, ding),
                         ),
                         _DingTalkActionButton(
@@ -11815,6 +11817,12 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                     const SizedBox(width: 10),
                     Text('钉钉消息', style: Theme.of(context).textTheme.titleLarge),
                     const Spacer(),
+                    IconButton.filledTonal(
+                      tooltip: '新建会话',
+                      onPressed: _addConversation,
+                      icon: const Icon(Icons.add_rounded),
+                    ),
+                    const SizedBox(width: 8),
                     IconButton(
                       tooltip: '关闭',
                       onPressed: () => Navigator.of(context).pop(),
@@ -11966,6 +11974,209 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     _input.clear();
     unawaited(widget.controller.sendMessage(conversation.id, text));
   }
+
+  Future<void> _addConversation() async {
+    final target = await showAnimatedDialog<DingTalkConversationTarget>(
+      context: context,
+      builder: (_) => buildOpenHandDialog(
+        maxWidth: kOpenHandDialogWidthStandard,
+        maxHeight: kOpenHandDialogHeightStandard,
+        child: _DingTalkAddConversationDialog(controller: widget.controller),
+      ),
+    );
+    if (target == null || !mounted) return;
+    widget.controller.openConversation(target);
+    setState(() => _selectedId = target.id);
+  }
+}
+
+class _DingTalkAddConversationDialog extends StatefulWidget {
+  const _DingTalkAddConversationDialog({required this.controller});
+
+  final DingTalkMessageGatewayController controller;
+
+  @override
+  State<_DingTalkAddConversationDialog> createState() =>
+      _DingTalkAddConversationDialogState();
+}
+
+class _DingTalkAddConversationDialogState
+    extends State<_DingTalkAddConversationDialog> {
+  final TextEditingController _queryController = TextEditingController();
+  Timer? _searchDebounce;
+  DingTalkConversationType _type = DingTalkConversationType.direct;
+  List<DingTalkConversationTarget> _results =
+      const <DingTalkConversationTarget>[];
+  bool _searching = false;
+  int _searchGeneration = 0;
+
+  @override
+  void dispose() {
+    _searchDebounce?.cancel();
+    _queryController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              Icon(
+                _type == DingTalkConversationType.group
+                    ? Icons.groups_rounded
+                    : Icons.person_add_alt_1_rounded,
+                color: theme.colorScheme.primary,
+              ),
+              const SizedBox(width: 10),
+              Text('新建钉钉会话', style: theme.textTheme.titleLarge),
+            ],
+          ),
+          const SizedBox(height: 20),
+          SegmentedButton<DingTalkConversationType>(
+            segments: const [
+              ButtonSegment(
+                value: DingTalkConversationType.direct,
+                icon: Icon(Icons.person_rounded),
+                label: Text('私聊'),
+              ),
+              ButtonSegment(
+                value: DingTalkConversationType.group,
+                icon: Icon(Icons.groups_rounded),
+                label: Text('群聊'),
+              ),
+            ],
+            selected: <DingTalkConversationType>{_type},
+            onSelectionChanged: (value) {
+              final next = value.firstOrNull;
+              if (next == null || next == _type) return;
+              setState(() {
+                _type = next;
+                _results = const <DingTalkConversationTarget>[];
+              });
+              _scheduleSearch(_queryController.text);
+            },
+          ),
+          const SizedBox(height: 16),
+          TextField(
+            controller: _queryController,
+            autofocus: true,
+            onChanged: _scheduleSearch,
+            decoration: InputDecoration(
+              labelText: _type == DingTalkConversationType.group
+                  ? '搜索群聊名称'
+                  : '搜索私聊用户姓名',
+              hintText: '输入关键词后自动搜索',
+              prefixIcon: const Icon(Icons.search_rounded),
+              suffixIcon: _searching
+                  ? const Padding(
+                      padding: EdgeInsets.all(14),
+                      child: SizedBox(
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      ),
+                    )
+                  : null,
+            ),
+          ),
+          const SizedBox(height: 8),
+          AnimatedSwitcher(
+            duration: const Duration(milliseconds: 180),
+            child: _results.isEmpty
+                ? Padding(
+                    key: const ValueKey<String>('dingtalk-search-empty'),
+                    padding: const EdgeInsets.symmetric(vertical: 18),
+                    child: Center(
+                      child: Text(
+                        _queryController.text.trim().isEmpty
+                            ? '输入名称开始搜索'
+                            : '暂无匹配结果',
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: theme.colorScheme.onSurfaceVariant,
+                        ),
+                      ),
+                    ),
+                  )
+                : ConstrainedBox(
+                    key: const ValueKey<String>('dingtalk-search-results'),
+                    constraints: const BoxConstraints(maxHeight: 280),
+                    child: Material(
+                      color: theme.colorScheme.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(16),
+                      shadowColor: Colors.transparent,
+                      child: ListView.separated(
+                        shrinkWrap: true,
+                        padding: const EdgeInsets.all(8),
+                        itemCount: _results.length,
+                        separatorBuilder: (_, index) =>
+                            const SizedBox(height: 2),
+                        itemBuilder: (context, index) {
+                          final target = _results[index];
+                          return ListTile(
+                            dense: true,
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(12),
+                            ),
+                            leading: Icon(
+                              target.type == DingTalkConversationType.group
+                                  ? Icons.groups_rounded
+                                  : Icons.person_rounded,
+                            ),
+                            title: Text(target.title),
+                            subtitle: target.subtitle.trim().isEmpty
+                                ? null
+                                : Text(
+                                    target.subtitle,
+                                    maxLines: 1,
+                                    overflow: TextOverflow.ellipsis,
+                                  ),
+                            onTap: () => Navigator.of(context).pop(target),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  void _scheduleSearch(String value) {
+    _searchDebounce?.cancel();
+    final keyword = value.trim();
+    if (keyword.isEmpty) {
+      setState(() {
+        _results = const <DingTalkConversationTarget>[];
+        _searching = false;
+      });
+      return;
+    }
+    _searchDebounce = Timer(const Duration(milliseconds: 260), () {
+      unawaited(_search(keyword));
+    });
+  }
+
+  Future<void> _search(String keyword) async {
+    final generation = ++_searchGeneration;
+    setState(() => _searching = true);
+    final results = await widget.controller.searchTargets(
+      type: _type,
+      query: keyword,
+    );
+    if (!mounted || generation != _searchGeneration) return;
+    setState(() {
+      _results = results;
+      _searching = false;
+    });
+  }
 }
 
 class _DingTalkSettingsDialog extends StatefulWidget {
@@ -12040,13 +12251,67 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
             ),
           ),
           const SizedBox(height: 16),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
-            leading: const Icon(Icons.auto_awesome_rounded),
-            title: const Text('响应模型'),
-            subtitle: Text(model.isEmpty ? '跟随当前默认模型' : model),
-            trailing: const Icon(Icons.chevron_right_rounded),
-            onTap: _selectModel,
+          Material(
+            color: Theme.of(context).colorScheme.surfaceContainerHighest,
+            shadowColor: Colors.transparent,
+            borderRadius: BorderRadius.circular(18),
+            child: InkWell(
+              borderRadius: BorderRadius.circular(18),
+              hoverColor: Colors.transparent,
+              focusColor: Colors.transparent,
+              highlightColor: Theme.of(
+                context,
+              ).colorScheme.primary.withValues(alpha: 0.06),
+              onTap: _selectModel,
+              child: Padding(
+                padding: const EdgeInsets.fromLTRB(16, 14, 14, 14),
+                child: Row(
+                  children: [
+                    Container(
+                      width: 40,
+                      height: 40,
+                      decoration: BoxDecoration(
+                        color: Theme.of(context).colorScheme.primaryContainer,
+                        borderRadius: BorderRadius.circular(13),
+                      ),
+                      child: Icon(
+                        Icons.auto_awesome_rounded,
+                        color: Theme.of(context).colorScheme.onPrimaryContainer,
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '响应模型',
+                            style: Theme.of(context).textTheme.titleMedium,
+                          ),
+                          const SizedBox(height: 4),
+                          Text(
+                            model.isEmpty ? '跟随当前默认模型' : model,
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: Theme.of(context).textTheme.bodyMedium
+                                ?.copyWith(
+                                  color: Theme.of(
+                                    context,
+                                  ).colorScheme.onSurfaceVariant,
+                                ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    const SizedBox(width: 12),
+                    Icon(
+                      Icons.chevron_right_rounded,
+                      color: Theme.of(context).colorScheme.onSurfaceVariant,
+                    ),
+                  ],
+                ),
+              ),
+            ),
           ),
           const SizedBox(height: 18),
           OpenHandDialogSaveActions(

@@ -40,6 +40,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       <String, DingTalkConversation>{};
   final Set<String> _responseInFlight = <String>{};
   final Set<String> _seenMessageIds = <String>{};
+  final Map<String, (DateTime, List<DingTalkConversationTarget>)>
+  _targetSearchCache = <String, (DateTime, List<DingTalkConversationTarget>)>{};
   Timer? _pollTimer;
   bool _pollInFlight = false;
   bool _initialized = false;
@@ -79,6 +81,44 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   List<DingTalkConversation> get conversations {
     final values = _conversations.values.toList(growable: false);
     return values..sort((a, b) => b.updatedAt.compareTo(a.updatedAt));
+  }
+
+  Future<List<DingTalkConversationTarget>> searchTargets({
+    required DingTalkConversationType type,
+    required String query,
+  }) async {
+    if (!isAuthorized || query.trim().isEmpty) {
+      return const <DingTalkConversationTarget>[];
+    }
+    final key = '${type.name}:${query.trim().toLowerCase()}';
+    final cached = _targetSearchCache[key];
+    if (cached != null &&
+        DateTime.now().difference(cached.$1) < const Duration(seconds: 5)) {
+      return cached.$2;
+    }
+    try {
+      final results = await _service.searchTargets(type: type, query: query);
+      _targetSearchCache[key] = (DateTime.now(), results);
+      while (_targetSearchCache.length > 20) {
+        _targetSearchCache.remove(_targetSearchCache.keys.first);
+      }
+      return results;
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '搜索钉钉会话', error, stack);
+      return const <DingTalkConversationTarget>[];
+    }
+  }
+
+  void openConversation(DingTalkConversationTarget target) {
+    _conversations.putIfAbsent(
+      target.id,
+      () => DingTalkConversation(
+        id: target.id,
+        type: target.type,
+        title: target.title,
+      ),
+    );
+    _notify();
   }
 
   Future<void> initialize() async {

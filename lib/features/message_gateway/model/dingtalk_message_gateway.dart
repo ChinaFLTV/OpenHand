@@ -6,6 +6,20 @@ enum DingTalkGatewayMessageRole { user, assistant }
 
 enum DingTalkReminderMode { none, inApp, sound }
 
+class DingTalkConversationTarget {
+  const DingTalkConversationTarget({
+    required this.id,
+    required this.title,
+    required this.type,
+    this.subtitle = '',
+  });
+
+  final String id;
+  final String title;
+  final DingTalkConversationType type;
+  final String subtitle;
+}
+
 class DingTalkGatewaySettings {
   const DingTalkGatewaySettings({
     this.pollIntervalSeconds = 3,
