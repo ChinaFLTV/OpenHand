@@ -1354,6 +1354,7 @@ class OpenHandOperationalMeter extends StatelessWidget {
     this.helper,
     this.unavailable = false,
     this.semicircular = true,
+    this.gaugeSize,
   });
 
   final String label;
@@ -1365,6 +1366,7 @@ class OpenHandOperationalMeter extends StatelessWidget {
   final String? helper;
   final bool unavailable;
   final bool semicircular;
+  final double? gaugeSize;
 
   @override
   Widget build(BuildContext context) {
@@ -1379,8 +1381,8 @@ class OpenHandOperationalMeter extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           SizedBox(
-            width: double.infinity,
-            height: semicircular ? 84 : 112,
+            width: gaugeSize ?? double.infinity,
+            height: gaugeSize ?? (semicircular ? 84 : 112),
             child: RepaintBoundary(
               child: CustomPaint(
                 painter: _MeterPainter(
@@ -1900,39 +1902,52 @@ class OpenHandOperationalRankTable extends StatelessWidget {
     return RepaintBoundary(
       child: Semantics(
         label: '排行表，共 ${sortedRows.length} 行',
-        child: SingleChildScrollView(
-          scrollDirection: Axis.horizontal,
-          child: DataTable(
-            headingRowColor: WidgetStatePropertyAll(
-              colors.surfaceContainerHigh,
-            ),
-            columns: [
-              for (final header in headers) DataColumn(label: Text(header)),
-            ],
-            rows: [
-              for (final row in sortedRows)
-                DataRow(
-                  onSelectChanged: onRowTap == null
-                      ? null
-                      : (_) => onRowTap!(row),
-                  color: row.highlightColor == null
-                      ? null
-                      : WidgetStatePropertyAll(
-                          row.highlightColor!.withValues(alpha: 0.08),
-                        ),
-                  cells: List<DataCell>.generate(
-                    headers.length,
-                    (index) => DataCell(
-                      Text(
-                        index < row.cells.length ? row.cells[index] : '--',
-                        maxLines: 2,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                    ),
+        child: LayoutBuilder(
+          builder: (context, constraints) {
+            final minWidth = constraints.maxWidth.isFinite
+                ? constraints.maxWidth
+                : 0.0;
+            return SingleChildScrollView(
+              scrollDirection: Axis.horizontal,
+              child: ConstrainedBox(
+                constraints: BoxConstraints(minWidth: minWidth),
+                child: DataTable(
+                  headingRowColor: WidgetStatePropertyAll(
+                    colors.surfaceContainerHigh,
                   ),
+                  columns: [
+                    for (final header in headers)
+                      DataColumn(label: Text(header)),
+                  ],
+                  rows: [
+                    for (final row in sortedRows)
+                      DataRow(
+                        onSelectChanged: onRowTap == null
+                            ? null
+                            : (_) => onRowTap!(row),
+                        color: row.highlightColor == null
+                            ? null
+                            : WidgetStatePropertyAll(
+                                row.highlightColor!.withValues(alpha: 0.08),
+                              ),
+                        cells: List<DataCell>.generate(
+                          headers.length,
+                          (index) => DataCell(
+                            Text(
+                              index < row.cells.length
+                                  ? row.cells[index]
+                                  : '--',
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                            ),
+                          ),
+                        ),
+                      ),
+                  ],
                 ),
-            ],
-          ),
+              ),
+            );
+          },
         ),
       ),
     );

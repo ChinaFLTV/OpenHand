@@ -95,9 +95,9 @@ extension on DependencyMetricKind {
     DependencyMetricKind.redisMemory => OpenHandStatusColors.success,
     DependencyMetricKind.postgresqlConnections ||
     DependencyMetricKind.redisKeyspace => colors.primary,
-    DependencyMetricKind.postgresqlCache ||
+    DependencyMetricKind.postgresqlCache => colors.secondary,
     DependencyMetricKind.redisThroughput => OpenHandStatusColors.info,
-    DependencyMetricKind.postgresqlTransactions ||
+    DependencyMetricKind.postgresqlTransactions => colors.primary,
     DependencyMetricKind.redisCache => colors.tertiary,
     DependencyMetricKind.redisClients => colors.secondary,
     DependencyMetricKind.redisNetwork => const Color(0xff0f766e),
@@ -460,6 +460,8 @@ class _DependencyMetricDetailDialogState
             ),
           ],
           tone: tone,
+          interactive: false,
+          singleRow: true,
         ),
         const SizedBox(height: _kSectionGap),
         _AdaptivePair(
@@ -532,6 +534,7 @@ class _DependencyMetricDetailDialogState
           subtitle: '根据当前时间范围内的真实容量样本计算',
           icon: Icons.query_stats_rounded,
           child: _OperationalSummary(
+            interactive: false,
             items: [
               _SummaryItem(
                 '当前增长速度',
@@ -936,6 +939,8 @@ class _DependencyMetricDetailDialogState
             ),
           ],
           tone: tone,
+          interactive: false,
+          singleRow: true,
         ),
         const SizedBox(height: _kSectionGap),
         _MetricSection(
@@ -2159,13 +2164,25 @@ class _MetricRangeBar extends StatelessWidget {
           child: constraints.maxWidth < 620
               ? Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [range, const SizedBox(height: 8), stamp],
+                  children: [
+                    range,
+                    const SizedBox(height: 8),
+                    Align(
+                      alignment: AlignmentDirectional.centerEnd,
+                      child: stamp,
+                    ),
+                  ],
                 )
               : Row(
                   children: [
                     Expanded(child: range),
                     const SizedBox(width: 12),
-                    Flexible(child: stamp),
+                    Flexible(
+                      child: Align(
+                        alignment: AlignmentDirectional.centerEnd,
+                        child: stamp,
+                      ),
+                    ),
                   ],
                 ),
         );
@@ -2363,10 +2380,17 @@ class _KpiItem {
 }
 
 class _KpiStrip extends StatelessWidget {
-  const _KpiStrip({required this.items, required this.tone});
+  const _KpiStrip({
+    required this.items,
+    required this.tone,
+    this.interactive = true,
+    this.singleRow = false,
+  });
 
   final List<_KpiItem> items;
   final Color tone;
+  final bool interactive;
+  final bool singleRow;
 
   @override
   Widget build(BuildContext context) {
@@ -2374,16 +2398,24 @@ class _KpiStrip extends StatelessWidget {
     final colors = theme.colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
-        final columns = constraints.maxWidth < 480
+        final canFitSingleRow =
+            constraints.maxWidth >=
+            items.length * 132 + (items.length - 1) * 10;
+        final columns = singleRow && canFitSingleRow
+            ? items.length
+            : constraints.maxWidth < 480
             ? 2
             : constraints.maxWidth < 820
             ? math.min(3, items.length)
             : math.min(5, items.length);
         const gap = 10.0;
-        final width = math.max(
-          132.0,
-          (constraints.maxWidth - gap * (columns - 1)) / columns,
-        );
+        final minimumCardWidth = constraints.maxWidth < 480 ? 104.0 : 132.0;
+        final width = (singleRow && canFitSingleRow)
+            ? (constraints.maxWidth - gap * (columns - 1)) / columns
+            : math.max(
+                minimumCardWidth,
+                (constraints.maxWidth - gap * (columns - 1)) / columns,
+              );
         return DecoratedBox(
           decoration: BoxDecoration(
             color: colors.surfaceContainerHighest.withValues(alpha: 0.34),
@@ -2406,19 +2438,28 @@ class _KpiStrip extends StatelessWidget {
                         horizontal: 10,
                         vertical: 9,
                       ),
-                      tooltip: '查看指标详情',
-                      onTap: () => showServiceDetailsDialog(
-                        context,
-                        title: item.label,
-                        subtitle: '依赖服务指标',
-                        icon: item.icon,
-                        accentColor: tone,
-                        presentation: ServiceDetailPresentation.metric,
-                        fields: [
-                          ServiceDetailField(label: '指标', value: item.label),
-                          ServiceDetailField(label: '当前值', value: item.value),
-                        ],
-                      ),
+                      tooltip: interactive ? '查看指标详情' : null,
+                      onTap: interactive
+                          ? () => showServiceDetailsDialog(
+                              context,
+                              title: item.label,
+                              subtitle: '依赖服务指标',
+                              icon: item.icon,
+                              accentColor: tone,
+                              presentation: ServiceDetailPresentation.metric,
+                              fields: [
+                                ServiceDetailField(
+                                  label: '指标',
+                                  value: item.label,
+                                ),
+                                ServiceDetailField(
+                                  label: '当前值',
+                                  value: item.value,
+                                ),
+                              ],
+                            )
+                          : null,
+                      showDetailsIcon: interactive,
                       child: Row(
                         children: [
                           Container(
@@ -2595,11 +2636,19 @@ class _ConnectionCapacityHero extends StatelessWidget {
         : ratio >= 0.7
         ? OpenHandStatusColors.warning
         : tone;
+    final riskLabel = maximum <= 0
+        ? '未设置上限'
+        : ratio >= 0.85
+        ? '高占用'
+        : ratio >= 0.7
+        ? '需关注'
+        : '运行良好';
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: Color.alphaBlend(
-          tone.withValues(alpha: 0.08),
-          colors.surfaceContainerHigh,
+        gradient: LinearGradient(
+          colors: [tone.withValues(alpha: 0.16), colors.surfaceContainerHigh],
+          begin: AlignmentDirectional.topStart,
+          end: AlignmentDirectional.bottomEnd,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: riskColor.withValues(alpha: 0.28)),
@@ -2611,7 +2660,45 @@ class _ConnectionCapacityHero extends StatelessWidget {
             final usage = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Text('连接容量', style: theme.textTheme.labelMedium),
+                Row(
+                  children: [
+                    Container(
+                      width: 34,
+                      height: 34,
+                      alignment: Alignment.center,
+                      decoration: BoxDecoration(
+                        color: riskColor.withValues(alpha: 0.16),
+                        shape: BoxShape.circle,
+                      ),
+                      child: Icon(
+                        Icons.account_tree_rounded,
+                        size: 18,
+                        color: riskColor,
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            '连接容量',
+                            style: theme.textTheme.titleMedium?.copyWith(
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                          Text(
+                            '活动连接 / 最大连接数',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onSurfaceVariant,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                    _StatusTag(label: riskLabel, color: riskColor),
+                  ],
+                ),
                 const SizedBox(height: 4),
                 Text(
                   '$active / ${maximum <= 0 ? '--' : maximum}',
@@ -2632,18 +2719,36 @@ class _ConnectionCapacityHero extends StatelessWidget {
               ],
             );
             final facts = Wrap(
-              spacing: 20,
+              spacing: 10,
               runSpacing: 10,
               children: [
-                _HeroFact(label: '连接池', value: '$poolSize'),
-                _HeroFact(label: '窗口峰值', value: '$peak'),
-                _HeroFact(
-                  label: '剩余容量',
-                  value: maximum <= 0
-                      ? '--'
-                      : '${math.max(0, maximum - active)}',
-                ),
-                _HeroFact(label: '使用率', value: _percent(ratio)),
+                for (final fact in [
+                  _HeroFact(label: '连接池', value: '$poolSize'),
+                  _HeroFact(label: '窗口峰值', value: '$peak'),
+                  _HeroFact(
+                    label: '剩余容量',
+                    value: maximum <= 0
+                        ? '--'
+                        : '${math.max(0, maximum - active)}',
+                  ),
+                  _HeroFact(label: '使用率', value: _percent(ratio)),
+                ])
+                  DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.surface.withValues(alpha: 0.58),
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(
+                        color: colors.outlineVariant.withValues(alpha: 0.42),
+                      ),
+                    ),
+                    child: Padding(
+                      padding: const EdgeInsets.symmetric(
+                        horizontal: 12,
+                        vertical: 9,
+                      ),
+                      child: fact,
+                    ),
+                  ),
               ],
             );
             if (constraints.maxWidth < 620) {
@@ -3342,9 +3447,10 @@ class _SummaryItem {
 }
 
 class _OperationalSummary extends StatelessWidget {
-  const _OperationalSummary({required this.items});
+  const _OperationalSummary({required this.items, this.interactive = true});
 
   final List<_SummaryItem> items;
+  final bool interactive;
 
   @override
   Widget build(BuildContext context) {
@@ -3364,19 +3470,28 @@ class _OperationalSummary extends StatelessWidget {
             ),
             child: ServiceInteractiveSurface(
               padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 10),
-              tooltip: '查看运行摘要详情',
-              onTap: () => showServiceDetailsDialog(
-                context,
-                title: items[index].label,
-                subtitle: '运行摘要',
-                icon: Icons.analytics_outlined,
-                accentColor: items[index].color,
-                presentation: ServiceDetailPresentation.metric,
-                fields: [
-                  ServiceDetailField(label: '项目', value: items[index].label),
-                  ServiceDetailField(label: '当前值', value: items[index].value),
-                ],
-              ),
+              tooltip: interactive ? '查看运行摘要详情' : null,
+              onTap: interactive
+                  ? () => showServiceDetailsDialog(
+                      context,
+                      title: items[index].label,
+                      subtitle: '运行摘要',
+                      icon: Icons.analytics_outlined,
+                      accentColor: items[index].color,
+                      presentation: ServiceDetailPresentation.metric,
+                      fields: [
+                        ServiceDetailField(
+                          label: '项目',
+                          value: items[index].label,
+                        ),
+                        ServiceDetailField(
+                          label: '当前值',
+                          value: items[index].value,
+                        ),
+                      ],
+                    )
+                  : null,
+              showDetailsIcon: interactive,
               child: Row(
                 children: [
                   Container(
@@ -3667,14 +3782,24 @@ class _RadialMeter extends StatelessWidget {
   final bool unavailable;
 
   @override
-  Widget build(BuildContext context) => OpenHandOperationalMeter(
-    label: label,
-    value: value,
-    color: color,
-    helper: helper,
-    unavailable: unavailable,
-    valueLabel: unavailable ? '--' : _percent(value),
-    semicircular: false,
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final gaugeSize = constraints.maxWidth.isFinite
+          ? math.min(136.0, constraints.maxWidth)
+          : 136.0;
+      return Center(
+        child: OpenHandOperationalMeter(
+          label: label,
+          value: value,
+          color: color,
+          helper: helper,
+          unavailable: unavailable,
+          valueLabel: unavailable ? '--' : _percent(value),
+          semicircular: false,
+          gaugeSize: gaugeSize,
+        ),
+      );
+    },
   );
 }
 
