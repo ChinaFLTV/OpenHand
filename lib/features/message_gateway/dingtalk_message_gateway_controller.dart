@@ -10,7 +10,11 @@ import 'package:uuid/uuid.dart';
 
 import '../../app/model/app_info.dart';
 import '../../app/state/settings_controller.dart';
+import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
+import '../../shared/model/dingtalk_multimodal_capability.dart';
+import '../../shared/util/async_concurrency.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 import '../ai/index.dart';
@@ -72,7 +76,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
        _knowledgeBaseController = dependencies.knowledgeBaseController,
        _appInfo = dependencies.appInfo,
        _store = store ?? DingTalkMessageGatewayStore(),
-       _service = service ?? DingTalkMessageGatewayService() {
+       _service = service ?? DingTalkMessageGatewayService(),
+       _mediaGenerationService = AiImageGenerationService() {
     _runtimeLogSubscription = _service.runtimeLogStream.listen((_) {
       _notify();
     });
@@ -93,6 +98,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final AppInfo _appInfo;
   final DingTalkMessageGatewayStore _store;
   final DingTalkMessageGatewayService _service;
+  final AiImageGenerationService _mediaGenerationService;
   StreamSubscription<String>? _runtimeLogSubscription;
   final Map<String, DingTalkConversation> _conversations =
       <String, DingTalkConversation>{};
@@ -204,6 +210,311 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       'exit_code': result.exitCode,
       'timed_out': result.timedOut,
       'duration_ms': result.durationMs,
+    };
+  }
+
+  Future<Object?> _executeDingTalkMediaGenerationForAi({
+    required DingTalkConversation conversation,
+    required AiDingTalkMultimodalCapability capability,
+    required String prompt,
+    required AiCreationOptions options,
+    required List<String> referenceImagePaths,
+    Future<void>? cancelSignal,
+  }) async {
+    if (_disposed || !isAuthorized) {
+      throw StateError('钉钉会话当前不可发送媒体。');
+    }
+    final modelKey = _multimodalModelKey(capability);
+    final model = _resolveModelByKey(modelKey);
+    if (model == null) {
+      throw StateError('${capability.displayName}尚未配置模型。');
+    }
+    if (!_supportsMultimodalCapability(capability, model)) {
+      throw StateError('所选模型不支持${capability.displayName}。');
+    }
+    final root = p.normalize(
+      OpenHandPaths.normalizePath(
+        _settings.workingDirectory,
+        defaultPath: OpenHandPaths.applicationDirectoryPath(),
+      ),
+    );
+    final referenceParts = <AiChatContentPart>[];
+    for (final rawPath in referenceImagePaths.take(8)) {
+      final path = _resolveDingTalkMediaInputPath(root, rawPath);
+      if (path == null) continue;
+      if (await FileSystemEntity.type(path, followLinks: false) !=
+          FileSystemEntityType.file) {
+        continue;
+      }
+      try {
+        final resolved = await File(path).resolveSymbolicLinks();
+        if (!p.equals(root, resolved) && !p.isWithin(root, resolved)) {
+          continue;
+        }
+      } on FileSystemException {
+        continue;
+      }
+      final stat = await File(path).stat();
+      if (stat.size > 32 * kBytesPerMiB) continue;
+      referenceParts.add(
+        AiChatContentPart.imageFile(
+          filePath: path,
+          mimeType: _mediaMimeType(path, fallback: 'image/jpeg'),
+        ),
+      );
+    }
+    final generated = switch (capability) {
+      AiDingTalkMultimodalCapability.imageGeneration =>
+        await _mediaGenerationService.generateImage(
+          model: model,
+          prompt: prompt,
+          options: options,
+          referenceImages: referenceParts,
+          timeout: const Duration(minutes: 10),
+          cancelSignal: cancelSignal,
+        ),
+      AiDingTalkMultimodalCapability.videoGeneration =>
+        await _mediaGenerationService.generateVideo(
+          model: model,
+          prompt: prompt,
+          options: options,
+          referenceImages: referenceParts,
+          timeout: const Duration(minutes: 20),
+          cancelSignal: cancelSignal,
+        ),
+      AiDingTalkMultimodalCapability.audioGeneration =>
+        await _mediaGenerationService.generateAudio(
+          model: model,
+          prompt: prompt,
+          options: options,
+          timeout: const Duration(minutes: 5),
+          cancelSignal: cancelSignal,
+        ),
+    };
+    final paths = _generatedMediaPaths(generated.markdown).take(4).toList();
+    if (paths.isEmpty) {
+      throw StateError('生成服务未返回可发送的媒体文件。');
+    }
+    final mediaKind = switch (capability) {
+      AiDingTalkMultimodalCapability.imageGeneration => DingTalkMediaKind.image,
+      AiDingTalkMultimodalCapability.videoGeneration => DingTalkMediaKind.video,
+      AiDingTalkMultimodalCapability.audioGeneration => DingTalkMediaKind.audio,
+    };
+    String? firstRemoteId;
+    String? firstPath;
+    String? firstName;
+    final generatedRoot = p.normalize(
+      p.join(Directory.systemTemp.path, 'openhand_media'),
+    );
+    for (final path in paths) {
+      if (await isCancelSignalCompleted(cancelSignal)) {
+        throw const AiMediaGenerationCancelledException();
+      }
+      final file = File(path);
+      if (await FileSystemEntity.type(path, followLinks: false) !=
+          FileSystemEntityType.file) {
+        continue;
+      }
+      try {
+        final resolved = await file.resolveSymbolicLinks();
+        if (!p.equals(generatedRoot, resolved) &&
+            !p.isWithin(generatedRoot, resolved)) {
+          continue;
+        }
+      } on FileSystemException {
+        continue;
+      }
+      if (!await file.exists()) continue;
+      final stat = await file.stat();
+      if (stat.size <= 0 || stat.size > 2 * kBytesPerGiB) continue;
+      final name = p.basename(path).trim().isEmpty ? '生成媒体' : p.basename(path);
+      final remoteId = await _service
+          .sendFile(
+            conversation: conversation,
+            filePath: path,
+            audio: mediaKind == DingTalkMediaKind.audio,
+            uuid: _uuid.v4(),
+          )
+          .timeout(const Duration(seconds: 60));
+      final messageId = remoteId?.trim().isNotEmpty == true
+          ? remoteId!.trim()
+          : 'assistant-media-${_uuid.v4()}';
+      if (remoteId?.trim().isNotEmpty == true) _remember(remoteId!.trim());
+      _appendMessage(
+        conversation,
+        DingTalkGatewayMessage(
+          id: messageId,
+          conversationId: conversation.id,
+          conversationType: conversation.type,
+          role: DingTalkGatewayMessageRole.assistant,
+          content: '[${mediaKind.name}] $name',
+          createdAt: DateTime.now(),
+          senderName: 'OpenHand',
+          media: <DingTalkGatewayMedia>[
+            DingTalkGatewayMedia(
+              resourceId: messageId,
+              messageId: messageId,
+              conversationId: conversation.id,
+              kind: mediaKind,
+              name: name,
+              mimeType: _mediaMimeType(
+                path,
+                fallback: switch (capability) {
+                  AiDingTalkMultimodalCapability.imageGeneration => 'image/png',
+                  AiDingTalkMultimodalCapability.videoGeneration => 'video/mp4',
+                  AiDingTalkMultimodalCapability.audioGeneration =>
+                    'audio/mpeg',
+                },
+              ),
+              sizeBytes: stat.size,
+              localPath: path,
+            ),
+          ],
+        ),
+      );
+      firstRemoteId ??= remoteId?.trim();
+      firstPath ??= path;
+      firstName ??= name;
+    }
+    if (firstPath == null) throw StateError('生成媒体文件不存在或无法发送。');
+    _notify();
+    return <String, Object?>{
+      'success': true,
+      'file_path': firstPath,
+      'file_name': firstName,
+      'remote_message_id': firstRemoteId,
+      'media_kind': mediaKind.name,
+      'duration_ms': generated.durationMs,
+      'sent_count': paths.length,
+    };
+  }
+
+  AiDingTalkMediaGenerationExecutor _mediaExecutorForConversation(
+    DingTalkConversation conversation,
+  ) {
+    return ({
+      required AiDingTalkMultimodalCapability capability,
+      required String prompt,
+      required AiCreationOptions options,
+      required List<String> referenceImagePaths,
+      Future<void>? cancelSignal,
+    }) => _executeDingTalkMediaGenerationForAi(
+      conversation: conversation,
+      capability: capability,
+      prompt: prompt,
+      options: options,
+      referenceImagePaths: referenceImagePaths,
+      cancelSignal: cancelSignal,
+    );
+  }
+
+  String _multimodalModelKey(AiDingTalkMultimodalCapability capability) {
+    return switch (capability) {
+      AiDingTalkMultimodalCapability.imageGeneration =>
+        _settings.imageGenerationModelKey,
+      AiDingTalkMultimodalCapability.videoGeneration =>
+        _settings.videoGenerationModelKey,
+      AiDingTalkMultimodalCapability.audioGeneration =>
+        _settings.audioGenerationModelKey,
+    };
+  }
+
+  bool _supportsMultimodalCapability(
+    AiDingTalkMultimodalCapability capability,
+    AiModelConfig model,
+  ) {
+    return switch (capability) {
+      AiDingTalkMultimodalCapability.imageGeneration =>
+        AiImageGenerationService.supportsImageGenerationForModel(model),
+      AiDingTalkMultimodalCapability.videoGeneration =>
+        AiImageGenerationService.supportsVideoGenerationForModel(model),
+      AiDingTalkMultimodalCapability.audioGeneration =>
+        AiImageGenerationService.supportsAudioGenerationForModel(model),
+    };
+  }
+
+  List<String> _validMultimodalCapabilitiesForRuntime() {
+    return _settings.enabledMultimodalCapabilities
+        .where((capability) {
+          final model = _resolveModelByKey(_multimodalModelKey(capability));
+          return model != null &&
+              _supportsMultimodalCapability(capability, model);
+        })
+        .map((capability) => capability.storageValue)
+        .toList(growable: false);
+  }
+
+  AiModelConfig? _resolveModelByKey(String key) {
+    final normalized = key.trim();
+    if (normalized.isEmpty) return null;
+    final separator = normalized.indexOf('::');
+    if (separator <= 0 || separator >= normalized.length - 2) return null;
+    final providerId = normalized.substring(0, separator);
+    final modelId = normalized.substring(separator + 2);
+    for (final provider in _settingsController.aiModels) {
+      if (provider.id == providerId && modelId.trim().isNotEmpty) {
+        return provider.copyWith(modelId: modelId.trim());
+      }
+    }
+    return null;
+  }
+
+  String? _resolveDingTalkMediaInputPath(String root, String rawPath) {
+    final trimmed = rawPath.trim();
+    if (trimmed.isEmpty) return null;
+    final candidate = p.normalize(
+      p.isAbsolute(trimmed) ? trimmed : p.join(root, trimmed),
+    );
+    if (!p.equals(root, candidate) && !p.isWithin(root, candidate)) return null;
+    return candidate;
+  }
+
+  List<String> _generatedMediaPaths(String markdown) {
+    final result = <String>[];
+    final pattern = RegExp(r'!?\[[^\]\r\n]{0,240}\]\(([^)\r\n]+)\)');
+    final generatedRoot = p.normalize(
+      p.join(Directory.systemTemp.path, 'openhand_media'),
+    );
+    for (final match in pattern.allMatches(markdown)) {
+      var raw = match.group(1)?.trim() ?? '';
+      if (raw.startsWith('<') && raw.endsWith('>')) {
+        raw = raw.substring(1, raw.length - 1).trim();
+      }
+      if (raw.startsWith('file://')) {
+        final uri = Uri.tryParse(raw);
+        if (uri == null) continue;
+        try {
+          raw = uri.toFilePath();
+        } on UnsupportedError {
+          continue;
+        }
+      }
+      final path = p.normalize(raw);
+      if ((p.equals(generatedRoot, path) || p.isWithin(generatedRoot, path)) &&
+          !result.contains(path)) {
+        result.add(path);
+      }
+    }
+    return result;
+  }
+
+  String _mediaMimeType(
+    String path, {
+    String fallback = 'application/octet-stream',
+  }) {
+    return switch (p.extension(path).toLowerCase()) {
+      '.png' => 'image/png',
+      '.jpg' || '.jpeg' => 'image/jpeg',
+      '.webp' => 'image/webp',
+      '.gif' => 'image/gif',
+      '.mp4' => 'video/mp4',
+      '.mov' => 'video/quicktime',
+      '.webm' => 'video/webm',
+      '.wav' => 'audio/wav',
+      '.m4a' => 'audio/mp4',
+      '.ogg' => 'audio/ogg',
+      '.aac' => 'audio/aac',
+      _ => fallback,
     };
   }
 
@@ -1069,6 +1380,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           'dingtalk_allowed_knowledge_source_ids': selectedKnowledgeSourceIds,
           'dingtalk_dws_executor': _executeDwsCommandForAi,
           'dingtalk_dws_selected_command_count': dwsCatalog.length,
+          'dingtalk_multimodal_capabilities':
+              _validMultimodalCapabilitiesForRuntime(),
+          'dingtalk_media_generation_executor': _mediaExecutorForConversation(
+            conversation,
+          ),
         },
       );
       var sessionId = conversation.aiSessionId;
@@ -1322,11 +1638,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             ? DingTalkResponseEchoType.process
             : DingTalkResponseEchoType.finalResponse,
       AiSessionMessageKind.toolCall || AiSessionMessageKind.hook =>
-        _terminalToolEchoStatuses.contains(
-              '${message.metadata['tool_execution_status'] ?? message.metadata['tool_status'] ?? message.metadata['status'] ?? ''}'
-                  .trim()
-                  .toLowerCase(),
-            )
+        message.metadata['dingtalk_media_response'] == true
+            ? null
+            : _terminalToolEchoStatuses.contains(
+                '${message.metadata['tool_execution_status'] ?? message.metadata['tool_status'] ?? message.metadata['status'] ?? ''}'
+                    .trim()
+                    .toLowerCase(),
+              )
             ? DingTalkResponseEchoType.toolCall
             : null,
       _ => null,
@@ -1804,6 +2122,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       await persist.timeout(const Duration(seconds: 10), onTimeout: () {});
     }
     _disposed = true;
+    _mediaGenerationService.dispose();
     await _service.cancelAuthorization();
   }
 

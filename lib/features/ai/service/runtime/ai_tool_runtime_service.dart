@@ -10,6 +10,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
@@ -337,6 +338,9 @@ enum AiBuiltinToolKind {
   machineTerminalControl,
   dingTalkToolSearch,
   dingtalkDws,
+  dingtalkImageGeneration,
+  dingtalkVideoGeneration,
+  dingtalkAudioGeneration,
 }
 
 class AiToolExecutionResult {
@@ -526,6 +530,9 @@ class AiToolRuntimeService {
         AiBuiltinToolKind.machineTerminalExec,
         AiBuiltinToolKind.machineTerminalControl,
         AiBuiltinToolKind.dingtalkDws,
+        AiBuiltinToolKind.dingtalkImageGeneration,
+        AiBuiltinToolKind.dingtalkVideoGeneration,
+        AiBuiltinToolKind.dingtalkAudioGeneration,
         AiBuiltinToolKind.edit,
         AiBuiltinToolKind.multiEdit,
         AiBuiltinToolKind.applyFileDiffs,
@@ -912,6 +919,7 @@ class AiToolRuntimeService {
       builder.register(tool);
     }
     _registerDingTalkDwsTools(builder, runtimeContext);
+    _registerDingTalkMultimodalTools(builder, runtimeContext);
   }
 
   void _registerDingTalkDwsTools(
@@ -995,6 +1003,149 @@ class AiToolRuntimeService {
         ),
       ),
     );
+  }
+
+  void _registerDingTalkMultimodalTools(
+    _ToolCatalogBuilder builder,
+    AiSessionRuntimeContext runtimeContext,
+  ) {
+    final raw = runtimeContext
+        .toolExecutionMetadata['dingtalk_multimodal_capabilities'];
+    final enabled = <AiDingTalkMultimodalCapability>{};
+    final values = raw is List ? raw : const <Object?>[];
+    for (final value in values) {
+      final capability = AiDingTalkMultimodalCapability.fromStorage(value);
+      if (capability != null) enabled.add(capability);
+    }
+    for (final capability in AiDingTalkMultimodalCapability.values) {
+      if (!enabled.contains(capability)) continue;
+      final definition = AiToolDefinition(
+        name: capability.toolName,
+        description:
+            '同步生成并发送${capability.displayName}到当前钉钉会话。生成过程会等待最终结果，成功后该工具调用即视为正式响应。',
+        parameters: _dingtalkMultimodalParameters(capability),
+      );
+      builder.register(
+        AiResolvedTool(
+          name: definition.name,
+          definition: definition,
+          source: AiRuntimeToolSource.builtin,
+          builtinKind: switch (capability) {
+            AiDingTalkMultimodalCapability.imageGeneration =>
+              AiBuiltinToolKind.dingtalkImageGeneration,
+            AiDingTalkMultimodalCapability.videoGeneration =>
+              AiBuiltinToolKind.dingtalkVideoGeneration,
+            AiDingTalkMultimodalCapability.audioGeneration =>
+              AiBuiltinToolKind.dingtalkAudioGeneration,
+          },
+        ),
+      );
+    }
+  }
+
+  Map<String, Object?> _dingtalkMultimodalParameters(
+    AiDingTalkMultimodalCapability capability,
+  ) {
+    final properties = <String, Object?>{
+      'prompt': const <String, Object?>{
+        'type': 'string',
+        'minLength': 1,
+        'maxLength': 12000,
+        'description': '媒体生成要求，必须具体且可执行。',
+      },
+      'options': const <String, Object?>{
+        'type': 'object',
+        'description': '可选生成参数，支持尺寸、比例、质量、时长、格式、声音等线程会话参数。',
+        'additionalProperties': true,
+      },
+      'size': const <String, Object?>{'type': 'string'},
+      'aspect_ratio': const <String, Object?>{'type': 'string'},
+      'duration_seconds': const <String, Object?>{
+        'type': 'integer',
+        'minimum': 1,
+        'maximum': 600,
+      },
+      'count': const <String, Object?>{
+        'type': 'integer',
+        'minimum': 1,
+        'maximum': 4,
+      },
+      'quality': const <String, Object?>{'type': 'string'},
+      'style': const <String, Object?>{'type': 'string'},
+      'output_format': const <String, Object?>{'type': 'string'},
+      'background': const <String, Object?>{'type': 'string'},
+      'negative_prompt': const <String, Object?>{'type': 'string'},
+      'prompt_enhance': const <String, Object?>{'type': 'boolean'},
+      'watermark': const <String, Object?>{'type': 'boolean'},
+      'seed': const <String, Object?>{'type': 'integer', 'minimum': 0},
+      'resolution': const <String, Object?>{'type': 'string'},
+      'frame_rate': const <String, Object?>{
+        'type': 'integer',
+        'minimum': 1,
+        'maximum': 60,
+      },
+      'num_frames': const <String, Object?>{
+        'type': 'integer',
+        'minimum': 1,
+        'maximum': 441,
+      },
+      'mode': const <String, Object?>{'type': 'string'},
+      'voice': const <String, Object?>{'type': 'string'},
+      'speed': const <String, Object?>{'type': 'number'},
+      'volume': const <String, Object?>{
+        'type': 'number',
+        'minimum': 0,
+        'maximum': 10,
+      },
+      'sample_rate': const <String, Object?>{
+        'type': 'integer',
+        'minimum': 8000,
+        'maximum': 96000,
+      },
+      'bitrate': const <String, Object?>{
+        'type': 'integer',
+        'minimum': 8000,
+        'maximum': 512000,
+      },
+      'pitch': const <String, Object?>{'type': 'number'},
+      'language_boost': const <String, Object?>{'type': 'string'},
+      'emotion': const <String, Object?>{'type': 'string'},
+      'text_normalization': const <String, Object?>{'type': 'boolean'},
+      'latex_read': const <String, Object?>{'type': 'boolean'},
+      'channel': const <String, Object?>{'type': 'integer', 'minimum': 1},
+      'force_cbr': const <String, Object?>{'type': 'boolean'},
+      'subtitle_enable': const <String, Object?>{'type': 'boolean'},
+      'subtitle_type': const <String, Object?>{'type': 'string'},
+      'pronunciation_tone': const <String, Object?>{
+        'type': 'array',
+        'maxItems': 64,
+        'items': <String, Object?>{'type': 'string'},
+      },
+      'timbre_weights': const <String, Object?>{
+        'type': 'array',
+        'maxItems': 32,
+        'items': <String, Object?>{'type': 'object'},
+      },
+      'voice_modify': const <String, Object?>{
+        'type': 'object',
+        'additionalProperties': true,
+      },
+      'reference_image_paths': const <String, Object?>{
+        'type': 'array',
+        'maxItems': 8,
+        'items': <String, Object?>{'type': 'string', 'maxLength': 1024},
+      },
+      'purpose': const <String, Object?>{
+        'type': 'string',
+        'description': '本次生成调用的简短目的。',
+      },
+    };
+    return <String, Object?>{
+      'type': 'object',
+      'properties': properties,
+      'required': const <String>['prompt'],
+      'additionalProperties': false,
+    };
   }
 
   /// 把已就绪的 MCP 目录并入装配结果：透传告警、记录服务端说明并注册工具。

@@ -4,6 +4,7 @@ import 'package:flutter/foundation.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
+import '../../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
 enum DingTalkConversationType { group, direct }
@@ -303,6 +304,11 @@ class DingTalkGatewaySettings {
     this.allowedInstructionIds = const <String>[],
     this.allowedKnowledgeBaseSourceIds = const <String>[],
     this.allowedDingTalkDwsCommandIds = const <String>[],
+    this.enabledMultimodalCapabilities =
+        const <AiDingTalkMultimodalCapability>{},
+    this.imageGenerationModelKey = '',
+    this.videoGenerationModelKey = '',
+    this.audioGenerationModelKey = '',
     this.allowedGroupTargets = const <DingTalkConversationTarget>[],
     this.allowedContactTargets = const <DingTalkConversationTarget>[],
     this.responseEchoTypes = const <DingTalkResponseEchoType>[
@@ -334,6 +340,12 @@ class DingTalkGatewaySettings {
         json['allowed_dingtalk_dws_command_ids'],
         limit: 1024,
       ),
+      enabledMultimodalCapabilities: _multimodalCapabilitySet(
+        json['enabled_multimodal_capabilities'],
+      ),
+      imageGenerationModelKey: '${json['image_generation_model_key'] ?? ''}',
+      videoGenerationModelKey: '${json['video_generation_model_key'] ?? ''}',
+      audioGenerationModelKey: '${json['audio_generation_model_key'] ?? ''}',
       allowedGroupTargets: _targetList(
         json['allowed_group_targets'],
         DingTalkConversationType.group,
@@ -358,6 +370,10 @@ class DingTalkGatewaySettings {
   final List<String> allowedInstructionIds;
   final List<String> allowedKnowledgeBaseSourceIds;
   final List<String> allowedDingTalkDwsCommandIds;
+  final Set<AiDingTalkMultimodalCapability> enabledMultimodalCapabilities;
+  final String imageGenerationModelKey;
+  final String videoGenerationModelKey;
+  final String audioGenerationModelKey;
   final List<DingTalkConversationTarget> allowedGroupTargets;
   final List<DingTalkConversationTarget> allowedContactTargets;
   final List<DingTalkResponseEchoType> responseEchoTypes;
@@ -403,6 +419,13 @@ class DingTalkGatewaySettings {
       availableDingTalkDwsCommandIds,
       limit: 1024,
     ),
+    enabledMultimodalCapabilities:
+        Set<AiDingTalkMultimodalCapability>.unmodifiable(
+          enabledMultimodalCapabilities,
+        ),
+    imageGenerationModelKey: imageGenerationModelKey.trim(),
+    videoGenerationModelKey: videoGenerationModelKey.trim(),
+    audioGenerationModelKey: audioGenerationModelKey.trim(),
     allowedGroupTargets: _normalizeTargets(allowedGroupTargets),
     allowedContactTargets: _normalizeTargets(allowedContactTargets),
     responseEchoTypes: _normalizeResponseEchoTypes(responseEchoTypes),
@@ -421,6 +444,10 @@ class DingTalkGatewaySettings {
     List<String>? allowedInstructionIds,
     List<String>? allowedKnowledgeBaseSourceIds,
     List<String>? allowedDingTalkDwsCommandIds,
+    Set<AiDingTalkMultimodalCapability>? enabledMultimodalCapabilities,
+    String? imageGenerationModelKey,
+    String? videoGenerationModelKey,
+    String? audioGenerationModelKey,
     List<DingTalkConversationTarget>? allowedGroupTargets,
     List<DingTalkConversationTarget>? allowedContactTargets,
     List<DingTalkResponseEchoType>? responseEchoTypes,
@@ -439,6 +466,14 @@ class DingTalkGatewaySettings {
         allowedKnowledgeBaseSourceIds ?? this.allowedKnowledgeBaseSourceIds,
     allowedDingTalkDwsCommandIds:
         allowedDingTalkDwsCommandIds ?? this.allowedDingTalkDwsCommandIds,
+    enabledMultimodalCapabilities:
+        enabledMultimodalCapabilities ?? this.enabledMultimodalCapabilities,
+    imageGenerationModelKey:
+        imageGenerationModelKey ?? this.imageGenerationModelKey,
+    videoGenerationModelKey:
+        videoGenerationModelKey ?? this.videoGenerationModelKey,
+    audioGenerationModelKey:
+        audioGenerationModelKey ?? this.audioGenerationModelKey,
     allowedGroupTargets: allowedGroupTargets ?? this.allowedGroupTargets,
     allowedContactTargets: allowedContactTargets ?? this.allowedContactTargets,
     responseEchoTypes: responseEchoTypes ?? this.responseEchoTypes,
@@ -457,6 +492,12 @@ class DingTalkGatewaySettings {
     'allowed_instruction_ids': allowedInstructionIds,
     'allowed_knowledge_base_source_ids': allowedKnowledgeBaseSourceIds,
     'allowed_dingtalk_dws_command_ids': allowedDingTalkDwsCommandIds,
+    'enabled_multimodal_capabilities': enabledMultimodalCapabilities
+        .map((item) => item.storageValue)
+        .toList(growable: false),
+    'image_generation_model_key': imageGenerationModelKey,
+    'video_generation_model_key': videoGenerationModelKey,
+    'audio_generation_model_key': audioGenerationModelKey,
     'allowed_group_targets': allowedGroupTargets
         .map((item) => item.toJson())
         .toList(growable: false),
@@ -475,6 +516,19 @@ class DingTalkGatewaySettings {
         .toSet()
         .take(limit)
         .toList(growable: false);
+  }
+
+  static Set<AiDingTalkMultimodalCapability> _multimodalCapabilitySet(
+    Object? value,
+  ) {
+    final rawValues = value is List ? value : <Object?>[value];
+    return <AiDingTalkMultimodalCapability>{
+      for (final raw in rawValues.take(
+        AiDingTalkMultimodalCapability.values.length,
+      ))
+        if (AiDingTalkMultimodalCapability.fromStorage(raw) case final item?)
+          item,
+    };
   }
 
   static List<DingTalkResponseEchoType> _responseEchoTypeList(Object? value) {

@@ -781,6 +781,9 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.bashBackground => 95,
       AiBuiltinToolKind.dingTalkToolSearch => 13,
       AiBuiltinToolKind.dingtalkDws => 100,
+      AiBuiltinToolKind.dingtalkImageGeneration ||
+      AiBuiltinToolKind.dingtalkVideoGeneration ||
+      AiBuiltinToolKind.dingtalkAudioGeneration => 100,
       _ => 100,
     };
   }
@@ -823,6 +826,9 @@ class AiBuiltinToolConfig {
       AiBuiltinToolKind.bash => 90,
       AiBuiltinToolKind.bashBackground => 91,
       AiBuiltinToolKind.dingtalkDws => 100,
+      AiBuiltinToolKind.dingtalkImageGeneration => 101,
+      AiBuiltinToolKind.dingtalkVideoGeneration => 102,
+      AiBuiltinToolKind.dingtalkAudioGeneration => 103,
       AiBuiltinToolKind.agentList => 200,
       AiBuiltinToolKind.agentDetail => 201,
       AiBuiltinToolKind.agentActivityLog => 202,
@@ -869,6 +875,9 @@ class AiBuiltinToolConfig {
       case AiBuiltinToolKind.toolSearch:
       case AiBuiltinToolKind.dingTalkToolSearch:
       case AiBuiltinToolKind.dingtalkDws:
+      case AiBuiltinToolKind.dingtalkImageGeneration:
+      case AiBuiltinToolKind.dingtalkVideoGeneration:
+      case AiBuiltinToolKind.dingtalkAudioGeneration:
       case AiBuiltinToolKind.knowledgeSearch:
       case AiBuiltinToolKind.knowledgeRead:
       case AiBuiltinToolKind.machineTerminalRead:

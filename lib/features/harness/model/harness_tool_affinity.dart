@@ -94,7 +94,10 @@ HarnessToolCategory? builtinToolCategory(AiBuiltinToolKind kind) {
     // ToolSearch 由延迟加载策略动态控制。
     AiBuiltinToolKind.toolSearch => null,
     AiBuiltinToolKind.dingTalkToolSearch ||
-    AiBuiltinToolKind.dingtalkDws => null,
+    AiBuiltinToolKind.dingtalkDws ||
+    AiBuiltinToolKind.dingtalkImageGeneration ||
+    AiBuiltinToolKind.dingtalkVideoGeneration ||
+    AiBuiltinToolKind.dingtalkAudioGeneration => null,
     // Memory 仅供自主学习链路使用。
     AiBuiltinToolKind.memory => null,
   };

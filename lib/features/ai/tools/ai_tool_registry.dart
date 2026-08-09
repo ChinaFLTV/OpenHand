@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:http/http.dart' as http;
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../agents/agents_controller.dart';
 import '../../instructions/instructions_controller.dart';
 import '../../knowledge_base/knowledge_base_controller.dart';
@@ -19,6 +20,7 @@ import 'ai_tool_execution_context.dart';
 import 'bash/ai_bash_background_tool.dart';
 import 'bash/ai_bash_tool.dart';
 import 'dingtalk/ai_dingtalk_dws_tool.dart';
+import 'dingtalk/ai_dingtalk_media_generation_tool.dart';
 import 'fs/ai_apply_file_diffs_tool.dart';
 import 'fs/ai_delete_file_tool.dart';
 import 'fs/ai_edit_tool.dart';
@@ -90,6 +92,21 @@ class AiToolRegistry {
       ..register(AiToolSearchTool())
       ..register(AiDingTalkToolSearchTool())
       ..register(AiDingTalkDwsTool())
+      ..register(
+        AiDingTalkMediaGenerationTool(
+          AiDingTalkMultimodalCapability.imageGeneration,
+        ),
+      )
+      ..register(
+        AiDingTalkMediaGenerationTool(
+          AiDingTalkMultimodalCapability.videoGeneration,
+        ),
+      )
+      ..register(
+        AiDingTalkMediaGenerationTool(
+          AiDingTalkMultimodalCapability.audioGeneration,
+        ),
+      )
       ..register(AiAskUserChoiceTool());
   }
 

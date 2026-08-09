@@ -17,6 +17,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/db/atomic_file_operations.dart';
+import '../../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
@@ -12762,9 +12763,12 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
           .listen(
             (amplitude) {
               if (!mounted || !identical(_voiceRecorder, recorder)) return;
-              _voiceLevels
-                ..removeAt(0)
-                ..add(_voiceLevelFromAmplitude(amplitude));
+              final level = _voiceLevelFromAmplitude(amplitude);
+              // 仅移动元素，避免对来源不明的定长列表执行 removeAt/add。
+              for (var index = 1; index < _voiceLevels.length; index++) {
+                _voiceLevels[index - 1] = _voiceLevels[index];
+              }
+              _voiceLevels[_voiceLevels.length - 1] = level;
               _publishVoiceVisual();
             },
             onError: (Object error, StackTrace stack) {
@@ -16642,6 +16646,17 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       .settings
       .allowedDingTalkDwsCommandIds
       .toSet();
+  late Set<AiDingTalkMultimodalCapability> _multimodalCapabilities = widget
+      .controller
+      .settings
+      .enabledMultimodalCapabilities
+      .toSet();
+  late String _imageGenerationModelKey =
+      widget.controller.settings.imageGenerationModelKey;
+  late String _videoGenerationModelKey =
+      widget.controller.settings.videoGenerationModelKey;
+  late String _audioGenerationModelKey =
+      widget.controller.settings.audioGenerationModelKey;
   late List<DingTalkConversationTarget> _allowedGroups =
       List<DingTalkConversationTarget>.from(
         widget.controller.settings.allowedGroupTargets,
@@ -16659,7 +16674,11 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   @override
   void initState() {
     super.initState();
-    unawaited(_loadDwsCatalog());
+    // 等首帧挂载完成后再触发目录加载，避免服务层通知在 build 阶段标记
+    // 监听组件，导致 setState() or markNeedsBuild() called during build。
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) unawaited(_loadDwsCatalog());
+    });
   }
 
   @override
@@ -16990,6 +17009,18 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       text: _dwsCatalogError!,
                     ),
                   ],
+                  const SizedBox(height: 10),
+                  _DingTalkResourceField(
+                    icon: Icons.auto_awesome_motion_rounded,
+                    title: '多模态能力',
+                    selectedCount: _multimodalCapabilities.length,
+                    totalCount: AiDingTalkMultimodalCapability.values.length,
+                    selectionNote: '勾选后直接注入提示词并作为正式响应',
+                    showRefresh: false,
+                    refreshing: false,
+                    onRefresh: () {},
+                    onTap: _selectMultimodalCapabilities,
+                  ),
                   const SizedBox(height: 10),
                   _DingTalkResourceField(
                     icon: Icons.auto_fix_high_rounded,
@@ -17333,6 +17364,30 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
     );
   }
 
+  Future<void> _selectMultimodalCapabilities() async {
+    final result = await showAnimatedDialog<_DingTalkMultimodalSelection>(
+      context: context,
+      builder: (_) => buildOpenHandDialog(
+        maxWidth: kOpenHandDialogWidthStandard,
+        maxHeight: kOpenHandDialogHeightFull,
+        child: _DingTalkMultimodalPickerDialog(
+          selected: _multimodalCapabilities,
+          imageModelKey: _imageGenerationModelKey,
+          videoModelKey: _videoGenerationModelKey,
+          audioModelKey: _audioGenerationModelKey,
+          models: widget.controller.aiModels,
+        ),
+      ),
+    );
+    if (result == null || !mounted) return;
+    setState(() {
+      _multimodalCapabilities = result.capabilities;
+      _imageGenerationModelKey = result.imageModelKey;
+      _videoGenerationModelKey = result.videoModelKey;
+      _audioGenerationModelKey = result.audioModelKey;
+    });
+  }
+
   Future<void> _selectResources({
     required String title,
     required IconData icon,
@@ -17432,6 +17487,10 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
             growable: false,
           ),
           allowedDingTalkDwsCommandIds: _dwsCommands.toList(growable: false),
+          enabledMultimodalCapabilities: _multimodalCapabilities,
+          imageGenerationModelKey: _imageGenerationModelKey,
+          videoGenerationModelKey: _videoGenerationModelKey,
+          audioGenerationModelKey: _audioGenerationModelKey,
           allowedGroupTargets: _allowedGroups,
           allowedContactTargets: _allowedContacts,
           responseEchoTypes: DingTalkResponseEchoType.values
@@ -17483,6 +17542,306 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
         DingTalkResponseEchoType.toolCall => Icons.build_circle_rounded,
         DingTalkResponseEchoType.finalResponse => Icons.mark_chat_read_rounded,
       };
+}
+
+typedef _DingTalkMultimodalSelection = ({
+  Set<AiDingTalkMultimodalCapability> capabilities,
+  String imageModelKey,
+  String videoModelKey,
+  String audioModelKey,
+});
+
+class _DingTalkMultimodalPickerDialog extends StatefulWidget {
+  const _DingTalkMultimodalPickerDialog({
+    required this.selected,
+    required this.imageModelKey,
+    required this.videoModelKey,
+    required this.audioModelKey,
+    required this.models,
+  });
+
+  final Set<AiDingTalkMultimodalCapability> selected;
+  final String imageModelKey;
+  final String videoModelKey;
+  final String audioModelKey;
+  final List<AiModelConfig> models;
+
+  @override
+  State<_DingTalkMultimodalPickerDialog> createState() =>
+      _DingTalkMultimodalPickerDialogState();
+}
+
+class _DingTalkMultimodalPickerDialogState
+    extends State<_DingTalkMultimodalPickerDialog> {
+  late final Set<AiDingTalkMultimodalCapability> _selected = widget.selected
+      .toSet();
+  late String _imageModelKey = widget.imageModelKey;
+  late String _videoModelKey = widget.videoModelKey;
+  late String _audioModelKey = widget.audioModelKey;
+
+  String _keyFor(AiDingTalkMultimodalCapability capability) =>
+      switch (capability) {
+        AiDingTalkMultimodalCapability.imageGeneration => _imageModelKey,
+        AiDingTalkMultimodalCapability.videoGeneration => _videoModelKey,
+        AiDingTalkMultimodalCapability.audioGeneration => _audioModelKey,
+      };
+
+  void _setKey(AiDingTalkMultimodalCapability capability, String value) {
+    setState(() {
+      switch (capability) {
+        case AiDingTalkMultimodalCapability.imageGeneration:
+          _imageModelKey = value;
+        case AiDingTalkMultimodalCapability.videoGeneration:
+          _videoModelKey = value;
+        case AiDingTalkMultimodalCapability.audioGeneration:
+          _audioModelKey = value;
+      }
+    });
+  }
+
+  List<AiModelConfig> _modelsFor(AiDingTalkMultimodalCapability capability) {
+    final result = widget.models
+        .where(
+          (model) => model.allModelIds.any(
+            (modelId) => _supportsModel(capability, model, modelId),
+          ),
+        )
+        .toList(growable: false);
+    final currentKey = _keyFor(capability);
+    final current = _splitModelKey(currentKey);
+    final currentProvider = current.$1;
+    if (currentProvider.isNotEmpty &&
+        result.every((model) => model.id != currentProvider)) {
+      for (final model in widget.models) {
+        if (model.id == currentProvider &&
+            _supportsModel(capability, model, current.$2)) {
+          return <AiModelConfig>[...result, model];
+        }
+      }
+    }
+    return result;
+  }
+
+  Future<void> _selectModel(AiDingTalkMultimodalCapability capability) async {
+    final models = _modelsFor(capability);
+    if (models.isEmpty) {
+      showOpenHandInfoSnack(
+        context,
+        '暂无支持${capability.displayName}的模型，请先在模型设置中配置。',
+      );
+      return;
+    }
+    final current = _splitModelKey(_keyFor(capability));
+    final selected = await showModelSearchSelector(
+      context: context,
+      models: models,
+      selectedConfigId: current.$1,
+      selectedModelId: current.$2,
+      modelFilter: (config, modelId) =>
+          _supportsModel(capability, config, modelId),
+    );
+    if (selected != null && mounted) {
+      _setKey(capability, '${selected.$1}::${selected.$2}');
+    }
+  }
+
+  String _modelLabel(AiDingTalkMultimodalCapability capability) {
+    final key = _keyFor(capability);
+    final split = _splitModelKey(key);
+    if (split.$1.isEmpty || split.$2.isEmpty) return '选择模型';
+    for (final model in widget.models) {
+      if (model.id == split.$1) return '${model.providerLabel} / ${split.$2}';
+    }
+    return '${split.$1} / ${split.$2}';
+  }
+
+  (String, String) _splitModelKey(String key) {
+    final index = key.indexOf('::');
+    return index > 0
+        ? (key.substring(0, index), key.substring(index + 2))
+        : ('', '');
+  }
+
+  void _apply() {
+    for (final capability in _selected) {
+      final key = _keyFor(capability).trim();
+      final split = _splitModelKey(key);
+      final config = widget.models
+          .where((model) => model.id == split.$1)
+          .firstOrNull;
+      if (split.$1.isEmpty ||
+          split.$2.isEmpty ||
+          config == null ||
+          !_supportsModel(capability, config, split.$2)) {
+        showOpenHandInfoSnack(context, '请为已勾选的${capability.displayName}选择模型。');
+        return;
+      }
+    }
+    Navigator.of(context).pop((
+      capabilities: Set<AiDingTalkMultimodalCapability>.from(_selected),
+      imageModelKey: _imageModelKey,
+      videoModelKey: _videoModelKey,
+      audioModelKey: _audioModelKey,
+    ));
+  }
+
+  bool _supportsModel(
+    AiDingTalkMultimodalCapability capability,
+    AiModelConfig config,
+    String modelId,
+  ) {
+    final selected = config.copyWith(modelId: modelId.trim());
+    return switch (capability) {
+      AiDingTalkMultimodalCapability.imageGeneration =>
+        AiImageGenerationService.supportsImageGenerationForModel(selected),
+      AiDingTalkMultimodalCapability.videoGeneration =>
+        AiImageGenerationService.supportsVideoGenerationForModel(selected),
+      AiDingTalkMultimodalCapability.audioGeneration =>
+        AiImageGenerationService.supportsAudioGenerationForModel(selected),
+    };
+  }
+
+  int _supportedModelCount(AiDingTalkMultimodalCapability capability) {
+    return widget.models.fold<int>(
+      0,
+      (count, model) =>
+          count +
+          model.allModelIds
+              .where((modelId) => _supportsModel(capability, model, modelId))
+              .length,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return SizedBox(
+      width: double.infinity,
+      height: 560,
+      child: Padding(
+        padding: const EdgeInsets.fromLTRB(20, 18, 20, 16),
+        child: Column(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Row(
+              children: [
+                Icon(Icons.auto_awesome_motion_rounded, color: colors.primary),
+                const SizedBox(width: 9),
+                Text('多模态能力', style: theme.textTheme.titleLarge),
+                const Spacer(),
+                IconButton(
+                  tooltip: '关闭',
+                  onPressed: () => Navigator.of(context).pop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+            const SizedBox(height: 6),
+            Text(
+              '默认全不选。勾选后，工具 Schema 会直接注入钉钉会话提示词；生成完成并发送文件后立即结束本轮响应。',
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                height: 1.45,
+              ),
+            ),
+            const SizedBox(height: 14),
+            Expanded(
+              child: ListView.separated(
+                itemCount: AiDingTalkMultimodalCapability.values.length,
+                separatorBuilder: (_, index) => const SizedBox(height: 8),
+                itemBuilder: (context, index) {
+                  final capability =
+                      AiDingTalkMultimodalCapability.values[index];
+                  final selected = _selected.contains(capability);
+                  final modelCount = _supportedModelCount(capability);
+                  return Material(
+                    color: selected
+                        ? colors.primaryContainer.withValues(alpha: 0.5)
+                        : colors.surfaceContainerHighest,
+                    borderRadius: BorderRadius.circular(14),
+                    shadowColor: Colors.transparent,
+                    surfaceTintColor: Colors.transparent,
+                    child: Padding(
+                      padding: const EdgeInsets.fromLTRB(6, 5, 8, 5),
+                      child: Row(
+                        children: [
+                          Checkbox(
+                            value: selected,
+                            onChanged: (value) => setState(() {
+                              if (value == true) {
+                                _selected.add(capability);
+                              } else {
+                                _selected.remove(capability);
+                              }
+                            }),
+                          ),
+                          Icon(switch (capability) {
+                            AiDingTalkMultimodalCapability.imageGeneration =>
+                              Icons.image_outlined,
+                            AiDingTalkMultimodalCapability.videoGeneration =>
+                              Icons.movie_creation_outlined,
+                            AiDingTalkMultimodalCapability.audioGeneration =>
+                              Icons.graphic_eq_rounded,
+                          }, color: colors.primary),
+                          const SizedBox(width: 9),
+                          Expanded(
+                            child: Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                Text(
+                                  capability.displayName,
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                                const SizedBox(height: 2),
+                                Text(
+                                  selected
+                                      ? _modelLabel(capability)
+                                      : '$modelCount 个可用模型 · 未启用',
+                                  maxLines: 1,
+                                  overflow: TextOverflow.ellipsis,
+                                  style: theme.textTheme.bodySmall?.copyWith(
+                                    color: colors.onSurfaceVariant,
+                                  ),
+                                ),
+                              ],
+                            ),
+                          ),
+                          const SizedBox(width: 8),
+                          OutlinedButton.icon(
+                            onPressed: selected
+                                ? () => _selectModel(capability)
+                                : null,
+                            icon: const Icon(
+                              Icons.model_training_rounded,
+                              size: 17,
+                            ),
+                            label: Text(
+                              _keyFor(capability).trim().isEmpty
+                                  ? '配置模型'
+                                  : '更换模型',
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  );
+                },
+              ),
+            ),
+            OpenHandDialogSaveActions(
+              busy: false,
+              cancelLabel: '取消',
+              confirmLabel: '应用选择',
+              onConfirm: _apply,
+            ),
+          ],
+        ),
+      ),
+    );
+  }
 }
 
 class _DingTalkSettingsCard extends StatelessWidget {
@@ -17610,6 +17969,7 @@ class _DingTalkResourceField extends StatelessWidget {
     required this.selectedCount,
     required this.totalCount,
     this.selectionNote,
+    this.showRefresh = true,
     required this.refreshing,
     required this.onRefresh,
     required this.onTap,
@@ -17620,6 +17980,7 @@ class _DingTalkResourceField extends StatelessWidget {
   final int selectedCount;
   final int totalCount;
   final String? selectionNote;
+  final bool showRefresh;
   final bool refreshing;
   final VoidCallback onRefresh;
   final VoidCallback onTap;
@@ -17659,24 +18020,26 @@ class _DingTalkResourceField extends StatelessWidget {
                   ],
                 ),
               ),
-              IconButton.filledTonal(
-                tooltip: '刷新 $title',
-                onPressed: refreshing ? null : onRefresh,
-                style: IconButton.styleFrom(
-                  fixedSize: const Size(40, 40),
-                  padding: EdgeInsets.zero,
-                  shape: const CircleBorder(),
-                  shadowColor: Colors.transparent,
+              if (showRefresh) ...[
+                IconButton.filledTonal(
+                  tooltip: '刷新 $title',
+                  onPressed: refreshing ? null : onRefresh,
+                  style: IconButton.styleFrom(
+                    fixedSize: const Size(40, 40),
+                    padding: EdgeInsets.zero,
+                    shape: const CircleBorder(),
+                    shadowColor: Colors.transparent,
+                  ),
+                  icon: refreshing
+                      ? const SizedBox(
+                          width: 18,
+                          height: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
                 ),
-                icon: refreshing
-                    ? const SizedBox(
-                        width: 18,
-                        height: 18,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : const Icon(Icons.refresh_rounded),
-              ),
-              const SizedBox(width: 4),
+                const SizedBox(width: 4),
+              ],
               IconButton.filledTonal(
                 tooltip: '查看 $title详情',
                 onPressed: onTap,

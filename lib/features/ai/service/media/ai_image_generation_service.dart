@@ -1832,12 +1832,85 @@ class AiImageGenerationService {
       }
       final url = nullIfBlank(entry.url);
       if (url != null) {
+        final localMarkdown = await _downloadRemoteMediaToMarkdown(
+          kind: kind,
+          url: url,
+          label: effectiveLabel,
+          cancelSignal: cancelSignal,
+        );
+        if (localMarkdown.isNotEmpty) {
+          if (buffer.isNotEmpty) buffer.writeln();
+          buffer.writeln();
+          buffer.write(localMarkdown);
+          continue;
+        }
         if (buffer.isNotEmpty) buffer.writeln();
         buffer.writeln();
         buffer.write('[$effectiveLabel]($url)');
       }
     }
     return buffer.toString();
+  }
+
+  Future<String> _downloadRemoteMediaToMarkdown({
+    required _GeneratedMediaKind kind,
+    required String url,
+    required String label,
+    Future<void>? cancelSignal,
+  }) async {
+    final uri = Uri.tryParse(url);
+    if (uri == null || (uri.scheme != 'http' && uri.scheme != 'https')) {
+      return '';
+    }
+    final destination = await createInlineMediaOutputFile(
+      mimeType: _defaultMimeFor(kind),
+    );
+    try {
+      final response = await _transport.downloadToFile(
+        uri: uri,
+        headers: const <String, String>{},
+        timeout: _remoteMediaDownloadTimeout,
+        destination: destination,
+        maxBytes: kind.isVideo
+            ? _videoDownloadMaxBytes
+            : _audioResponseMaxBytes,
+        maxJsonBytes: _mediaJsonResponseMaxBytes,
+        cancelSignal: cancelSignal,
+      );
+      if (!response.isSuccess ||
+          response.bytesWritten <= 0 ||
+          response.filePath == null) {
+        await _deleteFileIfPresent(destination);
+        return '';
+      }
+      final contentType = responseMimeType(response.headers);
+      if (contentType.isNotEmpty &&
+          contentType != 'application/octet-stream' &&
+          !(kind.isVideo && contentType.startsWith('video/')) &&
+          !(kind.isAudio && contentType.startsWith('audio/'))) {
+        await _deleteFileIfPresent(destination);
+        return '';
+      }
+      final mimeType = kind.isVideo
+          ? contentType.startsWith('video/')
+                ? contentType
+                : 'video/mp4'
+          : contentType.startsWith('audio/')
+          ? contentType
+          : 'audio/mpeg';
+      return inlineMediaFileMarkdown(
+        filePath: response.filePath!,
+        mimeType: mimeType,
+        label: label,
+      );
+    } on http.RequestAbortedException {
+      await _deleteFileIfPresent(destination);
+      throw const AiMediaGenerationCancelledException();
+    } catch (error, stack) {
+      await _deleteFileIfPresent(destination);
+      silentLog('ai_image_generation_service', '下载远程媒体文件', error, stack);
+      return '';
+    }
   }
 
   List<_MediaPayloadEntry> _extractMediaEntries(

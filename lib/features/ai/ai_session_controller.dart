@@ -8895,6 +8895,24 @@ class AiSessionController extends ChangeNotifier {
         return false;
       }
       workingSession = executedSession;
+      // 钉钉多模态工具完成文件发送后已构成正式响应，不再把工具结果交回模型
+      // 继续生成文本，避免重复响应或因模型异常造成无界工具回合。
+      final forcedDingTalkResponse = workingSession.messages
+          .skip(beforeToolExecutionMessageCount)
+          .any(
+            (message) =>
+                message.metadata['dingtalk_force_final_response'] == true &&
+                '${message.metadata['status'] ?? ''}'.trim().toLowerCase() ==
+                    'success',
+          );
+      if (forcedDingTalkResponse) {
+        await _emitStopHooks(
+          sessionId: workingSession.id,
+          reason: 'completed',
+          awaitingUserInput: true,
+        );
+        return true;
+      }
       final latestPromotedToolNames = _toolUsagePromotionStore
           .promotedToolIdsForSession(workingSession.id);
       if (latestPromotedToolNames.length != promotedToolNames.length ||
@@ -9098,6 +9116,12 @@ class AiSessionController extends ChangeNotifier {
         toolCall: toolCall,
         result: result,
       );
+      // 媒体文件发送成功后已经构成正式响应，取消同一批次中尚未执行的工具，
+      // 避免模型一次返回多个工具调用时继续产生额外副作用。
+      if (result.status == BashToolExecutionStatus.success &&
+          result.metadata['dingtalk_force_final_response'] == true) {
+        return _commitCancelledPendingToolCalls(workingSession);
+      }
       if (result.status == BashToolExecutionStatus.cancelled ||
           _isStopRequestedForSession(workingSession.id)) {
         return _commitCancelledPendingToolCalls(workingSession);
@@ -9643,6 +9667,9 @@ class AiSessionController extends ChangeNotifier {
       case AiBuiltinToolKind.machineTerminalWrite:
       case AiBuiltinToolKind.machineTerminalExec:
       case AiBuiltinToolKind.machineTerminalControl:
+      case AiBuiltinToolKind.dingtalkImageGeneration:
+      case AiBuiltinToolKind.dingtalkVideoGeneration:
+      case AiBuiltinToolKind.dingtalkAudioGeneration:
       default:
         return false;
     }
