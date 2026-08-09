@@ -8,7 +8,6 @@ import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
-import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
@@ -18,6 +17,7 @@ import '../../../shared/util/timer_safety.dart';
 import '../services_controller.dart';
 import '../services_errors.dart';
 import 'dependency_metric_detail_dialog.dart';
+import 'postgresql_record_editor.dart';
 import 'redis_record_editor.dart';
 import 'service_dialog_controls.dart';
 
@@ -726,11 +726,12 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
     Map<String, Object?>? row,
     List<String> primaryKeys = const <String>[],
   }) async {
-    final values = await _showJsonEditor(
+    final values = await showPostgresqlRecordEditor(
       context,
       title: row == null ? '新增 PostgreSQL 记录' : '编辑 PostgreSQL 记录',
       initial: row ?? const <String, Object?>{},
       columns: columns,
+      primaryKeys: primaryKeys,
     );
     if (values == null || !mounted) return;
     setState(() => _operating = true);
@@ -1575,132 +1576,6 @@ class _EmptyState extends StatelessWidget {
       ],
     ),
   );
-}
-
-Future<Map<String, Object?>?> _showJsonEditor(
-  BuildContext context, {
-  required String title,
-  required Map<String, Object?> initial,
-  required List<Map<String, Object?>> columns,
-}) => showAnimatedDialog<Map<String, Object?>>(
-  context: context,
-  builder: (_) => buildOpenHandDialog(
-    maxWidth: kOpenHandDialogWidthCompact,
-    maxHeight: kOpenHandDialogHeightTall,
-    child: ServiceDialogInteractionTheme(
-      child: _JsonEditor(title: title, initial: initial, columns: columns),
-    ),
-  ),
-);
-
-class _JsonEditor extends StatefulWidget {
-  const _JsonEditor({
-    required this.title,
-    required this.initial,
-    required this.columns,
-  });
-
-  final String title;
-  final Map<String, Object?> initial;
-  final List<Map<String, Object?>> columns;
-
-  @override
-  State<_JsonEditor> createState() => _JsonEditorState();
-}
-
-class _JsonEditorState extends State<_JsonEditor> {
-  late final TextEditingController _controller = TextEditingController(
-    text: const JsonEncoder.withIndent('  ').convert(widget.initial),
-  );
-  String? _error;
-
-  @override
-  void dispose() {
-    _controller.dispose();
-    super.dispose();
-  }
-
-  @override
-  Widget build(BuildContext context) => Padding(
-    padding: const EdgeInsets.all(20),
-    child: Column(
-      crossAxisAlignment: CrossAxisAlignment.stretch,
-      children: [
-        Row(
-          children: [
-            const Icon(Icons.data_object_rounded),
-            const SizedBox(width: 10),
-            Expanded(
-              child: Text(
-                widget.title,
-                style: Theme.of(context).textTheme.titleLarge,
-              ),
-            ),
-            ServiceDialogHeaderIconButton(
-              tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
-              onPressed: () => Navigator.of(context).maybePop(),
-              icon: const Icon(Icons.close_rounded),
-            ),
-          ],
-        ),
-        const SizedBox(height: 12),
-        Wrap(
-          spacing: 6,
-          runSpacing: 6,
-          children: widget.columns
-              .map(
-                (column) => Chip(
-                  label: Text('${column['name']} · ${column['dataType']}'),
-                ),
-              )
-              .toList(growable: false),
-        ),
-        const SizedBox(height: 12),
-        Expanded(
-          child: TextField(
-            controller: _controller,
-            expands: true,
-            maxLines: null,
-            textAlignVertical: TextAlignVertical.top,
-            style: const TextStyle(fontFamily: 'monospace'),
-            decoration: InputDecoration(
-              labelText: '记录 JSON',
-              alignLabelWithHint: true,
-              border: const OutlineInputBorder(),
-              errorText: _error,
-            ),
-          ),
-        ),
-        const SizedBox(height: 14),
-        Wrap(
-          alignment: WrapAlignment.end,
-          spacing: 10,
-          runSpacing: 8,
-          children: [
-            OpenHandDialogActionButton.secondary(
-              onPressed: () => Navigator.of(context).maybePop(),
-              label: '取消',
-            ),
-            OpenHandDialogActionButton.primary(onPressed: _submit, label: '保存'),
-          ],
-        ),
-      ],
-    ),
-  );
-
-  void _submit() {
-    try {
-      final decoded = jsonDecode(_controller.text);
-      if (decoded is! Map) throw const FormatException('记录必须是 JSON 对象');
-      Navigator.of(context).pop(<String, Object?>{
-        for (final entry in decoded.entries) '${entry.key}': entry.value,
-      });
-    } on FormatException catch (error) {
-      setState(
-        () => _error = error.message.isEmpty ? 'JSON 格式无效' : error.message,
-      );
-    }
-  }
 }
 
 Map<String, Object?> _map(Object? value) => value is Map
