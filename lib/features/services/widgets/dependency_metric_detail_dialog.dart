@@ -3844,11 +3844,16 @@ class _RedisHitGauge extends StatelessWidget {
         : tone;
     return LayoutBuilder(
       builder: (context, constraints) {
+        final gaugeSize = constraints.maxWidth.isFinite
+            ? math.min(220.0, constraints.maxWidth)
+            : 220.0;
         final gauge = OpenHandOperationalMeter(
           label: '当前命中率',
           value: rate,
           color: status,
           valueLabel: _percent(rate),
+          semicircular: false,
+          gaugeSize: gaugeSize,
         );
         final facts = Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
