@@ -18245,6 +18245,31 @@ class _DingTalkResourcePickerDialogState
     ).copyWith(overlayColor: const WidgetStatePropertyAll(Colors.transparent));
   }
 
+  ButtonStyle _detailsIconButtonStyle(ThemeData theme) {
+    final colors = theme.colorScheme;
+    return IconButton.styleFrom(
+      foregroundColor: colors.onSurfaceVariant,
+      backgroundColor: Colors.transparent,
+      hoverColor: colors.primaryContainer.withValues(alpha: 0.58),
+      focusColor: colors.primaryContainer.withValues(alpha: 0.58),
+      highlightColor: colors.primaryContainer.withValues(alpha: 0.78),
+      shadowColor: Colors.transparent,
+      padding: EdgeInsets.zero,
+      fixedSize: const Size(38, 38),
+    ).copyWith(
+      overlayColor: WidgetStateProperty.resolveWith<Color?>((states) {
+        if (states.contains(WidgetState.pressed)) {
+          return colors.primary.withValues(alpha: 0.18);
+        }
+        if (states.contains(WidgetState.hovered) ||
+            states.contains(WidgetState.focused)) {
+          return colors.primaryContainer.withValues(alpha: 0.58);
+        }
+        return Colors.transparent;
+      }),
+    );
+  }
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -18600,7 +18625,7 @@ class _DingTalkResourcePickerDialogState
               tooltip: '查看详情',
               onPressed: () =>
                   unawaited(_showOptionDetails(context, nodeOption)),
-              style: _transparentIconButtonStyle(theme),
+              style: _detailsIconButtonStyle(theme),
               icon: const Icon(Icons.info_outline_rounded),
             ),
             Checkbox(
@@ -18667,7 +18692,7 @@ class _DingTalkResourcePickerDialogState
             IconButton(
               tooltip: '查看详情',
               onPressed: () => unawaited(_showOptionDetails(context, option)),
-              style: _transparentIconButtonStyle(theme),
+              style: _detailsIconButtonStyle(theme),
               icon: const Icon(Icons.info_outline_rounded),
             ),
             Checkbox(
