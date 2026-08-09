@@ -2971,6 +2971,7 @@ class _ProxyRequestDistribution extends StatelessWidget {
           return Column(children: [donut, const SizedBox(height: 12), legend]);
         }
         return Row(
+          crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             donut,
             const SizedBox(width: 20),
