@@ -7,6 +7,7 @@ class _DependencyDataAccessPanel extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
     final dependencies = controller.dependencyStatus;
     final postgresqlReady = dependencies?.postgresql.connected == true;
     final redisReady = dependencies?.redis.connected == true;
@@ -17,94 +18,189 @@ class _DependencyDataAccessPanel extends StatelessWidget {
     return _Section(
       title: '依赖数据服务',
       icon: Icons.dns_rounded,
-      child: Column(
+      child: _OpsPanelGrid(
         children: [
-          ListTile(
-            contentPadding: EdgeInsets.zero,
+          _DependencyServiceCard(
+            title: 'PostgreSQL 数据与遥测',
+            detail: postgresqlReady
+                ? '${formatByteSize(_metricInt(postgresqlTelemetry['databaseSizeBytes']))} · ${_metricInt(postgresqlTelemetry['activeConnections'])} 个活跃连接'
+                : _dependencyUnavailableMessage(
+                    dependencies?.postgresql.message,
+                  ),
+            icon: Icons.storage_rounded,
+            color: colors.primary,
+            connected: postgresqlReady,
             onTap: postgresqlReady
                 ? () => showAiExposureDependencyDataDialog(context)
                 : null,
-            leading: CircleAvatar(
-              backgroundColor:
-                  (postgresqlReady
-                          ? OpenHandStatusColors.success
-                          : Theme.of(context).colorScheme.outline)
-                      .withValues(alpha: 0.12),
-              child: const Icon(Icons.storage_rounded),
-            ),
-            title: const Text('PostgreSQL 数据与遥测'),
-            subtitle: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    postgresqlReady
-                        ? '${formatByteSize(_metricInt(postgresqlTelemetry['databaseSizeBytes']))} · ${_metricInt(postgresqlTelemetry['activeConnections'])} 个活跃连接'
-                        : dependencies?.postgresql.message ?? '未启用',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _StatusPill(
-                  icon: postgresqlReady
-                      ? Icons.check_rounded
-                      : Icons.link_off_rounded,
-                  label: postgresqlReady ? '已连接' : '未连接',
-                  color: postgresqlReady
-                      ? OpenHandStatusColors.success
-                      : Theme.of(context).colorScheme.outline,
-                ),
-              ],
-            ),
-            trailing: const Icon(Icons.chevron_right_rounded, size: 19),
           ),
-          const Divider(height: 1),
-          ListTile(
-            contentPadding: EdgeInsets.zero,
+          _DependencyServiceCard(
+            title: 'Redis 键值与遥测',
+            detail: redisReady
+                ? '${formatByteSize(_metricInt(redis['usedMemoryBytes']))} · ${_metricInt(redis['operationsPerSecond'])} ops/s · ${_metricInt(redis['keyCount'])} 个键'
+                : _dependencyUnavailableMessage(dependencies?.redis.message),
+            icon: Icons.hub_rounded,
+            color: colors.tertiary,
+            connected: redisReady,
             onTap: redisReady
                 ? () => showAiExposureDependencyDataDialog(
                     context,
                     initialView: DependencyDataView.redis,
                   )
                 : null,
-            leading: CircleAvatar(
-              backgroundColor:
-                  (redisReady
-                          ? OpenHandStatusColors.success
-                          : Theme.of(context).colorScheme.outline)
-                      .withValues(alpha: 0.12),
-              child: const Icon(Icons.hub_rounded),
-            ),
-            title: const Text('Redis 键值与遥测'),
-            subtitle: Row(
-              children: [
-                Expanded(
-                  child: Text(
-                    redisReady
-                        ? '${formatByteSize(_metricInt(redis['usedMemoryBytes']))} · ${_metricInt(redis['operationsPerSecond'])} ops/s · ${_metricInt(redis['keyCount'])} 个键'
-                        : dependencies?.redis.message ?? '未启用',
-                    maxLines: 1,
-                    overflow: TextOverflow.ellipsis,
-                  ),
-                ),
-                const SizedBox(width: 8),
-                _StatusPill(
-                  icon: redisReady
-                      ? Icons.check_rounded
-                      : Icons.link_off_rounded,
-                  label: redisReady ? '已连接' : '未连接',
-                  color: redisReady
-                      ? OpenHandStatusColors.success
-                      : Theme.of(context).colorScheme.outline,
-                ),
-              ],
-            ),
-            trailing: const Icon(Icons.chevron_right_rounded, size: 19),
           ),
         ],
       ),
     );
   }
+}
+
+class _DependencyServiceCard extends StatelessWidget {
+  const _DependencyServiceCard({
+    required this.title,
+    required this.detail,
+    required this.icon,
+    required this.color,
+    required this.connected,
+    this.onTap,
+  });
+
+  final String title;
+  final String detail;
+  final IconData icon;
+  final Color color;
+  final bool connected;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) => LayoutBuilder(
+    builder: (context, constraints) {
+      final theme = Theme.of(context);
+      final colors = theme.colorScheme;
+      final statusColor = connected
+          ? OpenHandStatusColors.success
+          : colors.outline;
+      final identity = Row(
+        children: [
+          Container(
+            width: 48,
+            height: 48,
+            decoration: BoxDecoration(
+              color: color.withValues(alpha: connected ? 0.14 : 0.08),
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(color: color.withValues(alpha: 0.24)),
+            ),
+            child: Icon(icon, size: 24, color: color),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              mainAxisSize: MainAxisSize.min,
+              children: [
+                Text(
+                  title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.titleMedium?.copyWith(
+                    fontWeight: FontWeight.w800,
+                  ),
+                ),
+                const SizedBox(height: 6),
+                Row(
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        color: statusColor,
+                        shape: BoxShape.circle,
+                      ),
+                    ),
+                    const SizedBox(width: 7),
+                    Expanded(
+                      child: Text(
+                        detail,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          height: 1.25,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+        ],
+      );
+      final action = Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          _StatusPill(
+            icon: connected
+                ? Icons.check_circle_outline_rounded
+                : Icons.link_off_rounded,
+            label: connected ? '已连接' : '未连接',
+            color: statusColor,
+          ),
+          if (onTap != null) ...[
+            const SizedBox(width: 10),
+            Icon(
+              Icons.arrow_forward_rounded,
+              size: 20,
+              color: color.withValues(alpha: 0.82),
+            ),
+          ],
+        ],
+      );
+      final compact = constraints.maxWidth < 560;
+      return _TappableOpsCard(
+        onTap: onTap,
+        color: color,
+        borderRadius: BorderRadius.circular(12),
+        child: Container(
+          constraints: const BoxConstraints(minHeight: 104),
+          padding: const EdgeInsets.all(16),
+          decoration: BoxDecoration(
+            gradient: LinearGradient(
+              colors: [
+                color.withValues(alpha: connected ? 0.1 : 0.045),
+                colors.surfaceContainerHighest.withValues(alpha: 0.28),
+              ],
+              begin: Alignment.topLeft,
+              end: Alignment.bottomRight,
+            ),
+            borderRadius: BorderRadius.circular(12),
+            border: Border.all(color: color.withValues(alpha: 0.26)),
+          ),
+          child: compact
+              ? Column(
+                  crossAxisAlignment: CrossAxisAlignment.stretch,
+                  children: [
+                    identity,
+                    const SizedBox(height: 12),
+                    Align(alignment: Alignment.centerRight, child: action),
+                  ],
+                )
+              : Row(
+                  children: [
+                    Expanded(child: identity),
+                    const SizedBox(width: 16),
+                    action,
+                  ],
+                ),
+        ),
+      );
+    },
+  );
+}
+
+String _dependencyUnavailableMessage(String? message) {
+  final normalized = message?.trim();
+  return normalized == null || normalized.isEmpty ? '未启用' : normalized;
 }
 
 int _metricInt(Object? value) {
@@ -881,11 +977,13 @@ class _TappableOpsCard extends StatefulWidget {
     required this.child,
     required this.color,
     this.onTap,
+    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
   });
 
   final Widget child;
   final Color color;
   final VoidCallback? onTap;
+  final BorderRadiusGeometry borderRadius;
 
   @override
   State<_TappableOpsCard> createState() => _TappableOpsCardState();
@@ -948,7 +1046,7 @@ class _TappableOpsCardState extends State<_TappableOpsCard> {
                                 ? 0.045
                                 : 0,
                           ),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: widget.borderRadius,
                           border: Border.all(
                             color: _hovered || _pressed || _focused
                                 ? widget.color.withValues(
