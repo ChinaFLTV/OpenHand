@@ -2398,8 +2398,9 @@ class _KpiStrip extends StatelessWidget {
     final colors = theme.colorScheme;
     return LayoutBuilder(
       builder: (context, constraints) {
+        const stripInset = 12.0;
         final canFitSingleRow =
-            constraints.maxWidth >=
+            constraints.maxWidth - stripInset >=
             items.length * 132 + (items.length - 1) * 10;
         final columns = singleRow && canFitSingleRow
             ? items.length
@@ -2411,10 +2412,12 @@ class _KpiStrip extends StatelessWidget {
         const gap = 10.0;
         final minimumCardWidth = constraints.maxWidth < 480 ? 104.0 : 132.0;
         final width = (singleRow && canFitSingleRow)
-            ? (constraints.maxWidth - gap * (columns - 1)) / columns
+            ? (constraints.maxWidth - stripInset - gap * (columns - 1)) /
+                  columns
             : math.max(
                 minimumCardWidth,
-                (constraints.maxWidth - gap * (columns - 1)) / columns,
+                (constraints.maxWidth - stripInset - gap * (columns - 1)) /
+                    columns,
               );
         return DecoratedBox(
           decoration: BoxDecoration(
