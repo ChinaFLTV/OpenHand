@@ -12572,12 +12572,25 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   }
 
   Widget _buildEditCancelButton() {
-    return SizedBox(
-      height: 48,
-      child: OutlinedButton.icon(
-        onPressed: _editSubmitting ? null : _cancelMessageEdit,
-        icon: const Icon(Icons.close_rounded),
-        label: const Text('取消编辑'),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 168),
+      child: SizedBox(
+        height: 48,
+        child: OutlinedButton(
+          onPressed: _editSubmitting ? null : _cancelMessageEdit,
+          style: OutlinedButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+          ),
+          child: const Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              Icon(Icons.close_rounded),
+              SizedBox(width: 10),
+              Text('取消编辑', maxLines: 1, softWrap: false),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -12594,20 +12607,34 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         currentMessage != null &&
         _input.text.trim().isNotEmpty &&
         _input.text.trim() != currentMessage.content.trim();
-    return SizedBox(
-      height: 48,
-      child: FilledButton.icon(
-        onPressed: enabled
-            ? () => unawaited(_confirmMessageEdit(conversation))
-            : null,
-        icon: _editSubmitting
-            ? const SizedBox(
-                width: 16,
-                height: 16,
-                child: CircularProgressIndicator(strokeWidth: 2),
-              )
-            : const Icon(Icons.check_rounded),
-        label: const Text('确认编辑'),
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 168),
+      child: SizedBox(
+        height: 48,
+        child: FilledButton(
+          onPressed: enabled
+              ? () => unawaited(_confirmMessageEdit(conversation))
+              : null,
+          style: FilledButton.styleFrom(
+            padding: const EdgeInsets.symmetric(horizontal: 22),
+          ),
+          child: Row(
+            mainAxisSize: MainAxisSize.min,
+            mainAxisAlignment: MainAxisAlignment.center,
+            children: [
+              if (_editSubmitting)
+                const SizedBox(
+                  width: 16,
+                  height: 16,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                )
+              else
+                const Icon(Icons.check_rounded),
+              const SizedBox(width: 10),
+              const Text('确认编辑', maxLines: 1, softWrap: false),
+            ],
+          ),
+        ),
       ),
     );
   }
