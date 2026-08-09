@@ -125,6 +125,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool _isAuthenticating = false;
   bool _isPolling = false;
   bool _isSending = false;
+  bool _editingMessageInFlight = false;
   int _unreadCount = 0;
   String? _errorMessage;
   String? _warningMessage;
@@ -887,6 +888,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (conversation == null ||
         content.isEmpty ||
         _isSending ||
+        _editingMessageInFlight ||
         !isAuthorized) {
       return false;
     }
@@ -905,15 +907,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _appendMessage(conversation, localMessage);
     _notify();
     try {
-      final remoteMessageId = await _service.send(
+      final sent = await _service.sendWithDetails(
         conversation: conversation,
         text: content,
         uuid: _uuid.v4(),
       );
+      _rememberRemoteConversationId(conversation, sent?.conversationId);
       final sentMessage = _bindSentMessageId(
         conversation,
         localMessage,
-        remoteMessageId,
+        sent?.messageId,
       );
       await _enqueueAiResponse(
         conversation,
@@ -940,6 +943,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (conversation == null ||
         normalizedPath.isEmpty ||
         _isSending ||
+        _editingMessageInFlight ||
         !isAuthorized) {
       return false;
     }
@@ -975,16 +979,17 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _appendMessage(conversation, message);
     _notify();
     try {
-      final remoteMessageId = await _service.sendFile(
+      final sent = await _service.sendFileWithDetails(
         conversation: conversation,
         filePath: normalizedPath,
         audio: audio,
         uuid: _uuid.v4(),
       );
+      _rememberRemoteConversationId(conversation, sent?.conversationId);
       final sentMessage = _bindSentMessageId(
         conversation,
         message,
-        remoteMessageId,
+        sent?.messageId,
       );
       await _enqueueAiResponse(
         conversation,
@@ -1004,6 +1009,90 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<bool> sendAudio(String conversationId, String filePath) =>
       sendFile(conversationId, filePath, audio: true);
 
+  Future<bool> editMessage(
+    String conversationId,
+    String messageId,
+    String text,
+  ) async {
+    final conversation = _conversations[conversationId];
+    final normalized = text.trim();
+    if (conversation == null ||
+        normalized.isEmpty ||
+        messageId.trim().isEmpty ||
+        _editingMessageInFlight ||
+        _isSending ||
+        !isAuthorized) {
+      return false;
+    }
+    if (_responseInFlight.contains(conversation.id)) {
+      _setError(
+        '编辑钉钉消息',
+        StateError('AI 正在响应，请等待本轮响应完成后再编辑消息。'),
+        StackTrace.current,
+      );
+      _notify();
+      return false;
+    }
+    final index = conversation.messages.indexWhere(
+      (message) => message.id == messageId.trim(),
+    );
+    if (index < 0) return false;
+    final current = conversation.messages[index];
+    if (!_isSelf(current) ||
+        current.recalled ||
+        current.media.isNotEmpty ||
+        current.id.startsWith('local-') ||
+        current.id.startsWith('assistant-') ||
+        current.content.trim() == normalized) {
+      return false;
+    }
+    _editingMessageInFlight = true;
+    _clearError();
+    _notify();
+    try {
+      await _service
+          .editMessage(
+            conversation: conversation,
+            messageId: current.id,
+            text: normalized,
+          )
+          .timeout(const Duration(seconds: 30));
+      if (_disposed ||
+          !identical(_conversations[conversation.id], conversation) ||
+          index >= conversation.messages.length ||
+          conversation.messages[index].id != current.id) {
+        return false;
+      }
+      final latest = conversation.messages[index];
+      final history = <DingTalkMessageEditRecord>[...latest.editHistory];
+      if (history.isEmpty || history.last.content != latest.content) {
+        history.add(
+          DingTalkMessageEditRecord(
+            content: latest.content,
+            editedAt: DateTime.now(),
+          ),
+        );
+      }
+      if (history.length > _maxMessageEditHistoryEntries) {
+        history.removeRange(0, history.length - _maxMessageEditHistoryEntries);
+      }
+      conversation.messages[index] = latest.copyWith(
+        content: normalized,
+        editHistory: history.toList(growable: false),
+      );
+      _queuePersist();
+      _notify();
+      return true;
+    } catch (error, stack) {
+      _setError('编辑钉钉消息', error, stack);
+      _notify();
+      return false;
+    } finally {
+      _editingMessageInFlight = false;
+      _notify();
+    }
+  }
+
   DingTalkGatewayMessage _bindSentMessageId(
     DingTalkConversation conversation,
     DingTalkGatewayMessage localMessage,
@@ -1021,6 +1110,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _queuePersist();
     _notify();
     return sentMessage;
+  }
+
+  void _rememberRemoteConversationId(
+    DingTalkConversation conversation,
+    String? remoteConversationId,
+  ) {
+    if (conversation.type != DingTalkConversationType.direct) return;
+    final normalized = remoteConversationId?.trim() ?? '';
+    if (normalized.isEmpty || conversation.openConversationId == normalized) {
+      return;
+    }
+    conversation.openConversationId = normalized;
+    _queuePersist();
+    _notify();
   }
 
   Future<void> _pollOnce() async {
@@ -1587,6 +1690,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _maxDingTalkEchoCharacters = 12000;
   static const int _maxDingTalkToolCellCharacters = 900;
   static const int _maxDingTalkToolFormattingCharacters = 12000;
+  static const int _maxMessageEditHistoryEntries = 32;
 
   DingTalkResponseEchoType? _echoTypeOf(
     AiSessionMessage message,
@@ -1657,9 +1761,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       suffix: '\n\n…内容已截断',
     );
     if (normalized.isEmpty) return null;
-    final remoteMessageId = await _service
-        .send(conversation: conversation, text: normalized, uuid: uuid)
+    final sent = await _service
+        .sendWithDetails(
+          conversation: conversation,
+          text: normalized,
+          uuid: uuid,
+        )
         .timeout(const Duration(seconds: 30));
+    _rememberRemoteConversationId(conversation, sent?.conversationId);
+    final remoteMessageId = sent?.messageId;
     if (_disposed ||
         !identical(_conversations[conversation.id], conversation)) {
       return null;

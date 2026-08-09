@@ -21,6 +21,13 @@ class DingTalkGatewayQueryResult {
   final String? warning;
 }
 
+class DingTalkSentMessage {
+  const DingTalkSentMessage({this.messageId, this.conversationId});
+
+  final String? messageId;
+  final String? conversationId;
+}
+
 class DingTalkDwsCommandExecution {
   const DingTalkDwsCommandExecution({
     required this.command,
@@ -1006,6 +1013,16 @@ class DingTalkMessageGatewayService {
     required DingTalkConversation conversation,
     required String text,
     required String uuid,
+  }) async => (await sendWithDetails(
+    conversation: conversation,
+    text: text,
+    uuid: uuid,
+  ))?.messageId;
+
+  Future<DingTalkSentMessage?> sendWithDetails({
+    required DingTalkConversation conversation,
+    required String text,
+    required String uuid,
   }) async {
     final result = await _runJson(<String>[
       'chat',
@@ -1019,7 +1036,7 @@ class DingTalkMessageGatewayService {
       '--format',
       'json',
     ]);
-    return _sentMessageId(result);
+    return _sentMessageDetails(result);
   }
 
   Future<void> editMessage({
@@ -1055,6 +1072,18 @@ class DingTalkMessageGatewayService {
     required String filePath,
     required String uuid,
     bool audio = false,
+  }) async => (await sendFileWithDetails(
+    conversation: conversation,
+    filePath: filePath,
+    uuid: uuid,
+    audio: audio,
+  ))?.messageId;
+
+  Future<DingTalkSentMessage?> sendFileWithDetails({
+    required DingTalkConversation conversation,
+    required String filePath,
+    required String uuid,
+    bool audio = false,
   }) async {
     final normalizedPath = filePath.trim();
     if (normalizedPath.isEmpty) throw const FormatException('文件路径为空。');
@@ -1072,10 +1101,10 @@ class DingTalkMessageGatewayService {
       '--format',
       'json',
     ]);
-    return _sentMessageId(result);
+    return _sentMessageDetails(result);
   }
 
-  String? _sentMessageId(Object? value) {
+  DingTalkSentMessage? _sentMessageDetails(Object? value) {
     String find(Object? current, int depth) {
       if (depth > 4) return '';
       if (current is List) {
@@ -1103,8 +1132,38 @@ class DingTalkMessageGatewayService {
       return '';
     }
 
-    final id = find(value, 0);
-    return id.isEmpty ? null : id;
+    String findOpenConversationId(Object? current, int depth) {
+      if (depth > 4) return '';
+      if (current is List) {
+        for (final item in current) {
+          final id = findOpenConversationId(item, depth + 1);
+          if (id.isNotEmpty) return id;
+        }
+        return '';
+      }
+      if (current is! Map) return '';
+      final map = _asMap(current);
+      for (final key in const <String>[
+        'open_conversation_id',
+        'openConversationId',
+      ]) {
+        final id = '${map[key] ?? ''}'.trim();
+        if (id.isNotEmpty && id != 'null') return id;
+      }
+      for (final child in map.values) {
+        final id = findOpenConversationId(child, depth + 1);
+        if (id.isNotEmpty) return id;
+      }
+      return '';
+    }
+
+    final messageId = find(value, 0);
+    final conversationId = findOpenConversationId(value, 0);
+    if (messageId.isEmpty && conversationId.isEmpty) return null;
+    return DingTalkSentMessage(
+      messageId: messageId.isEmpty ? null : messageId,
+      conversationId: conversationId.isEmpty ? null : conversationId,
+    );
   }
 
   List<String> _targetArguments(DingTalkConversation conversation) {

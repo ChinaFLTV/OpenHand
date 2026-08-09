@@ -12040,11 +12040,15 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const int _voiceWaveformSampleCount = 40;
   static const int _maxUploadBytes = 512 * 1024 * 1024;
   final TextEditingController _input = TextEditingController();
+  final FocusNode _inputFocusNode = FocusNode();
   final ScrollController _messagesScrollController = ScrollController();
   Timer? _refreshTimer;
   int? _refreshIntervalSeconds;
   bool _followScheduled = false;
   String? _selectedId;
+  String? _editingConversationId;
+  String? _editingMessageId;
+  bool _editSubmitting = false;
   bool _autoFollow = true;
   bool _closing = false;
   AudioRecorder? _voiceRecorder;
@@ -12071,6 +12075,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   @override
   void initState() {
     super.initState();
+    _input.addListener(_handleInputChanged);
     widget.controller.markAllRead();
     widget.controller.addListener(_handleControllerChanged);
   }
@@ -12078,6 +12083,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   @override
   void dispose() {
     widget.controller.removeListener(_handleControllerChanged);
+    _input.removeListener(_handleInputChanged);
     _refreshTimer?.cancel();
     _voiceVisualTimer?.cancel();
     unawaited(_voiceAmplitudeSubscription?.cancel());
@@ -12088,6 +12094,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       unawaited(_cancelAndDisposeRecorder(recorder));
     }
     _input.dispose();
+    _inputFocusNode.dispose();
     _messagesScrollController.dispose();
     _voiceVisual.dispose();
     super.dispose();
@@ -12354,6 +12361,25 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                               child: _DingTalkMessageBubble(
                                                 message: message,
                                                 mine: _isMine(message),
+                                                onEdit:
+                                                    _canEditMessage(
+                                                      selected,
+                                                      message,
+                                                    )
+                                                    ? () => _beginMessageEdit(
+                                                        selected,
+                                                        message,
+                                                      )
+                                                    : null,
+                                                onShowEditHistory:
+                                                    message.isEdited
+                                                    ? () => unawaited(
+                                                        _showEditHistory(
+                                                          context,
+                                                          message,
+                                                        ),
+                                                      )
+                                                    : null,
                                                 onRetryMedia:
                                                     message.media.any(
                                                       (item) => item.localPath
@@ -12415,27 +12441,186 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         Expanded(
           child: TextField(
             controller: _input,
+            focusNode: _inputFocusNode,
             minLines: 1,
             maxLines: 4,
             textInputAction: TextInputAction.newline,
-            decoration: const InputDecoration(
-              hintText: '以当前钉钉身份发送消息',
+            decoration: InputDecoration(
+              hintText: _isEditingConversation(conversation)
+                  ? '编辑当前钉钉消息内容'
+                  : '以当前钉钉身份发送消息',
               isDense: true,
-              contentPadding: EdgeInsets.symmetric(
+              contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
                 vertical: 13,
               ),
             ),
-            onSubmitted: (_) => _sendOrStop(conversation),
+            onSubmitted: (_) => _isEditingConversation(conversation)
+                ? unawaited(_confirmMessageEdit(conversation))
+                : _sendOrStop(conversation),
           ),
         ),
         const SizedBox(width: 10),
-        _buildFileButton(conversation),
-        const SizedBox(width: 6),
-        _buildVoiceButton(conversation),
-        const SizedBox(width: 8),
-        _buildSendButton(conversation),
+        if (_isEditingConversation(conversation)) ...[
+          _buildEditCancelButton(),
+          const SizedBox(width: 6),
+          _buildEditConfirmButton(conversation),
+        ] else ...[
+          _buildFileButton(conversation),
+          const SizedBox(width: 6),
+          _buildVoiceButton(conversation),
+          const SizedBox(width: 8),
+          _buildSendButton(conversation),
+        ],
       ],
+    );
+  }
+
+  bool _isEditingConversation(DingTalkConversation conversation) {
+    return _editingConversationId == conversation.id &&
+        _editingMessageId != null;
+  }
+
+  bool _canEditMessage(
+    DingTalkConversation conversation,
+    DingTalkGatewayMessage message,
+  ) {
+    if (_editingConversationId != null ||
+        _editSubmitting ||
+        message.recalled ||
+        message.media.isNotEmpty ||
+        message.content.trim().isEmpty ||
+        message.id.startsWith('local-') ||
+        message.id.startsWith('assistant-') ||
+        widget.controller.isConversationResponding(conversation.id)) {
+      return false;
+    }
+    return widget.controller.isMessageFromCurrentUser(message);
+  }
+
+  void _beginMessageEdit(
+    DingTalkConversation conversation,
+    DingTalkGatewayMessage message,
+  ) {
+    if (!_canEditMessage(conversation, message)) return;
+    setState(() {
+      _editingConversationId = conversation.id;
+      _editingMessageId = message.id;
+      _input.value = TextEditingValue(
+        text: message.content,
+        selection: TextSelection.collapsed(offset: message.content.length),
+      );
+    });
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted && _isEditingConversation(conversation)) {
+        _inputFocusNode.requestFocus();
+      }
+    });
+  }
+
+  void _cancelMessageEdit() {
+    if (_editSubmitting) return;
+    _input.clear();
+    _inputFocusNode.unfocus();
+    if (!mounted) return;
+    setState(() {
+      _editingConversationId = null;
+      _editingMessageId = null;
+    });
+  }
+
+  Future<void> _confirmMessageEdit(DingTalkConversation conversation) async {
+    if (_editSubmitting || !_isEditingConversation(conversation)) return;
+    final messageId = _editingMessageId!;
+    final text = _input.text.trim();
+    if (text.isEmpty) {
+      showOpenHandErrorSnack(context, '编辑内容不能为空。');
+      return;
+    }
+    setState(() => _editSubmitting = true);
+    try {
+      final success = await widget.controller.editMessage(
+        conversation.id,
+        messageId,
+        text,
+      );
+      if (!mounted) return;
+      final stillEditing =
+          _editingConversationId == conversation.id &&
+          _editingMessageId == messageId;
+      if (success && stillEditing) {
+        _input.clear();
+        _inputFocusNode.unfocus();
+        setState(() {
+          _editingConversationId = null;
+          _editingMessageId = null;
+        });
+        showOpenHandSuccessSnack(context, '消息已更新。');
+      } else if (!success && stillEditing) {
+        showOpenHandErrorSnack(
+          context,
+          widget.controller.errorMessage ?? '消息编辑失败，请稍后重试。',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _editSubmitting = false);
+    }
+  }
+
+  Future<void> _showEditHistory(
+    BuildContext context,
+    DingTalkGatewayMessage message,
+  ) {
+    return showAnimatedDialog<void>(
+      context: context,
+      builder: (_) => buildOpenHandDialog(
+        maxWidth: 680,
+        maxHeight: MediaQuery.sizeOf(context).height * 0.78,
+        child: _DingTalkMessageEditHistoryDialog(message: message),
+      ),
+    );
+  }
+
+  Widget _buildEditCancelButton() {
+    return SizedBox(
+      width: 112,
+      height: 48,
+      child: OutlinedButton.icon(
+        onPressed: _editSubmitting ? null : _cancelMessageEdit,
+        icon: const Icon(Icons.close_rounded),
+        label: const Text('取消编辑'),
+      ),
+    );
+  }
+
+  Widget _buildEditConfirmButton(DingTalkConversation conversation) {
+    final messageId = _editingMessageId;
+    final currentMessage = messageId == null
+        ? null
+        : conversation.messages
+              .where((message) => message.id == messageId)
+              .firstOrNull;
+    final enabled =
+        !_editSubmitting &&
+        currentMessage != null &&
+        _input.text.trim().isNotEmpty &&
+        _input.text.trim() != currentMessage.content.trim();
+    return SizedBox(
+      width: 124,
+      height: 48,
+      child: FilledButton.icon(
+        onPressed: enabled
+            ? () => unawaited(_confirmMessageEdit(conversation))
+            : null,
+        icon: _editSubmitting
+            ? const SizedBox(
+                width: 16,
+                height: 16,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            : const Icon(Icons.check_rounded),
+        label: const Text('确认编辑'),
+      ),
     );
   }
 
@@ -12506,10 +12691,18 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     }
     setState(() {
       _selectedId = id;
+      _editingConversationId = null;
+      _editingMessageId = null;
+      _editSubmitting = false;
       _input.clear();
     });
     unawaited(widget.controller.ensureConversationMediaCached(id));
     _scheduleAutoFollow(force: true);
+  }
+
+  void _handleInputChanged() {
+    if (!mounted || _editingConversationId == null) return;
+    setState(() {});
   }
 
   bool _isMine(DingTalkGatewayMessage message) {
@@ -13234,11 +13427,15 @@ class _DingTalkMessageBubble extends StatefulWidget {
   const _DingTalkMessageBubble({
     required this.message,
     required this.mine,
+    this.onEdit,
+    this.onShowEditHistory,
     this.onRetryMedia,
   });
 
   final DingTalkGatewayMessage message;
   final bool mine;
+  final VoidCallback? onEdit;
+  final VoidCallback? onShowEditHistory;
   final VoidCallback? onRetryMedia;
 
   @override
@@ -13384,62 +13581,28 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     ? TextDirection.rtl
                     : TextDirection.ltr,
                 children: [
-                  AnimatedSwitcher(
+                  AnimatedSize(
                     duration: openHandMotionDuration(
                       context,
                       kOpenHandMotion180,
                     ),
-                    switchInCurve: Curves.easeOutCubic,
-                    switchOutCurve: Curves.easeInCubic,
+                    curve: Curves.easeOutCubic,
                     child: _hovered
-                        ? DecoratedBox(
+                        ? Wrap(
                             key: ValueKey<int>(_actionsTransitionId),
-                            decoration: BoxDecoration(
-                              color: colors.surfaceContainerHighest.withValues(
-                                alpha: 0.72,
-                              ),
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                            child: IconButton(
-                              tooltip: previewableMedia.isNotEmpty
-                                  ? '复制媒体文件'
-                                  : '复制消息',
-                              visualDensity: VisualDensity.compact,
-                              padding: EdgeInsets.zero,
-                              constraints: const BoxConstraints.tightFor(
-                                width: 32,
-                                height: 28,
-                              ),
-                              onPressed: _copyingMedia
-                                  ? null
-                                  : () => previewableMedia.isNotEmpty
-                                        ? unawaited(
-                                            _copyMediaFiles(
-                                              context,
-                                              previewableMedia,
-                                            ),
-                                          )
-                                        : unawaited(
-                                            copyOpenHandTextToClipboard(
-                                              context: context,
-                                              text: widget.message.content,
-                                              logTag: 'dingtalk_gateway',
-                                            ),
-                                          ),
-                              icon: _copyingMedia
-                                  ? const SizedBox(
-                                      width: 15,
-                                      height: 15,
-                                      child: CircularProgressIndicator(
-                                        strokeWidth: 2,
-                                      ),
-                                    )
-                                  : const Icon(Icons.copy_rounded, size: 16),
+                            spacing: 4,
+                            textDirection: widget.mine
+                                ? TextDirection.rtl
+                                : TextDirection.ltr,
+                            children: _buildHoverActions(
+                              context,
+                              previewableMedia,
                             ),
                           )
                         : SizedBox(
                             key: ValueKey<int>(_actionsTransitionId),
-                            height: 28,
+                            width: 0,
+                            height: 34,
                           ),
                   ),
                   if (_hovered) const SizedBox(width: 6),
@@ -13466,6 +13629,50 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           ),
         ),
       ),
+    );
+  }
+
+  List<Widget> _buildHoverActions(
+    BuildContext context,
+    List<DingTalkGatewayMedia> previewableMedia,
+  ) {
+    final actions = <Widget>[
+      _buildCopyAction(context, previewableMedia),
+      if (widget.onEdit != null)
+        _DingTalkMessageActionButton(
+          icon: Icons.edit_outlined,
+          label: '编辑',
+          onPressed: widget.onEdit,
+        ),
+      if (widget.onShowEditHistory != null)
+        _DingTalkMessageActionButton(
+          icon: Icons.history_rounded,
+          label: '编辑历史 ${widget.message.editHistory.length}',
+          onPressed: widget.onShowEditHistory,
+        ),
+    ];
+    return widget.mine ? actions.reversed.toList(growable: false) : actions;
+  }
+
+  Widget _buildCopyAction(
+    BuildContext context,
+    List<DingTalkGatewayMedia> previewableMedia,
+  ) {
+    return _DingTalkMessageActionButton(
+      icon: Icons.copy_rounded,
+      label: previewableMedia.isNotEmpty ? '复制媒体' : '复制',
+      onPressed: _copyingMedia
+          ? null
+          : () => previewableMedia.isNotEmpty
+                ? unawaited(_copyMediaFiles(context, previewableMedia))
+                : unawaited(
+                    copyOpenHandTextToClipboard(
+                      context: context,
+                      text: widget.message.content,
+                      logTag: 'dingtalk_gateway',
+                    ),
+                  ),
+      busy: _copyingMedia,
     );
   }
 
@@ -13570,6 +13777,232 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     } finally {
       if (mounted) setState(() => _copyingMedia = false);
     }
+  }
+}
+
+class _DingTalkMessageActionButton extends StatelessWidget {
+  const _DingTalkMessageActionButton({
+    required this.icon,
+    required this.label,
+    required this.onPressed,
+    this.busy = false,
+  });
+
+  final IconData icon;
+  final String label;
+  final VoidCallback? onPressed;
+  final bool busy;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return OutlinedButton.icon(
+      onPressed: onPressed,
+      style: OutlinedButton.styleFrom(
+        minimumSize: const Size(0, 34),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+        visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+        foregroundColor: colors.onSurface,
+        backgroundColor: colors.surfaceContainerHighest.withValues(alpha: 0.46),
+        side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.82)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+        textStyle: Theme.of(
+          context,
+        ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+      ),
+      icon: busy
+          ? const SizedBox(
+              width: 15,
+              height: 15,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Icon(icon, size: 16),
+      label: Text(label, maxLines: 1, softWrap: false),
+    );
+  }
+}
+
+class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
+  const _DingTalkMessageEditHistoryDialog({required this.message});
+
+  final DingTalkGatewayMessage message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final records = message.editHistory;
+    final historyHeight = (MediaQuery.sizeOf(context).height * 0.58)
+        .clamp(260.0, 520.0)
+        .toDouble();
+    final versions = <({String label, String content, DateTime? editedAt})>[
+      (label: '当前版本', content: message.content, editedAt: null),
+      for (var index = records.length - 1; index >= 0; index--)
+        (
+          label: '第 ${index + 1} 次编辑前',
+          content: records[index].content,
+          editedAt: records[index].editedAt,
+        ),
+    ];
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 22),
+      child: Column(
+        mainAxisSize: MainAxisSize.min,
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.primaryContainer,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Icon(
+                    Icons.history_rounded,
+                    color: colors.onPrimaryContainer,
+                    size: 22,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '消息编辑历史',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '共 ${records.length} 次编辑，保留最近版本变化。',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: '关闭',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          DecoratedBox(
+            decoration: BoxDecoration(
+              color: colors.surfaceContainerLow,
+              borderRadius: BorderRadius.circular(14),
+              border: Border.all(
+                color: colors.outlineVariant.withValues(alpha: 0.72),
+              ),
+            ),
+            child: Padding(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              child: Row(
+                children: [
+                  Icon(
+                    Icons.info_outline_rounded,
+                    size: 18,
+                    color: colors.primary,
+                  ),
+                  const SizedBox(width: 8),
+                  Expanded(
+                    child: Text(
+                      '每个版本均来自钉钉消息实际编辑成功后的本地记录。',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ),
+          const SizedBox(height: 12),
+          SizedBox(
+            height: historyHeight,
+            child: ListView.separated(
+              itemCount: versions.length,
+              separatorBuilder: (_, index) => const SizedBox(height: 10),
+              itemBuilder: (context, index) {
+                final version = versions[index];
+                final current = index == 0;
+                return Container(
+                  width: double.infinity,
+                  padding: const EdgeInsets.fromLTRB(16, 14, 16, 16),
+                  decoration: BoxDecoration(
+                    color: current
+                        ? colors.primaryContainer.withValues(alpha: 0.42)
+                        : colors.surface,
+                    borderRadius: BorderRadius.circular(16),
+                    border: Border.all(
+                      color: current
+                          ? colors.primary.withValues(alpha: 0.58)
+                          : colors.outlineVariant.withValues(alpha: 0.78),
+                    ),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        children: [
+                          Icon(
+                            current
+                                ? Icons.check_circle_outline_rounded
+                                : Icons.restore_rounded,
+                            size: 18,
+                            color: current
+                                ? colors.primary
+                                : colors.onSurfaceVariant,
+                          ),
+                          const SizedBox(width: 8),
+                          Expanded(
+                            child: Text(
+                              version.label,
+                              style: theme.textTheme.titleSmall?.copyWith(
+                                color: current
+                                    ? colors.onPrimaryContainer
+                                    : colors.onSurface,
+                                fontWeight: FontWeight.w800,
+                              ),
+                            ),
+                          ),
+                          if (version.editedAt != null)
+                            Text(
+                              formatYearMonthDayHm(version.editedAt!.toLocal()),
+                              style: theme.textTheme.labelSmall?.copyWith(
+                                color: colors.onSurfaceVariant,
+                              ),
+                            ),
+                        ],
+                      ),
+                      const SizedBox(height: 10),
+                      SelectableText(
+                        version.content,
+                        style: theme.textTheme.bodyMedium?.copyWith(
+                          color: current
+                              ? colors.onPrimaryContainer
+                              : colors.onSurface,
+                          height: 1.55,
+                        ),
+                      ),
+                    ],
+                  ),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
   }
 }
 

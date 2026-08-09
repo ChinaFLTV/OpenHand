@@ -636,6 +636,31 @@ class DingTalkIdentity {
   String get label => name.trim().isEmpty ? userId : name;
 }
 
+@immutable
+class DingTalkMessageEditRecord {
+  const DingTalkMessageEditRecord({
+    required this.content,
+    required this.editedAt,
+  });
+
+  factory DingTalkMessageEditRecord.fromJson(Map<String, Object?> json) {
+    final content = '${json['content'] ?? ''}';
+    final editedAt = DateTime.tryParse('${json['edited_at'] ?? ''}');
+    if (content.isEmpty || editedAt == null) {
+      throw const FormatException('钉钉消息编辑历史数据不完整。');
+    }
+    return DingTalkMessageEditRecord(content: content, editedAt: editedAt);
+  }
+
+  final String content;
+  final DateTime editedAt;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'content': content,
+    'edited_at': editedAt.toIso8601String(),
+  };
+}
+
 class DingTalkGatewayMessage {
   const DingTalkGatewayMessage({
     required this.id,
@@ -654,6 +679,7 @@ class DingTalkGatewayMessage {
     this.readByPeer = false,
     this.recalled = false,
     this.reactions = const <String>[],
+    this.editHistory = const <DingTalkMessageEditRecord>[],
   });
 
   factory DingTalkGatewayMessage.fromJson(Map<String, Object?> json) {
@@ -672,6 +698,23 @@ class DingTalkGatewayMessage {
       (item) => item.name == '${json['role'] ?? ''}',
       orElse: () => DingTalkGatewayMessageRole.user,
     );
+    final rawEditHistory = json['edit_history'];
+    final editHistory = rawEditHistory is List
+        ? rawEditHistory
+              .take(32)
+              .whereType<Map>()
+              .map((item) {
+                try {
+                  return DingTalkMessageEditRecord.fromJson(
+                    stringKeyedMapFromValue(item),
+                  );
+                } catch (_) {
+                  return null;
+                }
+              })
+              .whereType<DingTalkMessageEditRecord>()
+              .toList(growable: false)
+        : const <DingTalkMessageEditRecord>[];
     return DingTalkGatewayMessage(
       id: id,
       conversationId: conversationId,
@@ -693,6 +736,7 @@ class DingTalkGatewayMessage {
         json['recalled'] ?? json['is_recalled'] ?? json['recall'],
       ),
       reactions: _reactionList(json['reactions'] ?? json['reaction']),
+      editHistory: editHistory,
     );
   }
 
@@ -712,8 +756,10 @@ class DingTalkGatewayMessage {
   final bool readByPeer;
   final bool recalled;
   final List<String> reactions;
+  final List<DingTalkMessageEditRecord> editHistory;
 
   bool get isAssistant => role == DingTalkGatewayMessageRole.assistant;
+  bool get isEdited => editHistory.isNotEmpty;
 
   DingTalkGatewayMessage copyWith({
     String? id,
@@ -722,6 +768,7 @@ class DingTalkGatewayMessage {
     bool? readByPeer,
     bool? recalled,
     List<String>? reactions,
+    List<DingTalkMessageEditRecord>? editHistory,
   }) {
     return DingTalkGatewayMessage(
       id: id ?? this.id,
@@ -740,6 +787,7 @@ class DingTalkGatewayMessage {
       readByPeer: readByPeer ?? this.readByPeer,
       recalled: recalled ?? this.recalled,
       reactions: reactions ?? this.reactions,
+      editHistory: editHistory ?? this.editHistory,
     );
   }
 
@@ -760,6 +808,9 @@ class DingTalkGatewayMessage {
     'read_by_peer': readByPeer,
     'recalled': recalled,
     'reactions': reactions,
+    'edit_history': editHistory
+        .map((item) => item.toJson())
+        .toList(growable: false),
   };
 
   static List<DingTalkGatewayMedia> _mediaList(Object? raw) {
