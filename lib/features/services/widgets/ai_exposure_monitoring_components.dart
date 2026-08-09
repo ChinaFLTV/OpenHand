@@ -238,16 +238,21 @@ class _Section extends StatelessWidget {
     required this.title,
     required this.icon,
     required this.child,
+    this.minHeight,
   });
   final String title;
   final IconData icon;
   final Widget child;
+  final double? minHeight;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final cs = theme.colorScheme;
     return Container(
+      constraints: minHeight == null
+          ? null
+          : BoxConstraints(minHeight: minHeight!),
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.24),

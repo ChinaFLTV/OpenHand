@@ -8,7 +8,8 @@ const InputDecoration _kTaskLedgerFilterDecoration = InputDecoration(
   contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
   constraints: BoxConstraints.tightFor(height: _kTaskLedgerFilterHeight),
 );
-const double _kTaskLedgerDesktopTableWidth = 1640;
+const double _kTaskLedgerDesktopTableWidth = 2440;
+const double _kTaskLedgerPipelineMinHeight = 520;
 const Duration _kTaskLedgerPageMotionDuration = Duration(milliseconds: 180);
 const double _kTaskLedgerStatusWidth = 84;
 const double _kTaskLedgerCreatedWidth = 150;
@@ -23,6 +24,12 @@ const double _kTaskLedgerProgressWidth = 148;
 const double _kTaskLedgerCandidatesWidth = 72;
 const double _kTaskLedgerValidWidth = 64;
 const double _kTaskLedgerHighValueWidth = 72;
+const double _kTaskLedgerUpdatedWidth = 150;
+const double _kTaskLedgerFailureStageWidth = 130;
+const double _kTaskLedgerRetryWidth = 64;
+const double _kTaskLedgerConcurrencyWidth = 68;
+const double _kTaskLedgerScopeWidth = 170;
+const double _kTaskLedgerErrorWidth = 230;
 const double _kTaskLedgerDetailsWidth = 56;
 const Duration _kTaskTrendDefaultRange = Duration(hours: 6);
 const Duration _kTaskTrendDefaultInterval = Duration(minutes: 5);
@@ -728,11 +735,13 @@ class AiExposureTaskLedger extends StatefulWidget {
     this.initialStatus = 'all',
     this.tasks,
     this.onOpenTask,
+    this.minHeight,
   });
 
   final String initialStatus;
   final List<AiExposureHistoryEntry>? tasks;
   final ValueChanged<AiExposureHistoryEntry>? onOpenTask;
+  final double? minHeight;
 
   @override
   State<AiExposureTaskLedger> createState() => _TaskLedgerState();
@@ -780,6 +789,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
     return _Section(
       title: '任务运行账本',
       icon: Icons.table_rows_outlined,
+      minHeight: widget.minHeight,
       child: LayoutBuilder(
         builder: (context, constraints) {
           final compact = constraints.maxWidth < 760;
@@ -1404,6 +1414,18 @@ class _TaskLedgerHeader extends StatelessWidget {
             width: _kTaskLedgerHighValueWidth,
             child: Text('高价值'),
           ),
+          _TaskLedgerCell(width: _kTaskLedgerUpdatedWidth, child: Text('最近更新')),
+          _TaskLedgerCell(
+            width: _kTaskLedgerFailureStageWidth,
+            child: Text('失败阶段'),
+          ),
+          _TaskLedgerCell(width: _kTaskLedgerRetryWidth, child: Text('重试')),
+          _TaskLedgerCell(
+            width: _kTaskLedgerConcurrencyWidth,
+            child: Text('并发'),
+          ),
+          _TaskLedgerCell(width: _kTaskLedgerScopeWidth, child: Text('授权范围')),
+          _TaskLedgerCell(width: _kTaskLedgerErrorWidth, child: Text('错误摘要')),
           _TaskLedgerCell(width: _kTaskLedgerDetailsWidth, child: Text('详情')),
         ],
       ),
@@ -1534,6 +1556,56 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
             _TaskLedgerCell(
               width: _kTaskLedgerHighValueWidth,
               child: Text('${task.progress.highValue}'),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerUpdatedWidth,
+              child: Text(
+                task.progress.updatedAtReported
+                    ? _taskLedgerDateTime(task.progress.updatedAt)
+                    : '未上报',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerFailureStageWidth,
+              child: Text(
+                task.failureStage?.trim().isNotEmpty == true
+                    ? _stageName(task.failureStage!)
+                    : '--',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerRetryWidth,
+              child: Text('${task.retryCount ?? 0}'),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerConcurrencyWidth,
+              child: Text('${task.concurrency ?? '--'}'),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerScopeWidth,
+              child: Text(
+                task.authorizedScope.isEmpty
+                    ? '未记录'
+                    : task.authorizedScope.take(2).join(' / '),
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            _TaskLedgerCell(
+              width: _kTaskLedgerErrorWidth,
+              child: Text(
+                task.errorMessage?.trim().isNotEmpty == true
+                    ? task.errorMessage!.trim()
+                    : task.progress.message.trim().isEmpty
+                    ? '--'
+                    : task.progress.message.trim(),
+                maxLines: 2,
+                overflow: TextOverflow.ellipsis,
+              ),
             ),
             _TaskLedgerCell(
               width: _kTaskLedgerDetailsWidth,
