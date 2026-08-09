@@ -842,19 +842,22 @@ class _ServiceDetailsDialog extends StatelessWidget {
                     ),
                   ),
                 )
-              : ListView(
+              : SingleChildScrollView(
                   padding: const EdgeInsets.all(16),
-                  children: [
-                    _ServiceDetailDashboard(
-                      title: title,
-                      presentation: presentation,
-                      data: data,
-                      fields: fields,
-                      accentColor: tone,
-                    ),
-                    const SizedBox(height: 14),
-                    _ServiceDetailFacts(fields: fields, accentColor: tone),
-                  ],
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      _ServiceDetailDashboard(
+                        title: title,
+                        presentation: presentation,
+                        data: data,
+                        fields: fields,
+                        accentColor: tone,
+                      ),
+                      const SizedBox(height: 14),
+                      _ServiceDetailFacts(fields: fields, accentColor: tone),
+                    ],
+                  ),
                 ),
         ),
         Divider(height: 1, color: colors.outlineVariant),

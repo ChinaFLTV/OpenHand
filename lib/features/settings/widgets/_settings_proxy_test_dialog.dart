@@ -58,6 +58,13 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   bool _finishedSucceeded = false;
   String? _finalSummary;
   final ValueNotifier<int> _completionPulse = ValueNotifier<int>(0);
+  bool _selectionHeld = false;
+  List<_ProxyTestLogEntry>? _selectionSnapshot;
+  bool _selectionSnapshotRunning = false;
+  bool _selectionUpdateScheduled = false;
+  bool _pendingSelectionHeld = false;
+  List<_ProxyTestLogEntry>? _pendingSelectionSnapshot;
+  bool _pendingSelectionRunning = false;
 
   // head 是阶段锚点，永远不参与底部等级过滤。
   // 单段 DNS/TCP/TLS 超过该阈值时标记为慢路径。
@@ -119,6 +126,59 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       );
     });
     _scrollGuard.scheduleFollowToBottom(_scrollController, animated: true);
+  }
+
+  List<_ProxyTestLogEntry> _visibleLogEntries() {
+    return _entries
+        .where(
+          (entry) =>
+              entry.level == _ProxyTestLogLevel.head ||
+              !_hiddenLevels.contains(entry.level),
+        )
+        .toList(growable: false);
+  }
+
+  void _queueSelectionUpdate(
+    bool held, {
+    List<_ProxyTestLogEntry>? snapshot,
+    bool running = false,
+  }) {
+    _pendingSelectionHeld = held;
+    _pendingSelectionSnapshot = snapshot;
+    _pendingSelectionRunning = running;
+    if (_selectionUpdateScheduled) return;
+    _selectionUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _selectionUpdateScheduled = false;
+      if (!mounted) return;
+      final nextHeld = _pendingSelectionHeld;
+      final nextSnapshot = _pendingSelectionSnapshot;
+      final nextRunning = _pendingSelectionRunning;
+      _pendingSelectionSnapshot = null;
+      if (_selectionHeld == nextHeld &&
+          (nextHeld || _selectionSnapshot == null)) {
+        return;
+      }
+      setState(() {
+        _selectionHeld = nextHeld;
+        _selectionSnapshot = nextHeld ? nextSnapshot : null;
+        _selectionSnapshotRunning = nextHeld && nextRunning;
+      });
+    });
+  }
+
+  void _handleConsoleSelectionChanged(SelectedContent? content) {
+    final hasContent = content?.plainText.trim().isNotEmpty ?? false;
+    if (hasContent) {
+      // 选区存在期间冻结日志快照，避免诊断输出和等级过滤同时修改列表。
+      _queueSelectionUpdate(
+        true,
+        snapshot: _visibleLogEntries(),
+        running: _running,
+      );
+    } else if (_selectionHeld || _pendingSelectionHeld) {
+      _queueSelectionUpdate(false);
+    }
   }
 
   void _finalizeCurrentSection(int nowMs) {
@@ -811,25 +871,24 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     final isDark = theme.brightness == Brightness.dark;
     final bg = isDark ? const Color(0xFF101218) : const Color(0xFF1B1F27);
     // head 行是阶段锚点，始终保留；过滤器只遮蔽数据行。
-    final visible = _entries
-        .where(
-          (e) =>
-              e.level == _ProxyTestLogLevel.head ||
-              !_hiddenLevels.contains(e.level),
-        )
-        .toList(growable: false);
+    final filtered = _visibleLogEntries();
+    final visible = _selectionHeld && _selectionSnapshot != null
+        ? _selectionSnapshot!
+        : filtered;
+    final showCursor = _selectionHeld ? _selectionSnapshotRunning : _running;
     return Container(
       color: bg,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       // 整片包一层 SelectionArea，避免每行独立选择区扰动 SliverList 尺寸。
       child: SelectionArea(
+        onSelectionChanged: _handleConsoleSelectionChanged,
         child: OpenHandSafeScrollbar(
           controller: _scrollController,
           child: NotificationListener<ScrollNotification>(
             onNotification: _scrollGuard.handleNotification,
             child: ListView.builder(
               controller: _scrollController,
-              itemCount: visible.length + (_running ? 1 : 0),
+              itemCount: visible.length + (showCursor ? 1 : 0),
               itemBuilder: (ctx, i) {
                 if (i == visible.length) {
                   return _buildBlinkingCursor();

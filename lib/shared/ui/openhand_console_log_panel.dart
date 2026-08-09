@@ -2,6 +2,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SelectedContent;
 
 import 'openhand_typography.dart';
 
@@ -84,7 +85,7 @@ TextStyle _consoleLogTextStyle(Color color) {
 }
 
 /// 深色控制台输出面板：等宽正文 + 自动跟随滚动 + 空态占位。
-class OpenHandConsoleLogPanel extends StatelessWidget {
+class OpenHandConsoleLogPanel extends StatefulWidget {
   const OpenHandConsoleLogPanel({
     super.key,
     required this.lineCount,
@@ -117,21 +118,81 @@ class OpenHandConsoleLogPanel extends StatelessWidget {
   final double lineSpacing;
 
   @override
+  State<OpenHandConsoleLogPanel> createState() =>
+      _OpenHandConsoleLogPanelState();
+}
+
+class _OpenHandConsoleLogPanelState extends State<OpenHandConsoleLogPanel> {
+  bool _selectionHeld = false;
+  List<String>? _selectionSnapshot;
+  bool _selectionUpdateScheduled = false;
+  bool _pendingSelectionHeld = false;
+  List<String>? _pendingSelectionSnapshot;
+
+  List<String> _snapshotLines() {
+    final count = widget.lineCount > 0 ? widget.lineCount : 0;
+    return List<String>.generate(count, (index) {
+      try {
+        return widget.lineAt(index);
+      } on Object {
+        return '';
+      }
+    }, growable: false);
+  }
+
+  void _queueSelectionUpdate(bool held, {List<String>? snapshot}) {
+    _pendingSelectionHeld = held;
+    _pendingSelectionSnapshot = snapshot;
+    if (_selectionUpdateScheduled) return;
+    _selectionUpdateScheduled = true;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _selectionUpdateScheduled = false;
+      if (!mounted) return;
+      final nextHeld = _pendingSelectionHeld;
+      final nextSnapshot = _pendingSelectionSnapshot;
+      _pendingSelectionSnapshot = null;
+      if (_selectionHeld == nextHeld &&
+          (nextHeld || _selectionSnapshot == null)) {
+        return;
+      }
+      setState(() {
+        _selectionHeld = nextHeld;
+        _selectionSnapshot = nextHeld ? nextSnapshot : null;
+      });
+    });
+  }
+
+  void _handleSelectionChanged(SelectedContent? content) {
+    final hasContent = content?.plainText.trim().isNotEmpty ?? false;
+    if (hasContent) {
+      // 选区存在期间冻结日志快照，避免日志追加/环形淘汰同时修改
+      // ListView 的可选节点集合。
+      _queueSelectionUpdate(true, snapshot: _snapshotLines());
+    } else if (_selectionHeld || _pendingSelectionHeld) {
+      _queueSelectionUpdate(false);
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
+    final snapshot = _selectionHeld ? _selectionSnapshot : null;
+    final lineCount = snapshot?.length ?? widget.lineCount;
+    final lineAt = snapshot == null ? widget.lineAt : snapshot.elementAt;
     return Container(
-      margin: margin,
+      margin: widget.margin,
       decoration: BoxDecoration(
         color: OpenHandConsolePalette.surface,
-        borderRadius: borderRadius,
+        borderRadius: widget.borderRadius,
       ),
       child: lineCount <= 0
-          ? Center(child: emptyPlaceholder)
+          ? Center(child: widget.emptyPlaceholder)
           : NotificationListener<ScrollNotification>(
-              onNotification: onNotification,
+              onNotification: widget.onNotification,
               child: SelectionArea(
+                onSelectionChanged: _handleSelectionChanged,
                 child: ListView.builder(
-                  controller: controller,
-                  padding: padding,
+                  controller: widget.controller,
+                  padding: widget.padding,
                   itemCount: lineCount,
                   itemBuilder: (listContext, index) {
                     final line = lineAt(index);
@@ -139,9 +200,9 @@ class OpenHandConsoleLogPanel extends StatelessWidget {
                       line,
                       style: _consoleLogTextStyle(_consoleLogLineColor(line)),
                     );
-                    if (lineSpacing <= 0) return text;
+                    if (widget.lineSpacing <= 0) return text;
                     return Padding(
-                      padding: EdgeInsets.only(bottom: lineSpacing),
+                      padding: EdgeInsets.only(bottom: widget.lineSpacing),
                       child: text,
                     );
                   },

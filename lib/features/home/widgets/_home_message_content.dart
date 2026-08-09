@@ -2706,19 +2706,16 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     // 它本身是一个 `Selectable` 节点，对外层 `SelectionArea` 暴露为唯一
     // 注册项；其 delegate 维护内部 N 个 `Selectable`（各 `SelectableText.rich`
     // + 代码块内 `SelectableText.rich`），把跨节点的 selection event 派发到
-    // 命中节点。`MultiSelectableSelectionContainerDelegate` 未从
-    // `package:flutter/widgets.dart` 公开导出（仅由 `SelectableRegion`
-    // 内部持有），这里以最简实现覆盖核心需求：拖选/选词/选段/全选/清除
-    // 在多个 `Selectable` 之间正确串联。
+    // 命中节点。为避免 Flutter 内部多选代理在动态树更新时同步修改列表，
+    // 使用本地轻量代理覆盖核心需求，并在派发期间延迟节点变更。
     return SelectionArea(child: _MarkdownSelectionContainer(child: body));
   }
 }
 
 /// 维持 markdown 树内多个 `SelectableText.rich` 节点的统一选择 registrar。
 ///
-/// Flutter 内部用 `MultiSelectableSelectionContainerDelegate`（1000+ 行）支撑
-/// `SelectableRegion` 跨多 `Selectable` 行为，但该类未从公开 API 导出。
-/// 这里给 markdown 体专门写一个聚焦「选择区域派发」的精简版：
+/// Flutter 内部的多选代理包含滚动虚拟化等复杂逻辑。Markdown 内容在流式
+/// 更新时不需要这些能力，这里专门写一个聚焦「选择区域派发」的精简版：
 /// - `add` / `remove` 维护 N 个 `Selectable` 列表（按文档顺序）；
 /// - `dispatchSelectionEvent` 路由到命中指针位置的 `Selectable`,
 ///   并在拖选过程中追踪 start/end `Selectable` 以串联跨节点选区；
@@ -2737,6 +2734,9 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
   bool _orderDirty = false;
   bool _updateScheduled = false;
   bool _pendingNotify = false;
+  int _dispatchDepth = 0;
+  final Set<Selectable> _pendingAdds = <Selectable>{};
+  final Set<Selectable> _pendingRemovals = <Selectable>{};
 
   // `MarkdownBuilder` 会为每个段落/列表项/表格 cell/代码块各建一个
   // `SelectableText.rich`，一条长消息挂载时是几十到几百次 `add`。若每次
@@ -2747,6 +2747,12 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
   @override
   void add(Selectable selectable) {
     if (_disposed) return;
+    if (_dispatchDepth > 0) {
+      _pendingRemovals.remove(selectable);
+      _pendingAdds.add(selectable);
+      return;
+    }
+    if (_selectables.contains(selectable)) return;
     _selectables.add(selectable);
     selectable.addListener(_onSelectableChanged);
     _scheduleSelectableUpdate();
@@ -2755,12 +2761,35 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
   @override
   void remove(Selectable selectable) {
     if (_disposed) return;
+    if (_dispatchDepth > 0) {
+      if (_pendingAdds.remove(selectable)) return;
+      _pendingRemovals.add(selectable);
+      return;
+    }
     selectable.removeListener(_onSelectableChanged);
     _selectables.remove(selectable);
     if (_anchorStart == selectable) _anchorStart = null;
     if (_anchorEnd == selectable) _anchorEnd = null;
     // 拆除阶段不通知：markdown 树重建时的成批 remove 不应把用户当前选区
     // 的可视状态冲掉。
+    _scheduleSelectableUpdate(notify: false);
+  }
+
+  void _applyPendingMutations() {
+    if (_pendingRemovals.isEmpty && _pendingAdds.isEmpty) return;
+    for (final selectable in _pendingRemovals) {
+      selectable.removeListener(_onSelectableChanged);
+      _selectables.remove(selectable);
+      if (_anchorStart == selectable) _anchorStart = null;
+      if (_anchorEnd == selectable) _anchorEnd = null;
+    }
+    _pendingRemovals.clear();
+    for (final selectable in _pendingAdds) {
+      if (_selectables.contains(selectable)) continue;
+      _selectables.add(selectable);
+      selectable.addListener(_onSelectableChanged);
+    }
+    _pendingAdds.clear();
     _scheduleSelectableUpdate(notify: false);
   }
 
@@ -2917,9 +2946,48 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
       if (!g.hasContent) continue;
       hasAny = true;
       if (g.status == SelectionStatus.uncollapsed) uncollapsed = true;
-      startPoint ??= g.startSelectionPoint;
-      endPoint = g.endSelectionPoint ?? endPoint;
-      rects.addAll(g.selectionRects);
+      Matrix4? transform;
+      try {
+        transform = getTransformFrom(selectable);
+      } on Object {
+        // 节点正在卸载时可能暂时没有可用的渲染对象，保留状态并等待下一次
+        // geometry 通知，避免在选择回调中读取失活节点。
+      }
+      if (transform == null) continue;
+      final start = g.startSelectionPoint;
+      if (start != null) {
+        final position = MatrixUtils.transformPoint(
+          transform,
+          start.localPosition,
+        );
+        if (position.isFinite) {
+          startPoint ??= SelectionPoint(
+            localPosition: position,
+            lineHeight: start.lineHeight,
+            handleType: start.handleType,
+          );
+        }
+      }
+      final end = g.endSelectionPoint;
+      if (end != null) {
+        final position = MatrixUtils.transformPoint(
+          transform,
+          end.localPosition,
+        );
+        if (position.isFinite) {
+          endPoint = SelectionPoint(
+            localPosition: position,
+            lineHeight: end.lineHeight,
+            handleType: end.handleType,
+          );
+        }
+      }
+      for (final rect in g.selectionRects) {
+        final transformed = MatrixUtils.transformRect(transform, rect);
+        if (transformed.isFinite && !transformed.isEmpty) {
+          rects.add(transformed);
+        }
+      }
     }
     final next = hasAny
         ? SelectionGeometry(
@@ -2946,10 +3014,12 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
     // 严格按顺序清理，避免 Selectable 的回调
     // 在我们已经 dispose 之后才抵达 _onSelectableChanged。
     _disposed = true;
-    for (final selectable in _selectables) {
+    for (final selectable in _selectables.toList(growable: false)) {
       selectable.removeListener(_onSelectableChanged);
     }
     _selectables.clear();
+    _pendingAdds.clear();
+    _pendingRemovals.clear();
     _anchorStart = null;
     _anchorEnd = null;
     // 不再主动 _refreshGeometry，避免在 SelectionContainer 节点已
@@ -3035,6 +3105,17 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
 
   @override
   SelectionResult dispatchSelectionEvent(SelectionEvent event) {
+    if (_disposed) return SelectionResult.none;
+    _dispatchDepth += 1;
+    try {
+      return _dispatchSelectionEvent(event);
+    } finally {
+      _dispatchDepth -= 1;
+      if (_dispatchDepth == 0 && !_disposed) _applyPendingMutations();
+    }
+  }
+
+  SelectionResult _dispatchSelectionEvent(SelectionEvent event) {
     _ensureSorted();
     if (_selectables.isEmpty) return SelectionResult.none;
     switch (event.type) {
@@ -4034,106 +4115,108 @@ class _HtmlMessageBody extends StatelessWidget {
     final prepared = _prepareStreamingHtml(data);
     return ClipRect(
       child: SelectionArea(
-        child: HtmlWidget(
-          prepared.isEmpty ? ' ' : prepared,
-          textStyle: base,
-          factoryBuilder: _OpenHandHtmlWidgetFactory.new,
-          customStylesBuilder: (element) {
-            // 主题感知的默认样式。
-            switch (element.localName) {
-              case 'code':
-                return <String, String>{
-                  'background-color': codeBgHex,
-                  'padding': '2px 6px',
-                  'border-radius': '4px',
-                  'font-family': 'monospace',
-                };
-              case 'pre':
-                return <String, String>{
-                  'background-color': codeBgHex,
-                  'padding': '12px 14px',
-                  'border-radius': '8px',
-                  'border': '1px solid $borderHex',
-                  'overflow-x': 'auto',
-                };
-              case 'blockquote':
-                return <String, String>{
-                  'border-left': '3px solid $accentHex',
-                  'padding': '4px 12px',
-                  'margin': '8px 0',
-                  'color': mutedHex,
-                  'background-color': codeBgHex,
-                  'border-radius': '0 6px 6px 0',
-                };
-              case 'table':
-                return <String, String>{
-                  'border-collapse': 'collapse',
-                  'border': '1px solid $borderHex',
-                  'margin': '8px 0',
-                };
-              case 'th':
-                return <String, String>{
-                  'border': '1px solid $borderHex',
-                  'padding': '6px 10px',
-                  'background-color': codeBgHex,
-                  'font-weight': '600',
-                };
-              case 'td':
-                return <String, String>{
-                  'border': '1px solid $borderHex',
-                  'padding': '6px 10px',
-                };
-              case 'h2':
-                return <String, String>{
-                  'margin-top': '18px',
-                  'margin-bottom': '8px',
-                  'font-weight': '700',
-                };
-              case 'h3':
-                return <String, String>{
-                  'margin-top': '14px',
-                  'margin-bottom': '6px',
-                  'font-weight': '600',
-                };
-              case 'h4':
-                return <String, String>{
-                  'margin-top': '12px',
-                  'margin-bottom': '4px',
-                  'font-weight': '600',
-                };
-              case 'details':
-                return <String, String>{
-                  'border': '1px solid $borderHex',
-                  'border-radius': '8px',
-                  'padding': '8px 12px',
-                  'margin': '8px 0',
-                  'background-color': codeBgHex,
-                };
-              case 'summary':
-                return <String, String>{
-                  'cursor': 'pointer',
-                  'font-weight': '600',
-                };
-              case 'a':
-                return <String, String>{
-                  'color': accentHex,
-                  'text-decoration': 'underline',
-                };
-              case 'hr':
-                return <String, String>{
-                  'border': 'none',
-                  'border-top': '1px solid $borderHex',
-                  'margin': '14px 0',
-                };
-            }
-            return null;
-          },
-          onErrorBuilder: (context, element, error) =>
-              SelectableText(data, style: base),
-          onLoadingBuilder: (context, element, progress) => const SizedBox(
-            height: 12,
-            width: 12,
-            child: CircularProgressIndicator(strokeWidth: 2),
+        child: _MarkdownSelectionContainer(
+          child: HtmlWidget(
+            prepared.isEmpty ? ' ' : prepared,
+            textStyle: base,
+            factoryBuilder: _OpenHandHtmlWidgetFactory.new,
+            customStylesBuilder: (element) {
+              // 主题感知的默认样式。
+              switch (element.localName) {
+                case 'code':
+                  return <String, String>{
+                    'background-color': codeBgHex,
+                    'padding': '2px 6px',
+                    'border-radius': '4px',
+                    'font-family': 'monospace',
+                  };
+                case 'pre':
+                  return <String, String>{
+                    'background-color': codeBgHex,
+                    'padding': '12px 14px',
+                    'border-radius': '8px',
+                    'border': '1px solid $borderHex',
+                    'overflow-x': 'auto',
+                  };
+                case 'blockquote':
+                  return <String, String>{
+                    'border-left': '3px solid $accentHex',
+                    'padding': '4px 12px',
+                    'margin': '8px 0',
+                    'color': mutedHex,
+                    'background-color': codeBgHex,
+                    'border-radius': '0 6px 6px 0',
+                  };
+                case 'table':
+                  return <String, String>{
+                    'border-collapse': 'collapse',
+                    'border': '1px solid $borderHex',
+                    'margin': '8px 0',
+                  };
+                case 'th':
+                  return <String, String>{
+                    'border': '1px solid $borderHex',
+                    'padding': '6px 10px',
+                    'background-color': codeBgHex,
+                    'font-weight': '600',
+                  };
+                case 'td':
+                  return <String, String>{
+                    'border': '1px solid $borderHex',
+                    'padding': '6px 10px',
+                  };
+                case 'h2':
+                  return <String, String>{
+                    'margin-top': '18px',
+                    'margin-bottom': '8px',
+                    'font-weight': '700',
+                  };
+                case 'h3':
+                  return <String, String>{
+                    'margin-top': '14px',
+                    'margin-bottom': '6px',
+                    'font-weight': '600',
+                  };
+                case 'h4':
+                  return <String, String>{
+                    'margin-top': '12px',
+                    'margin-bottom': '4px',
+                    'font-weight': '600',
+                  };
+                case 'details':
+                  return <String, String>{
+                    'border': '1px solid $borderHex',
+                    'border-radius': '8px',
+                    'padding': '8px 12px',
+                    'margin': '8px 0',
+                    'background-color': codeBgHex,
+                  };
+                case 'summary':
+                  return <String, String>{
+                    'cursor': 'pointer',
+                    'font-weight': '600',
+                  };
+                case 'a':
+                  return <String, String>{
+                    'color': accentHex,
+                    'text-decoration': 'underline',
+                  };
+                case 'hr':
+                  return <String, String>{
+                    'border': 'none',
+                    'border-top': '1px solid $borderHex',
+                    'margin': '14px 0',
+                  };
+              }
+              return null;
+            },
+            onErrorBuilder: (context, element, error) =>
+                SelectableText(data, style: base),
+            onLoadingBuilder: (context, element, progress) => const SizedBox(
+              height: 12,
+              width: 12,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            ),
           ),
         ),
       ),
@@ -6196,7 +6279,11 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
 
   Widget _wrapSelection(Widget child) {
     if (!wrapInSelectionArea) return child;
-    return SelectionArea(child: child);
+    // 先合并成一个稳定的选择节点，再交给 SelectionArea 处理手势。
+    // Markdown、纯文本和 HTML 在更新期间都会替换内部 SelectableText；
+    // 直接把多个节点暴露给 Flutter 的根选择代理，清除选区时容易和
+    // ListView 的可见节点刷新同时发生并触发 ConcurrentModificationError。
+    return SelectionArea(child: _MarkdownSelectionContainer(child: child));
   }
 
   Widget _buildMarkdownOrFallback() {
