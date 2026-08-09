@@ -11,6 +11,23 @@ enum DingTalkConversationType { group, direct }
 
 enum DingTalkGatewayMessageRole { user, assistant }
 
+enum DingTalkGatewayMessageFeedback {
+  liked('liked'),
+  needsImprovement('needs_improvement');
+
+  const DingTalkGatewayMessageFeedback(this.storageValue);
+
+  final String storageValue;
+
+  static DingTalkGatewayMessageFeedback? fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim().toLowerCase();
+    for (final item in values) {
+      if (item.storageValue == normalized) return item;
+    }
+    return null;
+  }
+}
+
 enum DingTalkGatewayEventType { message, read, recall, reaction }
 
 @immutable
@@ -680,6 +697,8 @@ class DingTalkGatewayMessage {
     this.recalled = false,
     this.reactions = const <String>[],
     this.editHistory = const <DingTalkMessageEditRecord>[],
+    this.sourceAiMessageId = '',
+    this.feedback,
   });
 
   factory DingTalkGatewayMessage.fromJson(Map<String, Object?> json) {
@@ -737,6 +756,8 @@ class DingTalkGatewayMessage {
       ),
       reactions: _reactionList(json['reactions'] ?? json['reaction']),
       editHistory: editHistory,
+      sourceAiMessageId: '${json['source_ai_message_id'] ?? ''}'.trim(),
+      feedback: DingTalkGatewayMessageFeedback.fromStorage(json['feedback']),
     );
   }
 
@@ -757,6 +778,8 @@ class DingTalkGatewayMessage {
   final bool recalled;
   final List<String> reactions;
   final List<DingTalkMessageEditRecord> editHistory;
+  final String sourceAiMessageId;
+  final DingTalkGatewayMessageFeedback? feedback;
 
   bool get isAssistant => role == DingTalkGatewayMessageRole.assistant;
   bool get isEdited => editHistory.isNotEmpty;
@@ -769,6 +792,9 @@ class DingTalkGatewayMessage {
     bool? recalled,
     List<String>? reactions,
     List<DingTalkMessageEditRecord>? editHistory,
+    String? sourceAiMessageId,
+    DingTalkGatewayMessageFeedback? feedback,
+    bool clearFeedback = false,
   }) {
     return DingTalkGatewayMessage(
       id: id ?? this.id,
@@ -788,6 +814,8 @@ class DingTalkGatewayMessage {
       recalled: recalled ?? this.recalled,
       reactions: reactions ?? this.reactions,
       editHistory: editHistory ?? this.editHistory,
+      sourceAiMessageId: sourceAiMessageId ?? this.sourceAiMessageId,
+      feedback: clearFeedback ? null : feedback ?? this.feedback,
     );
   }
 
@@ -811,6 +839,8 @@ class DingTalkGatewayMessage {
     'edit_history': editHistory
         .map((item) => item.toJson())
         .toList(growable: false),
+    'source_ai_message_id': sourceAiMessageId,
+    'feedback': feedback?.storageValue,
   };
 
   static List<DingTalkGatewayMedia> _mediaList(Object? raw) {

@@ -35,6 +35,20 @@ typedef DingTalkWriteApprovalHandler =
       BashCommandApprovalRequest request,
     );
 
+class DingTalkMessageAuditSnapshot {
+  const DingTalkMessageAuditSnapshot({
+    required this.conversation,
+    required this.message,
+    this.aiSession,
+    this.aiMessage,
+  });
+
+  final DingTalkConversation conversation;
+  final DingTalkGatewayMessage message;
+  final AiSession? aiSession;
+  final AiSessionMessage? aiMessage;
+}
+
 class _QueuedDingTalkResponse {
   _QueuedDingTalkResponse(
     this.content,
@@ -716,6 +730,128 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final conversation = _conversations[conversationId];
     if (conversation == null) return null;
     return _service.conversationDetails(conversation: conversation);
+  }
+
+  Future<bool> updateMessageFeedback(
+    String conversationId,
+    String messageId,
+    DingTalkGatewayMessageFeedback? feedback,
+  ) async {
+    final conversation = _conversations[conversationId];
+    if (conversation == null) {
+      _errorMessage = '消息所属会话不存在或已失效。';
+      _notify();
+      return false;
+    }
+    final index = conversation.messages.indexWhere(
+      (message) => message.id == messageId,
+    );
+    if (index < 0) {
+      _errorMessage = '消息不存在或已失效。';
+      _notify();
+      return false;
+    }
+    final current = conversation.messages[index];
+    if (!current.isAssistant || current.recalled) {
+      _errorMessage = '当前消息不支持反馈。';
+      _notify();
+      return false;
+    }
+    try {
+      final session = _aiSessionForConversation(conversation);
+      final source = _resolveAiSourceMessage(conversation, current);
+      final storedSourceId = current.sourceAiMessageId.trim();
+      final sourceId = storedSourceId.isNotEmpty
+          ? storedSourceId
+          : source?.id ?? '';
+      if (session != null && sourceId.isNotEmpty) {
+        final aiFeedback = switch (feedback) {
+          DingTalkGatewayMessageFeedback.liked =>
+            AiSessionMessageFeedback.liked,
+          DingTalkGatewayMessageFeedback.needsImprovement =>
+            AiSessionMessageFeedback.needsImprovement,
+          null => null,
+        };
+        final saved = await _sessionController.updateMessageFeedback(
+          sessionId: session.id,
+          messageId: sourceId,
+          feedback: aiFeedback,
+        );
+        if (!saved) {
+          _errorMessage = '关联的 AI 消息反馈保存失败，请稍后重试。';
+          _notify();
+          return false;
+        }
+      }
+      if (_disposed ||
+          !identical(_conversations[conversationId], conversation)) {
+        return false;
+      }
+      final latestIndex = conversation.messages.indexWhere(
+        (message) => message.id == messageId,
+      );
+      if (latestIndex < 0) {
+        _errorMessage = '消息在保存期间已失效，请刷新后重试。';
+        _notify();
+        return false;
+      }
+      final latest = conversation.messages[latestIndex];
+      conversation.messages[latestIndex] = latest.copyWith(
+        sourceAiMessageId: sourceId.isEmpty ? null : sourceId,
+        feedback: feedback,
+        clearFeedback: feedback == null,
+      );
+      _queuePersist();
+      _clearError();
+      _notify();
+      return true;
+    } catch (error, stack) {
+      _setError('保存钉钉消息反馈', error, stack);
+      _notify();
+      return false;
+    }
+  }
+
+  Future<DingTalkMessageAuditSnapshot?> loadMessageAuditSnapshot(
+    String conversationId,
+    String messageId,
+  ) async {
+    final conversation = _conversations[conversationId];
+    if (conversation == null) return null;
+    final message = conversation.messages
+        .where((item) => item.id == messageId)
+        .firstOrNull;
+    if (message == null) return null;
+    final session = _aiSessionForConversation(conversation);
+    var aiMessage = _resolveAiSourceMessage(conversation, message);
+    if (session != null) {
+      final sourceId = message.sourceAiMessageId.trim();
+      if (aiMessage == null && sourceId.isNotEmpty) {
+        aiMessage = await _sessionController.store.loadMessage(
+          session.id,
+          sourceId,
+        );
+      } else if (aiMessage != null &&
+          aiSessionMessageHasDeferredTelemetryMetadata(aiMessage.metadata)) {
+        aiMessage = await _sessionController.store.loadMessage(
+          session.id,
+          aiMessage.id,
+        );
+      }
+    }
+    if (_disposed || !identical(_conversations[conversationId], conversation)) {
+      return null;
+    }
+    final latestMessage = conversation.messages
+        .where((item) => item.id == messageId)
+        .firstOrNull;
+    if (latestMessage == null) return null;
+    return DingTalkMessageAuditSnapshot(
+      conversation: conversation,
+      message: latestMessage,
+      aiSession: session,
+      aiMessage: aiMessage,
+    );
   }
 
   Future<void> initialize() async {
@@ -2036,6 +2172,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         role: DingTalkGatewayMessageRole.assistant,
         content: normalized,
         createdAt: source.createdAt,
+        sourceAiMessageId: source.id,
+        feedback: switch (source.feedback) {
+          AiSessionMessageFeedback.liked =>
+            DingTalkGatewayMessageFeedback.liked,
+          AiSessionMessageFeedback.needsImprovement =>
+            DingTalkGatewayMessageFeedback.needsImprovement,
+          null => null,
+        },
       ),
     );
     _notify();
@@ -2317,6 +2461,77 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
     }
     return _settingsController.selectedAiModel;
+  }
+
+  /// 返回消息操作（朗读、翻译）应使用的模型，优先沿用该会话最近一次响应模型。
+  AiModelConfig? messageActionFallbackModel(DingTalkConversation conversation) {
+    final session = _aiSessionForConversation(conversation);
+    final providerId = session?.lastUsedModelId?.trim() ?? '';
+    final modelId = session?.lastUsedModelLabel?.trim() ?? '';
+    if (providerId.isNotEmpty && modelId.isNotEmpty) {
+      for (final provider in _settingsController.aiModels) {
+        if (provider.id == providerId &&
+            provider.allModelIds.contains(modelId)) {
+          return provider.copyWith(modelId: modelId);
+        }
+      }
+    }
+    return _resolveModel();
+  }
+
+  AiSession? _aiSessionForConversation(DingTalkConversation conversation) {
+    final sessionId = conversation.aiSessionId?.trim() ?? '';
+    for (final session in _sessionController.sessions) {
+      if ((sessionId.isNotEmpty && session.id == sessionId) ||
+          (session.isDingTalkGatewaySession &&
+              session.metadata['dingtalk_conversation_id'] ==
+                  conversation.id)) {
+        return session;
+      }
+    }
+    return null;
+  }
+
+  AiSessionMessage? _resolveAiSourceMessage(
+    DingTalkConversation conversation,
+    DingTalkGatewayMessage message,
+  ) {
+    final session = _aiSessionForConversation(conversation);
+    if (session == null) return null;
+    final sourceId = message.sourceAiMessageId.trim();
+    if (sourceId.isNotEmpty) {
+      for (final candidate in session.messages) {
+        if (candidate.id == sourceId) return candidate;
+      }
+    }
+    const syntheticPrefix = 'assistant-';
+    if (sourceId.isEmpty && message.id.startsWith(syntheticPrefix)) {
+      final syntheticSourceId = message.id.substring(syntheticPrefix.length);
+      if (syntheticSourceId.isNotEmpty) {
+        for (final candidate in session.messages) {
+          if (candidate.id == syntheticSourceId) return candidate;
+        }
+      }
+    }
+    if (!message.isAssistant) return null;
+    AiSessionMessage? best;
+    Duration? bestDistance;
+    final content = message.content.trim();
+    for (final candidate in session.messages) {
+      if (candidate.isDeleted || candidate.role == AiSessionMessageRole.user) {
+        continue;
+      }
+      if (content.isNotEmpty && candidate.content.trim() != content) continue;
+      final distance = candidate.createdAt
+          .toLocal()
+          .difference(message.createdAt.toLocal())
+          .abs();
+      if (bestDistance == null || distance < bestDistance) {
+        best = candidate;
+        bestDistance = distance;
+      }
+    }
+    return best;
   }
 
   DingTalkGatewaySettings _normalizeSettings(DingTalkGatewaySettings value) {

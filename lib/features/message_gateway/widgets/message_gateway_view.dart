@@ -1,15 +1,18 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
+import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/openhand_scroll_physics.dart';
 import '../../../app/support/safe_subprocess.dart';
@@ -47,6 +50,8 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/rolling_hash.dart';
+import '../../../shared/util/stable_hash.dart';
+import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_fingerprint.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
@@ -12025,6 +12030,18 @@ Future<void> _showDingTalkRuntimeLogs(
   );
 }
 
+class _DingTalkMessageTranslation {
+  const _DingTalkMessageTranslation({
+    required this.sourceText,
+    required this.settingsFingerprint,
+    required this.translatedText,
+  });
+
+  final String sourceText;
+  final String settingsFingerprint;
+  final String translatedText;
+}
+
 class _DingTalkMessagesDialog extends StatefulWidget {
   const _DingTalkMessagesDialog({required this.controller});
   final DingTalkMessageGatewayController controller;
@@ -12039,9 +12056,16 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const Duration _voiceVisualInterval = Duration(milliseconds: 160);
   static const int _voiceWaveformSampleCount = 40;
   static const int _maxUploadBytes = 512 * 1024 * 1024;
+  static const int _maxTranslationCacheEntries = 64;
   final TextEditingController _input = TextEditingController();
   final FocusNode _inputFocusNode = FocusNode();
   final ScrollController _messagesScrollController = ScrollController();
+  final AiTtsPlaybackService _ttsPlaybackService = AiTtsPlaybackService();
+  final AiTranslationService _translationService = AiTranslationService();
+  final Map<String, _DingTalkMessageTranslation> _translations =
+      <String, _DingTalkMessageTranslation>{};
+  final Set<String> _visibleTranslationMessageIds = <String>{};
+  final Set<String> _loadingTranslationMessageIds = <String>{};
   Timer? _refreshTimer;
   int? _refreshIntervalSeconds;
   bool _followScheduled = false;
@@ -12076,6 +12100,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   void initState() {
     super.initState();
     _input.addListener(_handleInputChanged);
+    _ttsPlaybackService.state.addListener(_handleTtsStateChanged);
     widget.controller.markAllRead();
     widget.controller.addListener(_handleControllerChanged);
   }
@@ -12084,6 +12109,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   void dispose() {
     widget.controller.removeListener(_handleControllerChanged);
     _input.removeListener(_handleInputChanged);
+    _ttsPlaybackService.state.removeListener(_handleTtsStateChanged);
     _refreshTimer?.cancel();
     _voiceVisualTimer?.cancel();
     unawaited(_voiceAmplitudeSubscription?.cancel());
@@ -12097,7 +12123,13 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     _inputFocusNode.dispose();
     _messagesScrollController.dispose();
     _voiceVisual.dispose();
+    unawaited(_ttsPlaybackService.dispose());
+    _translationService.dispose();
     super.dispose();
+  }
+
+  void _handleTtsStateChanged() {
+    if (mounted) setState(() {});
   }
 
   @override
@@ -12105,6 +12137,17 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     _ensureRefreshTimer();
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
+    final ttsSettings = context.select<SettingsController, AiTtsSettings>(
+      (settings) => settings.aiTtsSettings,
+    );
+    final translationSettings = context
+        .select<SettingsController, AiTranslationSettings>(
+          (settings) => settings.aiTranslationSettings,
+        );
+    final telemetryDebugEnabled = context.select<SettingsController, bool>(
+      (settings) => settings.telemetryDebugEnabled,
+    );
+    final ttsSnapshot = _ttsPlaybackService.state.value;
     return ListenableBuilder(
       listenable: widget.controller,
       builder: (context, _) {
@@ -12113,6 +12156,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         final selected = conversations
             .where((item) => item.id == _selectedId)
             .firstOrNull;
+        final messageActionFallbackModel = selected == null
+            ? null
+            : widget.controller.messageActionFallbackModel(selected);
         _scheduleAutoFollow();
         return SizedBox(
           width: double.infinity,
@@ -12356,6 +12402,27 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                           itemBuilder: (context, index) {
                                             final message =
                                                 selected.messages[index];
+                                            final textActionEnabled =
+                                                !message.recalled &&
+                                                message.media.isEmpty &&
+                                                message.content
+                                                    .trim()
+                                                    .isNotEmpty;
+                                            final translation =
+                                                _translations[message.id];
+                                            final translationVisible =
+                                                textActionEnabled &&
+                                                translation != null &&
+                                                _visibleTranslationMessageIds
+                                                    .contains(message.id) &&
+                                                translation.sourceText ==
+                                                    message.content &&
+                                                translation
+                                                        .settingsFingerprint ==
+                                                    _translationFingerprint(
+                                                      translationSettings,
+                                                      messageActionFallbackModel,
+                                                    );
                                             return RepaintBoundary(
                                               key: ValueKey<String>(message.id),
                                               child: _DingTalkMessageBubble(
@@ -12392,6 +12459,70 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                             ),
                                                       )
                                                     : null,
+                                                speechEnabled:
+                                                    textActionEnabled &&
+                                                    ttsSettings.enabled,
+                                                speechPlaying:
+                                                    textActionEnabled &&
+                                                    ttsSettings.enabled &&
+                                                    ttsSnapshot.playing &&
+                                                    ttsSnapshot.messageId ==
+                                                        message.id,
+                                                onToggleSpeech:
+                                                    textActionEnabled &&
+                                                        ttsSettings.enabled
+                                                    ? () => unawaited(
+                                                        _toggleMessageSpeech(
+                                                          message,
+                                                          ttsSettings,
+                                                          messageActionFallbackModel,
+                                                        ),
+                                                      )
+                                                    : null,
+                                                translationEnabled:
+                                                    textActionEnabled &&
+                                                    translationSettings.enabled,
+                                                translationLoading:
+                                                    _loadingTranslationMessageIds
+                                                        .contains(message.id),
+                                                translationVisible:
+                                                    translationVisible,
+                                                translatedContent:
+                                                    translationVisible
+                                                    ? translation.translatedText
+                                                    : null,
+                                                onToggleTranslation:
+                                                    textActionEnabled &&
+                                                        translationSettings
+                                                            .enabled
+                                                    ? () => unawaited(
+                                                        _toggleMessageTranslation(
+                                                          message,
+                                                          translationSettings,
+                                                          messageActionFallbackModel,
+                                                        ),
+                                                      )
+                                                    : null,
+                                                onSetFeedback:
+                                                    message.isAssistant &&
+                                                        !message.recalled
+                                                    ? (feedback) => unawaited(
+                                                        _setMessageFeedback(
+                                                          selected,
+                                                          message,
+                                                          feedback,
+                                                        ),
+                                                      )
+                                                    : null,
+                                                onAudit: telemetryDebugEnabled
+                                                    ? () => _showMessageAudit(
+                                                        selected,
+                                                        message,
+                                                      )
+                                                    : null,
+                                                showRawAction:
+                                                    message.isAssistant &&
+                                                    textActionEnabled,
                                               ),
                                             );
                                           },
@@ -12567,6 +12698,135 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         maxWidth: 680,
         maxHeight: MediaQuery.sizeOf(context).height * 0.78,
         child: _DingTalkMessageEditHistoryDialog(message: message),
+      ),
+    );
+  }
+
+  Future<void> _toggleMessageSpeech(
+    DingTalkGatewayMessage message,
+    AiTtsSettings settings,
+    AiModelConfig? fallbackModel,
+  ) async {
+    try {
+      await _ttsPlaybackService.toggleMessage(
+        messageId: message.id,
+        text: message.content,
+        settings: settings,
+        availableModels: widget.controller.aiModels,
+        fallbackModel: fallbackModel,
+      );
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '朗读钉钉消息', error, stack);
+      if (mounted) {
+        showOpenHandErrorSnack(
+          context,
+          '朗读失败：${messageGatewayFailureMessage(error, fallback: '请检查文本转语音设置。')}',
+        );
+      }
+    }
+  }
+
+  String _translationFingerprint(
+    AiTranslationSettings settings,
+    AiModelConfig? fallbackModel,
+  ) {
+    return stableJsonSha256(<String, Object?>{
+      'settings': settings.cacheFingerprint,
+      'fallback_model': fallbackModel?.toJson(),
+    });
+  }
+
+  Future<void> _toggleMessageTranslation(
+    DingTalkGatewayMessage message,
+    AiTranslationSettings settings,
+    AiModelConfig? fallbackModel,
+  ) async {
+    final messageId = message.id;
+    if (_visibleTranslationMessageIds.contains(messageId)) {
+      setState(() => _visibleTranslationMessageIds.remove(messageId));
+      return;
+    }
+    final fingerprint = _translationFingerprint(settings, fallbackModel);
+    final cached = _translations[messageId];
+    if (cached != null &&
+        cached.sourceText == message.content &&
+        cached.settingsFingerprint == fingerprint) {
+      setState(() => _visibleTranslationMessageIds.add(messageId));
+      return;
+    }
+    if (_loadingTranslationMessageIds.contains(messageId)) return;
+    setState(() => _loadingTranslationMessageIds.add(messageId));
+    try {
+      final result = await _translationService.translate(
+        text: message.content,
+        settings: settings,
+        availableModels: widget.controller.aiModels,
+        fallbackModel: fallbackModel,
+      );
+      if (!mounted) return;
+      setState(() {
+        _translations.remove(messageId);
+        _translations[messageId] = _DingTalkMessageTranslation(
+          sourceText: message.content,
+          settingsFingerprint: fingerprint,
+          translatedText: result.text,
+        );
+        while (_translations.length > _maxTranslationCacheEntries) {
+          final removed = _translations.keys.first;
+          _translations.remove(removed);
+          _visibleTranslationMessageIds.remove(removed);
+        }
+        _visibleTranslationMessageIds.add(messageId);
+      });
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '翻译钉钉消息', error, stack);
+      if (mounted) {
+        showOpenHandErrorSnack(
+          context,
+          '翻译失败：${messageGatewayFailureMessage(error, fallback: '请检查文本翻译设置。')}',
+        );
+      }
+    } finally {
+      if (mounted) {
+        setState(() => _loadingTranslationMessageIds.remove(messageId));
+      }
+    }
+  }
+
+  Future<void> _setMessageFeedback(
+    DingTalkConversation conversation,
+    DingTalkGatewayMessage message,
+    DingTalkGatewayMessageFeedback? feedback,
+  ) async {
+    final success = await widget.controller.updateMessageFeedback(
+      conversation.id,
+      message.id,
+      feedback,
+    );
+    if (!success && mounted) {
+      showOpenHandErrorSnack(
+        context,
+        widget.controller.errorMessage ?? '消息反馈保存失败，请稍后重试。',
+      );
+    }
+  }
+
+  void _showMessageAudit(
+    DingTalkConversation conversation,
+    DingTalkGatewayMessage message,
+  ) {
+    final snapshot = widget.controller.loadMessageAuditSnapshot(
+      conversation.id,
+      message.id,
+    );
+    unawaited(
+      showAnimatedDialog<void>(
+        context: context,
+        builder: (_) => buildOpenHandDialog(
+          maxWidth: 820,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.84,
+          child: _DingTalkMessageAuditDialog(snapshot: snapshot),
+        ),
       ),
     );
   }
@@ -13445,6 +13705,17 @@ class _DingTalkMessageBubble extends StatefulWidget {
     this.onEdit,
     this.onShowEditHistory,
     this.onRetryMedia,
+    this.speechEnabled = false,
+    this.speechPlaying = false,
+    this.onToggleSpeech,
+    this.translationEnabled = false,
+    this.translationLoading = false,
+    this.translationVisible = false,
+    this.translatedContent,
+    this.onToggleTranslation,
+    this.onSetFeedback,
+    this.onAudit,
+    this.showRawAction = false,
   });
 
   final DingTalkGatewayMessage message;
@@ -13452,6 +13723,17 @@ class _DingTalkMessageBubble extends StatefulWidget {
   final VoidCallback? onEdit;
   final VoidCallback? onShowEditHistory;
   final VoidCallback? onRetryMedia;
+  final bool speechEnabled;
+  final bool speechPlaying;
+  final VoidCallback? onToggleSpeech;
+  final bool translationEnabled;
+  final bool translationLoading;
+  final bool translationVisible;
+  final String? translatedContent;
+  final VoidCallback? onToggleTranslation;
+  final ValueChanged<DingTalkGatewayMessageFeedback?>? onSetFeedback;
+  final VoidCallback? onAudit;
+  final bool showRawAction;
 
   @override
   State<_DingTalkMessageBubble> createState() => _DingTalkMessageBubbleState();
@@ -13463,6 +13745,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const Duration _mediaClipboardTimeout = Duration(seconds: 15);
   bool _hovered = false;
   bool _copyingMedia = false;
+  bool _showRawContent = false;
   int _actionsTransitionId = 0;
 
   void _setHovered(bool hovered) {
@@ -13506,6 +13789,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         .where((item) => item.kind.isPreviewable)
         .toList(growable: false);
     final showText = previewableMedia.isEmpty;
+    final effectiveContent = widget.translationVisible
+        ? widget.translatedContent ?? widget.message.content
+        : widget.message.content;
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: 1),
       duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -13564,11 +13850,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Text(
-                        widget.message.content,
-                        style: theme.textTheme.bodyMedium?.copyWith(
-                          color: foreground,
-                        ),
+                      _buildTextContent(
+                        context,
+                        content: effectiveContent,
+                        foreground: foreground,
                       ),
                       if (widget.message.reactions.isNotEmpty)
                         _buildReactionRow(context, foreground),
@@ -13596,15 +13881,37 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   duration: openHandMotionDuration(context, kOpenHandMotion180),
                   curve: Curves.easeOutCubic,
                   child: _hovered
-                      ? Wrap(
+                      ? TweenAnimationBuilder<double>(
                           key: ValueKey<int>(_actionsTransitionId),
-                          spacing: 4,
-                          textDirection: widget.mine
-                              ? TextDirection.rtl
-                              : TextDirection.ltr,
-                          children: _buildHoverActions(
+                          tween: Tween<double>(begin: 0, end: 1),
+                          duration: openHandMotionDuration(
                             context,
-                            previewableMedia,
+                            kOpenHandMotion180,
+                          ),
+                          curve: Curves.easeOutBack,
+                          builder: (context, value, child) => Opacity(
+                            opacity: value.clamp(0.0, 1.0).toDouble(),
+                            child: Transform.translate(
+                              offset: Offset(0, (1 - value) * 5),
+                              child: Transform.scale(
+                                alignment: widget.mine
+                                    ? Alignment.centerRight
+                                    : Alignment.centerLeft,
+                                scale: 0.96 + value * 0.04,
+                                child: child,
+                              ),
+                            ),
+                          ),
+                          child: Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            textDirection: widget.mine
+                                ? TextDirection.rtl
+                                : TextDirection.ltr,
+                            children: _buildHoverActions(
+                              context,
+                              previewableMedia,
+                            ),
                           ),
                         )
                       : SizedBox(
@@ -13633,6 +13940,62 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   ) {
     final actions = <Widget>[
       _buildCopyAction(context, previewableMedia),
+      if (widget.speechEnabled && widget.onToggleSpeech != null)
+        _DingTalkMessageActionButton(
+          icon: widget.speechPlaying
+              ? Icons.stop_circle_outlined
+              : Icons.record_voice_over_outlined,
+          label: widget.speechPlaying ? '停止' : '朗读',
+          onPressed: widget.onToggleSpeech,
+        ),
+      if (widget.translationEnabled && widget.onToggleTranslation != null)
+        _DingTalkMessageActionButton(
+          icon: widget.translationLoading
+              ? Icons.hourglass_top_rounded
+              : widget.translationVisible
+              ? Icons.visibility_outlined
+              : Icons.translate_rounded,
+          label: widget.translationLoading
+              ? '翻译中'
+              : widget.translationVisible
+              ? '查看原始'
+              : '翻译',
+          onPressed: widget.translationLoading
+              ? null
+              : widget.onToggleTranslation,
+        ),
+      if (widget.onSetFeedback != null)
+        _DingTalkMessageActionButton(
+          icon: widget.message.feedback == DingTalkGatewayMessageFeedback.liked
+              ? Icons.thumb_up_alt_rounded
+              : Icons.thumb_up_alt_outlined,
+          label: '点赞',
+          onPressed: () => widget.onSetFeedback!(
+            widget.message.feedback == DingTalkGatewayMessageFeedback.liked
+                ? null
+                : DingTalkGatewayMessageFeedback.liked,
+          ),
+          selected:
+              widget.message.feedback == DingTalkGatewayMessageFeedback.liked,
+        ),
+      if (widget.onSetFeedback != null)
+        _DingTalkMessageActionButton(
+          icon:
+              widget.message.feedback ==
+                  DingTalkGatewayMessageFeedback.needsImprovement
+              ? Icons.thumb_down_alt_rounded
+              : Icons.thumb_down_alt_outlined,
+          label: '需要改进',
+          onPressed: () => widget.onSetFeedback!(
+            widget.message.feedback ==
+                    DingTalkGatewayMessageFeedback.needsImprovement
+                ? null
+                : DingTalkGatewayMessageFeedback.needsImprovement,
+          ),
+          selected:
+              widget.message.feedback ==
+              DingTalkGatewayMessageFeedback.needsImprovement,
+        ),
       if (widget.onEdit != null)
         _DingTalkMessageActionButton(
           icon: Icons.edit_outlined,
@@ -13645,8 +14008,87 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           label: '编辑历史',
           onPressed: widget.onShowEditHistory,
         ),
+      if (widget.onAudit != null)
+        _DingTalkMessageActionButton(
+          icon: Icons.fact_check_outlined,
+          label: '审计',
+          onPressed: widget.onAudit,
+        ),
+      if (widget.showRawAction)
+        _DingTalkMessageActionButton(
+          icon: _showRawContent ? Icons.code_off_outlined : Icons.code_outlined,
+          label: _showRawContent ? '显示渲染' : '显示原始',
+          onPressed: () => setState(() {
+            _showRawContent = !_showRawContent;
+            _actionsTransitionId++;
+          }),
+        ),
     ];
     return widget.mine ? actions.reversed.toList(growable: false) : actions;
+  }
+
+  Widget _buildTextContent(
+    BuildContext context, {
+    required String content,
+    required Color foreground,
+  }) {
+    final theme = Theme.of(context);
+    final bodyStyle = theme.textTheme.bodyMedium?.copyWith(
+      color: foreground,
+      height: 1.48,
+    );
+    final child = _showRawContent
+        ? SelectableText(
+            content,
+            key: ValueKey<String>(content),
+            style: bodyStyle?.copyWith(fontFamily: 'monospace', fontSize: 12.5),
+          )
+        : MarkdownBody(
+            key: ValueKey<String>(content),
+            data: content,
+            selectable: true,
+            imageBuilder: (uri, title, alt) => Text(
+              alt?.trim().isNotEmpty == true ? '[${alt!.trim()}]' : '[图片]',
+              style: bodyStyle?.copyWith(fontStyle: FontStyle.italic),
+            ),
+            styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+              p: bodyStyle,
+              code: theme.textTheme.bodySmall?.copyWith(
+                color: foreground,
+                fontFamily: 'monospace',
+                fontWeight: FontWeight.w600,
+              ),
+              codeblockDecoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.58),
+                borderRadius: BorderRadius.circular(10),
+                border: Border.all(
+                  color: theme.colorScheme.outlineVariant.withValues(
+                    alpha: 0.72,
+                  ),
+                ),
+              ),
+              blockquoteDecoration: BoxDecoration(
+                color: theme.colorScheme.surface.withValues(alpha: 0.42),
+                border: Border(
+                  left: BorderSide(
+                    color: theme.colorScheme.primary.withValues(alpha: 0.72),
+                    width: 3,
+                  ),
+                ),
+              ),
+            ),
+          );
+    return AnimatedSize(
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      curve: Curves.easeOutCubic,
+      alignment: Alignment.topLeft,
+      child: AnimatedSwitcher(
+        duration: openHandMotionDuration(context, kOpenHandMotion180),
+        switchInCurve: Curves.easeOutCubic,
+        switchOutCurve: Curves.easeInCubic,
+        child: child,
+      ),
+    );
   }
 
   Widget _buildCopyAction(
@@ -13831,31 +14273,43 @@ class _DingTalkMessageActionButton extends StatelessWidget {
     required this.label,
     required this.onPressed,
     this.busy = false,
+    this.selected = false,
   });
 
   final IconData icon;
   final String label;
   final VoidCallback? onPressed;
   final bool busy;
+  final bool selected;
 
   @override
   Widget build(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
+    final baseStyle = OutlinedButton.styleFrom(
+      minimumSize: const Size(0, 34),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      textStyle: Theme.of(
+        context,
+      ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
+      visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
+      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+    );
     return OutlinedButton.icon(
       onPressed: onPressed,
-      style: OutlinedButton.styleFrom(
-        minimumSize: const Size(0, 34),
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        visualDensity: const VisualDensity(horizontal: -2, vertical: -2),
-        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-        foregroundColor: colors.onSurface,
-        backgroundColor: colors.surfaceContainerHighest.withValues(alpha: 0.46),
-        side: BorderSide(color: colors.outlineVariant.withValues(alpha: 0.82)),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
-        textStyle: Theme.of(
-          context,
-        ).textTheme.labelMedium?.copyWith(fontWeight: FontWeight.w700),
-      ),
+      style: selected
+          ? baseStyle.copyWith(
+              backgroundColor: WidgetStatePropertyAll(
+                colors.primaryContainer.withValues(alpha: 0.72),
+              ),
+              foregroundColor: WidgetStatePropertyAll(
+                colors.onPrimaryContainer,
+              ),
+              iconColor: WidgetStatePropertyAll(colors.onPrimaryContainer),
+              side: WidgetStatePropertyAll(
+                BorderSide(color: colors.primary.withValues(alpha: 0.62)),
+              ),
+            )
+          : baseStyle,
       icon: busy
           ? const SizedBox(
               width: 15,
@@ -13863,7 +14317,386 @@ class _DingTalkMessageActionButton extends StatelessWidget {
               child: CircularProgressIndicator(strokeWidth: 2),
             )
           : Icon(icon, size: 16),
-      label: Text(label, maxLines: 1, softWrap: false),
+      label: Text(
+        label,
+        maxLines: 1,
+        softWrap: false,
+        overflow: TextOverflow.fade,
+      ),
+    );
+  }
+}
+
+class _DingTalkMessageAuditDialog extends StatelessWidget {
+  const _DingTalkMessageAuditDialog({required this.snapshot});
+
+  static const int _maxSnapshotCharacters = 240000;
+  final Future<DingTalkMessageAuditSnapshot?> snapshot;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.tertiaryContainer,
+                  borderRadius: BorderRadius.circular(14),
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(10),
+                  child: Icon(
+                    Icons.fact_check_outlined,
+                    color: colors.onTertiaryContainer,
+                    size: 23,
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      '钉钉消息审计',
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                      ),
+                    ),
+                    const SizedBox(height: 3),
+                    Text(
+                      '核对网关消息、关联 AI 消息及运行元数据。',
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              IconButton(
+                tooltip: '关闭',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+          const SizedBox(height: 16),
+          Expanded(
+            child: FutureBuilder<DingTalkMessageAuditSnapshot?>(
+              future: snapshot,
+              builder: (context, state) {
+                if (state.connectionState != ConnectionState.done) {
+                  return const Center(
+                    child: Column(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        CircularProgressIndicator(strokeWidth: 2.4),
+                        SizedBox(height: 12),
+                        Text('正在加载完整审计快照…'),
+                      ],
+                    ),
+                  );
+                }
+                if (state.hasError || state.data == null) {
+                  return Center(
+                    child: _DingTalkAuditNotice(
+                      icon: Icons.error_outline_rounded,
+                      title: '审计快照加载失败',
+                      message: state.error?.toString() ?? '消息可能已被删除或会话已失效。',
+                    ),
+                  );
+                }
+                return _buildAuditContent(context, state.data!);
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildAuditContent(
+    BuildContext context,
+    DingTalkMessageAuditSnapshot data,
+  ) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final message = data.message;
+    final payload = <String, Object?>{
+      'gateway_message': _safeAuditMap(message.toJson),
+      'conversation': <String, Object?>{
+        'id': data.conversation.id,
+        'title': data.conversation.title,
+        'type': data.conversation.type.name,
+        'open_conversation_id': data.conversation.openConversationId,
+        'ai_session_id': data.conversation.aiSessionId,
+      },
+      if (data.aiSession != null)
+        'ai_session': _safeAuditMap(
+          () => data.aiSession!.toJson(includeMessages: false),
+        ),
+      if (data.aiMessage != null)
+        'ai_message': _safeAuditMap(
+          () => data.aiMessage!.toJson(includeDerivedFields: true),
+        ),
+    };
+    late final String encoded;
+    try {
+      encoded = clipTextByCodeUnits(
+        const JsonEncoder.withIndent('  ').convert(payload),
+        _maxSnapshotCharacters,
+        suffix: '\n…审计快照已截断，完整消息仍保留在本地会话数据中。',
+      );
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '编码钉钉消息审计快照', error, stack);
+      encoded = '{\n  "serialization_error": "无法编码审计快照"\n}';
+    }
+    return ListView(
+      padding: const EdgeInsets.only(bottom: 4),
+      children: [
+        Wrap(
+          spacing: 8,
+          runSpacing: 8,
+          children: [
+            OhPill(
+              icon: Icons.hub_outlined,
+              label: 'DWS 网关',
+              foregroundColor: colors.primary,
+            ),
+            OhPill(
+              icon: message.isAssistant
+                  ? Icons.auto_awesome_outlined
+                  : Icons.person_outline_rounded,
+              label: message.isAssistant ? 'AI 消息' : '用户消息',
+              foregroundColor: colors.tertiary,
+            ),
+            OhPill(
+              icon: data.aiMessage == null
+                  ? Icons.link_off_rounded
+                  : Icons.link_rounded,
+              label: data.aiMessage == null ? '无关联 AI 快照' : '已关联 AI 快照',
+              foregroundColor: data.aiMessage == null
+                  ? colors.onSurfaceVariant
+                  : colors.secondary,
+            ),
+          ],
+        ),
+        const SizedBox(height: 14),
+        Wrap(
+          spacing: 10,
+          runSpacing: 10,
+          children: [
+            _DingTalkAuditMetric(
+              label: '消息标识',
+              value: message.id,
+              icon: Icons.fingerprint_rounded,
+            ),
+            _DingTalkAuditMetric(
+              label: '发送时间',
+              value: formatYearMonthDayHm(message.createdAt.toLocal()),
+              icon: Icons.schedule_rounded,
+            ),
+            _DingTalkAuditMetric(
+              label: '内容长度',
+              value: '${message.content.runes.length} 字符',
+              icon: Icons.data_object_rounded,
+            ),
+            _DingTalkAuditMetric(
+              label: '状态',
+              value: message.recalled
+                  ? '已撤回'
+                  : message.failed
+                  ? '发送失败'
+                  : '正常',
+              icon: Icons.verified_outlined,
+            ),
+          ],
+        ),
+        const SizedBox(height: 16),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerLow,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: colors.outlineVariant.withValues(alpha: 0.72),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.fromLTRB(14, 12, 10, 12),
+            child: Row(
+              children: [
+                Icon(Icons.code_rounded, color: colors.primary, size: 19),
+                const SizedBox(width: 8),
+                Expanded(
+                  child: Text(
+                    '原始审计快照',
+                    style: theme.textTheme.titleSmall?.copyWith(
+                      fontWeight: FontWeight.w800,
+                    ),
+                  ),
+                ),
+                IconButton.filledTonal(
+                  tooltip: '复制审计快照',
+                  onPressed: () => unawaited(
+                    copyOpenHandTextToClipboard(
+                      context: context,
+                      text: encoded,
+                      logTag: 'dingtalk_gateway_audit',
+                    ),
+                  ),
+                  icon: const Icon(Icons.copy_all_rounded, size: 18),
+                ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(height: 8),
+        DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.surfaceContainerLowest,
+            borderRadius: BorderRadius.circular(14),
+            border: Border.all(
+              color: colors.outlineVariant.withValues(alpha: 0.72),
+            ),
+          ),
+          child: Padding(
+            padding: const EdgeInsets.all(14),
+            child: SelectableText(
+              encoded,
+              style: theme.textTheme.bodySmall?.copyWith(
+                fontFamily: 'monospace',
+                height: 1.48,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ),
+        ),
+      ],
+    );
+  }
+
+  Map<String, Object?> _safeAuditMap(Map<String, Object?> Function() builder) {
+    try {
+      return builder();
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '序列化钉钉消息审计快照', error, stack);
+      return <String, Object?>{'serialization_error': '$error'};
+    }
+  }
+}
+
+class _DingTalkAuditMetric extends StatelessWidget {
+  const _DingTalkAuditMetric({
+    required this.label,
+    required this.value,
+    required this.icon,
+  });
+
+  final String label;
+  final String value;
+  final IconData icon;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return ConstrainedBox(
+      constraints: const BoxConstraints(minWidth: 160, maxWidth: 260),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerLow,
+          borderRadius: BorderRadius.circular(13),
+          border: Border.all(
+            color: colors.outlineVariant.withValues(alpha: 0.68),
+          ),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+          child: Row(
+            children: [
+              Icon(icon, size: 18, color: colors.primary),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      label,
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      value,
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        fontWeight: FontWeight.w700,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkAuditNotice extends StatelessWidget {
+  const _DingTalkAuditNotice({
+    required this.icon,
+    required this.title,
+    required this.message,
+  });
+
+  final IconData icon;
+  final String title;
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.errorContainer.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(16),
+        border: Border.all(color: colors.error.withValues(alpha: 0.42)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.all(18),
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 28, color: colors.error),
+            const SizedBox(height: 10),
+            Text(
+              title,
+              style: theme.textTheme.titleMedium?.copyWith(
+                fontWeight: FontWeight.w800,
+              ),
+            ),
+            const SizedBox(height: 5),
+            Text(
+              message,
+              textAlign: TextAlign.center,
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
     );
   }
 }
