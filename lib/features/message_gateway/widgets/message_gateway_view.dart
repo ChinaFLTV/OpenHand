@@ -17961,13 +17961,15 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
   ) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final borderColor = colors.outlineVariant.withValues(alpha: 0.65);
+    final gridColor = colors.outlineVariant.withValues(alpha: 0.72);
+    final frameColor = colors.outline.withValues(alpha: 0.82);
+    const tableRadius = 14.0;
     return Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
         borderRadius: BorderRadius.circular(15),
-        border: Border.all(color: borderColor),
+        border: Border.all(color: gridColor),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -17999,68 +18001,83 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
                   width: tableWidth,
-                  child: Container(
-                    clipBehavior: Clip.antiAlias,
-                    decoration: BoxDecoration(
-                      color: colors.surface,
-                      borderRadius: BorderRadius.circular(11),
-                      border: Border.all(color: borderColor),
-                    ),
-                    child: Table(
-                      border: TableBorder(
-                        horizontalInside: BorderSide(color: borderColor),
-                        verticalInside: BorderSide(color: borderColor),
-                      ),
-                      columnWidths: const <int, TableColumnWidth>{
-                        0: FixedColumnWidth(150),
-                        1: FixedColumnWidth(92),
-                        2: FixedColumnWidth(72),
-                        3: FlexColumnWidth(),
-                      },
-                      defaultVerticalAlignment:
-                          TableCellVerticalAlignment.middle,
-                      children: [
-                        TableRow(
-                          decoration: BoxDecoration(
-                            color: colors.surfaceContainerHighest,
+                  child: Stack(
+                    children: [
+                      ClipRRect(
+                        borderRadius: BorderRadius.circular(tableRadius),
+                        child: Table(
+                          border: TableBorder(
+                            horizontalInside: BorderSide(color: gridColor),
+                            verticalInside: BorderSide(color: gridColor),
                           ),
-                          children: const [
-                            _DingTalkParameterTableCell('参数名', header: true),
-                            _DingTalkParameterTableCell('类型', header: true),
-                            _DingTalkParameterTableCell('要求', header: true),
-                            _DingTalkParameterTableCell('说明', header: true),
+                          columnWidths: const <int, TableColumnWidth>{
+                            0: FixedColumnWidth(150),
+                            1: FixedColumnWidth(92),
+                            2: FixedColumnWidth(72),
+                            3: FlexColumnWidth(),
+                          },
+                          defaultVerticalAlignment:
+                              TableCellVerticalAlignment.middle,
+                          children: [
+                            TableRow(
+                              decoration: BoxDecoration(
+                                color: colors.surfaceContainerHighest,
+                              ),
+                              children: const [
+                                _DingTalkParameterTableCell(
+                                  '参数名',
+                                  header: true,
+                                ),
+                                _DingTalkParameterTableCell('类型', header: true),
+                                _DingTalkParameterTableCell('要求', header: true),
+                                _DingTalkParameterTableCell('说明', header: true),
+                              ],
+                            ),
+                            for (
+                              var index = 0;
+                              index < parameters.length;
+                              index++
+                            )
+                              TableRow(
+                                decoration: BoxDecoration(
+                                  color: index.isOdd
+                                      ? colors.surfaceContainerHighest
+                                            .withValues(alpha: 0.35)
+                                      : colors.surface,
+                                ),
+                                children: [
+                                  _DingTalkParameterTableCell(
+                                    parameters[index].name,
+                                    monospace: true,
+                                  ),
+                                  _DingTalkParameterTableCell(
+                                    parameters[index].type,
+                                    monospace: true,
+                                  ),
+                                  _DingTalkParameterTableCell(
+                                    parameters[index].requirement,
+                                  ),
+                                  _DingTalkParameterTableCell(
+                                    parameters[index].description.isEmpty
+                                        ? '—'
+                                        : parameters[index].description,
+                                  ),
+                                ],
+                              ),
                           ],
                         ),
-                        for (var index = 0; index < parameters.length; index++)
-                          TableRow(
+                      ),
+                      Positioned.fill(
+                        child: IgnorePointer(
+                          child: DecoratedBox(
                             decoration: BoxDecoration(
-                              color: index.isOdd
-                                  ? colors.surfaceContainerHighest.withValues(
-                                      alpha: 0.35,
-                                    )
-                                  : colors.surface,
+                              borderRadius: BorderRadius.circular(tableRadius),
+                              border: Border.all(color: frameColor, width: 1.5),
                             ),
-                            children: [
-                              _DingTalkParameterTableCell(
-                                parameters[index].name,
-                                monospace: true,
-                              ),
-                              _DingTalkParameterTableCell(
-                                parameters[index].type,
-                                monospace: true,
-                              ),
-                              _DingTalkParameterTableCell(
-                                parameters[index].requirement,
-                              ),
-                              _DingTalkParameterTableCell(
-                                parameters[index].description.isEmpty
-                                    ? '—'
-                                    : parameters[index].description,
-                              ),
-                            ],
                           ),
-                      ],
-                    ),
+                        ),
+                      ),
+                    ],
                   ),
                 ),
               );
