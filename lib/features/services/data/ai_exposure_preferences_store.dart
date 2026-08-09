@@ -270,6 +270,7 @@ class AiExposurePreferencesStore {
           'endpoint_url': record.endpointUrl,
           'at_ms': record.sample.at.millisecondsSinceEpoch,
           'result': record.sample.result,
+          'response_time_ms': record.sample.responseTimeMs,
           'sample_json': jsonEncode(record.sample.toJson()),
           'created_at': createdAt,
         }, conflictAlgorithm: ConflictAlgorithm.ignore);
@@ -334,6 +335,7 @@ class AiExposurePreferencesStore {
     final intervalMs = interval.inMilliseconds.clamp(60000, 86400000);
     final rows = await _database.rawQuery(
       'SELECT (at_ms / ?) * ? AS bucket_ms, COUNT(*) AS total, '
+      'SUM(response_time_ms) AS total_response_time_ms, '
       "SUM(CASE WHEN result = 'success' THEN 1 ELSE 0 END) AS successes, "
       "SUM(CASE WHEN result = 'failure' THEN 1 ELSE 0 END) AS failures, "
       "SUM(CASE WHEN result = 'timeout' THEN 1 ELSE 0 END) AS timeouts "
@@ -351,6 +353,7 @@ class AiExposurePreferencesStore {
         successes: value('successes'),
         failures: value('failures'),
         timeouts: value('timeouts'),
+        totalResponseTimeMs: value('total_response_time_ms'),
       );
     }
     final startBucket =

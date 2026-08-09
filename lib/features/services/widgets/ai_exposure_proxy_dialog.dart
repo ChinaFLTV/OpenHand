@@ -1688,6 +1688,352 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 }
 
+Future<void> _showProxyAverageResponseDialog(BuildContext context) =>
+    showAnimatedDialog<void>(
+      context: context,
+      builder: (dialogContext) => buildOpenHandResponsiveDialogShell(
+        context: dialogContext,
+        maxWidth: kOpenHandDialogWidthWide,
+        maxHeight: kOpenHandDialogHeightTall,
+        maxWidthFraction: 0.92,
+        maxHeightFraction: 0.9,
+        minAvailableWidth: 300,
+        minAvailableHeight: 420,
+        horizontalMargin: 24,
+        verticalMargin: 48,
+        expandToMax: true,
+        child: const ServiceDialogInteractionTheme(
+          child: _ProxyAverageResponseDialog(),
+        ),
+      ),
+    );
+
+class _ProxyAverageResponseDialog extends StatefulWidget {
+  const _ProxyAverageResponseDialog();
+
+  @override
+  State<_ProxyAverageResponseDialog> createState() =>
+      _ProxyAverageResponseDialogState();
+}
+
+class _ProxyAverageResponseDialogState
+    extends State<_ProxyAverageResponseDialog> {
+  static const Duration _defaultRange = Duration(hours: 6);
+  static const Duration _defaultInterval = Duration(minutes: 5);
+  static const int _minRangeMs = 30 * 60 * 1000;
+  static const int _maxRangeMs = 30 * 24 * 60 * 60 * 1000;
+
+  List<AiExposureProxyRequestTrendBucket> _trend =
+      const <AiExposureProxyRequestTrendBucket>[];
+  Duration _range = _defaultRange;
+  Duration _interval = _defaultInterval;
+  Duration _scaleStartRange = _defaultRange;
+  int _loadGeneration = 0;
+  Timer? _refreshTimer;
+  bool _loading = true;
+  String? _error;
+
+  ServicesController get _controller => context.read<ServicesController>();
+
+  @override
+  void initState() {
+    super.initState();
+    WidgetsBinding.instance.addPostFrameCallback((_) => _loadTrend());
+    _refreshTimer = startNonOverlappingPeriodicTimer(
+      const Duration(seconds: 8),
+      (_) {
+        if (mounted && !_loading) return _loadTrend();
+      },
+      onError: (error, stack) =>
+          silentLog('ai_exposure_proxy_dialog', '刷新平均响应趋势', error, stack),
+    );
+  }
+
+  @override
+  void dispose() {
+    _refreshTimer?.cancel();
+    super.dispose();
+  }
+
+  Future<void> _loadTrend() async {
+    final generation = ++_loadGeneration;
+    if (mounted) {
+      setState(() {
+        _loading = true;
+        _error = null;
+      });
+    }
+    try {
+      final trend = await _controller.loadProxyRequestTrend(
+        startAt: DateTime.now().subtract(_range),
+        interval: _interval,
+      );
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _trend = trend;
+        _loading = false;
+      });
+    } catch (error, stack) {
+      silentLog('ai_exposure_proxy_dialog', '加载平均响应趋势', error, stack);
+      if (!mounted || generation != _loadGeneration) return;
+      setState(() {
+        _loading = false;
+        _error = openHandLocalizedText(
+          context,
+          zh: '平均响应趋势加载失败，请稍后重试。',
+          en: 'Failed to load average response trend. Try again later.',
+        );
+      });
+    }
+  }
+
+  void _handleScaleStart(ScaleStartDetails details) {
+    _scaleStartRange = _range;
+  }
+
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    if (details.scale <= 0 || (details.scale - 1).abs() < 0.015) return;
+    final rangeMs = (_scaleStartRange.inMilliseconds / details.scale)
+        .round()
+        .clamp(_minRangeMs, _maxRangeMs);
+    final range = Duration(milliseconds: rangeMs);
+    final interval = _trendIntervalFor(range);
+    if (range == _range && interval == _interval) return;
+    setState(() {
+      _range = range;
+      _interval = interval;
+    });
+  }
+
+  void _handleScaleEnd(ScaleEndDetails details) {
+    _loadTrend();
+  }
+
+  void _resetTrendRange() {
+    if (_range == _defaultRange && _interval == _defaultInterval) return;
+    setState(() {
+      _range = _defaultRange;
+      _interval = _defaultInterval;
+    });
+    _loadTrend();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final text = openHandTextResolver(context);
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          OpenHandResponsiveHeaderLayout(
+            compactBreakpoint: 560,
+            identity: Row(
+              children: [
+                Container(
+                  width: 46,
+                  height: 46,
+                  decoration: BoxDecoration(
+                    gradient: LinearGradient(
+                      colors: <Color>[
+                        colors.tertiary.withValues(alpha: 0.2),
+                        colors.primary.withValues(alpha: 0.12),
+                      ],
+                    ),
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(
+                      color: colors.tertiary.withValues(alpha: 0.3),
+                    ),
+                  ),
+                  alignment: Alignment.center,
+                  child: Icon(Icons.av_timer_rounded, color: colors.tertiary),
+                ),
+                const SizedBox(width: 12),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        text(zh: '平均响应', en: 'Average response'),
+                        style: theme.textTheme.titleLarge?.copyWith(
+                          fontWeight: FontWeight.w900,
+                        ),
+                      ),
+                      Text(
+                        text(
+                          zh: '代理节点请求时延趋势',
+                          en: 'Proxy request latency trend',
+                        ),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+            actions: Wrap(
+              spacing: 8,
+              children: [
+                ServiceDialogHeaderIconButton(
+                  tooltip: text(zh: '刷新趋势', en: 'Refresh trend'),
+                  onPressed: _loading ? null : _loadTrend,
+                  icon: _loading
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.refresh_rounded),
+                ),
+                ServiceDialogHeaderIconButton(
+                  tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
+                  onPressed: () => Navigator.of(context).maybePop(),
+                  icon: const Icon(Icons.close_rounded),
+                ),
+              ],
+            ),
+          ),
+          const SizedBox(height: 14),
+          Expanded(
+            child: ListView(
+              physics: openHandDialogAwareScrollPhysics(context),
+              children: [
+                if (_error != null) ...[
+                  _ProxyTelemetryNotice(message: _error!),
+                  const SizedBox(height: 10),
+                ],
+                _ProxyTelemetrySection(
+                  icon: Icons.show_chart_rounded,
+                  title: text(
+                    zh: '平均响应时延趋势',
+                    en: 'Average response latency trend',
+                  ),
+                  trailing: Wrap(
+                    spacing: 8,
+                    crossAxisAlignment: WrapCrossAlignment.center,
+                    children: [
+                      Text(
+                        '${_durationLabel(_range, text)} · ${_durationLabel(_interval, text)}',
+                        style: theme.textTheme.labelMedium?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                      IconButton(
+                        tooltip: text(
+                          zh: '恢复默认 6 小时 / 5 分钟',
+                          en: 'Reset to 6 hr / 5 min',
+                        ),
+                        onPressed:
+                            _range == _defaultRange &&
+                                _interval == _defaultInterval
+                            ? null
+                            : _resetTrendRange,
+                        icon: const Icon(Icons.center_focus_strong_rounded),
+                        visualDensity: VisualDensity.compact,
+                      ),
+                    ],
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [
+                      SizedBox(
+                        height: 300,
+                        child: Stack(
+                          children: [
+                            Positioned.fill(
+                              child: GestureDetector(
+                                behavior: HitTestBehavior.opaque,
+                                onScaleStart: _handleScaleStart,
+                                onScaleUpdate: _handleScaleUpdate,
+                                onScaleEnd: _handleScaleEnd,
+                                child: _ProxyAverageResponseTrendChart(
+                                  trend: _trend,
+                                ),
+                              ),
+                            ),
+                            if (_loading)
+                              Positioned.fill(
+                                child: ColoredBox(
+                                  color: colors.surface.withValues(alpha: 0.42),
+                                  child: const Center(
+                                    child: CircularProgressIndicator(),
+                                  ),
+                                ),
+                              ),
+                          ],
+                        ),
+                      ),
+                      const SizedBox(height: 10),
+                      Text(
+                        text(
+                          zh: '双指缩放可调整时间范围和粒度，默认粒度为 5 分钟。',
+                          en: 'Pinch to adjust the time range and granularity; the default granularity is 5 minutes.',
+                        ),
+                        style: theme.textTheme.labelSmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ProxyAverageResponseTrendChart extends StatelessWidget {
+  const _ProxyAverageResponseTrendChart({required this.trend});
+
+  final List<AiExposureProxyRequestTrendBucket> trend;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final text = openHandTextResolver(context);
+    final values = trend
+        .map((bucket) => bucket.averageResponseTimeMs.toDouble())
+        .toList(growable: false);
+    return ServiceAnimatedChart(
+      series: <OpenHandChartSeries>[
+        OpenHandChartSeries(
+          label: 'average_response_time',
+          values: values,
+          color: colors.tertiary,
+        ),
+      ],
+      builder: (context, series) => RepaintBoundary(
+        child: CustomPaint(
+          painter: OpenHandSmoothLineChartPainter(
+            series: series,
+            gridColor: colors.outlineVariant.withValues(alpha: 0.55),
+            labelColor: colors.onSurfaceVariant,
+            emptyLabel: text(
+              zh: '当前时间范围内暂无响应时延数据',
+              en: 'No response latency data in range',
+            ),
+            valueSuffix: ' ms',
+            textDirection: Directionality.of(context),
+            xLabels: trend.isEmpty
+                ? const <String>[]
+                : <String>[
+                    _chartTimeLabel(trend.first.at),
+                    _chartTimeLabel(trend.last.at),
+                  ],
+          ),
+          size: Size.infinite,
+        ),
+      ),
+    );
+  }
+}
+
 class _ProxyPoolOverview extends StatelessWidget {
   const _ProxyPoolOverview({
     required this.endpoints,
@@ -1800,23 +2146,7 @@ class _ProxyPoolOverview extends StatelessWidget {
         '${completed == 0 ? 0 : (responseTime / completed).round()} ms',
         'P95 $p95 ms',
         colors.tertiary,
-        onTap: () => showServiceDetailsDialog(
-          context,
-          title: text(zh: '平均响应', en: 'Average response'),
-          subtitle: text(zh: '代理池指标', en: 'Proxy pool metric'),
-          icon: Icons.av_timer_rounded,
-          accentColor: colors.tertiary,
-          presentation: ServiceDetailPresentation.metric,
-          fields: [
-            const ServiceDetailField(label: '指标', value: '平均响应'),
-            ServiceDetailField(
-              label: '当前值',
-              value:
-                  '${completed == 0 ? 0 : (responseTime / completed).round()} ms',
-            ),
-            const ServiceDetailField(label: '说明', value: '基于已完成请求计算'),
-          ],
-        ),
+        onTap: () => _showProxyAverageResponseDialog(context),
       ),
     ];
     return Column(

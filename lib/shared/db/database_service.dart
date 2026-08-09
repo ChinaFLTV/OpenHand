@@ -1,4 +1,5 @@
 import 'dart:async';
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:path/path.dart' as p;
@@ -18,7 +19,7 @@ class DatabaseService {
   Database? _database;
   BoundedRandomAccessFileLease? _instanceLock;
 
-  static const int schemaVersion = 15;
+  static const int schemaVersion = 16;
   static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
@@ -66,6 +67,7 @@ class DatabaseService {
       endpoint_url TEXT NOT NULL,
       at_ms        INTEGER NOT NULL,
       result       TEXT NOT NULL,
+      response_time_ms INTEGER NOT NULL DEFAULT 0,
       sample_json  TEXT NOT NULL,
       created_at   TEXT NOT NULL
     )
@@ -734,6 +736,39 @@ class DatabaseService {
     if (oldVersion < 15) {
       await db.execute(_createAiExposureProxyRequestHistoryTableSql);
       await db.execute(_createAiExposureProxyRequestHistoryIndexSql);
+    }
+    // v16：为代理请求明细增加独立时延字段，支持高效时间桶聚合。
+    if (oldVersion >= 15 && oldVersion < 16) {
+      await db.execute(
+        'ALTER TABLE ai_exposure_proxy_request_history '
+        'ADD COLUMN response_time_ms INTEGER NOT NULL DEFAULT 0',
+      );
+      final rows = await db.query(
+        'ai_exposure_proxy_request_history',
+        columns: const <String>['record_id', 'sample_json'],
+      );
+      final batch = db.batch();
+      for (final row in rows) {
+        final recordId = row['record_id'] as String?;
+        final encoded = row['sample_json'] as String?;
+        if (recordId == null || encoded == null) continue;
+        try {
+          final decoded = jsonDecode(encoded);
+          if (decoded is! Map) continue;
+          final raw = decoded['responseTimeMs'];
+          final value = raw is num ? raw.toInt() : int.tryParse('$raw');
+          if (value == null) continue;
+          batch.update(
+            'ai_exposure_proxy_request_history',
+            <String, Object?>{'response_time_ms': value < 0 ? 0 : value},
+            where: 'record_id = ?',
+            whereArgs: <Object?>[recordId],
+          );
+        } on FormatException {
+          continue;
+        }
+      }
+      await batch.commit(noResult: true);
     }
   }
 

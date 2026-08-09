@@ -655,6 +655,7 @@ class AiExposureProxyRequestTrendBucket {
     required this.successes,
     required this.failures,
     required this.timeouts,
+    this.totalResponseTimeMs = 0,
   });
 
   final DateTime at;
@@ -662,6 +663,10 @@ class AiExposureProxyRequestTrendBucket {
   final int successes;
   final int failures;
   final int timeouts;
+  final int totalResponseTimeMs;
+
+  int get averageResponseTimeMs =>
+      total <= 0 ? 0 : (totalResponseTimeMs / total).round();
 }
 
 class AiExposureProxyUsageStatistics {
