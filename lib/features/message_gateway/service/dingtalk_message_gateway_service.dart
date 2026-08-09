@@ -122,13 +122,16 @@ class DingTalkMessageGatewayService {
   static const List<String> _messageEventKeys = <String>[
     'user_im_message_receive_at',
     'user_im_message_receive_o2o_all',
+    'user_im_message_receive_group_all',
   ];
   static const List<String> _directStatusEventKeys = <String>[
+    'user_im_message_receive_o2o',
     'user_im_message_read_o2o',
     'user_im_message_recall_o2o',
     'user_im_message_reaction_o2o',
   ];
   static const List<String> _groupStatusEventKeys = <String>[
+    'user_im_message_receive_group',
     'user_im_message_read_group',
     'user_im_message_recall_group',
     'user_im_message_reaction_group',
@@ -414,15 +417,16 @@ class DingTalkMessageGatewayService {
       final isGroup = target.type == DingTalkConversationType.group;
       final targetFlag = isGroup
           ? '--group'
-          : target.openDingTalkId.trim().isNotEmpty
-          ? '--open-dingtalk-id'
-          : '--user';
+          : target.userId.trim().isNotEmpty ||
+                target.openDingTalkId.trim().isEmpty
+          ? '--user'
+          : '--open-dingtalk-id';
       final targetValue = isGroup
           ? id
-          : target.openDingTalkId.trim().isNotEmpty
-          ? target.openDingTalkId.trim()
           : target.userId.trim().isNotEmpty
           ? target.userId.trim()
+          : target.openDingTalkId.trim().isNotEmpty
+          ? target.openDingTalkId.trim()
           : id;
       if (targetValue.isEmpty) continue;
       final key = '${target.type.name}:$targetFlag:$targetValue';
@@ -942,36 +946,40 @@ class DingTalkMessageGatewayService {
     final endText = end.toIso8601String();
     final allStartText = _formatChatDateTime(start);
     final allEndText = _formatChatDateTime(end);
-    final mentions = await _runJson(<String>[
-      'chat',
-      'message',
-      'list-mentions',
-      '--start',
-      startText,
-      '--end',
-      endText,
-      '--limit',
-      '50',
-      '--cursor',
-      '0',
-      '--format',
-      'json',
+    final results = await Future.wait<Object?>(<Future<Object?>>[
+      _runJson(<String>[
+        'chat',
+        'message',
+        'list-mentions',
+        '--start',
+        startText,
+        '--end',
+        endText,
+        '--limit',
+        '50',
+        '--cursor',
+        '0',
+        '--format',
+        'json',
+      ]),
+      _runJson(<String>[
+        'chat',
+        'message',
+        'list-all',
+        '--start',
+        allStartText,
+        '--end',
+        allEndText,
+        '--limit',
+        '50',
+        '--cursor',
+        '0',
+        '--format',
+        'json',
+      ]),
     ]);
-    final all = await _runJson(<String>[
-      'chat',
-      'message',
-      'list-all',
-      '--start',
-      allStartText,
-      '--end',
-      allEndText,
-      '--limit',
-      '50',
-      '--cursor',
-      '0',
-      '--format',
-      'json',
-    ]);
+    final mentions = results[0];
+    final all = results[1];
     final messages = <DingTalkGatewayMessage>[
       ..._parseMessages(mentions, mentionedCurrentUser: true),
       ..._parseMessages(all),
@@ -981,6 +989,36 @@ class DingTalkMessageGatewayService {
         allMap['friendly_hint']?.toString() ??
         _asMap(allMap['data'])['friendly_hint']?.toString();
     return DingTalkGatewayQueryResult(messages: messages, warning: warning);
+  }
+
+  /// 回读指定会话的最近消息。消息编辑不会产生个人 IM 事件，
+  /// 因此由控制器以低频、有界的方式调用此接口做状态对账。
+  Future<List<DingTalkGatewayMessage>> queryRecentConversation({
+    required DingTalkConversation conversation,
+    int limit = 50,
+  }) async {
+    final normalizedLimit = limit.clamp(1, 50);
+    final result = await _runJson(<String>[
+      'chat',
+      'message',
+      'list',
+      ..._targetArguments(conversation),
+      '--time',
+      _formatChatDateTime(DateTime.now()),
+      '--limit',
+      '$normalizedLimit',
+      '--direction',
+      'older',
+      '--format',
+      'json',
+    ], timeout: const Duration(seconds: 15));
+    return _parseMessages(
+      result,
+      fallbackConversationId: conversation.dwsConversationId.isNotEmpty
+          ? conversation.dwsConversationId
+          : conversation.id,
+      fallbackConversationType: conversation.type,
+    );
   }
 
   Future<List<DingTalkConversationTarget>> searchTargets({
@@ -2034,6 +2072,8 @@ class DingTalkMessageGatewayService {
   List<DingTalkGatewayMessage> _parseMessages(
     Object? raw, {
     bool mentionedCurrentUser = false,
+    String fallbackConversationId = '',
+    DingTalkConversationType? fallbackConversationType,
   }) {
     final values = <Object?>[];
     void collect(Object? value) {
@@ -2089,12 +2129,17 @@ class DingTalkMessageGatewayService {
         'id',
       ]);
       final content = _content(map);
-      final conversationId = _first(map, const <String>[
+      final parsedConversationId = _first(map, const <String>[
         'openConversationId',
         'open_conversation_id',
         'conversationId',
         'conversation_id',
+        'chatId',
+        'chat_id',
       ]);
+      final conversationId = parsedConversationId.isNotEmpty
+          ? parsedConversationId
+          : fallbackConversationId.trim();
       final media = _extractMedia(map)
           .map(
             (item) =>
@@ -2102,7 +2147,7 @@ class DingTalkMessageGatewayService {
           )
           .toList(growable: false);
       if (id.isEmpty ||
-          (content.isEmpty && media.isEmpty) ||
+          (content.isEmpty && media.isEmpty && !_messageRecalled(map)) ||
           conversationId.isEmpty) {
         continue;
       }
@@ -2111,24 +2156,24 @@ class DingTalkMessageGatewayService {
         'conversation_type',
         'chatType',
       ]).toLowerCase();
+      final conversationType = typeText.contains('group') || typeText == '2'
+          ? DingTalkConversationType.group
+          : typeText.isNotEmpty
+          ? DingTalkConversationType.direct
+          : fallbackConversationType ?? DingTalkConversationType.direct;
+      final recalled = _messageRecalled(map);
       result.add(
         DingTalkGatewayMessage(
           id: id,
           conversationId: conversationId,
-          conversationType: typeText.contains('group') || typeText == '2'
-              ? DingTalkConversationType.group
-              : DingTalkConversationType.direct,
+          conversationType: conversationType,
           role: DingTalkGatewayMessageRole.user,
-          content: content.isEmpty ? _mediaSummary(media) : content,
-          createdAt:
-              DateTime.tryParse(
-                _first(map, const <String>[
-                  'createTime',
-                  'createdAt',
-                  'create_time',
-                ]),
-              )?.toLocal() ??
-              DateTime.now(),
+          content: content.isEmpty && !recalled
+              ? _mediaSummary(media)
+              : content,
+          createdAt: _parseDateTime(
+            map['createTime'] ?? map['createdAt'] ?? map['create_time'],
+          ),
           senderName: _eventString(map, const <String>[
             'senderName',
             'senderNick',
@@ -2150,7 +2195,14 @@ class DingTalkMessageGatewayService {
             'title',
           ]),
           media: media,
-          fromSelf: _asBool(map['isSelf']) || _asBool(map['isMine']),
+          fromSelf:
+              _asBool(map['isSelf']) ||
+              _asBool(map['is_self']) ||
+              _asBool(map['isMine']) ||
+              _asBool(map['is_mine']) ||
+              _asBool(map['isSelfLoop']) ||
+              _asBool(map['is_self_loop']),
+          recalled: recalled,
           mentionedCurrentUser:
               mentionedCurrentUser ||
               _asBool(map['mentionedCurrentUser']) ||
@@ -2181,21 +2233,29 @@ class DingTalkMessageGatewayService {
 
   DingTalkGatewayEvent? _parseEvent(Object? raw) {
     if (raw is! Map) return null;
-    final map = _asMap(raw);
+    final map = _eventEnvelopeMap(raw);
     final eventKey = _eventString(map, const <String>[
       'event_key',
       'eventKey',
       'event_type',
       'eventType',
+      'event_name',
+      'eventName',
+      'event',
       'type',
     ]).toLowerCase();
-    final eventType = _eventTypeFromKey(eventKey);
+    final eventType = eventKey.isEmpty && _messageRecalled(map)
+        ? DingTalkGatewayEventType.recall
+        : _eventTypeFromKey(eventKey);
     final conversationId = _eventString(map, const <String>[
       'conversation_id',
       'conversationId',
       'openConversationId',
       'open_conversation_id',
+      'open_conv_id',
+      'openConvId',
       'chat_id',
+      'chatId',
     ]);
     final chatType = _eventString(map, const <String>[
       'chat_type',
@@ -2208,13 +2268,16 @@ class DingTalkMessageGatewayService {
       'messageId',
       'openMessageId',
       'open_message_id',
+      'openMsgId',
+      'open_msg_id',
       'msg_id',
       'msgId',
     ]);
     if (messageId.isEmpty && eventType == DingTalkGatewayEventType.message) {
       messageId = _eventString(map, const <String>['event_id', 'eventId']);
     }
-    if (messageId.isEmpty || conversationId.isEmpty) return null;
+    // 撤回、已读事件有些版本只带消息 ID；控制器可按消息 ID在本地定位会话。
+    if (messageId.isEmpty) return null;
     final conversationType =
         chatType.contains('group') ||
             chatType == '2' ||
@@ -2224,6 +2287,10 @@ class DingTalkMessageGatewayService {
             _asBool(map['isGroup'])
         ? DingTalkConversationType.group
         : DingTalkConversationType.direct;
+    if (eventType == DingTalkGatewayEventType.message &&
+        conversationId.isEmpty) {
+      return null;
+    }
     if (eventType != DingTalkGatewayEventType.message) {
       if (eventType == DingTalkGatewayEventType.reaction) {
         final reaction = _eventReaction(map);
@@ -2330,6 +2397,36 @@ class DingTalkMessageGatewayService {
     );
   }
 
+  Map<String, Object?> _eventEnvelopeMap(Map raw) {
+    final root = _asMap(raw);
+    final result = Map<String, Object?>.from(root);
+
+    void merge(Object? value, int depth) {
+      if (depth > 3 || value == null) return;
+      final Object? current;
+      if (value is String) {
+        final text = value.trim();
+        if (!text.startsWith('{')) return;
+        current = _decodeJson(text);
+      } else {
+        current = value;
+      }
+      if (current is! Map) return;
+      final map = _asMap(current);
+      for (final entry in map.entries) {
+        result.putIfAbsent(entry.key, () => entry.value);
+      }
+      for (final key in const <String>['data', 'payload', 'event', 'message']) {
+        merge(map[key], depth + 1);
+      }
+    }
+
+    for (final key in const <String>['data', 'payload', 'event', 'message']) {
+      merge(root[key], 1);
+    }
+    return result;
+  }
+
   DingTalkGatewayEventType _eventTypeFromKey(String key) {
     if (key.contains('reaction')) return DingTalkGatewayEventType.reaction;
     if (key.contains('recall')) return DingTalkGatewayEventType.recall;
@@ -2395,6 +2492,41 @@ class DingTalkMessageGatewayService {
     return String.fromCharCodes(mapped.runes.take(24));
   }
 
+  bool _messageRecalled(Map<String, Object?> map, {int depth = 0}) {
+    for (final key in const <String>[
+      'recalled',
+      'isRecalled',
+      'is_recalled',
+      'recall',
+      'isRecall',
+      'is_recall',
+      'withdrawn',
+      'isWithdrawn',
+      'is_withdrawn',
+    ]) {
+      if (_asBool(map[key])) return true;
+    }
+    final status = _first(map, const <String>[
+      'messageStatus',
+      'message_status',
+      'status',
+    ]).toLowerCase();
+    if (status.contains('recall') ||
+        status.contains('withdraw') ||
+        status.contains('revoke') ||
+        status.contains('撤回')) {
+      return true;
+    }
+    if (depth >= 2) return false;
+    for (final key in const <String>['data', 'payload', 'message']) {
+      final value = map[key];
+      if (value is Map && _messageRecalled(_asMap(value), depth: depth + 1)) {
+        return true;
+      }
+    }
+    return false;
+  }
+
   String _eventString(
     Map<String, Object?> map,
     List<String> keys, {
@@ -2432,14 +2564,16 @@ class DingTalkMessageGatewayService {
     return '';
   }
 
-  DateTime _eventDateTime(Map<String, Object?> map) {
-    final value =
-        map['create_time'] ??
+  DateTime _eventDateTime(Map<String, Object?> map) => _parseDateTime(
+    map['create_time'] ??
         map['createTime'] ??
         map['created_at'] ??
         map['createdAt'] ??
         map['event_time'] ??
-        map['timestamp'];
+        map['timestamp'],
+  );
+
+  DateTime _parseDateTime(Object? value) {
     if (value is num) {
       final milliseconds = value.abs() < 100000000000
           ? value.toInt() * 1000
@@ -2724,8 +2858,11 @@ class DingTalkMessageGatewayService {
   Map<String, Object?> _asMap(Object? value) => value is Map
       ? value.map((key, value) => MapEntry('$key', value))
       : <String, Object?>{};
-  bool _asBool(Object? value) =>
-      value == true || '$value'.toLowerCase() == 'true';
+  bool _asBool(Object? value) {
+    if (value == true || value == 1) return true;
+    final normalized = '$value'.trim().toLowerCase();
+    return normalized == 'true' || normalized == '1' || normalized == 'yes';
+  }
 }
 
 extension on String {
