@@ -305,131 +305,119 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                               ),
                             ),
                           )
-                        : ConstrainedBox(
-                            constraints: const BoxConstraints(
-                              maxHeight: _kProxyEndpointListMaxHeight,
-                            ),
-                            child: Padding(
-                              padding: const EdgeInsets.only(
-                                right: _kProxyEndpointScrollbarGutter,
-                              ),
-                              child: OpenHandSafeScrollbar(
-                                controller: _endpointScrollController,
-                                thumbVisibility: true,
-                                thickness: 5,
-                                radius: const Radius.circular(99),
-                                interactive: true,
-                                scrollbarOrientation:
-                                    ScrollbarOrientation.right,
-                                child: TooltipVisibility(
-                                  visible: endpointTooltipsVisible,
-                                  child: ListView.builder(
+                        : LayoutBuilder(
+                            builder: (context, constraints) {
+                              final availableHeight =
+                                  constraints.hasBoundedHeight
+                                  ? constraints.maxHeight
+                                  : _kProxyEndpointListMaxHeight;
+                              final listHeight = availableHeight
+                                  .clamp(1.0, _kProxyEndpointListMaxHeight)
+                                  .toDouble();
+                              return SizedBox(
+                                height: listHeight,
+                                child: Padding(
+                                  padding: const EdgeInsets.only(
+                                    right: _kProxyEndpointScrollbarGutter,
+                                  ),
+                                  child: OpenHandSafeScrollbar(
                                     controller: _endpointScrollController,
-                                    primary: false,
-                                    shrinkWrap: true,
-                                    clipBehavior: Clip.none,
-                                    physics: openHandDialogAwareScrollPhysics(
-                                      context,
-                                    ),
-                                    itemCount: visibleEndpoints.length,
-                                    findChildIndexCallback: (key) =>
-                                        visibleEndpointIndexByKey[key],
-                                    itemBuilder: (context, index) {
-                                      final endpoint = visibleEndpoints[index];
-                                      return LayoutBuilder(
-                                        key: ValueKey<String>(endpoint.url),
-                                        builder: (context, constraints) {
-                                          final itemWidth =
-                                              constraints.maxWidth +
-                                              _kProxyEndpointScrollbarGutter;
-                                          return OverflowBox(
-                                            alignment: AlignmentDirectional
-                                                .centerStart,
-                                            minWidth: itemWidth,
-                                            maxWidth: itemWidth,
-                                            child: SizedBox(
-                                              width: itemWidth,
-                                              child: OpenHandListRemovalTransition(
-                                                collapsed: _removingUrls
+                                    thumbVisibility: true,
+                                    thickness: 5,
+                                    radius: const Radius.circular(99),
+                                    interactive: true,
+                                    scrollbarOrientation:
+                                        ScrollbarOrientation.right,
+                                    child: TooltipVisibility(
+                                      visible: endpointTooltipsVisible,
+                                      child: ListView.builder(
+                                        controller: _endpointScrollController,
+                                        primary: false,
+                                        clipBehavior: Clip.none,
+                                        physics:
+                                            openHandDialogAwareScrollPhysics(
+                                              context,
+                                            ),
+                                        itemCount: visibleEndpoints.length,
+                                        findChildIndexCallback: (key) =>
+                                            visibleEndpointIndexByKey[key],
+                                        itemBuilder: (context, index) {
+                                          final endpoint =
+                                              visibleEndpoints[index];
+                                          return OpenHandListRemovalTransition(
+                                            key: ValueKey<String>(endpoint.url),
+                                            collapsed: _removingUrls.contains(
+                                              endpoint.url,
+                                            ),
+                                            child: Padding(
+                                              padding: const EdgeInsets.only(
+                                                bottom: 8,
+                                              ),
+                                              child: _ProxyEndpointCard(
+                                                endpoint: endpoint,
+                                                statistics:
+                                                    statusStatistics[endpoint
+                                                        .runtimeId] ??
+                                                    endpoint.statistics,
+                                                testing: _testingUrls.contains(
+                                                  endpoint.url,
+                                                ),
+                                                busy:
+                                                    _busy ||
+                                                    _inspectionBusy ||
+                                                    _removingUrls.isNotEmpty,
+                                                selectionMode: _selectionMode,
+                                                selected: _selectedUrls
                                                     .contains(endpoint.url),
-                                                child: Padding(
-                                                  padding:
-                                                      const EdgeInsets.only(
-                                                        bottom: 8,
-                                                      ),
-                                                  child: _ProxyEndpointCard(
-                                                    endpoint: endpoint,
-                                                    statistics:
-                                                        statusStatistics[endpoint
-                                                            .runtimeId] ??
-                                                        endpoint.statistics,
-                                                    testing: _testingUrls
-                                                        .contains(endpoint.url),
-                                                    busy:
-                                                        _busy ||
-                                                        _inspectionBusy ||
-                                                        _removingUrls
-                                                            .isNotEmpty,
-                                                    selectionMode:
-                                                        _selectionMode,
-                                                    selected: _selectedUrls
-                                                        .contains(endpoint.url),
-                                                    trailingSafeInset:
-                                                        _kProxyEndpointScrollbarGutter,
-                                                    onSelectedChanged:
-                                                        (
-                                                          selected,
-                                                        ) => setState(() {
-                                                          if (selected) {
-                                                            _selectedUrls.add(
-                                                              endpoint.url,
-                                                            );
-                                                          } else {
-                                                            _selectedUrls
-                                                                .remove(
-                                                                  endpoint.url,
-                                                                );
-                                                          }
-                                                        }),
-                                                    onEnabledChanged:
-                                                        (enabled) => unawaited(
-                                                          _setEndpointEnabled(
-                                                            endpoint.url,
-                                                            enabled,
-                                                          ),
-                                                        ),
-                                                    onTest: () => _testEndpoint(
-                                                      endpoint.url,
-                                                    ),
-                                                    onDetails: () =>
-                                                        _showEndpointDetails(
-                                                          endpoint,
-                                                          statusStatistics[endpoint
-                                                                  .runtimeId] ??
-                                                              endpoint
-                                                                  .statistics,
-                                                        ),
-                                                    onExport: () =>
-                                                        _exportOne(endpoint),
-                                                    onEdit: () =>
-                                                        _editEndpoint(endpoint),
-                                                    onDelete: () => unawaited(
-                                                      _confirmDeleteEndpoints(
-                                                        <String>{endpoint.url},
+                                                trailingSafeInset:
+                                                    _kProxyEndpointScrollbarGutter,
+                                                onSelectedChanged: (selected) =>
+                                                    setState(() {
+                                                      if (selected) {
+                                                        _selectedUrls.add(
+                                                          endpoint.url,
+                                                        );
+                                                      } else {
+                                                        _selectedUrls.remove(
+                                                          endpoint.url,
+                                                        );
+                                                      }
+                                                    }),
+                                                onEnabledChanged: (enabled) =>
+                                                    unawaited(
+                                                      _setEndpointEnabled(
+                                                        endpoint.url,
+                                                        enabled,
                                                       ),
                                                     ),
+                                                onTest: () =>
+                                                    _testEndpoint(endpoint.url),
+                                                onDetails: () =>
+                                                    _showEndpointDetails(
+                                                      endpoint,
+                                                      statusStatistics[endpoint
+                                                              .runtimeId] ??
+                                                          endpoint.statistics,
+                                                    ),
+                                                onExport: () =>
+                                                    _exportOne(endpoint),
+                                                onEdit: () =>
+                                                    _editEndpoint(endpoint),
+                                                onDelete: () => unawaited(
+                                                  _confirmDeleteEndpoints(
+                                                    <String>{endpoint.url},
                                                   ),
                                                 ),
                                               ),
                                             ),
                                           );
                                         },
-                                      );
-                                    },
+                                      ),
+                                    ),
                                   ),
                                 ),
-                              ),
-                            ),
+                              );
+                            },
                           ),
                   ),
                 ],
@@ -1681,7 +1669,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
 
   Future<void> _save() async {
     final controller = context.read<ServicesController>();
-    final endpoints = controller.proxyConfiguration.endpoints;
+    final endpoints = List<AiExposureProxyEndpoint>.unmodifiable(_endpoints);
     final activeCount = endpoints.where((endpoint) => endpoint.enabled).length;
     if (_inspectionEnabled && activeCount == 0) {
       showOpenHandErrorSnack(context, '启用定时巡检前请至少启用一个代理节点。');
