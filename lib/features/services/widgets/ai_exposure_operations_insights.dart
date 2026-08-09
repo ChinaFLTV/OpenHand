@@ -8,7 +8,7 @@ const InputDecoration _kTaskLedgerFilterDecoration = InputDecoration(
   contentPadding: EdgeInsets.symmetric(horizontal: 10, vertical: 5),
   constraints: BoxConstraints.tightFor(height: _kTaskLedgerFilterHeight),
 );
-const double _kTaskLedgerDesktopTableWidth = 2440;
+const double _kTaskLedgerDesktopRowHorizontalPadding = 6;
 const double _kTaskLedgerPipelineMinHeight = 520;
 const Duration _kTaskLedgerPageMotionDuration = Duration(milliseconds: 180);
 const double _kTaskLedgerStatusWidth = 84;
@@ -31,6 +31,31 @@ const double _kTaskLedgerConcurrencyWidth = 68;
 const double _kTaskLedgerScopeWidth = 170;
 const double _kTaskLedgerErrorWidth = 230;
 const double _kTaskLedgerDetailsWidth = 56;
+// 列宽合计为内容宽度，表头和数据行各保留左右 6px 内边距。
+const double _kTaskLedgerDesktopTableContentWidth =
+    _kTaskLedgerStatusWidth +
+    _kTaskLedgerCreatedWidth +
+    _kTaskLedgerStartedWidth +
+    _kTaskLedgerFinishedWidth +
+    _kTaskLedgerDurationWidth +
+    _kTaskLedgerNameWidth +
+    _kTaskLedgerIdWidth +
+    _kTaskLedgerModeWidth +
+    _kTaskLedgerSourceWidth +
+    _kTaskLedgerProgressWidth +
+    _kTaskLedgerCandidatesWidth +
+    _kTaskLedgerValidWidth +
+    _kTaskLedgerHighValueWidth +
+    _kTaskLedgerUpdatedWidth +
+    _kTaskLedgerFailureStageWidth +
+    _kTaskLedgerRetryWidth +
+    _kTaskLedgerConcurrencyWidth +
+    _kTaskLedgerScopeWidth +
+    _kTaskLedgerErrorWidth +
+    _kTaskLedgerDetailsWidth;
+const double _kTaskLedgerDesktopTableWidth =
+    _kTaskLedgerDesktopTableContentWidth +
+    _kTaskLedgerDesktopRowHorizontalPadding * 2;
 const Duration _kTaskTrendDefaultRange = Duration(hours: 6);
 const Duration _kTaskTrendDefaultInterval = Duration(minutes: 5);
 const int _kTaskTrendMinRangeMs = 30 * 60 * 1000;
@@ -1384,7 +1409,9 @@ class _TaskLedgerHeader extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) => const Padding(
-    padding: EdgeInsets.symmetric(horizontal: 6),
+    padding: EdgeInsets.symmetric(
+      horizontal: _kTaskLedgerDesktopRowHorizontalPadding,
+    ),
     child: SizedBox(
       height: 40,
       child: Row(
@@ -1448,7 +1475,10 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
         ? 0.0
         : (task.progress.processed / task.progress.total).clamp(0.0, 1.0);
     return ServiceInteractiveSurface(
-      padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 4),
+      padding: const EdgeInsets.symmetric(
+        horizontal: _kTaskLedgerDesktopRowHorizontalPadding,
+        vertical: 4,
+      ),
       tooltip: '查看任务详情',
       showDetailsIcon: false,
       onTap: () {
