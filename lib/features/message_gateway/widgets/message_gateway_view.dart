@@ -14342,7 +14342,7 @@ class _DingTalkMessageAuditDialogState
   static const int _maxSnapshotCharacters = 240000;
   static const double _metricGap = 10;
   static const double _metricMinWidth = 260;
-  static const double _metricHeight = 76;
+  static const double _metricHeight = 52;
   static const BorderRadius _auditCardBorderRadius = BorderRadius.all(
     Radius.circular(16),
   );
@@ -14682,6 +14682,7 @@ class _DingTalkAuditMetric extends StatelessWidget {
             const SizedBox(width: 8),
             Expanded(
               child: Column(
+                mainAxisSize: MainAxisSize.min,
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(
@@ -14693,7 +14694,7 @@ class _DingTalkAuditMetric extends StatelessWidget {
                   const SizedBox(height: 2),
                   Text(
                     data.value,
-                    maxLines: 2,
+                    maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                     style: theme.textTheme.bodySmall?.copyWith(
                       fontWeight: FontWeight.w700,
