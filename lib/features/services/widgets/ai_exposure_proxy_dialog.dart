@@ -2487,12 +2487,14 @@ class _ProxyTelemetrySection extends StatelessWidget {
               Expanded(
                 child: Text(
                   title,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.titleSmall?.copyWith(
                     fontWeight: FontWeight.w900,
                   ),
                 ),
               ),
-              if (trailing != null) Flexible(child: trailing!),
+              if (trailing != null) ...[const Spacer(), trailing!],
             ],
           ),
           const SizedBox(height: 12),
@@ -2587,6 +2589,7 @@ class _ProxyRequestDistribution extends StatelessWidget {
           ),
         );
         final legend = Wrap(
+          alignment: WrapAlignment.end,
           spacing: 12,
           runSpacing: 10,
           children: [
