@@ -7,6 +7,7 @@ import 'package:flutter/material.dart';
 import '../../app/support/silent_log.dart';
 import '../db/atomic_file_operations.dart';
 import '../util/localized_text.dart';
+import '../util/timer_safety.dart';
 import 'animated_dialog.dart';
 import 'auto_follow_scroll_guard.dart';
 import 'motion_preference.dart';
@@ -62,7 +63,12 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
     super.initState();
     _lastRevision = widget.revision();
     widget.listenable.addListener(_refresh);
-    _refreshTimer = Timer.periodic(_refreshInterval, (_) => _refresh());
+    _refreshTimer = startNonOverlappingPeriodicTimer(
+      _refreshInterval,
+      (_) => _refresh(),
+      onError: (error, stack) =>
+          silentLog('runtime_log_dialog', '刷新运行日志', error, stack),
+    );
     _scheduleFollow();
   }
 
@@ -72,6 +78,24 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
     _refreshTimer?.cancel();
     _scrollController.dispose();
     super.dispose();
+  }
+
+  @override
+  void didUpdateWidget(covariant OpenHandRuntimeLogDialog oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    final listenableChanged = !identical(
+      oldWidget.listenable,
+      widget.listenable,
+    );
+    if (listenableChanged) {
+      oldWidget.listenable.removeListener(_refresh);
+      widget.listenable.addListener(_refresh);
+    }
+    if (listenableChanged || oldWidget.revision != widget.revision) {
+      _lastRevision = widget.revision();
+      _refreshing = true;
+      _scheduleFollow();
+    }
   }
 
   void _refresh() {

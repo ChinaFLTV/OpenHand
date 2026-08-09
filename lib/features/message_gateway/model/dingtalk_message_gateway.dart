@@ -309,7 +309,7 @@ class DingTalkConversationTarget {
 
 class DingTalkGatewaySettings {
   const DingTalkGatewaySettings({
-    this.pollIntervalSeconds = 3,
+    this.pollIntervalSeconds = defaultPollIntervalSeconds,
     this.reminderMode = DingTalkReminderMode.inApp,
     this.responseModelKey = '',
     this.workingDirectory = '',
@@ -339,8 +339,9 @@ class DingTalkGatewaySettings {
       orElse: () => DingTalkReminderMode.inApp,
     );
     return DingTalkGatewaySettings(
-      pollIntervalSeconds:
-          int.tryParse('${json['poll_interval_seconds'] ?? 3}') ?? 3,
+      pollIntervalSeconds: normalizePollIntervalSeconds(
+        json['poll_interval_seconds'],
+      ),
       reminderMode: mode,
       responseModelKey: '${json['response_model_key'] ?? ''}',
       workingDirectory: '${json['working_directory'] ?? ''}',
@@ -375,6 +376,10 @@ class DingTalkGatewaySettings {
     ).normalized();
   }
 
+  static const int defaultPollIntervalSeconds = 3;
+  static const int minPollIntervalSeconds = 3;
+  static const int maxPollIntervalSeconds = 300;
+
   final int pollIntervalSeconds;
   final DingTalkReminderMode reminderMode;
   final String responseModelKey;
@@ -395,6 +400,16 @@ class DingTalkGatewaySettings {
   final List<DingTalkConversationTarget> allowedContactTargets;
   final List<DingTalkResponseEchoType> responseEchoTypes;
 
+  static int normalizePollIntervalSeconds(Object? value) {
+    final parsed = optionalIntegralIntFromValue(value);
+    return (parsed ?? defaultPollIntervalSeconds)
+        .clamp(minPollIntervalSeconds, maxPollIntervalSeconds)
+        .toInt();
+  }
+
+  Duration get pollInterval =>
+      Duration(seconds: normalizePollIntervalSeconds(pollIntervalSeconds));
+
   DingTalkGatewaySettings normalized({
     Iterable<String>? availableMcpServerNames,
     Iterable<String>? availableSkillNames,
@@ -403,7 +418,7 @@ class DingTalkGatewaySettings {
     Iterable<String>? availableKnowledgeBaseSourceIds,
     Iterable<String>? availableDingTalkDwsCommandIds,
   }) => DingTalkGatewaySettings(
-    pollIntervalSeconds: pollIntervalSeconds.clamp(3, 300).toInt(),
+    pollIntervalSeconds: normalizePollIntervalSeconds(pollIntervalSeconds),
     reminderMode: reminderMode,
     responseModelKey: responseModelKey.trim(),
     workingDirectory: Directory(
@@ -469,7 +484,9 @@ class DingTalkGatewaySettings {
     List<DingTalkConversationTarget>? allowedContactTargets,
     List<DingTalkResponseEchoType>? responseEchoTypes,
   }) => DingTalkGatewaySettings(
-    pollIntervalSeconds: pollIntervalSeconds ?? this.pollIntervalSeconds,
+    pollIntervalSeconds: normalizePollIntervalSeconds(
+      pollIntervalSeconds ?? this.pollIntervalSeconds,
+    ),
     reminderMode: reminderMode ?? this.reminderMode,
     responseModelKey: responseModelKey ?? this.responseModelKey,
     workingDirectory: workingDirectory ?? this.workingDirectory,

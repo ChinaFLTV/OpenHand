@@ -18,6 +18,7 @@ import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
+import '../../shared/util/timer_safety.dart';
 import '../ai/index.dart';
 import '../instructions/index.dart';
 import '../knowledge_base/index.dart';
@@ -1782,9 +1783,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   void _schedulePolling({bool immediate = false, Duration? interval}) {
     _pollTimer?.cancel();
-    _pollTimer = Timer.periodic(
-      interval ?? Duration(seconds: _settings.pollIntervalSeconds),
-      (_) => unawaited(_pollOnce()),
+    final effectiveInterval = interval ?? _settings.pollInterval;
+    _pollTimer = startNonOverlappingPeriodicTimer(
+      effectiveInterval,
+      (_) => _pollOnce(),
+      onError: (error, stack) =>
+          silentLog('dingtalk_gateway', '执行钉钉轮询定时任务', error, stack),
     );
     if (immediate) unawaited(_pollOnce());
   }

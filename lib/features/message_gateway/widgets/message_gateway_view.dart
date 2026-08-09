@@ -12923,15 +12923,21 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   }
 
   void _ensureRefreshTimer() {
-    final seconds = widget.controller.settings.pollIntervalSeconds;
+    final interval = widget.controller.settings.pollInterval;
+    final seconds = interval.inSeconds;
     if (_refreshIntervalSeconds == seconds && _refreshTimer != null) return;
     _refreshTimer?.cancel();
     _refreshIntervalSeconds = seconds;
-    _refreshTimer = Timer.periodic(Duration(seconds: seconds), (_) {
-      if (!mounted) return;
-      setState(() {});
-      _scheduleAutoFollow();
-    });
+    _refreshTimer = startNonOverlappingPeriodicTimer(
+      interval,
+      (_) {
+        if (!mounted) return;
+        setState(() {});
+        _scheduleAutoFollow();
+      },
+      onError: (error, stack) =>
+          silentLog('dingtalk_gateway_ui', '刷新钉钉消息视图', error, stack),
+    );
   }
 
   void _close() {
@@ -13272,15 +13278,22 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   void _startVoiceVisualTicker() {
     _voiceVisualTimer?.cancel();
-    _voiceVisualTimer = Timer.periodic(_voiceVisualInterval, (_) {
-      if (!mounted || !_recordingVoice) return;
-      _publishVoiceVisual();
-      if (_currentVoiceElapsed() >= _maxVoiceDuration &&
-          !_voiceControlBusy &&
-          _voiceRecorderStarted) {
-        unawaited(_finishVoiceRecording());
-      }
-    });
+    _voiceVisualTimer = startNonOverlappingPeriodicTimer(
+      _voiceVisualInterval,
+      (_) {
+        if (!mounted || !_recordingVoice) return;
+        _publishVoiceVisual();
+        if (_currentVoiceElapsed() >= _maxVoiceDuration &&
+            !_voiceControlBusy &&
+            _voiceRecorderStarted) {
+          unawaited(_finishVoiceRecording());
+        }
+      },
+      min: _voiceVisualInterval,
+      callbackTimeout: const Duration(seconds: 5),
+      onError: (error, stack) =>
+          silentLog('dingtalk_gateway_ui', '刷新语音波形', error, stack),
+    );
     _publishVoiceVisual();
   }
 
@@ -18826,7 +18839,9 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   }
 
   Future<void> _save() async {
-    final seconds = int.tryParse(_intervalController.text.trim()) ?? 3;
+    final seconds = DingTalkGatewaySettings.normalizePollIntervalSeconds(
+      _intervalController.text,
+    );
     final rawDirectory = _workingDirectoryController.text.trim();
     final workingDirectory = Directory(
       OpenHandPaths.normalizePath(
