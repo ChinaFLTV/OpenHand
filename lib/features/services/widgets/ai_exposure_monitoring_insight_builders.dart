@@ -148,113 +148,10 @@ Widget _buildOverviewMetricInsight(
   final chronological = _chronologicalTasks(controller);
   final results = controller.results;
   final logs = controller.logs;
-  int taskCount(String stage) =>
-      history.where((entry) => entry.stage == stage).length;
-  final active = history.where((entry) => !entry.isTerminal).length;
 
   switch (id) {
     case _MetricInsightId.overviewTaskTotal:
-      final completed = taskCount('completed');
-      final failed = taskCount('failed');
-      final cancelled = taskCount('cancelled');
-      final throughput = history.fold<int>(
-        0,
-        (sum, entry) => sum + entry.progress.processed,
-      );
-      return _metricInsightPage([
-        const AiExposureTaskLedger(),
-        _InsightKpiBand(
-          title: '任务运行账本',
-          icon: Icons.work_history_outlined,
-          items: [
-            _InsightKpi(
-              icon: Icons.task_alt_rounded,
-              label: '完成',
-              value: '$completed',
-              helper: history.isEmpty
-                  ? '暂无任务'
-                  : '${(completed * 100 / history.length).toStringAsFixed(1)}% 完成率',
-              color: OpenHandStatusColors.success,
-            ),
-            _InsightKpi(
-              icon: Icons.pending_actions_rounded,
-              label: '运行中',
-              value: '$active',
-              helper: '服务当前活动任务',
-              color: OpenHandStatusColors.info,
-            ),
-            _InsightKpi(
-              icon: Icons.error_outline_rounded,
-              label: '失败',
-              value: '$failed',
-              helper: '可进入恢复检查',
-              color: OpenHandStatusColors.error,
-            ),
-            _InsightKpi(
-              icon: Icons.radar_rounded,
-              label: '累计处理',
-              value: '$throughput',
-              helper: '跨全部任务汇总',
-              color: colors.primary,
-            ),
-          ],
-        ),
-        _InsightRankingSection(
-          title: '任务终态规模',
-          icon: Icons.account_tree_outlined,
-          items: [
-            _InsightRankItem(
-              label: '完成',
-              value: completed.toDouble(),
-              valueLabel: '$completed',
-              color: OpenHandStatusColors.success,
-              target: completed == 0
-                  ? null
-                  : const _TaskCollectionInsightTarget(
-                      status: 'completed',
-                      title: '完成任务',
-                    ),
-            ),
-            _InsightRankItem(
-              label: '失败',
-              value: failed.toDouble(),
-              valueLabel: '$failed',
-              color: OpenHandStatusColors.error,
-              target: failed == 0
-                  ? null
-                  : const _TaskCollectionInsightTarget(
-                      status: 'failed',
-                      title: '失败任务',
-                    ),
-            ),
-            _InsightRankItem(
-              label: '取消',
-              value: cancelled.toDouble(),
-              valueLabel: '$cancelled',
-              color: OpenHandStatusColors.warning,
-              target: cancelled == 0
-                  ? null
-                  : const _TaskCollectionInsightTarget(
-                      status: 'cancelled',
-                      title: '取消任务',
-                    ),
-            ),
-            _InsightRankItem(
-              label: '运行中',
-              value: active.toDouble(),
-              valueLabel: '$active',
-              color: OpenHandStatusColors.info,
-              target: active == 0
-                  ? null
-                  : const _TaskCollectionInsightTarget(
-                      status: 'running',
-                      title: '运行中任务',
-                    ),
-            ),
-          ],
-          emptyLabel: '暂无任务状态数据。',
-        ),
-      ]);
+      return const _TaskTelemetryInsight();
     case _MetricInsightId.overviewResultTotal:
       int category(AiExposureResultCategory value) =>
           results.where((entry) => entry.category == value).length;
@@ -631,7 +528,6 @@ Widget _buildOverviewMetricInsight(
           interpolation: OpenHandChartInterpolation.smooth,
           targets: _proxyTargetsForSamples(controller, samples),
         ),
-        _proxyFleetLatencyPanel(context, controller),
       ]);
     case _MetricInsightId.overviewWarningLogs:
       return _buildLogMetricInsight(
@@ -4446,53 +4342,6 @@ Widget _proxyRouteReadinessPanel(
     title: '出口路由就绪检查',
     records: checks,
     emptyLabel: '暂无出口路由状态。',
-  );
-}
-
-Widget _proxyFleetLatencyPanel(
-  BuildContext context,
-  ServicesController controller,
-) {
-  final samples = _proxyRequestSamples(controller);
-  final completed = samples
-      .where((sample) => sample.responseTimeMs > 0)
-      .toList();
-  final average = completed.isEmpty
-      ? 0
-      : (completed.fold<int>(0, (sum, sample) => sum + sample.responseTimeMs) /
-                completed.length)
-            .round();
-  final sorted = completed.map((sample) => sample.responseTimeMs).toList()
-    ..sort();
-  final median = _latencyPercentile(sorted, 0.5);
-  final p95 = _latencyPercentile(sorted, 0.95);
-  final records = <_InsightRecord>[
-    _InsightRecord(
-      icon: Icons.av_timer_rounded,
-      title: '近期响应中心值',
-      subtitle: '仅基于最近 ${completed.length} 个真实代理请求样本。',
-      tags: ['平均 $average ms', '中位数 $median ms', 'p95 $p95 ms'],
-      color: completed.isEmpty
-          ? Theme.of(context).colorScheme.outline
-          : Theme.of(context).colorScheme.primary,
-    ),
-    _InsightRecord(
-      icon: Icons.compare_arrows_rounded,
-      title: '累计与近期口径差异',
-      subtitle: '累计值来自服务运行时计数，近期值来自有限请求窗口。',
-      tags: [
-        '累计平均 ${controller.proxyStatus?.averageResponseTimeMs ?? 0} ms',
-        '近期平均 $average ms',
-        '窗口 ${completed.length}',
-      ],
-      color: Theme.of(context).colorScheme.secondary,
-    ),
-  ];
-  return _InsightRecordPanel(
-    icon: Icons.speed_rounded,
-    title: '代理池响应质量摘要',
-    records: records,
-    emptyLabel: '暂无代理响应质量数据。',
   );
 }
 

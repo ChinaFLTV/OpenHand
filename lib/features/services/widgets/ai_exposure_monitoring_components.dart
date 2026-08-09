@@ -99,25 +99,32 @@ class _Metric {
     this.value,
     this.detail, {
     this.color,
+    this.onTap,
   });
-  final _MetricInsightId id;
+  final _MetricInsightId? id;
   final IconData icon;
   final String label;
   final String value;
   final String detail;
   final Color? color;
+  final VoidCallback? onTap;
 }
 
 class _MetricGrid extends StatelessWidget {
-  const _MetricGrid({required this.title, required this.metrics});
+  const _MetricGrid({
+    required this.title,
+    required this.metrics,
+    this.desktopColumns = 4,
+  });
   final String title;
   final List<_Metric> metrics;
+  final int desktopColumns;
 
   @override
   Widget build(BuildContext context) => LayoutBuilder(
     builder: (context, constraints) {
       final columns = constraints.maxWidth >= 1000
-          ? 4
+          ? desktopColumns.clamp(1, 6)
           : constraints.maxWidth >= 620
           ? 2
           : 1;
@@ -132,11 +139,15 @@ class _MetricGrid extends StatelessWidget {
                 width: width,
                 child: _MetricTile(
                   metric: metric,
-                  onTap: () => _showMetricInsight(
-                    context,
-                    title: title,
-                    selected: metric,
-                  ),
+                  onTap:
+                      metric.onTap ??
+                      (metric.id == null
+                          ? null
+                          : () => _showMetricInsight(
+                              context,
+                              title: title,
+                              selected: metric,
+                            )),
                 ),
               ),
             )

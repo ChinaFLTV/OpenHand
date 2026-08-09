@@ -71,17 +71,23 @@ Future<void> showAiExposureNewHuntDialog(BuildContext context) =>
       ),
     );
 
-Future<void> showAiExposureScanWorkspaceDialog(BuildContext context) =>
-    showAnimatedDialog<void>(
-      context: context,
-      builder: (_) => buildOpenHandDialog(
-        maxWidth: kOpenHandDialogWidthExtraWide,
-        maxHeight: kOpenHandDialogHeightTall,
-        child: const ServiceDialogInteractionTheme(
-          child: _ScanWorkspaceDialog(),
-        ),
+Future<void> showAiExposureScanWorkspaceDialog(
+  BuildContext context, {
+  bool showResults = false,
+}) => showAnimatedDialog<void>(
+  context: context,
+  builder: (_) => buildOpenHandDialog(
+    maxWidth: kOpenHandDialogWidthExtraWide,
+    maxHeight: kOpenHandDialogHeightTall,
+    child: ServiceDialogInteractionTheme(
+      child: _ScanWorkspaceDialog(
+        initialView: showResults
+            ? _ScanWorkspaceView.results
+            : _ScanWorkspaceView.live,
       ),
-    );
+    ),
+  ),
+);
 
 Future<void> showAiExposureToolsDialog(BuildContext context) =>
     showAnimatedDialog<void>(
@@ -692,14 +698,16 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
 }
 
 class _ScanWorkspaceDialog extends StatefulWidget {
-  const _ScanWorkspaceDialog();
+  const _ScanWorkspaceDialog({this.initialView = _ScanWorkspaceView.live});
+
+  final _ScanWorkspaceView initialView;
 
   @override
   State<_ScanWorkspaceDialog> createState() => _ScanWorkspaceDialogState();
 }
 
 class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
-  _ScanWorkspaceView _view = _ScanWorkspaceView.live;
+  late _ScanWorkspaceView _view = widget.initialView;
   AiExposureResultCategory? _category;
   String? _resumingJobId;
 

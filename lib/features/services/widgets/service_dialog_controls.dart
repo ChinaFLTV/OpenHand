@@ -437,6 +437,10 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
     return Theme(
       data: theme.copyWith(
         hoverColor: Colors.transparent,
+        splashColor: Colors.transparent,
+        highlightColor: Colors.transparent,
+        focusColor: Colors.transparent,
+        splashFactory: NoSplash.splashFactory,
         cardTheme: theme.cardTheme.copyWith(
           margin: const EdgeInsets.all(0),
           color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
@@ -719,6 +723,7 @@ class _ServiceInteractiveSurfaceState extends State<ServiceInteractiveSurface> {
         color: widget.color ?? Colors.transparent,
         child: InkWell(
           onTap: widget.onTap,
+          overlayColor: const WidgetStatePropertyAll(Colors.transparent),
           onHover: (value) {
             if (_hovered == value) return;
             setState(() => _hovered = value);

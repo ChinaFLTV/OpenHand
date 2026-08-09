@@ -24,6 +24,10 @@ const double _kTaskLedgerCandidatesWidth = 72;
 const double _kTaskLedgerValidWidth = 64;
 const double _kTaskLedgerHighValueWidth = 72;
 const double _kTaskLedgerDetailsWidth = 56;
+const Duration _kTaskTrendDefaultRange = Duration(hours: 6);
+const Duration _kTaskTrendDefaultInterval = Duration(minutes: 5);
+const int _kTaskTrendMinRangeMs = 30 * 60 * 1000;
+const int _kTaskTrendMaxRangeMs = 30 * 24 * 60 * 60 * 1000;
 
 enum AiExposureTaskLedgerSort {
   createdAt,
@@ -35,6 +39,32 @@ enum AiExposureTaskLedgerSort {
 }
 
 enum _TaskLedgerTimeRange { all, last24Hours, last7Days, last30Days, custom }
+
+bool _isTimeoutTask(AiExposureHistoryEntry task) {
+  final stage = task.stage.toLowerCase();
+  if (stage == 'timeout' || stage == 'timed_out') return true;
+  if (stage != 'failed') return false;
+  final detail = [
+    task.errorMessage,
+    task.failureStage,
+    task.progress.failureStage,
+    task.progress.message,
+  ].whereType<String>().join(' ').toLowerCase();
+  return detail.contains('timeout') ||
+      detail.contains('timed out') ||
+      detail.contains('deadline exceeded') ||
+      detail.contains('超时');
+}
+
+String _taskStatusId(AiExposureHistoryEntry task) {
+  if (_isTimeoutTask(task)) return 'timeout';
+  return switch (task.stage) {
+    'completed' => 'completed',
+    'failed' => 'failed',
+    'cancelled' => 'cancelled',
+    _ => 'running',
+  };
+}
 
 List<AiExposureHistoryEntry> filterAndSortAiExposureTasks({
   required List<AiExposureHistoryEntry> source,
@@ -58,10 +88,11 @@ List<AiExposureHistoryEntry> filterAndSortAiExposureTasks({
             (task.errorMessage ?? '').toLowerCase().contains(normalizedQuery);
         if (!matchesQuery) return false;
         final matchesStatus = switch (status) {
-          'running' => !task.isTerminal,
-          'completed' => task.stage == 'completed',
-          'failed' => task.stage == 'failed',
-          'cancelled' => task.stage == 'cancelled',
+          'running' => _taskStatusId(task) == 'running',
+          'completed' => _taskStatusId(task) == 'completed',
+          'failed' => _taskStatusId(task) == 'failed',
+          'timeout' => _taskStatusId(task) == 'timeout',
+          'cancelled' => _taskStatusId(task) == 'cancelled',
           'resumable' => task.isResumable,
           _ => true,
         };
@@ -404,6 +435,293 @@ void _showTaskCollectionInsight(
   );
 }
 
+class _TaskTelemetryInsight extends StatefulWidget {
+  const _TaskTelemetryInsight();
+
+  @override
+  State<_TaskTelemetryInsight> createState() => _TaskTelemetryInsightState();
+}
+
+class _TaskTelemetryInsightState extends State<_TaskTelemetryInsight> {
+  Duration _range = _kTaskTrendDefaultRange;
+  Duration _interval = _kTaskTrendDefaultInterval;
+  Duration _scaleStartRange = _kTaskTrendDefaultRange;
+
+  @override
+  Widget build(BuildContext context) {
+    final controller = context.watch<ServicesController>();
+    final history = controller.history;
+    final colors = Theme.of(context).colorScheme;
+    final counts = <String, int>{
+      'completed': 0,
+      'running': 0,
+      'failed': 0,
+      'timeout': 0,
+      'cancelled': 0,
+    };
+    for (final task in history) {
+      counts.update(_taskStatusId(task), (value) => value + 1);
+    }
+    final trend = _taskTrendBuckets(history);
+    final labels = trend
+        .map((bucket) => _taskTrendLabel(bucket.at))
+        .toList(growable: false);
+    return _metricInsightPage([
+      _InsightDonutSection(
+        title: '任务状态分布',
+        icon: Icons.donut_large_rounded,
+        items: [
+          _DistributionItem(
+            '完成',
+            counts['completed']!,
+            OpenHandStatusColors.success,
+          ),
+          _DistributionItem(
+            '运行中',
+            counts['running']!,
+            OpenHandStatusColors.info,
+          ),
+          _DistributionItem(
+            '失败',
+            counts['failed']!,
+            OpenHandStatusColors.error,
+          ),
+          _DistributionItem(
+            '超时',
+            counts['timeout']!,
+            OpenHandStatusColors.warning,
+          ),
+          _DistributionItem('取消', counts['cancelled']!, colors.outline),
+        ],
+      ),
+      _TaskStatusTrendSection(
+        range: _range,
+        interval: _interval,
+        series: _taskTrendSeries(trend, colors.outline),
+        labels: labels,
+        onScaleStart: (_) => _scaleStartRange = _range,
+        onScaleUpdate: _handleScaleUpdate,
+        onReset: _resetTrend,
+      ),
+      const AiExposureTaskLedger(),
+    ]);
+  }
+
+  List<_TaskTrendBucket> _taskTrendBuckets(
+    List<AiExposureHistoryEntry> history,
+  ) {
+    final end = DateTime.now();
+    final start = end.subtract(_range);
+    final count = (_range.inMilliseconds / _interval.inMilliseconds)
+        .ceil()
+        .clamp(1, 240);
+    final buckets = List<_TaskTrendBucket>.generate(
+      count,
+      (index) => _TaskTrendBucket(
+        at: start.add(_interval * index),
+        counts: <String, int>{
+          'completed': 0,
+          'running': 0,
+          'failed': 0,
+          'timeout': 0,
+          'cancelled': 0,
+        },
+      ),
+      growable: false,
+    );
+    for (final task in history) {
+      final createdAt = task.reportedCreatedAt;
+      if (createdAt == null ||
+          createdAt.isBefore(start) ||
+          createdAt.isAfter(end)) {
+        continue;
+      }
+      final index =
+          (createdAt.difference(start).inMilliseconds /
+                  _interval.inMilliseconds)
+              .floor()
+              .clamp(0, buckets.length - 1);
+      buckets[index].counts.update(_taskStatusId(task), (value) => value + 1);
+    }
+    return buckets;
+  }
+
+  List<OpenHandChartSeries> _taskTrendSeries(
+    List<_TaskTrendBucket> trend,
+    Color cancelledColor,
+  ) => [
+    OpenHandChartSeries(
+      label: '完成',
+      values: trend
+          .map((item) => item.counts['completed']!.toDouble())
+          .toList(),
+      color: OpenHandStatusColors.success,
+    ),
+    OpenHandChartSeries(
+      label: '运行中',
+      values: trend.map((item) => item.counts['running']!.toDouble()).toList(),
+      color: OpenHandStatusColors.info,
+    ),
+    OpenHandChartSeries(
+      label: '失败',
+      values: trend.map((item) => item.counts['failed']!.toDouble()).toList(),
+      color: OpenHandStatusColors.error,
+    ),
+    OpenHandChartSeries(
+      label: '超时',
+      values: trend.map((item) => item.counts['timeout']!.toDouble()).toList(),
+      color: OpenHandStatusColors.warning,
+    ),
+    OpenHandChartSeries(
+      label: '取消',
+      values: trend
+          .map((item) => item.counts['cancelled']!.toDouble())
+          .toList(),
+      color: cancelledColor,
+    ),
+  ];
+
+  void _handleScaleUpdate(ScaleUpdateDetails details) {
+    if ((details.scale - 1).abs() < 0.015) return;
+    final range = Duration(
+      milliseconds: (_scaleStartRange.inMilliseconds / details.scale)
+          .round()
+          .clamp(_kTaskTrendMinRangeMs, _kTaskTrendMaxRangeMs),
+    );
+    final interval = _taskTrendIntervalFor(range);
+    if (range == _range && interval == _interval) return;
+    setState(() {
+      _range = range;
+      _interval = interval;
+    });
+  }
+
+  void _resetTrend() {
+    if (_range == _kTaskTrendDefaultRange &&
+        _interval == _kTaskTrendDefaultInterval) {
+      return;
+    }
+    setState(() {
+      _range = _kTaskTrendDefaultRange;
+      _interval = _kTaskTrendDefaultInterval;
+    });
+  }
+}
+
+class _TaskTrendBucket {
+  _TaskTrendBucket({required this.at, required this.counts});
+
+  final DateTime at;
+  final Map<String, int> counts;
+}
+
+class _TaskStatusTrendSection extends StatelessWidget {
+  const _TaskStatusTrendSection({
+    required this.range,
+    required this.interval,
+    required this.series,
+    required this.labels,
+    required this.onScaleStart,
+    required this.onScaleUpdate,
+    required this.onReset,
+  });
+
+  final Duration range;
+  final Duration interval;
+  final List<OpenHandChartSeries> series;
+  final List<String> labels;
+  final GestureScaleStartCallback onScaleStart;
+  final GestureScaleUpdateCallback onScaleUpdate;
+  final VoidCallback onReset;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return _Section(
+      title: '任务状态数量趋势',
+      icon: Icons.stacked_line_chart_rounded,
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          Wrap(
+            spacing: 10,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [
+              Text(
+                '${_taskTrendDurationLabel(range)} · ${_taskTrendDurationLabel(interval)}',
+                style: Theme.of(context).textTheme.labelMedium?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              Text(
+                '双指缩放时间范围与粒度',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colors.onSurfaceVariant,
+                ),
+              ),
+              TextButton.icon(
+                onPressed: onReset,
+                icon: const Icon(Icons.center_focus_strong_rounded, size: 16),
+                label: const Text('恢复默认'),
+              ),
+            ],
+          ),
+          const SizedBox(height: 8),
+          Wrap(
+            spacing: 12,
+            runSpacing: 6,
+            children: series
+                .map((item) => _OpsLegend(label: item.label, color: item.color))
+                .toList(growable: false),
+          ),
+          const SizedBox(height: 8),
+          SizedBox(
+            height: 250,
+            child: GestureDetector(
+              behavior: HitTestBehavior.opaque,
+              onScaleStart: onScaleStart,
+              onScaleUpdate: onScaleUpdate,
+              child: OpenHandOperationalTrendChart(
+                series: series,
+                xLabels: labels,
+                valueSuffix: ' 个',
+                emptyLabel: '暂无任务状态趋势数据',
+                height: 250,
+                showLegend: false,
+                externalLegendProvided: true,
+                semanticLabel: '任务状态数量趋势，支持双指缩放',
+                onSelectionChanged: (_) {},
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+Duration _taskTrendIntervalFor(Duration range) {
+  if (range <= const Duration(hours: 2)) return const Duration(minutes: 1);
+  if (range <= const Duration(hours: 12)) return const Duration(minutes: 5);
+  if (range <= const Duration(days: 2)) return const Duration(minutes: 15);
+  if (range <= const Duration(days: 7)) return const Duration(hours: 1);
+  return const Duration(hours: 6);
+}
+
+String _taskTrendDurationLabel(Duration value) {
+  if (value.inDays > 0 && value.inDays * 24 == value.inHours) {
+    return '${value.inDays} 天';
+  }
+  if (value.inHours > 0 && value.inHours * 60 == value.inMinutes) {
+    return '${value.inHours} 小时';
+  }
+  return '${value.inMinutes} 分钟';
+}
+
+String _taskTrendLabel(DateTime value) =>
+    '${value.month}/${value.day} ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+
 class AiExposureTaskLedger extends StatefulWidget {
   const AiExposureTaskLedger({
     super.key,
@@ -578,6 +896,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
           ('running', '运行中'),
           ('completed', '完成'),
           ('failed', '失败'),
+          ('timeout', '超时'),
           ('cancelled', '取消'),
           ('resumable', '可恢复'),
         ],
@@ -900,7 +1219,20 @@ class _TaskLedgerDropdown<T> extends StatelessWidget {
       decoration: _kTaskLedgerFilterDecoration.copyWith(labelText: label),
       items: items
           .map(
-            (item) => DropdownMenuItem<T>(value: item.$1, child: Text(item.$2)),
+            (item) => DropdownMenuItem<T>(
+              value: item.$1,
+              child: Align(
+                alignment: AlignmentDirectional.centerStart,
+                child: SizedBox(
+                  width: double.infinity,
+                  child: Text(
+                    item.$2,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+              ),
+            ),
           )
           .toList(growable: false),
       selectedItemBuilder: (context) => items
@@ -1317,13 +1649,14 @@ class _TaskLedgerCell extends StatelessWidget {
 
 (IconData, String, Color) _taskLedgerStatus(
   AiExposureHistoryEntry task,
-) => switch (task.stage) {
+) => switch (_taskStatusId(task)) {
   'completed' => (
     Icons.check_circle_outline_rounded,
     '完成',
     OpenHandStatusColors.success,
   ),
   'failed' => (Icons.error_outline_rounded, '失败', OpenHandStatusColors.error),
+  'timeout' => (Icons.timer_off_outlined, '超时', OpenHandStatusColors.warning),
   'cancelled' => (Icons.cancel_outlined, '取消', OpenHandStatusColors.warning),
   _ => (Icons.pending_actions_rounded, '运行中', OpenHandStatusColors.info),
 };

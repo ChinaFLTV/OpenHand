@@ -11,37 +11,19 @@ class _OverviewPanel extends StatelessWidget {
     final results = controller.results;
     final proxy = controller.proxyStatus;
     final completed = history.where((item) => item.stage == 'completed').length;
-    final failed = history.where((item) => item.stage == 'failed').length;
+    final failed = history
+        .where((item) => item.stage == 'failed' && !_isTimeoutTask(item))
+        .length;
+    final timeout = history.where(_isTimeoutTask).length;
     final cancelled = history.where((item) => item.stage == 'cancelled').length;
-    final processed = history.fold<int>(
-      0,
-      (sum, item) => sum + item.progress.processed,
-    );
-    final discovered = history.fold<int>(
-      0,
-      (sum, item) => sum + item.progress.discovered,
-    );
     final valid = results
         .where((item) => item.category == AiExposureResultCategory.valid)
-        .length;
-    final highValue = results
-        .where((item) => item.category == AiExposureResultCategory.highValue)
-        .length;
-    final warnings = controller.logs
-        .where((item) => item.level == 'warning')
-        .length;
-    final errors = controller.logs
-        .where((item) => item.level == 'error')
         .length;
     final durations = history
         .map(_taskMeasuredDurationMs)
         .whereType<int>()
         .map((duration) => duration.toDouble())
         .toList(growable: false);
-    final averageDuration = durations.isEmpty
-        ? 0
-        : (durations.reduce((left, right) => left + right) / durations.length)
-              .round();
     final historyTrend = history.reversed
         .where((item) => item.createdAtReported)
         .take(24)
@@ -60,7 +42,8 @@ class _OverviewPanel extends StatelessWidget {
         .length;
     final stageCounts = <String, int>{};
     for (final item in history) {
-      stageCounts.update(item.stage, (count) => count + 1, ifAbsent: () => 1);
+      final status = _taskStatusId(item);
+      stageCounts.update(status, (count) => count + 1, ifAbsent: () => 1);
     }
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -69,44 +52,38 @@ class _OverviewPanel extends StatelessWidget {
         const SizedBox(height: 14),
         _MetricGrid(
           title: '状态总览',
+          desktopColumns: 3,
           metrics: [
             _Metric(
               _MetricInsightId.overviewTaskTotal,
               Icons.work_history_outlined,
-              '当前任务窗口',
+              '任务数量',
               '${history.length}',
-              '完成 $completed · 失败 $failed',
+              '完成 $completed · 运行中 ${history.where((item) => _taskStatusId(item) == 'running').length} · 失败 $failed · 超时 $timeout · 取消 $cancelled',
               color: Theme.of(context).colorScheme.primary,
             ),
             _Metric(
-              _MetricInsightId.overviewResultTotal,
+              null,
               Icons.fact_check_outlined,
-              '当前结果窗口',
+              '任务结果',
               '${results.length}',
-              '有效 $valid',
+              '有效 $valid · 最近持久化结果',
               color: OpenHandStatusColors.info,
+              onTap: () =>
+                  showAiExposureScanWorkspaceDialog(context, showResults: true),
             ),
             _Metric(
-              _MetricInsightId.overviewHighValue,
-              Icons.workspace_premium_outlined,
-              '高价值',
-              '$highValue',
-              '优先处置',
-              color: const Color(0xffa855f7),
-            ),
-            _Metric(
-              _MetricInsightId.overviewProcessed,
-              Icons.radar_rounded,
-              '窗口累计处理',
-              '$processed',
-              '发现 $discovered',
-              color: const Color(0xff0891b2),
-            ),
-            _Metric(
-              _MetricInsightId.overviewAverageDuration,
+              null,
               Icons.timer_outlined,
               '平均任务耗时',
-              _duration((averageDuration / 1000).round()),
+              _duration(
+                durations.isEmpty
+                    ? 0
+                    : (durations.reduce((a, b) => a + b) /
+                              durations.length /
+                              1000)
+                          .round(),
+              ),
               '${durations.length} 个实测完成任务',
               color: Theme.of(context).colorScheme.tertiary,
             ),
@@ -127,16 +104,6 @@ class _OverviewPanel extends StatelessWidget {
               color: const Color(0xff0f766e),
             ),
             _Metric(
-              _MetricInsightId.overviewProxyRouting,
-              Icons.lan_outlined,
-              '代理选路',
-              '${proxy?.totalSelections ?? 0}',
-              controller.proxyRoute == AiExposureProxyRoute.pool
-                  ? '成功 ${proxy?.totalSuccesses ?? 0} · 超时 ${proxy?.totalTimeouts ?? 0}'
-                  : serviceProxyRouteText(controller, text),
-              color: OpenHandStatusColors.info,
-            ),
-            _Metric(
               _MetricInsightId.overviewProxyAverageLatency,
               Icons.speed_rounded,
               '代理平均响应',
@@ -145,32 +112,6 @@ class _OverviewPanel extends StatelessWidget {
                   ? '执行中 ${proxy?.inFlight ?? 0}'
                   : serviceProxyRouteText(controller, text),
               color: Theme.of(context).colorScheme.secondary,
-            ),
-            _Metric(
-              _MetricInsightId.overviewWarningLogs,
-              Icons.warning_amber_rounded,
-              '警告日志',
-              '$warnings',
-              '保留 ${controller.logs.length}',
-              color: OpenHandStatusColors.warning,
-            ),
-            _Metric(
-              _MetricInsightId.overviewErrorLogs,
-              Icons.error_outline_rounded,
-              '错误日志',
-              '$errors',
-              errors == 0 ? '状态正常' : '需要检查',
-              color: OpenHandStatusColors.error,
-            ),
-            _Metric(
-              _MetricInsightId.overviewCancelledTasks,
-              Icons.cancel_outlined,
-              '已取消任务',
-              '$cancelled',
-              history.isEmpty
-                  ? '--'
-                  : '${((completed * 100) / history.length).toStringAsFixed(1)}% 完成率',
-              color: Theme.of(context).colorScheme.outline,
             ),
           ],
         ),
@@ -241,7 +182,16 @@ class _OverviewPanel extends StatelessWidget {
               centerValue: '${results.length}',
               items: [
                 _DistributionItem('有效', valid, OpenHandStatusColors.success),
-                _DistributionItem('高价值', highValue, const Color(0xffa855f7)),
+                _DistributionItem(
+                  '高价值',
+                  results
+                      .where(
+                        (item) =>
+                            item.category == AiExposureResultCategory.highValue,
+                      )
+                      .length,
+                  const Color(0xffa855f7),
+                ),
                 _DistributionItem(
                   '可疑',
                   results
@@ -282,13 +232,18 @@ class _OverviewPanel extends StatelessWidget {
                   OpenHandStatusColors.error,
                 ),
                 _DistributionItem(
+                  '超时',
+                  stageCounts['timeout'] ?? 0,
+                  OpenHandStatusColors.warning,
+                ),
+                _DistributionItem(
                   '取消',
                   stageCounts['cancelled'] ?? 0,
                   OpenHandStatusColors.warning,
                 ),
                 _DistributionItem(
                   '执行中',
-                  history.length - completed - failed - cancelled,
+                  stageCounts['running'] ?? 0,
                   OpenHandStatusColors.info,
                 ),
               ],

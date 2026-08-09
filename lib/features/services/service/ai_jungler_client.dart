@@ -64,7 +64,7 @@ class AiJunglerClient {
   Future<AiExposureProgress> progress(String jobId) async =>
       AiExposureProgress.fromJson(await _jsonRequest('GET', _jobPath(jobId)));
 
-  Future<List<AiExposureHistoryEntry>> history({int limit = 200}) async =>
+  Future<List<AiExposureHistoryEntry>> history({int limit = 500}) async =>
       _jsonList(
         await _request('GET', '/v1/history?limit=$limit'),
       ).map(AiExposureHistoryEntry.fromJson).toList(growable: false);

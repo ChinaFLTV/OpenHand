@@ -13,6 +13,7 @@ void _showMetricInsight(
       subtitle: '$title · 指标详情',
       color: selected.color,
       showDataScope: selected.id == _MetricInsightId.overviewTaskTotal,
+      adaptiveHeight: selected.id == _MetricInsightId.overviewEnabledRules,
       child: _MetricInsightBody(selected: selected),
     ),
   );
@@ -79,6 +80,7 @@ class _OperationsInsightDialog extends StatelessWidget {
     this.color,
     this.entity = false,
     this.showDataScope = false,
+    this.adaptiveHeight = false,
   });
 
   final IconData icon;
@@ -88,6 +90,7 @@ class _OperationsInsightDialog extends StatelessWidget {
   final Color? color;
   final bool entity;
   final bool showDataScope;
+  final bool adaptiveHeight;
 
   @override
   Widget build(BuildContext context) {
@@ -106,10 +109,14 @@ class _OperationsInsightDialog extends StatelessWidget {
         backgroundColor: colors.surface,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        expandToMax: !adaptiveHeight,
         child: ServiceDialogInteractionTheme(
           child: Padding(
             padding: const EdgeInsets.all(20),
             child: Column(
+              mainAxisSize: adaptiveHeight
+                  ? MainAxisSize.min
+                  : MainAxisSize.max,
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 Row(
@@ -166,7 +173,8 @@ class _OperationsInsightDialog extends StatelessWidget {
                   const _OperationsDataScopeBar(),
                   const SizedBox(height: 12),
                 ],
-                Expanded(
+                Flexible(
+                  fit: adaptiveHeight ? FlexFit.loose : FlexFit.tight,
                   child: SingleChildScrollView(
                     physics: openHandDialogAwareScrollPhysics(context),
                     child: child,
@@ -191,7 +199,7 @@ class _MetricInsightBody extends StatelessWidget {
     final controller = context.watch<ServicesController>();
     return _buildDistinctMetricInsight(
       context,
-      id: selected.id,
+      id: selected.id!,
       controller: controller,
     );
   }

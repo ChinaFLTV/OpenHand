@@ -26,6 +26,7 @@ import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
 import '../model/dependency_telemetry.dart';
 import '../services_controller.dart';
+import 'ai_exposure_dialogs.dart';
 import 'dependency_data_dialog.dart';
 import 'service_dialog_controls.dart';
 
