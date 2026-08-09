@@ -13642,7 +13642,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       if (widget.onShowEditHistory != null)
         _DingTalkMessageActionButton(
           icon: Icons.history_rounded,
-          label: '编辑历史 ${widget.message.editHistory.length}',
+          label: '编辑历史',
           onPressed: widget.onShowEditHistory,
         ),
     ];
