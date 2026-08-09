@@ -2855,6 +2855,7 @@ class _MemoryRiskHero extends StatelessWidget {
           final facts = Wrap(
             spacing: 22,
             runSpacing: 10,
+            alignment: WrapAlignment.end,
             children: [
               _HeroFact(label: '碎片率', value: fragmentation.toStringAsFixed(2)),
               _HeroFact(
