@@ -1725,7 +1725,6 @@ Future<void> _showProxyAverageResponseDialog(BuildContext context) =>
         minAvailableHeight: 420,
         horizontalMargin: 24,
         verticalMargin: 48,
-        expandToMax: true,
         child: const ServiceDialogInteractionTheme(
           child: _ProxyAverageResponseDialog(),
         ),
@@ -1850,6 +1849,7 @@ class _ProxyAverageResponseDialogState
     return Padding(
       padding: const EdgeInsets.fromLTRB(22, 20, 22, 18),
       child: Column(
+        mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           OpenHandResponsiveHeaderLayout(
@@ -1921,8 +1921,9 @@ class _ProxyAverageResponseDialogState
             ),
           ),
           const SizedBox(height: 14),
-          Expanded(
+          Flexible(
             child: ListView(
+              shrinkWrap: true,
               physics: openHandDialogAwareScrollPhysics(context),
               children: [
                 if (_error != null) ...[
