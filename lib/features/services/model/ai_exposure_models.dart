@@ -813,7 +813,7 @@ class AiExposureProxyUsageStatistics {
     'lastUsedAtMs': lastUsedAt?.millisecondsSinceEpoch ?? 0,
     'lastSuccessAtMs': lastSuccessAt?.millisecondsSinceEpoch ?? 0,
     'lastFailureAtMs': lastFailureAt?.millisecondsSinceEpoch ?? 0,
-    if (lastError.isNotEmpty) 'lastError': lastError,
+    'lastError': lastError,
     if (recentRequests.isNotEmpty)
       'recentRequests': recentRequests
           .map((item) => item.toJson())

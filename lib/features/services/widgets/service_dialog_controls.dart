@@ -486,7 +486,7 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
           ),
         ),
       ),
-      child: SelectionArea(child: child),
+      child: child,
     );
   }
 }

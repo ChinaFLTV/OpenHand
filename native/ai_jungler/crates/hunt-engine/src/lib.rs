@@ -258,6 +258,7 @@ pub struct ProxyEndpointStatisticsInput {
     pub last_used_at_ms: u64,
     pub last_success_at_ms: u64,
     pub last_failure_at_ms: u64,
+    #[serde(default)]
     pub last_error: String,
     #[serde(default)]
     pub recent_requests: Vec<ProxyRequestSample>,
