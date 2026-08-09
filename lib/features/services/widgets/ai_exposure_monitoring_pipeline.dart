@@ -18,8 +18,6 @@ class _PipelinePanel extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        _DependencyDataAccessPanel(controller: controller),
-        const SizedBox(height: 12),
         _OpsPanelGrid(
           children: [
             _DistributionPanel(

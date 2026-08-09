@@ -20,26 +20,6 @@ class _StoragePanel extends StatelessWidget {
     final results = controller.results;
     final logs = controller.logs;
     final rules = controller.rules;
-    final dependencies = controller.dependencyStatus;
-    final historyIds = history.map((entry) => entry.id).toSet();
-    final missingHistoryLinks = results
-        .where((result) => !historyIds.contains(result.jobId))
-        .length;
-    final missingEvidence = results
-        .where((result) => result.evidence.isEmpty)
-        .length;
-    final unfinished = history
-        .where(
-          (entry) => !const <String>{
-            'completed',
-            'failed',
-            'cancelled',
-          }.contains(entry.stage),
-        )
-        .length;
-    final resumable = history.where((entry) => entry.isResumable).length;
-    final failed = history.where((entry) => entry.stage == 'failed').length;
-    final integrityIssues = missingEvidence;
     final recordCount =
         history.length + results.length + logs.length + rules.length;
     final chronological = history
@@ -73,6 +53,7 @@ class _StoragePanel extends StatelessWidget {
       children: [
         _MetricGrid(
           title: '存储与持久化',
+          desktopColumns: 2,
           metrics: [
             _Metric(
               _MetricInsightId.storageSqlite,
@@ -93,102 +74,6 @@ class _StoragePanel extends StatelessWidget {
                   : _shortDateTime(databaseModifiedAt!),
               '数据库文件修改时间',
               color: colors.primary,
-            ),
-            _Metric(
-              _MetricInsightId.storageVisibleRecords,
-              Icons.inventory_2_outlined,
-              '当前可见记录',
-              '$recordCount',
-              '任务、结果、规则与日志',
-              color: OpenHandStatusColors.info,
-            ),
-            _Metric(
-              _MetricInsightId.storageTaskArchive,
-              Icons.work_history_outlined,
-              '当前任务窗口',
-              '${history.length}',
-              '$unfinished 个未结束',
-              color: colors.primary,
-            ),
-            _Metric(
-              _MetricInsightId.storageResultArchive,
-              Icons.fact_check_outlined,
-              '当前结果窗口',
-              '${results.length}',
-              '$missingEvidence 条缺少证据',
-              color: const Color(0xff0891b2),
-            ),
-            _Metric(
-              _MetricInsightId.storageRuleSnapshots,
-              Icons.rule_folder_outlined,
-              '规则快照',
-              '${rules.length}',
-              '${rules.where((rule) => rule.enabled).length} 条启用',
-              color: const Color(0xff0f766e),
-            ),
-            _Metric(
-              _MetricInsightId.storageLogBuffer,
-              Icons.receipt_long_outlined,
-              '日志缓冲',
-              '${logs.length}',
-              '信息 ${logs.where((entry) => entry.level == 'info').length} · 错误 ${logs.where((entry) => entry.level == 'error').length}',
-              color: colors.secondary,
-            ),
-            _Metric(
-              _MetricInsightId.storageResumable,
-              Icons.restart_alt_rounded,
-              '可恢复任务',
-              '$resumable',
-              '失败 $failed · 未结束 $unfinished',
-              color: OpenHandStatusColors.warning,
-            ),
-            _Metric(
-              _MetricInsightId.storagePostgresql,
-              Icons.cloud_sync_outlined,
-              'PostgreSQL 镜像',
-              dependencies == null
-                  ? '状态未上报'
-                  : dependencies.postgresql.connected
-                  ? '在线'
-                  : '未连接',
-              dependencies?.postgresql.message ?? '依赖状态未上报',
-              color: dependencies?.postgresql.connected == true
-                  ? OpenHandStatusColors.success
-                  : colors.outline,
-            ),
-            _Metric(
-              _MetricInsightId.storageRedis,
-              Icons.hub_outlined,
-              'Redis 协调',
-              dependencies == null
-                  ? '状态未上报'
-                  : dependencies.redis.connected
-                  ? '在线'
-                  : '未连接',
-              dependencies?.redis.message ?? '依赖状态未上报',
-              color: dependencies?.redis.connected == true
-                  ? OpenHandStatusColors.success
-                  : colors.outline,
-            ),
-            _Metric(
-              _MetricInsightId.storageCredentialEncryption,
-              Icons.enhanced_encryption_outlined,
-              '凭证加密',
-              controller.ownsProcess ? 'AES-256-GCM' : '后端未证明',
-              controller.ownsProcess ? '内置引擎密钥文件独立保存' : '外部服务未提供运行时加密证明',
-              color: colors.tertiary,
-            ),
-            _Metric(
-              _MetricInsightId.storageIntegrity,
-              integrityIssues == 0
-                  ? Icons.verified_outlined
-                  : Icons.warning_amber_rounded,
-              '一致性审计',
-              integrityIssues == 0 ? '通过' : '$integrityIssues 项',
-              '当前窗口关联缺口 $missingHistoryLinks · 缺少证据 $missingEvidence',
-              color: integrityIssues == 0
-                  ? OpenHandStatusColors.success
-                  : OpenHandStatusColors.warning,
             ),
           ],
         ),
@@ -331,67 +216,10 @@ class _StoragePanel extends StatelessWidget {
                         : '外部服务未提供运行时加密证明',
                   ),
                   _DependencyLine(
-                    id: _DependencyInsightId.postgresql,
-                    name: 'PostgreSQL 镜像',
-                    ready: dependencies?.postgresql.connected == true,
-                    configured: dependencies?.postgresql.configured,
-                    detail: dependencies?.postgresql.message ?? '未启用',
-                  ),
-                  _DependencyLine(
-                    id: _DependencyInsightId.redis,
-                    name: 'Redis 目标协调',
-                    ready: dependencies?.redis.connected == true,
-                    configured: dependencies?.redis.configured,
-                    detail: dependencies?.redis.message ?? '未启用',
-                  ),
-                  _DependencyLine(
                     id: _DependencyInsightId.eventArchive,
                     name: '任务事件归档',
                     ready: controller.isRunning,
                     detail: '${logs.length} 条运行事件 · ${history.length} 个任务快照',
-                  ),
-                ],
-              ),
-            ),
-            _Section(
-              title: '一致性与恢复能力',
-              icon: Icons.rule_folder_outlined,
-              child: Column(
-                children: [
-                  _OpsKeyValue(
-                    label: '当前窗口关联缺口',
-                    value: '$missingHistoryLinks',
-                  ),
-                  _OpsKeyValue(label: '缺少证据结果', value: '$missingEvidence'),
-                  _OpsKeyValue(label: '未结束任务', value: '$unfinished'),
-                  _OpsKeyValue(
-                    label: '可恢复任务',
-                    value: '$resumable',
-                    onTap: resumable <= 0
-                        ? null
-                        : () => _showTaskCollectionInsight(
-                            context,
-                            status: 'resumable',
-                            title: '可恢复任务',
-                          ),
-                  ),
-                  _OpsKeyValue(
-                    label: '失败任务',
-                    value: '$failed',
-                    onTap: failed <= 0
-                        ? null
-                        : () => _showTaskCollectionInsight(
-                            context,
-                            status: 'failed',
-                            title: '失败任务',
-                          ),
-                  ),
-                  _OpsKeyValue(
-                    label: '审计结论',
-                    value: integrityIssues == 0 ? '记录关系完整' : '存在待复核记录',
-                    color: integrityIssues == 0
-                        ? OpenHandStatusColors.success
-                        : OpenHandStatusColors.warning,
                   ),
                 ],
               ),
@@ -404,43 +232,45 @@ class _StoragePanel extends StatelessWidget {
           icon: Icons.history_rounded,
           child: history.isEmpty
               ? const Text('暂无任务归档。')
-              : Column(
-                  children: history.take(12).map((entry) {
-                    final resultCount = results
-                        .where((result) => result.jobId == entry.id)
-                        .length;
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      onTap: () => _showTaskEntityInsight(context, entry),
-                      leading: Icon(_stageIcon(entry.stage)),
-                      title: Text(
-                        entry.name.trim().isEmpty
-                            ? entry.id
-                            : entry.name.trim(),
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                      ),
-                      subtitle: Text(
-                        '${entry.effectiveFinishedAt == null ? _reportedShortDateTime(entry.createdAt, entry.createdAtReported) : _shortDateTime(entry.effectiveFinishedAt!)} · 处理 ${entry.progress.processed} · 结果 $resultCount',
-                      ),
-                      trailing: Row(
-                        mainAxisSize: MainAxisSize.min,
-                        children: [
-                          _StatusPill(
-                            icon: _stageIcon(entry.stage),
-                            label: _stageName(entry.stage),
-                            color: entry.stage == 'completed'
-                                ? OpenHandStatusColors.success
-                                : entry.stage == 'failed'
-                                ? OpenHandStatusColors.error
-                                : OpenHandStatusColors.warning,
-                          ),
-                          const SizedBox(width: 4),
-                          const Icon(Icons.chevron_right_rounded, size: 19),
-                        ],
-                      ),
-                    );
-                  }).toList(),
+              : _InsightListViewport(
+                  child: Column(
+                    children: history.take(12).map((entry) {
+                      final resultCount = results
+                          .where((result) => result.jobId == entry.id)
+                          .length;
+                      return ListTile(
+                        contentPadding: EdgeInsets.zero,
+                        onTap: () => _showTaskEntityInsight(context, entry),
+                        leading: Icon(_stageIcon(entry.stage)),
+                        title: Text(
+                          entry.name.trim().isEmpty
+                              ? entry.id
+                              : entry.name.trim(),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                        ),
+                        subtitle: Text(
+                          '${entry.effectiveFinishedAt == null ? _reportedShortDateTime(entry.createdAt, entry.createdAtReported) : _shortDateTime(entry.effectiveFinishedAt!)} · 处理 ${entry.progress.processed} · 结果 $resultCount',
+                        ),
+                        trailing: Row(
+                          mainAxisSize: MainAxisSize.min,
+                          children: [
+                            _StatusPill(
+                              icon: _stageIcon(entry.stage),
+                              label: _stageName(entry.stage),
+                              color: entry.stage == 'completed'
+                                  ? OpenHandStatusColors.success
+                                  : entry.stage == 'failed'
+                                  ? OpenHandStatusColors.error
+                                  : OpenHandStatusColors.warning,
+                            ),
+                            const SizedBox(width: 4),
+                            const Icon(Icons.chevron_right_rounded, size: 19),
+                          ],
+                        ),
+                      );
+                    }).toList(),
+                  ),
                 ),
         ),
         if (controller.health?.databasePath.isNotEmpty == true) ...[

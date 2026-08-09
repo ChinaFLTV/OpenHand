@@ -9,6 +9,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -26,6 +27,7 @@ const double _kPostgresqlTableFieldWidth = 190;
 const double _kRedisSearchFieldWidth = 220;
 const double _kRecordCompactBreakpoint = 520;
 const double _kSurfaceSectionCompactBreakpoint = 680;
+const double _kDependencyRecordListMaxHeight = 460;
 const EdgeInsets _kToolbarFieldPadding = EdgeInsets.symmetric(
   horizontal: 12,
   vertical: 11,
@@ -398,12 +400,13 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                       },
               ),
               actions: [
-                ServiceDialogCompactIconButton(
-                  tooltip: '只读查询',
+                FilledButton.icon(
+                  style: _kToolbarButtonStyle,
                   onPressed: _busy
                       ? null
                       : () => setState(() => _queryVisible = !_queryVisible),
-                  icon: const Icon(Icons.terminal_rounded, size: 20),
+                  icon: const Icon(Icons.terminal_rounded, size: 19),
+                  label: const Text('只读查询'),
                 ),
                 FilledButton.icon(
                   style: _kToolbarButtonStyle,
@@ -437,22 +440,38 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                         ),
                 ),
                 if (tables.isNotEmpty)
-                  Wrap(
-                    spacing: 8,
-                    runSpacing: 8,
-                    children: tables
-                        .map(
-                          (table) => _MiniMetric(
-                            label:
-                                _kPostgresqlTableLabels['${table['name']}'] ??
-                                '${table['name']}',
-                            value: '${_integer(table['rowCount'])} 条',
-                            helper: formatByteSize(
-                              _integer(table['totalBytes']),
-                            ),
-                          ),
-                        )
-                        .toList(growable: false),
+                  LayoutBuilder(
+                    builder: (context, constraints) {
+                      const gap = 8.0;
+                      final columns = constraints.maxWidth >= 760
+                          ? 4
+                          : constraints.maxWidth >= 420
+                          ? 2
+                          : 1;
+                      final width =
+                          (constraints.maxWidth - gap * (columns - 1)) /
+                          columns;
+                      return Wrap(
+                        spacing: gap,
+                        runSpacing: gap,
+                        children: tables
+                            .map(
+                              (table) => SizedBox(
+                                width: width,
+                                child: _MiniMetric(
+                                  label:
+                                      _kPostgresqlTableLabels['${table['name']}'] ??
+                                      '${table['name']}',
+                                  value: '${_integer(table['rowCount'])} 条',
+                                  helper: formatByteSize(
+                                    _integer(table['totalBytes']),
+                                  ),
+                                ),
+                              ),
+                            )
+                            .toList(growable: false),
+                      );
+                    },
                   ),
                 if (tables.isNotEmpty) const SizedBox(height: 12),
                 if (rows.isEmpty)
@@ -461,30 +480,36 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                     label: '当前数据表暂无记录',
                   )
                 else
-                  ...rows.map(
-                    (row) => _DataRecordTile(
-                      title: _postgresRowTitle(row, primaryKeys),
-                      subtitle: _postgresRowSubtitle(row, primaryKeys),
-                      record: row,
-                      tags: row.entries
-                          .where((entry) => !primaryKeys.contains(entry.key))
-                          .take(4)
-                          .map(
-                            (entry) =>
-                                '${entry.key}: ${_compactValue(entry.value)}',
-                          )
-                          .toList(growable: false),
-                      onEdit: _busy
-                          ? null
-                          : () => _editPostgresql(
-                              columns: columns,
-                              row: row,
-                              primaryKeys: primaryKeys,
-                            ),
-                      onDelete: _busy
-                          ? null
-                          : () => _deletePostgresql(row, primaryKeys),
-                    ),
+                  _DependencyRecordList(
+                    children: rows
+                        .map(
+                          (row) => _DataRecordTile(
+                            title: _postgresRowTitle(row, primaryKeys),
+                            subtitle: _postgresRowSubtitle(row, primaryKeys),
+                            record: row,
+                            tags: row.entries
+                                .where(
+                                  (entry) => !primaryKeys.contains(entry.key),
+                                )
+                                .take(4)
+                                .map(
+                                  (entry) =>
+                                      '${entry.key}: ${_compactValue(entry.value)}',
+                                )
+                                .toList(growable: false),
+                            onEdit: _busy
+                                ? null
+                                : () => _editPostgresql(
+                                    columns: columns,
+                                    row: row,
+                                    primaryKeys: primaryKeys,
+                                  ),
+                            onDelete: _busy
+                                ? null
+                                : () => _deletePostgresql(row, primaryKeys),
+                          ),
+                        )
+                        .toList(growable: false),
                   ),
                 const SizedBox(height: 8),
                 _PaginationBar(
@@ -639,23 +664,27 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                     label: '当前命名空间暂无键',
                   )
                 else
-                  ...records.map(
-                    (record) => _DataRecordTile(
-                      title: '${record['key'] ?? '--'}',
-                      subtitle:
-                          '${record['type'] ?? 'none'} · ${_ttlText(_integer(record['ttlSeconds']))} · ${formatByteSize(_integer(record['sizeBytes']))}',
-                      record: record,
-                      tags: [
-                        if (record['protected'] == true) '运行数据 · 只读',
-                        _compactValue(record['value'], maxChars: 180),
-                      ],
-                      onEdit: record['protected'] == true || _busy
-                          ? null
-                          : () => _editRedis(record: record),
-                      onDelete: record['protected'] == true || _busy
-                          ? null
-                          : () => _deleteRedis('${record['key']}'),
-                    ),
+                  _DependencyRecordList(
+                    children: records
+                        .map(
+                          (record) => _DataRecordTile(
+                            title: '${record['key'] ?? '--'}',
+                            subtitle:
+                                '${record['type'] ?? 'none'} · ${_ttlText(_integer(record['ttlSeconds']))} · ${formatByteSize(_integer(record['sizeBytes']))}',
+                            record: record,
+                            tags: [
+                              if (record['protected'] == true) '运行数据 · 只读',
+                              _compactValue(record['value'], maxChars: 180),
+                            ],
+                            onEdit: record['protected'] == true || _busy
+                                ? null
+                                : () => _editRedis(record: record),
+                            onDelete: record['protected'] == true || _busy
+                                ? null
+                                : () => _deleteRedis('${record['key']}'),
+                          ),
+                        )
+                        .toList(growable: false),
                   ),
                 const SizedBox(height: 8),
                 _PaginationBar(
@@ -1218,6 +1247,50 @@ class _MiniMetric extends StatelessWidget {
   );
 }
 
+class _DependencyRecordList extends StatefulWidget {
+  const _DependencyRecordList({required this.children});
+
+  final List<Widget> children;
+
+  @override
+  State<_DependencyRecordList> createState() => _DependencyRecordListState();
+}
+
+class _DependencyRecordListState extends State<_DependencyRecordList> {
+  final ScrollController _controller = ScrollController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) => ConstrainedBox(
+    constraints: const BoxConstraints(
+      maxHeight: _kDependencyRecordListMaxHeight,
+    ),
+    child: Padding(
+      padding: const EdgeInsets.only(right: 10),
+      child: OpenHandSafeScrollbar(
+        controller: _controller,
+        thumbVisibility: true,
+        interactive: true,
+        thickness: 5,
+        radius: const Radius.circular(99),
+        scrollbarOrientation: ScrollbarOrientation.right,
+        child: ListView(
+          controller: _controller,
+          primary: false,
+          shrinkWrap: true,
+          physics: openHandDialogAwareScrollPhysics(context),
+          children: widget.children,
+        ),
+      ),
+    ),
+  );
+}
+
 class _DataRecordTile extends StatelessWidget {
   const _DataRecordTile({
     required this.title,
@@ -1248,70 +1321,70 @@ class _DataRecordTile extends StatelessWidget {
       ),
       child: Icon(Icons.data_object_rounded, size: 19, color: colors.primary),
     );
-    final details = ServiceInteractiveSurface(
-      padding: EdgeInsets.zero,
-      tooltip: '查看完整数据',
-      onTap: () => showServiceDetailsDialog(
-        context,
-        title: title,
-        subtitle: '数据记录详情',
-        icon: Icons.data_object_rounded,
-        presentation: ServiceDetailPresentation.record,
-        fields: serviceDetailFieldsFromMap(record),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          SelectableText(
-            title,
-            style: theme.textTheme.titleSmall?.copyWith(
-              fontWeight: FontWeight.w700,
-            ),
+    final details = Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        SelectableText(
+          title,
+          style: theme.textTheme.titleSmall?.copyWith(
+            fontWeight: FontWeight.w700,
           ),
-          const SizedBox(height: 2),
-          Text(
-            subtitle,
-            maxLines: 2,
-            overflow: TextOverflow.ellipsis,
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: colors.onSurfaceVariant,
-            ),
+        ),
+        const SizedBox(height: 2),
+        Text(
+          subtitle,
+          maxLines: 2,
+          overflow: TextOverflow.ellipsis,
+          style: theme.textTheme.bodySmall?.copyWith(
+            color: colors.onSurfaceVariant,
           ),
-          if (tags.isNotEmpty) ...[
-            const SizedBox(height: 7),
-            Wrap(
-              spacing: 6,
-              runSpacing: 6,
-              children: tags
-                  .where((tag) => tag.isNotEmpty)
-                  .map(
-                    (tag) => Container(
-                      constraints: const BoxConstraints(maxWidth: 360),
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 8,
-                        vertical: 4,
-                      ),
-                      decoration: BoxDecoration(
-                        color: colors.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(6),
-                      ),
-                      child: Text(
-                        tag,
-                        maxLines: 1,
-                        overflow: TextOverflow.ellipsis,
-                        style: theme.textTheme.labelSmall,
-                      ),
+        ),
+        if (tags.isNotEmpty) ...[
+          const SizedBox(height: 7),
+          Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            children: tags
+                .where((tag) => tag.isNotEmpty)
+                .map(
+                  (tag) => Container(
+                    constraints: const BoxConstraints(maxWidth: 360),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 8,
+                      vertical: 4,
                     ),
-                  )
-                  .toList(growable: false),
-            ),
-          ],
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(6),
+                    ),
+                    child: Text(
+                      tag,
+                      maxLines: 1,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.labelSmall,
+                    ),
+                  ),
+                )
+                .toList(growable: false),
+          ),
         ],
-      ),
+      ],
     );
     final actions = ServiceDialogIconActions(
       spacing: 4,
       children: [
+        ServiceDialogCompactIconButton(
+          tooltip: '查看完整数据',
+          onPressed: () => showServiceDetailsDialog(
+            context,
+            title: title,
+            subtitle: '数据记录详情',
+            icon: Icons.data_object_rounded,
+            presentation: ServiceDetailPresentation.record,
+            fields: serviceDetailFieldsFromMap(record),
+          ),
+          icon: const Icon(Icons.arrow_forward_rounded, size: 19),
+        ),
         ServiceDialogCompactIconButton(
           tooltip: '编辑',
           onPressed: onEdit,

@@ -25,16 +25,6 @@ enum _MetricInsightId {
   pipelineResumable,
   storageSqlite,
   storageLastWrite,
-  storageVisibleRecords,
-  storageTaskArchive,
-  storageResultArchive,
-  storageRuleSnapshots,
-  storageLogBuffer,
-  storageResumable,
-  storagePostgresql,
-  storageRedis,
-  storageCredentialEncryption,
-  storageIntegrity,
 }
 
 enum _TrendInsightId {

@@ -651,38 +651,42 @@ class _ServiceInteractiveSurfaceState extends State<ServiceInteractiveSurface> {
             children: [
               Expanded(child: widget.child),
               const SizedBox(width: 10),
-              AnimatedOpacity(
-                opacity: interactive ? 1 : 0,
-                duration: motionDuration,
-                curve: Curves.easeOutCubic,
-                child: AnimatedContainer(
+              Padding(
+                // 预留位移动画的绘制空间，避免右侧按钮被圆角材质裁剪。
+                padding: const EdgeInsets.only(right: 2),
+                child: AnimatedOpacity(
+                  opacity: interactive ? 1 : 0,
                   duration: motionDuration,
                   curve: Curves.easeOutCubic,
-                  width: 32,
-                  height: 32,
-                  alignment: Alignment.center,
-                  transform: Matrix4.translationValues(
-                    emphasized ? 2 : 0,
-                    0,
-                    0,
-                  ),
-                  decoration: BoxDecoration(
-                    color: detailsColor.withValues(
-                      alpha: emphasized ? 0.16 : 0.08,
+                  child: AnimatedContainer(
+                    duration: motionDuration,
+                    curve: Curves.easeOutCubic,
+                    width: 32,
+                    height: 32,
+                    alignment: Alignment.center,
+                    transform: Matrix4.translationValues(
+                      emphasized ? 2 : 0,
+                      0,
+                      0,
                     ),
-                    borderRadius: BorderRadius.circular(8),
-                    border: Border.all(
+                    decoration: BoxDecoration(
                       color: detailsColor.withValues(
-                        alpha: emphasized ? 0.3 : 0.16,
+                        alpha: emphasized ? 0.16 : 0.08,
+                      ),
+                      borderRadius: BorderRadius.circular(8),
+                      border: Border.all(
+                        color: detailsColor.withValues(
+                          alpha: emphasized ? 0.3 : 0.16,
+                        ),
                       ),
                     ),
-                  ),
-                  child: ExcludeSemantics(
-                    child: Icon(
-                      Icons.arrow_forward_rounded,
-                      size: 18,
-                      color: detailsColor.withValues(
-                        alpha: emphasized ? 1 : 0.82,
+                    child: ExcludeSemantics(
+                      child: Icon(
+                        Icons.arrow_forward_rounded,
+                        size: 18,
+                        color: detailsColor.withValues(
+                          alpha: emphasized ? 1 : 0.82,
+                        ),
                       ),
                     ),
                   ),

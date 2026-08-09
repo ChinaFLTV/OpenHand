@@ -33,20 +33,30 @@ class _DependencyDataAccessPanel extends StatelessWidget {
               child: const Icon(Icons.storage_rounded),
             ),
             title: const Text('PostgreSQL 数据与遥测'),
-            subtitle: Text(
-              postgresqlReady
-                  ? '${formatByteSize(_metricInt(postgresqlTelemetry['databaseSizeBytes']))} · ${_metricInt(postgresqlTelemetry['activeConnections'])} 个活跃连接'
-                  : dependencies?.postgresql.message ?? '未启用',
+            subtitle: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    postgresqlReady
+                        ? '${formatByteSize(_metricInt(postgresqlTelemetry['databaseSizeBytes']))} · ${_metricInt(postgresqlTelemetry['activeConnections'])} 个活跃连接'
+                        : dependencies?.postgresql.message ?? '未启用',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _StatusPill(
+                  icon: postgresqlReady
+                      ? Icons.check_rounded
+                      : Icons.link_off_rounded,
+                  label: postgresqlReady ? '已连接' : '未连接',
+                  color: postgresqlReady
+                      ? OpenHandStatusColors.success
+                      : Theme.of(context).colorScheme.outline,
+                ),
+              ],
             ),
-            trailing: _StatusPill(
-              icon: postgresqlReady
-                  ? Icons.check_rounded
-                  : Icons.link_off_rounded,
-              label: postgresqlReady ? '管理' : '未连接',
-              color: postgresqlReady
-                  ? OpenHandStatusColors.success
-                  : Theme.of(context).colorScheme.outline,
-            ),
+            trailing: const Icon(Icons.chevron_right_rounded, size: 19),
           ),
           const Divider(height: 1),
           ListTile(
@@ -66,18 +76,30 @@ class _DependencyDataAccessPanel extends StatelessWidget {
               child: const Icon(Icons.hub_rounded),
             ),
             title: const Text('Redis 键值与遥测'),
-            subtitle: Text(
-              redisReady
-                  ? '${formatByteSize(_metricInt(redis['usedMemoryBytes']))} · ${_metricInt(redis['operationsPerSecond'])} ops/s · ${_metricInt(redis['keyCount'])} 个键'
-                  : dependencies?.redis.message ?? '未启用',
+            subtitle: Row(
+              children: [
+                Expanded(
+                  child: Text(
+                    redisReady
+                        ? '${formatByteSize(_metricInt(redis['usedMemoryBytes']))} · ${_metricInt(redis['operationsPerSecond'])} ops/s · ${_metricInt(redis['keyCount'])} 个键'
+                        : dependencies?.redis.message ?? '未启用',
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                  ),
+                ),
+                const SizedBox(width: 8),
+                _StatusPill(
+                  icon: redisReady
+                      ? Icons.check_rounded
+                      : Icons.link_off_rounded,
+                  label: redisReady ? '已连接' : '未连接',
+                  color: redisReady
+                      ? OpenHandStatusColors.success
+                      : Theme.of(context).colorScheme.outline,
+                ),
+              ],
             ),
-            trailing: _StatusPill(
-              icon: redisReady ? Icons.check_rounded : Icons.link_off_rounded,
-              label: redisReady ? '管理' : '未连接',
-              color: redisReady
-                  ? OpenHandStatusColors.success
-                  : Theme.of(context).colorScheme.outline,
-            ),
+            trailing: const Icon(Icons.chevron_right_rounded, size: 19),
           ),
         ],
       ),
@@ -292,7 +314,6 @@ class _OpsKeyValue extends StatelessWidget {
     required this.value,
     this.color,
     this.maxLines = 2,
-    this.onTap,
     this.selectable = false,
     this.copyable = false,
   });
@@ -301,7 +322,6 @@ class _OpsKeyValue extends StatelessWidget {
   final String value;
   final Color? color;
   final int maxLines;
-  final VoidCallback? onTap;
   final bool selectable;
   final bool copyable;
 
@@ -369,16 +389,8 @@ class _OpsKeyValue extends StatelessWidget {
         ),
       ],
     );
-    if (onTap == null) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: content,
-      );
-    }
-    return ServiceInteractiveSurface(
-      onTap: onTap,
-      tooltip: '查看$label详情',
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 5),
       child: content,
     );
   }
