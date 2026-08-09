@@ -1180,8 +1180,8 @@ class _SurfaceSection extends StatelessWidget {
                       Icon(icon),
                       const SizedBox(width: 8),
                       Text(title, style: theme.textTheme.titleMedium),
-                      const Spacer(),
-                      Flexible(
+                      const SizedBox(width: 16),
+                      Expanded(
                         child: Align(
                           alignment: AlignmentDirectional.centerEnd,
                           child: trailing,
@@ -1210,22 +1210,14 @@ class _SurfaceToolbar extends StatelessWidget {
   final List<Widget> actions;
 
   @override
-  Widget build(BuildContext context) => LayoutBuilder(
-    builder: (context, constraints) {
-      final width = constraints.hasBoundedWidth
-          ? constraints.maxWidth.clamp(0.0, fieldWidth)
-          : fieldWidth;
-      return Wrap(
-        spacing: 8,
-        runSpacing: 8,
-        alignment: WrapAlignment.end,
-        crossAxisAlignment: WrapCrossAlignment.center,
-        children: [
-          SizedBox(width: width, child: field),
-          ...actions,
-        ],
-      );
-    },
+  Widget build(BuildContext context) => Row(
+    mainAxisAlignment: MainAxisAlignment.end,
+    children: [
+      Flexible(
+        child: SizedBox(width: fieldWidth, child: field),
+      ),
+      for (final action in actions) ...[const SizedBox(width: 8), action],
+    ],
   );
 }
 
