@@ -2727,6 +2727,7 @@ class _ConnectionCapacityHero extends StatelessWidget {
             final facts = Wrap(
               spacing: 10,
               runSpacing: 10,
+              alignment: WrapAlignment.end,
               children: [
                 for (final fact in [
                   _HeroFact(label: '连接池', value: '$poolSize'),
