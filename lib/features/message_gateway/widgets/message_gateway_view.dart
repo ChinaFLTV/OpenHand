@@ -12573,7 +12573,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   Widget _buildEditCancelButton() {
     return SizedBox(
-      width: 136,
       height: 48,
       child: OutlinedButton.icon(
         onPressed: _editSubmitting ? null : _cancelMessageEdit,
@@ -12596,7 +12595,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         _input.text.trim().isNotEmpty &&
         _input.text.trim() != currentMessage.content.trim();
     return SizedBox(
-      width: 148,
       height: 48,
       child: FilledButton.icon(
         onPressed: enabled
