@@ -3019,6 +3019,8 @@ class _ClientStatusHeader extends StatelessWidget {
           Icons.data_usage_rounded,
         ),
       ],
+      interactive: false,
+      singleRow: true,
     );
   }
 }
