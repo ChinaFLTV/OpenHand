@@ -74,7 +74,7 @@ class OpenHandDialogErrorText extends StatelessWidget {
 /// 弹窗底部的「取消 / 确认」动作区。
 ///
 /// [busy] 期间禁用两个按钮以防重复提交，并平滑展开进度条。
-/// [onCancel] 缺省为 `pop(false)`。
+/// [onCancel] 缺省为不携带结果关闭弹窗，避免与弹窗声明的结果类型冲突。
 class OpenHandDialogSaveActions extends StatelessWidget {
   const OpenHandDialogSaveActions({
     super.key,
@@ -104,7 +104,7 @@ class OpenHandDialogSaveActions extends StatelessWidget {
             OpenHandDialogActionButton.secondary(
               onPressed: busy
                   ? null
-                  : (onCancel ?? () => Navigator.of(context).pop(false)),
+                  : (onCancel ?? () => Navigator.of(context).pop()),
               label: cancelLabel,
             ),
             const SizedBox(width: 12),
