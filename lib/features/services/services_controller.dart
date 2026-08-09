@@ -513,13 +513,18 @@ class ServicesController extends ChangeNotifier {
     }
   }
 
-  Future<void> refreshData() async {
+  Future<void> refreshData({bool forcePluginRescan = false}) async {
     AiJunglerClient? requestClient;
     try {
+      if (forcePluginRescan) {
+        await _rescanPluginState();
+        await _syncManagedDependencies();
+      }
       final client = _requireClient();
       requestClient = client;
       final values = await Future.wait<Object>(<Future<Object>>[
         client.health(),
+        client.quotas(),
         client.history(),
         client.results(),
         client.rules(),
@@ -529,22 +534,25 @@ class ServicesController extends ChangeNotifier {
         client.proxyStatus(),
       ]);
       if (!_isCurrentClient(client)) return;
-      final proxyStatus = values[7] as AiExposureProxyStatus;
+      final proxyStatus = values[8] as AiExposureProxyStatus;
       await _mergeProxyStatistics(proxyStatus);
       if (!_isCurrentClient(client)) return;
       _health = values[0] as AiExposureHealth;
-      _setHistory(values[1] as List<AiExposureHistoryEntry>);
+      _quotas = List<AiExposureQuota>.unmodifiable(
+        values[1] as List<AiExposureQuota>,
+      );
+      _setHistory(values[2] as List<AiExposureHistoryEntry>);
       _results = List<AiExposureResult>.unmodifiable(
-        values[2] as List<AiExposureResult>,
+        values[3] as List<AiExposureResult>,
       );
       _rules = List<AiExposureScanRule>.unmodifiable(
-        values[3] as List<AiExposureScanRule>,
+        values[4] as List<AiExposureScanRule>,
       );
       _sourceStatus = Map<String, bool>.unmodifiable(
-        values[4] as Map<String, bool>,
+        values[5] as Map<String, bool>,
       );
-      _aiExtractorStatus = values[5] as AiExposureAiExtractorStatus;
-      _dependencyStatus = values[6] as AiExposureDependencyStatus;
+      _aiExtractorStatus = values[6] as AiExposureAiExtractorStatus;
+      _dependencyStatus = values[7] as AiExposureDependencyStatus;
       _proxyStatus = proxyStatus;
       _errorMessage = null;
     } catch (error, stack) {
@@ -552,6 +560,17 @@ class ServicesController extends ChangeNotifier {
       _errorMessage = _reportServicesFailure('刷新扫描服务数据', error, stack);
     }
     _notify();
+  }
+
+  Future<void> _rescanPluginState() async {
+    final plugins = _pluginServiceController;
+    if (plugins == null) return;
+    try {
+      await plugins.rescan();
+    } catch (error, stack) {
+      // 插件扫描失败时保留上次状态，继续刷新扫描服务其余数据。
+      silentLog('services_controller', '强制刷新插件状态', error, stack);
+    }
   }
 
   Future<void> refreshServiceStatus() {
@@ -589,7 +608,10 @@ class ServicesController extends ChangeNotifier {
     });
   }
 
-  Future<void> refreshManagedDependencyStatus() async {
+  Future<void> refreshManagedDependencyStatus({
+    bool forcePluginRescan = false,
+  }) async {
+    if (forcePluginRescan) await _rescanPluginState();
     await _syncManagedDependencies();
     await refreshServiceStatus();
   }
@@ -1312,7 +1334,7 @@ class ServicesController extends ChangeNotifier {
     return true;
   }
 
-  Future<void> refreshServiceLogs() async {
+  Future<void> refreshServiceLogs({bool force = false}) async {
     final client = _client;
     if (_logRefreshBusy || client == null) return;
     _logRefreshBusy = true;
@@ -1322,7 +1344,7 @@ class ServicesController extends ChangeNotifier {
           .toList(growable: false);
       final batches = await Future.wait(
         recent.map((entry) async {
-          final cached = _cachedHistoryLogs(entry.id);
+          final cached = force ? null : _cachedHistoryLogs(entry.id);
           if (cached != null) return cached;
           return client.logs(entry.id, limit: 500);
         }),

@@ -1415,6 +1415,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
   late AiExposureForumFetchMode _forumFetchMode;
   late bool _gptAssisted;
   bool _applying = false;
+  bool _refreshingStatus = false;
   String? _dependencyOperationId;
 
   @override
@@ -1440,6 +1441,27 @@ class _SettingsDialogState extends State<_SettingsDialog> {
     super.dispose();
   }
 
+  Future<void> _refreshStatus() async {
+    if (_refreshingStatus) return;
+    setState(() => _refreshingStatus = true);
+    try {
+      await context.read<ServicesController>().refreshManagedDependencyStatus(
+        forcePluginRescan: true,
+      );
+    } catch (error, stack) {
+      final message = reportServicesFailure(
+        'ai_exposure_dialogs',
+        '刷新服务依赖状态',
+        error,
+        stack,
+        fallback: '服务依赖状态刷新失败，请稍后重试。',
+      );
+      if (mounted) showOpenHandErrorSnack(context, message);
+    } finally {
+      if (mounted) setState(() => _refreshingStatus = false);
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final text = openHandTextResolver(context);
@@ -1451,12 +1473,10 @@ class _SettingsDialogState extends State<_SettingsDialog> {
       footer: _DialogActions(
         actions: [
           OpenHandDialogActionButton.secondary(
-            onPressed: controller.isRunning && !_applying
-                ? () async {
-                    await pluginController.rescan();
-                    await controller.refreshManagedDependencyStatus();
-                  }
+            onPressed: controller.isRunning && !_applying && !_refreshingStatus
+                ? _refreshStatus
                 : null,
+            busy: _refreshingStatus,
             label: text(zh: '刷新 API 状态', en: 'Refresh API status'),
           ),
           OpenHandDialogActionButton.primary(

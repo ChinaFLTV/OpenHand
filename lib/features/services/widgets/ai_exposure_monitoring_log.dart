@@ -35,7 +35,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
     if (!mounted || _refreshing) return;
     setState(() => _refreshing = true);
     try {
-      await context.read<ServicesController>().refreshServiceLogs();
+      await context.read<ServicesController>().refreshServiceLogs(force: true);
     } catch (error, stack) {
       silentLog('service_log_monitor', '刷新服务日志', error, stack);
     } finally {

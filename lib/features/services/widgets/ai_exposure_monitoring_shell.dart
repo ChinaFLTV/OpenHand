@@ -104,7 +104,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
     super.dispose();
   }
 
-  Future<void> _refresh() async {
+  Future<void> _refresh({bool forcePluginRescan = false}) async {
     if (!mounted || _refreshing) return;
     final controller = context.read<ServicesController>();
     if (!controller.isRunning) return;
@@ -113,10 +113,20 @@ class _OperationsDialogState extends State<_OperationsDialog> {
     int? bytes;
     DateTime? modifiedAt;
     try {
-      await Future.wait<Object?>([
-        controller.refreshServiceStatus(),
-        controller.refreshDependencyDataOverview(),
-      ]);
+      if (forcePluginRescan) {
+        // 手动刷新必须先重新扫描插件，再用最新插件状态同步托管依赖，
+        // 最后读取服务数据，避免安装/启用插件后仍展示旧快照。
+        await controller.refreshData(forcePluginRescan: true);
+        await Future.wait<Object?>([
+          controller.refreshDependencyDataOverview(),
+          controller.refreshServiceLogs(force: true),
+        ]);
+      } else {
+        await Future.wait<Object?>([
+          controller.refreshServiceStatus(),
+          controller.refreshDependencyDataOverview(),
+        ]);
+      }
       final path = controller.health?.databasePath.trim() ?? '';
       if (path.isNotEmpty) {
         try {
@@ -214,8 +224,13 @@ class _OperationsDialogState extends State<_OperationsDialog> {
               runSpacing: 8,
               children: [
                 ServiceDialogHeaderIconButton(
-                  tooltip: text(zh: '刷新运维数据', en: 'Refresh operations'),
-                  onPressed: running && !_refreshing ? _refresh : null,
+                  tooltip: text(
+                    zh: '刷新插件与运维数据',
+                    en: 'Refresh plugins and operations',
+                  ),
+                  onPressed: running && !_refreshing
+                      ? () => _refresh(forcePluginRescan: true)
+                      : null,
                   icon: _refreshing
                       ? const SizedBox.square(
                           dimension: 18,

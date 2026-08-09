@@ -128,11 +128,17 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
     super.dispose();
   }
 
-  Future<void> _refresh({required bool includeData}) async {
+  Future<void> _refresh({
+    required bool includeData,
+    bool forcePluginRescan = false,
+  }) async {
     if (_loading || !mounted) return;
     setState(() => _loading = true);
     final controller = context.read<ServicesController>();
     try {
+      if (forcePluginRescan) {
+        await controller.refreshData(forcePluginRescan: true);
+      }
       await controller.refreshDependencyDataOverview();
       if (includeData) {
         if (_view == DependencyDataView.postgresql &&
@@ -224,8 +230,13 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
             actions: ServiceDialogIconActions(
               children: [
                 ServiceDialogHeaderIconButton(
-                  tooltip: '刷新数据与遥测',
-                  onPressed: _busy ? null : () => _refresh(includeData: true),
+                  tooltip: '刷新插件、数据与遥测',
+                  onPressed: _busy
+                      ? null
+                      : () => _refresh(
+                          includeData: true,
+                          forcePluginRescan: true,
+                        ),
                   icon: _loading
                       ? const SizedBox.square(
                           dimension: 18,
@@ -902,7 +913,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
         kind: kind,
         postgresqlTables: _maps(postgresql['tables']),
         redisRecords: _maps(_redisPage['records']),
-        onReload: () => _refresh(includeData: true),
+        onReload: () => _refresh(includeData: true, forcePluginRescan: true),
       );
     } finally {
       _metricDialogOpen = false;
