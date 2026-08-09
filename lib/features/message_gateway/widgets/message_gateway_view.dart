@@ -12361,11 +12361,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                               child: _DingTalkMessageBubble(
                                                 message: message,
                                                 mine: _isMine(message),
-                                                onEdit:
-                                                    _canEditMessage(
-                                                      selected,
-                                                      message,
-                                                    )
+                                                onEdit: _canEditMessage(message)
                                                     ? () => _beginMessageEdit(
                                                         selected,
                                                         message,
@@ -12481,18 +12477,12 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         _editingMessageId != null;
   }
 
-  bool _canEditMessage(
-    DingTalkConversation conversation,
-    DingTalkGatewayMessage message,
-  ) {
+  bool _canEditMessage(DingTalkGatewayMessage message) {
     if (_editingConversationId != null ||
         _editSubmitting ||
         message.recalled ||
         message.media.isNotEmpty ||
-        message.content.trim().isEmpty ||
-        message.id.startsWith('local-') ||
-        message.id.startsWith('assistant-') ||
-        widget.controller.isConversationResponding(conversation.id)) {
+        message.content.trim().isEmpty) {
       return false;
     }
     return widget.controller.isMessageFromCurrentUser(message);
@@ -12502,7 +12492,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     DingTalkConversation conversation,
     DingTalkGatewayMessage message,
   ) {
-    if (!_canEditMessage(conversation, message)) return;
+    if (!_canEditMessage(message)) return;
     setState(() {
       _editingConversationId = conversation.id;
       _editingMessageId = message.id;
@@ -13575,54 +13565,34 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 _buildReactionRow(context, colors.onSurface),
               if (previewableMedia.isNotEmpty && widget.message.recalled)
                 _buildRecalledLabel(context),
-              Row(
-                mainAxisSize: MainAxisSize.min,
-                textDirection: widget.mine
-                    ? TextDirection.rtl
-                    : TextDirection.ltr,
-                children: [
-                  AnimatedSize(
-                    duration: openHandMotionDuration(
-                      context,
-                      kOpenHandMotion180,
-                    ),
-                    curve: Curves.easeOutCubic,
-                    child: _hovered
-                        ? Wrap(
-                            key: ValueKey<int>(_actionsTransitionId),
-                            spacing: 4,
-                            textDirection: widget.mine
-                                ? TextDirection.rtl
-                                : TextDirection.ltr,
-                            children: _buildHoverActions(
-                              context,
-                              previewableMedia,
-                            ),
-                          )
-                        : SizedBox(
-                            key: ValueKey<int>(_actionsTransitionId),
-                            width: 0,
-                            height: 34,
+              Align(
+                alignment: alignment,
+                child: AnimatedSize(
+                  duration: openHandMotionDuration(context, kOpenHandMotion180),
+                  curve: Curves.easeOutCubic,
+                  child: _hovered
+                      ? Wrap(
+                          key: ValueKey<int>(_actionsTransitionId),
+                          spacing: 4,
+                          textDirection: widget.mine
+                              ? TextDirection.rtl
+                              : TextDirection.ltr,
+                          children: _buildHoverActions(
+                            context,
+                            previewableMedia,
                           ),
-                  ),
-                  if (_hovered) const SizedBox(width: 6),
-                  Text(
-                    formatYearMonthDayHm(widget.message.createdAt.toLocal()),
-                    style: theme.textTheme.labelSmall?.copyWith(
-                      color: colors.onSurfaceVariant,
-                    ),
-                  ),
-                  if (widget.mine && widget.message.readByPeer) ...[
-                    const SizedBox(width: 6),
-                    Text(
-                      '已读',
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.primary,
-                        fontWeight: FontWeight.w600,
-                      ),
-                    ),
-                  ],
-                ],
+                        )
+                      : SizedBox(
+                          key: ValueKey<int>(_actionsTransitionId),
+                          width: 0,
+                          height: 0,
+                        ),
+                ),
+              ),
+              const SizedBox(height: 4),
+              Align(
+                alignment: alignment,
+                child: _buildMessageMetaPill(context),
               ),
               const SizedBox(height: 7),
             ],
@@ -13673,6 +13643,56 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     ),
                   ),
       busy: _copyingMedia,
+    );
+  }
+
+  Widget _buildMessageMetaPill(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.52),
+        borderRadius: BorderRadius.circular(18),
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.82),
+        ),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              Icons.schedule_rounded,
+              size: 15,
+              color: colors.onSurfaceVariant,
+            ),
+            const SizedBox(width: 5),
+            Text(
+              formatYearMonthDayHm(widget.message.createdAt.toLocal()),
+              style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                color: colors.onSurfaceVariant,
+                fontWeight: FontWeight.w600,
+              ),
+            ),
+            if (widget.mine && widget.message.readByPeer) ...[
+              const SizedBox(width: 7),
+              Container(
+                width: 1,
+                height: 13,
+                color: colors.outlineVariant.withValues(alpha: 0.75),
+              ),
+              const SizedBox(width: 7),
+              Text(
+                '已读',
+                style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                  color: colors.primary,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ],
+          ],
+        ),
+      ),
     );
   }
 
