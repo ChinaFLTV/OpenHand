@@ -2964,16 +2964,21 @@ class _ThroughputHero extends StatelessWidget {
       ),
     );
     return LayoutBuilder(
-      builder: (context, constraints) => constraints.maxWidth < 620
-          ? Column(children: [current, const SizedBox(height: 10), facts])
-          : Row(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Expanded(flex: 2, child: current),
-                const SizedBox(width: 10),
-                Expanded(flex: 3, child: facts),
-              ],
-            ),
+      builder: (context, constraints) {
+        if (constraints.maxWidth < 620) {
+          return Column(children: [current, const SizedBox(height: 10), facts]);
+        }
+        return IntrinsicHeight(
+          child: Row(
+            crossAxisAlignment: CrossAxisAlignment.stretch,
+            children: [
+              Expanded(flex: 2, child: current),
+              const SizedBox(width: 10),
+              Expanded(flex: 3, child: facts),
+            ],
+          ),
+        );
+      },
     );
   }
 }
