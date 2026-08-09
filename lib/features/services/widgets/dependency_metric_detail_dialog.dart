@@ -2645,10 +2645,9 @@ class _ConnectionCapacityHero extends StatelessWidget {
         : '运行良好';
     return DecoratedBox(
       decoration: BoxDecoration(
-        gradient: LinearGradient(
-          colors: [tone.withValues(alpha: 0.16), colors.surfaceContainerHigh],
-          begin: AlignmentDirectional.topStart,
-          end: AlignmentDirectional.bottomEnd,
+        color: Color.alphaBlend(
+          riskColor.withValues(alpha: 0.08),
+          colors.surfaceContainerHigh,
         ),
         borderRadius: BorderRadius.circular(16),
         border: Border.all(color: riskColor.withValues(alpha: 0.28)),
@@ -2657,56 +2656,60 @@ class _ConnectionCapacityHero extends StatelessWidget {
         padding: const EdgeInsets.all(20),
         child: LayoutBuilder(
           builder: (context, constraints) {
+            final header = Row(
+              children: [
+                Container(
+                  width: 34,
+                  height: 34,
+                  alignment: Alignment.center,
+                  decoration: BoxDecoration(
+                    color: riskColor.withValues(alpha: 0.16),
+                    shape: BoxShape.circle,
+                  ),
+                  child: Icon(
+                    Icons.account_tree_rounded,
+                    size: 18,
+                    color: riskColor,
+                  ),
+                ),
+                const SizedBox(width: 10),
+                Expanded(
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Text(
+                        '连接容量',
+                        style: theme.textTheme.titleMedium?.copyWith(
+                          fontWeight: FontWeight.w800,
+                        ),
+                      ),
+                      Text(
+                        '活动连接 / 最大连接数',
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: colors.onSurfaceVariant,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+                const SizedBox(width: 12),
+                _StatusTag(label: riskLabel, color: riskColor),
+              ],
+            );
             final usage = Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                Row(
-                  children: [
-                    Container(
-                      width: 34,
-                      height: 34,
-                      alignment: Alignment.center,
-                      decoration: BoxDecoration(
-                        color: riskColor.withValues(alpha: 0.16),
-                        shape: BoxShape.circle,
-                      ),
-                      child: Icon(
-                        Icons.account_tree_rounded,
-                        size: 18,
-                        color: riskColor,
-                      ),
+                FittedBox(
+                  fit: BoxFit.scaleDown,
+                  alignment: AlignmentDirectional.centerStart,
+                  child: Text(
+                    '$active / ${maximum <= 0 ? '--' : maximum}',
+                    style: theme.textTheme.headlineSmall?.copyWith(
+                      fontWeight: FontWeight.w900,
                     ),
-                    const SizedBox(width: 10),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            '连接容量',
-                            style: theme.textTheme.titleMedium?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
-                          ),
-                          Text(
-                            '活动连接 / 最大连接数',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onSurfaceVariant,
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                    _StatusTag(label: riskLabel, color: riskColor),
-                  ],
-                ),
-                const SizedBox(height: 4),
-                Text(
-                  '$active / ${maximum <= 0 ? '--' : maximum}',
-                  style: theme.textTheme.headlineSmall?.copyWith(
-                    fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 10),
+                const SizedBox(height: 12),
                 ClipRRect(
                   borderRadius: BorderRadius.circular(999),
                   child: ServiceAnimatedProgressBar(
@@ -2751,18 +2754,22 @@ class _ConnectionCapacityHero extends StatelessWidget {
                   ),
               ],
             );
-            if (constraints.maxWidth < 620) {
-              return Column(
-                crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [usage, const SizedBox(height: 16), facts],
-              );
-            }
-            return Row(
-              children: [
-                Expanded(flex: 2, child: usage),
-                const SizedBox(width: 24),
-                Expanded(flex: 3, child: facts),
-              ],
+            final body = constraints.maxWidth < 620
+                ? Column(
+                    crossAxisAlignment: CrossAxisAlignment.stretch,
+                    children: [usage, const SizedBox(height: 16), facts],
+                  )
+                : Row(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(flex: 2, child: usage),
+                      const SizedBox(width: 24),
+                      Expanded(flex: 3, child: facts),
+                    ],
+                  );
+            return Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [header, const SizedBox(height: 18), body],
             );
           },
         ),
