@@ -834,6 +834,7 @@ class DingTalkConversation {
     required this.type,
     required this.title,
     List<DingTalkGatewayMessage> messages = const <DingTalkGatewayMessage>[],
+    this.openConversationId,
     this.directUserId,
     this.directOpenDingTalkId,
   }) : messages = List<DingTalkGatewayMessage>.from(messages);
@@ -869,6 +870,9 @@ class DingTalkConversation {
       type: type,
       title: title,
       messages: messages,
+      openConversationId: nullIfBlank(
+        '${json['open_conversation_id'] ?? json['openConversationId'] ?? ''}',
+      ),
       directUserId: nullIfBlank('${json['direct_user_id'] ?? ''}'),
       directOpenDingTalkId: nullIfBlank(
         '${json['direct_open_dingtalk_id'] ?? ''}',
@@ -883,14 +887,24 @@ class DingTalkConversation {
   final DingTalkConversationType type;
   String title;
   final List<DingTalkGatewayMessage> messages;
+
+  /// DWS 编辑消息所需的 openConversationId。直聊在首次收到事件后补齐。
+  String? openConversationId;
   String? aiSessionId;
   String? directUserId;
   String? directOpenDingTalkId;
+
+  String get dwsConversationId {
+    final remoteId = openConversationId?.trim() ?? '';
+    if (remoteId.isNotEmpty) return remoteId;
+    return type == DingTalkConversationType.group ? id : '';
+  }
 
   Map<String, Object?> toJson() => <String, Object?>{
     'id': id,
     'type': type.name,
     'title': title,
+    'open_conversation_id': openConversationId,
     'ai_session_id': aiSessionId,
     'direct_user_id': directUserId,
     'direct_open_dingtalk_id': directOpenDingTalkId,

@@ -1022,6 +1022,34 @@ class DingTalkMessageGatewayService {
     return _sentMessageId(result);
   }
 
+  Future<void> editMessage({
+    required DingTalkConversation conversation,
+    required String messageId,
+    required String text,
+  }) async {
+    final normalizedId = messageId.trim();
+    final normalizedText = text.trim();
+    if (normalizedId.isEmpty) throw const FormatException('消息标识为空。');
+    if (normalizedText.isEmpty) throw const FormatException('消息内容为空。');
+    final conversationId = conversation.dwsConversationId;
+    if (conversationId.isEmpty) {
+      throw StateError('缺少钉钉开放会话标识，暂时无法编辑消息。');
+    }
+    await _runJson(<String>[
+      'chat',
+      'message',
+      'edit',
+      '--conversation-id',
+      conversationId,
+      '--msg-id',
+      normalizedId,
+      '--text',
+      normalizedText,
+      '--format',
+      'json',
+    ]);
+  }
+
   Future<String?> sendFile({
     required DingTalkConversation conversation,
     required String filePath,

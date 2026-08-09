@@ -1133,6 +1133,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             : allowedTarget.openDingTalkId.trim(),
       ),
     );
+    if (conversation.type == DingTalkConversationType.direct) {
+      final remoteConversationId = message.conversationId.trim();
+      if (remoteConversationId.isNotEmpty &&
+          conversation.openConversationId != remoteConversationId) {
+        conversation.openConversationId = remoteConversationId;
+        _queuePersist();
+      }
+    }
     _appendMessage(conversation, message);
     _unreadCount += 1;
     if (_settings.reminderMode == DingTalkReminderMode.sound) {
@@ -1205,6 +1213,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         continue;
       }
       if (conversation.id == conversationId ||
+          conversation.openConversationId?.trim() == conversationId ||
           conversation.directUserId?.trim() == conversationId ||
           conversation.directOpenDingTalkId?.trim() == conversationId ||
           conversation.messages.any(
@@ -1432,10 +1441,28 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final baselineMessageIds = sessionBeforeEcho == null
           ? <String>{}
           : sessionBeforeEcho.messages.map((message) => message.id).toSet();
-      final selectedEchoTypes = _settings.responseEchoTypes.toSet();
-      final echoedMessageIds = <String>{};
-      var allowFinalResponseEcho = false;
-      var echoTail = Future<void>.value();
+      final echoCoordinator = _DingTalkEchoCoordinator(
+        baselineMessageIds: baselineMessageIds,
+        selectedTypes: _settings.responseEchoTypes.toSet(),
+        typeOf: _echoTypeOf,
+        textFor: _echoTextForMessage,
+        isTerminal: _isEchoTerminal,
+        send: (source, text, uuid) => _sendDingTalkEcho(
+          conversation: conversation,
+          source: source,
+          text: text,
+          uuid: uuid,
+        ),
+        edit: (messageId, text) => _editDingTalkEcho(
+          conversation: conversation,
+          messageId: messageId,
+          text: text,
+        ),
+        newUuid: _uuid.v4,
+        onError: (action, error, stack) {
+          silentLog('dingtalk_gateway', action, error, stack);
+        },
+      );
 
       AiSession? currentSession() {
         for (final item in _sessionController.sessions) {
@@ -1444,75 +1471,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         return null;
       }
 
-      void queueEchoes(AiSession session) {
-        final candidates = <AiSessionMessage>[];
-        for (final message in session.messages) {
-          if (baselineMessageIds.contains(message.id) ||
-              echoedMessageIds.contains(message.id)) {
-            continue;
-          }
-          final type = _completedEchoTypeOf(message, session.messages);
-          if (type == null || !selectedEchoTypes.contains(type)) continue;
-          if (type == DingTalkResponseEchoType.finalResponse &&
-              !allowFinalResponseEcho) {
-            continue;
-          }
-          candidates.add(message);
-        }
-        if (allowFinalResponseEcho) {
-          AiSessionMessage? latestAssistant;
-          for (final message in candidates.reversed) {
-            if (message.kind == AiSessionMessageKind.assistant &&
-                _completedEchoTypeOf(message, session.messages) ==
-                    DingTalkResponseEchoType.finalResponse) {
-              latestAssistant = message;
-              break;
-            }
-          }
-          candidates.removeWhere(
-            (message) =>
-                message.kind == AiSessionMessageKind.assistant &&
-                _completedEchoTypeOf(message, session.messages) ==
-                    DingTalkResponseEchoType.finalResponse &&
-                message.id != latestAssistant?.id,
-          );
-        }
-        final candidateOrder = <String, int>{
-          for (var index = 0; index < candidates.length; index++)
-            candidates[index].id: index,
-        };
-        candidates.sort((a, b) {
-          final time = _echoCompletionTime(a).compareTo(_echoCompletionTime(b));
-          return time == 0
-              ? candidateOrder[a.id]!.compareTo(candidateOrder[b.id]!)
-              : time;
-        });
-        for (final message in candidates) {
-          final type = _completedEchoTypeOf(message, session.messages);
-          if (type == null || !echoedMessageIds.add(message.id)) continue;
-          final text = _echoTextForMessage(message, session.messages);
-          if (text.trim().isEmpty) {
-            echoedMessageIds.remove(message.id);
-            continue;
-          }
-          echoTail = echoTail.then((_) async {
-            try {
-              await _sendDingTalkEcho(
-                conversation: conversation,
-                source: message,
-                text: text,
-              );
-            } catch (error, stack) {
-              silentLog('dingtalk_gateway', '同步钉钉 AI 过程消息', error, stack);
-            }
-          });
-        }
-      }
-
       void onSessionChanged() {
         if (_disposed) return;
         final session = currentSession();
-        if (session != null) queueEchoes(session);
+        if (session != null) echoCoordinator.ingest(session);
       }
 
       _sessionController.addListener(onSessionChanged);
@@ -1554,16 +1516,23 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             'sent_via': 'dingtalk_gateway',
           },
         );
-        if (sent) {
-          allowFinalResponseEcho = true;
-          final session = currentSession();
-          if (session != null) queueEchoes(session);
-        }
-        await echoTail;
         if (!sent) return;
       } finally {
         _sessionController.removeListener(onSessionChanged);
-        await echoTail;
+        final session = currentSession();
+        if (session != null) echoCoordinator.ingest(session);
+        try {
+          await echoCoordinator.flush().timeout(const Duration(seconds: 45));
+        } on TimeoutException {
+          silentLog(
+            'dingtalk_gateway',
+            '收敛钉钉流式回显超时',
+            TimeoutException('钉钉流式回显未在限定时间内完成。'),
+            StackTrace.current,
+          );
+        } finally {
+          echoCoordinator.dispose();
+        }
       }
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '生成钉钉 AI 回复', error, stack);
@@ -1619,14 +1588,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _maxDingTalkToolCellCharacters = 900;
   static const int _maxDingTalkToolFormattingCharacters = 12000;
 
-  DingTalkResponseEchoType? _completedEchoTypeOf(
+  DingTalkResponseEchoType? _echoTypeOf(
     AiSessionMessage message,
     List<AiSessionMessage> sessionMessages,
   ) {
-    if (message.isDeleted || message.content.trim().isEmpty) return null;
-    if (message.metadata[aiSessionMessageMetadataStreamingKey] == true) {
-      return null;
-    }
+    if (message.isDeleted) return null;
+    final isToolMessage =
+        message.kind == AiSessionMessageKind.toolCall ||
+        message.kind == AiSessionMessageKind.hook;
+    if (!isToolMessage && message.content.trim().isEmpty) return null;
     if (message.metadata[aiSessionGoalEvaluationMessageMetadataKey] == true) {
       return null;
     }
@@ -1637,18 +1607,22 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _isIntermediateAssistantMessage(message, sessionMessages)
             ? DingTalkResponseEchoType.process
             : DingTalkResponseEchoType.finalResponse,
-      AiSessionMessageKind.toolCall || AiSessionMessageKind.hook =>
-        message.metadata['dingtalk_media_response'] == true
-            ? null
-            : _terminalToolEchoStatuses.contains(
-                '${message.metadata['tool_execution_status'] ?? message.metadata['tool_status'] ?? message.metadata['status'] ?? ''}'
-                    .trim()
-                    .toLowerCase(),
-              )
-            ? DingTalkResponseEchoType.toolCall
-            : null,
+      AiSessionMessageKind.toolCall ||
+      AiSessionMessageKind.hook => DingTalkResponseEchoType.toolCall,
       _ => null,
     };
+  }
+
+  bool _isEchoTerminal(AiSessionMessage message) {
+    if (message.kind == AiSessionMessageKind.toolCall ||
+        message.kind == AiSessionMessageKind.hook) {
+      final status =
+          '${message.metadata['tool_execution_status'] ?? message.metadata['tool_status'] ?? message.metadata['status'] ?? ''}'
+              .trim()
+              .toLowerCase();
+      return _terminalToolEchoStatuses.contains(status);
+    }
+    return message.metadata[aiSessionMessageMetadataStreamingKey] != true;
   }
 
   bool _isIntermediateAssistantMessage(
@@ -1667,27 +1641,28 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         );
   }
 
-  Future<void> _sendDingTalkEcho({
+  Future<String?> _sendDingTalkEcho({
     required DingTalkConversation conversation,
     required AiSessionMessage source,
     required String text,
+    required String uuid,
   }) async {
     if (_disposed ||
         !identical(_conversations[conversation.id], conversation)) {
-      return;
+      return null;
     }
     final normalized = clipTextByCodeUnits(
       text.trim(),
       _maxDingTalkEchoCharacters,
       suffix: '\n\n…内容已截断',
     );
-    if (normalized.isEmpty) return;
+    if (normalized.isEmpty) return null;
     final remoteMessageId = await _service
-        .send(conversation: conversation, text: normalized, uuid: _uuid.v4())
+        .send(conversation: conversation, text: normalized, uuid: uuid)
         .timeout(const Duration(seconds: 30));
     if (_disposed ||
         !identical(_conversations[conversation.id], conversation)) {
-      return;
+      return null;
     }
     final sentId = remoteMessageId?.trim() ?? '';
     final messageId = sentId.isEmpty ? 'assistant-${source.id}' : sentId;
@@ -1704,6 +1679,45 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       ),
     );
     _notify();
+    return sentId.isEmpty ? null : sentId;
+  }
+
+  Future<void> _editDingTalkEcho({
+    required DingTalkConversation conversation,
+    required String messageId,
+    required String text,
+  }) async {
+    if (_disposed ||
+        !identical(_conversations[conversation.id], conversation)) {
+      return;
+    }
+    final normalized = clipTextByCodeUnits(
+      text.trim(),
+      _maxDingTalkEchoCharacters,
+      suffix: '\n\n…内容已截断',
+    );
+    if (normalized.isEmpty || messageId.trim().isEmpty) return;
+    await _service
+        .editMessage(
+          conversation: conversation,
+          messageId: messageId,
+          text: normalized,
+        )
+        .timeout(const Duration(seconds: 20));
+    if (_disposed ||
+        !identical(_conversations[conversation.id], conversation)) {
+      return;
+    }
+    final index = conversation.messages.indexWhere(
+      (message) => message.id == messageId,
+    );
+    if (index >= 0 && conversation.messages[index].content != normalized) {
+      conversation.messages[index] = conversation.messages[index].copyWith(
+        content: normalized,
+      );
+      _queuePersist();
+      _notify();
+    }
   }
 
   String _echoTextForMessage(
@@ -1733,6 +1747,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             .toLowerCase();
     final durationMs = _toolDurationMilliseconds(call);
     final statusLabel = switch (status) {
+      'running' => '执行中',
+      'pending' => '等待执行',
       'success' => '成功',
       'timed_out' => '超时',
       'cancelled' => '已取消',
@@ -1740,14 +1756,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       'invalid_arguments' => '参数无效',
       'blocked' => '已阻止',
       'failed' => '失败',
-      _ => status.isEmpty ? '未知' : status,
+      _ => status.isEmpty ? '等待执行' : status,
     };
     final durationLabel = durationMs <= 0
         ? '—'
         : durationMs >= 1000
         ? '${(durationMs / 1000).toStringAsFixed(2)} 秒'
         : '$durationMs 毫秒';
-    return '''### 工具调用结果 · $toolName
+    return '''### 工具调用 · $toolName
 
 | 项目 | 内容 |
 | --- | --- |
@@ -1833,17 +1849,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
   }
 
-  DateTime _echoCompletionTime(AiSessionMessage message) {
-    if (message.kind == AiSessionMessageKind.toolCall ||
-        message.kind == AiSessionMessageKind.hook) {
-      return utcDateTimeFromValue(
-            message.metadata['tool_execution_finished_at'],
-          ) ??
-          message.createdAt;
-    }
-    return message.createdAt;
-  }
-
   String _markdownTableCell(String value) {
     return value
         .replaceAll('`', 'ˋ')
@@ -1864,8 +1869,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final finished = utcDateTimeFromValue(
       metadata['tool_execution_finished_at'],
     );
-    if (started == null || finished == null) return 0;
-    return finished.difference(started).inMilliseconds.clamp(0, 86400000);
+    if (started == null) return 0;
+    return (finished ?? DateTime.now().toUtc())
+        .difference(started)
+        .inMilliseconds
+        .clamp(0, 86400000);
   }
 
   static const int _maxQueuedResponsesPerConversation = 256;
@@ -2071,6 +2079,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               messages: List<DingTalkGatewayMessage>.from(
                 conversation.messages,
               ),
+              openConversationId: conversation.openConversationId,
               directUserId: conversation.directUserId,
               directOpenDingTalkId: conversation.directOpenDingTalkId,
             )..aiSessionId = conversation.aiSessionId;
@@ -2131,4 +2140,311 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     unawaited(shutdown());
     super.dispose();
   }
+}
+
+typedef _DingTalkEchoTypeResolver =
+    DingTalkResponseEchoType? Function(
+      AiSessionMessage message,
+      List<AiSessionMessage> messages,
+    );
+typedef _DingTalkEchoTextBuilder =
+    String Function(AiSessionMessage message, List<AiSessionMessage> messages);
+typedef _DingTalkEchoTerminalResolver = bool Function(AiSessionMessage message);
+typedef _DingTalkEchoSender =
+    Future<String?> Function(AiSessionMessage source, String text, String uuid);
+typedef _DingTalkEchoEditor =
+    Future<void> Function(String messageId, String text);
+typedef _DingTalkEchoErrorHandler =
+    void Function(String action, Object error, StackTrace stack);
+
+/// 单轮钉钉 AI 回显协调器：首次发送后只编辑同一条消息，并合并高频流式增量。
+class _DingTalkEchoCoordinator {
+  _DingTalkEchoCoordinator({
+    required Set<String> baselineMessageIds,
+    required Set<DingTalkResponseEchoType> selectedTypes,
+    required _DingTalkEchoTypeResolver typeOf,
+    required _DingTalkEchoTextBuilder textFor,
+    required _DingTalkEchoTerminalResolver isTerminal,
+    required _DingTalkEchoSender send,
+    required _DingTalkEchoEditor edit,
+    required String Function() newUuid,
+    required _DingTalkEchoErrorHandler onError,
+  }) : _baselineMessageIds = baselineMessageIds,
+       _selectedTypes = selectedTypes,
+       _typeOf = typeOf,
+       _textFor = textFor,
+       _isTerminal = isTerminal,
+       _send = send,
+       _edit = edit,
+       _newUuid = newUuid,
+       _onError = onError;
+
+  static const Duration _initialStreamDelay = Duration(milliseconds: 180);
+  static const Duration _editInterval = Duration(seconds: 1);
+  static const int _maxTrackedMessages = 96;
+
+  final Set<String> _baselineMessageIds;
+  final Set<DingTalkResponseEchoType> _selectedTypes;
+  final _DingTalkEchoTypeResolver _typeOf;
+  final _DingTalkEchoTextBuilder _textFor;
+  final _DingTalkEchoTerminalResolver _isTerminal;
+  final _DingTalkEchoSender _send;
+  final _DingTalkEchoEditor _edit;
+  final String Function() _newUuid;
+  final _DingTalkEchoErrorHandler _onError;
+  final LinkedHashMap<String, _PendingDingTalkEcho> _pending =
+      LinkedHashMap<String, _PendingDingTalkEcho>();
+  final LinkedHashMap<String, _DingTalkEchoDeliveryState> _states =
+      LinkedHashMap<String, _DingTalkEchoDeliveryState>();
+  Timer? _timer;
+  DateTime? _scheduledAt;
+  Future<void>? _activeDrain;
+  bool _disposed = false;
+
+  void ingest(AiSession session) {
+    if (_disposed || _selectedTypes.isEmpty) return;
+    final now = DateTime.now();
+    for (final message in session.messages) {
+      if (_baselineMessageIds.contains(message.id)) continue;
+      final state = _states[message.id];
+      final queued = _pending[message.id];
+      final resolvedType = _typeOf(message, session.messages);
+      // 未发送前允许消息类型随会话状态变化，避免助手消息由正式响应变为过程响应时
+      // 仍沿用首次解析结果；已发送消息保持原卡片生命周期不变。
+      final type = state?.type ?? resolvedType ?? queued?.type;
+      if (type == null ||
+          (state == null && queued == null && !_selectedTypes.contains(type))) {
+        continue;
+      }
+      final text = _textFor(message, session.messages).trim();
+      if (text.isEmpty) continue;
+      if (state?.finished == true && state?.lastText == text) continue;
+      final terminal = _isTerminal(message);
+      if (state != null && state.lastText == text) {
+        if (terminal) {
+          state.finished = true;
+          _pending.remove(message.id);
+        }
+        continue;
+      }
+      final readyAt = terminal
+          ? now
+          : queued?.readyAt ??
+                _nextReadyAt(
+                  now: now,
+                  state: state,
+                  immediate:
+                      message.kind == AiSessionMessageKind.toolCall ||
+                      message.kind == AiSessionMessageKind.hook,
+                );
+      _pending[message.id] = _PendingDingTalkEcho(
+        source: message,
+        type: type,
+        text: text,
+        terminal: terminal,
+        readyAt: readyAt,
+      );
+    }
+    _trimPending();
+    _schedule();
+  }
+
+  DateTime _nextReadyAt({
+    required DateTime now,
+    required _DingTalkEchoDeliveryState? state,
+    required bool immediate,
+  }) {
+    if (state == null) {
+      return immediate ? now : now.add(_initialStreamDelay);
+    }
+    final next = state.lastMutationAt.add(_editInterval);
+    return next.isAfter(now) ? next : now;
+  }
+
+  void _trimPending() {
+    while (_pending.length > _maxTrackedMessages) {
+      String? removableId;
+      for (final entry in _pending.entries) {
+        if (!entry.value.terminal) {
+          removableId = entry.key;
+          break;
+        }
+      }
+      _pending.remove(removableId ?? _pending.keys.first);
+    }
+    while (_states.length > _maxTrackedMessages) {
+      String? removableId;
+      for (final entry in _states.entries) {
+        if (entry.value.finished) {
+          removableId = entry.key;
+          break;
+        }
+      }
+      removableId ??= _states.keys.first;
+      _states.remove(removableId);
+      _pending.remove(removableId);
+    }
+  }
+
+  void _schedule() {
+    if (_disposed || _activeDrain != null || _pending.isEmpty) return;
+    final earliest = _pending.values
+        .map((item) => item.readyAt)
+        .reduce((left, right) => left.isBefore(right) ? left : right);
+    final scheduledAt = _scheduledAt;
+    if (_timer != null &&
+        scheduledAt != null &&
+        !earliest.isBefore(scheduledAt)) {
+      return;
+    }
+    _timer?.cancel();
+    _scheduledAt = earliest;
+    final delay = earliest.difference(DateTime.now());
+    _timer = Timer(delay.isNegative ? Duration.zero : delay, _startDrain);
+  }
+
+  void _startDrain() {
+    if (_disposed || _activeDrain != null) return;
+    _timer?.cancel();
+    _timer = null;
+    _scheduledAt = null;
+    final task = _drainReady();
+    _activeDrain = task;
+    unawaited(
+      task.whenComplete(() {
+        if (identical(_activeDrain, task)) _activeDrain = null;
+        _schedule();
+      }),
+    );
+  }
+
+  Future<void> _drainReady() async {
+    while (!_disposed && _pending.isNotEmpty) {
+      final now = DateTime.now();
+      MapEntry<String, _PendingDingTalkEcho>? candidate;
+      for (final entry in _pending.entries) {
+        if (!entry.value.readyAt.isAfter(now)) {
+          candidate = entry;
+          break;
+        }
+      }
+      if (candidate == null) return;
+      _pending.remove(candidate.key);
+      await _deliver(candidate.key, candidate.value);
+    }
+  }
+
+  Future<void> _deliver(String sourceId, _PendingDingTalkEcho pending) async {
+    final state = _states.putIfAbsent(
+      sourceId,
+      () => _DingTalkEchoDeliveryState(type: pending.type, uuid: _newUuid()),
+    );
+    if (state.finished && state.lastText == pending.text) return;
+    // 终态之后若工具结果或格式化字段补齐，允许再编辑一次同一条消息。
+    state.finished = false;
+    if (state.lastText == pending.text) {
+      state.finished = pending.terminal;
+      return;
+    }
+    try {
+      if (!state.sent) {
+        state.remoteMessageId = await _send(
+          pending.source,
+          pending.text,
+          state.uuid,
+        );
+        state.sent = true;
+      } else {
+        final messageId = state.remoteMessageId?.trim() ?? '';
+        if (messageId.isNotEmpty) {
+          await _edit(messageId, pending.text);
+        }
+      }
+      state.lastText = pending.text;
+      state.lastMutationAt = DateTime.now();
+      state.finished = pending.terminal;
+    } catch (error, stack) {
+      state.lastMutationAt = DateTime.now();
+      _onError(state.sent ? '编辑钉钉 AI 回显消息' : '发送钉钉 AI 回显消息', error, stack);
+      if (pending.terminal &&
+          state.sent &&
+          (state.remoteMessageId?.trim().isNotEmpty ?? false)) {
+        try {
+          state.remoteMessageId = await _send(
+            pending.source,
+            pending.text,
+            _newUuid(),
+          );
+          state.lastText = pending.text;
+        } catch (fallbackError, fallbackStack) {
+          _onError('补发钉钉 AI 终态回显消息', fallbackError, fallbackStack);
+        }
+      }
+      state.finished = pending.terminal;
+    }
+  }
+
+  Future<void> flush() async {
+    if (_disposed) return;
+    _timer?.cancel();
+    _timer = null;
+    _scheduledAt = null;
+    while (!_disposed && (_pending.isNotEmpty || _activeDrain != null)) {
+      final now = DateTime.now();
+      for (final entry in _pending.entries.toList(growable: false)) {
+        _pending[entry.key] = entry.value.copyWith(readyAt: now);
+      }
+      _startDrain();
+      final task = _activeDrain;
+      if (task == null) break;
+      await task;
+    }
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _timer?.cancel();
+    _timer = null;
+    _pending.clear();
+    _states.clear();
+  }
+}
+
+class _PendingDingTalkEcho {
+  const _PendingDingTalkEcho({
+    required this.source,
+    required this.type,
+    required this.text,
+    required this.terminal,
+    required this.readyAt,
+  });
+
+  final AiSessionMessage source;
+  final DingTalkResponseEchoType type;
+  final String text;
+  final bool terminal;
+  final DateTime readyAt;
+
+  _PendingDingTalkEcho copyWith({DateTime? readyAt}) {
+    return _PendingDingTalkEcho(
+      source: source,
+      type: type,
+      text: text,
+      terminal: terminal,
+      readyAt: readyAt ?? this.readyAt,
+    );
+  }
+}
+
+class _DingTalkEchoDeliveryState {
+  _DingTalkEchoDeliveryState({required this.type, required this.uuid});
+
+  final DingTalkResponseEchoType type;
+  final String uuid;
+  String? remoteMessageId;
+  String lastText = '';
+  DateTime lastMutationAt = DateTime.fromMillisecondsSinceEpoch(0);
+  bool sent = false;
+  bool finished = false;
 }
