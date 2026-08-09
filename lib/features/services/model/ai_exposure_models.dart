@@ -351,6 +351,10 @@ class AiExposureScanRule {
 
 const int kAiExposureProxyLatencySampleLimit = 24;
 const int kAiExposureProxyRequestSampleLimit = 24;
+const int kAiExposureProxyRuntimeRequestSampleLimit = 512;
+
+/// 代理请求明细的持久化上限，避免长期运行导致数据库无限增长。
+const int kAiExposureProxyRequestHistoryLimit = 50000;
 
 enum AiExposureProxyProbeFailure {
   gateway('gateway'),
@@ -504,6 +508,8 @@ class AiExposureProxyRequestSample {
     this.statusCode,
     this.id,
     this.endpointId,
+    this.clientIp,
+    this.remoteIp,
     this.targetHost,
     this.method,
     this.timeoutMs,
@@ -540,6 +546,8 @@ class AiExposureProxyRequestSample {
       statusCode: statusCode,
       id: _optionalString(json['id']),
       endpointId: _optionalString(json['endpointId']),
+      clientIp: _optionalString(json['clientIp']),
+      remoteIp: _optionalString(json['remoteIp']),
       targetHost: _optionalString(json['targetHost']),
       method: _optionalString(json['method']),
       timeoutMs: _optionalNonNegativeInt(
@@ -561,6 +569,8 @@ class AiExposureProxyRequestSample {
   final int? statusCode;
   final String? id;
   final String? endpointId;
+  final String? clientIp;
+  final String? remoteIp;
   final String? targetHost;
   final String? method;
   final int? timeoutMs;
@@ -580,6 +590,8 @@ class AiExposureProxyRequestSample {
     if (statusCode != null) 'statusCode': statusCode,
     if (id != null) 'id': id,
     if (endpointId != null) 'endpointId': endpointId,
+    if (clientIp != null) 'clientIp': clientIp,
+    if (remoteIp != null) 'remoteIp': remoteIp,
     if (targetHost != null) 'targetHost': targetHost,
     if (method != null) 'method': method,
     if (timeoutMs != null) 'timeoutMs': timeoutMs,
@@ -589,6 +601,67 @@ class AiExposureProxyRequestSample {
     if (selectionReason != null) 'selectionReason': selectionReason,
     if (context != null) 'context': context,
   };
+}
+
+/// 代理请求明细记录。请求样本与节点地址分开存储，节点被移除后仍可追溯历史。
+class AiExposureProxyRequestRecord {
+  const AiExposureProxyRequestRecord({
+    required this.endpointUrl,
+    required this.sample,
+  });
+
+  final String endpointUrl;
+  final AiExposureProxyRequestSample sample;
+
+  String get recordId {
+    final id = sample.id?.trim();
+    if (id != null && id.isNotEmpty) return id;
+    return '${endpointUrl}_${sample.at.millisecondsSinceEpoch}_'
+        '${sample.result}_${sample.responseTimeMs}_${sample.targetHost ?? ''}';
+  }
+
+  String get clientIp => sample.clientIp?.trim().isNotEmpty == true
+      ? sample.clientIp!.trim()
+      : '--';
+
+  String get proxyNode {
+    final value = endpointUrl.trim();
+    if (value.isEmpty) return '--';
+    final uri = Uri.tryParse(value);
+    if (uri == null || uri.userInfo.isEmpty) return value;
+    final username = uri.userInfo.split(':').first;
+    return uri.replace(userInfo: '$username:******').toString();
+  }
+
+  String get remoteIp {
+    final remoteIp = sample.remoteIp?.trim();
+    if (remoteIp?.isNotEmpty == true) return remoteIp!;
+    final targetHost = sample.targetHost?.trim();
+    return targetHost?.isNotEmpty == true ? targetHost! : '--';
+  }
+
+  String get note {
+    final message = sample.errorMessage?.trim();
+    if (message?.isNotEmpty == true) return message!;
+    final context = sample.context?.trim();
+    return context?.isNotEmpty == true ? context! : '--';
+  }
+}
+
+class AiExposureProxyRequestTrendBucket {
+  const AiExposureProxyRequestTrendBucket({
+    required this.at,
+    required this.total,
+    required this.successes,
+    required this.failures,
+    required this.timeouts,
+  });
+
+  final DateTime at;
+  final int total;
+  final int successes;
+  final int failures;
+  final int timeouts;
 }
 
 class AiExposureProxyUsageStatistics {
@@ -641,9 +714,11 @@ class AiExposureProxyUsageStatistics {
       lastSuccessAt: timestamp('lastSuccessAtMs'),
       lastFailureAt: timestamp('lastFailureAtMs'),
       lastError: _stringValue(json['lastError']),
-      recentRequests: recent.length <= kAiExposureProxyRequestSampleLimit
+      recentRequests: recent.length <= kAiExposureProxyRuntimeRequestSampleLimit
           ? recent
-          : recent.sublist(recent.length - kAiExposureProxyRequestSampleLimit),
+          : recent.sublist(
+              recent.length - kAiExposureProxyRuntimeRequestSampleLimit,
+            ),
     );
   }
 
@@ -701,6 +776,8 @@ class AiExposureProxyUsageStatistics {
           current.statusCode != next.statusCode ||
           current.id != next.id ||
           current.endpointId != next.endpointId ||
+          current.clientIp != next.clientIp ||
+          current.remoteIp != next.remoteIp ||
           current.targetHost != next.targetHost ||
           current.method != next.method ||
           current.timeoutMs != next.timeoutMs ||

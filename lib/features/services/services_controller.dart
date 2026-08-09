@@ -125,6 +125,7 @@ class ServicesController extends ChangeNotifier {
       AiExposureProxyConfiguration.defaults();
   Timer? _proxyInspectionTimer;
   Timer? _proxyStatisticsTimer;
+  AiExposureProxyProbeCancellation? _proxyInspectionCancellation;
   bool _proxyInspectionRunning = false;
   bool _proxyInspectionCancelRequested = false;
   int _proxyInspectionGeneration = 0;
@@ -202,6 +203,8 @@ class ServicesController extends ChangeNotifier {
   bool get isRunning => _lifecycle == AiExposureServiceLifecycle.running;
   bool get hasActiveScan => _progress?.isRunning ?? false;
   bool get proxyInspectionBusy => _proxyInspectionRunning;
+  bool get proxyInspectionCancelling =>
+      _proxyInspectionRunning && _proxyInspectionCancelRequested;
   bool get ownsProcess => _runtime.ownsProcess;
   AiJunglerClient? get _client => _runtime.client;
 
@@ -219,6 +222,22 @@ class ServicesController extends ChangeNotifier {
     if (_client != null && status != null) return status.systemProxyEnabled;
     return SystemProxyResolver.instance.resolveRuntimeRoute().hasProxy;
   }
+
+  Future<int> proxyRequestHistoryCount() =>
+      _preferencesStore.countProxyRequestHistory();
+
+  Future<List<AiExposureProxyRequestRecord>> loadProxyRequestHistory({
+    required int offset,
+    required int limit,
+  }) => _preferencesStore.loadProxyRequestHistory(offset: offset, limit: limit);
+
+  Future<List<AiExposureProxyRequestTrendBucket>> loadProxyRequestTrend({
+    required DateTime startAt,
+    required Duration interval,
+  }) => _preferencesStore.loadProxyRequestTrend(
+    startAt: startAt,
+    interval: interval,
+  );
 
   AiExposureProxyRoute get proxyRoute => usesProxyPool
       ? AiExposureProxyRoute.pool
@@ -865,6 +884,7 @@ class ServicesController extends ChangeNotifier {
   }) async {
     _proxyInspectionGeneration++;
     _proxyInspectionCancelRequested = true;
+    _proxyInspectionCancellation?.cancel();
     _proxyInspectionScheduleGeneration++;
     _proxyInspectionTimer?.cancel();
     _proxyInspectionTimer = null;
@@ -979,7 +999,7 @@ class ServicesController extends ChangeNotifier {
   }
 
   Future<bool> inspectAllProxies({
-    int? concurrency,
+    required int concurrency,
     AiExposureProxyInspectionResultCallback? onResult,
     DateTime? scheduledAt,
   }) async {
@@ -997,6 +1017,8 @@ class ServicesController extends ChangeNotifier {
         'inspection-${runStartedAt.microsecondsSinceEpoch}-$generation';
     _proxyInspectionCancelRequested = false;
     _proxyInspectionRunning = true;
+    final cancellation = AiExposureProxyProbeCancellation();
+    _proxyInspectionCancellation = cancellation;
     _notify();
     var pending = <(int, String, AiExposureProxyProbeSample)>[];
     Future<bool>? persistence;
@@ -1004,8 +1026,7 @@ class ServicesController extends ChangeNotifier {
     var cursor = 0;
     var completed = 0;
     var healthy = 0;
-    final workerCount = (concurrency ?? configuration.inspectionConcurrency)
-        .clamp(1, _kMaxProxyInspectionConcurrency);
+    final workerCount = concurrency.clamp(1, _kMaxProxyInspectionConcurrency);
 
     Future<bool> persistCheckpoint({required bool force}) async {
       if (persistenceFailed) return false;
@@ -1051,11 +1072,17 @@ class ServicesController extends ChangeNotifier {
         final index = cursor++;
         if (index >= targets.length) return;
         final (endpointIndex, endpoint) = targets[index];
-        final sample = await _proxyProbe.inspect(
-          endpoint,
-          inspectionRunId: inspectionRunId,
-          scheduledAt: scheduledAt,
-        );
+        late final AiExposureProxyProbeSample sample;
+        try {
+          sample = await _proxyProbe.inspect(
+            endpoint,
+            inspectionRunId: inspectionRunId,
+            scheduledAt: scheduledAt,
+            cancellation: cancellation,
+          );
+        } on AiExposureProxyProbeCancelledException {
+          return;
+        }
         if (_disposed || generation != _proxyInspectionGeneration) return;
         pending.add((endpointIndex, endpoint.url, sample));
         completed++;
@@ -1095,6 +1122,9 @@ class ServicesController extends ChangeNotifier {
       return false;
     } finally {
       _proxyInspectionRunning = false;
+      if (identical(_proxyInspectionCancellation, cancellation)) {
+        _proxyInspectionCancellation = null;
+      }
       if (!_disposed) {
         _notify();
       }
@@ -1102,7 +1132,10 @@ class ServicesController extends ChangeNotifier {
   }
 
   void cancelProxyInspection() {
-    if (_proxyInspectionRunning) _proxyInspectionCancelRequested = true;
+    if (!_proxyInspectionRunning) return;
+    _proxyInspectionCancelRequested = true;
+    _proxyInspectionCancellation?.cancel();
+    _notify();
   }
 
   void _scheduleProxyInspection({Duration? firstDelay}) {
@@ -1131,7 +1164,10 @@ class ServicesController extends ChangeNotifier {
         if (_disposed || generation != _proxyInspectionScheduleGeneration) {
           return;
         }
-        await inspectAllProxies(scheduledAt: DateTime.now());
+        await inspectAllProxies(
+          concurrency: _proxyConfiguration.inspectionConcurrency,
+          scheduledAt: DateTime.now(),
+        );
         if (_disposed || generation != _proxyInspectionScheduleGeneration) {
           return;
         }
@@ -1186,6 +1222,7 @@ class ServicesController extends ChangeNotifier {
     var changed = false;
     var runtimeChanged = false;
     final changedEndpoints = <AiExposureProxyEndpoint>[];
+    final requestHistory = <AiExposureProxyRequestRecord>[];
     final endpoints = _proxyConfiguration.endpoints
         .map((endpoint) {
           final runtime = byId[endpoint.runtimeId];
@@ -1197,6 +1234,14 @@ class ServicesController extends ChangeNotifier {
           if (statisticsChanged) {
             changed = true;
             changedEndpoints.add(updated);
+            requestHistory.addAll(
+              next.recentRequests.map(
+                (sample) => AiExposureProxyRequestRecord(
+                  endpointUrl: endpoint.url,
+                  sample: sample,
+                ),
+              ),
+            );
           }
           if (current.inFlight != next.inFlight) runtimeChanged = true;
           return updated;
@@ -1204,6 +1249,11 @@ class ServicesController extends ChangeNotifier {
         .toList(growable: false);
     if (changed) {
       await _preferencesStore.saveProxyStatistics(changedEndpoints);
+      try {
+        await _preferencesStore.saveProxyRequestHistory(requestHistory);
+      } catch (error, stack) {
+        silentLog('services_controller', '保存代理请求明细', error, stack);
+      }
     }
     if (changed || runtimeChanged) {
       _proxyConfiguration = _proxyConfiguration.copyWith(endpoints: endpoints);
@@ -1842,6 +1892,7 @@ class ServicesController extends ChangeNotifier {
     _proxyInspectionGeneration++;
     _proxyInspectionScheduleGeneration++;
     _proxyInspectionCancelRequested = true;
+    _proxyInspectionCancellation?.cancel();
     _proxyInspectionTimer?.cancel();
     _proxyInspectionTimer = null;
     _lifecycle = AiExposureServiceLifecycle.stopping;

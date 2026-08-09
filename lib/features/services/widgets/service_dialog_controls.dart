@@ -690,7 +690,17 @@ class _ServiceInteractiveSurfaceState extends State<ServiceInteractiveSurface> {
     if (!interactive) {
       return Padding(
         padding: widget.margin,
-        child: Padding(padding: widget.padding, child: content),
+        child: Material(
+          color: widget.color ?? Colors.transparent,
+          shape: RoundedRectangleBorder(
+            borderRadius: kServiceInteractiveBorderRadius,
+            side: widget.borderColor == null
+                ? BorderSide.none
+                : BorderSide(color: widget.borderColor!),
+          ),
+          clipBehavior: Clip.antiAlias,
+          child: Padding(padding: widget.padding, child: content),
+        ),
       );
     }
     final label =

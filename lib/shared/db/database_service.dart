@@ -18,7 +18,7 @@ class DatabaseService {
   Database? _database;
   BoundedRandomAccessFileLease? _instanceLock;
 
-  static const int schemaVersion = 14;
+  static const int schemaVersion = 15;
   static const String _databaseFileName = 'openhand.db';
   static const String _harnessSessionsTable = 'harness_sessions';
   static const String _harnessEngineeringTemplateId = 'harness_engineering';
@@ -60,6 +60,19 @@ class DatabaseService {
       updated_at   TEXT NOT NULL
     )
   ''';
+  static const String _createAiExposureProxyRequestHistoryTableSql = '''
+    CREATE TABLE IF NOT EXISTS ai_exposure_proxy_request_history (
+      record_id    TEXT PRIMARY KEY,
+      endpoint_url TEXT NOT NULL,
+      at_ms        INTEGER NOT NULL,
+      result       TEXT NOT NULL,
+      sample_json  TEXT NOT NULL,
+      created_at   TEXT NOT NULL
+    )
+  ''';
+  static const String _createAiExposureProxyRequestHistoryIndexSql =
+      'CREATE INDEX IF NOT EXISTS idx_ai_exposure_proxy_request_history_at '
+      'ON ai_exposure_proxy_request_history(at_ms DESC)';
   static const List<int> _legacyHarnessPrefixCodeUnits = <int>[
     104,
     97,
@@ -419,6 +432,8 @@ class DatabaseService {
     _createAiUsageSchema(batch);
     batch.execute(_createAiExposureProxyStatisticsTableSql);
     batch.execute(_createAiExposureProxySamplesTableSql);
+    batch.execute(_createAiExposureProxyRequestHistoryTableSql);
+    batch.execute(_createAiExposureProxyRequestHistoryIndexSql);
 
     await batch.commit(noResult: true);
   }
@@ -715,6 +730,10 @@ class DatabaseService {
     }
     if (oldVersion < 14) {
       await db.execute(_createAiExposureProxySamplesTableSql);
+    }
+    if (oldVersion < 15) {
+      await db.execute(_createAiExposureProxyRequestHistoryTableSql);
+      await db.execute(_createAiExposureProxyRequestHistoryIndexSql);
     }
   }
 

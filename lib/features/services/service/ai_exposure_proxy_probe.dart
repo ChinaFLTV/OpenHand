@@ -20,6 +20,39 @@ const String _kSecureProxyIdentityTarget = 'http://ipwho.is/';
 const List<int> _kHttpLineBreak = <int>[0x0d, 0x0a];
 const List<int> _kHttpHeaderBreak = <int>[0x0d, 0x0a, 0x0d, 0x0a];
 
+/// 代理巡检取消令牌；取消时主动关闭当前 Socket，避免停止操作被网络超时拖住。
+class AiExposureProxyProbeCancellation {
+  final Completer<void> _cancelled = Completer<void>();
+  final Set<void Function()> _listeners = <void Function()>{};
+
+  bool get isCancelled => _cancelled.isCompleted;
+  Future<void> get whenCancelled => _cancelled.future;
+
+  void addListener(void Function() listener) {
+    if (isCancelled) {
+      listener();
+      return;
+    }
+    _listeners.add(listener);
+  }
+
+  void removeListener(void Function() listener) => _listeners.remove(listener);
+
+  void cancel() {
+    if (isCancelled) return;
+    _cancelled.complete();
+    final listeners = List<void Function()>.of(_listeners);
+    _listeners.clear();
+    for (final listener in listeners) {
+      listener();
+    }
+  }
+}
+
+class AiExposureProxyProbeCancelledException implements Exception {
+  const AiExposureProxyProbeCancelledException();
+}
+
 class AiExposureProxyProbe {
   const AiExposureProxyProbe();
 
@@ -27,7 +60,9 @@ class AiExposureProxyProbe {
     AiExposureProxyEndpoint endpoint, {
     String? inspectionRunId,
     DateTime? scheduledAt,
+    AiExposureProxyProbeCancellation? cancellation,
   }) async {
+    _throwIfCancelled(cancellation);
     final startedAt = DateTime.now();
     final sampleId = [
       inspectionRunId ?? 'manual',
@@ -37,7 +72,12 @@ class AiExposureProxyProbe {
     final proxy = Uri.parse(endpoint.url);
     _ProxyProbeAttempt? failure;
     for (final target in _kProxyProbeTargets) {
-      final attempt = await _probeTunnel(proxy, target);
+      final attempt = await _probeTunnel(
+        proxy,
+        target,
+        cancellation: cancellation,
+      );
+      _throwIfCancelled(cancellation);
       if (attempt.reachable) {
         final finishedAt = DateTime.now();
         return AiExposureProxyProbeSample(
@@ -124,16 +164,21 @@ String _proxyProbeFailureStepName(AiExposureProxyProbeFailure failure) =>
 
 Future<_ProxyProbeAttempt> _probeTunnel(
   Uri proxy,
-  ({String host, int port}) target,
-) async {
+  ({String host, int port}) target, {
+  AiExposureProxyProbeCancellation? cancellation,
+}) async {
   final stopwatch = Stopwatch()..start();
   Socket? socket;
   var gatewayReachable = false;
+  void closeSocket() => socket?.destroy();
+  cancellation?.addListener(closeSocket);
   try {
-    socket = await _connectProxy(
+    socket = await _connectProxyCancellable(
       proxy,
       _remaining(_kProxyProbeAttemptTimeout, stopwatch),
+      cancellation,
     );
+    _throwIfCancelled(cancellation);
     gatewayReachable = true;
     socket.setOption(SocketOption.tcpNoDelay, true);
     socket.add(utf8.encode(_connectRequest(proxy, target)));
@@ -152,6 +197,7 @@ Future<_ProxyProbeAttempt> _probeTunnel(
     }
     return _statusFailure(statusCode);
   } on TimeoutException {
+    _throwIfCancelled(cancellation);
     return _ProxyProbeAttempt.failure(
       gatewayReachable: gatewayReachable,
       failure: AiExposureProxyProbeFailure.timeout,
@@ -161,6 +207,7 @@ Future<_ProxyProbeAttempt> _probeTunnel(
       retryable: gatewayReachable,
     );
   } on HandshakeException {
+    _throwIfCancelled(cancellation);
     return const _ProxyProbeAttempt.failure(
       gatewayReachable: false,
       failure: AiExposureProxyProbeFailure.gateway,
@@ -168,6 +215,7 @@ Future<_ProxyProbeAttempt> _probeTunnel(
       retryable: false,
     );
   } on SocketException {
+    _throwIfCancelled(cancellation);
     return _ProxyProbeAttempt.failure(
       gatewayReachable: gatewayReachable,
       failure: gatewayReachable
@@ -179,6 +227,7 @@ Future<_ProxyProbeAttempt> _probeTunnel(
       retryable: gatewayReachable,
     );
   } on FormatException catch (error) {
+    _throwIfCancelled(cancellation);
     return _ProxyProbeAttempt.failure(
       gatewayReachable: gatewayReachable,
       failure: AiExposureProxyProbeFailure.protocol,
@@ -186,6 +235,7 @@ Future<_ProxyProbeAttempt> _probeTunnel(
       retryable: gatewayReachable,
     );
   } catch (_) {
+    _throwIfCancelled(cancellation);
     return _ProxyProbeAttempt.failure(
       gatewayReachable: gatewayReachable,
       failure: gatewayReachable
@@ -195,8 +245,35 @@ Future<_ProxyProbeAttempt> _probeTunnel(
       retryable: gatewayReachable,
     );
   } finally {
+    cancellation?.removeListener(closeSocket);
     stopwatch.stop();
     socket?.destroy();
+  }
+}
+
+Future<Socket> _connectProxyCancellable(
+  Uri proxy,
+  Duration timeout,
+  AiExposureProxyProbeCancellation? cancellation,
+) {
+  final connection = _connectProxy(proxy, timeout);
+  if (cancellation == null) return connection;
+  unawaited(
+    connection.then<void>((socket) {
+      if (cancellation.isCancelled) socket.destroy();
+    }, onError: (Object _, StackTrace _) {}),
+  );
+  return Future.any<Socket>(<Future<Socket>>[
+    connection,
+    cancellation.whenCancelled.then<Socket>(
+      (_) => throw const AiExposureProxyProbeCancelledException(),
+    ),
+  ]);
+}
+
+void _throwIfCancelled(AiExposureProxyProbeCancellation? cancellation) {
+  if (cancellation?.isCancelled == true) {
+    throw const AiExposureProxyProbeCancelledException();
   }
 }
 

@@ -10,6 +10,8 @@ class AiExposurePreferencesStore {
   static const String _key = 'ai_exposure_preferences_v1';
   static const String _statisticsTable = 'ai_exposure_proxy_statistics';
   static const String _samplesTable = 'ai_exposure_proxy_samples';
+  static const String _requestHistoryTable =
+      'ai_exposure_proxy_request_history';
 
   Database get _database => DatabaseService.instance.database;
 
@@ -121,6 +123,17 @@ class AiExposurePreferencesStore {
           endpoints: endpoints,
         ),
       );
+      final legacyHistory = <AiExposureProxyRequestRecord>[
+        for (final endpoint in endpoints)
+          for (final sample in endpoint.statistics.recentRequests)
+            AiExposureProxyRequestRecord(
+              endpointUrl: endpoint.url,
+              sample: sample,
+            ),
+      ];
+      if (legacyHistory.isNotEmpty) {
+        await saveProxyRequestHistory(legacyHistory);
+      }
       if (missingSamples.isNotEmpty) await save(merged);
       return merged;
     } catch (error, stack) {
@@ -241,5 +254,125 @@ class AiExposurePreferencesStore {
       }, conflictAlgorithm: ConflictAlgorithm.replace);
     }
     await batch.commit(noResult: true);
+  }
+
+  Future<void> saveProxyRequestHistory(
+    List<AiExposureProxyRequestRecord> records,
+  ) async {
+    if (records.isEmpty) return;
+    await _database.transaction((transaction) async {
+      final batch = transaction.batch();
+      final createdAt = DateTime.now().toUtc().toIso8601String();
+      for (final record in records) {
+        if (!record.sample.atReported) continue;
+        batch.insert(_requestHistoryTable, <String, Object?>{
+          'record_id': record.recordId,
+          'endpoint_url': record.endpointUrl,
+          'at_ms': record.sample.at.millisecondsSinceEpoch,
+          'result': record.sample.result,
+          'sample_json': jsonEncode(record.sample.toJson()),
+          'created_at': createdAt,
+        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+      }
+      await batch.commit(noResult: true);
+      final countRows = await transaction.rawQuery(
+        'SELECT COUNT(*) AS count FROM $_requestHistoryTable',
+      );
+      final count = (countRows.firstOrNull?['count'] as num?)?.toInt() ?? 0;
+      final excess = count - kAiExposureProxyRequestHistoryLimit;
+      if (excess <= 0) return;
+      await transaction.rawDelete(
+        'DELETE FROM $_requestHistoryTable WHERE record_id IN ('
+        'SELECT record_id FROM $_requestHistoryTable '
+        'ORDER BY at_ms ASC, record_id ASC LIMIT ?)',
+        <Object?>[excess],
+      );
+    });
+  }
+
+  Future<int> countProxyRequestHistory() async {
+    final rows = await _database.rawQuery(
+      'SELECT COUNT(*) AS count FROM $_requestHistoryTable',
+    );
+    return (rows.firstOrNull?['count'] as num?)?.toInt() ?? 0;
+  }
+
+  Future<List<AiExposureProxyRequestRecord>> loadProxyRequestHistory({
+    required int offset,
+    required int limit,
+  }) async {
+    final rows = await _database.query(
+      _requestHistoryTable,
+      columns: const <String>['endpoint_url', 'sample_json'],
+      orderBy: 'at_ms DESC, record_id DESC',
+      offset: offset.clamp(0, kAiExposureProxyRequestHistoryLimit),
+      limit: limit.clamp(1, 100),
+    );
+    final records = <AiExposureProxyRequestRecord>[];
+    for (final row in rows) {
+      final endpointUrl = row['endpoint_url'] as String?;
+      final encoded = row['sample_json'] as String?;
+      if (endpointUrl == null || encoded == null) continue;
+      try {
+        records.add(
+          AiExposureProxyRequestRecord(
+            endpointUrl: endpointUrl,
+            sample: AiExposureProxyRequestSample.fromJson(jsonDecode(encoded)),
+          ),
+        );
+      } catch (error, stack) {
+        silentLog('ai_exposure_preferences_store', '读取代理请求明细', error, stack);
+      }
+    }
+    return List<AiExposureProxyRequestRecord>.unmodifiable(records);
+  }
+
+  Future<List<AiExposureProxyRequestTrendBucket>> loadProxyRequestTrend({
+    required DateTime startAt,
+    required Duration interval,
+  }) async {
+    final intervalMs = interval.inMilliseconds.clamp(60000, 86400000);
+    final rows = await _database.rawQuery(
+      'SELECT (at_ms / ?) * ? AS bucket_ms, COUNT(*) AS total, '
+      "SUM(CASE WHEN result = 'success' THEN 1 ELSE 0 END) AS successes, "
+      "SUM(CASE WHEN result = 'failure' THEN 1 ELSE 0 END) AS failures, "
+      "SUM(CASE WHEN result = 'timeout' THEN 1 ELSE 0 END) AS timeouts "
+      'FROM $_requestHistoryTable WHERE at_ms >= ? '
+      'GROUP BY bucket_ms ORDER BY bucket_ms ASC',
+      <Object?>[intervalMs, intervalMs, startAt.millisecondsSinceEpoch],
+    );
+    final buckets = <int, AiExposureProxyRequestTrendBucket>{};
+    for (final row in rows) {
+      int value(String key) => (row[key] as num?)?.toInt() ?? 0;
+      final bucketMs = value('bucket_ms');
+      buckets[bucketMs] = AiExposureProxyRequestTrendBucket(
+        at: DateTime.fromMillisecondsSinceEpoch(bucketMs),
+        total: value('total'),
+        successes: value('successes'),
+        failures: value('failures'),
+        timeouts: value('timeouts'),
+      );
+    }
+    final startBucket =
+        (startAt.millisecondsSinceEpoch ~/ intervalMs) * intervalMs;
+    final endBucket =
+        (DateTime.now().millisecondsSinceEpoch ~/ intervalMs) * intervalMs;
+    return List<AiExposureProxyRequestTrendBucket>.unmodifiable(
+      <AiExposureProxyRequestTrendBucket>[
+        for (
+          var bucketMs = startBucket;
+          bucketMs <= endBucket;
+          bucketMs += intervalMs
+        )
+          buckets[bucketMs] ??
+              AiExposureProxyRequestTrendBucket(
+                at: DateTime.fromMillisecondsSinceEpoch(bucketMs),
+                total: 0,
+                successes: 0,
+                failures: 0,
+                timeouts: 0,
+              ),
+      ],
+    );
   }
 }
