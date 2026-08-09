@@ -7221,26 +7221,6 @@
   "@servicesAiInfrastructureExposureScanDescription": {
     "description": "OpenHand localized UI text."
   },
-  "servicesCapabilitiesLabel": "服务能力",
-  "@servicesCapabilitiesLabel": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAiInfrastructureExposureDiscover": "暴露面发现",
-  "@servicesAiInfrastructureExposureDiscover": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAiInfrastructureExposureCredentials": "凭证风险识别",
-  "@servicesAiInfrastructureExposureCredentials": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAiInfrastructureExposureAssess": "安全验证与归档",
-  "@servicesAiInfrastructureExposureAssess": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAuthorizationHint": "扫描策略与安全边界由 OpenHand 统一维护，仅用于已授权的安全评估。",
-  "@servicesAuthorizationHint": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsTitle": "智能体",
   "@agentsTitle": {
     "description": "OpenHand localized UI text."

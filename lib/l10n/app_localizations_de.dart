@@ -9741,23 +9741,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Erkennt exponierte KI-Dienste im autorisierten Bereich, identifiziert offengelegte Zugangsdaten und riskante Konfigurationen und sichert auditierbare Belege für die Behebung.';
 
   @override
-  String get servicesCapabilitiesLabel => 'Dienstfunktionen';
-
-  @override
-  String get servicesAiInfrastructureExposureDiscover => 'Expositionserkennung';
-
-  @override
-  String get servicesAiInfrastructureExposureCredentials =>
-      'Zugangsdatenrisiken';
-
-  @override
-  String get servicesAiInfrastructureExposureAssess => 'Validierung und Audit';
-
-  @override
-  String get servicesAuthorizationHint =>
-      'OpenHand verwaltet Scan-Richtlinien und Sicherheitsgrenzen. Nur für autorisierte Sicherheitsprüfungen verwenden.';
-
-  @override
   String get agentsTitle => 'Agenten';
 
   @override

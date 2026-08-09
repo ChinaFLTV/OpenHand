@@ -16992,36 +16992,6 @@ abstract class AppLocalizations {
   /// OpenHand localized UI text.
   ///
   /// In zh, this message translates to:
-  /// **'服务能力'**
-  String get servicesCapabilitiesLabel;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'暴露面发现'**
-  String get servicesAiInfrastructureExposureDiscover;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'凭证风险识别'**
-  String get servicesAiInfrastructureExposureCredentials;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'安全验证与归档'**
-  String get servicesAiInfrastructureExposureAssess;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
-  /// **'扫描策略与安全边界由 OpenHand 统一维护，仅用于已授权的安全评估。'**
-  String get servicesAuthorizationHint;
-
-  /// OpenHand localized UI text.
-  ///
-  /// In zh, this message translates to:
   /// **'智能体'**
   String get agentsTitle;
 

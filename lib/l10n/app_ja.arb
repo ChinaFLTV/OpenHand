@@ -7149,26 +7149,6 @@
   "@servicesAiInfrastructureExposureScanDescription": {
     "description": "OpenHand localized UI text."
   },
-  "servicesCapabilitiesLabel": "サービス機能",
-  "@servicesCapabilitiesLabel": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAiInfrastructureExposureDiscover": "露出面の検出",
-  "@servicesAiInfrastructureExposureDiscover": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAiInfrastructureExposureCredentials": "認証情報リスク検出",
-  "@servicesAiInfrastructureExposureCredentials": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAiInfrastructureExposureAssess": "安全検証と監査",
-  "@servicesAiInfrastructureExposureAssess": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAuthorizationHint": "スキャン方針と安全境界は OpenHand が一元管理します。認可されたセキュリティ評価にのみ使用してください。",
-  "@servicesAuthorizationHint": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsTitle": "エージェント",
   "@agentsTitle": {
     "description": "OpenHand localized UI text."

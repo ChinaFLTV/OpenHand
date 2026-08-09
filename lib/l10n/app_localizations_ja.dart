@@ -9453,22 +9453,6 @@ class AppLocalizationsJa extends AppLocalizations {
       '認可された範囲で公開状態の AI サービスを検出し、漏えいした認証情報と危険な設定を特定して、監査可能な対応証跡を残します。';
 
   @override
-  String get servicesCapabilitiesLabel => 'サービス機能';
-
-  @override
-  String get servicesAiInfrastructureExposureDiscover => '露出面の検出';
-
-  @override
-  String get servicesAiInfrastructureExposureCredentials => '認証情報リスク検出';
-
-  @override
-  String get servicesAiInfrastructureExposureAssess => '安全検証と監査';
-
-  @override
-  String get servicesAuthorizationHint =>
-      'スキャン方針と安全境界は OpenHand が一元管理します。認可されたセキュリティ評価にのみ使用してください。';
-
-  @override
   String get agentsTitle => 'エージェント';
 
   @override

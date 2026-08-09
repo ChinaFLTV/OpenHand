@@ -7149,26 +7149,6 @@
   "@servicesAiInfrastructureExposureScanDescription": {
     "description": "OpenHand localized UI text."
   },
-  "servicesCapabilitiesLabel": "Dienstfunktionen",
-  "@servicesCapabilitiesLabel": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAiInfrastructureExposureDiscover": "Expositionserkennung",
-  "@servicesAiInfrastructureExposureDiscover": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAiInfrastructureExposureCredentials": "Zugangsdatenrisiken",
-  "@servicesAiInfrastructureExposureCredentials": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAiInfrastructureExposureAssess": "Validierung und Audit",
-  "@servicesAiInfrastructureExposureAssess": {
-    "description": "OpenHand localized UI text."
-  },
-  "servicesAuthorizationHint": "OpenHand verwaltet Scan-Richtlinien und Sicherheitsgrenzen. Nur für autorisierte Sicherheitsprüfungen verwenden.",
-  "@servicesAuthorizationHint": {
-    "description": "OpenHand localized UI text."
-  },
   "agentsTitle": "Agenten",
   "@agentsTitle": {
     "description": "OpenHand localized UI text."

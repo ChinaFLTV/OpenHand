@@ -9774,24 +9774,6 @@ class AppLocalizationsFr extends AppLocalizations {
       'Détecte les services d’IA exposés dans un périmètre autorisé, identifie les identifiants divulgués et les configurations à risque, puis conserve des preuves d’intervention auditables.';
 
   @override
-  String get servicesCapabilitiesLabel => 'Capacités du service';
-
-  @override
-  String get servicesAiInfrastructureExposureDiscover =>
-      'Détection de l’exposition';
-
-  @override
-  String get servicesAiInfrastructureExposureCredentials =>
-      'Risques d’identifiants';
-
-  @override
-  String get servicesAiInfrastructureExposureAssess => 'Validation et audit';
-
-  @override
-  String get servicesAuthorizationHint =>
-      'OpenHand gère les politiques d’analyse et les limites de sécurité. Utilisation réservée aux évaluations autorisées.';
-
-  @override
   String get agentsTitle => 'Agents';
 
   @override

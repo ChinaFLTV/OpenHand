@@ -9337,22 +9337,6 @@ class AppLocalizationsZh extends AppLocalizations {
       '面向已授权目标，持续发现 AI 服务暴露面，识别凭证泄露与高风险配置，并沉淀可审计的处置线索。';
 
   @override
-  String get servicesCapabilitiesLabel => '服务能力';
-
-  @override
-  String get servicesAiInfrastructureExposureDiscover => '暴露面发现';
-
-  @override
-  String get servicesAiInfrastructureExposureCredentials => '凭证风险识别';
-
-  @override
-  String get servicesAiInfrastructureExposureAssess => '安全验证与归档';
-
-  @override
-  String get servicesAuthorizationHint =>
-      '扫描策略与安全边界由 OpenHand 统一维护，仅用于已授权的安全评估。';
-
-  @override
   String get agentsTitle => '智能体';
 
   @override
@@ -20060,22 +20044,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String get servicesAiInfrastructureExposureScanDescription =>
       '面向已授權目標，持續發現 AI 服務暴露面，識別憑證洩漏與高風險設定，並沉澱可稽核的處置線索。';
-
-  @override
-  String get servicesCapabilitiesLabel => '服務能力';
-
-  @override
-  String get servicesAiInfrastructureExposureDiscover => '暴露面發現';
-
-  @override
-  String get servicesAiInfrastructureExposureCredentials => '憑證風險識別';
-
-  @override
-  String get servicesAiInfrastructureExposureAssess => '安全驗證與歸檔';
-
-  @override
-  String get servicesAuthorizationHint =>
-      '掃描策略與安全邊界由 OpenHand 統一維護，僅用於已授權的安全評估。';
 
   @override
   String get agentsTitle => '智慧體';

@@ -9650,23 +9650,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'Discovers exposed AI services within authorized scope, identifies leaked credentials and risky configurations, and preserves auditable remediation evidence.';
 
   @override
-  String get servicesCapabilitiesLabel => 'Service capabilities';
-
-  @override
-  String get servicesAiInfrastructureExposureDiscover => 'Exposure discovery';
-
-  @override
-  String get servicesAiInfrastructureExposureCredentials =>
-      'Credential risk detection';
-
-  @override
-  String get servicesAiInfrastructureExposureAssess => 'Validation and audit';
-
-  @override
-  String get servicesAuthorizationHint =>
-      'OpenHand maintains scanning policies and safety boundaries. Use only for authorized security assessments.';
-
-  @override
   String get agentsTitle => 'Agents';
 
   @override
