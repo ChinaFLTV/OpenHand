@@ -1041,8 +1041,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (!_isSelf(current) ||
         current.recalled ||
         current.media.isNotEmpty ||
-        current.id.startsWith('local-') ||
-        current.id.startsWith('assistant-') ||
         current.content.trim() == normalized) {
       return false;
     }
@@ -1050,17 +1048,46 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _clearError();
     _notify();
     try {
+      var remoteMessageId = current.id;
+      if (_isTemporaryMessageId(remoteMessageId)) {
+        final resolved = await _service
+            .resolveRecentSentMessage(
+              conversation: conversation,
+              content: current.content,
+              createdAt: current.createdAt,
+              senderName: current.senderName.trim().isEmpty
+                  ? _authStatus.identity.name
+                  : current.senderName,
+            )
+            .timeout(const Duration(seconds: 10));
+        final resolvedId = resolved?.messageId?.trim() ?? '';
+        if (resolvedId.isEmpty) {
+          throw StateError('未找到钉钉侧消息标识，请刷新会话后重试。');
+        }
+        remoteMessageId = resolvedId;
+        _rememberRemoteConversationId(conversation, resolved?.conversationId);
+        if (_disposed ||
+            !identical(_conversations[conversation.id], conversation) ||
+            index >= conversation.messages.length ||
+            conversation.messages[index].id != current.id) {
+          return false;
+        }
+        conversation.messages[index] = current.copyWith(id: remoteMessageId);
+        _remember(remoteMessageId);
+        _queuePersist();
+        _notify();
+      }
       await _service
           .editMessage(
             conversation: conversation,
-            messageId: current.id,
+            messageId: remoteMessageId,
             text: normalized,
           )
           .timeout(const Duration(seconds: 30));
       if (_disposed ||
           !identical(_conversations[conversation.id], conversation) ||
           index >= conversation.messages.length ||
-          conversation.messages[index].id != current.id) {
+          conversation.messages[index].id != remoteMessageId) {
         return false;
       }
       final latest = conversation.messages[index];
@@ -1091,6 +1118,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _editingMessageInFlight = false;
       _notify();
     }
+  }
+
+  bool _isTemporaryMessageId(String messageId) {
+    return messageId.startsWith('local-') || messageId.startsWith('assistant-');
   }
 
   DingTalkGatewayMessage _bindSentMessageId(

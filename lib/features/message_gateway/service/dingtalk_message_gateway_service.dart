@@ -111,6 +111,9 @@ class DingTalkMessageGatewayService {
   static const Duration _eventProcessStartTimeout = Duration(seconds: 10);
   static const Duration _eventReadyTimeout = Duration(seconds: 30);
   static const Duration _mediaDownloadTimeout = Duration(minutes: 3);
+  static const Duration _sentMessageLookupWindow = Duration(minutes: 2);
+  static const Duration _sentMessageLookupTimeout = Duration(seconds: 8);
+  static const int _sentMessageLookupLimit = 50;
   static const int _batchSize = 30;
   static const int _detailConcurrency = 4;
   static const int _maxMediaCacheFiles = 512;
@@ -1039,6 +1042,74 @@ class DingTalkMessageGatewayService {
     return _sentMessageDetails(result);
   }
 
+  /// dws 发送接口部分版本只返回 success/result=[]，通过会话消息列表补齐真实消息标识。
+  Future<DingTalkSentMessage?> resolveRecentSentMessage({
+    required DingTalkConversation conversation,
+    required String content,
+    required DateTime createdAt,
+    String senderName = '',
+  }) async {
+    final normalizedContent = content.trim();
+    if (normalizedContent.isEmpty) return null;
+    final result = await _runJson(<String>[
+      'chat',
+      'message',
+      'list',
+      ..._targetArguments(conversation),
+      '--time',
+      _formatChatDateTime(createdAt.subtract(_sentMessageLookupWindow)),
+      '--limit',
+      '$_sentMessageLookupLimit',
+      '--direction',
+      'newer',
+      '--format',
+      'json',
+    ], timeout: _sentMessageLookupTimeout);
+    var candidates = _parseMessages(result)
+        .where((message) {
+          final distance = message.createdAt.difference(createdAt).abs();
+          return distance <= _sentMessageLookupWindow &&
+              message.id.trim().isNotEmpty;
+        })
+        .toList(growable: true);
+    if (candidates.isEmpty) return null;
+    final expectedSender = senderName.trim();
+    if (expectedSender.isNotEmpty) {
+      final senderMatches = candidates
+          .where((message) {
+            final candidateSender = message.senderName.trim();
+            return candidateSender.isNotEmpty &&
+                (candidateSender == expectedSender ||
+                    candidateSender.startsWith(expectedSender) ||
+                    expectedSender.startsWith(candidateSender));
+          })
+          .toList(growable: false);
+      if (senderMatches.isNotEmpty) {
+        candidates = senderMatches;
+      } else if (candidates.every(
+        (message) => message.senderName.trim().isNotEmpty,
+      )) {
+        return null;
+      }
+    }
+    final exact = candidates
+        .where((message) => message.content.trim() == normalizedContent)
+        .toList(growable: false);
+    final pool = exact.isEmpty ? candidates : exact;
+    final sorted = pool.toList(growable: true)
+      ..sort(
+        (a, b) => a.createdAt
+            .difference(createdAt)
+            .abs()
+            .compareTo(b.createdAt.difference(createdAt).abs()),
+      );
+    final selected = sorted.first;
+    return DingTalkSentMessage(
+      messageId: selected.id,
+      conversationId: selected.conversationId,
+    );
+  }
+
   Future<void> editMessage({
     required DingTalkConversation conversation,
     required String messageId,
@@ -1119,8 +1190,12 @@ class DingTalkMessageGatewayService {
       for (final key in const <String>[
         'open_message_id',
         'openMessageId',
+        'open_msg_id',
+        'openMsgId',
         'message_id',
         'messageId',
+        'msg_id',
+        'msgId',
       ]) {
         final id = '${map[key] ?? ''}'.trim();
         if (id.isNotEmpty && id != 'null') return id;
@@ -1970,7 +2045,13 @@ class DingTalkMessageGatewayService {
         final map = _asMap(value);
         final hasMessageIdentity = _first(map, const <String>[
           'openMessageId',
+          'open_message_id',
+          'openMsgId',
+          'open_msg_id',
           'messageId',
+          'message_id',
+          'msgId',
+          'msg_id',
           'id',
         ]).isNotEmpty;
         if (hasMessageIdentity) {
@@ -1998,12 +2079,19 @@ class DingTalkMessageGatewayService {
       final map = _asMap(value);
       final id = _first(map, const <String>[
         'openMessageId',
+        'open_message_id',
+        'openMsgId',
+        'open_msg_id',
         'messageId',
+        'message_id',
+        'msgId',
+        'msg_id',
         'id',
       ]);
       final content = _content(map);
       final conversationId = _first(map, const <String>[
         'openConversationId',
+        'open_conversation_id',
         'conversationId',
         'conversation_id',
       ]);
