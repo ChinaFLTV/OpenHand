@@ -1,6 +1,6 @@
 part of 'ai_exposure_monitoring_dialogs.dart';
 
-enum _OperationsView { overview, pipeline, sources, network, storage, security }
+enum _OperationsView { overview, pipeline, storage }
 
 enum _MetricInsightId {
   overviewTaskTotal,
@@ -23,26 +23,6 @@ enum _MetricInsightId {
   pipelineConcurrency,
   pipelineFullScan,
   pipelineResumable,
-  sourceReady,
-  sourceQuotaAvailable,
-  sourceQuotaRemaining,
-  sourceDiscoveryEnabled,
-  sourceTaskCalls,
-  sourceResults,
-  sourceQuotaAnomalies,
-  sourcePendingConfiguration,
-  networkRouteState,
-  networkProxyNodes,
-  networkReachableNodes,
-  networkRequests,
-  networkSuccesses,
-  networkFailures,
-  networkTimeouts,
-  networkAverageLatency,
-  networkP95Latency,
-  networkHttp2xx,
-  networkExitCountries,
-  networkInspectionPlan,
   storageSqlite,
   storageLastWrite,
   storageVisibleRecords,
@@ -55,14 +35,6 @@ enum _MetricInsightId {
   storageRedis,
   storageCredentialEncryption,
   storageIntegrity,
-  securityEnabledRules,
-  securityCredentialPatterns,
-  securityModelEndpoints,
-  securityEncodings,
-  securityProxyRequests,
-  securityProxySuccess,
-  securityProxyAnomalies,
-  securityDependencies,
 }
 
 enum _TrendInsightId {
@@ -341,31 +313,10 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                 onSelected: (value) => setState(() => _view = value),
               ),
               _OperationsTab(
-                value: _OperationsView.sources,
-                selected: _view == _OperationsView.sources,
-                icon: Icons.travel_explore_rounded,
-                label: text(zh: '数据源', en: 'Sources'),
-                onSelected: (value) => setState(() => _view = value),
-              ),
-              _OperationsTab(
-                value: _OperationsView.network,
-                selected: _view == _OperationsView.network,
-                icon: Icons.lan_outlined,
-                label: text(zh: '网络遥测', en: 'Network'),
-                onSelected: (value) => setState(() => _view = value),
-              ),
-              _OperationsTab(
                 value: _OperationsView.storage,
                 selected: _view == _OperationsView.storage,
                 icon: Icons.storage_rounded,
                 label: text(zh: '存储与持久化', en: 'Storage'),
-                onSelected: (value) => setState(() => _view = value),
-              ),
-              _OperationsTab(
-                value: _OperationsView.security,
-                selected: _view == _OperationsView.security,
-                icon: Icons.shield_outlined,
-                label: text(zh: '安全与依赖', en: 'Security'),
                 onSelected: (value) => setState(() => _view = value),
               ),
             ],
@@ -389,20 +340,11 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                   _OperationsView.pipeline => _PipelinePanel(
                     controller: controller,
                   ),
-                  _OperationsView.sources => _SourcesPanel(
-                    controller: controller,
-                  ),
-                  _OperationsView.network => _NetworkPanel(
-                    controller: controller,
-                  ),
                   _OperationsView.storage => _StoragePanel(
                     controller: controller,
                     databaseAccessible: _databaseAccessible,
                     databaseBytes: _databaseBytes,
                     databaseModifiedAt: _databaseModifiedAt,
-                  ),
-                  _OperationsView.security => _SecurityPanel(
-                    controller: controller,
                   ),
                 },
               ),

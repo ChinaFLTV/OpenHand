@@ -482,68 +482,6 @@ class _InsightFlowNode extends StatelessWidget {
   );
 }
 
-class _DistributionBar extends StatelessWidget {
-  const _DistributionBar({
-    required this.label,
-    required this.value,
-    required this.maxValue,
-    required this.color,
-    this.onTap,
-  });
-
-  final String label;
-  final int value;
-  final int maxValue;
-  final Color color;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final content = Row(
-      children: [
-        SizedBox(
-          width: 92,
-          child: Text(label, maxLines: 1, overflow: TextOverflow.ellipsis),
-        ),
-        const SizedBox(width: 8),
-        Expanded(
-          child: ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: ServiceAnimatedProgressBar(
-              value: maxValue <= 0 ? 0 : value / maxValue,
-              minHeight: 8,
-              color: color,
-              backgroundColor: color.withValues(alpha: 0.1),
-            ),
-          ),
-        ),
-        const SizedBox(width: 8),
-        SizedBox(
-          width: 42,
-          child: Text(
-            '$value',
-            textAlign: TextAlign.end,
-            style: Theme.of(context).textTheme.labelLarge,
-          ),
-        ),
-      ],
-    );
-    if (onTap == null || value <= 0) {
-      return Padding(
-        padding: const EdgeInsets.symmetric(vertical: 5),
-        child: content,
-      );
-    }
-    return ServiceInteractiveSurface(
-      onTap: onTap,
-      tooltip: '查看$label记录',
-      padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 5),
-      detailsIconColor: color,
-      child: content,
-    );
-  }
-}
-
 class _OpsPanelGrid extends StatelessWidget {
   const _OpsPanelGrid({required this.children});
   final List<Widget> children;
@@ -1115,17 +1053,6 @@ class _OpsLegend extends StatelessWidget {
   );
 }
 
-Color _chartColor(int index, ColorScheme colors) => <Color>[
-  colors.primary,
-  OpenHandStatusColors.success,
-  OpenHandStatusColors.info,
-  OpenHandStatusColors.warning,
-  const Color(0xffa855f7),
-  const Color(0xff0891b2),
-  colors.tertiary,
-  OpenHandStatusColors.error,
-][index % 8];
-
 Color _sourceColor(AiExposureSource source, ColorScheme colors) =>
     switch (source) {
       AiExposureSource.manual => colors.primary,
@@ -1145,46 +1072,34 @@ class _StatusPill extends StatelessWidget {
     required this.icon,
     required this.label,
     required this.color,
-    this.onTap,
   });
   final IconData icon;
   final String label;
   final Color color;
-  final VoidCallback? onTap;
 
   @override
-  Widget build(BuildContext context) {
-    final pill = Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.11),
-        borderRadius: BorderRadius.circular(999),
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(icon, size: 15, color: color),
-          const SizedBox(width: 6),
-          Text(
-            label,
-            style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
+  Widget build(BuildContext context) => Container(
+    padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+    decoration: BoxDecoration(
+      color: color.withValues(alpha: 0.11),
+      borderRadius: BorderRadius.circular(999),
+      border: Border.all(color: color.withValues(alpha: 0.35)),
+    ),
+    child: Row(
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        Icon(icon, size: 15, color: color),
+        const SizedBox(width: 6),
+        Text(
+          label,
+          style: Theme.of(context).textTheme.labelMedium?.copyWith(
+            color: color,
+            fontWeight: FontWeight.w700,
           ),
-        ],
-      ),
-    );
-    if (onTap == null) return pill;
-    return ServiceInteractiveSurface(
-      onTap: onTap,
-      tooltip: '查看$label详情',
-      padding: EdgeInsets.zero,
-      showDetailsIcon: false,
-      child: pill,
-    );
-  }
+        ),
+      ],
+    ),
+  );
 }
 
 class _StageRow extends StatelessWidget {
