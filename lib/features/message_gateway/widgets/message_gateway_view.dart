@@ -17999,14 +17999,15 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                 scrollDirection: Axis.horizontal,
                 child: SizedBox(
                   width: tableWidth,
-                  child: ClipRRect(
-                    borderRadius: BorderRadius.circular(11),
+                  child: Container(
+                    clipBehavior: Clip.antiAlias,
+                    decoration: BoxDecoration(
+                      color: colors.surface,
+                      borderRadius: BorderRadius.circular(11),
+                      border: Border.all(color: borderColor),
+                    ),
                     child: Table(
                       border: TableBorder(
-                        top: BorderSide(color: borderColor),
-                        bottom: BorderSide(color: borderColor),
-                        left: BorderSide(color: borderColor),
-                        right: BorderSide(color: borderColor),
                         horizontalInside: BorderSide(color: borderColor),
                         verticalInside: BorderSide(color: borderColor),
                       ),
