@@ -1476,8 +1476,12 @@ class AiTtsPlaybackService {
         final openedOutput = BoundedRandomAccessFileLease(
           openedFile,
           release: (activeFile) async {
-            await operation.releaseFile(activeFile);
-            if (deleteOnRelease) await _deletePlaybackFileSilently(file);
+            try {
+              // 刷盘完成后同步关闭，规避 macOS 异步 close 偶发不完成。
+              operation.releaseFileSynchronously(activeFile);
+            } finally {
+              if (deleteOnRelease) await _deletePlaybackFileSilently(file);
+            }
           },
         );
         output = openedOutput;
@@ -2832,6 +2836,12 @@ class _AiTtsOperation implements BoundedFileHandleOwner {
       return;
     }
     await (_fileCloses[file] ?? Future<void>.value());
+  }
+
+  void releaseFileSynchronously(RandomAccessFile file) {
+    if (!_files.contains(file)) return;
+    file.closeSync();
+    _files.remove(file);
   }
 
   Future<T> runTrackedActivity<T>(Future<T> Function() activity) async {

@@ -373,7 +373,10 @@ final class BoundedRandomAccessFileLease {
       throw StateError('随机访问文件仍有操作未结束，无法关闭。');
     }
     _cleanupRequested = true;
-    return _releaseFile().timeout(timeout);
+    return _releaseFile().timeout(
+      timeout,
+      onTimeout: () => throw TimeoutException('随机访问文件关闭超时。', timeout),
+    );
   }
 
   /// 空闲时立即释放；超时操作仍在执行时，待其结束后只安排一次释放。
