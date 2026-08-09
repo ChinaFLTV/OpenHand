@@ -14327,11 +14327,26 @@ class _DingTalkMessageActionButton extends StatelessWidget {
   }
 }
 
-class _DingTalkMessageAuditDialog extends StatelessWidget {
+class _DingTalkMessageAuditDialog extends StatefulWidget {
   const _DingTalkMessageAuditDialog({required this.snapshot});
 
-  static const int _maxSnapshotCharacters = 240000;
   final Future<DingTalkMessageAuditSnapshot?> snapshot;
+
+  @override
+  State<_DingTalkMessageAuditDialog> createState() =>
+      _DingTalkMessageAuditDialogState();
+}
+
+class _DingTalkMessageAuditDialogState
+    extends State<_DingTalkMessageAuditDialog> {
+  static const int _maxSnapshotCharacters = 240000;
+  static const double _metricGap = 10;
+  static const double _metricMinWidth = 260;
+  static const double _metricHeight = 104;
+  static const BorderRadius _auditCardBorderRadius = BorderRadius.all(
+    Radius.circular(16),
+  );
+  bool _copyingSnapshot = false;
 
   @override
   Widget build(BuildContext context) {
@@ -14346,14 +14361,14 @@ class _DingTalkMessageAuditDialog extends StatelessWidget {
             children: [
               DecoratedBox(
                 decoration: BoxDecoration(
-                  color: colors.tertiaryContainer,
-                  borderRadius: BorderRadius.circular(14),
+                  color: colors.primaryContainer,
+                  borderRadius: _auditCardBorderRadius,
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(10),
                   child: Icon(
                     Icons.fact_check_outlined,
-                    color: colors.onTertiaryContainer,
+                    color: colors.onPrimaryContainer,
                     size: 23,
                   ),
                 ),
@@ -14389,7 +14404,7 @@ class _DingTalkMessageAuditDialog extends StatelessWidget {
           const SizedBox(height: 16),
           Expanded(
             child: FutureBuilder<DingTalkMessageAuditSnapshot?>(
-              future: snapshot,
+              future: widget.snapshot,
               builder: (context, state) {
                 if (state.connectionState != ConnectionState.done) {
                   return const Center(
@@ -14474,7 +14489,7 @@ class _DingTalkMessageAuditDialog extends StatelessWidget {
                   ? Icons.auto_awesome_outlined
                   : Icons.person_outline_rounded,
               label: message.isAssistant ? 'AI 消息' : '用户消息',
-              foregroundColor: colors.tertiary,
+              foregroundColor: colors.onSurfaceVariant,
             ),
             OhPill(
               icon: data.aiMessage == null
@@ -14483,46 +14498,63 @@ class _DingTalkMessageAuditDialog extends StatelessWidget {
               label: data.aiMessage == null ? '无关联 AI 快照' : '已关联 AI 快照',
               foregroundColor: data.aiMessage == null
                   ? colors.onSurfaceVariant
-                  : colors.secondary,
+                  : colors.primary,
             ),
           ],
         ),
         const SizedBox(height: 14),
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _DingTalkAuditMetric(
-              label: '消息标识',
-              value: message.id,
-              icon: Icons.fingerprint_rounded,
-            ),
-            _DingTalkAuditMetric(
-              label: '发送时间',
-              value: formatYearMonthDayHm(message.createdAt.toLocal()),
-              icon: Icons.schedule_rounded,
-            ),
-            _DingTalkAuditMetric(
-              label: '内容长度',
-              value: '${message.content.runes.length} 字符',
-              icon: Icons.data_object_rounded,
-            ),
-            _DingTalkAuditMetric(
-              label: '状态',
-              value: message.recalled
-                  ? '已撤回'
-                  : message.failed
-                  ? '发送失败'
-                  : '正常',
-              icon: Icons.verified_outlined,
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            final metrics = <_DingTalkAuditMetricData>[
+              _DingTalkAuditMetricData(
+                label: '消息标识',
+                value: message.id,
+                icon: Icons.fingerprint_rounded,
+              ),
+              _DingTalkAuditMetricData(
+                label: '发送时间',
+                value: formatYearMonthDayHm(message.createdAt.toLocal()),
+                icon: Icons.schedule_rounded,
+              ),
+              _DingTalkAuditMetricData(
+                label: '内容长度',
+                value: '${message.content.runes.length} 字符',
+                icon: Icons.data_object_rounded,
+              ),
+              _DingTalkAuditMetricData(
+                label: '状态',
+                value: message.recalled
+                    ? '已撤回'
+                    : message.failed
+                    ? '发送失败'
+                    : '正常',
+                icon: Icons.verified_outlined,
+              ),
+            ];
+            final twoColumns =
+                constraints.maxWidth >= _metricMinWidth * 2 + _metricGap;
+            final columnWidth = twoColumns
+                ? (constraints.maxWidth - _metricGap) / 2
+                : constraints.maxWidth;
+            return Wrap(
+              spacing: _metricGap,
+              runSpacing: _metricGap,
+              children: [
+                for (final metric in metrics)
+                  SizedBox(
+                    width: columnWidth,
+                    height: _metricHeight,
+                    child: _DingTalkAuditMetric(data: metric),
+                  ),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 16),
         DecoratedBox(
           decoration: BoxDecoration(
             color: colors.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: _auditCardBorderRadius,
             border: Border.all(
               color: colors.outlineVariant.withValues(alpha: 0.72),
             ),
@@ -14543,14 +14575,15 @@ class _DingTalkMessageAuditDialog extends StatelessWidget {
                 ),
                 IconButton.filledTonal(
                   tooltip: '复制审计快照',
-                  onPressed: () => unawaited(
-                    copyOpenHandTextToClipboard(
-                      context: context,
-                      text: encoded,
-                      logTag: 'dingtalk_gateway_audit',
-                    ),
-                  ),
-                  icon: const Icon(Icons.copy_all_rounded, size: 18),
+                  onPressed: _copyingSnapshot
+                      ? null
+                      : () async => _copySnapshot(context, encoded),
+                  icon: _copyingSnapshot
+                      ? const SizedBox.square(
+                          dimension: 18,
+                          child: CircularProgressIndicator(strokeWidth: 2),
+                        )
+                      : const Icon(Icons.copy_all_rounded, size: 18),
                 ),
               ],
             ),
@@ -14560,7 +14593,7 @@ class _DingTalkMessageAuditDialog extends StatelessWidget {
         DecoratedBox(
           decoration: BoxDecoration(
             color: colors.surfaceContainerLowest,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: _auditCardBorderRadius,
             border: Border.all(
               color: colors.outlineVariant.withValues(alpha: 0.72),
             ),
@@ -14581,6 +14614,27 @@ class _DingTalkMessageAuditDialog extends StatelessWidget {
     );
   }
 
+  Future<void> _copySnapshot(BuildContext context, String text) async {
+    if (_copyingSnapshot) return;
+    setState(() => _copyingSnapshot = true);
+    try {
+      await setOpenHandClipboardText(text);
+      if (context.mounted) {
+        showOpenHandSuccessSnack(context, '原始审计快照已复制到剪贴板。');
+      }
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway_audit', '复制原始审计快照', error, stack);
+      if (context.mounted) {
+        showOpenHandErrorSnack(
+          context,
+          '复制失败：${messageGatewayFailureMessage(error, fallback: '剪贴板暂不可用，请稍后重试。')}',
+        );
+      }
+    } finally {
+      if (mounted) setState(() => _copyingSnapshot = false);
+    }
+  }
+
   Map<String, Object?> _safeAuditMap(Map<String, Object?> Function() builder) {
     try {
       return builder();
@@ -14591,8 +14645,8 @@ class _DingTalkMessageAuditDialog extends StatelessWidget {
   }
 }
 
-class _DingTalkAuditMetric extends StatelessWidget {
-  const _DingTalkAuditMetric({
+class _DingTalkAuditMetricData {
+  const _DingTalkAuditMetricData({
     required this.label,
     required this.value,
     required this.icon,
@@ -14601,51 +14655,59 @@ class _DingTalkAuditMetric extends StatelessWidget {
   final String label;
   final String value;
   final IconData icon;
+}
+
+class _DingTalkAuditMetric extends StatelessWidget {
+  const _DingTalkAuditMetric({required this.data});
+
+  final _DingTalkAuditMetricData data;
 
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    return ConstrainedBox(
-      constraints: const BoxConstraints(minWidth: 160, maxWidth: 260),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(13),
-          border: Border.all(
-            color: colors.outlineVariant.withValues(alpha: 0.68),
-          ),
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: colors.surfaceContainerLow,
+        borderRadius: _DingTalkMessageAuditDialogState._auditCardBorderRadius,
+        border: Border.all(
+          color: colors.outlineVariant.withValues(alpha: 0.68),
         ),
-        child: Padding(
-          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-          child: Row(
-            children: [
-              Icon(icon, size: 18, color: colors.primary),
-              const SizedBox(width: 8),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Text(
-                      label,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
+        child: Row(
+          children: [
+            Icon(data.icon, size: 18, color: colors.primary),
+            const SizedBox(width: 8),
+            Expanded(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    data.label,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                    ),
+                  ),
+                  const SizedBox(height: 2),
+                  Expanded(
+                    child: Align(
+                      alignment: Alignment.topLeft,
+                      child: Text(
+                        data.value,
+                        maxLines: 2,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          fontWeight: FontWeight.w700,
+                        ),
                       ),
                     ),
-                    const SizedBox(height: 2),
-                    Text(
-                      value,
-                      maxLines: 2,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        fontWeight: FontWeight.w700,
-                      ),
-                    ),
-                  ],
-                ),
+                  ),
+                ],
               ),
-            ],
-          ),
+            ),
+          ],
         ),
       ),
     );
