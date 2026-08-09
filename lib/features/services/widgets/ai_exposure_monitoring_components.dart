@@ -165,13 +165,9 @@ class _DependencyServiceCard extends StatelessWidget {
           constraints: const BoxConstraints(minHeight: 104),
           padding: const EdgeInsets.all(16),
           decoration: BoxDecoration(
-            gradient: LinearGradient(
-              colors: [
-                color.withValues(alpha: connected ? 0.1 : 0.045),
-                colors.surfaceContainerHighest.withValues(alpha: 0.28),
-              ],
-              begin: Alignment.topLeft,
-              end: Alignment.bottomRight,
+            color: Color.alphaBlend(
+              color.withValues(alpha: connected ? 0.1 : 0.045),
+              colors.surfaceContainerHighest.withValues(alpha: 0.28),
             ),
             borderRadius: BorderRadius.circular(12),
             border: Border.all(color: color.withValues(alpha: 0.26)),

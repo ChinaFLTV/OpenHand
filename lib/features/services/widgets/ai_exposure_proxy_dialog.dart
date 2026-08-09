@@ -1848,12 +1848,7 @@ class _ProxyAverageResponseDialogState
                   width: 46,
                   height: 46,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: <Color>[
-                        colors.tertiary.withValues(alpha: 0.2),
-                        colors.primary.withValues(alpha: 0.12),
-                      ],
-                    ),
+                    color: colors.tertiary.withValues(alpha: 0.16),
                     borderRadius: BorderRadius.circular(12),
                     border: Border.all(
                       color: colors.tertiary.withValues(alpha: 0.3),
@@ -2552,12 +2547,7 @@ class _ProxyRequestTelemetryDialogState
                   width: 46,
                   height: 46,
                   decoration: BoxDecoration(
-                    gradient: LinearGradient(
-                      colors: <Color>[
-                        colors.primary.withValues(alpha: 0.18),
-                        colors.tertiary.withValues(alpha: 0.12),
-                      ],
-                    ),
+                    color: colors.primary.withValues(alpha: 0.15),
                     borderRadius: BorderRadius.circular(10),
                     border: Border.all(
                       color: colors.primary.withValues(alpha: 0.28),
