@@ -1321,6 +1321,8 @@ class _DependencyMetricDetailDialogState
             ),
           ],
           tone: tone,
+          interactive: false,
+          singleRow: true,
         ),
         const SizedBox(height: _kSectionGap),
         _AdaptivePair(
