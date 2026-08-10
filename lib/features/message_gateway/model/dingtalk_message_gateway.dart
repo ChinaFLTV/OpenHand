@@ -696,10 +696,16 @@ class DingTalkGatewaySettings {
 }
 
 class DingTalkIdentity {
-  const DingTalkIdentity({this.profile = '', this.userId = '', this.name = ''});
+  const DingTalkIdentity({
+    this.profile = '',
+    this.userId = '',
+    this.openDingTalkId = '',
+    this.name = '',
+  });
 
   final String profile;
   final String userId;
+  final String openDingTalkId;
   final String name;
 
   String get label => name.trim().isEmpty ? userId : name;

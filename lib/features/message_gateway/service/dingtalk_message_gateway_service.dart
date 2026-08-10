@@ -854,20 +854,38 @@ class DingTalkMessageGatewayService {
       'json',
     ]);
     final map = _asMap(decoded);
+    final data = _asMap(map['data']);
     final authenticated =
-        _asBool(map['authenticated']) ||
-        _asBool(_asMap(map['data'])['authenticated']);
+        _asBool(map['authenticated']) || _asBool(data['authenticated']);
     final identityMap = _asMap(map['identity']).isNotEmpty
         ? _asMap(map['identity'])
-        : _asMap(map['profile']);
+        : _asMap(data['identity']).isNotEmpty
+        ? _asMap(data['identity'])
+        : _asMap(map['profile']).isNotEmpty
+        ? _asMap(map['profile'])
+        : _asMap(data['profile']);
+    String identityValue(List<String> keys) => _firstValues(<Object?>[
+      for (final key in keys) identityMap[key],
+      for (final key in keys) data[key],
+      for (final key in keys) map[key],
+    ]);
+    final userId = identityValue(const <String>['userId', 'user_id']);
+    final openDingTalkId = identityValue(const <String>[
+      'openDingTalkId',
+      'open_dingtalk_id',
+    ]);
     return DingTalkAuthStatus(
       authenticated: authenticated,
       identity: DingTalkIdentity(
-        profile: '${identityMap['profile'] ?? map['profile'] ?? ''}',
-        userId:
-            '${identityMap['userId'] ?? identityMap['user_id'] ?? identityMap['openDingTalkId'] ?? ''}',
-        name:
-            '${identityMap['name'] ?? identityMap['nick'] ?? identityMap['userName'] ?? ''}',
+        profile: identityValue(const <String>['profile']),
+        userId: userId.isEmpty ? openDingTalkId : userId,
+        openDingTalkId: openDingTalkId,
+        name: identityValue(const <String>[
+          'name',
+          'nick',
+          'userName',
+          'user_name',
+        ]),
       ),
     );
   }

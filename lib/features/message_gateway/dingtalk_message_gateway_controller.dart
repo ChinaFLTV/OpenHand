@@ -147,6 +147,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       <String, Queue<_QueuedDingTalkResponse>>{};
   final Set<String> _responseDraining = <String>{};
   final Set<String> _seenMessageIds = <String>{};
+  final Set<String> _selfSenderIds = <String>{};
   final Set<String> _pendingRecalledMessageIds = <String>{};
   final Map<String, (DateTime, List<DingTalkConversationTarget>)>
   _targetSearchCache = <String, (DateTime, List<DingTalkConversationTarget>)>{};
@@ -954,7 +955,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<void> refreshAuthStatus() async {
     try {
-      _authStatus = await _service.authStatus();
+      final next = await _service.authStatus();
+      final previousIdentity = _authStatus.identity;
+      final nextIdentity = next.identity;
+      if (previousIdentity.userId != nextIdentity.userId ||
+          previousIdentity.openDingTalkId != nextIdentity.openDingTalkId ||
+          previousIdentity.name != nextIdentity.name) {
+        _selfSenderIds.clear();
+      }
+      _authStatus = next;
       if (!_authStatus.authenticated && _isPolling) {
         unawaited(stopPolling());
       }
@@ -1774,7 +1783,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     Duration? closestAge;
     for (final entry in conversation.messages.asMap().entries) {
       final local = entry.value;
-      if (!_isTemporaryMessageId(local.id) ||
+      if (!local.fromSelf ||
+          local.id == incomingId ||
           local.role != DingTalkGatewayMessageRole.user ||
           local.conversationType != incoming.conversationType) {
         continue;
@@ -1784,7 +1794,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final senderNamesMatch =
           incomingSenderName.isNotEmpty &&
           localSenderName.isNotEmpty &&
-          incomingSenderName == localSenderName;
+          _sameIdentityName(incomingSenderName, localSenderName);
       if (!incomingIsSelf &&
           (directPeerIds.contains(incomingSenderId) ||
               (incomingSenderId.isNotEmpty &&
@@ -1801,17 +1811,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (age > _outgoingEchoWindow) continue;
       final sameContent =
           incomingContent.isNotEmpty && local.content.trim() == incomingContent;
-      final sameMedia =
-          local.media.isNotEmpty &&
-          local.media.length == incoming.media.length &&
-          listEquals(
-            local.media
-                .map((item) => item.name.trim().toLowerCase())
-                .toList(growable: false),
-            incoming.media
-                .map((item) => item.name.trim().toLowerCase())
-                .toList(growable: false),
-          );
+      final sameMedia = _outgoingMediaMatches(
+        local.media,
+        incoming.media,
+        incomingContent,
+      );
       if (!sameContent && !sameMedia) continue;
       if (closestAge == null || age < closestAge) {
         localIndex = entry.key;
@@ -1830,8 +1834,51 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     if (refreshedIndex < 0) return false;
     conversation.messages[refreshedIndex] = merged;
+    if (incomingSenderId.isNotEmpty) _selfSenderIds.add(incomingSenderId);
     _remember(incomingId);
     _queuePersist();
+    return true;
+  }
+
+  bool _outgoingMediaMatches(
+    List<DingTalkGatewayMedia> local,
+    List<DingTalkGatewayMedia> incoming,
+    String incomingContent,
+  ) {
+    final normalizedContent = incomingContent.toLowerCase();
+    if (local.length == 1 && incoming.isEmpty) {
+      final localName = local.single.name.trim().toLowerCase();
+      return localName.isNotEmpty && normalizedContent.contains(localName);
+    }
+    if (local.isEmpty || local.length != incoming.length) return false;
+    for (var index = 0; index < local.length; index++) {
+      final expected = local[index];
+      final actual = incoming[index];
+      final expectedId = normalizeDingTalkResourceId(expected.resourceId);
+      final actualId = normalizeDingTalkResourceId(actual.resourceId);
+      if (!expectedId.startsWith('local-') &&
+          expectedId.isNotEmpty &&
+          expectedId == actualId &&
+          expected.resourceType == actual.resourceType) {
+        continue;
+      }
+      final expectedName = expected.name.trim().toLowerCase();
+      final actualName = actual.name.trim().toLowerCase();
+      final nameMatches =
+          expectedName.isNotEmpty &&
+          (expectedName == actualName ||
+              normalizedContent.contains(expectedName));
+      if (nameMatches) continue;
+      final sizeConflicts =
+          expected.sizeBytes > 0 &&
+          actual.sizeBytes > 0 &&
+          expected.sizeBytes != actual.sizeBytes;
+      if (sizeConflicts ||
+          expected.kind != actual.kind ||
+          (expectedName.isNotEmpty && actualName.isNotEmpty)) {
+        return false;
+      }
+    }
     return true;
   }
 
@@ -2055,16 +2102,35 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                 normalizeDingTalkResourceId(previous.resourceId) ==
                     normalizedId &&
                 previous.resourceType == item.resourceType;
+            final previousName = previous.name.trim().toLowerCase();
+            final itemName = item.name.trim().toLowerCase();
+            final kindCompatible =
+                previous.kind == item.kind ||
+                (itemName.isEmpty &&
+                    item.resourceType == DingTalkMediaResourceType.fileId);
             final sameLocalAttachment =
                 previous.resourceId.startsWith('local-') &&
-                previous.name.trim().isNotEmpty &&
-                previous.name.trim().toLowerCase() ==
-                    item.name.trim().toLowerCase() &&
-                previous.kind == item.kind;
+                kindCompatible &&
+                (previousName.isNotEmpty && previousName == itemName ||
+                    itemName.isEmpty ||
+                    (previous.sizeBytes > 0 &&
+                        item.sizeBytes > 0 &&
+                        previous.sizeBytes == item.sizeBytes));
             if ((sameResource || sameLocalAttachment) &&
                 previous.localPath.trim().isNotEmpty) {
+              final kind =
+                  item.kind == DingTalkMediaKind.file &&
+                      previous.kind != DingTalkMediaKind.file
+                  ? previous.kind
+                  : item.kind;
               return item.copyWith(
                 resourceId: normalizedId,
+                kind: kind,
+                name: item.name.trim().isEmpty ? previous.name : null,
+                mimeType: item.mimeType.trim().isEmpty
+                    ? previous.mimeType
+                    : null,
+                sizeBytes: item.sizeBytes > 0 ? null : previous.sizeBytes,
                 localPath: previous.localPath,
               );
             }
@@ -3288,12 +3354,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (message.isAssistant || message.fromSelf) return true;
     final sender = message.senderId.trim();
     final current = _authStatus.identity.userId.trim();
+    final currentOpenDingTalkId = _authStatus.identity.openDingTalkId.trim();
     final profile = _authStatus.identity.profile.trim();
     final profileUserId = profile.contains(':')
         ? profile.substring(profile.lastIndexOf(':') + 1)
         : profile;
     if (sender.isNotEmpty &&
-        ((current.isNotEmpty && sender == current) ||
+        (_selfSenderIds.contains(sender) ||
+            (current.isNotEmpty && sender == current) ||
+            (currentOpenDingTalkId.isNotEmpty &&
+                sender == currentOpenDingTalkId) ||
             (profile.isNotEmpty && sender == profile) ||
             (profileUserId.isNotEmpty && sender == profileUserId))) {
       return true;
@@ -3302,8 +3372,30 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final identityName = _authStatus.identity.name.trim();
     final identityLabel = _authStatus.identity.label.trim();
     return senderName.isNotEmpty &&
-        ((identityName.isNotEmpty && senderName == identityName) ||
-            (identityLabel.isNotEmpty && senderName == identityLabel));
+        ((identityName.isNotEmpty &&
+                _sameIdentityName(senderName, identityName)) ||
+            (identityLabel.isNotEmpty &&
+                _sameIdentityName(senderName, identityLabel)));
+  }
+
+  bool _sameIdentityName(String left, String right) {
+    String compact(String value) =>
+        value.trim().toLowerCase().replaceAll(RegExp(r'[\s_\-－—]+'), '');
+
+    String withoutNumericSuffix(String value) {
+      if (value.length < 3) return value;
+      final result = value.replaceFirst(RegExp(r'\d{1,3}$'), '');
+      return result.length >= 2 ? result : value;
+    }
+
+    final leftCompact = compact(left);
+    final rightCompact = compact(right);
+    if (leftCompact.isEmpty || rightCompact.isEmpty) return false;
+    if (leftCompact == rightCompact) return true;
+    final leftBase = withoutNumericSuffix(leftCompact);
+    final rightBase = withoutNumericSuffix(rightCompact);
+    return (leftBase == rightCompact && leftBase != leftCompact) ||
+        (rightBase == leftCompact && rightBase != rightCompact);
   }
 
   bool isMessageFromCurrentUser(DingTalkGatewayMessage message) =>
