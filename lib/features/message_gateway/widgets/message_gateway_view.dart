@@ -12063,6 +12063,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const Duration _voiceVisualInterval = Duration(milliseconds: 160);
   static const int _voiceWaveformSampleCount = 40;
   static const int _maxTranslationCacheEntries = 64;
+  static const double _messageCacheExtent = 120;
   static const Duration _clipboardAttachmentReadTimeout = Duration(seconds: 2);
   static const Duration _clipboardImageReadTimeout = Duration(seconds: 3);
   static const Duration _clipboardImageWriteTimeout = Duration(seconds: 10);
@@ -12082,6 +12083,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   Timer? _refreshTimer;
   int? _refreshIntervalSeconds;
   bool _followScheduled = false;
+  String? _followConversationId;
+  bool _followJumpToBottom = false;
+  int _followRequestVersion = 0;
   String? _selectedId;
   String? _editingConversationId;
   String? _editingMessageId;
@@ -12424,10 +12428,11 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                               ),
                                               controller:
                                                   _messagesScrollController,
+                                              addRepaintBoundaries: false,
                                               keyboardDismissBehavior:
                                                   ScrollViewKeyboardDismissBehavior
                                                       .onDrag,
-                                              cacheExtent: 320,
+                                              cacheExtent: _messageCacheExtent,
                                               padding:
                                                   const EdgeInsets.fromLTRB(
                                                     20,
@@ -13154,7 +13159,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       interval,
       (_) {
         if (!mounted) return;
-        setState(() {});
         _scheduleAutoFollow();
       },
       onError: (error, stack) =>
@@ -13197,11 +13201,15 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   void _toggleAutoFollow() {
     final next = !_autoFollow;
-    setState(() => _autoFollow = next);
+    setState(() {
+      _autoFollow = next;
+      if (!next) _followJumpToBottom = false;
+    });
     if (next) {
       _scheduleAutoFollow(force: true);
     } else {
       _messagesProgrammaticScroll.cancel();
+      _followRequestVersion++;
     }
   }
 
@@ -13239,12 +13247,17 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   void _disableAutoFollow() {
     _messagesProgrammaticScroll.cancel();
+    _followJumpToBottom = false;
     if (!mounted || !_autoFollow) return;
-    setState(() => _autoFollow = false);
+    setState(() {
+      _autoFollow = false;
+    });
+    _followRequestVersion++;
   }
 
   void _selectConversation(String id) {
     if (_selectedId == id) return;
+    _messagesProgrammaticScroll.cancel();
     if (_recordingVoice && _voiceConversationId != id) {
       _cancelVoiceRecording();
     }
@@ -13305,29 +13318,91 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   }
 
   void _scheduleAutoFollow({bool force = false}) {
-    if (!force && !_autoFollow) return;
+    final conversationId = _selectedId;
+    if (conversationId == null || (!force && !_autoFollow)) return;
+    if (_followConversationId != conversationId) {
+      _followConversationId = conversationId;
+      _followRequestVersion++;
+      _followJumpToBottom = false;
+    }
+    if (force) _followJumpToBottom = true;
     if (_followScheduled) return;
+    _followScheduled = true;
+    final requestVersion = _followRequestVersion;
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _followScheduled = false;
+      _runAutoFollow(requestVersion, 0);
+    });
+  }
+
+  void _runAutoFollow(int requestVersion, int attempt) {
+    if (!mounted) return;
+    if (requestVersion != _followRequestVersion) {
+      _scheduleAutoFollow(force: _followJumpToBottom);
+      return;
+    }
+    final conversationId = _followConversationId;
+    if (conversationId == null || conversationId != _selectedId) {
+      _scheduleAutoFollow(force: true);
+      return;
+    }
+    final jump = _followJumpToBottom;
+    if (!jump && !_autoFollow) return;
+    if (!_messagesScrollController.hasClients ||
+        !_messagesScrollController.position.hasContentDimensions) {
+      _queueAutoFollowRetry(requestVersion, attempt);
+      return;
+    }
+    final position = _messagesScrollController.position;
+    final target = position.maxScrollExtent;
+    if ((target - position.pixels).abs() < 1) {
+      _followJumpToBottom = false;
+      return;
+    }
+    _followJumpToBottom = false;
+    if (jump) {
+      _messagesProgrammaticScroll.begin();
+      try {
+        position.jumpTo(target);
+      } finally {
+        _messagesProgrammaticScroll.end();
+      }
+      _queueAutoFollowRetry(requestVersion, attempt);
+      return;
+    }
+    if (_messagesProgrammaticScroll.busy) return;
+    _messagesProgrammaticScroll.begin();
+    unawaited(
+      _messagesScrollController
+          .animateTo(
+            target,
+            duration: openHandMotionDuration(context, kOpenHandMotion260),
+            curve: Curves.easeOutCubic,
+          )
+          .whenComplete(() {
+            _messagesProgrammaticScroll.end();
+            if (mounted) _scheduleAutoFollow();
+          }),
+    );
+  }
+
+  void _queueAutoFollowRetry(int requestVersion, int attempt) {
+    if (!mounted || requestVersion != _followRequestVersion) {
+      return;
+    }
+    if (attempt >= 3) {
+      _followJumpToBottom = false;
+      return;
+    }
     _followScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _followScheduled = false;
-      if (!mounted ||
-          !(_autoFollow || force) ||
-          !_messagesScrollController.hasClients) {
+      if (!mounted) return;
+      if (requestVersion != _followRequestVersion) {
+        _scheduleAutoFollow(force: _followJumpToBottom);
         return;
       }
-      final position = _messagesScrollController.position;
-      final target = position.maxScrollExtent;
-      if ((target - position.pixels).abs() < 1) return;
-      _messagesProgrammaticScroll.begin();
-      unawaited(
-        _messagesScrollController
-            .animateTo(
-              target,
-              duration: openHandMotionDuration(context, kOpenHandMotion260),
-              curve: Curves.easeOutCubic,
-            )
-            .whenComplete(_messagesProgrammaticScroll.end),
-      );
+      _runAutoFollow(requestVersion, attempt + 1);
     });
   }
 
@@ -14739,12 +14814,27 @@ class _DingTalkMessageBubble extends StatefulWidget {
 
 class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const double _maxBubbleWidth = 560;
+  static const int _maxRenderedTextCharacters = 10000;
   static const int _maxClipboardImageBytes = 64 * kBytesPerMiB;
   static const Duration _mediaClipboardTimeout = Duration(seconds: 15);
+  static final RegExp _markdownSyntax = RegExp(
+    r'(^|\n)\s{0,3}(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|```|~~~)|\[[^\]]+\]\([^)]*\)|(?:\*\*|__|`)',
+    multiLine: true,
+  );
   bool _hovered = false;
   bool _copyingMedia = false;
   bool _showRawContent = false;
+  bool _showFullText = false;
   int _actionsTransitionId = 0;
+
+  @override
+  void didUpdateWidget(covariant _DingTalkMessageBubble oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.message.id != widget.message.id ||
+        oldWidget.message.content != widget.message.content) {
+      _showFullText = false;
+    }
+  }
 
   void _setHovered(bool hovered) {
     if (_hovered == hovered) return;
@@ -14790,149 +14880,135 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final effectiveContent = widget.translationVisible
         ? widget.translatedContent ?? widget.message.content
         : widget.message.content;
-    return TweenAnimationBuilder<double>(
-      tween: Tween<double>(begin: 0, end: 1),
-      duration: openHandMotionDuration(context, kOpenHandMotion220),
-      curve: Curves.easeOutCubic,
-      builder: (context, value, child) => Opacity(
-        opacity: value,
-        child: Transform.translate(
-          offset: Offset((widget.mine ? 1 : -1) * (1 - value) * 12, 0),
-          child: child,
-        ),
-      ),
-      child: Align(
-        alignment: alignment,
-        child: MouseRegion(
-          onEnter: (_) => _setHovered(true),
-          onExit: (_) => _setHovered(false),
-          child: Column(
-            crossAxisAlignment: crossAxis,
-            children: [
-              if (showSenderName)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: _maxBubbleWidth,
-                    ),
-                    child: Text(
-                      senderName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
-                  ),
-                ),
-              if (showText)
-                Container(
+    return Align(
+      alignment: alignment,
+      child: MouseRegion(
+        onEnter: (_) => _setHovered(true),
+        onExit: (_) => _setHovered(false),
+        child: Column(
+          crossAxisAlignment: crossAxis,
+          children: [
+            if (showSenderName)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 4),
+                child: ConstrainedBox(
                   constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
-                  margin: const EdgeInsets.only(bottom: 6),
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 14,
-                    vertical: 10,
-                  ),
-                  decoration: BoxDecoration(
-                    color: bubbleColor,
-                    borderRadius: BorderRadius.only(
-                      topLeft: const Radius.circular(17),
-                      topRight: const Radius.circular(17),
-                      bottomLeft: Radius.circular(widget.mine ? 17 : 5),
-                      bottomRight: Radius.circular(widget.mine ? 5 : 17),
+                  child: Text(
+                    senderName,
+                    maxLines: 1,
+                    overflow: TextOverflow.ellipsis,
+                    style: theme.textTheme.labelSmall?.copyWith(
+                      color: colors.onSurfaceVariant,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w500,
                     ),
                   ),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      _buildTextContent(
-                        context,
-                        content: effectiveContent,
-                        foreground: foreground,
-                      ),
-                      if (widget.message.reactions.isNotEmpty)
-                        _buildReactionRow(context, foreground),
-                      if (widget.message.recalled) _buildRecalledLabel(context),
-                    ],
-                  ),
-                ),
-              if (previewableMedia.isNotEmpty)
-                Opacity(
-                  opacity: widget.message.recalled ? 0.62 : 1,
-                  child: _DingTalkMediaRail(
-                    media: previewableMedia,
-                    mine: widget.mine,
-                    loading: widget.mediaLoading,
-                    onRetry: widget.onRetryMedia,
-                  ),
-                ),
-              if (previewableMedia.isNotEmpty &&
-                  widget.message.reactions.isNotEmpty)
-                _buildReactionRow(context, colors.onSurface),
-              if (previewableMedia.isNotEmpty && widget.message.recalled)
-                _buildRecalledLabel(context),
-              Align(
-                alignment: alignment,
-                child: AnimatedSize(
-                  duration: openHandMotionDuration(context, kOpenHandMotion180),
-                  curve: Curves.easeOutCubic,
-                  child: _hovered
-                      ? TweenAnimationBuilder<double>(
-                          key: ValueKey<int>(_actionsTransitionId),
-                          tween: Tween<double>(begin: 0, end: 1),
-                          duration: openHandMotionDuration(
-                            context,
-                            kOpenHandMotion180,
-                          ),
-                          curve: Curves.easeOutBack,
-                          builder: (context, value, child) => Opacity(
-                            opacity: value.clamp(0.0, 1.0).toDouble(),
-                            child: Transform.translate(
-                              offset: Offset(0, (1 - value) * 5),
-                              child: Transform.scale(
-                                alignment: widget.mine
-                                    ? Alignment.centerRight
-                                    : Alignment.centerLeft,
-                                scale: 0.96 + value * 0.04,
-                                child: child,
-                              ),
-                            ),
-                          ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: widget.mine
-                                ? CrossAxisAlignment.end
-                                : CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                spacing: 4,
-                                runSpacing: 4,
-                                textDirection: widget.mine
-                                    ? TextDirection.rtl
-                                    : TextDirection.ltr,
-                                children: _buildHoverActions(
-                                  context,
-                                  widget.message.media,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              _buildMessageMetaPill(),
-                            ],
-                          ),
-                        )
-                      : SizedBox(
-                          key: ValueKey<int>(_actionsTransitionId),
-                          width: 0,
-                          height: 0,
-                        ),
                 ),
               ),
-              const SizedBox(height: 7),
-            ],
-          ),
+            if (showText)
+              Container(
+                constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
+                margin: const EdgeInsets.only(bottom: 6),
+                padding: const EdgeInsets.symmetric(
+                  horizontal: 14,
+                  vertical: 10,
+                ),
+                decoration: BoxDecoration(
+                  color: bubbleColor,
+                  borderRadius: BorderRadius.only(
+                    topLeft: const Radius.circular(17),
+                    topRight: const Radius.circular(17),
+                    bottomLeft: Radius.circular(widget.mine ? 17 : 5),
+                    bottomRight: Radius.circular(widget.mine ? 5 : 17),
+                  ),
+                ),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    _buildTextContent(
+                      context,
+                      content: effectiveContent,
+                      foreground: foreground,
+                    ),
+                    if (widget.message.reactions.isNotEmpty)
+                      _buildReactionRow(context, foreground),
+                    if (widget.message.recalled) _buildRecalledLabel(context),
+                  ],
+                ),
+              ),
+            if (previewableMedia.isNotEmpty)
+              Opacity(
+                opacity: widget.message.recalled ? 0.62 : 1,
+                child: _DingTalkMediaRail(
+                  media: previewableMedia,
+                  mine: widget.mine,
+                  loading: widget.mediaLoading,
+                  onRetry: widget.onRetryMedia,
+                ),
+              ),
+            if (previewableMedia.isNotEmpty &&
+                widget.message.reactions.isNotEmpty)
+              _buildReactionRow(context, colors.onSurface),
+            if (previewableMedia.isNotEmpty && widget.message.recalled)
+              _buildRecalledLabel(context),
+            Align(
+              alignment: alignment,
+              child: AnimatedSize(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                curve: Curves.easeOutCubic,
+                child: _hovered
+                    ? TweenAnimationBuilder<double>(
+                        key: ValueKey<int>(_actionsTransitionId),
+                        tween: Tween<double>(begin: 0, end: 1),
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion180,
+                        ),
+                        curve: Curves.easeOutBack,
+                        builder: (context, value, child) => Opacity(
+                          opacity: value.clamp(0.0, 1.0).toDouble(),
+                          child: Transform.translate(
+                            offset: Offset(0, (1 - value) * 5),
+                            child: Transform.scale(
+                              alignment: widget.mine
+                                  ? Alignment.centerRight
+                                  : Alignment.centerLeft,
+                              scale: 0.96 + value * 0.04,
+                              child: child,
+                            ),
+                          ),
+                        ),
+                        child: Column(
+                          mainAxisSize: MainAxisSize.min,
+                          crossAxisAlignment: widget.mine
+                              ? CrossAxisAlignment.end
+                              : CrossAxisAlignment.start,
+                          children: [
+                            Wrap(
+                              spacing: 4,
+                              runSpacing: 4,
+                              textDirection: widget.mine
+                                  ? TextDirection.rtl
+                                  : TextDirection.ltr,
+                              children: _buildHoverActions(
+                                context,
+                                widget.message.media,
+                              ),
+                            ),
+                            const SizedBox(height: 4),
+                            _buildMessageMetaPill(),
+                          ],
+                        ),
+                      )
+                    : SizedBox(
+                        key: ValueKey<int>(_actionsTransitionId),
+                        width: 0,
+                        height: 0,
+                      ),
+              ),
+            ),
+            const SizedBox(height: 7),
+          ],
         ),
       ),
     );
@@ -15037,19 +15113,33 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     required Color foreground,
   }) {
     final theme = Theme.of(context);
+    final canCollapse = content.length > _maxRenderedTextCharacters;
+    final visibleContent = canCollapse && !_showFullText
+        ? clipTextByCodeUnits(
+            content,
+            _maxRenderedTextCharacters,
+            suffix: '\n…',
+          )
+        : content;
     final bodyStyle = theme.textTheme.bodyMedium?.copyWith(
       color: foreground,
       height: 1.48,
     );
-    final child = _showRawContent
+    final renderMarkdown =
+        !_showRawContent &&
+        (_showFullText || !canCollapse) &&
+        _markdownSyntax.hasMatch(visibleContent);
+    final child = !renderMarkdown
         ? SelectableText(
-            content,
-            key: ValueKey<String>(content),
-            style: bodyStyle?.copyWith(fontFamily: 'monospace', fontSize: 12.5),
+            visibleContent,
+            key: ValueKey<String>('plain:$visibleContent'),
+            style: _showRawContent
+                ? bodyStyle?.copyWith(fontFamily: 'monospace', fontSize: 12.5)
+                : bodyStyle,
           )
         : MarkdownBody(
-            key: ValueKey<String>(content),
-            data: content,
+            key: ValueKey<String>('markdown:$visibleContent'),
+            data: visibleContent,
             selectable: true,
             onTapLink: (text, href, title) =>
                 unawaited(_openMarkdownLink(context, href ?? text)),
@@ -15084,16 +15174,30 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               ),
             ),
           );
-    return AnimatedSize(
-      duration: openHandMotionDuration(context, kOpenHandMotion220),
-      curve: Curves.easeOutCubic,
-      alignment: Alignment.topLeft,
-      child: AnimatedSwitcher(
-        duration: openHandMotionDuration(context, kOpenHandMotion180),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        child: child,
-      ),
+    return Column(
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        child,
+        if (canCollapse)
+          Padding(
+            padding: const EdgeInsets.only(top: 6),
+            child: TextButton.icon(
+              onPressed: () => setState(() => _showFullText = !_showFullText),
+              icon: Icon(
+                _showFullText
+                    ? Icons.unfold_less_rounded
+                    : Icons.unfold_more_rounded,
+                size: 17,
+              ),
+              label: Text(_showFullText ? '收起长消息' : '展开完整消息'),
+              style: TextButton.styleFrom(
+                minimumSize: const Size(0, 32),
+                padding: const EdgeInsets.symmetric(horizontal: 8),
+                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+              ),
+            ),
+          ),
+      ],
     );
   }
 
