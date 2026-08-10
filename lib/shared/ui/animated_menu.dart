@@ -1463,6 +1463,7 @@ class _AnimatedPopupMenuButtonState<T>
         padding: widget.padding,
         splashRadius: widget.splashRadius,
         constraints: widget.buttonConstraints,
+        style: widget.style,
         onPressed: widget.enabled ? _showMenu : null,
       ),
     );

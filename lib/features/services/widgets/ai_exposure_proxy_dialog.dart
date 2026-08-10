@@ -145,6 +145,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     final status = controller.proxyStatus;
     final controllerInspectionBusy = controller.proxyInspectionBusy;
     final controllerInspectionCancelling = controller.proxyInspectionCancelling;
+    final inspectionBusy = _inspectionBusy || controllerInspectionBusy;
     final activeCount = _endpoints.where((endpoint) => endpoint.enabled).length;
     final route = _enabled && activeCount > 0
         ? AiExposureProxyRoute.pool
@@ -259,9 +260,22 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                         systemProxyAvailable: controller.systemProxyAvailable,
                       ),
                       const SizedBox(height: 14),
-                      _buildEndpointToolbar(
-                        context,
-                        controllerInspectionBusy: controllerInspectionBusy,
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          color: colors.surface,
+                          borderRadius: BorderRadius.circular(10),
+                          border: Border.all(color: colors.outlineVariant),
+                        ),
+                        child: Padding(
+                          padding: const EdgeInsets.symmetric(
+                            horizontal: 10,
+                            vertical: 8,
+                          ),
+                          child: _buildEndpointToolbar(
+                            context,
+                            controllerInspectionBusy: controllerInspectionBusy,
+                          ),
+                        ),
                       ),
                       if (_inspectionBusy) ...[
                         const SizedBox(height: 10),
@@ -333,7 +347,6 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                                       child: ListView.builder(
                                         controller: _endpointScrollController,
                                         primary: false,
-                                        clipBehavior: Clip.none,
                                         physics:
                                             openHandDialogAwareScrollPhysics(
                                               context,
@@ -364,7 +377,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                                                 ),
                                                 busy:
                                                     _busy ||
-                                                    _inspectionBusy ||
+                                                    inspectionBusy ||
                                                     _removingUrls.isNotEmpty,
                                                 selectionMode: _selectionMode,
                                                 selected: _selectedUrls
@@ -440,7 +453,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                   ),
                   OpenHandDialogActionButton.primary(
                     busy: _busy,
-                    onPressed: _busy || _inspectionBusy ? null : _save,
+                    onPressed: _busy ? null : _save,
                     label: text(zh: '应用代理设置', en: 'Apply proxy settings'),
                   ),
                 ],
@@ -544,7 +557,9 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 
   Future<void> _setEndpointEnabled(String url, bool enabled) async {
-    if (_busy) return;
+    if (_busy || _inspectionBusy || _servicesController.proxyInspectionBusy) {
+      return;
+    }
     final index = _endpoints.indexWhere((endpoint) => endpoint.url == url);
     if (index < 0) return;
     final endpoints = List<AiExposureProxyEndpoint>.of(_endpoints);
@@ -567,6 +582,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     if (urls.isEmpty ||
         _busy ||
         _inspectionBusy ||
+        _servicesController.proxyInspectionBusy ||
         _testingUrls.isNotEmpty ||
         _removingUrls.isNotEmpty) {
       return;
@@ -663,7 +679,12 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       ),
       destructive: true,
     );
-    if (!confirmed || !mounted) return;
+    if (!confirmed ||
+        !mounted ||
+        _inspectionBusy ||
+        _servicesController.proxyInspectionBusy) {
+      return;
+    }
 
     final removedUrls = endpoints.map((endpoint) => endpoint.url).toSet();
     final remaining = _endpoints
@@ -1026,6 +1047,14 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }) {
     final colors = Theme.of(context).colorScheme;
     final text = openHandTextResolver(context);
+    final disabledIconColor = colors.onSurface.withValues(alpha: 0.38);
+    final disabledIconBackground = colors.surfaceContainerHighest.withValues(
+      alpha: 0.38,
+    );
+    final disabledIconButtonStyle = IconButton.styleFrom(
+      disabledForegroundColor: disabledIconColor,
+      disabledBackgroundColor: disabledIconBackground,
+    );
     final locked =
         _busy ||
         _inspectionBusy ||
@@ -1126,11 +1155,13 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       IconButton.filledTonal(
         tooltip: text(zh: '添加代理', en: 'Add proxy'),
         onPressed: locked || _selectionMode ? null : _addEndpoint,
+        style: disabledIconButtonStyle,
         icon: const Icon(Icons.add_rounded),
       ),
       IconButton.filledTonal(
         tooltip: text(zh: '批量导入', en: 'Bulk import'),
         onPressed: locked || _selectionMode ? null : _import,
+        style: disabledIconButtonStyle,
         icon: const Icon(Icons.upload_file_rounded),
       ),
       IconButton.filledTonal(
@@ -1138,6 +1169,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         onPressed: _endpoints.isEmpty || locked || _selectionMode
             ? null
             : _exportAll,
+        style: disabledIconButtonStyle,
         icon: const Icon(Icons.download_rounded),
       ),
       Row(
@@ -1160,6 +1192,8 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               foregroundColor: _selectionMode
                   ? colors.onPrimary
                   : colors.onSurfaceVariant,
+              disabledBackgroundColor: disabledIconBackground,
+              disabledForegroundColor: disabledIconColor,
             ),
             icon: Icon(
               _selectionMode
@@ -1196,6 +1230,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       AnimatedPopupMenuButton<_ProxyCleanup>(
         tooltip: text(zh: '快捷清理异常节点', en: 'Clean unhealthy nodes'),
         enabled: !locked && !_selectionMode,
+        style: disabledIconButtonStyle,
         onSelected: (cleanup) {
           final urls = cleanupTargets[cleanup] ?? const <String>{};
           if (urls.isEmpty) return;
@@ -1254,12 +1289,17 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                   clearAll: true,
                 ),
               ),
-        style: IconButton.styleFrom(foregroundColor: colors.error),
+        style: IconButton.styleFrom(
+          foregroundColor: colors.error,
+          disabledForegroundColor: disabledIconColor,
+          disabledBackgroundColor: disabledIconBackground,
+        ),
         icon: const Icon(Icons.delete_forever_outlined),
       ),
       AnimatedPopupMenuButton<_ProxySort>(
         tooltip: text(zh: '排序节点', en: 'Sort nodes'),
         enabled: sortingEnabled,
+        style: disabledIconButtonStyle,
         initialValue: _sort,
         onSelected: (value) {
           if (!sortingEnabled) return;
@@ -1321,9 +1361,15 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       : 8;
 
   Future<void> _addEndpoint() async {
+    if (_inspectionBusy || _servicesController.proxyInspectionBusy) return;
     try {
       final endpoint = await _showEndpointEditor(context);
-      if (endpoint == null || !mounted) return;
+      if (endpoint == null ||
+          !mounted ||
+          _inspectionBusy ||
+          _servicesController.proxyInspectionBusy) {
+        return;
+      }
       if (_endpoints.any((item) => item.url == endpoint.url)) {
         throw const FormatException('该代理已存在。');
       }
@@ -1358,8 +1404,14 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 
   Future<void> _editEndpoint(AiExposureProxyEndpoint endpoint) async {
+    if (_inspectionBusy || _servicesController.proxyInspectionBusy) return;
     final updated = await _showEndpointEditor(context, initial: endpoint);
-    if (updated == null || !mounted) return;
+    if (updated == null ||
+        !mounted ||
+        _inspectionBusy ||
+        _servicesController.proxyInspectionBusy) {
+      return;
+    }
     if (_endpoints.any(
       (item) => item.url == updated.url && item.url != endpoint.url,
     )) {
@@ -1397,6 +1449,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     endpoint: endpoint,
     statistics: statistics,
     onProbe: (sample) async {
+      if (_inspectionBusy || _servicesController.proxyInspectionBusy) return;
       final current = _endpoints
           .where((item) => item.url == endpoint.url)
           .firstOrNull;
@@ -1406,6 +1459,9 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       await _servicesController.saveProxyProbeSamples({endpoint.url: sample});
     },
     onIdentity: (identity) async {
+      if (_inspectionBusy || _servicesController.proxyInspectionBusy) {
+        return false;
+      }
       final controller = context.read<ServicesController>();
       final saved = await controller.updateProxyIdentity(
         endpoint.url,
@@ -1540,12 +1596,18 @@ class _ProxyDialogState extends State<_ProxyDialog> {
   }
 
   Future<void> _import() async {
+    if (_inspectionBusy || _servicesController.proxyInspectionBusy) return;
     final file = await openFile(
       acceptedTypeGroups: const <XTypeGroup>[
         XTypeGroup(label: 'Proxy', extensions: <String>['txt', 'json']),
       ],
     );
-    if (file == null || !mounted) return;
+    if (file == null ||
+        !mounted ||
+        _inspectionBusy ||
+        _servicesController.proxyInspectionBusy) {
+      return;
+    }
     dismissOpenHandTooltipsSafely(debugLabel: '导入代理节点前收起工具提示');
     setState(() => _busy = true);
     try {
@@ -1553,6 +1615,11 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       final imported = _proxyEndpoints(
         await readBoundedFileString(source, maxBytes: _kMaxProxyImportBytes),
       );
+      if (!mounted ||
+          _inspectionBusy ||
+          _servicesController.proxyInspectionBusy) {
+        return;
+      }
       final merged = <String, AiExposureProxyEndpoint>{
         for (final endpoint in _endpoints) endpoint.url: endpoint,
       };
@@ -1605,7 +1672,9 @@ class _ProxyDialogState extends State<_ProxyDialog> {
     required String payload,
     required String successMessage,
   }) async {
-    if (_busy) return;
+    if (_busy || _inspectionBusy || _servicesController.proxyInspectionBusy) {
+      return;
+    }
     setState(() => _busy = true);
     try {
       final location = await getSaveLocation(
@@ -1669,6 +1738,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
 
   Future<void> _save() async {
     final controller = context.read<ServicesController>();
+    if (_busy) return;
     final endpoints = List<AiExposureProxyEndpoint>.unmodifiable(_endpoints);
     final activeCount = endpoints.where((endpoint) => endpoint.enabled).length;
     if (_inspectionEnabled && activeCount == 0) {
@@ -5353,7 +5423,7 @@ class _ProxyEndpointCard extends StatelessWidget {
   final ValueChanged<bool> onSelectedChanged;
   final ValueChanged<bool> onEnabledChanged;
   final VoidCallback onTest;
-  final VoidCallback onDetails;
+  final VoidCallback? onDetails;
   final VoidCallback onExport;
   final VoidCallback onEdit;
   final VoidCallback onDelete;
@@ -5542,7 +5612,7 @@ class _ProxyEndpointCard extends StatelessWidget {
         : ServiceInteractiveSurface(
             padding: EdgeInsets.zero,
             tooltip: text(zh: '查看代理详情', en: 'View proxy details'),
-            onTap: onDetails,
+            onTap: busy ? null : onDetails,
             child: details,
           );
     final actionChildren = <Widget>[
@@ -5567,7 +5637,7 @@ class _ProxyEndpointCard extends StatelessWidget {
       ),
       IconButton(
         tooltip: text(zh: '查看代理详情', en: 'View proxy details'),
-        onPressed: onDetails,
+        onPressed: busy ? null : onDetails,
         icon: const Icon(Icons.manage_search_rounded),
       ),
       IconButton(
