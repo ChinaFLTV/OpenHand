@@ -45,6 +45,23 @@ String normalizeDingTalkMessageId(Object? value) {
 
 enum DingTalkConversationType { group, direct }
 
+enum DingTalkResponseMode {
+  allowlist('allowlist'),
+  all('all');
+
+  const DingTalkResponseMode(this.storageValue);
+
+  final String storageValue;
+
+  static DingTalkResponseMode fromStorage(Object? value) {
+    final normalized = '${value ?? ''}'.trim().toLowerCase();
+    return values.firstWhere(
+      (item) => item.storageValue == normalized,
+      orElse: () => DingTalkResponseMode.allowlist,
+    );
+  }
+}
+
 enum DingTalkGatewayMessageRole { user, assistant }
 
 enum DingTalkGatewayMessageFeedback {
@@ -363,6 +380,7 @@ class DingTalkGatewaySettings {
   const DingTalkGatewaySettings({
     this.pollIntervalSeconds = defaultPollIntervalSeconds,
     this.reminderMode = DingTalkReminderMode.inApp,
+    this.responseMode = DingTalkResponseMode.allowlist,
     this.responseModelKey = '',
     this.workingDirectory = '',
     this.fullAccessPermission = false,
@@ -395,6 +413,7 @@ class DingTalkGatewaySettings {
         json['poll_interval_seconds'],
       ),
       reminderMode: mode,
+      responseMode: DingTalkResponseMode.fromStorage(json['response_mode']),
       responseModelKey: '${json['response_model_key'] ?? ''}',
       workingDirectory: '${json['working_directory'] ?? ''}',
       fullAccessPermission: boolFromValue(json['full_access_permission']),
@@ -434,6 +453,7 @@ class DingTalkGatewaySettings {
 
   final int pollIntervalSeconds;
   final DingTalkReminderMode reminderMode;
+  final DingTalkResponseMode responseMode;
   final String responseModelKey;
   final String workingDirectory;
   final bool fullAccessPermission;
@@ -472,6 +492,7 @@ class DingTalkGatewaySettings {
   }) => DingTalkGatewaySettings(
     pollIntervalSeconds: normalizePollIntervalSeconds(pollIntervalSeconds),
     reminderMode: reminderMode,
+    responseMode: responseMode,
     responseModelKey: responseModelKey.trim(),
     workingDirectory: Directory(
       OpenHandPaths.normalizePath(
@@ -510,14 +531,19 @@ class DingTalkGatewaySettings {
     imageGenerationModelKey: imageGenerationModelKey.trim(),
     videoGenerationModelKey: videoGenerationModelKey.trim(),
     audioGenerationModelKey: audioGenerationModelKey.trim(),
-    allowedGroupTargets: _normalizeTargets(allowedGroupTargets),
-    allowedContactTargets: _normalizeTargets(allowedContactTargets),
+    allowedGroupTargets: responseMode == DingTalkResponseMode.all
+        ? const <DingTalkConversationTarget>[]
+        : _normalizeTargets(allowedGroupTargets),
+    allowedContactTargets: responseMode == DingTalkResponseMode.all
+        ? const <DingTalkConversationTarget>[]
+        : _normalizeTargets(allowedContactTargets),
     responseEchoTypes: _normalizeResponseEchoTypes(responseEchoTypes),
   );
 
   DingTalkGatewaySettings copyWith({
     int? pollIntervalSeconds,
     DingTalkReminderMode? reminderMode,
+    DingTalkResponseMode? responseMode,
     String? responseModelKey,
     String? workingDirectory,
     bool? fullAccessPermission,
@@ -540,6 +566,7 @@ class DingTalkGatewaySettings {
       pollIntervalSeconds ?? this.pollIntervalSeconds,
     ),
     reminderMode: reminderMode ?? this.reminderMode,
+    responseMode: responseMode ?? this.responseMode,
     responseModelKey: responseModelKey ?? this.responseModelKey,
     workingDirectory: workingDirectory ?? this.workingDirectory,
     fullAccessPermission: fullAccessPermission ?? this.fullAccessPermission,
@@ -568,6 +595,7 @@ class DingTalkGatewaySettings {
   Map<String, Object?> toJson() => <String, Object?>{
     'poll_interval_seconds': pollIntervalSeconds,
     'reminder_mode': reminderMode.name,
+    'response_mode': responseMode.storageValue,
     'response_model_key': responseModelKey,
     'working_directory': workingDirectory,
     'full_access_permission': fullAccessPermission,

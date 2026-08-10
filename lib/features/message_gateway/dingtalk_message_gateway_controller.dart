@@ -2765,6 +2765,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   DingTalkConversationTarget? _configuredTargetFor(
     DingTalkGatewayMessage message,
   ) {
+    if (_settings.responseMode == DingTalkResponseMode.all &&
+        message.conversationId.trim().isNotEmpty) {
+      return _targetFromIncomingMessage(message);
+    }
     if (message.conversationType == DingTalkConversationType.group) {
       final conversationId = message.conversationId.trim();
       for (final target in _settings.allowedGroupTargets) {
@@ -2786,6 +2790,27 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (_configuredTargetFor(message) == null) return false;
     return message.conversationType == DingTalkConversationType.direct ||
         message.mentionedCurrentUser;
+  }
+
+  DingTalkConversationTarget _targetFromIncomingMessage(
+    DingTalkGatewayMessage message,
+  ) {
+    final conversationId = message.conversationId.trim();
+    final title = message.conversationTitle.trim().isNotEmpty
+        ? message.conversationTitle.trim()
+        : message.senderName.trim().isNotEmpty
+        ? message.senderName.trim()
+        : message.conversationType == DingTalkConversationType.group
+        ? '钉钉群聊'
+        : '钉钉联系人';
+    return DingTalkConversationTarget(
+      id: conversationId,
+      title: title,
+      type: message.conversationType,
+      userId: message.conversationType == DingTalkConversationType.direct
+          ? message.senderId.trim()
+          : '',
+    );
   }
 
   DingTalkConversationTarget _targetFromConversation(

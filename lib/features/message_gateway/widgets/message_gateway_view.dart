@@ -19221,6 +19221,8 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       );
   late DingTalkReminderMode _reminderMode =
       widget.controller.settings.reminderMode;
+  late DingTalkResponseMode _responseMode =
+      widget.controller.settings.responseMode;
   late final Set<DingTalkResponseEchoType> _responseEchoTypes = widget
       .controller
       .settings
@@ -19460,66 +19462,123 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     ),
                   ],
                   const SizedBox(height: 12),
-                  _DingTalkTargetAllowlistField(
-                    icon: Icons.groups_rounded,
-                    title: _dingtalkAllowlistText(context, 'group_title'),
-                    subtitle: _dingtalkAllowlistText(context, 'group_subtitle'),
-                    targets: _allowedGroups,
-                    emptyLabel: _dingtalkAllowlistText(context, 'group_empty'),
-                    addLabel: _dingtalkAllowlistText(
-                      context,
-                      'add',
-                      type: DingTalkConversationType.group,
-                    ),
-                    onAdd: () => _selectAllowedTargets(
-                      type: DingTalkConversationType.group,
-                      title: _dingtalkAllowlistText(
-                        context,
-                        'picker_title',
-                        type: DingTalkConversationType.group,
+                  _DingTalkSettingsCard(
+                    icon: Icons.mark_chat_read_rounded,
+                    title: '响应模式',
+                    subtitle: _responseMode == DingTalkResponseMode.all
+                        ? '全部响应：不再过滤白名单，响应所有拉取到的群聊 @ 消息和联系人单聊。'
+                        : '仅响应白名单：只响应已允许群聊的 @ 消息和已允许联系人的单聊。',
+                    child: SwitchListTile.adaptive(
+                      contentPadding: EdgeInsets.zero,
+                      value: _responseMode == DingTalkResponseMode.all,
+                      title: Text(
+                        _responseMode == DingTalkResponseMode.all
+                            ? '全部响应'
+                            : '仅响应白名单',
                       ),
-                      icon: Icons.groups_rounded,
-                      selected: _allowedGroups,
+                      subtitle: Text(
+                        _responseMode == DingTalkResponseMode.all
+                            ? '白名单已清空并停用'
+                            : '开启后将清空并隐藏群聊、联系人白名单',
+                      ),
+                      onChanged: (enabled) => setState(() {
+                        _responseMode = enabled
+                            ? DingTalkResponseMode.all
+                            : DingTalkResponseMode.allowlist;
+                        if (enabled) {
+                          _allowedGroups = <DingTalkConversationTarget>[];
+                          _allowedContacts = <DingTalkConversationTarget>[];
+                        }
+                      }),
                     ),
-                    onRemove: (target) => setState(() {
-                      _allowedGroups = _allowedGroups
-                          .where((item) => item.id != target.id)
-                          .toList(growable: true);
-                    }),
                   ),
                   const SizedBox(height: 12),
-                  _DingTalkTargetAllowlistField(
-                    icon: Icons.person_rounded,
-                    title: _dingtalkAllowlistText(context, 'contact_title'),
-                    subtitle: _dingtalkAllowlistText(
+                  AnimatedSize(
+                    duration: openHandMotionDuration(
                       context,
-                      'contact_subtitle',
+                      kOpenHandMotion220,
                     ),
-                    targets: _allowedContacts,
-                    emptyLabel: _dingtalkAllowlistText(
-                      context,
-                      'contact_empty',
-                    ),
-                    addLabel: _dingtalkAllowlistText(
-                      context,
-                      'add',
-                      type: DingTalkConversationType.direct,
-                    ),
-                    onAdd: () => _selectAllowedTargets(
-                      type: DingTalkConversationType.direct,
-                      title: _dingtalkAllowlistText(
-                        context,
-                        'picker_title',
-                        type: DingTalkConversationType.direct,
-                      ),
-                      icon: Icons.person_rounded,
-                      selected: _allowedContacts,
-                    ),
-                    onRemove: (target) => setState(() {
-                      _allowedContacts = _allowedContacts
-                          .where((item) => item.id != target.id)
-                          .toList(growable: true);
-                    }),
+                    curve: Curves.easeOutCubic,
+                    child: _responseMode == DingTalkResponseMode.allowlist
+                        ? Column(
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              _DingTalkTargetAllowlistField(
+                                icon: Icons.groups_rounded,
+                                title: _dingtalkAllowlistText(
+                                  context,
+                                  'group_title',
+                                ),
+                                subtitle: _dingtalkAllowlistText(
+                                  context,
+                                  'group_subtitle',
+                                ),
+                                targets: _allowedGroups,
+                                emptyLabel: _dingtalkAllowlistText(
+                                  context,
+                                  'group_empty',
+                                ),
+                                addLabel: _dingtalkAllowlistText(
+                                  context,
+                                  'add',
+                                  type: DingTalkConversationType.group,
+                                ),
+                                onAdd: () => _selectAllowedTargets(
+                                  type: DingTalkConversationType.group,
+                                  title: _dingtalkAllowlistText(
+                                    context,
+                                    'picker_title',
+                                    type: DingTalkConversationType.group,
+                                  ),
+                                  icon: Icons.groups_rounded,
+                                  selected: _allowedGroups,
+                                ),
+                                onRemove: (target) => setState(() {
+                                  _allowedGroups = _allowedGroups
+                                      .where((item) => item.id != target.id)
+                                      .toList(growable: true);
+                                }),
+                              ),
+                              const SizedBox(height: 12),
+                              _DingTalkTargetAllowlistField(
+                                icon: Icons.person_rounded,
+                                title: _dingtalkAllowlistText(
+                                  context,
+                                  'contact_title',
+                                ),
+                                subtitle: _dingtalkAllowlistText(
+                                  context,
+                                  'contact_subtitle',
+                                ),
+                                targets: _allowedContacts,
+                                emptyLabel: _dingtalkAllowlistText(
+                                  context,
+                                  'contact_empty',
+                                ),
+                                addLabel: _dingtalkAllowlistText(
+                                  context,
+                                  'add',
+                                  type: DingTalkConversationType.direct,
+                                ),
+                                onAdd: () => _selectAllowedTargets(
+                                  type: DingTalkConversationType.direct,
+                                  title: _dingtalkAllowlistText(
+                                    context,
+                                    'picker_title',
+                                    type: DingTalkConversationType.direct,
+                                  ),
+                                  icon: Icons.person_rounded,
+                                  selected: _allowedContacts,
+                                ),
+                                onRemove: (target) => setState(() {
+                                  _allowedContacts = _allowedContacts
+                                      .where((item) => item.id != target.id)
+                                      .toList(growable: true);
+                                }),
+                              ),
+                            ],
+                          )
+                        : const SizedBox.shrink(),
                   ),
                   const SizedBox(height: 12),
                   _DingTalkSettingsCard(
@@ -20085,6 +20144,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
         DingTalkGatewaySettings(
           pollIntervalSeconds: seconds,
           reminderMode: _reminderMode,
+          responseMode: _responseMode,
           responseModelKey: _modelKey,
           workingDirectory: workingDirectory,
           fullAccessPermission: _fullAccessPermission,
