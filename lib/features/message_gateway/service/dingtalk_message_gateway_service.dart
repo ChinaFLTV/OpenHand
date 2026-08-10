@@ -127,6 +127,7 @@ class DingTalkMessageGatewayService {
   static const int _sentMessageLookupLimit = 50;
   static const int _messageQueryPageSize = 50;
   static const int _messageQueryMaxPages = 10;
+  static const int _conversationQueryMaxPages = 20;
   static const int _batchSize = 30;
   static const int _detailConcurrency = 4;
   static const int _maxMediaCacheFiles = 512;
@@ -1171,30 +1172,101 @@ class DingTalkMessageGatewayService {
   Future<List<DingTalkGatewayMessage>> queryRecentConversation({
     required DingTalkConversation conversation,
     int limit = 50,
+    bool backfillHistory = false,
   }) async {
     final normalizedLimit = limit.clamp(1, 50);
-    final result = await _runJson(<String>[
-      'chat',
-      'message',
-      'list',
-      ..._targetArguments(conversation),
-      '--time',
-      _formatChatDateTime(DateTime.now()),
-      '--limit',
-      '$normalizedLimit',
-      '--direction',
-      'older',
-      '--format',
-      'json',
-    ], timeout: const Duration(seconds: 25));
-    return _parseMessages(
-      result,
-      fallbackConversationId: conversation.dwsConversationId.isNotEmpty
-          ? conversation.dwsConversationId
-          : conversation.id,
-      fallbackMediaConversationId: conversation.dwsConversationId,
-      fallbackConversationType: conversation.type,
-    );
+    final fallbackConversationId = conversation.dwsConversationId.isNotEmpty
+        ? conversation.dwsConversationId
+        : conversation.id;
+    final messages = <DingTalkGatewayMessage>[];
+    final seenIds = <String>{};
+    final knownIds = conversation.messages
+        .map((message) => normalizeDingTalkMessageId(message.id))
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    var boundary = DateTime.now();
+    var reachedPageLimit = true;
+    for (
+      var pageIndex = 0;
+      pageIndex < _conversationQueryMaxPages;
+      pageIndex++
+    ) {
+      late final Object? result;
+      try {
+        result = await _runJson(<String>[
+          'chat',
+          'message',
+          'list',
+          ..._targetArguments(conversation),
+          '--time',
+          _formatChatDateTime(boundary),
+          '--limit',
+          '$normalizedLimit',
+          '--direction',
+          'older',
+          '--format',
+          'json',
+        ], timeout: const Duration(seconds: 25));
+      } catch (error, stack) {
+        if (messages.isEmpty || backfillHistory) rethrow;
+        _logRuntime('WARN', '钉钉会话消息后续分页失败，已保留已获取的消息。');
+        silentLog('dingtalk_gateway', '读取钉钉会话消息后续分页', error, stack);
+        reachedPageLimit = false;
+        break;
+      }
+      final pageMessages = _parseMessages(
+        result,
+        fallbackConversationId: fallbackConversationId,
+        fallbackMediaConversationId: conversation.dwsConversationId,
+        fallbackConversationType: conversation.type,
+      );
+      if (pageMessages.isEmpty) {
+        reachedPageLimit = false;
+        break;
+      }
+      var addedCount = 0;
+      var reachedKnownMessage = false;
+      for (final message in pageMessages) {
+        final id = normalizeDingTalkMessageId(message.id);
+        if (id.isEmpty) continue;
+        if (knownIds.contains(id)) reachedKnownMessage = true;
+        if (!seenIds.add(id)) continue;
+        messages.add(message);
+        addedCount += 1;
+      }
+      final hasMoreValue = _findPageField(result, const <String>[
+        'hasMore',
+        'has_more',
+      ]);
+      final hasMore = hasMoreValue == null
+          ? pageMessages.length >= normalizedLimit
+          : _asBool(hasMoreValue);
+      if (!hasMore ||
+          addedCount == 0 ||
+          (!backfillHistory && reachedKnownMessage)) {
+        reachedPageLimit = false;
+        break;
+      }
+      final oldest = pageMessages
+          .map((message) => message.createdAt)
+          .reduce((left, right) => left.isBefore(right) ? left : right);
+      if (!oldest.isBefore(boundary)) {
+        reachedPageLimit = false;
+        break;
+      }
+      // list 接口使用边界 createTime 翻页。保留边界本身，重复项由 seenIds
+      // 去重，避免减去一秒造成同秒消息被跳过。
+      boundary = oldest;
+    }
+    if (reachedPageLimit) {
+      _logRuntime('WARN', '钉钉会话消息已达到本地保留上限，较早历史消息不再继续加载。');
+    }
+    final indexed = messages.asMap().entries.toList(growable: true);
+    indexed.sort((left, right) {
+      final created = left.value.createdAt.compareTo(right.value.createdAt);
+      return created != 0 ? created : left.key.compareTo(right.key);
+    });
+    return indexed.map((entry) => entry.value).toList(growable: false);
   }
 
   Future<List<DingTalkConversationTarget>> searchTargets({

@@ -65,12 +65,7 @@ class DingTalkMessageGatewayStore {
           final conversation = DingTalkConversation.fromJson(
             stringKeyedMapFromValue(item),
           );
-          final messages = conversation.messages
-              .where(
-                (message) => message.content.length <= _maxMessageContentLength,
-              )
-              .take(_maxMessagesPerConversation)
-              .toList(growable: false);
+          final messages = _keepRecentMessages(conversation.messages);
           conversation.messages
             ..clear()
             ..addAll(messages);
@@ -116,12 +111,7 @@ class DingTalkMessageGatewayStore {
     final limitedConversations = conversations
         .take(_maxConversations)
         .map((conversation) {
-          final messages = conversation.messages
-              .where(
-                (message) => message.content.length <= _maxMessageContentLength,
-              )
-              .take(_maxMessagesPerConversation)
-              .toList(growable: false);
+          final messages = _keepRecentMessages(conversation.messages);
           final copy = DingTalkConversation(
             id: conversation.id,
             type: conversation.type,
@@ -175,6 +165,26 @@ class DingTalkMessageGatewayStore {
     _expectedContent = content;
     _cachedConversations = List<DingTalkConversation>.unmodifiable(
       limitedConversations,
+    );
+  }
+
+  List<DingTalkGatewayMessage> _keepRecentMessages(
+    Iterable<DingTalkGatewayMessage> source,
+  ) {
+    final messages = source
+        .where((message) => message.content.length <= _maxMessageContentLength)
+        .toList(growable: true);
+    final indexed = messages.asMap().entries.toList(growable: true);
+    indexed.sort((left, right) {
+      final created = left.value.createdAt.compareTo(right.value.createdAt);
+      return created != 0 ? created : left.key.compareTo(right.key);
+    });
+    final ordered = indexed.map((entry) => entry.value).toList(growable: false);
+    if (ordered.length <= _maxMessagesPerConversation) {
+      return List<DingTalkGatewayMessage>.unmodifiable(ordered);
+    }
+    return List<DingTalkGatewayMessage>.unmodifiable(
+      ordered.skip(ordered.length - _maxMessagesPerConversation),
     );
   }
 }
