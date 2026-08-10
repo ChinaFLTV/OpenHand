@@ -128,6 +128,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Map<String, DingTalkConversation> _conversations =
       <String, DingTalkConversation>{};
   final Set<String> _responseInFlight = <String>{};
+
+  /// 每次停止响应都会递增。正在执行的响应携带启动时版本，前置异步
+  /// 阶段完成后若版本已变化，立即结束本轮，避免停止后继续发起 AI 请求。
+  final Map<String, int> _responseCancellationVersions = <String, int>{};
   final Map<String, Queue<_QueuedDingTalkResponse>> _responseQueues =
       <String, Queue<_QueuedDingTalkResponse>>{};
   final Set<String> _responseDraining = <String>{};
@@ -605,6 +609,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (conversation == null) return;
     await stopConversationResponse(conversationId);
     _conversations.remove(conversationId);
+    if (!_responseDraining.contains(conversationId) &&
+        !_responseInFlight.contains(conversationId) &&
+        !_responseQueues.containsKey(conversationId)) {
+      _responseCancellationVersions.remove(conversationId);
+    }
     _queuePersist();
     _notify();
     if (_isPolling && !_usingPollingFallback && _eventSubscription != null) {
@@ -617,23 +626,38 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final sessionId = conversation?.aiSessionId;
     return _responseInFlight.contains(conversationId) ||
         (_responseQueues[conversationId]?.isNotEmpty ?? false) ||
-        (sessionId != null && _sessionController.canStopResponding(sessionId));
+        (sessionId != null &&
+            !_responseCancellationVersions.containsKey(conversationId) &&
+            _sessionController.canStopResponding(sessionId));
   }
 
   Future<void> stopConversationResponse(String conversationId) async {
+    if (_disposed) return;
+    final nextVersion =
+        (_responseCancellationVersions[conversationId] ?? 0) + 1;
+    _responseCancellationVersions[conversationId] = nextVersion;
     final conversation = _conversations[conversationId];
     final sessionId = conversation?.aiSessionId;
-    if (sessionId != null && _sessionController.canStopResponding(sessionId)) {
-      await _sessionController.stopResponding(sessionId);
-    }
     final queue = _responseQueues.remove(conversationId);
     if (queue != null) {
       for (final item in queue) {
         item.complete();
       }
+      queue.clear();
     }
-    _responseInFlight.remove(conversationId);
-    _notify();
+    if (sessionId == null || !_sessionController.canStopResponding(sessionId)) {
+      _responseInFlight.remove(conversationId);
+      _notify();
+      return;
+    }
+    try {
+      await _sessionController.stopResponding(sessionId);
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '停止钉钉 AI 响应', error, stack);
+    } finally {
+      _responseInFlight.remove(conversationId);
+      _notify();
+    }
   }
 
   bool isMessageMediaCaching(String messageId) =>
@@ -1084,6 +1108,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (conversation == null ||
         (content.isEmpty && paths.isEmpty) ||
         _isSending ||
+        _responseInFlight.contains(conversationId) ||
+        (_responseQueues[conversationId]?.isNotEmpty ?? false) ||
         _editingMessageInFlight ||
         !isAuthorized) {
       return false;
@@ -2285,12 +2311,18 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (immediate) unawaited(_pollOnce());
   }
 
+  bool _isResponseCancelled(String conversationId, int version) {
+    return _disposed ||
+        _responseCancellationVersions[conversationId] != version;
+  }
+
   Future<void> _respondWithAi(
     DingTalkConversation conversation,
     String content,
     String sourceMessageId,
   ) async {
-    if (!_responseInFlight.add(conversation.id)) return;
+    if (_disposed || !_responseInFlight.add(conversation.id)) return;
+    final responseVersion = _responseCancellationVersions[conversation.id] ?? 0;
     _notify();
     try {
       final model = _resolveModel();
@@ -2304,6 +2336,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       await _mcpController.ensureRuntimeToolCatalogs(
         maxWait: const Duration(seconds: 6),
       );
+      if (_isResponseCancelled(conversation.id, responseVersion)) return;
       final selectedTemplate = templates.where(
         (item) => item.id == _settings.templateId,
       );
@@ -2330,6 +2363,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                 .where((entry) => selectedMemoryIds.contains(entry.id))
                 .toList(growable: false)
           : const <UserMemoryEntry>[];
+      if (_isResponseCancelled(conversation.id, responseVersion)) return;
       final selectedInstructions = _instructionsController.entries
           .where((entry) => _settings.allowedInstructionIds.contains(entry.id))
           .toList(growable: false);
@@ -2355,6 +2389,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                   ),
                 )
                 .toList(growable: false);
+      if (_isResponseCancelled(conversation.id, responseVersion)) return;
       final runtimeContext = buildAiSessionRuntimeContext(
         settingsController: _settingsController,
         appInfo: _appInfo,
@@ -2411,6 +2446,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           }
         }
         conversation.aiSessionId = sessionId;
+        if (_isResponseCancelled(conversation.id, responseVersion)) return;
       }
       if (sessionId == null) return;
       final attachmentPaths = _attachmentPathsForTurn(
@@ -2421,6 +2457,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         sessionId,
         _settings.fullAccessPermission,
       );
+      if (_isResponseCancelled(conversation.id, responseVersion)) return;
       AiSession? sessionBeforeEcho;
       for (final candidate in _sessionController.sessions) {
         if (candidate.id == sessionId) {
@@ -2437,6 +2474,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         typeOf: _echoTypeOf,
         textFor: _echoTextForMessage,
         isTerminal: _isEchoTerminal,
+        isCancelled: () =>
+            _isResponseCancelled(conversation.id, responseVersion),
         send: (source, text, uuid) => _sendDingTalkEcho(
           conversation: conversation,
           source: source,
@@ -2462,7 +2501,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
 
       void onSessionChanged() {
-        if (_disposed) return;
+        if (_disposed ||
+            _isResponseCancelled(conversation.id, responseVersion)) {
+          return;
+        }
         final session = currentSession();
         if (session != null) echoCoordinator.ingest(session);
       }
@@ -2476,6 +2518,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               globalConfirmationEnabled:
                   _settingsController.aiWriteCommandConfirmationEnabled,
             );
+        if (_isResponseCancelled(conversation.id, responseVersion)) return;
         final sent = await _sessionController.sendMessage(
           sessionId: sessionId,
           content: aiContent,
@@ -2508,6 +2551,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           },
         );
         if (!sent) return;
+        if (_isResponseCancelled(conversation.id, responseVersion)) return;
         if (sourceMessageId.trim().isNotEmpty &&
             identical(_conversations[conversation.id], conversation)) {
           conversation.aiContextCheckpointMessageId = sourceMessageId.trim();
@@ -2515,25 +2559,29 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         }
       } finally {
         _sessionController.removeListener(onSessionChanged);
-        final session = currentSession();
-        if (session != null) echoCoordinator.ingest(session);
-        try {
-          await echoCoordinator.flush().timeout(const Duration(seconds: 45));
-        } on TimeoutException {
-          silentLog(
-            'dingtalk_gateway',
-            '收敛钉钉流式回显超时',
-            TimeoutException('钉钉流式回显未在限定时间内完成。'),
-            StackTrace.current,
-          );
-        } finally {
-          echoCoordinator.dispose();
+        if (!_isResponseCancelled(conversation.id, responseVersion)) {
+          final session = currentSession();
+          if (session != null) echoCoordinator.ingest(session);
+          try {
+            await echoCoordinator.flush().timeout(const Duration(seconds: 45));
+          } on TimeoutException {
+            silentLog(
+              'dingtalk_gateway',
+              '收敛钉钉流式回显超时',
+              TimeoutException('钉钉流式回显未在限定时间内完成。'),
+              StackTrace.current,
+            );
+          }
         }
+        echoCoordinator.dispose();
       }
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '生成钉钉 AI 回复', error, stack);
     } finally {
       _responseInFlight.remove(conversation.id);
+      if (_responseCancellationVersions[conversation.id] == responseVersion) {
+        _responseCancellationVersions.remove(conversation.id);
+      }
       _notify();
     }
   }
@@ -3019,10 +3067,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
     } finally {
       _responseDraining.remove(conversation.id);
-      if (queue.isEmpty) {
+      if (identical(_responseQueues[conversation.id], queue) && queue.isEmpty) {
         _responseQueues.remove(conversation.id);
-      } else if (!_disposed && _responseDraining.add(conversation.id)) {
+      }
+      final pendingQueue = _responseQueues[conversation.id];
+      if (!_disposed &&
+          (pendingQueue?.isNotEmpty ?? false) &&
+          _responseDraining.add(conversation.id)) {
         unawaited(_drainResponseQueue(conversation));
+      }
+      if (pendingQueue == null &&
+          !_responseInFlight.contains(conversation.id) &&
+          !_conversations.containsKey(conversation.id)) {
+        _responseCancellationVersions.remove(conversation.id);
       }
       _notify();
     }
@@ -3287,6 +3344,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     await _stopEventListening();
     final eventRestart = _eventRestartFuture;
     if (eventRestart != null) await eventRestart;
+    final activeResponseIds = _conversations.keys
+        .where(isConversationResponding)
+        .toList(growable: false);
+    await Future.wait<void>(activeResponseIds.map(stopConversationResponse));
     for (final queue in _responseQueues.values) {
       for (final item in queue) {
         item.complete();
@@ -3294,6 +3355,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     _responseQueues.clear();
     _responseDraining.clear();
+    _responseCancellationVersions.clear();
     _writeApprovalHandler = null;
     await _runtimeLogSubscription?.cancel();
     _runtimeLogSubscription = null;
@@ -3327,6 +3389,7 @@ typedef _DingTalkEchoEditor =
     Future<void> Function(String messageId, String text);
 typedef _DingTalkEchoErrorHandler =
     void Function(String action, Object error, StackTrace stack);
+typedef _DingTalkEchoCancellationChecker = bool Function();
 
 /// 单轮钉钉 AI 回显协调器：首次发送后只编辑同一条消息，并合并高频流式增量。
 class _DingTalkEchoCoordinator {
@@ -3336,6 +3399,7 @@ class _DingTalkEchoCoordinator {
     required _DingTalkEchoTypeResolver typeOf,
     required _DingTalkEchoTextBuilder textFor,
     required _DingTalkEchoTerminalResolver isTerminal,
+    required _DingTalkEchoCancellationChecker isCancelled,
     required _DingTalkEchoSender send,
     required _DingTalkEchoEditor edit,
     required String Function() newUuid,
@@ -3345,6 +3409,7 @@ class _DingTalkEchoCoordinator {
        _typeOf = typeOf,
        _textFor = textFor,
        _isTerminal = isTerminal,
+       _isCancelled = isCancelled,
        _send = send,
        _edit = edit,
        _newUuid = newUuid,
@@ -3359,6 +3424,7 @@ class _DingTalkEchoCoordinator {
   final _DingTalkEchoTypeResolver _typeOf;
   final _DingTalkEchoTextBuilder _textFor;
   final _DingTalkEchoTerminalResolver _isTerminal;
+  final _DingTalkEchoCancellationChecker _isCancelled;
   final _DingTalkEchoSender _send;
   final _DingTalkEchoEditor _edit;
   final String Function() _newUuid;
@@ -3373,7 +3439,7 @@ class _DingTalkEchoCoordinator {
   bool _disposed = false;
 
   void ingest(AiSession session) {
-    if (_disposed || _selectedTypes.isEmpty) return;
+    if (_disposed || _isCancelled() || _selectedTypes.isEmpty) return;
     final now = DateTime.now();
     for (final message in session.messages) {
       if (_baselineMessageIds.contains(message.id)) continue;
@@ -3475,7 +3541,7 @@ class _DingTalkEchoCoordinator {
   }
 
   void _startDrain() {
-    if (_disposed || _activeDrain != null) return;
+    if (_disposed || _isCancelled() || _activeDrain != null) return;
     _timer?.cancel();
     _timer = null;
     _scheduledAt = null;
@@ -3490,7 +3556,7 @@ class _DingTalkEchoCoordinator {
   }
 
   Future<void> _drainReady() async {
-    while (!_disposed && _pending.isNotEmpty) {
+    while (!_disposed && !_isCancelled() && _pending.isNotEmpty) {
       final now = DateTime.now();
       MapEntry<String, _PendingDingTalkEcho>? candidate;
       for (final entry in _pending.entries) {
@@ -3506,6 +3572,7 @@ class _DingTalkEchoCoordinator {
   }
 
   Future<void> _deliver(String sourceId, _PendingDingTalkEcho pending) async {
+    if (_disposed || _isCancelled()) return;
     final state = _states.putIfAbsent(
       sourceId,
       () => _DingTalkEchoDeliveryState(type: pending.type, uuid: _newUuid()),
@@ -3518,34 +3585,41 @@ class _DingTalkEchoCoordinator {
       return;
     }
     try {
+      if (_disposed || _isCancelled()) return;
       if (!state.sent) {
         state.remoteMessageId = await _send(
           pending.source,
           pending.text,
           state.uuid,
         );
+        if (_disposed || _isCancelled()) return;
         state.sent = true;
       } else {
         final messageId = state.remoteMessageId?.trim() ?? '';
         if (messageId.isNotEmpty) {
+          if (_disposed || _isCancelled()) return;
           await _edit(messageId, pending.text);
+          if (_disposed || _isCancelled()) return;
         }
       }
       state.lastText = pending.text;
       state.lastMutationAt = DateTime.now();
       state.finished = pending.terminal;
     } catch (error, stack) {
+      if (_disposed || _isCancelled()) return;
       state.lastMutationAt = DateTime.now();
       _onError(state.sent ? '编辑钉钉 AI 回显消息' : '发送钉钉 AI 回显消息', error, stack);
       if (pending.terminal &&
           state.sent &&
           (state.remoteMessageId?.trim().isNotEmpty ?? false)) {
         try {
+          if (_disposed || _isCancelled()) return;
           state.remoteMessageId = await _send(
             pending.source,
             pending.text,
             _newUuid(),
           );
+          if (_disposed || _isCancelled()) return;
           state.lastText = pending.text;
         } catch (fallbackError, fallbackStack) {
           _onError('补发钉钉 AI 终态回显消息', fallbackError, fallbackStack);
@@ -3556,11 +3630,16 @@ class _DingTalkEchoCoordinator {
   }
 
   Future<void> flush() async {
-    if (_disposed) return;
+    if (_disposed || _isCancelled()) {
+      _pending.clear();
+      return;
+    }
     _timer?.cancel();
     _timer = null;
     _scheduledAt = null;
-    while (!_disposed && (_pending.isNotEmpty || _activeDrain != null)) {
+    while (!_disposed &&
+        !_isCancelled() &&
+        (_pending.isNotEmpty || _activeDrain != null)) {
       final now = DateTime.now();
       for (final entry in _pending.entries.toList(growable: false)) {
         _pending[entry.key] = entry.value.copyWith(readyAt: now);

@@ -12588,12 +12588,16 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   }
 
   Widget _buildComposer(DingTalkConversation conversation) {
+    final responding = widget.controller.isConversationResponding(
+      conversation.id,
+    );
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          if (_pendingAttachments.isNotEmpty) _buildPendingAttachmentsBar(),
+          if (_pendingAttachments.isNotEmpty)
+            _buildPendingAttachmentsBar(conversation),
           AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
             switchInCurve: Curves.easeOutCubic,
@@ -12602,7 +12606,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
               alignment: Alignment.bottomCenter,
               children: <Widget>[...previous, if (current != null) current],
             ),
-            child: _recordingVoice
+            child: _recordingVoice && !responding
                 ? _buildVoiceRecordingComposer()
                 : _buildTextComposer(conversation),
           ),
@@ -12611,11 +12615,14 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     );
   }
 
-  Widget _buildPendingAttachmentsBar() {
+  Widget _buildPendingAttachmentsBar(DingTalkConversation conversation) {
     final chipAnimationSettings = context
         .select<SettingsController, DialogAnimationSettings>(
           (settings) => settings.chipAnimationSettings,
         );
+    final responding = widget.controller.isConversationResponding(
+      conversation.id,
+    );
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: Wrap(
@@ -12626,12 +12633,16 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
             AnimatedRemovableChip(
               key: ValueKey<String>('dingtalk-attachment:${attachment.path}'),
               settings: chipAnimationSettings,
-              onRemove: () => _removePendingAttachment(attachment.path),
+              onRemove: responding
+                  ? () {}
+                  : () => _removePendingAttachment(attachment.path),
               builder: (context, requestRemove) =>
                   _DingTalkPendingAttachmentChip(
                     attachment: attachment,
                     onTap: () => unawaited(_openPendingAttachment(attachment)),
-                    onRemove: _attachmentBusy ? () {} : requestRemove,
+                    onRemove: _attachmentBusy || responding
+                        ? () {}
+                        : requestRemove,
                   ),
             ),
         ],
@@ -12676,14 +12687,20 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   }
 
   Widget _buildTextComposer(DingTalkConversation conversation) {
+    final responding = widget.controller.isConversationResponding(
+      conversation.id,
+    );
     return Row(
-      key: const ValueKey<String>('dingtalk-text-composer'),
+      key: ValueKey<String>(
+        responding ? 'dingtalk-responding-composer' : 'dingtalk-text-composer',
+      ),
       crossAxisAlignment: CrossAxisAlignment.end,
       children: [
         Expanded(
           child: TextField(
             controller: _input,
             focusNode: _inputFocusNode,
+            enabled: !responding,
             minLines: 1,
             maxLines: 4,
             textInputAction: TextInputAction.newline,
@@ -12697,13 +12714,17 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                 vertical: 13,
               ),
             ),
-            onSubmitted: (_) => _isEditingConversation(conversation)
-                ? unawaited(_confirmMessageEdit(conversation))
-                : _sendOrStop(conversation),
+            onSubmitted: responding
+                ? null
+                : (_) => _isEditingConversation(conversation)
+                      ? unawaited(_confirmMessageEdit(conversation))
+                      : _sendOrStop(conversation),
           ),
         ),
         const SizedBox(width: 10),
-        if (_isEditingConversation(conversation)) ...[
+        if (responding) ...[
+          _buildSendButton(conversation),
+        ] else if (_isEditingConversation(conversation)) ...[
           _buildEditCancelButton(),
           const SizedBox(width: 6),
           _buildEditConfirmButton(conversation),
@@ -13077,6 +13098,14 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   void _handleControllerChanged() {
     if (!mounted) return;
+    final selectedId = _selectedId;
+    if (selectedId != null &&
+        widget.controller.isConversationResponding(selectedId)) {
+      if (_recordingVoice && _voiceConversationId == selectedId) {
+        _cancelVoiceRecording();
+      }
+      if (_inputFocusNode.hasFocus) _inputFocusNode.unfocus();
+    }
     _ensureRefreshTimer();
   }
 
@@ -13186,7 +13215,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       conversation.id,
     );
     final enabled =
-        !_attachmentBusy && (responding || !widget.controller.isSending);
+        responding || (!_attachmentBusy && !widget.controller.isSending);
     return SizedBox(
       width: 124,
       height: 48,
