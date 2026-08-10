@@ -104,6 +104,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _maxSeenIds = 2000;
   static const int _maxPendingRecallIds = 512;
   static const int _maxReactionTypes = 12;
+  static const Duration _outgoingEchoWindow = Duration(seconds: 30);
   static const int _maxAiConversationContextCharacters = 48000;
   static const int _maxAiConversationContextMessages = 200;
   static const Duration _conversationStartSkew = Duration(seconds: 2);
@@ -1407,19 +1408,83 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     return messageId.startsWith('local-') || messageId.startsWith('assistant-');
   }
 
+  DingTalkGatewayMessage _mergeOutgoingMessage(
+    DingTalkGatewayMessage local,
+    DingTalkGatewayMessage remote,
+    String remoteId,
+  ) {
+    return local.copyWith(
+      id: remoteId,
+      content: remote.content.isEmpty ? null : remote.content,
+      media: remote.media.isEmpty
+          ? null
+          : _mergeMediaCache(local.media, remote.media),
+      mentionedCurrentUser: remote.mentionedCurrentUser ? true : null,
+      recalled: remote.recalled ? true : null,
+      readByPeer: remote.readByPeer ? true : null,
+    );
+  }
+
   DingTalkGatewayMessage _bindSentMessageId(
     DingTalkConversation conversation,
     DingTalkGatewayMessage localMessage,
     String? remoteMessageId,
   ) {
     final id = remoteMessageId?.trim() ?? '';
-    if (id.isEmpty || id == localMessage.id) return localMessage;
-    final index = conversation.messages.indexWhere(
+    final localIndex = conversation.messages.indexWhere(
       (message) => message.id == localMessage.id,
     );
-    if (index < 0) return localMessage;
-    final sentMessage = localMessage.copyWith(id: id);
-    conversation.messages[index] = sentMessage;
+    final outgoingIndex = localIndex >= 0
+        ? localIndex
+        : conversation.messages.indexWhere(
+            (message) =>
+                message.fromSelf &&
+                message.role == localMessage.role &&
+                message.createdAt == localMessage.createdAt,
+          );
+    final outgoing = outgoingIndex >= 0
+        ? conversation.messages[outgoingIndex]
+        : localMessage;
+    if (id.isEmpty || id == outgoing.id) return outgoing;
+    final remoteIndex = conversation.messages.indexWhere(
+      (message) => message.id == id && message.id != outgoing.id,
+    );
+    // 实时回流可能已先把临时消息替换成真实 ID，发送接口返回后直接复用该消息，
+    // 避免 AI 请求继续引用已经不存在的 local-* 标识。
+    if (outgoingIndex < 0) {
+      if (remoteIndex >= 0) {
+        final merged = _mergeOutgoingMessage(
+          localMessage,
+          conversation.messages[remoteIndex],
+          id,
+        );
+        conversation.messages[remoteIndex] = merged;
+        _remember(id);
+        _queuePersist();
+        _notify();
+        return merged;
+      }
+      return localMessage;
+    }
+    if (remoteIndex >= 0) {
+      final merged = _mergeOutgoingMessage(
+        outgoing,
+        conversation.messages[remoteIndex],
+        id,
+      );
+      conversation.messages.removeAt(remoteIndex);
+      final refreshedIndex = conversation.messages.indexWhere(
+        (message) => message.id == outgoing.id,
+      );
+      if (refreshedIndex < 0) return merged;
+      conversation.messages[refreshedIndex] = merged;
+      _remember(id);
+      _queuePersist();
+      _notify();
+      return merged;
+    }
+    final sentMessage = outgoing.copyWith(id: id);
+    conversation.messages[outgoingIndex] = sentMessage;
     _remember(id);
     _queuePersist();
     _notify();
@@ -1590,8 +1655,98 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     await _service.stopEventSubscription();
   }
 
+  bool _mergeIncomingOutgoingEcho(
+    DingTalkGatewayMessage incoming,
+    DingTalkConversation conversation,
+  ) {
+    final incomingId = incoming.id.trim();
+    if (incomingId.isEmpty) return false;
+    final incomingContent = incoming.content.trim();
+    final incomingSenderId = incoming.senderId.trim();
+    final incomingSenderName = incoming.senderName.trim();
+    final incomingIsSelf = _isSelf(incoming);
+    final directPeerIds = conversation.type == DingTalkConversationType.direct
+        ? (<String>{
+            conversation.directUserId?.trim() ?? '',
+            conversation.directOpenDingTalkId?.trim() ?? '',
+          }..remove(''))
+        : const <String>{};
+    var localIndex = -1;
+    Duration? closestAge;
+    for (final entry in conversation.messages.asMap().entries) {
+      final local = entry.value;
+      if (!_isTemporaryMessageId(local.id) ||
+          local.role != DingTalkGatewayMessageRole.user ||
+          local.conversationType != incoming.conversationType) {
+        continue;
+      }
+      final localSenderId = local.senderId.trim();
+      final localSenderName = local.senderName.trim();
+      final senderNamesMatch =
+          incomingSenderName.isNotEmpty &&
+          localSenderName.isNotEmpty &&
+          incomingSenderName == localSenderName;
+      if (!incomingIsSelf &&
+          (directPeerIds.contains(incomingSenderId) ||
+              (incomingSenderId.isNotEmpty &&
+                  localSenderId.isNotEmpty &&
+                  incomingSenderId != localSenderId &&
+                  !senderNamesMatch) ||
+              (incomingSenderId.isEmpty &&
+                  incomingSenderName.isNotEmpty &&
+                  localSenderName.isNotEmpty &&
+                  !senderNamesMatch))) {
+        continue;
+      }
+      final age = incoming.createdAt.difference(local.createdAt).abs();
+      if (age > _outgoingEchoWindow) continue;
+      final sameContent =
+          incomingContent.isNotEmpty && local.content.trim() == incomingContent;
+      final sameMedia =
+          local.media.isNotEmpty &&
+          local.media.length == incoming.media.length &&
+          listEquals(
+            local.media
+                .map((item) => item.name.trim().toLowerCase())
+                .toList(growable: false),
+            incoming.media
+                .map((item) => item.name.trim().toLowerCase())
+                .toList(growable: false),
+          );
+      if (!sameContent && !sameMedia) continue;
+      if (closestAge == null || age < closestAge) {
+        localIndex = entry.key;
+        closestAge = age;
+      }
+    }
+    if (localIndex < 0) return false;
+    final local = conversation.messages[localIndex];
+    final remoteIndex = conversation.messages.indexWhere(
+      (message) => message.id == incomingId && message.id != local.id,
+    );
+    final merged = _mergeOutgoingMessage(local, incoming, incomingId);
+    if (remoteIndex >= 0) conversation.messages.removeAt(remoteIndex);
+    final refreshedIndex = conversation.messages.indexWhere(
+      (message) => message.id == local.id,
+    );
+    if (refreshedIndex < 0) return false;
+    conversation.messages[refreshedIndex] = merged;
+    _remember(incomingId);
+    _queuePersist();
+    return true;
+  }
+
   void _handleIncomingMessage(DingTalkGatewayMessage message) {
     if (!_isPolling || _disposed) return;
+    final incomingConversation = _conversationForIncomingMessage(message);
+    if (incomingConversation != null &&
+        _mergeIncomingOutgoingEcho(message, incomingConversation)) {
+      if (message.media.isNotEmpty) {
+        unawaited(_cacheIncomingMedia(incomingConversation, message));
+      }
+      _notify();
+      return;
+    }
     final pendingRecall = _pendingRecalledMessageIds.remove(message.id);
     final incoming = pendingRecall && !message.recalled
         ? message.copyWith(recalled: true)
@@ -1610,6 +1765,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           !previous.mentionedCurrentUser &&
           incoming.mentionedCurrentUser &&
           !incoming.recalled &&
+          !_isSelf(previous) &&
           !_isSelf(incoming) &&
           _canRespondToMessage(incoming)) {
         unawaited(
@@ -1796,9 +1952,17 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         .map((item) {
           final normalizedId = normalizeDingTalkResourceId(item.resourceId);
           for (final previous in current) {
-            if (normalizeDingTalkResourceId(previous.resourceId) ==
+            final sameResource =
+                normalizeDingTalkResourceId(previous.resourceId) ==
                     normalizedId &&
-                previous.resourceType == item.resourceType &&
+                previous.resourceType == item.resourceType;
+            final sameLocalAttachment =
+                previous.resourceId.startsWith('local-') &&
+                previous.name.trim().isNotEmpty &&
+                previous.name.trim().toLowerCase() ==
+                    item.name.trim().toLowerCase() &&
+                previous.kind == item.kind;
+            if ((sameResource || sameLocalAttachment) &&
                 previous.localPath.trim().isNotEmpty) {
               return item.copyWith(
                 resourceId: normalizedId,
@@ -2994,9 +3158,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final sender = message.senderId.trim();
     final current = _authStatus.identity.userId.trim();
     final profile = _authStatus.identity.profile.trim();
+    final profileUserId = profile.contains(':')
+        ? profile.substring(profile.lastIndexOf(':') + 1)
+        : profile;
     if (sender.isNotEmpty &&
         ((current.isNotEmpty && sender == current) ||
-            (profile.isNotEmpty && sender == profile))) {
+            (profile.isNotEmpty && sender == profile) ||
+            (profileUserId.isNotEmpty && sender == profileUserId))) {
       return true;
     }
     final senderName = message.senderName.trim();

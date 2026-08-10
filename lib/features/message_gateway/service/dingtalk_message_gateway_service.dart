@@ -2652,6 +2652,8 @@ class DingTalkMessageGatewayService {
           _asBool(map['isSelf']) ||
           _asBool(map['is_self']) ||
           _asBool(map['isMine']) ||
+          _asBool(map['is_mine']) ||
+          _asBool(map['isSelfLoop']) ||
           _asBool(map['is_self_loop']),
       mentionedCurrentUser: mentionedCurrentUser,
     );
