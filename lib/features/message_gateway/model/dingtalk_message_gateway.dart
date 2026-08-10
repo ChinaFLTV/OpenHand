@@ -26,6 +26,23 @@ String normalizeDingTalkResourceId(Object? value) {
   return text;
 }
 
+/// 统一清理钉钉开放消息标识。
+///
+/// DWS 的扁平事件和消息列表都返回开放消息 ID，但旧版本的事件封装
+/// 偶尔会把 JSON/Markdown 投影的右括号带入标识，导致事件无法匹配本地消息。
+String normalizeDingTalkMessageId(Object? value) {
+  var text = _normalizedDingTalkString(value);
+  while (text.length >= 2 &&
+      ((text.startsWith('"') && text.endsWith('"')) ||
+          (text.startsWith("'") && text.endsWith("'")))) {
+    text = text.substring(1, text.length - 1).trim();
+  }
+  while (text.endsWith(')') || text.endsWith(']')) {
+    text = text.substring(0, text.length - 1).trimRight();
+  }
+  return text;
+}
+
 enum DingTalkConversationType { group, direct }
 
 enum DingTalkGatewayMessageRole { user, assistant }
@@ -760,7 +777,7 @@ class DingTalkGatewayMessage {
   });
 
   factory DingTalkGatewayMessage.fromJson(Map<String, Object?> json) {
-    final id = '${json['id'] ?? ''}'.trim();
+    final id = normalizeDingTalkMessageId(json['id']);
     final conversationId = '${json['conversation_id'] ?? ''}'.trim();
     final rawContent = '${json['content'] ?? ''}';
     final createdAt = DateTime.tryParse('${json['created_at'] ?? ''}');

@@ -2429,17 +2429,19 @@ class DingTalkMessageGatewayService {
     for (final value in values) {
       if (value is! Map) continue;
       final map = _asMap(value);
-      final id = _first(map, const <String>[
-        'openMessageId',
-        'open_message_id',
-        'openMsgId',
-        'open_msg_id',
-        'messageId',
-        'message_id',
-        'msgId',
-        'msg_id',
-        'id',
-      ]);
+      final id = normalizeDingTalkMessageId(
+        _first(map, const <String>[
+          'openMessageId',
+          'open_message_id',
+          'openMsgId',
+          'open_msg_id',
+          'messageId',
+          'message_id',
+          'msgId',
+          'msg_id',
+          'id',
+        ]),
+      );
       final content = _content(map);
       final parsedConversationId = _first(map, const <String>[
         'openConversationId',
@@ -2528,7 +2530,17 @@ class DingTalkMessageGatewayService {
               _asBool(map['is_mine']) ||
               _asBool(map['isSelfLoop']) ||
               _asBool(map['is_self_loop']),
+          readByPeer: _asBool(
+            map['readByPeer'] ??
+                map['read_by_peer'] ??
+                map['isRead'] ??
+                map['is_read'] ??
+                map['read'],
+          ),
           recalled: recalled,
+          reactions: _parseReactionList(
+            map['reactions'] ?? map['reaction'] ?? map['reactionList'],
+          ),
           mentionedCurrentUser:
               mentionedCurrentUser ||
               _asBool(map['mentionedCurrentUser']) ||
@@ -2560,19 +2572,10 @@ class DingTalkMessageGatewayService {
   DingTalkGatewayEvent? _parseEvent(Object? raw) {
     if (raw is! Map) return null;
     final map = _eventEnvelopeMap(raw);
-    final eventKey = _eventString(map, const <String>[
-      'event_key',
-      'eventKey',
-      'event_type',
-      'eventType',
-      'event_name',
-      'eventName',
-      'event',
-      'type',
-    ]).toLowerCase();
-    final eventType = eventKey.isEmpty && _messageRecalled(map)
-        ? DingTalkGatewayEventType.recall
-        : _eventTypeFromKey(eventKey);
+    final eventKey = _eventKey(map);
+    final eventType = eventKey.isNotEmpty
+        ? _eventTypeFromKey(eventKey)
+        : _eventTypeFromPayload(map);
     final conversationId = _eventString(map, const <String>[
       'conversation_id',
       'conversationId',
@@ -2589,18 +2592,22 @@ class DingTalkMessageGatewayService {
       'conversation_type',
       'conversationType',
     ]).toLowerCase();
-    var messageId = _eventString(map, const <String>[
-      'message_id',
-      'messageId',
-      'openMessageId',
-      'open_message_id',
-      'openMsgId',
-      'open_msg_id',
-      'msg_id',
-      'msgId',
-    ]);
+    var messageId = normalizeDingTalkMessageId(
+      _eventString(map, const <String>[
+        'message_id',
+        'messageId',
+        'openMessageId',
+        'open_message_id',
+        'openMsgId',
+        'open_msg_id',
+        'msg_id',
+        'msgId',
+      ]),
+    );
     if (messageId.isEmpty && eventType == DingTalkGatewayEventType.message) {
-      messageId = _eventString(map, const <String>['event_id', 'eventId']);
+      messageId = normalizeDingTalkMessageId(
+        _eventString(map, const <String>['event_id', 'eventId']),
+      );
     }
     // 撤回、已读事件有些版本只带消息 ID；控制器可按消息 ID在本地定位会话。
     if (messageId.isEmpty) return null;
@@ -2762,10 +2769,68 @@ class DingTalkMessageGatewayService {
     return result;
   }
 
+  String _eventKey(Map<String, Object?> map, {int depth = 0}) {
+    const keys = <String>[
+      'event_key',
+      'eventKey',
+      'event_type',
+      'eventType',
+      'event_name',
+      'eventName',
+      'type',
+      'event',
+    ];
+    for (final key in keys) {
+      final value = map[key];
+      if (value is Map || value is List) continue;
+      final text = '$value'.trim();
+      if (text.startsWith('user_im_')) return text.toLowerCase();
+    }
+    if (depth >= 4) return '';
+    for (final key in const <String>['data', 'payload', 'event', 'message']) {
+      final value = map[key];
+      if (value is Map) {
+        final nested = _eventKey(_asMap(value), depth: depth + 1);
+        if (nested.isNotEmpty) return nested;
+      } else if (value is String) {
+        final decoded = _decodeJson(value);
+        if (decoded is Map) {
+          final nested = _eventKey(_asMap(decoded), depth: depth + 1);
+          if (nested.isNotEmpty) return nested;
+        }
+      }
+    }
+    return '';
+  }
+
   DingTalkGatewayEventType _eventTypeFromKey(String key) {
     if (key.contains('reaction')) return DingTalkGatewayEventType.reaction;
     if (key.contains('recall')) return DingTalkGatewayEventType.recall;
     if (key.contains('read')) return DingTalkGatewayEventType.read;
+    return DingTalkGatewayEventType.message;
+  }
+
+  DingTalkGatewayEventType _eventTypeFromPayload(Map<String, Object?> map) {
+    if (_messageRecalled(map)) return DingTalkGatewayEventType.recall;
+    final reaction = _eventReaction(map);
+    if (reaction.isNotEmpty ||
+        _eventString(map, const <String>[
+          'operation_type',
+          'operationType',
+          'reaction_name',
+          'reactionName',
+        ]).isNotEmpty) {
+      return DingTalkGatewayEventType.reaction;
+    }
+    if (_eventString(map, const <String>[
+      'reader',
+      'reader_open_dingtalk_id',
+      'readerOpenDingTalkId',
+      'read_time',
+      'readTime',
+    ]).isNotEmpty) {
+      return DingTalkGatewayEventType.read;
+    }
     return DingTalkGatewayEventType.message;
   }
 
@@ -2815,6 +2880,7 @@ class DingTalkMessageGatewayService {
 
   String _normalizeReaction(String value) {
     final normalized = value.trim();
+    if (normalized.isEmpty || normalized.toLowerCase() == 'null') return '';
     final mapped = switch (normalized.toLowerCase()) {
       'like' || 'thumb_up' || 'thumbup' => '👍',
       'heart' || 'love' => '❤️',
@@ -2825,6 +2891,37 @@ class DingTalkMessageGatewayService {
       _ => normalized,
     };
     return String.fromCharCodes(mapped.runes.take(24));
+  }
+
+  List<String> _parseReactionList(Object? value) {
+    final result = <String>[];
+    void visit(Object? current, int depth) {
+      if (depth > 3 || result.length >= 12 || current == null) return;
+      if (current is String) {
+        final reaction = _normalizeReaction(current);
+        if (reaction.isNotEmpty && !result.contains(reaction)) {
+          result.add(reaction);
+        }
+        return;
+      }
+      if (current is List) {
+        for (final item in current) {
+          visit(item, depth + 1);
+          if (result.length >= 12) return;
+        }
+        return;
+      }
+      if (current is Map) {
+        final map = _asMap(current);
+        final reaction = _eventReaction(map, depth: depth);
+        if (reaction.isNotEmpty && !result.contains(reaction)) {
+          result.add(reaction);
+        }
+      }
+    }
+
+    visit(value, 0);
+    return result.toList(growable: false);
   }
 
   bool _messageRecalled(Map<String, Object?> map, {int depth = 0}) {
@@ -3312,7 +3409,9 @@ class DingTalkMessageGatewayService {
   bool _isMediaPlaceholder(String value) {
     final normalized = value.trim().toLowerCase();
     if (normalized.isEmpty) return false;
-    return (normalized.startsWith('[') && normalized.contains('消息')) ||
+    return normalized == 'null' ||
+        normalized == '[null]' ||
+        (normalized.startsWith('[') && normalized.contains('消息')) ||
         normalized.contains('(mediaid=') ||
         normalized.contains('(fileid=');
   }

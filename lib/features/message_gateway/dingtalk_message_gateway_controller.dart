@@ -103,6 +103,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _mediaCacheConcurrency = 3;
   static const int _maxSeenIds = 2000;
   static const int _maxPendingRecallIds = 512;
+  static const int _maxPendingStatusMessageIds = 512;
+  static const int _maxPendingStatusEventsPerMessage = 24;
   static const int _maxReactionTypes = 12;
   static const Duration _outgoingEchoWindow = Duration(seconds: 30);
   static const int _maxAiConversationContextCharacters = 48000;
@@ -110,7 +112,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const Duration _conversationStartSkew = Duration(seconds: 2);
   static const Duration _queryWindow = Duration(minutes: 10);
   static const Duration _realtimeReconcilePollInterval = Duration(seconds: 10);
-  static const Duration _conversationReconcileInterval = Duration(seconds: 30);
+  // 编辑消息没有独立个人 IM 事件，保持有界低频对账，通常在一个轮询周期内可见。
+  static const Duration _conversationReconcileInterval = Duration(seconds: 15);
   static const Duration _pollCallbackTimeout = Duration(minutes: 2);
   static const Duration _conversationReconcileInitialBackoff = Duration(
     seconds: 30,
@@ -149,12 +152,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Set<String> _seenMessageIds = <String>{};
   final Set<String> _selfSenderIds = <String>{};
   final Set<String> _pendingRecalledMessageIds = <String>{};
+  final Map<String, List<DingTalkGatewayEvent>> _pendingStatusEvents =
+      <String, List<DingTalkGatewayEvent>>{};
   final Map<String, (DateTime, List<DingTalkConversationTarget>)>
   _targetSearchCache = <String, (DateTime, List<DingTalkConversationTarget>)>{};
   final Map<String, Future<DingTalkGatewayMessage>> _mediaHydrationTasks =
       <String, Future<DingTalkGatewayMessage>>{};
   final Map<String, _ConversationReconcileFailure>
   _conversationReconcileFailures = <String, _ConversationReconcileFailure>{};
+  final Map<String, Future<void>> _conversationReconcileTasks =
+      <String, Future<void>>{};
   Timer? _pollTimer;
   StreamSubscription<DingTalkGatewayEvent>? _eventSubscription;
   Future<void>? _eventRestartFuture;
@@ -1105,6 +1112,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _conversationReconcileCursor = 0;
     _conversationReconcileFailures.clear();
     _pendingRecalledMessageIds.clear();
+    _pendingStatusEvents.clear();
     _notify();
     await _stopEventListening();
   }
@@ -1615,6 +1623,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         final index = nextIndex++;
         if (index >= batch.length) return;
         final conversation = batch[index];
+        if (_conversationReconcileTasks.containsKey(conversation.id)) {
+          continue;
+        }
         final failure = _conversationReconcileFailures[conversation.id];
         if (failure != null && DateTime.now().isBefore(failure.retryAt)) {
           continue;
@@ -1628,9 +1639,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             continue;
           }
           _conversationReconcileFailures.remove(conversation.id);
-          for (final message in messages) {
-            _handleIncomingMessage(message);
-          }
+          _ingestReconciledMessages(conversation, messages);
         } catch (error, stack) {
           if (_disposed || !_isPolling) return;
           if (!identical(_conversations[conversation.id], conversation)) {
@@ -1884,26 +1893,34 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   void _handleIncomingMessage(DingTalkGatewayMessage message) {
     if (!_isPolling || _disposed) return;
-    final incomingConversation = _conversationForIncomingMessage(message);
+    final messageId = normalizeDingTalkMessageId(message.id);
+    if (messageId.isEmpty) return;
+    final normalizedMessage = messageId == message.id
+        ? message
+        : message.copyWith(id: messageId);
+    final incomingConversation = _conversationForIncomingMessage(
+      normalizedMessage,
+    );
     if (incomingConversation != null &&
-        _mergeIncomingOutgoingEcho(message, incomingConversation)) {
-      if (message.media.isNotEmpty) {
-        unawaited(_cacheIncomingMedia(incomingConversation, message));
+        _mergeIncomingOutgoingEcho(normalizedMessage, incomingConversation)) {
+      if (normalizedMessage.media.isNotEmpty) {
+        unawaited(_cacheIncomingMedia(incomingConversation, normalizedMessage));
       }
       _notify();
       return;
     }
-    final pendingRecall = _pendingRecalledMessageIds.remove(message.id);
-    final incoming = pendingRecall && !message.recalled
-        ? message.copyWith(recalled: true)
-        : message;
-    final existingConversation = _conversationContainingMessage(message.id);
+    final pendingRecall = _pendingRecalledMessageIds.remove(messageId);
+    final incoming = pendingRecall && !normalizedMessage.recalled
+        ? normalizedMessage.copyWith(recalled: true)
+        : normalizedMessage;
+    final existingConversation = _conversationContainingMessage(messageId);
     if (existingConversation != null) {
       final previous = existingConversation.messages
-          .where((item) => item.id == message.id)
+          .where((item) => normalizeDingTalkMessageId(item.id) == messageId)
           .firstOrNull;
       _mergeQueriedMessage(existingConversation, incoming);
-      _remember(message.id);
+      _applyPendingStatusEvents(existingConversation, messageId);
+      _remember(messageId);
       if (incoming.media.isNotEmpty) {
         unawaited(_cacheIncomingMedia(existingConversation, incoming));
       }
@@ -1920,7 +1937,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
       return;
     }
-    if (_seenMessageIds.contains(message.id)) return;
+    if (_seenMessageIds.contains(messageId)) return;
     final localConversation = _conversationForIncomingMessage(incoming);
     final allowedTarget = _targetForIncomingMessage(
       incoming,
@@ -1931,10 +1948,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         incoming.createdAt.isBefore(
           localConversation.createdAt.subtract(_conversationStartSkew),
         )) {
-      _remember(message.id);
+      _remember(messageId);
       return;
     }
-    _remember(message.id);
+    _remember(messageId);
     if (_isSelf(incoming)) return;
     final conversationId =
         localConversation?.id ??
@@ -1973,6 +1990,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
     }
     _appendMessage(conversation, incoming);
+    _applyPendingStatusEvents(conversation, messageId);
     _unreadCount += 1;
     if (_settings.reminderMode == DingTalkReminderMode.sound) {
       unawaited(SystemSound.play(SystemSoundType.alert));
@@ -2002,10 +2020,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   DingTalkConversation? _conversationContainingMessage(String messageId) {
-    final normalizedId = messageId.trim();
+    final normalizedId = normalizeDingTalkMessageId(messageId);
     if (normalizedId.isEmpty) return null;
     for (final conversation in _conversations.values) {
-      if (conversation.messages.any((item) => item.id == normalizedId)) {
+      if (conversation.messages.any(
+        (item) => normalizeDingTalkMessageId(item.id) == normalizedId,
+      )) {
         return conversation;
       }
     }
@@ -2016,8 +2036,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkConversation conversation,
     DingTalkGatewayMessage remote,
   ) {
+    final remoteId = normalizeDingTalkMessageId(remote.id);
     final index = conversation.messages.indexWhere(
-      (item) => item.id == remote.id,
+      (item) => normalizeDingTalkMessageId(item.id) == remoteId,
     );
     if (index < 0) return;
     final current = conversation.messages[index];
@@ -2028,10 +2049,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         remote.media.isNotEmpty && !_sameMedia(current.media, remote.media);
     final mentionChanged =
         remote.mentionedCurrentUser && !current.mentionedCurrentUser;
+    final readChanged = remote.readByPeer && !current.readByPeer;
+    final reactionsChanged =
+        remote.reactions.isNotEmpty &&
+        !listEquals(remote.reactions, current.reactions);
     if (!contentChanged &&
         !recalledChanged &&
         !mediaChanged &&
-        !mentionChanged) {
+        !mentionChanged &&
+        !readChanged &&
+        !reactionsChanged) {
       return;
     }
 
@@ -2061,7 +2088,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       content: contentChanged ? remote.content : null,
       media: media,
       mentionedCurrentUser: mentionChanged ? true : null,
+      readByPeer: readChanged ? true : null,
       recalled: recalledChanged ? true : null,
+      reactions: reactionsChanged ? remote.reactions : null,
       editHistory: history,
     );
     _queuePersist();
@@ -2147,26 +2176,39 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (message != null) _handleIncomingMessage(message);
       return;
     }
+    final eventMessageId = normalizeDingTalkMessageId(event.messageId);
+    if (eventMessageId.isEmpty) return;
     final conversation = _conversationForEvent(event);
     if (conversation == null) {
       if (event.type == DingTalkGatewayEventType.recall) {
-        _rememberPendingRecall(event.messageId);
+        _rememberPendingRecall(eventMessageId);
       }
+      _rememberPendingStatusEvent(event, eventMessageId);
       _nextConversationReconcileAt = DateTime.fromMillisecondsSinceEpoch(0);
+      _reconcileConversationsForEvent(event);
       unawaited(_pollOnce());
       return;
     }
+    _applyPendingStatusEvents(conversation, eventMessageId);
+    if (_applyStatusEvent(conversation, event, eventMessageId)) return;
+    if (event.type == DingTalkGatewayEventType.recall) {
+      _rememberPendingRecall(eventMessageId);
+    }
+    _rememberPendingStatusEvent(event, eventMessageId);
+    _nextConversationReconcileAt = DateTime.fromMillisecondsSinceEpoch(0);
+    unawaited(_reconcileAndApplyEvent(conversation, event, eventMessageId));
+    unawaited(_pollOnce());
+  }
+
+  bool _applyStatusEvent(
+    DingTalkConversation conversation,
+    DingTalkGatewayEvent event,
+    String eventMessageId,
+  ) {
     final index = conversation.messages.indexWhere(
-      (message) => message.id == event.messageId,
+      (message) => normalizeDingTalkMessageId(message.id) == eventMessageId,
     );
-    if (index < 0) {
-      if (event.type == DingTalkGatewayEventType.recall) {
-        _rememberPendingRecall(event.messageId);
-      }
-      _nextConversationReconcileAt = DateTime.fromMillisecondsSinceEpoch(0);
-      unawaited(_pollOnce());
-      return;
-    }
+    if (index < 0) return false;
     final current = conversation.messages[index];
     DingTalkGatewayMessage? updated;
     switch (event.type) {
@@ -2175,13 +2217,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           updated = current.copyWith(readByPeer: true);
         }
       case DingTalkGatewayEventType.recall:
-        _pendingRecalledMessageIds.remove(event.messageId);
+        _pendingRecalledMessageIds.remove(eventMessageId);
         if (!current.recalled) {
           updated = current.copyWith(recalled: true);
         }
       case DingTalkGatewayEventType.reaction:
         final reaction = event.reaction.trim();
-        if (reaction.isEmpty) return;
+        if (reaction.isEmpty) return true;
         final reactions = List<String>.from(current.reactions);
         if (event.reactionRemoved) {
           reactions.remove(reaction);
@@ -2195,16 +2237,182 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           );
         }
       case DingTalkGatewayEventType.message:
-        return;
+        return true;
     }
-    if (updated == null) return;
+    if (updated == null) return true;
     conversation.messages[index] = updated;
     _queuePersist();
     _notify();
+    return true;
+  }
+
+  void _rememberPendingStatusEvent(
+    DingTalkGatewayEvent event,
+    String messageId,
+  ) {
+    final normalizedId = normalizeDingTalkMessageId(messageId);
+    if (normalizedId.isEmpty) return;
+    final events = _pendingStatusEvents.putIfAbsent(
+      normalizedId,
+      () => <DingTalkGatewayEvent>[],
+    );
+    final duplicate = events.any(
+      (item) =>
+          item.type == event.type &&
+          item.reaction == event.reaction &&
+          item.reactionRemoved == event.reactionRemoved,
+    );
+    if (!duplicate) {
+      events.add(event);
+      if (events.length > _maxPendingStatusEventsPerMessage) {
+        events.removeRange(
+          0,
+          events.length - _maxPendingStatusEventsPerMessage,
+        );
+      }
+    }
+    while (_pendingStatusEvents.length > _maxPendingStatusMessageIds) {
+      _pendingStatusEvents.remove(_pendingStatusEvents.keys.first);
+    }
+  }
+
+  void _applyPendingStatusEvents(
+    DingTalkConversation conversation,
+    String messageId,
+  ) {
+    final normalizedId = normalizeDingTalkMessageId(messageId);
+    final events = _pendingStatusEvents.remove(normalizedId);
+    if (events == null) return;
+    for (final event in events) {
+      _applyStatusEvent(conversation, event, normalizedId);
+    }
+  }
+
+  Future<void> _reconcileAndApplyEvent(
+    DingTalkConversation conversation,
+    DingTalkGatewayEvent event,
+    String eventMessageId,
+  ) async {
+    await _reconcileConversationNow(conversation);
+    if (_disposed ||
+        !_isPolling ||
+        !identical(_conversations[conversation.id], conversation)) {
+      return;
+    }
+    _applyPendingStatusEvents(conversation, eventMessageId);
+    _applyStatusEvent(conversation, event, eventMessageId);
+  }
+
+  void _reconcileConversationsForEvent(DingTalkGatewayEvent event) {
+    final conversationId = event.conversationId.trim();
+    final matching = _conversations.values
+        .where((conversation) {
+          if (conversation.type != event.conversationType) return false;
+          if (conversationId.isEmpty) return true;
+          if (conversation.id.trim() == conversationId ||
+              conversation.openConversationId?.trim() == conversationId ||
+              conversation.directUserId?.trim() == conversationId ||
+              conversation.directOpenDingTalkId?.trim() == conversationId) {
+            return true;
+          }
+          // 单聊事件的 conversation_id 可能在首次状态事件前才生成，
+          // 此时按已订阅类型补偿查询，查询结果会回填真实会话 ID。
+          return event.conversationType == DingTalkConversationType.direct;
+        })
+        .toList(growable: false);
+    final candidates =
+        (matching.isNotEmpty
+                ? matching
+                : _conversations.values.where(
+                    (conversation) =>
+                        conversation.type == event.conversationType,
+                  ))
+            .take(_maxConversationReconcileCount)
+            .toList(growable: false);
+    for (final conversation in candidates) {
+      unawaited(
+        _reconcileAndApplyEvent(
+          conversation,
+          event,
+          normalizeDingTalkMessageId(event.messageId),
+        ),
+      );
+    }
+  }
+
+  Future<void> _reconcileConversationNow(DingTalkConversation conversation) {
+    final active = _conversationReconcileTasks[conversation.id];
+    if (active != null) return active;
+    final failure = _conversationReconcileFailures[conversation.id];
+    if (failure != null && DateTime.now().isBefore(failure.retryAt)) {
+      return Future<void>.value();
+    }
+    final task = () async {
+      try {
+        final messages = await _service.queryRecentConversation(
+          conversation: conversation,
+        );
+        if (_disposed ||
+            !_isPolling ||
+            !identical(_conversations[conversation.id], conversation)) {
+          return;
+        }
+        _conversationReconcileFailures.remove(conversation.id);
+        _ingestReconciledMessages(conversation, messages);
+      } catch (error, stack) {
+        if (_disposed || !_isPolling) return;
+        final now = DateTime.now();
+        final previous = _conversationReconcileFailures[conversation.id];
+        final errorKey = '${error.runtimeType}:$error';
+        final shouldLog =
+            previous == null ||
+            previous.errorKey != errorKey ||
+            now.difference(previous.lastLoggedAt) >=
+                _conversationReconcileLogInterval;
+        _conversationReconcileFailures[conversation.id] =
+            _ConversationReconcileFailure(
+              failureCount: math.min(
+                (previous?.failureCount ?? 0) + 1,
+                _maxConversationReconcileFailureCount,
+              ),
+              retryAt: now.add(_conversationReconcileInitialBackoff),
+              errorKey: errorKey,
+              lastLoggedAt: shouldLog ? now : previous.lastLoggedAt,
+            );
+        if (shouldLog) {
+          silentLog('dingtalk_gateway', '事件触发钉钉会话对账', error, stack);
+        }
+      }
+    }();
+    _conversationReconcileTasks[conversation.id] = task;
+    return task.whenComplete(() {
+      if (identical(_conversationReconcileTasks[conversation.id], task)) {
+        _conversationReconcileTasks.remove(conversation.id);
+      }
+    });
+  }
+
+  void _ingestReconciledMessages(
+    DingTalkConversation conversation,
+    List<DingTalkGatewayMessage> messages,
+  ) {
+    if (conversation.type == DingTalkConversationType.direct &&
+        (conversation.openConversationId?.trim().isEmpty ?? true)) {
+      final remoteConversationId = messages
+          .map((message) => message.conversationId.trim())
+          .firstWhere((value) => value.isNotEmpty, orElse: () => '');
+      if (remoteConversationId.isNotEmpty) {
+        conversation.openConversationId = remoteConversationId;
+        _queuePersist();
+      }
+    }
+    for (final message in messages) {
+      _handleIncomingMessage(message);
+    }
   }
 
   void _rememberPendingRecall(String messageId) {
-    final normalizedId = messageId.trim();
+    final normalizedId = normalizeDingTalkMessageId(messageId);
     if (normalizedId.isEmpty) return;
     _pendingRecalledMessageIds.add(normalizedId);
     while (_pendingRecalledMessageIds.length > _maxPendingRecallIds) {
@@ -2214,12 +2422,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   DingTalkConversation? _conversationForEvent(DingTalkGatewayEvent event) {
     final conversationId = event.conversationId.trim();
-    final messageId = event.messageId.trim();
+    final messageId = normalizeDingTalkMessageId(event.messageId);
     if (messageId.isEmpty) return null;
     // 消息 ID 是跨会话稳定标识，优先按 ID 定位，避免事件中的 chat_type
     // 缺失或版本差异导致撤回/已读事件被丢弃。
     for (final conversation in _conversations.values) {
-      if (conversation.messages.any((message) => message.id == messageId)) {
+      if (conversation.messages.any(
+        (message) => normalizeDingTalkMessageId(message.id) == messageId,
+      )) {
         return conversation;
       }
     }
@@ -2227,10 +2437,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     for (final conversation in _conversations.values) {
       if (conversation.type != event.conversationType) continue;
       if (conversation.type == DingTalkConversationType.group) {
-        if (conversation.id == conversationId) return conversation;
+        if (conversation.id.trim() == conversationId ||
+            conversation.openConversationId?.trim() == conversationId) {
+          return conversation;
+        }
         continue;
       }
-      if (conversation.id == conversationId ||
+      if (conversation.id.trim() == conversationId ||
           conversation.openConversationId?.trim() == conversationId ||
           conversation.directUserId?.trim() == conversationId ||
           conversation.directOpenDingTalkId?.trim() == conversationId ||
@@ -2363,7 +2576,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     for (final conversation in _conversations.values) {
       if (conversation.type != message.conversationType) continue;
       if (conversation.type == DingTalkConversationType.group) {
-        if (conversation.id == conversationId ||
+        if (conversation.id.trim() == conversationId ||
             conversation.openConversationId?.trim() == conversationId) {
           return conversation;
         }
@@ -3405,7 +3618,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkConversation conversation,
     DingTalkGatewayMessage message,
   ) {
-    if (conversation.messages.any((item) => item.id == message.id)) return;
+    final messageId = normalizeDingTalkMessageId(message.id);
+    if (messageId.isEmpty ||
+        conversation.messages.any(
+          (item) => normalizeDingTalkMessageId(item.id) == messageId,
+        )) {
+      return;
+    }
     final last = conversation.messages.isEmpty
         ? null
         : conversation.messages.last;
@@ -3426,7 +3645,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   void _remember(String id) {
-    _seenMessageIds.add(id);
+    final normalizedId = normalizeDingTalkMessageId(id);
+    if (normalizedId.isEmpty) return;
+    _seenMessageIds.add(normalizedId);
     while (_seenMessageIds.length > _maxSeenIds) {
       _seenMessageIds.remove(_seenMessageIds.first);
     }
@@ -3507,6 +3728,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _pollTimer?.cancel();
     _pollTimer = null;
     _pendingRecalledMessageIds.clear();
+    _pendingStatusEvents.clear();
     _conversationReconcileFailures.clear();
     await _stopEventListening();
     final eventRestart = _eventRestartFuture;

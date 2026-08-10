@@ -510,6 +510,7 @@ class AiPromptBuilder {
       dynamicSessionState,
       latestUserInline: latestUserInline,
     );
+    final dingtalkIdentityReminder = _dingtalkIdentityReminder(runtimeContext);
 
     final memoryResourceIds = <String>{};
     final workspaceInstructions = _renderWorkspaceInstructions(runtimeContext);
@@ -631,6 +632,8 @@ class AiPromptBuilder {
           AiPromptSectionHeaders.systemReminder,
           goalModeReminder,
         ),
+      if (dingtalkIdentityReminder != null)
+        _runtimeContextSectionTurn('钉钉 Agent 身份', dingtalkIdentityReminder),
       // Hook system reminder（从用户消息的 <system-reminder> 中提取，每轮不同）
       // 保留在 prompt 最尾部。
       ...latestUserSystemTurns.map(_runtimeContextTurnFromSystemTurn),
@@ -883,6 +886,16 @@ class AiPromptBuilder {
       content:
           '$_runtimeContextEnvelopeStart\n$_runtimeContextEnvelopeIntro\n\n$body\n$_runtimeContextEnvelopeEnd',
     );
+  }
+
+  String? _dingtalkIdentityReminder(AiSessionRuntimeContext runtimeContext) {
+    if (runtimeContext.toolExecutionMetadata['source'] != 'dingtalk_gateway') {
+      return null;
+    }
+    return '当前请求来自已绑定的钉钉账号。你就是该账号在此会话中的工作代理，'
+        '普通对话回复、查询、消息状态同步和表情处理无需再向账号主人确认。'
+        '仅真正有外部副作用、不可逆或高风险的写操作，按工具自身的确认策略执行；'
+        '不要在普通回复中声称需要等待账号主人确认。';
   }
 
   AiChatTurn _jsonSystemSectionTurn(String header, Object? value) {
