@@ -19302,6 +19302,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   Widget build(BuildContext context) {
     final model = _modelLabel();
     final theme = Theme.of(context);
+    final responseModeAll = _responseMode == DingTalkResponseMode.all;
     return SizedBox(
       width: double.infinity,
       height: 720,
@@ -19465,31 +19466,76 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                   _DingTalkSettingsCard(
                     icon: Icons.mark_chat_read_rounded,
                     title: '响应模式',
-                    subtitle: _responseMode == DingTalkResponseMode.all
+                    subtitle: responseModeAll
                         ? '全部响应：不再过滤白名单，响应所有拉取到的群聊 @ 消息和联系人单聊。'
                         : '仅响应白名单：只响应已允许群聊的 @ 消息和已允许联系人的单聊。',
-                    child: SwitchListTile.adaptive(
-                      contentPadding: EdgeInsets.zero,
-                      value: _responseMode == DingTalkResponseMode.all,
-                      title: Text(
-                        _responseMode == DingTalkResponseMode.all
-                            ? '全部响应'
-                            : '仅响应白名单',
-                      ),
-                      subtitle: Text(
-                        _responseMode == DingTalkResponseMode.all
-                            ? '白名单已清空并停用'
-                            : '开启后将清空并隐藏群聊、联系人白名单',
-                      ),
-                      onChanged: (enabled) => setState(() {
-                        _responseMode = enabled
-                            ? DingTalkResponseMode.all
-                            : DingTalkResponseMode.allowlist;
-                        if (enabled) {
-                          _allowedGroups = <DingTalkConversationTarget>[];
-                          _allowedContacts = <DingTalkConversationTarget>[];
-                        }
-                      }),
+                    child: Row(
+                      children: [
+                        Icon(
+                          responseModeAll
+                              ? Icons.public_rounded
+                              : Icons.list_alt_rounded,
+                          color: responseModeAll
+                              ? theme.colorScheme.onPrimaryContainer
+                              : theme.colorScheme.onSurfaceVariant,
+                        ),
+                        const SizedBox(width: 11),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(
+                                '当前响应范围',
+                                style: theme.textTheme.labelMedium?.copyWith(
+                                  color: theme.colorScheme.onSurfaceVariant,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              AnimatedSwitcher(
+                                duration: openHandMotionDuration(
+                                  context,
+                                  kOpenHandMotion180,
+                                ),
+                                child: Text(
+                                  responseModeAll ? '全部响应' : '仅响应白名单',
+                                  key: ValueKey<DingTalkResponseMode>(
+                                    _responseMode,
+                                  ),
+                                  style: theme.textTheme.titleSmall?.copyWith(
+                                    color: responseModeAll
+                                        ? theme.colorScheme.onPrimaryContainer
+                                        : theme.colorScheme.onSurface,
+                                    fontWeight: FontWeight.w700,
+                                  ),
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                        Switch(
+                          value: responseModeAll,
+                          onChanged: (enabled) => setState(() {
+                            _responseMode = enabled
+                                ? DingTalkResponseMode.all
+                                : DingTalkResponseMode.allowlist;
+                            if (enabled) {
+                              _allowedGroups = <DingTalkConversationTarget>[];
+                              _allowedContacts = <DingTalkConversationTarget>[];
+                            }
+                          }),
+                          thumbIcon: WidgetStateProperty.resolveWith<Icon?>((
+                            states,
+                          ) {
+                            if (states.contains(WidgetState.selected)) {
+                              return const Icon(Icons.check_rounded, size: 16);
+                            }
+                            return const Icon(Icons.close_rounded, size: 16);
+                          }),
+                          overlayColor: const WidgetStatePropertyAll(
+                            Colors.transparent,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   const SizedBox(height: 12),
