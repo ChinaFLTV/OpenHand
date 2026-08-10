@@ -737,7 +737,8 @@ class DingTalkMessageGatewayService {
         '--resource-id',
         media.resourceId.trim(),
         '--output',
-        output.path,
+        // dws 只接受工作目录内的相对输出路径。
+        filename,
         '--format',
         'json',
       ];
