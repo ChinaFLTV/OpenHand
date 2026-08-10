@@ -18,9 +18,9 @@ import 'openhand_snack_bar.dart';
 
 /// 运行时日志查看器。日志来源由调用方提供，组件只负责展示与导出。
 ///
-/// [listenable] 的通知会触发增量刷新；定时器作为兜底，每秒检查一次 revision，
-/// 避免底层进程输出没有主动通知 UI 时日志停留在旧快照。列表只保留调用方
-/// 提供的有界日志，不在弹窗内复制无限增长的数据。
+/// [listenable] 的通知会触发有界刷新，短时间内的连续输出会合并处理；定时器作为
+/// 兜底，每秒检查一次 revision，避免底层进程输出没有主动通知 UI 时日志停留在旧
+/// 快照。列表只保留调用方提供的有界日志，不在弹窗内复制无限增长的数据。
 class OpenHandRuntimeLogDialog extends StatefulWidget {
   const OpenHandRuntimeLogDialog({
     super.key,
@@ -48,10 +48,16 @@ class OpenHandRuntimeLogDialog extends StatefulWidget {
 
 class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
   static const Duration _refreshInterval = Duration(seconds: 1);
+  static const Duration _renderDebounce = Duration(milliseconds: 120);
 
   final ScrollController _scrollController = ScrollController();
   final AutoFollowScrollGuard _scrollGuard = AutoFollowScrollGuard();
+  final OpenHandDebouncer _renderDebouncer = OpenHandDebouncer(
+    delay: _renderDebounce,
+  );
   Timer? _refreshTimer;
+  List<String>? _cachedLogs;
+  int _cachedLogsRevision = -1;
   int _lastRevision = -1;
   bool _follow = true;
   bool _refreshing = true;
@@ -76,6 +82,7 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
   void dispose() {
     widget.listenable.removeListener(_refresh);
     _refreshTimer?.cancel();
+    _renderDebouncer.dispose();
     _scrollController.dispose();
     super.dispose();
   }
@@ -92,8 +99,11 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
       widget.listenable.addListener(_refresh);
     }
     if (listenableChanged || oldWidget.revision != widget.revision) {
+      _cachedLogs = null;
+      _cachedLogsRevision = -1;
       _lastRevision = widget.revision();
       _refreshing = true;
+      _renderDebouncer.scheduleIfIdle(_flushRefresh);
       _scheduleFollow();
     }
   }
@@ -101,10 +111,22 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
   void _refresh() {
     if (!mounted) return;
     final revision = widget.revision();
-    if (revision == _lastRevision && !_refreshing) return;
+    if (revision == _lastRevision) return;
     _lastRevision = revision;
-    if (!_refreshing) setState(() {});
-    _refreshing = false;
+    _refreshing = true;
+    _renderDebouncer.scheduleIfIdle(_flushRefresh);
+  }
+
+  void _flushRefresh() {
+    if (!mounted) return;
+    final revision = widget.revision();
+    if (revision == _cachedLogsRevision && !_refreshing) return;
+    setState(() {
+      _cachedLogs = widget.logs();
+      _cachedLogsRevision = revision;
+      _lastRevision = revision;
+      _refreshing = false;
+    });
     if (_follow) _scheduleFollow();
   }
 
@@ -128,7 +150,14 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final logs = widget.logs();
+    final revision = widget.revision();
+    if (_cachedLogs == null || _cachedLogsRevision != revision) {
+      _cachedLogs = widget.logs();
+      _cachedLogsRevision = revision;
+      _lastRevision = revision;
+      _refreshing = false;
+    }
+    final logs = _cachedLogs!;
     return buildOpenHandResponsiveDialogShell(
       context: context,
       maxWidth: kOpenHandDialogWidthExtraWide,
@@ -300,8 +329,15 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
 
   void _clear() {
     widget.clearLogs();
-    _lastRevision = widget.revision();
-    if (mounted) setState(() {});
+    final revision = widget.revision();
+    if (mounted) {
+      setState(() {
+        _cachedLogs = const <String>[];
+        _cachedLogsRevision = revision;
+        _lastRevision = revision;
+        _refreshing = false;
+      });
+    }
     showOpenHandSuccessSnack(context, _localized(context, '日志显示已清空'));
   }
 
