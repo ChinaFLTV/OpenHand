@@ -532,7 +532,7 @@ class _CompactProgress extends StatelessWidget {
           child: ClipRRect(
             borderRadius: kOpenHandPillBorderRadius,
             child: ServiceAnimatedProgressBar(
-              value: progress.total <= 0 ? null : progress.fraction,
+              value: progress.displayFraction,
               minHeight: 7,
               backgroundColor: cs.surfaceContainerHighest,
             ),

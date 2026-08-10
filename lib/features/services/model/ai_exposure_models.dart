@@ -158,6 +158,11 @@ class AiExposureProgress {
 
   DateTime? get reportedUpdatedAt => updatedAtReported ? updatedAt : null;
   double get fraction => total <= 0 ? 0 : (processed / total).clamp(0, 1);
+  double? get displayFraction => isRunning && total <= 0
+      ? null
+      : stage == 'completed'
+      ? 1
+      : fraction;
   bool get isRunning => !isAiExposureTerminalStage(stage);
 }
 

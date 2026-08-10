@@ -962,7 +962,7 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
         ClipRRect(
           borderRadius: kOpenHandPillBorderRadius,
           child: ServiceAnimatedProgressBar(
-            value: progress.total <= 0 ? null : progress.fraction,
+            value: progress.displayFraction,
             minHeight: 8,
           ),
         ),
@@ -2465,33 +2465,8 @@ class _MetricTile extends StatelessWidget {
     final cs = theme.colorScheme;
     final tone = _serviceMetricTone(data.icon, cs);
     return ServiceInteractiveSurface(
-      tooltip: openHandLocalizedText(
-        context,
-        zh: '查看指标详情',
-        en: 'View metric details',
-      ),
-      onTap: () => showServiceDetailsDialog(
-        context,
-        title: data.label,
-        subtitle: openHandLocalizedText(
-          context,
-          zh: '扫描工作台指标',
-          en: 'Scan workspace metric',
-        ),
-        icon: data.icon,
-        accentColor: tone,
-        presentation: ServiceDetailPresentation.metric,
-        fields: [
-          ServiceDetailField(
-            label: openHandLocalizedText(context, zh: '指标', en: 'Metric'),
-            value: data.label,
-          ),
-          ServiceDetailField(
-            label: openHandLocalizedText(context, zh: '当前值', en: 'Value'),
-            value: data.value,
-          ),
-        ],
-      ),
+      onTap: null,
+      showDetailsIcon: false,
       padding: const EdgeInsets.all(12),
       color: tone.withValues(alpha: 0.07),
       borderColor: tone.withValues(alpha: 0.28),
@@ -3042,6 +3017,78 @@ class _HistoryTile extends StatelessWidget {
   final VoidCallback onLogs;
   final VoidCallback onExport;
 
+  Future<void> _showDetails(BuildContext context) => showServiceDetailsDialog(
+    context,
+    title: entry.name,
+    subtitle: _stageLabel(context, entry.stage),
+    icon: Icons.history_rounded,
+    presentation: ServiceDetailPresentation.process,
+    data: [
+      ServiceDetailDatum(
+        label: '已处理',
+        value: entry.progress.processed.toDouble(),
+        valueLabel: '${entry.progress.processed}/${entry.progress.total}',
+      ),
+      ServiceDetailDatum(
+        label: '候选',
+        value: entry.progress.candidates.toDouble(),
+        valueLabel: '${entry.progress.candidates}',
+      ),
+      ServiceDetailDatum(
+        label: '有效',
+        value: entry.progress.valid.toDouble(),
+        valueLabel: '${entry.progress.valid}',
+      ),
+      ServiceDetailDatum(
+        label: '高价值',
+        value: entry.progress.highValue.toDouble(),
+        valueLabel: '${entry.progress.highValue}',
+      ),
+    ],
+    fields: [
+      ServiceDetailField(label: '任务 ID', value: entry.id),
+      ServiceDetailField(label: '名称', value: entry.name),
+      ServiceDetailField(label: '阶段', value: _stageLabel(context, entry.stage)),
+      ServiceDetailField(
+        label: '扫描模式',
+        value: entry.mode == AiExposureScanMode.full ? '全量扫描' : '增量扫描',
+      ),
+      ServiceDetailField(
+        label: '数据源',
+        value: entry.sources
+            .map((source) => _sourceLabel(context, source))
+            .join('、'),
+      ),
+      ServiceDetailField(
+        label: '授权范围',
+        value: entry.authorizedScope.isEmpty
+            ? '--'
+            : entry.authorizedScope.join('\n'),
+      ),
+      ServiceDetailField(
+        label: '处理进度',
+        value: '${entry.progress.processed}/${entry.progress.total}',
+      ),
+      ServiceDetailField(label: '发现数', value: '${entry.progress.discovered}'),
+      ServiceDetailField(label: '候选数', value: '${entry.progress.candidates}'),
+      ServiceDetailField(label: '有效数', value: '${entry.progress.valid}'),
+      ServiceDetailField(label: '高价值数', value: '${entry.progress.highValue}'),
+      ServiceDetailField(label: '状态消息', value: entry.progress.message),
+      ServiceDetailField(label: '错误信息', value: entry.errorMessage ?? '--'),
+      ServiceDetailField(label: '创建时间', value: _dateTime(entry.createdAt)),
+      ServiceDetailField(
+        label: '更新时间',
+        value: _dateTime(entry.progress.updatedAt),
+      ),
+      ServiceDetailField(
+        label: '完成时间',
+        value: entry.effectiveFinishedAt == null
+            ? '--'
+            : _dateTime(entry.effectiveFinishedAt!),
+      ),
+    ],
+  );
+
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -3065,105 +3112,8 @@ class _HistoryTile extends StatelessWidget {
                 zh: '查看任务详情',
                 en: 'View job details',
               ),
-              onTap: () => showServiceDetailsDialog(
-                context,
-                title: entry.name,
-                subtitle: _stageLabel(context, entry.stage),
-                icon: Icons.history_rounded,
-                presentation: ServiceDetailPresentation.process,
-                data: [
-                  ServiceDetailDatum(
-                    label: '已处理',
-                    value: entry.progress.processed.toDouble(),
-                    valueLabel:
-                        '${entry.progress.processed}/${entry.progress.total}',
-                  ),
-                  ServiceDetailDatum(
-                    label: '候选',
-                    value: entry.progress.candidates.toDouble(),
-                    valueLabel: '${entry.progress.candidates}',
-                  ),
-                  ServiceDetailDatum(
-                    label: '有效',
-                    value: entry.progress.valid.toDouble(),
-                    valueLabel: '${entry.progress.valid}',
-                  ),
-                  ServiceDetailDatum(
-                    label: '高价值',
-                    value: entry.progress.highValue.toDouble(),
-                    valueLabel: '${entry.progress.highValue}',
-                  ),
-                ],
-                fields: [
-                  ServiceDetailField(label: '任务 ID', value: entry.id),
-                  ServiceDetailField(label: '名称', value: entry.name),
-                  ServiceDetailField(
-                    label: '阶段',
-                    value: _stageLabel(context, entry.stage),
-                  ),
-                  ServiceDetailField(
-                    label: '扫描模式',
-                    value: entry.mode == AiExposureScanMode.full
-                        ? '全量扫描'
-                        : '增量扫描',
-                  ),
-                  ServiceDetailField(
-                    label: '数据源',
-                    value: entry.sources
-                        .map((source) => _sourceLabel(context, source))
-                        .join('、'),
-                  ),
-                  ServiceDetailField(
-                    label: '授权范围',
-                    value: entry.authorizedScope.isEmpty
-                        ? '--'
-                        : entry.authorizedScope.join('\n'),
-                  ),
-                  ServiceDetailField(
-                    label: '处理进度',
-                    value:
-                        '${entry.progress.processed}/${entry.progress.total}',
-                  ),
-                  ServiceDetailField(
-                    label: '发现数',
-                    value: '${entry.progress.discovered}',
-                  ),
-                  ServiceDetailField(
-                    label: '候选数',
-                    value: '${entry.progress.candidates}',
-                  ),
-                  ServiceDetailField(
-                    label: '有效数',
-                    value: '${entry.progress.valid}',
-                  ),
-                  ServiceDetailField(
-                    label: '高价值数',
-                    value: '${entry.progress.highValue}',
-                  ),
-                  ServiceDetailField(
-                    label: '状态消息',
-                    value: entry.progress.message,
-                  ),
-                  ServiceDetailField(
-                    label: '错误信息',
-                    value: entry.errorMessage ?? '--',
-                  ),
-                  ServiceDetailField(
-                    label: '创建时间',
-                    value: _dateTime(entry.createdAt),
-                  ),
-                  ServiceDetailField(
-                    label: '更新时间',
-                    value: _dateTime(entry.progress.updatedAt),
-                  ),
-                  ServiceDetailField(
-                    label: '完成时间',
-                    value: entry.effectiveFinishedAt == null
-                        ? '--'
-                        : _dateTime(entry.effectiveFinishedAt!),
-                  ),
-                ],
-              ),
+              onTap: () => _showDetails(context),
+              showDetailsIcon: false,
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
@@ -3191,6 +3141,17 @@ class _HistoryTile extends StatelessWidget {
           const SizedBox(width: 8),
           ServiceDialogIconActions(
             children: [
+              Tooltip(
+                message: openHandLocalizedText(
+                  context,
+                  zh: '查看任务详情',
+                  en: 'View job details',
+                ),
+                child: IconButton(
+                  onPressed: () => _showDetails(context),
+                  icon: const Icon(Icons.arrow_forward_rounded),
+                ),
+              ),
               Tooltip(
                 message: openHandLocalizedText(
                   context,

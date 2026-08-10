@@ -1241,42 +1241,57 @@ class _ServiceDetailDashboard extends StatelessWidget {
         .where((field) => field.value.length > 48 || field.value.contains('\n'))
         .length;
     final ratio = fields.isEmpty ? 0.0 : complete / fields.length;
+    final stats = <Widget>[
+      _recordStat(
+        context,
+        '字段',
+        '${fields.length}',
+        Icons.view_agenda_outlined,
+        accentColor,
+      ),
+      _recordStat(
+        context,
+        '有效',
+        '$complete',
+        Icons.task_alt_rounded,
+        OpenHandStatusColors.success,
+      ),
+      _recordStat(
+        context,
+        '数值',
+        '$numeric',
+        Icons.numbers_rounded,
+        OpenHandStatusColors.info,
+      ),
+      _recordStat(
+        context,
+        '长文本',
+        '$longValues',
+        Icons.notes_rounded,
+        OpenHandStatusColors.warning,
+      ),
+    ];
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Wrap(
-          spacing: 10,
-          runSpacing: 10,
-          children: [
-            _recordStat(
-              context,
-              '字段',
-              '${fields.length}',
-              Icons.view_agenda_outlined,
-              accentColor,
-            ),
-            _recordStat(
-              context,
-              '有效',
-              '$complete',
-              Icons.task_alt_rounded,
-              OpenHandStatusColors.success,
-            ),
-            _recordStat(
-              context,
-              '数值',
-              '$numeric',
-              Icons.numbers_rounded,
-              OpenHandStatusColors.info,
-            ),
-            _recordStat(
-              context,
-              '长文本',
-              '$longValues',
-              Icons.notes_rounded,
-              OpenHandStatusColors.warning,
-            ),
-          ],
+        LayoutBuilder(
+          builder: (context, constraints) {
+            const gap = 10.0;
+            final columns = constraints.maxWidth >= 720
+                ? 4
+                : constraints.maxWidth >= 420
+                ? 2
+                : 1;
+            final width =
+                (constraints.maxWidth - gap * (columns - 1)) / columns;
+            return Wrap(
+              spacing: gap,
+              runSpacing: gap,
+              children: [
+                for (final stat in stats) SizedBox(width: width, child: stat),
+              ],
+            );
+          },
         ),
         const SizedBox(height: 14),
         Row(
