@@ -669,28 +669,43 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   ) async {
     var changed = false;
     final media = <DingTalkGatewayMedia>[];
-    for (final item in message.media) {
+    for (final sourceItem in message.media) {
+      final resourceId = normalizeDingTalkResourceId(sourceItem.resourceId);
+      final item = resourceId == sourceItem.resourceId
+          ? sourceItem
+          : sourceItem.copyWith(resourceId: resourceId);
+      if (!identical(item, sourceItem)) changed = true;
+      if (resourceId.isEmpty) {
+        final next = item.copyWith(localPath: '');
+        media.add(next);
+        if (next.localPath != sourceItem.localPath) changed = true;
+        continue;
+      }
       final currentPath = item.localPath.trim();
       if (currentPath.isNotEmpty) {
         try {
-          if (await File(currentPath).exists()) {
+          final file = File(currentPath);
+          if (await file.exists() && await file.length() > 0) {
             media.add(item);
             continue;
           }
         } catch (_) {}
       }
       if (item.resourceId.startsWith('local-')) {
-        media.add(item.copyWith(localPath: ''));
-        changed = true;
+        final next = item.copyWith(localPath: '');
+        media.add(next);
+        if (next.localPath != sourceItem.localPath) changed = true;
         continue;
       }
       final path = await _service.ensureMediaCached(item);
-      if (path == null || path.trim().isEmpty) {
-        media.add(item.copyWith(localPath: ''));
-      } else {
-        media.add(item.copyWith(localPath: path));
+      final next = path == null || path.trim().isEmpty
+          ? item.copyWith(localPath: '')
+          : item.copyWith(localPath: path);
+      media.add(next);
+      if (next.localPath != sourceItem.localPath ||
+          next.resourceId != sourceItem.resourceId) {
+        changed = true;
       }
-      changed = true;
     }
     if (!changed) return message;
     final hydrated = message.copyWith(media: media);
@@ -1655,7 +1670,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     for (var index = 0; index < left.length; index++) {
       final a = left[index];
       final b = right[index];
-      if (a.resourceId != b.resourceId ||
+      if (normalizeDingTalkResourceId(a.resourceId) !=
+              normalizeDingTalkResourceId(b.resourceId) ||
           a.resourceType != b.resourceType ||
           a.kind != b.kind ||
           a.name != b.name ||
@@ -1674,14 +1690,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   ) {
     return remote
         .map((item) {
+          final normalizedId = normalizeDingTalkResourceId(item.resourceId);
           for (final previous in current) {
-            if (previous.resourceId == item.resourceId &&
+            if (normalizeDingTalkResourceId(previous.resourceId) ==
+                    normalizedId &&
                 previous.resourceType == item.resourceType &&
                 previous.localPath.trim().isNotEmpty) {
-              return item.copyWith(localPath: previous.localPath);
+              return item.copyWith(
+                resourceId: normalizedId,
+                localPath: previous.localPath,
+              );
             }
           }
-          return item;
+          return item.copyWith(resourceId: normalizedId);
         })
         .toList(growable: false);
   }

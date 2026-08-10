@@ -13,7 +13,12 @@ String _normalizedDingTalkString(Object? value) {
   return text.toLowerCase() == 'null' ? '' : text;
 }
 
-String _normalizedDingTalkResourceId(Object? value) {
+/// 统一清理钉钉媒体资源标识。
+///
+/// 历史消息内容可能以 `[图片消息](mediaId=...)` 的投影形式保存，
+/// 旧版本会把 Markdown 右括号一并写入资源 ID。所有进入下载链路的
+/// 资源都应经过此方法，避免同一资源产生多个缓存键或调用无效参数。
+String normalizeDingTalkResourceId(Object? value) {
   var text = _normalizedDingTalkString(value);
   while (text.endsWith(')') || text.endsWith(']')) {
     text = text.substring(0, text.length - 1).trimRight();
@@ -133,7 +138,7 @@ class DingTalkGatewayMedia {
   });
 
   factory DingTalkGatewayMedia.fromJson(Map<String, Object?> json) {
-    final resourceId = _normalizedDingTalkResourceId(
+    final resourceId = normalizeDingTalkResourceId(
       json['resource_id'] ?? json['media_id'] ?? json['file_id'],
     );
     if (resourceId.isEmpty) {

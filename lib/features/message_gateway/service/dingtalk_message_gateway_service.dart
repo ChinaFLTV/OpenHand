@@ -75,6 +75,10 @@ class DingTalkGatewayCommandException implements Exception {
       message.contains('权限不足') ||
       message.contains('无权限');
 
+  bool get isResourceNotFound =>
+      serverCode?.trim().toUpperCase() == 'RESOURCE_NOT_FOUND' ||
+      message.toUpperCase().contains('RESOURCE_NOT_FOUND');
+
   @override
   String toString() => message;
 }
@@ -121,6 +125,10 @@ class DingTalkMessageGatewayService {
   static const int _maxMediaCacheFiles = 512;
   static const int _maxMediaCacheBytes = 1024 * 1024 * 1024;
   static const int _maxMediaFileBytes = 512 * 1024 * 1024;
+  // 媒体资源一旦被钉钉明确判定不存在，在当前进程内短期内不会恢复。
+  // 设定 TTL 和容量上限，既避免无效资源无限重试，也避免负缓存无限增长。
+  static const Duration _unavailableMediaTtl = Duration(hours: 6);
+  static const int _maxUnavailableMediaEntries = 512;
   static const List<String> _messageEventKeys = <String>[
     'user_im_message_receive_at',
     'user_im_message_receive_o2o_all',
@@ -155,6 +163,8 @@ class DingTalkMessageGatewayService {
       StreamController<String>.broadcast(sync: true);
   final Map<String, Future<String?>> _mediaDownloadTasks =
       <String, Future<String?>>{};
+  final Map<String, DateTime> _unavailableMediaUntil = <String, DateTime>{};
+  final Map<String, DateTime> _mediaContextWarningAt = <String, DateTime>{};
   List<AiDingTalkDwsCommand>? _dwsCommandCatalog;
   DateTime? _dwsCommandCatalogLoadedAt;
   String? _dwsCommandCatalogError;
@@ -615,12 +625,16 @@ class DingTalkMessageGatewayService {
   /// 将钉钉消息中的媒体资源下载到确定性本地缓存。缓存文件不存在时会自动重取，
   /// 同一资源并发请求会合并为一次 dws 调用，避免切换会话时重复下载。
   Future<String?> ensureMediaCached(DingTalkGatewayMedia media) async {
-    final resourceId = media.resourceId.trim();
+    final resourceId = normalizeDingTalkResourceId(media.resourceId);
     if (resourceId.isEmpty) return null;
-    final taskKey = '${media.resourceType.name}:$resourceId';
+    final normalizedMedia = resourceId == media.resourceId
+        ? media
+        : media.copyWith(resourceId: resourceId);
+    final taskKey = _mediaTaskKey(normalizedMedia);
+    if (_isMediaUnavailable(taskKey)) return null;
     final active = _mediaDownloadTasks[taskKey];
     if (active != null) return active;
-    final task = _ensureMediaCached(media);
+    final task = _ensureMediaCached(normalizedMedia, taskKey: taskKey);
     _mediaDownloadTasks[taskKey] = task;
     try {
       return await task;
@@ -631,7 +645,10 @@ class DingTalkMessageGatewayService {
     }
   }
 
-  Future<String?> _ensureMediaCached(DingTalkGatewayMedia media) async {
+  Future<String?> _ensureMediaCached(
+    DingTalkGatewayMedia media, {
+    required String taskKey,
+  }) async {
     final directory = Directory(mediaCacheDirectoryPath);
     await directory.create(recursive: true);
     final extension = _mediaCacheExtension(media);
@@ -645,7 +662,7 @@ class DingTalkMessageGatewayService {
       if (media.resourceType == DingTalkMediaResourceType.mediaId &&
           (media.messageId.trim().isEmpty ||
               media.conversationId.trim().isEmpty)) {
-        _logRuntime('WARN', '钉钉媒体缺少消息或会话上下文，暂不下载：${media.displayName}。');
+        _logMediaContextWarning(taskKey, media.displayName);
         return null;
       }
       final args = <String>[
@@ -699,10 +716,73 @@ class DingTalkMessageGatewayService {
           cleanupStack,
         );
       }
+      final commandError = _normalizeCommandException(error);
+      if ((commandError?.isResourceNotFound ?? false) ||
+          _isResourceNotFoundError(error)) {
+        _markMediaUnavailable(taskKey);
+        _logRuntime('WARN', '钉钉媒体资源不可用，已停止重复下载：${media.displayName}。');
+        // RESOURCE_NOT_FOUND 属于服务端明确的永久业务失败，输出一次简洁日志即可，
+        // 不再把完整异常堆栈交给 silentLog，避免实时事件持续刷屏。
+        return null;
+      }
       _logRuntime('WARN', '缓存钉钉媒体失败：${media.displayName}。');
       silentLog('dingtalk_gateway', '缓存钉钉媒体', error, stack);
       return null;
     }
+  }
+
+  String _mediaTaskKey(DingTalkGatewayMedia media) =>
+      '${media.resourceType.name}:${normalizeDingTalkResourceId(media.resourceId)}';
+
+  bool _isMediaUnavailable(String key) {
+    final until = _unavailableMediaUntil[key];
+    if (until == null) return false;
+    if (until.isAfter(DateTime.now())) return true;
+    _unavailableMediaUntil.remove(key);
+    return false;
+  }
+
+  void _markMediaUnavailable(String key) {
+    _unavailableMediaUntil[key] = DateTime.now().add(_unavailableMediaTtl);
+    _trimMediaFailureCaches();
+  }
+
+  void _logMediaContextWarning(String key, String displayName) {
+    final now = DateTime.now();
+    final previous = _mediaContextWarningAt[key];
+    if (previous != null &&
+        now.difference(previous) < const Duration(minutes: 5)) {
+      return;
+    }
+    _mediaContextWarningAt[key] = now;
+    _trimMediaFailureCaches();
+    _logRuntime('WARN', '钉钉媒体缺少消息或会话上下文，暂不下载：$displayName。');
+  }
+
+  void _trimMediaFailureCaches() {
+    final now = DateTime.now();
+    _unavailableMediaUntil.removeWhere((_, until) => !until.isAfter(now));
+    _mediaContextWarningAt.removeWhere(
+      (_, at) => now.difference(at) >= const Duration(minutes: 5),
+    );
+    while (_unavailableMediaUntil.length > _maxUnavailableMediaEntries) {
+      final oldest = _unavailableMediaUntil.entries.reduce(
+        (a, b) => a.value.isBefore(b.value) ? a : b,
+      );
+      _unavailableMediaUntil.remove(oldest.key);
+    }
+    while (_mediaContextWarningAt.length > _maxUnavailableMediaEntries) {
+      final oldest = _mediaContextWarningAt.entries.reduce(
+        (a, b) => a.value.isBefore(b.value) ? a : b,
+      );
+      _mediaContextWarningAt.remove(oldest.key);
+    }
+  }
+
+  bool _isResourceNotFoundError(Object error) {
+    final text = '$error'.toUpperCase();
+    return text.contains('RESOURCE_NOT_FOUND') ||
+        text.contains('FAILED TO GET DOWNLOAD URL');
   }
 
   String _stableMediaCacheName(DingTalkGatewayMedia media) {
@@ -1087,6 +1167,7 @@ class DingTalkMessageGatewayService {
       fallbackConversationId: conversation.dwsConversationId.isNotEmpty
           ? conversation.dwsConversationId
           : conversation.id,
+      fallbackMediaConversationId: conversation.dwsConversationId,
       fallbackConversationType: conversation.type,
     );
   }
@@ -2143,6 +2224,7 @@ class DingTalkMessageGatewayService {
     Object? raw, {
     bool mentionedCurrentUser = false,
     String fallbackConversationId = '',
+    String fallbackMediaConversationId = '',
     DingTalkConversationType? fallbackConversationType,
   }) {
     final values = <Object?>[];
@@ -2304,12 +2386,19 @@ class DingTalkMessageGatewayService {
       final conversationId = parsedConversationId.isNotEmpty
           ? parsedConversationId
           : fallbackConversationId.trim();
+      final mediaConversationId = parsedConversationId.isNotEmpty
+          ? conversationId
+          : fallbackMediaConversationId.trim().isNotEmpty
+          ? fallbackMediaConversationId.trim()
+          : fallbackConversationType == DingTalkConversationType.group
+          ? conversationId
+          : '';
       final media = _extractMedia(map)
           .map(
             (item) => item.copyWith(
               messageId: item.messageId.trim().isEmpty ? id : item.messageId,
               conversationId: item.conversationId.trim().isEmpty
-                  ? conversationId
+                  ? mediaConversationId
                   : item.conversationId,
             ),
           )
@@ -2904,7 +2993,7 @@ class DingTalkMessageGatewayService {
       String conversationId = '',
       DingTalkMediaKind? inheritedKind,
     }) {
-      final normalizedId = resourceId.trim();
+      final normalizedId = normalizeDingTalkResourceId(resourceId);
       if (normalizedId.isEmpty || result.length >= 12) return;
       final key = '${resourceType.name}:$normalizedId';
       if (!seen.add(key)) return;
