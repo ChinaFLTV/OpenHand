@@ -2374,7 +2374,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       backfillHistory: needsHistoryBackfill,
     );
     if (!_disposed &&
-        identical(_conversations[conversation.id], conversation)) {
+        identical(_conversations[conversation.id], conversation) &&
+        !_service.isConversationQueryUnavailable(conversation)) {
       _historyBackfilledConversationIds.add(conversation.id);
     }
     return messages;
