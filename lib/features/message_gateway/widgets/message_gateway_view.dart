@@ -12070,6 +12070,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const Duration _clipboardImageReadTimeout = Duration(seconds: 3);
   static const Duration _clipboardImageWriteTimeout = Duration(seconds: 10);
   static const int _maxPastedAttachmentCacheFiles = 32;
+  static const int _maxAutoMediaLoadAttempts = 512;
   final TextEditingController _input = TextEditingController();
   final FocusNode _inputFocusNode = FocusNode();
   final ScrollController _messagesScrollController = ScrollController();
@@ -12082,6 +12083,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       <String, _DingTalkMessageTranslation>{};
   final Set<String> _visibleTranslationMessageIds = <String>{};
   final Set<String> _loadingTranslationMessageIds = <String>{};
+  final Set<String> _autoMediaLoadAttemptedMessageIds = <String>{};
+  final Set<String> _autoMediaLoadPendingMessageIds = <String>{};
   Timer? _refreshTimer;
   int? _refreshIntervalSeconds;
   bool _followScheduled = false;
@@ -12511,6 +12514,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                           (historyHeaderVisible
                                                               ? 1
                                                               : 0)];
+                                                  _scheduleVisibleMediaLoad(
+                                                    selected.id,
+                                                    message,
+                                                  );
                                                   final textActionEnabled =
                                                       !message.recalled &&
                                                       message.media.isEmpty &&
@@ -12557,6 +12564,11 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                       mediaLoading: widget
                                                           .controller
                                                           .isMessageMediaCaching(
+                                                            message.id,
+                                                          ),
+                                                      mediaFailed: widget
+                                                          .controller
+                                                          .isMessageMediaHydrationFailed(
                                                             message.id,
                                                           ),
                                                       onEdit:
@@ -13319,6 +13331,47 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       }
     });
     _scheduleAutoFollow(force: true);
+  }
+
+  void _scheduleVisibleMediaLoad(
+    String conversationId,
+    DingTalkGatewayMessage message,
+  ) {
+    if (!message.media.any(
+      (item) => item.kind.isPreviewable && item.localPath.trim().isEmpty,
+    )) {
+      return;
+    }
+    final key = '$conversationId\u0000${message.id}';
+    final controller = widget.controller;
+    if (_autoMediaLoadAttemptedMessageIds.contains(key) ||
+        _autoMediaLoadPendingMessageIds.contains(key) ||
+        controller.isMessageMediaCaching(message.id) ||
+        controller.isMessageMediaHydrationFailed(message.id)) {
+      return;
+    }
+    _autoMediaLoadPendingMessageIds.add(key);
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      _autoMediaLoadPendingMessageIds.remove(key);
+      if (!mounted || _selectedId != conversationId) return;
+      if (controller.isMessageMediaCaching(message.id) ||
+          controller.isMessageMediaHydrationFailed(message.id)) {
+        return;
+      }
+      _autoMediaLoadAttemptedMessageIds.add(key);
+      while (_autoMediaLoadAttemptedMessageIds.length >
+          _maxAutoMediaLoadAttempts) {
+        _autoMediaLoadAttemptedMessageIds.remove(
+          _autoMediaLoadAttemptedMessageIds.first,
+        );
+      }
+      unawaited(
+        controller.ensureMessageMediaCached(
+          conversationId: conversationId,
+          messageId: message.id,
+        ),
+      );
+    });
   }
 
   Future<void> _loadOlderMessages(DingTalkConversation conversation) async {
@@ -14820,6 +14873,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
     required this.actionsVisible,
     required this.onToggleActions,
     this.mediaLoading = false,
+    this.mediaFailed = false,
     this.onEdit,
     this.onShowEditHistory,
     this.onRetryMedia,
@@ -14841,6 +14895,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
   final bool actionsVisible;
   final VoidCallback onToggleActions;
   final bool mediaLoading;
+  final bool mediaFailed;
   final VoidCallback? onEdit;
   final VoidCallback? onShowEditHistory;
   final VoidCallback? onRetryMedia;
@@ -15046,6 +15101,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   media: previewableMedia,
                   mine: widget.mine,
                   loading: widget.mediaLoading,
+                  failed: widget.mediaFailed,
                   onRetry: widget.onRetryMedia,
                   onInteractiveTap: _cancelPendingActionToggle,
                 ),
@@ -16154,6 +16210,7 @@ class _DingTalkMediaRail extends StatelessWidget {
     required this.media,
     required this.mine,
     required this.loading,
+    required this.failed,
     this.onRetry,
     this.onInteractiveTap,
   });
@@ -16161,6 +16218,7 @@ class _DingTalkMediaRail extends StatelessWidget {
   final List<DingTalkGatewayMedia> media;
   final bool mine;
   final bool loading;
+  final bool failed;
   final VoidCallback? onRetry;
   final VoidCallback? onInteractiveTap;
 
@@ -16181,6 +16239,7 @@ class _DingTalkMediaRail extends StatelessWidget {
                 _DingTalkMediaTile(
                   media: item,
                   loading: loading,
+                  failed: failed,
                   onRetry: onRetry,
                   onInteractiveTap: onInteractiveTap,
                 ),
@@ -16196,12 +16255,14 @@ class _DingTalkMediaTile extends StatelessWidget {
   const _DingTalkMediaTile({
     required this.media,
     required this.loading,
+    required this.failed,
     this.onRetry,
     this.onInteractiveTap,
   });
 
   final DingTalkGatewayMedia media;
   final bool loading;
+  final bool failed;
   final VoidCallback? onRetry;
   final VoidCallback? onInteractiveTap;
 
@@ -16290,7 +16351,9 @@ class _DingTalkMediaTile extends StatelessWidget {
                     ? _iconForMedia(media.kind)
                     : loading
                     ? Icons.cloud_download_outlined
-                    : Icons.cloud_off_rounded,
+                    : failed
+                    ? Icons.cloud_off_rounded
+                    : Icons.cloud_download_outlined,
                 size: 22,
                 color: available ? colors.primary : colors.onSurfaceVariant,
               ),
@@ -16302,7 +16365,9 @@ class _DingTalkMediaTile extends StatelessWidget {
                       ? media.displayName
                       : loading
                       ? '正在缓存媒体…'
-                      : '媒体加载失败，点击重试',
+                      : failed
+                      ? '媒体加载失败，点击重试'
+                      : '点击加载媒体',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -16319,7 +16384,7 @@ class _DingTalkMediaTile extends StatelessWidget {
                     height: 15,
                     child: CircularProgressIndicator(strokeWidth: 2),
                   )
-                else
+                else if (failed)
                   Icon(Icons.refresh_rounded, size: 17, color: colors.primary),
               ],
             ],

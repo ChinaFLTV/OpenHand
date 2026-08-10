@@ -110,6 +110,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const Uuid _uuid = Uuid();
   static const int _mediaCacheConcurrency = 3;
   static const int _mediaWarmupMessageLimit = 12;
+  static const int _maxMediaHydrationFailureIds = 1024;
   static const int _maxSeenIds = 2000;
   static const int _maxPendingRecallIds = 512;
   static const int _maxPendingStatusMessageIds = 512;
@@ -169,6 +170,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   _targetSearchCache = <String, (DateTime, List<DingTalkConversationTarget>)>{};
   final Map<String, Future<DingTalkGatewayMessage>> _mediaHydrationTasks =
       <String, Future<DingTalkGatewayMessage>>{};
+  final Set<String> _mediaHydrationFailures = <String>{};
   final Map<String, _DingTalkConversationHistoryState>
   _conversationHistoryStates = <String, _DingTalkConversationHistoryState>{};
   final Map<String, _ConversationReconcileFailure>
@@ -710,8 +712,17 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
   }
 
-  bool isMessageMediaCaching(String messageId) =>
-      _mediaHydrationTasks.containsKey(messageId);
+  bool isMessageMediaCaching(String messageId) {
+    final normalizedId = normalizeDingTalkMessageId(messageId);
+    return normalizedId.isNotEmpty &&
+        _mediaHydrationTasks.containsKey(normalizedId);
+  }
+
+  bool isMessageMediaHydrationFailed(String messageId) {
+    final normalizedId = normalizeDingTalkMessageId(messageId);
+    return normalizedId.isNotEmpty &&
+        _mediaHydrationFailures.contains(normalizedId);
+  }
 
   bool hasOlderConversationMessages(String conversationId) {
     final normalizedId = conversationId.trim();
@@ -779,25 +790,62 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     required String conversationId,
     required String messageId,
   }) async {
-    final conversation = _conversations[conversationId];
+    final normalizedConversationId = conversationId.trim();
+    final normalizedMessageId = normalizeDingTalkMessageId(messageId);
+    final conversation = _conversations[normalizedConversationId];
     if (conversation == null) return null;
     final message = conversation.messages
-        .where((item) => item.id == messageId)
+        .where(
+          (item) => normalizeDingTalkMessageId(item.id) == normalizedMessageId,
+        )
         .firstOrNull;
     if (message == null || message.media.isEmpty) return message;
-    final active = _mediaHydrationTasks[message.id];
+    final taskKey = normalizedMessageId.isEmpty
+        ? message.id
+        : normalizedMessageId;
+    final active = _mediaHydrationTasks[taskKey];
     if (active != null) return active;
-    final task = _hydrateMessageMedia(conversation, message);
-    _mediaHydrationTasks[message.id] = task;
+    _mediaHydrationFailures.remove(taskKey);
+    final task = (() async {
+      try {
+        final hydrated = await _hydrateMessageMedia(conversation, message);
+        _setMediaHydrationFailure(
+          taskKey,
+          hydrated.media.any((item) => item.localPath.trim().isEmpty),
+        );
+        return hydrated;
+      } catch (error, stack) {
+        _setMediaHydrationFailure(taskKey, true);
+        silentLog('dingtalk_gateway', '缓存钉钉媒体', error, stack);
+        return conversation.messages
+                .where((item) => normalizeDingTalkMessageId(item.id) == taskKey)
+                .firstOrNull ??
+            message;
+      }
+    })();
+    _mediaHydrationTasks[taskKey] = task;
     _notify();
     try {
       return await task;
     } finally {
-      if (identical(_mediaHydrationTasks[message.id], task)) {
-        _mediaHydrationTasks.remove(message.id);
+      if (identical(_mediaHydrationTasks[taskKey], task)) {
+        _mediaHydrationTasks.remove(taskKey);
         _notify();
       }
     }
+  }
+
+  void _setMediaHydrationFailure(String messageId, bool failed) {
+    final normalizedId = normalizeDingTalkMessageId(messageId);
+    if (normalizedId.isEmpty) return;
+    final changed = failed
+        ? _mediaHydrationFailures.add(normalizedId)
+        : _mediaHydrationFailures.remove(normalizedId);
+    if (!changed) return;
+    while (_mediaHydrationFailures.length > _maxMediaHydrationFailureIds) {
+      _mediaHydrationFailures.remove(_mediaHydrationFailures.first);
+    }
+    _notify();
   }
 
   Future<DingTalkGatewayMessage> _hydrateMessageMedia(
@@ -2204,6 +2252,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final media = mediaChanged
         ? _mergeMediaCache(current.media, remote.media)
         : null;
+    if (mediaChanged) _mediaHydrationFailures.remove(remoteId);
     conversation.messages[index] = current.copyWith(
       content: contentChanged ? remote.content : null,
       media: media,
@@ -3993,6 +4042,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _pendingStatusEvents.clear();
     _conversationReconcileFailures.clear();
     _conversationHistoryStates.clear();
+    _mediaHydrationFailures.clear();
     await _stopEventListening();
     final eventRestart = _eventRestartFuture;
     if (eventRestart != null) await eventRestart;
