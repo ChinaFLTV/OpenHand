@@ -1101,6 +1101,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   void startPolling() {
     if (_isPolling || !isAuthorized) return;
     _isPolling = true;
+    _service.resetMessageQueryCapability();
     _usingPollingFallback = false;
     _warningMessage = null;
     _lastPollAt = DateTime.now().subtract(_queryWindow);

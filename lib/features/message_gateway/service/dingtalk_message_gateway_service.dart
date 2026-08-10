@@ -21,6 +21,13 @@ class DingTalkGatewayQueryResult {
   final String? warning;
 }
 
+class _DingTalkMessagePageResult {
+  const _DingTalkMessagePageResult({required this.pages, this.warning});
+
+  final List<Object?> pages;
+  final String? warning;
+}
+
 class DingTalkSentMessage {
   const DingTalkSentMessage({this.messageId, this.conversationId});
 
@@ -69,9 +76,10 @@ class DingTalkGatewayCommandException implements Exception {
   final int? retryAfterSeconds;
 
   bool get isBusinessError =>
-      category == 'api' ||
-      reason == 'business_error' ||
-      (serverCode != null && serverCode!.trim().isNotEmpty);
+      category?.trim().toLowerCase() == 'api' ||
+      reason?.trim().toLowerCase() == 'business_error' ||
+      (serverCode != null && serverCode!.trim().isNotEmpty) ||
+      message.toLowerCase().contains('business error: success=false');
 
   bool get isPermissionDenied =>
       serverCode == '2001' ||
@@ -127,6 +135,11 @@ class DingTalkMessageGatewayService {
   static const int _sentMessageLookupLimit = 50;
   static const int _messageQueryPageSize = 50;
   static const int _messageQueryMaxPages = 10;
+  static const Duration _messageQueryUnavailableCooldown = Duration(
+    minutes: 10,
+  );
+  static const String _messageSearchFallbackWarning =
+      '钉钉消息搜索能力暂不可用，已依赖实时事件和会话对账。';
   static const int _conversationQueryMaxPages = 20;
   static const int _batchSize = 30;
   static const int _detailConcurrency = 4;
@@ -157,6 +170,8 @@ class DingTalkMessageGatewayService {
   Process? _authProcess;
   final List<_DingTalkEventProcessHandle> _eventProcesses =
       <_DingTalkEventProcessHandle>[];
+  final Map<String, DateTime> _messageQueryUnavailableUntil =
+      <String, DateTime>{};
   StreamController<DingTalkGatewayEvent>? _eventController;
   Future<Stream<DingTalkGatewayEvent>>? _eventStartFuture;
   int _eventGeneration = 0;
@@ -318,6 +333,10 @@ class DingTalkMessageGatewayService {
   }
 
   void clearRuntimeLogs() => _runtimeLogs.clear();
+
+  void resetMessageQueryCapability() {
+    _messageQueryUnavailableUntil.clear();
+  }
 
   void _logRuntime(String level, String message) {
     final normalized = message.trim();
@@ -1054,69 +1073,89 @@ class DingTalkMessageGatewayService {
     final endText = end.toIso8601String();
     final allStartText = _formatChatDateTime(start);
     final allEndText = _formatChatDateTime(end);
-    final pages = await Future.wait<List<Object?>>(<Future<List<Object?>>>[
-      _queryMessagePages(
-        (cursor) => <String>[
-          'chat',
-          'message',
-          'list-mentions',
-          '--start',
-          startText,
-          '--end',
-          endText,
-          '--limit',
-          '$_messageQueryPageSize',
-          '--cursor',
-          cursor,
-          '--format',
-          'json',
-        ],
-        label: '@我消息',
-      ),
-      _queryMessagePages(
-        (cursor) => <String>[
-          'chat',
-          'message',
-          'list-all',
-          '--start',
-          allStartText,
-          '--end',
-          allEndText,
-          '--limit',
-          '$_messageQueryPageSize',
-          '--cursor',
-          cursor,
-          '--format',
-          'json',
-        ],
-        label: '全部消息',
-      ),
-    ]);
-    final mentions = pages[0];
-    final all = pages[1];
+    final pageResults = await Future.wait<_DingTalkMessagePageResult>(
+      <Future<_DingTalkMessagePageResult>>[
+        _queryMessagePages(
+          (cursor) => <String>[
+            'chat',
+            'message',
+            'list-mentions',
+            '--start',
+            startText,
+            '--end',
+            endText,
+            '--limit',
+            '$_messageQueryPageSize',
+            '--cursor',
+            cursor,
+            '--format',
+            'json',
+          ],
+          capabilityKey: 'mentions',
+          label: '@我消息',
+        ),
+        _queryMessagePages(
+          (cursor) => <String>[
+            'chat',
+            'message',
+            'list-all',
+            '--start',
+            allStartText,
+            '--end',
+            allEndText,
+            '--limit',
+            '$_messageQueryPageSize',
+            '--cursor',
+            cursor,
+            '--format',
+            'json',
+          ],
+          capabilityKey: 'all',
+          label: '全部消息',
+        ),
+      ],
+    );
+    final mentions = pageResults[0].pages;
+    final all = pageResults[1].pages;
     final messages = <DingTalkGatewayMessage>[
       for (final page in mentions)
         ..._parseMessages(page, mentionedCurrentUser: true),
       for (final page in all) ..._parseMessages(page),
     ];
-    String? warning;
+    final warnings = <String>{};
+    for (final pageResult in pageResults) {
+      final warning = pageResult.warning?.trim() ?? '';
+      if (warning.isNotEmpty) warnings.add(warning);
+    }
     for (final page in all) {
       final candidate = _findPageField(page, const <String>[
         'friendly_hint',
         'friendlyHint',
-      ])?.toString();
-      if (candidate != null && candidate.trim().isNotEmpty) {
-        warning = candidate;
-        break;
-      }
+      ])?.toString().trim();
+      if (candidate != null && candidate.isNotEmpty) warnings.add(candidate);
     }
-    return DingTalkGatewayQueryResult(messages: messages, warning: warning);
+    return DingTalkGatewayQueryResult(
+      messages: messages,
+      warning: warnings.isEmpty ? null : warnings.join('；'),
+    );
   }
 
-  Future<List<Object?>> _queryMessagePages(
+  Future<_DingTalkMessagePageResult> _queryMessagePages(
     List<String> Function(String cursor) buildArguments, {
+    required String capabilityKey,
     required String label,
   }) async {
+    final now = DateTime.now();
+    final unavailableUntil = _messageQueryUnavailableUntil[capabilityKey];
+    if (unavailableUntil != null) {
+      if (now.isBefore(unavailableUntil)) {
+        return const _DingTalkMessagePageResult(
+          pages: <Object?>[],
+          warning: _messageSearchFallbackWarning,
+        );
+      }
+      _messageQueryUnavailableUntil.remove(capabilityKey);
+    }
     final pages = <Object?>[];
     var cursor = '0';
     for (var pageIndex = 0; pageIndex < _messageQueryMaxPages; pageIndex++) {
@@ -1124,6 +1163,19 @@ class DingTalkMessageGatewayService {
       try {
         page = await _runJson(buildArguments(cursor));
       } catch (error, stack) {
+        final commandError = _normalizeCommandException(error);
+        if (commandError != null &&
+            commandError.isBusinessError &&
+            !commandError.isRetryable) {
+          _messageQueryUnavailableUntil[capabilityKey] = DateTime.now().add(
+            _messageQueryUnavailableCooldown,
+          );
+          _logRuntime('WARN', '钉钉$label搜索暂不可用，已切换事件流和会话对账。');
+          return _DingTalkMessagePageResult(
+            pages: pages,
+            warning: _messageSearchFallbackWarning,
+          );
+        }
         if (pages.isEmpty) rethrow;
         _logRuntime('WARN', '钉钉$label后续分页失败，已保留前面已同步的消息。');
         silentLog('dingtalk_gateway', '读取钉钉$label后续分页', error, stack);
@@ -1139,7 +1191,7 @@ class DingTalkMessageGatewayService {
       }
       cursor = nextCursor;
     }
-    return pages;
+    return _DingTalkMessagePageResult(pages: pages);
   }
 
   bool _hasMorePages(Object? raw) {
@@ -2284,8 +2336,15 @@ class DingTalkMessageGatewayService {
       _logRuntime('ERROR', 'dws 启动或执行异常：$error');
       rethrow;
     }
+    final isGlobalMessageSearch = _isGlobalMessageSearchCommand(
+      commandArguments,
+    );
     _logRuntime(
-      result.exitCode == 0 ? 'SUCCESS' : 'ERROR',
+      result.exitCode == 0
+          ? 'SUCCESS'
+          : isGlobalMessageSearch
+          ? 'WARN'
+          : 'ERROR',
       'dws 执行结束：$operation，退出码 ${result.exitCode}。',
     );
     if (result.timedOut) {
@@ -2320,7 +2379,10 @@ class DingTalkMessageGatewayService {
         '${error['retry_after_seconds'] ?? error['retryAfterSeconds'] ?? ''}',
       );
       final hasStructuredError = error.isNotEmpty;
-      _logRuntime('ERROR', 'dws 业务调用失败：${_safeProcessLogLine(message)}');
+      _logRuntime(
+        isGlobalMessageSearch ? 'WARN' : 'ERROR',
+        'dws 业务调用失败：${_safeProcessLogLine(message)}',
+      );
       throw DingTalkGatewayCommandException(
         message: message,
         category: error['category']?.toString(),
@@ -2332,9 +2394,7 @@ class DingTalkMessageGatewayService {
         serverCode: error['server_error_code']?.toString(),
         operation: error['operation']?.toString(),
         retryable:
-            _asBool(error['retryable']) ||
-            _asBool(error['is_retryable']) ||
-            (!hasStructuredError && result.exitCode != 0),
+            _asBool(error['retryable']) || _asBool(error['is_retryable']),
         retryAfterSeconds: retryAfterSeconds,
       );
     }
@@ -3509,6 +3569,14 @@ class DingTalkMessageGatewayService {
       if (value != null && '$value'.trim().isNotEmpty) return '$value'.trim();
     }
     return '';
+  }
+
+  bool _isGlobalMessageSearchCommand(Iterable<String> arguments) {
+    final values = arguments.toList(growable: false);
+    return values.length >= 3 &&
+        values[0] == 'chat' &&
+        values[1] == 'message' &&
+        (values[2] == 'list-all' || values[2] == 'list-mentions');
   }
 
   Map<String, Object?> _asMap(Object? value) => value is Map
