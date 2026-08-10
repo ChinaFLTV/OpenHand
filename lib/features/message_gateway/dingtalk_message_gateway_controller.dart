@@ -142,6 +142,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Map<String, DingTalkConversation> _conversations =
       <String, DingTalkConversation>{};
   final Set<String> _responseInFlight = <String>{};
+  final Map<String, int> _responsePreparingCounts = <String, int>{};
 
   /// 每次停止响应都会递增。正在执行的响应携带启动时版本，前置异步
   /// 阶段完成后若版本已变化，立即结束本轮，避免停止后继续发起 AI 请求。
@@ -647,6 +648,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final conversation = _conversations[conversationId];
     final sessionId = conversation?.aiSessionId;
     return _responseInFlight.contains(conversationId) ||
+        _responsePreparingCounts.containsKey(conversationId) ||
         (_responseQueues[conversationId]?.isNotEmpty ?? false) ||
         (sessionId != null &&
             !_responseCancellationVersions.containsKey(conversationId) &&
@@ -667,6 +669,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
       queue.clear();
     }
+    _responsePreparingCounts.remove(conversationId);
     if (sessionId == null || !_sessionController.canStopResponding(sessionId)) {
       _responseInFlight.remove(conversationId);
       _notify();
@@ -1141,12 +1144,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (conversation == null ||
         (content.isEmpty && paths.isEmpty) ||
         _isSending ||
-        _responseInFlight.contains(conversationId) ||
-        (_responseQueues[conversationId]?.isNotEmpty ?? false) ||
+        isConversationResponding(conversationId) ||
         _editingMessageInFlight ||
         !isAuthorized) {
       return false;
     }
+    final responseVersion = _responseCancellationVersions[conversationId] ?? 0;
     final files = <({String path, FileStat stat})>[];
     try {
       for (final path in paths) {
@@ -1228,6 +1231,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         conversation,
         aiContent,
         sourceMessageId: sourceMessage.id,
+        responseVersion: responseVersion,
       );
       return true;
     } catch (error, stack) {
@@ -1258,6 +1262,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (normalizedPath.isEmpty ||
         _isSending ||
         _editingMessageInFlight ||
+        isConversationResponding(conversation.id) ||
         !isAuthorized) {
       return false;
     }
@@ -1289,6 +1294,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       audio: audio,
     );
     _isSending = true;
+    final responseVersion = _responseCancellationVersions[conversation.id] ?? 0;
     _appendMessage(conversation, message);
     _notify();
     try {
@@ -1308,6 +1314,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         conversation,
         sentMessage.content,
         sourceMessageId: sentMessage.id,
+        responseVersion: responseVersion,
       );
       return true;
     } catch (error, stack) {
@@ -2502,8 +2509,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkConversation conversation,
     DingTalkGatewayMessage message,
   ) async {
+    final responseVersion = _responseCancellationVersions[conversation.id] ?? 0;
+    if (_disposed) return;
+    _beginResponsePreparing(conversation.id);
     try {
       await _ensureIncomingContextMedia(conversation, message.id);
+      if (_isResponseCancelled(conversation.id, responseVersion)) return;
       final hydrated = conversation.messages
           .where((item) => item.id == message.id)
           .firstOrNull;
@@ -2512,14 +2523,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         conversation,
         effective.content,
         sourceMessageId: effective.id,
+        responseVersion: responseVersion,
       );
     } catch (error, stack) {
+      if (_isResponseCancelled(conversation.id, responseVersion)) return;
       silentLog('dingtalk_gateway', '准备钉钉媒体消息', error, stack);
       await _enqueueAiResponse(
         conversation,
         message.content,
         sourceMessageId: message.id,
+        responseVersion: responseVersion,
       );
+    } finally {
+      _endResponsePreparing(conversation.id);
     }
   }
 
@@ -3369,9 +3385,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkConversation conversation,
     String content, {
     String? sourceMessageId,
+    int? responseVersion,
   }) {
     final normalized = content.trim();
-    if (normalized.isEmpty || _disposed) return Future<void>.value();
+    if (normalized.isEmpty ||
+        _disposed ||
+        (responseVersion != null &&
+            _isResponseCancelled(conversation.id, responseVersion))) {
+      return Future<void>.value();
+    }
     final completer = Completer<void>();
     final requestedSourceId = sourceMessageId?.trim() ?? '';
     final sourceId = requestedSourceId.isEmpty
@@ -3390,11 +3412,36 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     } else {
       queue.add(_QueuedDingTalkResponse(normalized, sourceId, completer));
     }
+    _beginResponsePreparing(conversation.id);
+    unawaited(
+      completer.future.whenComplete(
+        () => _endResponsePreparing(conversation.id),
+      ),
+    );
     _notify();
     if (_responseDraining.add(conversation.id)) {
       unawaited(_drainResponseQueue(conversation));
     }
     return completer.future;
+  }
+
+  void _beginResponsePreparing(String conversationId) {
+    _responsePreparingCounts.update(
+      conversationId,
+      (count) => count + 1,
+      ifAbsent: () => 1,
+    );
+    _notify();
+  }
+
+  void _endResponsePreparing(String conversationId) {
+    final count = _responsePreparingCounts[conversationId] ?? 0;
+    if (count <= 1) {
+      _responsePreparingCounts.remove(conversationId);
+    } else {
+      _responsePreparingCounts[conversationId] = count - 1;
+    }
+    _notify();
   }
 
   Future<void> _drainResponseQueue(DingTalkConversation conversation) async {
@@ -3744,6 +3791,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     _responseQueues.clear();
     _responseDraining.clear();
+    _responsePreparingCounts.clear();
     _responseCancellationVersions.clear();
     _writeApprovalHandler = null;
     await _runtimeLogSubscription?.cancel();
