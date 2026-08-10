@@ -9,6 +9,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../ai/index.dart';
 import '../../plugin_service/index.dart';
@@ -19,6 +20,18 @@ class DingTalkGatewayQueryResult {
 
   final List<DingTalkGatewayMessage> messages;
   final String? warning;
+}
+
+class DingTalkConversationMessagePage {
+  const DingTalkConversationMessagePage({
+    required this.messages,
+    required this.hasMore,
+    this.oldestMessageAt,
+  });
+
+  final List<DingTalkGatewayMessage> messages;
+  final bool hasMore;
+  final DateTime? oldestMessageAt;
 }
 
 class _DingTalkMessagePageResult {
@@ -192,6 +205,10 @@ class DingTalkMessageGatewayService {
       StreamController<String>.broadcast(sync: true);
   final Map<String, Future<String?>> _mediaDownloadTasks =
       <String, Future<String?>>{};
+  final OpenHandAsyncSemaphore _mediaDownloadSemaphore = OpenHandAsyncSemaphore(
+    3,
+    maxWaiters: 1024,
+  );
   final Map<String, DateTime> _unavailableMediaUntil = <String, DateTime>{};
   final Map<String, DateTime> _mediaContextWarningAt = <String, DateTime>{};
   List<AiDingTalkDwsCommand>? _dwsCommandCatalog;
@@ -677,7 +694,9 @@ class DingTalkMessageGatewayService {
     if (_isMediaUnavailable(taskKey)) return null;
     final active = _mediaDownloadTasks[taskKey];
     if (active != null) return active;
-    final task = _ensureMediaCached(normalizedMedia, taskKey: taskKey);
+    final task = _mediaDownloadSemaphore.withPermit(
+      () => _ensureMediaCached(normalizedMedia, taskKey: taskKey),
+    );
     _mediaDownloadTasks[taskKey] = task;
     try {
       return await task;
@@ -692,16 +711,20 @@ class DingTalkMessageGatewayService {
     DingTalkGatewayMedia media, {
     required String taskKey,
   }) async {
-    final directory = Directory(mediaCacheDirectoryPath);
-    await directory.create(recursive: true);
     final extension = _mediaCacheExtension(media);
-    final filename = '${_stableMediaCacheName(media)}$extension';
+    final basename = _stableMediaCacheName(media);
+    final filename = '$basename$extension';
+    final directory = Directory(mediaCacheDirectoryPath);
     final output = File(p.join(directory.path, filename));
     try {
-      if (await output.exists() && await output.length() > 0) {
-        return output.path;
+      await directory.create(recursive: true);
+      if (await output.exists()) {
+        final size = await output.length();
+        if (size > 0 && size <= _maxMediaFileBytes) return output.path;
+        await output.delete();
       }
-      if (await output.exists()) await output.delete();
+      final cached = await _findCachedMediaFile(directory, basename);
+      if (cached != null) return cached.path;
       if (media.resourceType == DingTalkMediaResourceType.mediaId &&
           (media.messageId.trim().isEmpty ||
               media.conversationId.trim().isEmpty)) {
@@ -714,7 +737,7 @@ class DingTalkMessageGatewayService {
         '--resource-id',
         media.resourceId.trim(),
         '--output',
-        filename,
+        output.path,
         '--format',
         'json',
       ];
@@ -772,6 +795,28 @@ class DingTalkMessageGatewayService {
       silentLog('dingtalk_gateway', '缓存钉钉媒体', error, stack);
       return null;
     }
+  }
+
+  Future<File?> _findCachedMediaFile(
+    Directory directory,
+    String basename,
+  ) async {
+    try {
+      await for (final entity in directory.list(followLinks: false)) {
+        if (entity is! File ||
+            p.basenameWithoutExtension(entity.path) != basename) {
+          continue;
+        }
+        final size = await entity.length();
+        if (size > 0 && size <= _maxMediaFileBytes) return entity;
+        try {
+          await entity.delete();
+        } catch (_) {}
+      }
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '查找钉钉媒体缓存', error, stack);
+    }
+    return null;
   }
 
   String _mediaTaskKey(DingTalkGatewayMedia media) =>
@@ -1237,121 +1282,135 @@ class DingTalkMessageGatewayService {
 
   /// 回读指定会话的最近消息。消息编辑不会产生个人 IM 事件，
   /// 因此由控制器以低频、有界的方式调用此接口做状态对账。
-  Future<List<DingTalkGatewayMessage>> queryRecentConversation({
+  Future<DingTalkConversationMessagePage> queryConversationPage({
     required DingTalkConversation conversation,
     int limit = 50,
-    bool backfillHistory = false,
+    DateTime? before,
   }) async {
     final normalizedLimit = limit.clamp(1, 50);
     final queryKey = _conversationQueryKey(conversation);
     final unavailableUntil = _conversationQueryUnavailableUntil[queryKey];
     if (unavailableUntil != null) {
       if (DateTime.now().isBefore(unavailableUntil)) {
-        return const <DingTalkGatewayMessage>[];
+        return const DingTalkConversationMessagePage(
+          messages: <DingTalkGatewayMessage>[],
+          hasMore: false,
+        );
       }
       _conversationQueryUnavailableUntil.remove(queryKey);
     }
     final fallbackConversationId = conversation.dwsConversationId.isNotEmpty
         ? conversation.dwsConversationId
         : conversation.id;
-    final messages = <DingTalkGatewayMessage>[];
-    final seenIds = <String>{};
-    final knownIds = conversation.messages
-        .map((message) => normalizeDingTalkMessageId(message.id))
-        .where((id) => id.isNotEmpty)
-        .toSet();
-    var boundary = DateTime.now();
-    var reachedPageLimit = true;
-    for (
-      var pageIndex = 0;
-      pageIndex < _conversationQueryMaxPages;
-      pageIndex++
-    ) {
-      late final Object? result;
-      try {
-        result = await _runJson(<String>[
-          'chat',
-          'message',
-          'list',
-          ..._targetArguments(conversation),
-          '--time',
-          _formatChatDateTime(boundary),
-          '--limit',
-          '$normalizedLimit',
-          '--direction',
-          'older',
-          '--format',
-          'json',
-        ], timeout: const Duration(seconds: 25));
-      } catch (error, stack) {
-        final commandError = _normalizeCommandException(error);
-        if (commandError != null &&
-            commandError.isBusinessError &&
-            !commandError.isRetryable) {
-          _markConversationQueryUnavailable(queryKey);
-          _logRuntime('WARN', '钉钉会话消息搜索暂不可用，已依赖实时事件和其他对账。');
-          reachedPageLimit = false;
-          break;
-        }
-        if (messages.isEmpty || backfillHistory) rethrow;
-        _logRuntime('WARN', '钉钉会话消息后续分页失败，已保留已获取的消息。');
-        silentLog('dingtalk_gateway', '读取钉钉会话消息后续分页', error, stack);
-        reachedPageLimit = false;
-        break;
+    final boundary = before ?? DateTime.now();
+    late final Object? result;
+    try {
+      result = await _runJson(<String>[
+        'chat',
+        'message',
+        'list',
+        ..._targetArguments(conversation),
+        '--time',
+        _formatChatDateTime(boundary),
+        '--limit',
+        '$normalizedLimit',
+        '--direction',
+        'older',
+        '--format',
+        'json',
+      ], timeout: const Duration(seconds: 25));
+    } catch (error) {
+      final commandError = _normalizeCommandException(error);
+      if (commandError != null &&
+          commandError.isBusinessError &&
+          !commandError.isRetryable) {
+        _markConversationQueryUnavailable(queryKey);
+        _logRuntime('WARN', '钉钉会话消息搜索暂不可用，已依赖实时事件和其他对账。');
+        return const DingTalkConversationMessagePage(
+          messages: <DingTalkGatewayMessage>[],
+          hasMore: false,
+        );
       }
-      final pageMessages = _parseMessages(
-        result,
-        fallbackConversationId: fallbackConversationId,
-        fallbackMediaConversationId: conversation.dwsConversationId,
-        fallbackConversationType: conversation.type,
-      );
-      if (pageMessages.isEmpty) {
-        reachedPageLimit = false;
-        break;
-      }
-      var addedCount = 0;
-      var reachedKnownMessage = false;
-      for (final message in pageMessages) {
-        final id = normalizeDingTalkMessageId(message.id);
-        if (id.isEmpty) continue;
-        if (knownIds.contains(id)) reachedKnownMessage = true;
-        if (!seenIds.add(id)) continue;
-        messages.add(message);
-        addedCount += 1;
-      }
-      final hasMoreValue = _findPageField(result, const <String>[
-        'hasMore',
-        'has_more',
-      ]);
-      final hasMore = hasMoreValue == null
-          ? pageMessages.length >= normalizedLimit
-          : _asBool(hasMoreValue);
-      if (!hasMore ||
-          addedCount == 0 ||
-          (!backfillHistory && reachedKnownMessage)) {
-        reachedPageLimit = false;
-        break;
-      }
-      final oldest = pageMessages
-          .map((message) => message.createdAt)
-          .reduce((left, right) => left.isBefore(right) ? left : right);
-      if (!oldest.isBefore(boundary)) {
-        reachedPageLimit = false;
-        break;
-      }
-      // list 接口使用边界 createTime 翻页。保留边界本身，重复项由 seenIds
-      // 去重，避免减去一秒造成同秒消息被跳过。
-      boundary = oldest;
+      rethrow;
     }
-    if (reachedPageLimit) {
-      _logRuntime('WARN', '钉钉会话消息已达到本地保留上限，较早历史消息不再继续加载。');
-    }
-    final indexed = messages.asMap().entries.toList(growable: true);
+    final parsed = _parseMessages(
+      result,
+      fallbackConversationId: fallbackConversationId,
+      fallbackMediaConversationId: conversation.dwsConversationId,
+      fallbackConversationType: conversation.type,
+    );
+    final indexed = parsed.asMap().entries.toList(growable: true);
     indexed.sort((left, right) {
       final created = left.value.createdAt.compareTo(right.value.createdAt);
       return created != 0 ? created : left.key.compareTo(right.key);
     });
-    return indexed.map((entry) => entry.value).toList(growable: false);
+    final messages = indexed
+        .map((entry) => entry.value)
+        .toList(growable: false);
+    final hasMoreValue = _findPageField(result, const <String>[
+      'hasMore',
+      'has_more',
+    ]);
+    final hasMore = hasMoreValue == null
+        ? messages.length >= normalizedLimit
+        : _asBool(hasMoreValue);
+    final oldestMessageAt = messages.isEmpty ? null : messages.first.createdAt;
+    return DingTalkConversationMessagePage(
+      messages: messages,
+      hasMore: hasMore,
+      oldestMessageAt: oldestMessageAt,
+    );
+  }
+
+  Future<List<DingTalkGatewayMessage>> queryRecentConversation({
+    required DingTalkConversation conversation,
+    int limit = 50,
+    bool backfillHistory = false,
+    DateTime? before,
+  }) async {
+    final firstPage = await queryConversationPage(
+      conversation: conversation,
+      limit: limit,
+      before: before,
+    );
+    if (!backfillHistory || !firstPage.hasMore || firstPage.messages.isEmpty) {
+      return firstPage.messages;
+    }
+    final knownIds = conversation.messages
+        .map((message) => normalizeDingTalkMessageId(message.id))
+        .where((id) => id.isNotEmpty)
+        .toSet();
+    final seenIds = <String>{
+      for (final message in firstPage.messages)
+        normalizeDingTalkMessageId(message.id),
+    };
+    final messages = <DingTalkGatewayMessage>[...firstPage.messages];
+    var boundary = firstPage.oldestMessageAt;
+    for (
+      var pageIndex = 1;
+      pageIndex < _conversationQueryMaxPages && boundary != null;
+      pageIndex++
+    ) {
+      final page = await queryConversationPage(
+        conversation: conversation,
+        limit: limit,
+        before: boundary,
+      );
+      if (page.messages.isEmpty) break;
+      var reachedKnownMessage = false;
+      for (final message in page.messages) {
+        final id = normalizeDingTalkMessageId(message.id);
+        if (id.isEmpty) continue;
+        if (knownIds.contains(id)) reachedKnownMessage = true;
+        if (seenIds.add(id)) messages.add(message);
+      }
+      if (reachedKnownMessage || !page.hasMore) break;
+      final nextBoundary = page.oldestMessageAt;
+      if (nextBoundary == null || !nextBoundary.isBefore(boundary)) break;
+      boundary = nextBoundary;
+    }
+    messages.sort((left, right) => left.createdAt.compareTo(right.createdAt));
+    return messages.toList(growable: false);
   }
 
   Future<List<DingTalkConversationTarget>> searchTargets({

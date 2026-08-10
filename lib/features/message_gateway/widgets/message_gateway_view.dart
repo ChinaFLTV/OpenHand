@@ -12182,6 +12182,12 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         final messageActionFallbackModel = selected == null
             ? null
             : widget.controller.messageActionFallbackModel(selected);
+        final selectedHasOlderMessages =
+            selected != null &&
+            widget.controller.hasOlderConversationMessages(selected.id);
+        final selectedLoadingOlderMessages =
+            selected != null &&
+            widget.controller.isLoadingOlderConversationMessages(selected.id);
         _scheduleAutoFollow();
         return SizedBox(
           width: double.infinity,
@@ -12430,10 +12436,62 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                     12,
                                                   ),
                                               itemCount:
-                                                  selected.messages.length,
+                                                  selected.messages.length +
+                                                  (selectedHasOlderMessages ||
+                                                          selectedLoadingOlderMessages
+                                                      ? 1
+                                                      : 0),
                                               itemBuilder: (context, index) {
+                                                final historyHeaderVisible =
+                                                    selectedHasOlderMessages ||
+                                                    selectedLoadingOlderMessages;
+                                                if (historyHeaderVisible &&
+                                                    index == 0) {
+                                                  final loading =
+                                                      selectedLoadingOlderMessages;
+                                                  return Padding(
+                                                    padding:
+                                                        const EdgeInsets.only(
+                                                          bottom: 12,
+                                                        ),
+                                                    child: Center(
+                                                      child: OutlinedButton.icon(
+                                                        onPressed: loading
+                                                            ? null
+                                                            : () => unawaited(
+                                                                _loadOlderMessages(
+                                                                  selected,
+                                                                ),
+                                                              ),
+                                                        icon: loading
+                                                            ? const SizedBox(
+                                                                width: 16,
+                                                                height: 16,
+                                                                child:
+                                                                    CircularProgressIndicator(
+                                                                      strokeWidth:
+                                                                          2,
+                                                                    ),
+                                                              )
+                                                            : const Icon(
+                                                                Icons
+                                                                    .history_rounded,
+                                                                size: 18,
+                                                              ),
+                                                        label: Text(
+                                                          loading
+                                                              ? '加载更早消息中…'
+                                                              : '加载更早消息',
+                                                        ),
+                                                      ),
+                                                    ),
+                                                  );
+                                                }
                                                 final message =
-                                                    selected.messages[index];
+                                                    selected.messages[index -
+                                                        (historyHeaderVisible
+                                                            ? 1
+                                                            : 0)];
                                                 final textActionEnabled =
                                                     !message.recalled &&
                                                     message.media.isEmpty &&
@@ -12462,6 +12520,11 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                   child: _DingTalkMessageBubble(
                                                     message: message,
                                                     mine: _isMine(message),
+                                                    mediaLoading: widget
+                                                        .controller
+                                                        .isMessageMediaCaching(
+                                                          message.id,
+                                                        ),
                                                     onEdit:
                                                         _canEditMessage(message)
                                                         ? () =>
@@ -13193,8 +13256,43 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       _input.clear();
       _pendingAttachments = const <_DingTalkPendingAttachment>[];
     });
-    unawaited(widget.controller.ensureConversationMediaCached(id));
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (mounted) {
+        unawaited(widget.controller.ensureConversationMediaCached(id));
+      }
+    });
     _scheduleAutoFollow(force: true);
+  }
+
+  Future<void> _loadOlderMessages(DingTalkConversation conversation) async {
+    if (widget.controller.isLoadingOlderConversationMessages(conversation.id)) {
+      return;
+    }
+    _disableAutoFollow();
+    final scrollController = _messagesScrollController;
+    final hadClients = scrollController.hasClients;
+    final previousPixels = hadClients ? scrollController.position.pixels : 0.0;
+    final previousMaxExtent = hadClients
+        ? scrollController.position.maxScrollExtent
+        : 0.0;
+    await widget.controller.loadOlderConversationMessages(conversation.id);
+    if (!mounted || !hadClients) return;
+    await WidgetsBinding.instance.endOfFrame;
+    if (!scrollController.hasClients) return;
+    final position = scrollController.position;
+    final delta = position.maxScrollExtent - previousMaxExtent;
+    final target = (previousPixels + delta).clamp(
+      position.minScrollExtent,
+      position.maxScrollExtent,
+    );
+    if ((target - position.pixels).abs() >= 1) {
+      _messagesProgrammaticScroll.begin();
+      try {
+        position.jumpTo(target);
+      } finally {
+        _messagesProgrammaticScroll.end();
+      }
+    }
   }
 
   void _handleInputChanged() {
@@ -14600,6 +14698,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
   const _DingTalkMessageBubble({
     required this.message,
     required this.mine,
+    this.mediaLoading = false,
     this.onEdit,
     this.onShowEditHistory,
     this.onRetryMedia,
@@ -14618,6 +14717,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
 
   final DingTalkGatewayMessage message;
   final bool mine;
+  final bool mediaLoading;
   final VoidCallback? onEdit;
   final VoidCallback? onShowEditHistory;
   final VoidCallback? onRetryMedia;
@@ -14765,6 +14865,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   child: _DingTalkMediaRail(
                     media: previewableMedia,
                     mine: widget.mine,
+                    loading: widget.mediaLoading,
                     onRetry: widget.onRetryMedia,
                   ),
                 ),
@@ -15840,11 +15941,13 @@ class _DingTalkMediaRail extends StatelessWidget {
   const _DingTalkMediaRail({
     required this.media,
     required this.mine,
+    required this.loading,
     this.onRetry,
   });
 
   final List<DingTalkGatewayMedia> media;
   final bool mine;
+  final bool loading;
   final VoidCallback? onRetry;
 
   @override
@@ -15861,7 +15964,11 @@ class _DingTalkMediaRail extends StatelessWidget {
             runSpacing: 8,
             children: [
               for (final item in media)
-                _DingTalkMediaTile(media: item, onRetry: onRetry),
+                _DingTalkMediaTile(
+                  media: item,
+                  loading: loading,
+                  onRetry: onRetry,
+                ),
             ],
           ),
         ),
@@ -15871,9 +15978,14 @@ class _DingTalkMediaRail extends StatelessWidget {
 }
 
 class _DingTalkMediaTile extends StatelessWidget {
-  const _DingTalkMediaTile({required this.media, this.onRetry});
+  const _DingTalkMediaTile({
+    required this.media,
+    required this.loading,
+    this.onRetry,
+  });
 
   final DingTalkGatewayMedia media;
+  final bool loading;
   final VoidCallback? onRetry;
 
   Future<void> _open(BuildContext context) async {
@@ -15948,7 +16060,7 @@ class _DingTalkMediaTile extends StatelessWidget {
           : colors.surfaceContainerLow,
       borderRadius: BorderRadius.circular(14),
       child: InkWell(
-        onTap: () => unawaited(_open(context)),
+        onTap: loading ? null : () => unawaited(_open(context)),
         borderRadius: BorderRadius.circular(14),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
@@ -15956,7 +16068,11 @@ class _DingTalkMediaTile extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(
-                available ? _iconForMedia(media.kind) : Icons.cloud_off_rounded,
+                available
+                    ? _iconForMedia(media.kind)
+                    : loading
+                    ? Icons.cloud_download_outlined
+                    : Icons.cloud_off_rounded,
                 size: 22,
                 color: available ? colors.primary : colors.onSurfaceVariant,
               ),
@@ -15964,7 +16080,11 @@ class _DingTalkMediaTile extends StatelessWidget {
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 260),
                 child: Text(
-                  available ? media.displayName : '媒体加载失败，点击重试',
+                  available
+                      ? media.displayName
+                      : loading
+                      ? '正在缓存媒体…'
+                      : '媒体加载失败，点击重试',
                   maxLines: 1,
                   overflow: TextOverflow.ellipsis,
                   style: Theme.of(context).textTheme.labelLarge?.copyWith(
@@ -15975,7 +16095,14 @@ class _DingTalkMediaTile extends StatelessWidget {
               ),
               if (!available) ...[
                 const SizedBox(width: 4),
-                Icon(Icons.refresh_rounded, size: 17, color: colors.primary),
+                if (loading)
+                  const SizedBox(
+                    width: 15,
+                    height: 15,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                else
+                  Icon(Icons.refresh_rounded, size: 17, color: colors.primary),
               ],
             ],
           ),
