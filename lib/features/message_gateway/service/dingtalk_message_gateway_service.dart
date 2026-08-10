@@ -2519,7 +2519,7 @@ class DingTalkMessageGatewayService {
       }
       if (value is Map) {
         final map = _asMap(value);
-        final hasMessageIdentity = _first(map, const <String>[
+        final explicitMessageId = _first(map, const <String>[
           'openMessageId',
           'open_message_id',
           'openMsgId',
@@ -2528,8 +2528,14 @@ class DingTalkMessageGatewayService {
           'message_id',
           'msgId',
           'msg_id',
-          'id',
-        ]).isNotEmpty;
+        ]);
+        final hasMessageIdentity =
+            explicitMessageId.isNotEmpty ||
+            (_first(map, const <String>['id']).isNotEmpty &&
+                _looksLikeMessageRecord(
+                  map,
+                  inheritedConversationId: inheritedConversationId,
+                ));
         if (hasMessageIdentity) {
           final enriched = Map<String, Object?>.from(map);
           if (_first(enriched, const <String>[
@@ -2729,6 +2735,55 @@ class DingTalkMessageGatewayService {
       );
     }
     return result;
+  }
+
+  bool _looksLikeMessageRecord(
+    Map<String, Object?> map, {
+    required String inheritedConversationId,
+  }) {
+    const nestedMessageKeys = <String>{
+      'messages',
+      'conversationMessagesList',
+      'conversation_messages_list',
+      'conversationMessages',
+      'conversation_messages',
+      'items',
+      'records',
+    };
+    if (map.keys.any(nestedMessageKeys.contains)) return false;
+    const messageFields = <String>{
+      'content',
+      'text',
+      'msgContent',
+      'msg_content',
+      'richText',
+      'rich_text',
+      'markdown',
+      'createTime',
+      'create_time',
+      'createdAt',
+      'created_at',
+      'senderId',
+      'sender_id',
+      'senderUserId',
+      'sender_user_id',
+      'msgType',
+      'msg_type',
+      'mediaId',
+      'media_id',
+      'fileId',
+      'file_id',
+    };
+    if (!map.keys.any(messageFields.contains)) return false;
+    final conversationId = _first(map, const <String>[
+      'openConversationId',
+      'open_conversation_id',
+      'conversationId',
+      'conversation_id',
+      'chatId',
+      'chat_id',
+    ]);
+    return conversationId.isNotEmpty || inheritedConversationId.isNotEmpty;
   }
 
   void _consumeEventLine(String line, int generation) {

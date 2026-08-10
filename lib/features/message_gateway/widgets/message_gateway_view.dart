@@ -12613,6 +12613,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                 ? _DingTalkResponseErrorBanner(
                     key: ValueKey<String>(responseError),
                     message: responseError,
+                    onDismiss: () =>
+                        widget.controller.clearResponseError(conversation.id),
                   )
                 : const SizedBox.shrink(
                     key: ValueKey<String>('dingtalk-response-no-error'),
@@ -14534,9 +14536,14 @@ class _DingTalkRespondingIndicator extends StatelessWidget {
 }
 
 class _DingTalkResponseErrorBanner extends StatelessWidget {
-  const _DingTalkResponseErrorBanner({required this.message, super.key});
+  const _DingTalkResponseErrorBanner({
+    required this.message,
+    required this.onDismiss,
+    super.key,
+  });
 
   final String message;
+  final VoidCallback onDismiss;
 
   @override
   Widget build(BuildContext context) {
@@ -14568,6 +14575,17 @@ class _DingTalkResponseErrorBanner extends StatelessWidget {
                     color: colors.onErrorContainer,
                     fontWeight: FontWeight.w600,
                   ),
+                ),
+              ),
+              const SizedBox(width: 6),
+              IconButton(
+                tooltip: '关闭错误提示',
+                visualDensity: VisualDensity.compact,
+                onPressed: onDismiss,
+                icon: Icon(
+                  Icons.close_rounded,
+                  size: 18,
+                  color: colors.onErrorContainer,
                 ),
               ),
             ],

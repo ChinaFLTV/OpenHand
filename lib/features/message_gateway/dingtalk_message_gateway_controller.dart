@@ -207,6 +207,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   String? get warningMessage => _warningMessage;
   String? responseErrorMessage(String conversationId) =>
       _responseErrors[conversationId.trim()];
+
+  void clearResponseError(String conversationId) {
+    final normalizedId = conversationId.trim();
+    if (normalizedId.isEmpty || _responseErrors.remove(normalizedId) == null) {
+      return;
+    }
+    _notify();
+  }
+
   String? get deviceUrl => _deviceUrl;
   String? get dwsCommandCatalogError => _service.dwsCommandCatalogError;
   String get deviceCode {
@@ -1908,6 +1917,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   void _handleIncomingMessage(
     DingTalkGatewayMessage message, {
     bool allowResponse = true,
+    bool allowHistorical = false,
   }) {
     if (!_isPolling || _disposed) return;
     final messageId = normalizeDingTalkMessageId(message.id);
@@ -1967,7 +1977,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       localConversation,
     );
     if (allowedTarget == null) return;
-    if (localConversation != null &&
+    if (!allowHistorical &&
+        localConversation != null &&
         incoming.createdAt.isBefore(
           localConversation.createdAt.subtract(_conversationStartSkew),
         )) {
@@ -1975,7 +1986,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       return;
     }
     _remember(messageId);
-    if (_isSelf(incoming)) return;
+    if (_isSelf(incoming) && !allowHistorical) return;
     final conversationId =
         localConversation?.id ??
         (incoming.conversationType == DingTalkConversationType.group
@@ -2459,6 +2470,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _handleIncomingMessage(
         message,
         allowResponse: !isNew || !message.createdAt.isBefore(recentCutoff),
+        allowHistorical: true,
       );
     }
   }
