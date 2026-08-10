@@ -1882,14 +1882,6 @@
       }
     }
   },
-  "imageEditorClipboardFailed": "コピーに失敗しました：{error}",
-  "@imageEditorClipboardFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "imageEditorApplyButton": "適用",
   "imageEditorUndoButton": "元に戻す",
   "imageEditorResetAllButton": "すべてリセット",

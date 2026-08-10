@@ -134,7 +134,6 @@ export const dict_zhHant: Record<string, string> = {
   'sessions.subtitle.loading': '載入中…',
   'sessions.create.mode': '模式',
   'sessions.create.submitting': '建立中…',
-  'sessions.create.error.api': 'HTTP ',
   'sessions.mode.chat': '聊天模式',
   'sessions.mode.plan': '計劃模式',
   'sessions.empty': '尚無工作階段，先在上方建立一個吧。',

@@ -3586,11 +3586,6 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String imageEditorClipboardFailed(String error) {
-    return 'Kopieren fehlgeschlagen: $error';
-  }
-
-  @override
   String get imageEditorApplyButton => 'Anwenden';
 
   @override

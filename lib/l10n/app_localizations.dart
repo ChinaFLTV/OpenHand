@@ -6300,12 +6300,6 @@ abstract class AppLocalizations {
   /// **'已复制图片文件路径到剪贴板：{path}'**
   String imageEditorClipboardCopiedPath(String path);
 
-  /// No description provided for @imageEditorClipboardFailed.
-  ///
-  /// In zh, this message translates to:
-  /// **'复制失败：{error}'**
-  String imageEditorClipboardFailed(String error);
-
   /// No description provided for @imageEditorApplyButton.
   ///
   /// In zh, this message translates to:

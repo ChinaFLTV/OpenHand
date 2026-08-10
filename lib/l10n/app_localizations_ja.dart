@@ -3467,11 +3467,6 @@ class AppLocalizationsJa extends AppLocalizations {
   }
 
   @override
-  String imageEditorClipboardFailed(String error) {
-    return 'コピーに失敗しました：$error';
-  }
-
-  @override
   String get imageEditorApplyButton => '適用';
 
   @override

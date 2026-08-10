@@ -48,8 +48,6 @@ dependencies:
   flutter_pty: ^0.4.2
 dev_dependencies:
   flutter_lints: ^6.0.0
-  flutter_test:
-    sdk: flutter
 
 dependency_overrides:
   # 上游 1.0.12 强制固定 Strut 高度，会让中文回退字形与混合样式上下重叠。

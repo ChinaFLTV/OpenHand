@@ -134,7 +134,6 @@ export const dict_ja: Record<string, string> = {
   'sessions.subtitle.loading': '読み込み中…',
   'sessions.create.mode': 'モード',
   'sessions.create.submitting': '作成中…',
-  'sessions.create.error.api': 'HTTP ',
   'sessions.mode.chat': 'チャットモード',
   'sessions.mode.plan': '計画モード',
   'sessions.empty': 'セッションがありません。上から作成してください。',

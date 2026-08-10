@@ -1882,14 +1882,6 @@
       }
     }
   },
-  "imageEditorClipboardFailed": "Échec de la copie : {error}",
-  "@imageEditorClipboardFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "imageEditorApplyButton": "Appliquer",
   "imageEditorUndoButton": "Annuler",
   "imageEditorResetAllButton": "Tout réinitialiser",

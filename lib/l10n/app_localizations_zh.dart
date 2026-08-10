@@ -3422,11 +3422,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String imageEditorClipboardFailed(String error) {
-    return '复制失败：$error';
-  }
-
-  @override
   String get imageEditorApplyButton => '应用';
 
   @override
@@ -14131,11 +14126,6 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
   @override
   String imageEditorClipboardCopiedPath(String path) {
     return '已複製圖片檔案路徑到剪貼簿：$path';
-  }
-
-  @override
-  String imageEditorClipboardFailed(String error) {
-    return '複製失敗：$error';
   }
 
   @override

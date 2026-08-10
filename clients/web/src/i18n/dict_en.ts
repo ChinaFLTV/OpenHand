@@ -136,7 +136,6 @@ export const dict_en: Record<string, string> = {
   'sessions.subtitle.loading': 'Loading…',
   'sessions.create.mode': 'Mode',
   'sessions.create.submitting': 'Creating…',
-  'sessions.create.error.api': 'HTTP ',
   'sessions.mode.chat': 'Chat mode',
   'sessions.mode.plan': 'Plan mode',
   'sessions.empty': 'No sessions yet. Create one above.',

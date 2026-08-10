@@ -1887,14 +1887,6 @@
       }
     }
   },
-  "imageEditorClipboardFailed": "复制失败：{error}",
-  "@imageEditorClipboardFailed": {
-    "placeholders": {
-      "error": {
-        "type": "String"
-      }
-    }
-  },
   "imageEditorApplyButton": "应用",
   "imageEditorUndoButton": "回退",
   "imageEditorResetAllButton": "重置全部",
