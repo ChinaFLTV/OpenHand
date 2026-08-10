@@ -26,6 +26,37 @@ String normalizeDingTalkResourceId(Object? value) {
   return text;
 }
 
+/// 判断资源标识是否只是普通链接的查询参数，而不是媒体消息资源。
+bool isDingTalkResourceIdInUrlQuery(
+  Object? value,
+  String resourceId, {
+  required DingTalkMediaResourceType resourceType,
+}) {
+  final normalizedId = normalizeDingTalkResourceId(resourceId);
+  final raw = _normalizedDingTalkString(value);
+  if (normalizedId.isEmpty || raw.isEmpty) return false;
+  final keys = resourceType == DingTalkMediaResourceType.fileId
+      ? const <String>{'fileid', 'file_id'}
+      : const <String>{'mediaid', 'media_id'};
+  final urlPattern = RegExp(
+    r'''(?:https?|dingtalk)://[^\s<>()\[\]{}"'\\]+''',
+    caseSensitive: false,
+  );
+  for (final match in urlPattern.allMatches(raw)) {
+    var url = match.group(0) ?? '';
+    url = url.replaceFirst(RegExp(r'''[)\]}\>"'，。！？,.;]+$'''), '');
+    final uri = Uri.tryParse(url);
+    if (uri == null) continue;
+    for (final entry in uri.queryParameters.entries) {
+      if (!keys.contains(entry.key.toLowerCase())) continue;
+      if (normalizeDingTalkResourceId(entry.value) == normalizedId) {
+        return true;
+      }
+    }
+  }
+  return false;
+}
+
 /// 统一清理钉钉开放消息标识。
 ///
 /// DWS 的扁平事件和消息列表都返回开放消息 ID，但旧版本的事件封装
@@ -837,7 +868,15 @@ class DingTalkGatewayMessage {
               .whereType<DingTalkMessageEditRecord>()
               .toList(growable: false)
         : const <DingTalkMessageEditRecord>[];
-    final media = _mediaList(json['media']);
+    final media = _mediaList(json['media'])
+        .where(
+          (item) => !isDingTalkResourceIdInUrlQuery(
+            rawContent,
+            item.resourceId,
+            resourceType: item.resourceType,
+          ),
+        )
+        .toList(growable: false);
     final content =
         rawContent.trim().toLowerCase() == '[null]' && media.isNotEmpty
         ? media.map((item) => '[${item.displayName}]').join(' ')

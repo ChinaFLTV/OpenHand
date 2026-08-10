@@ -104,6 +104,10 @@ class DingTalkGatewayCommandException implements Exception {
       serverCode?.trim().toUpperCase() == 'RESOURCE_NOT_FOUND' ||
       message.toUpperCase().contains('RESOURCE_NOT_FOUND');
 
+  bool get isInvalidInput =>
+      serverCode?.trim().toLowerCase() == 'invalidrequest.inputargs.invalid' ||
+      message.contains('参数') && message.contains('缺少必要信息');
+
   bool get isRetryable =>
       retryable || reason?.trim().toLowerCase() == 'timeout';
 
@@ -784,6 +788,11 @@ class DingTalkMessageGatewayService {
         );
       }
       final commandError = _normalizeCommandException(error);
+      if (commandError?.isInvalidInput ?? false) {
+        _markMediaUnavailable(taskKey);
+        _logRuntime('WARN', '钉钉媒体资源参数无效，已跳过缓存：${media.displayName}。');
+        return null;
+      }
       if ((commandError?.isResourceNotFound ?? false) ||
           _isResourceNotFoundError(error)) {
         _markMediaUnavailable(taskKey);
@@ -3512,11 +3521,29 @@ class DingTalkMessageGatewayService {
           final isFile =
               raw.toLowerCase().contains('fileid') ||
               raw.toLowerCase().contains('file_id');
+          final resourceType = isFile
+              ? DingTalkMediaResourceType.fileId
+              : DingTalkMediaResourceType.mediaId;
+          final resourceId = match.group(1) ?? '';
+          if (isDingTalkResourceIdInUrlQuery(
+            raw,
+            resourceId,
+            resourceType: resourceType,
+          )) {
+            return;
+          }
+          final prefix = raw.substring(0, match.start).trimRight();
+          final isMediaProjection =
+              prefix.isEmpty ||
+              prefix.endsWith('(') ||
+              prefix.endsWith('[') ||
+              prefix.endsWith('{') ||
+              prefix.endsWith(',') ||
+              prefix.endsWith(':');
+          if (!isMediaProjection) return;
           addCandidate(
-            resourceId: match.group(1) ?? '',
-            resourceType: isFile
-                ? DingTalkMediaResourceType.fileId
-                : DingTalkMediaResourceType.mediaId,
+            resourceId: resourceId,
+            resourceType: resourceType,
             type: _mediaKindHint(raw),
             name: null,
             mimeType: null,

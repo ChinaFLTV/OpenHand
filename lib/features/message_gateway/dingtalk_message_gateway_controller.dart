@@ -807,6 +807,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     var changed = false;
     final media = <DingTalkGatewayMedia>[];
     for (final sourceItem in message.media) {
+      if (isDingTalkResourceIdInUrlQuery(
+        message.content,
+        sourceItem.resourceId,
+        resourceType: sourceItem.resourceType,
+      )) {
+        changed = true;
+        continue;
+      }
       final resourceId = normalizeDingTalkResourceId(sourceItem.resourceId);
       final item = resourceId == sourceItem.resourceId
           ? sourceItem
