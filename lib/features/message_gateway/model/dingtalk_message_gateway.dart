@@ -7,6 +7,20 @@ import '../../../app/support/openhand_paths.dart';
 import '../../../shared/model/dingtalk_multimodal_capability.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
+String _normalizedDingTalkString(Object? value) {
+  if (value == null) return '';
+  final text = value.toString().trim();
+  return text.toLowerCase() == 'null' ? '' : text;
+}
+
+String _normalizedDingTalkResourceId(Object? value) {
+  var text = _normalizedDingTalkString(value);
+  while (text.endsWith(')') || text.endsWith(']')) {
+    text = text.substring(0, text.length - 1).trimRight();
+  }
+  return text;
+}
+
 enum DingTalkConversationType { group, direct }
 
 enum DingTalkGatewayMessageRole { user, assistant }
@@ -119,31 +133,43 @@ class DingTalkGatewayMedia {
   });
 
   factory DingTalkGatewayMedia.fromJson(Map<String, Object?> json) {
-    final resourceId =
-        '${json['resource_id'] ?? json['media_id'] ?? json['file_id'] ?? ''}'
-            .trim();
+    final resourceId = _normalizedDingTalkResourceId(
+      json['resource_id'] ?? json['media_id'] ?? json['file_id'],
+    );
     if (resourceId.isEmpty) {
       throw const FormatException('钉钉媒体资源标识不完整。');
     }
-    final rawType =
-        '${json['resource_type'] ?? (json['file_id'] != null ? 'fileId' : 'mediaId')}'
-            .trim()
-            .toLowerCase();
+    final rawType = _normalizedDingTalkString(
+      json['resource_type'] ?? (json['file_id'] != null ? 'fileId' : 'mediaId'),
+    ).toLowerCase();
+    final name = _normalizedDingTalkString(json['name'] ?? json['file_name']);
+    final mimeType = _normalizedDingTalkString(
+      json['mime_type'] ?? json['mimeType'],
+    );
+    var kind = DingTalkMediaKindX.fromStorage(
+      json['kind'] ?? json['media_type'],
+    );
+    if (kind == DingTalkMediaKind.file && name.isNotEmpty) {
+      kind = DingTalkMediaKindX.fromFileName(name);
+    }
+    if (kind == DingTalkMediaKind.file && mimeType.isNotEmpty) {
+      kind = DingTalkMediaKindX.fromStorage(mimeType);
+    }
     return DingTalkGatewayMedia(
       resourceId: resourceId,
-      messageId: '${json['message_id'] ?? ''}'.trim(),
-      conversationId: '${json['conversation_id'] ?? ''}'.trim(),
+      messageId: _normalizedDingTalkString(json['message_id']),
+      conversationId: _normalizedDingTalkString(json['conversation_id']),
       resourceType: rawType == 'fileid'
           ? DingTalkMediaResourceType.fileId
           : DingTalkMediaResourceType.mediaId,
-      kind: DingTalkMediaKindX.fromStorage(json['kind'] ?? json['media_type']),
-      name: '${json['name'] ?? json['file_name'] ?? ''}'.trim(),
-      mimeType: '${json['mime_type'] ?? json['mimeType'] ?? ''}'.trim(),
+      kind: kind,
+      name: name,
+      mimeType: mimeType,
       sizeBytes: _nonNegativeInt(json['size_bytes'] ?? json['size']),
       durationMs: _nullableNonNegativeInt(
         json['duration_ms'] ?? json['duration'],
       ),
-      localPath: '${json['local_path'] ?? ''}'.trim(),
+      localPath: _normalizedDingTalkString(json['local_path']),
     );
   }
 
@@ -161,7 +187,7 @@ class DingTalkGatewayMedia {
   bool get isCached => localPath.trim().isNotEmpty;
 
   String get displayName {
-    final normalized = name.trim();
+    final normalized = _normalizedDingTalkString(name);
     if (normalized.isNotEmpty) return normalized;
     return switch (kind) {
       DingTalkMediaKind.image => '图片',
@@ -721,7 +747,7 @@ class DingTalkGatewayMessage {
   factory DingTalkGatewayMessage.fromJson(Map<String, Object?> json) {
     final id = '${json['id'] ?? ''}'.trim();
     final conversationId = '${json['conversation_id'] ?? ''}'.trim();
-    final content = '${json['content'] ?? ''}';
+    final rawContent = '${json['content'] ?? ''}';
     final createdAt = DateTime.tryParse('${json['created_at'] ?? ''}');
     if (id.isEmpty || conversationId.isEmpty || createdAt == null) {
       throw const FormatException('钉钉消息数据不完整。');
@@ -751,6 +777,11 @@ class DingTalkGatewayMessage {
               .whereType<DingTalkMessageEditRecord>()
               .toList(growable: false)
         : const <DingTalkMessageEditRecord>[];
+    final media = _mediaList(json['media']);
+    final content =
+        rawContent.trim().toLowerCase() == '[null]' && media.isNotEmpty
+        ? media.map((item) => '[${item.displayName}]').join(' ')
+        : rawContent;
     return DingTalkGatewayMessage(
       id: id,
       conversationId: conversationId,
@@ -761,7 +792,7 @@ class DingTalkGatewayMessage {
       senderName: '${json['sender_name'] ?? ''}',
       senderId: '${json['sender_id'] ?? ''}',
       conversationTitle: '${json['conversation_title'] ?? ''}',
-      media: _mediaList(json['media']),
+      media: media,
       fromSelf: boolFromValue(json['from_self']),
       failed: boolFromValue(json['failed']),
       mentionedCurrentUser: boolFromValue(json['mentioned_current_user']),

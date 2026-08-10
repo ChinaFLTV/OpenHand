@@ -13915,16 +13915,26 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                               ),
                             ),
                           ),
-                          child: Wrap(
-                            spacing: 4,
-                            runSpacing: 4,
-                            textDirection: widget.mine
-                                ? TextDirection.rtl
-                                : TextDirection.ltr,
-                            children: _buildHoverActions(
-                              context,
-                              previewableMedia,
-                            ),
+                          child: Column(
+                            mainAxisSize: MainAxisSize.min,
+                            crossAxisAlignment: widget.mine
+                                ? CrossAxisAlignment.end
+                                : CrossAxisAlignment.start,
+                            children: [
+                              Wrap(
+                                spacing: 4,
+                                runSpacing: 4,
+                                textDirection: widget.mine
+                                    ? TextDirection.rtl
+                                    : TextDirection.ltr,
+                                children: _buildHoverActions(
+                                  context,
+                                  widget.message.media,
+                                ),
+                              ),
+                              const SizedBox(height: 4),
+                              _buildMessageMetaPill(context),
+                            ],
                           ),
                         )
                       : SizedBox(
@@ -13933,11 +13943,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                           height: 0,
                         ),
                 ),
-              ),
-              const SizedBox(height: 4),
-              Align(
-                alignment: alignment,
-                child: _buildMessageMetaPill(context),
               ),
               const SizedBox(height: 7),
             ],
@@ -13949,10 +13954,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
 
   List<Widget> _buildHoverActions(
     BuildContext context,
-    List<DingTalkGatewayMedia> previewableMedia,
+    List<DingTalkGatewayMedia> media,
   ) {
     final actions = <Widget>[
-      _buildCopyAction(context, previewableMedia),
+      _buildCopyAction(context, media),
       if (widget.speechEnabled && widget.onToggleSpeech != null)
         _DingTalkMessageActionButton(
           icon: widget.speechPlaying
@@ -14060,6 +14065,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             key: ValueKey<String>(content),
             data: content,
             selectable: true,
+            onTapLink: (text, href, title) =>
+                unawaited(_openMarkdownLink(context, href ?? text)),
             imageBuilder: (uri, title, alt) => Text(
               alt?.trim().isNotEmpty == true ? '[${alt!.trim()}]' : '[图片]',
               style: bodyStyle?.copyWith(fontStyle: FontStyle.italic),
@@ -14104,17 +14111,42 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     );
   }
 
+  Future<void> _openMarkdownLink(BuildContext context, String? href) async {
+    final target = href?.trim() ?? '';
+    final uri = target.isEmpty ? null : Uri.tryParse(target);
+    final scheme = uri?.scheme.toLowerCase();
+    if (uri == null ||
+        (scheme != 'http' && scheme != 'https' && scheme != 'mailto')) {
+      const error = FormatException('Markdown 链接无效或暂不支持。');
+      silentLog('dingtalk_gateway', '打开 Markdown 链接', error);
+      if (context.mounted) {
+        showOpenHandErrorSnack(context, '链接无效或暂不支持打开。');
+      }
+      return;
+    }
+    final opened = await openExternalUriWithSystemApp(
+      uri,
+      tag: 'dingtalk_gateway.markdown_link',
+    );
+    if (!context.mounted) return;
+    if (!opened) {
+      showOpenHandErrorSnack(context, '无法打开链接，请检查系统默认应用设置。');
+      return;
+    }
+    showOpenHandInfoSnack(context, '正在打开链接');
+  }
+
   Widget _buildCopyAction(
     BuildContext context,
-    List<DingTalkGatewayMedia> previewableMedia,
+    List<DingTalkGatewayMedia> media,
   ) {
     return _DingTalkMessageActionButton(
       icon: Icons.copy_rounded,
-      label: previewableMedia.isNotEmpty ? '复制媒体' : '复制',
+      label: media.isNotEmpty ? '复制媒体' : '复制',
       onPressed: _copyingMedia
           ? null
-          : () => previewableMedia.isNotEmpty
-                ? unawaited(_copyMediaFiles(context, previewableMedia))
+          : () => media.isNotEmpty
+                ? unawaited(_copyMediaFiles(context, media))
                 : unawaited(
                     copyOpenHandTextToClipboard(
                       context: context,
@@ -14130,14 +14162,12 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final colors = Theme.of(context).colorScheme;
     return DecoratedBox(
       decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.52),
+        color: colors.surfaceContainerHighest.withValues(alpha: 0.42),
         borderRadius: BorderRadius.circular(18),
-        border: Border.all(
-          color: colors.outlineVariant.withValues(alpha: 0.82),
-        ),
+        border: Border.all(color: colors.outline.withValues(alpha: 0.62)),
       ),
       child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
         child: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -14151,7 +14181,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               formatYearMonthDayHm(widget.message.createdAt.toLocal()),
               style: Theme.of(context).textTheme.labelSmall?.copyWith(
                 color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.w600,
+                fontWeight: FontWeight.w700,
               ),
             ),
             if (widget.mine && widget.message.readByPeer) ...[

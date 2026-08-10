@@ -2314,6 +2314,9 @@ class DingTalkMessageGatewayService {
             ),
           )
           .toList(growable: false);
+      final displayContent = media.isNotEmpty && _isMediaPlaceholder(content)
+          ? _mediaSummary(media)
+          : content;
       if (id.isEmpty ||
           (content.isEmpty && media.isEmpty && !_messageRecalled(map)) ||
           conversationId.isEmpty) {
@@ -2336,9 +2339,9 @@ class DingTalkMessageGatewayService {
           conversationId: conversationId,
           conversationType: conversationType,
           role: DingTalkGatewayMessageRole.user,
-          content: content.isEmpty && !recalled
+          content: displayContent.isEmpty && !recalled
               ? _mediaSummary(media)
-              : content,
+              : displayContent,
           createdAt: _parseDateTime(
             map['createTime'] ?? map['createdAt'] ?? map['create_time'],
           ),
@@ -2510,6 +2513,9 @@ class DingTalkMessageGatewayService {
           ),
         )
         .toList(growable: false);
+    final displayContent = media.isNotEmpty && _isMediaPlaceholder(content)
+        ? _mediaSummary(media)
+        : content;
     if (content.isEmpty && media.isEmpty) return null;
     final mentionedCurrentUser =
         _eventString(map, const <String>[
@@ -2526,7 +2532,7 @@ class DingTalkMessageGatewayService {
       conversationId: conversationId,
       conversationType: conversationType,
       role: DingTalkGatewayMessageRole.user,
-      content: content.isEmpty ? _mediaSummary(media) : content,
+      content: displayContent.isEmpty ? _mediaSummary(media) : displayContent,
       createdAt: _eventDateTime(map),
       senderName: _eventString(map, const <String>[
         'sender_name',
@@ -2896,14 +2902,16 @@ class DingTalkMessageGatewayService {
       required Object? duration,
       String messageId = '',
       String conversationId = '',
+      DingTalkMediaKind? inheritedKind,
     }) {
       final normalizedId = resourceId.trim();
       if (normalizedId.isEmpty || result.length >= 12) return;
       final key = '${resourceType.name}:$normalizedId';
       if (!seen.add(key)) return;
-      final rawName = '$name'.trim();
-      final mime = '$mimeType'.trim();
-      var kind = DingTalkMediaKindX.fromStorage(type);
+      final rawName = _mediaText(name);
+      final mime = _mediaText(mimeType);
+      var kind = _mediaKindHint(type) ?? inheritedKind;
+      kind ??= DingTalkMediaKindX.fromStorage(type);
       if (kind == DingTalkMediaKind.file && rawName.isNotEmpty) {
         kind = DingTalkMediaKindX.fromFileName(rawName);
       }
@@ -2917,8 +2925,8 @@ class DingTalkMessageGatewayService {
           kind: kind,
           name: rawName,
           mimeType: mime,
-          sizeBytes: int.tryParse('$size') ?? 0,
-          durationMs: int.tryParse('$duration'),
+          sizeBytes: int.tryParse(_mediaText(size)) ?? 0,
+          durationMs: int.tryParse(_mediaText(duration)),
           messageId: messageId.trim(),
           conversationId: conversationId.trim(),
         ),
@@ -2930,6 +2938,7 @@ class DingTalkMessageGatewayService {
       int depth = 0,
       String inheritedMessageId = '',
       String inheritedConversationId = '',
+      DingTalkMediaKind? inheritedKind,
     }) {
       if (depth > 6 || result.length >= 12 || value == null) return;
       if (value is String) {
@@ -2942,11 +2951,12 @@ class DingTalkMessageGatewayService {
               depth: depth + 1,
               inheritedMessageId: inheritedMessageId,
               inheritedConversationId: inheritedConversationId,
+              inheritedKind: inheritedKind,
             );
           }
         }
         final match = RegExp(
-          r'''(?:media[_-]?id|file[_-]?id)\s*["'=:]\s*["']?([^,"'\s}]+)''',
+          r'''(?:media[_-]?id|file[_-]?id)\s*["'=:]\s*["']?([^,"'\s}\)\]]+)''',
           caseSensitive: false,
         ).firstMatch(raw);
         if (match != null) {
@@ -2958,13 +2968,14 @@ class DingTalkMessageGatewayService {
             resourceType: isFile
                 ? DingTalkMediaResourceType.fileId
                 : DingTalkMediaResourceType.mediaId,
-            type: null,
+            type: _mediaKindHint(raw),
             name: null,
             mimeType: null,
             size: null,
             duration: null,
             messageId: inheritedMessageId,
             conversationId: inheritedConversationId,
+            inheritedKind: inheritedKind,
           );
         }
         return;
@@ -2976,6 +2987,7 @@ class DingTalkMessageGatewayService {
             depth: depth + 1,
             inheritedMessageId: inheritedMessageId,
             inheritedConversationId: inheritedConversationId,
+            inheritedKind: inheritedKind,
           );
           if (result.length >= 12) break;
         }
@@ -3001,6 +3013,20 @@ class DingTalkMessageGatewayService {
       final conversationContext = currentConversationId.isEmpty
           ? inheritedConversationId
           : currentConversationId;
+      final currentKind =
+          _mediaKindHint(
+            _first(current, const <String>[
+              'messageType',
+              'msgType',
+              'msgtype',
+              'msg_type',
+              'mediaType',
+              'media_type',
+              'type',
+              'kind',
+            ]),
+          ) ??
+          inheritedKind;
       final mediaId = _first(current, const <String>[
         'mediaId',
         'media_id',
@@ -3022,6 +3048,7 @@ class DingTalkMessageGatewayService {
             'mediaType',
             'media_type',
             'type',
+            'kind',
           ]),
           name: _first(current, const <String>[
             'fileName',
@@ -3043,6 +3070,7 @@ class DingTalkMessageGatewayService {
               current['duration'],
           messageId: messageContext,
           conversationId: conversationContext,
+          inheritedKind: currentKind,
         );
       }
       for (final key in const <String>[
@@ -3066,11 +3094,13 @@ class DingTalkMessageGatewayService {
         'quoted_message',
         'quotedMessage',
       ]) {
+        final childKind = _mediaKindHint(key) ?? currentKind;
         visit(
           current[key],
           depth: depth + 1,
           inheritedMessageId: messageContext,
           inheritedConversationId: conversationContext,
+          inheritedKind: childKind,
         );
       }
     }
@@ -3081,9 +3111,53 @@ class DingTalkMessageGatewayService {
     return result;
   }
 
+  String _mediaText(Object? value) {
+    if (value == null) return '';
+    final text = value.toString().trim();
+    return text.toLowerCase() == 'null' ? '' : text;
+  }
+
+  DingTalkMediaKind? _mediaKindHint(Object? value) {
+    final normalized = _mediaText(value).toLowerCase();
+    if (normalized.isEmpty) return null;
+    if (normalized.contains('image') ||
+        normalized.contains('photo') ||
+        normalized.contains('picture') ||
+        normalized.contains('图片') ||
+        normalized.contains('照片') ||
+        normalized.contains('图像')) {
+      return DingTalkMediaKind.image;
+    }
+    if (normalized.contains('video') || normalized.contains('视频')) {
+      return DingTalkMediaKind.video;
+    }
+    if (normalized.contains('audio') ||
+        normalized.contains('voice') ||
+        normalized.contains('语音') ||
+        normalized.contains('音频')) {
+      return DingTalkMediaKind.audio;
+    }
+    if (normalized.contains('file') ||
+        normalized.contains('document') ||
+        normalized.contains('attachment') ||
+        normalized.contains('文件') ||
+        normalized.contains('附件')) {
+      return DingTalkMediaKind.file;
+    }
+    return null;
+  }
+
   String _mediaSummary(List<DingTalkGatewayMedia> media) {
     if (media.isEmpty) return '媒体消息';
     return media.map((item) => '[${item.displayName}]').join(' ');
+  }
+
+  bool _isMediaPlaceholder(String value) {
+    final normalized = value.trim().toLowerCase();
+    if (normalized.isEmpty) return false;
+    return (normalized.startsWith('[') && normalized.contains('消息')) ||
+        normalized.contains('(mediaid=') ||
+        normalized.contains('(fileid=');
   }
 
   String _formatChatDateTime(DateTime value) {
