@@ -75,7 +75,7 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
       onError: (error, stack) =>
           silentLog('runtime_log_dialog', '刷新运行日志', error, stack),
     );
-    _scheduleFollow();
+    _scheduleFollow(animated: false);
   }
 
   @override
@@ -104,7 +104,7 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
       _lastRevision = widget.revision();
       _refreshing = true;
       _renderDebouncer.scheduleIfIdle(_flushRefresh);
-      _scheduleFollow();
+      _scheduleFollow(animated: false);
     }
   }
 
@@ -130,15 +130,15 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
     if (_follow) _scheduleFollow();
   }
 
-  void _scheduleFollow() {
+  void _scheduleFollow({bool animated = true}) {
     if (_clearScheduled) return;
     _clearScheduled = true;
     WidgetsBinding.instance.addPostFrameCallback((_) {
       _clearScheduled = false;
       if (!mounted || !_follow) return;
-      _scrollGuard.followToBottom(
+      _scrollGuard.followToStart(
         _scrollController,
-        animated: true,
+        animated: animated,
         animationDuration: openHandMotionDuration(
           context,
           const Duration(milliseconds: 220),
@@ -181,7 +181,10 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
                       tooltip: _follow
                           ? _localized(context, '取消自动跟随')
                           : _localized(context, '自动跟随到底部'),
-                      onPressed: () => setState(() => _follow = !_follow),
+                      onPressed: () {
+                        setState(() => _follow = !_follow);
+                        if (_follow) _scheduleFollow();
+                      },
                       icon: Icon(
                         _follow
                             ? Icons.vertical_align_bottom_rounded
@@ -220,26 +223,29 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
           ),
           const Divider(height: 1),
           Expanded(
-            child: OpenHandSafeScrollbar(
-              controller: _scrollController,
-              thumbVisibility: true,
-              child: OpenHandConsoleLogPanel(
-                lineCount: logs.length,
-                lineAt: (index) => logs[index],
+            child: RepaintBoundary(
+              child: OpenHandSafeScrollbar(
                 controller: _scrollController,
-                onNotification: _scrollGuard.handleNotification,
-                padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
-                borderRadius: BorderRadius.zero,
-                lineSpacing: 2,
-                emptyPlaceholder:
-                    widget.emptyPlaceholder ??
-                    Text(
-                      _localized(context, '暂无运行日志，等待组件输出。'),
-                      style: theme.textTheme.bodySmall?.copyWith(
-                        color: OpenHandConsolePalette.muted,
-                        fontFamily: 'monospace',
+                thumbVisibility: true,
+                child: OpenHandConsoleLogPanel(
+                  lineCount: logs.length,
+                  lineAt: (index) => logs[index],
+                  controller: _scrollController,
+                  onNotification: _scrollGuard.handleNotification,
+                  reverse: true,
+                  padding: const EdgeInsets.fromLTRB(14, 10, 14, 14),
+                  borderRadius: BorderRadius.zero,
+                  lineSpacing: 2,
+                  emptyPlaceholder:
+                      widget.emptyPlaceholder ??
+                      Text(
+                        _localized(context, '暂无运行日志，等待组件输出。'),
+                        style: theme.textTheme.bodySmall?.copyWith(
+                          color: OpenHandConsolePalette.muted,
+                          fontFamily: 'monospace',
+                        ),
                       ),
-                    ),
+                ),
               ),
             ),
           ),

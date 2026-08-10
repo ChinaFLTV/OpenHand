@@ -97,6 +97,7 @@ class OpenHandConsoleLogPanel extends StatefulWidget {
     this.padding = const EdgeInsets.all(10),
     this.borderRadius = const BorderRadius.all(Radius.circular(8)),
     this.lineSpacing = 0,
+    this.reverse = false,
   });
 
   /// 行数与按下标取行分开传入：BoundedLogBuffer 这类环形缓冲因此不必
@@ -116,6 +117,9 @@ class OpenHandConsoleLogPanel extends StatefulWidget {
 
   /// 行间距；0 表示仅靠行高分隔。
   final double lineSpacing;
+
+  /// 是否以倒序列表呈现。倒序列表将最新行固定在滚动起点，适合持续追加日志。
+  final bool reverse;
 
   @override
   State<OpenHandConsoleLogPanel> createState() =>
@@ -177,7 +181,12 @@ class _OpenHandConsoleLogPanelState extends State<OpenHandConsoleLogPanel> {
   Widget build(BuildContext context) {
     final snapshot = _selectionHeld ? _selectionSnapshot : null;
     final lineCount = snapshot?.length ?? widget.lineCount;
-    final lineAt = snapshot == null ? widget.lineAt : snapshot.elementAt;
+    final sourceLineAt = snapshot == null ? widget.lineAt : snapshot.elementAt;
+    String lineAt(int index) {
+      final sourceIndex = widget.reverse ? lineCount - index - 1 : index;
+      return sourceLineAt(sourceIndex);
+    }
+
     return Container(
       margin: widget.margin,
       decoration: BoxDecoration(
@@ -192,6 +201,7 @@ class _OpenHandConsoleLogPanelState extends State<OpenHandConsoleLogPanel> {
                 onSelectionChanged: _handleSelectionChanged,
                 child: ListView.builder(
                   controller: widget.controller,
+                  reverse: widget.reverse,
                   padding: widget.padding,
                   itemCount: lineCount,
                   itemBuilder: (listContext, index) {
