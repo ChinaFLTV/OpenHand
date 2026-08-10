@@ -805,6 +805,7 @@ class DingTalkGatewayMessage {
     String? id,
     String? content,
     List<DingTalkGatewayMedia>? media,
+    bool? mentionedCurrentUser,
     bool? readByPeer,
     bool? recalled,
     List<String>? reactions,
@@ -826,7 +827,7 @@ class DingTalkGatewayMessage {
       media: media ?? this.media,
       fromSelf: fromSelf,
       failed: failed,
-      mentionedCurrentUser: mentionedCurrentUser,
+      mentionedCurrentUser: mentionedCurrentUser ?? this.mentionedCurrentUser,
       readByPeer: readByPeer ?? this.readByPeer,
       recalled: recalled ?? this.recalled,
       reactions: reactions ?? this.reactions,
@@ -932,10 +933,12 @@ class DingTalkConversation {
     required this.type,
     required this.title,
     List<DingTalkGatewayMessage> messages = const <DingTalkGatewayMessage>[],
+    DateTime? createdAt,
     this.openConversationId,
     this.directUserId,
     this.directOpenDingTalkId,
-  }) : messages = List<DingTalkGatewayMessage>.from(messages);
+  }) : createdAt = createdAt ?? DateTime.now(),
+       messages = List<DingTalkGatewayMessage>.from(messages);
 
   factory DingTalkConversation.fromJson(Map<String, Object?> json) {
     final id = '${json['id'] ?? ''}'.trim();
@@ -968,6 +971,9 @@ class DingTalkConversation {
       type: type,
       title: title,
       messages: messages,
+      createdAt:
+          DateTime.tryParse('${json['created_at'] ?? ''}') ??
+          (messages.isEmpty ? DateTime.now() : messages.first.createdAt),
       openConversationId: nullIfBlank(
         '${json['open_conversation_id'] ?? json['openConversationId'] ?? ''}',
       ),
@@ -978,6 +984,11 @@ class DingTalkConversation {
     );
     final sessionId = '${json['ai_session_id'] ?? ''}'.trim();
     conversation.aiSessionId = sessionId.isEmpty ? null : sessionId;
+    final checkpointId = '${json['ai_context_checkpoint_message_id'] ?? ''}'
+        .trim();
+    conversation.aiContextCheckpointMessageId = checkpointId.isEmpty
+        ? null
+        : checkpointId;
     return conversation;
   }
 
@@ -985,10 +996,12 @@ class DingTalkConversation {
   final DingTalkConversationType type;
   String title;
   final List<DingTalkGatewayMessage> messages;
+  final DateTime createdAt;
 
   /// DWS 编辑消息所需的 openConversationId。直聊在首次收到事件后补齐。
   String? openConversationId;
   String? aiSessionId;
+  String? aiContextCheckpointMessageId;
   String? directUserId;
   String? directOpenDingTalkId;
 
@@ -1002,16 +1015,17 @@ class DingTalkConversation {
     'id': id,
     'type': type.name,
     'title': title,
+    'created_at': createdAt.toIso8601String(),
     'open_conversation_id': openConversationId,
     'ai_session_id': aiSessionId,
+    'ai_context_checkpoint_message_id': aiContextCheckpointMessageId,
     'direct_user_id': directUserId,
     'direct_open_dingtalk_id': directOpenDingTalkId,
     'messages': messages.map((item) => item.toJson()).toList(growable: false),
   };
 
-  DateTime get updatedAt => messages.isEmpty
-      ? DateTime.fromMillisecondsSinceEpoch(0)
-      : messages.last.createdAt;
+  DateTime get updatedAt =>
+      messages.isEmpty ? createdAt : messages.last.createdAt;
 
   String get preview => messages.isEmpty ? '' : messages.last.content;
 }

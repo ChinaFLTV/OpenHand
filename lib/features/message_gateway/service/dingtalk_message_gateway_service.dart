@@ -114,6 +114,8 @@ class DingTalkMessageGatewayService {
   static const Duration _sentMessageLookupWindow = Duration(minutes: 2);
   static const Duration _sentMessageLookupTimeout = Duration(seconds: 8);
   static const int _sentMessageLookupLimit = 50;
+  static const int _messageQueryPageSize = 50;
+  static const int _messageQueryMaxPages = 10;
   static const int _batchSize = 30;
   static const int _detailConcurrency = 4;
   static const int _maxMediaCacheFiles = 512;
@@ -946,49 +948,117 @@ class DingTalkMessageGatewayService {
     final endText = end.toIso8601String();
     final allStartText = _formatChatDateTime(start);
     final allEndText = _formatChatDateTime(end);
-    final results = await Future.wait<Object?>(<Future<Object?>>[
-      _runJson(<String>[
-        'chat',
-        'message',
-        'list-mentions',
-        '--start',
-        startText,
-        '--end',
-        endText,
-        '--limit',
-        '50',
-        '--cursor',
-        '0',
-        '--format',
-        'json',
-      ]),
-      _runJson(<String>[
-        'chat',
-        'message',
-        'list-all',
-        '--start',
-        allStartText,
-        '--end',
-        allEndText,
-        '--limit',
-        '50',
-        '--cursor',
-        '0',
-        '--format',
-        'json',
-      ]),
+    final pages = await Future.wait<List<Object?>>(<Future<List<Object?>>>[
+      _queryMessagePages(
+        (cursor) => <String>[
+          'chat',
+          'message',
+          'list-mentions',
+          '--start',
+          startText,
+          '--end',
+          endText,
+          '--limit',
+          '$_messageQueryPageSize',
+          '--cursor',
+          cursor,
+          '--format',
+          'json',
+        ],
+        label: '@我消息',
+      ),
+      _queryMessagePages(
+        (cursor) => <String>[
+          'chat',
+          'message',
+          'list-all',
+          '--start',
+          allStartText,
+          '--end',
+          allEndText,
+          '--limit',
+          '$_messageQueryPageSize',
+          '--cursor',
+          cursor,
+          '--format',
+          'json',
+        ],
+        label: '全部消息',
+      ),
     ]);
-    final mentions = results[0];
-    final all = results[1];
+    final mentions = pages[0];
+    final all = pages[1];
     final messages = <DingTalkGatewayMessage>[
-      ..._parseMessages(mentions, mentionedCurrentUser: true),
-      ..._parseMessages(all),
+      for (final page in mentions)
+        ..._parseMessages(page, mentionedCurrentUser: true),
+      for (final page in all) ..._parseMessages(page),
     ];
-    final allMap = _asMap(all);
-    final warning =
-        allMap['friendly_hint']?.toString() ??
-        _asMap(allMap['data'])['friendly_hint']?.toString();
+    String? warning;
+    for (final page in all) {
+      final candidate = _findPageField(page, const <String>[
+        'friendly_hint',
+        'friendlyHint',
+      ])?.toString();
+      if (candidate != null && candidate.trim().isNotEmpty) {
+        warning = candidate;
+        break;
+      }
+    }
     return DingTalkGatewayQueryResult(messages: messages, warning: warning);
+  }
+
+  Future<List<Object?>> _queryMessagePages(
+    List<String> Function(String cursor) buildArguments, {
+    required String label,
+  }) async {
+    final pages = <Object?>[];
+    var cursor = '0';
+    for (var pageIndex = 0; pageIndex < _messageQueryMaxPages; pageIndex++) {
+      late final Object? page;
+      try {
+        page = await _runJson(buildArguments(cursor));
+      } catch (error, stack) {
+        if (pages.isEmpty) rethrow;
+        _logRuntime('WARN', '钉钉$label后续分页失败，已保留前面已同步的消息。');
+        silentLog('dingtalk_gateway', '读取钉钉$label后续分页', error, stack);
+        break;
+      }
+      pages.add(page);
+      final nextCursor = _nextPageCursor(page);
+      if (nextCursor.isEmpty || nextCursor == cursor) break;
+      if (!_hasMorePages(page)) break;
+      if (pageIndex + 1 == _messageQueryMaxPages) {
+        _logRuntime('WARN', '钉钉$label分页达到上限，较早消息将在后续对账中补齐。');
+        break;
+      }
+      cursor = nextCursor;
+    }
+    return pages;
+  }
+
+  bool _hasMorePages(Object? raw) {
+    return _asBool(_findPageField(raw, const <String>['hasMore', 'has_more']));
+  }
+
+  String _nextPageCursor(Object? raw) {
+    return _firstValues(<Object?>[
+      _findPageField(raw, const <String>['nextCursor', 'next_cursor']),
+    ]);
+  }
+
+  Object? _findPageField(Object? raw, List<String> keys, {int depth = 0}) {
+    if (depth > 4 || raw is! Map) return null;
+    final map = _asMap(raw);
+    for (final key in keys) {
+      final value = map[key];
+      if (value != null) return value;
+    }
+    for (final key in const <String>['result', 'data', 'page', 'pagination']) {
+      final value = map[key];
+      final found = _findPageField(value, keys, depth: depth + 1);
+      if (found != null) return found;
+    }
+    return null;
   }
 
   /// 回读指定会话的最近消息。消息编辑不会产生个人 IM 事件，
@@ -2076,9 +2146,47 @@ class DingTalkMessageGatewayService {
     DingTalkConversationType? fallbackConversationType,
   }) {
     final values = <Object?>[];
-    void collect(Object? value) {
+    DingTalkConversationType? inferConversationType(Map<String, Object?> map) {
+      final typeText = _first(map, const <String>[
+        'conversationType',
+        'conversation_type',
+        'chatType',
+        'chat_type',
+      ]).toLowerCase();
+      if (typeText.contains('group') || typeText == '2') {
+        return DingTalkConversationType.group;
+      }
+      if (typeText.contains('direct') || typeText == '1') {
+        return DingTalkConversationType.direct;
+      }
+      if (map.containsKey('singleChat')) {
+        return _asBool(map['singleChat'])
+            ? DingTalkConversationType.direct
+            : DingTalkConversationType.group;
+      }
+      if (map.containsKey('single_chat')) {
+        return _asBool(map['single_chat'])
+            ? DingTalkConversationType.direct
+            : DingTalkConversationType.group;
+      }
+      return null;
+    }
+
+    void collect(
+      Object? value, {
+      String inheritedConversationId = '',
+      DingTalkConversationType? inheritedConversationType,
+      String inheritedConversationTitle = '',
+    }) {
       if (value is List) {
-        values.addAll(value);
+        for (final item in value) {
+          collect(
+            item,
+            inheritedConversationId: inheritedConversationId,
+            inheritedConversationType: inheritedConversationType,
+            inheritedConversationTitle: inheritedConversationTitle,
+          );
+        }
         return;
       }
       if (value is Map) {
@@ -2095,19 +2203,75 @@ class DingTalkMessageGatewayService {
           'id',
         ]).isNotEmpty;
         if (hasMessageIdentity) {
-          values.add(value);
+          final enriched = Map<String, Object?>.from(map);
+          if (_first(enriched, const <String>[
+                'openConversationId',
+                'open_conversation_id',
+                'conversationId',
+                'conversation_id',
+                'chatId',
+                'chat_id',
+              ]).isEmpty &&
+              inheritedConversationId.isNotEmpty) {
+            enriched['conversationId'] = inheritedConversationId;
+          }
+          if (inferConversationType(enriched) == null &&
+              inheritedConversationType != null) {
+            enriched['conversationType'] =
+                inheritedConversationType == DingTalkConversationType.group
+                ? 'group'
+                : 'direct';
+          }
+          if (_first(enriched, const <String>[
+                'conversationTitle',
+                'groupName',
+                'title',
+              ]).isEmpty &&
+              inheritedConversationTitle.isNotEmpty) {
+            enriched['conversationTitle'] = inheritedConversationTitle;
+          }
+          values.add(enriched);
           return;
         }
+        final nextConversationId = _first(map, const <String>[
+          'openConversationId',
+          'open_conversation_id',
+          'conversationId',
+          'conversation_id',
+          'chatId',
+          'chat_id',
+        ]);
+        final nextConversationType =
+            inferConversationType(map) ?? inheritedConversationType;
+        final nextConversationTitle = _first(map, const <String>[
+          'conversationTitle',
+          'groupName',
+          'title',
+        ]);
         for (final key in const <String>[
           'messages',
+          'conversationMessagesList',
+          'conversation_messages_list',
+          'conversationMessages',
+          'conversation_messages',
           'items',
           'records',
           'data',
           'result',
         ]) {
           final child = value[key];
-          if (child is List) values.addAll(child);
-          if (child is Map) collect(child);
+          if (child is List || child is Map) {
+            collect(
+              child,
+              inheritedConversationId: nextConversationId.isEmpty
+                  ? inheritedConversationId
+                  : nextConversationId,
+              inheritedConversationType: nextConversationType,
+              inheritedConversationTitle: nextConversationTitle.isEmpty
+                  ? inheritedConversationTitle
+                  : nextConversationTitle,
+            );
+          }
         }
       }
     }
@@ -2142,8 +2306,12 @@ class DingTalkMessageGatewayService {
           : fallbackConversationId.trim();
       final media = _extractMedia(map)
           .map(
-            (item) =>
-                item.copyWith(messageId: id, conversationId: conversationId),
+            (item) => item.copyWith(
+              messageId: item.messageId.trim().isEmpty ? id : item.messageId,
+              conversationId: item.conversationId.trim().isEmpty
+                  ? conversationId
+                  : item.conversationId,
+            ),
           )
           .toList(growable: false);
       if (id.isEmpty ||
@@ -2333,8 +2501,12 @@ class DingTalkMessageGatewayService {
     final media = _extractMedia(map)
         .map(
           (item) => item.copyWith(
-            messageId: messageId,
-            conversationId: conversationId,
+            messageId: item.messageId.trim().isEmpty
+                ? messageId
+                : item.messageId,
+            conversationId: item.conversationId.trim().isEmpty
+                ? conversationId
+                : item.conversationId,
           ),
         )
         .toList(growable: false);
@@ -2662,18 +2834,50 @@ class DingTalkMessageGatewayService {
     return result;
   }
 
-  String _content(Map<String, Object?> map) {
-    final value = map['content'] ?? map['text'] ?? map['msgContent'];
+  String _content(Map<String, Object?> map, {int depth = 0}) {
+    final value =
+        map['content'] ??
+        map['text'] ??
+        map['msgContent'] ??
+        map['msg_content'] ??
+        map['richText'] ??
+        map['rich_text'] ??
+        map['markdown'];
     if (value is String) {
       final raw = value.trim();
       if (raw.startsWith('{') || raw.startsWith('[')) {
         final decoded = _decodeJson(raw);
-        if (decoded is Map) return _content(_asMap(decoded));
+        if (decoded is Map) return _content(_asMap(decoded), depth: depth + 1);
+        if (decoded is List && depth < 4) {
+          for (final item in decoded) {
+            if (item is Map) {
+              final nested = _content(_asMap(item), depth: depth + 1);
+              if (nested.isNotEmpty) return nested;
+            }
+          }
+          return '';
+        }
       }
       return raw;
     }
     if (value is Map) {
-      return '${value['text'] ?? value['content'] ?? ''}'.trim();
+      final nested = _asMap(value);
+      for (final key in const <String>[
+        'text',
+        'content',
+        'richText',
+        'rich_text',
+        'markdown',
+        'title',
+        'summary',
+        'description',
+      ]) {
+        final candidate = nested[key];
+        if (candidate is String && candidate.trim().isNotEmpty) {
+          return candidate.trim();
+        }
+      }
+      if (depth < 4) return _content(nested, depth: depth + 1);
     }
     return '';
   }
@@ -2690,6 +2894,8 @@ class DingTalkMessageGatewayService {
       required Object? mimeType,
       required Object? size,
       required Object? duration,
+      String messageId = '',
+      String conversationId = '',
     }) {
       final normalizedId = resourceId.trim();
       if (normalizedId.isEmpty || result.length >= 12) return;
@@ -2713,18 +2919,30 @@ class DingTalkMessageGatewayService {
           mimeType: mime,
           sizeBytes: int.tryParse('$size') ?? 0,
           durationMs: int.tryParse('$duration'),
+          messageId: messageId.trim(),
+          conversationId: conversationId.trim(),
         ),
       );
     }
 
-    void visit(Object? value, {int depth = 0}) {
+    void visit(
+      Object? value, {
+      int depth = 0,
+      String inheritedMessageId = '',
+      String inheritedConversationId = '',
+    }) {
       if (depth > 6 || result.length >= 12 || value == null) return;
       if (value is String) {
         final raw = value.trim();
         if (raw.startsWith('{') || raw.startsWith('[')) {
           final decoded = _decodeJson(raw);
           if (decoded is Map || decoded is List) {
-            visit(decoded, depth: depth + 1);
+            visit(
+              decoded,
+              depth: depth + 1,
+              inheritedMessageId: inheritedMessageId,
+              inheritedConversationId: inheritedConversationId,
+            );
           }
         }
         final match = RegExp(
@@ -2745,19 +2963,44 @@ class DingTalkMessageGatewayService {
             mimeType: null,
             size: null,
             duration: null,
+            messageId: inheritedMessageId,
+            conversationId: inheritedConversationId,
           );
         }
         return;
       }
       if (value is List) {
         for (final item in value) {
-          visit(item, depth: depth + 1);
+          visit(
+            item,
+            depth: depth + 1,
+            inheritedMessageId: inheritedMessageId,
+            inheritedConversationId: inheritedConversationId,
+          );
           if (result.length >= 12) break;
         }
         return;
       }
       if (value is! Map) return;
       final current = _asMap(value);
+      final currentMessageId = _first(current, const <String>[
+        'messageId',
+        'message_id',
+        'openMessageId',
+        'open_message_id',
+      ]);
+      final currentConversationId = _first(current, const <String>[
+        'conversationId',
+        'conversation_id',
+        'openConversationId',
+        'open_conversation_id',
+      ]);
+      final messageContext = currentMessageId.isEmpty
+          ? inheritedMessageId
+          : currentMessageId;
+      final conversationContext = currentConversationId.isEmpty
+          ? inheritedConversationId
+          : currentConversationId;
       final mediaId = _first(current, const <String>[
         'mediaId',
         'media_id',
@@ -2798,6 +3041,8 @@ class DingTalkMessageGatewayService {
               current['durationMs'] ??
               current['duration_ms'] ??
               current['duration'],
+          messageId: messageContext,
+          conversationId: conversationContext,
         );
       }
       for (final key in const <String>[
@@ -2816,8 +3061,17 @@ class DingTalkMessageGatewayService {
         'file',
         'attachment',
         'attachments',
+        'forward_messages',
+        'forwardMessages',
+        'quoted_message',
+        'quotedMessage',
       ]) {
-        visit(current[key], depth: depth + 1);
+        visit(
+          current[key],
+          depth: depth + 1,
+          inheritedMessageId: messageContext,
+          inheritedConversationId: conversationContext,
+        );
       }
     }
 

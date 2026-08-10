@@ -127,10 +127,15 @@ class DingTalkMessageGatewayStore {
             type: conversation.type,
             title: conversation.title,
             messages: messages,
+            createdAt: conversation.createdAt,
             openConversationId: conversation.openConversationId,
             directUserId: conversation.directUserId,
             directOpenDingTalkId: conversation.directOpenDingTalkId,
-          )..aiSessionId = conversation.aiSessionId;
+          );
+          copy
+            ..aiSessionId = conversation.aiSessionId
+            ..aiContextCheckpointMessageId =
+                conversation.aiContextCheckpointMessageId;
           return copy;
         })
         .toList(growable: true);

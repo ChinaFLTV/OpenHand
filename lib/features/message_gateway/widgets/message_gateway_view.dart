@@ -189,22 +189,22 @@ String _dingtalkAllowlistText(
     case 'group_empty':
       return openHandLocalizedText(
         context,
-        zh: '尚未配置群聊，所有群聊消息均忽略。',
-        zhHant: '尚未配置群聊，所有群聊訊息均忽略。',
-        en: 'No groups configured; all group messages are ignored.',
-        fr: 'Aucun groupe configuré ; tous les messages de groupe sont ignorés.',
-        de: 'Keine Gruppen konfiguriert; Gruppennachrichten werden ignoriert.',
-        ja: 'グループ未設定のため、すべてのグループメッセージを無視します。',
+        zh: '尚未配置自动响应群聊；已打开会话仍会实时同步。',
+        zhHant: '尚未設定自動回應群聊；已開啟會話仍會即時同步。',
+        en: 'No auto-response groups; open conversations still sync live.',
+        fr: 'Aucun groupe avec réponse automatique ; les conversations ouvertes restent synchronisées.',
+        de: 'Keine Gruppen mit automatischer Antwort; geöffnete Chats werden weiter live synchronisiert.',
+        ja: '自動応答グループは未設定ですが、開いた会話はリアルタイム同期されます。',
       );
     case 'contact_empty':
       return openHandLocalizedText(
         context,
-        zh: '尚未配置联系人，所有单聊消息均忽略。',
-        zhHant: '尚未配置聯絡人，所有單聊訊息均忽略。',
-        en: 'No contacts configured; all direct messages are ignored.',
-        fr: 'Aucun contact configuré ; tous les messages directs sont ignorés.',
-        de: 'Keine Kontakte konfiguriert; Direktnachrichten werden ignoriert.',
-        ja: '連絡先未設定のため、すべてのダイレクトメッセージを無視します。',
+        zh: '尚未配置自动响应联系人；已打开会话仍会实时同步。',
+        zhHant: '尚未設定自動回應聯絡人；已開啟會話仍會即時同步。',
+        en: 'No auto-response contacts; open conversations still sync live.',
+        fr: 'Aucun contact avec réponse automatique ; les conversations ouvertes restent synchronisées.',
+        de: 'Keine Kontakte mit automatischer Antwort; geöffnete Chats werden weiter live synchronisiert.',
+        ja: '自動応答の連絡先は未設定ですが、開いた会話はリアルタイム同期されます。',
       );
     case 'add':
       return openHandLocalizedText(
