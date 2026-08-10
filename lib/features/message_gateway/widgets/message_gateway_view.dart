@@ -12166,6 +12166,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final telemetryDebugEnabled = context.select<SettingsController, bool>(
       (settings) => settings.telemetryDebugEnabled,
     );
+    final chipAnimationSettings = context
+        .select<SettingsController, DialogAnimationSettings>(
+          (settings) => settings.chipAnimationSettings,
+        );
     final ttsSnapshot = _ttsPlaybackService.state.value;
     return ListenableBuilder(
       listenable: widget.controller,
@@ -12573,7 +12577,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                           ),
                                         ),
                                 ),
-                                _buildComposer(selected),
+                                _buildComposer(selected, chipAnimationSettings),
                               ],
                             ),
                     ),
@@ -12587,7 +12591,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     );
   }
 
-  Widget _buildComposer(DingTalkConversation conversation) {
+  Widget _buildComposer(
+    DingTalkConversation conversation,
+    DialogAnimationSettings chipAnimationSettings,
+  ) {
     final responding = widget.controller.isConversationResponding(
       conversation.id,
     );
@@ -12597,7 +12604,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           if (_pendingAttachments.isNotEmpty)
-            _buildPendingAttachmentsBar(conversation),
+            _buildPendingAttachmentsBar(conversation, chipAnimationSettings),
           AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
             switchInCurve: Curves.easeOutCubic,
@@ -12615,11 +12622,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     );
   }
 
-  Widget _buildPendingAttachmentsBar(DingTalkConversation conversation) {
-    final chipAnimationSettings = context
-        .select<SettingsController, DialogAnimationSettings>(
-          (settings) => settings.chipAnimationSettings,
-        );
+  Widget _buildPendingAttachmentsBar(
+    DingTalkConversation conversation,
+    DialogAnimationSettings chipAnimationSettings,
+  ) {
     final responding = widget.controller.isConversationResponding(
       conversation.id,
     );
