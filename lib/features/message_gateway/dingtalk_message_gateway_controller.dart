@@ -1062,49 +1062,116 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void> pollNow() => _pollOnce();
 
   Future<bool> sendMessage(String conversationId, String text) async {
+    return sendMessageWithAttachments(conversationId, text, const <String>[]);
+  }
+
+  Future<bool> sendMessageWithAttachments(
+    String conversationId,
+    String text,
+    Iterable<String> filePaths,
+  ) async {
     final conversation = _conversations[conversationId];
     final content = text.trim();
+    final paths = <String>[];
+    final seenPaths = <String>{};
+    for (final rawPath in filePaths) {
+      final path = rawPath.trim();
+      if (path.isEmpty || !seenPaths.add(path)) continue;
+      if (paths.length >= kDingTalkMessageAttachmentLimit) break;
+      paths.add(path);
+    }
     if (conversation == null ||
-        content.isEmpty ||
+        (content.isEmpty && paths.isEmpty) ||
         _isSending ||
         _editingMessageInFlight ||
         !isAuthorized) {
       return false;
     }
+    final files = <({String path, FileStat stat})>[];
+    try {
+      for (final path in paths) {
+        final file = File(path);
+        final stat = await file.stat();
+        if (stat.type != FileSystemEntityType.file ||
+            stat.size <= 0 ||
+            stat.size > kDingTalkMessageAttachmentMaxBytes) {
+          throw StateError('附件无效、为空或超过 512MB 上限：${p.basename(path)}。');
+        }
+        files.add((path: path, stat: stat));
+      }
+    } catch (error, stack) {
+      _setError('发送钉钉附件', error, stack);
+      _notify();
+      return false;
+    }
     _isSending = true;
-    final localMessage = DingTalkGatewayMessage(
-      id: 'local-${_uuid.v4()}',
-      conversationId: conversation.id,
-      conversationType: conversation.type,
-      role: DingTalkGatewayMessageRole.user,
-      content: content,
-      createdAt: DateTime.now(),
-      senderName: _authStatus.identity.label,
-      senderId: _authStatus.identity.userId,
-      fromSelf: true,
-    );
-    _appendMessage(conversation, localMessage);
     _notify();
     try {
-      final sent = await _service.sendWithDetails(
-        conversation: conversation,
-        text: content,
-        uuid: _uuid.v4(),
-      );
-      _rememberRemoteConversationId(conversation, sent?.conversationId);
-      final sentMessage = _bindSentMessageId(
-        conversation,
-        localMessage,
-        sent?.messageId,
-      );
+      DingTalkGatewayMessage? lastSentMessage;
+      for (final entry in files) {
+        final name = p.basename(entry.path).trim().isEmpty
+            ? '文件'
+            : p.basename(entry.path).trim();
+        final localMessage = _localFileMessage(
+          conversation,
+          path: entry.path,
+          name: name,
+          kind: DingTalkMediaKindX.fromFileName(name),
+          sizeBytes: entry.stat.size,
+        );
+        _appendMessage(conversation, localMessage);
+        _notify();
+        final sent = await _service.sendFileWithDetails(
+          conversation: conversation,
+          filePath: entry.path,
+          uuid: _uuid.v4(),
+        );
+        _rememberRemoteConversationId(conversation, sent?.conversationId);
+        lastSentMessage = _bindSentMessageId(
+          conversation,
+          localMessage,
+          sent?.messageId,
+        );
+      }
+      if (content.isNotEmpty) {
+        final localMessage = DingTalkGatewayMessage(
+          id: 'local-${_uuid.v4()}',
+          conversationId: conversation.id,
+          conversationType: conversation.type,
+          role: DingTalkGatewayMessageRole.user,
+          content: content,
+          createdAt: DateTime.now(),
+          senderName: _authStatus.identity.label,
+          senderId: _authStatus.identity.userId,
+          fromSelf: true,
+        );
+        _appendMessage(conversation, localMessage);
+        _notify();
+        final sent = await _service.sendWithDetails(
+          conversation: conversation,
+          text: content,
+          uuid: _uuid.v4(),
+        );
+        _rememberRemoteConversationId(conversation, sent?.conversationId);
+        lastSentMessage = _bindSentMessageId(
+          conversation,
+          localMessage,
+          sent?.messageId,
+        );
+      }
+      final sourceMessage = lastSentMessage;
+      if (sourceMessage == null) return false;
+      final aiContent = content.isNotEmpty
+          ? content
+          : '用户发送了 ${files.length} 个文件附件，请结合附件内容处理。';
       await _enqueueAiResponse(
         conversation,
-        content,
-        sourceMessageId: sentMessage.id,
+        aiContent,
+        sourceMessageId: sourceMessage.id,
       );
       return true;
     } catch (error, stack) {
-      _setError('发送钉钉消息', error, stack);
+      _setError(files.isEmpty ? '发送钉钉消息' : '发送钉钉消息及附件', error, stack);
       return false;
     } finally {
       _isSending = false;
@@ -1119,8 +1186,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }) async {
     final conversation = _conversations[conversationId];
     final normalizedPath = filePath.trim();
-    if (conversation == null ||
-        normalizedPath.isEmpty ||
+    if (conversation == null || normalizedPath.isEmpty) return false;
+    return _sendSingleFile(conversation, normalizedPath, audio: audio);
+  }
+
+  Future<bool> _sendSingleFile(
+    DingTalkConversation conversation,
+    String normalizedPath, {
+    bool audio = false,
+  }) async {
+    if (normalizedPath.isEmpty ||
         _isSending ||
         _editingMessageInFlight ||
         !isAuthorized) {
@@ -1134,25 +1209,24 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         ? DingTalkMediaKind.audio
         : DingTalkMediaKindX.fromFileName(name);
     final stat = await file.stat();
-    final message = DingTalkGatewayMessage(
-      id: 'local-${_uuid.v4()}',
-      conversationId: conversation.id,
-      conversationType: conversation.type,
-      role: DingTalkGatewayMessageRole.user,
-      content: audio ? '[语音] $name' : '[文件] $name',
-      createdAt: DateTime.now(),
-      senderName: _authStatus.identity.label,
-      senderId: _authStatus.identity.userId,
-      media: <DingTalkGatewayMedia>[
-        DingTalkGatewayMedia(
-          resourceId: 'local-${_uuid.v4()}',
-          kind: kind,
-          name: name,
-          sizeBytes: stat.size,
-          localPath: normalizedPath,
-        ),
-      ],
-      fromSelf: true,
+    if (stat.type != FileSystemEntityType.file ||
+        stat.size <= 0 ||
+        stat.size > kDingTalkMessageAttachmentMaxBytes) {
+      _setError(
+        audio ? '发送钉钉语音' : '发送钉钉文件',
+        StateError('文件无效、为空或超过 512MB 上限：$name。'),
+        StackTrace.current,
+      );
+      _notify();
+      return false;
+    }
+    final message = _localFileMessage(
+      conversation,
+      path: normalizedPath,
+      name: name,
+      kind: kind,
+      sizeBytes: stat.size,
+      audio: audio,
     );
     _isSending = true;
     _appendMessage(conversation, message);
@@ -1187,6 +1261,36 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<bool> sendAudio(String conversationId, String filePath) =>
       sendFile(conversationId, filePath, audio: true);
+
+  DingTalkGatewayMessage _localFileMessage(
+    DingTalkConversation conversation, {
+    required String path,
+    required String name,
+    required DingTalkMediaKind kind,
+    required int sizeBytes,
+    bool audio = false,
+  }) {
+    return DingTalkGatewayMessage(
+      id: 'local-${_uuid.v4()}',
+      conversationId: conversation.id,
+      conversationType: conversation.type,
+      role: DingTalkGatewayMessageRole.user,
+      content: audio ? '[语音] $name' : '[文件] $name',
+      createdAt: DateTime.now(),
+      senderName: _authStatus.identity.label,
+      senderId: _authStatus.identity.userId,
+      media: <DingTalkGatewayMedia>[
+        DingTalkGatewayMedia(
+          resourceId: 'local-${_uuid.v4()}',
+          kind: kind,
+          name: name,
+          sizeBytes: sizeBytes,
+          localPath: path,
+        ),
+      ],
+      fromSelf: true,
+    );
+  }
 
   Future<bool> editMessage(
     String conversationId,

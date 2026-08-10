@@ -75,6 +75,10 @@ enum DingTalkMediaKind { image, video, audio, file }
 
 enum DingTalkMediaResourceType { mediaId, fileId }
 
+/// DWS 当前按单文件消息发送本地附件，应用侧将多附件拆分为连续文件消息。
+const int kDingTalkMessageAttachmentLimit = 6;
+const int kDingTalkMessageAttachmentMaxBytes = 512 * 1024 * 1024;
+
 extension DingTalkMediaKindX on DingTalkMediaKind {
   String get storageValue => name;
 

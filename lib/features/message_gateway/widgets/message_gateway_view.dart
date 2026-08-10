@@ -7,6 +7,7 @@ import 'package:file_selector/file_selector.dart';
 import 'package:flutter/gestures.dart'
     show PointerScrollEvent, PointerSignalEvent;
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
 import 'package:pasteboard/pasteboard.dart';
@@ -12057,8 +12058,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const Duration _maxVoiceDuration = Duration(minutes: 2);
   static const Duration _voiceVisualInterval = Duration(milliseconds: 160);
   static const int _voiceWaveformSampleCount = 40;
-  static const int _maxUploadBytes = 512 * 1024 * 1024;
   static const int _maxTranslationCacheEntries = 64;
+  static const Duration _clipboardAttachmentReadTimeout = Duration(seconds: 2);
   final TextEditingController _input = TextEditingController();
   final FocusNode _inputFocusNode = FocusNode();
   final ScrollController _messagesScrollController = ScrollController();
@@ -12101,10 +12102,14 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       ValueNotifier<_DingTalkVoiceVisualState>(
         _DingTalkVoiceVisualState.initial,
       );
+  List<_DingTalkPendingAttachment> _pendingAttachments =
+      const <_DingTalkPendingAttachment>[];
+  bool _attachmentBusy = false;
 
   @override
   void initState() {
     super.initState();
+    _inputFocusNode.onKeyEvent = _handleInputKeyEvent;
     _input.addListener(_handleInputChanged);
     _ttsPlaybackService.state.addListener(_handleTtsStateChanged);
     widget.controller.markAllRead();
@@ -12578,17 +12583,102 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   Widget _buildComposer(DingTalkConversation conversation) {
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
-      child: AnimatedSwitcher(
-        duration: openHandMotionDuration(context, kOpenHandMotion220),
-        switchInCurve: Curves.easeOutCubic,
-        switchOutCurve: Curves.easeInCubic,
-        layoutBuilder: (current, previous) => Stack(
-          alignment: Alignment.bottomCenter,
-          children: <Widget>[...previous, if (current != null) current],
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (_pendingAttachments.isNotEmpty) _buildPendingAttachmentsBar(),
+          AnimatedSwitcher(
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            layoutBuilder: (current, previous) => Stack(
+              alignment: Alignment.bottomCenter,
+              children: <Widget>[...previous, if (current != null) current],
+            ),
+            child: _recordingVoice
+                ? _buildVoiceRecordingComposer()
+                : _buildTextComposer(conversation),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildPendingAttachmentsBar() {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 8),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.primaryContainer.withValues(alpha: 0.48),
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.primary.withValues(alpha: 0.22)),
         ),
-        child: _recordingVoice
-            ? _buildVoiceRecordingComposer()
-            : _buildTextComposer(conversation),
+        child: Padding(
+          padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
+          child: Row(
+            children: [
+              Icon(
+                Icons.attach_file_rounded,
+                size: 18,
+                color: colors.onPrimaryContainer,
+              ),
+              const SizedBox(width: 7),
+              Text(
+                '附件 ${_pendingAttachments.length}/$kDingTalkMessageAttachmentLimit',
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: colors.onPrimaryContainer,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+              const SizedBox(width: 10),
+              Expanded(
+                child: SingleChildScrollView(
+                  scrollDirection: Axis.horizontal,
+                  child: Row(
+                    children: [
+                      for (final attachment in _pendingAttachments)
+                        Padding(
+                          padding: const EdgeInsets.only(right: 6),
+                          child: InputChip(
+                            avatar: Icon(
+                              _dingtalkAttachmentIcon(attachment.name),
+                              size: 17,
+                              color: colors.onSecondaryContainer,
+                            ),
+                            label: ConstrainedBox(
+                              constraints: const BoxConstraints(maxWidth: 180),
+                              child: Text(
+                                attachment.name,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                              ),
+                            ),
+                            deleteIcon: const Icon(
+                              Icons.close_rounded,
+                              size: 16,
+                            ),
+                            onDeleted: () =>
+                                _removePendingAttachment(attachment.path),
+                            backgroundColor: colors.secondaryContainer,
+                            side: BorderSide.none,
+                            tooltip: formatByteSize(attachment.sizeBytes),
+                          ),
+                        ),
+                    ],
+                  ),
+                ),
+              ),
+              IconButton(
+                tooltip: '清空附件',
+                visualDensity: VisualDensity.compact,
+                onPressed: _attachmentBusy ? null : _clearPendingAttachments,
+                icon: const Icon(Icons.clear_all_rounded, size: 19),
+              ),
+            ],
+          ),
+        ),
       ),
     );
   }
@@ -13057,6 +13147,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       _editingMessageId = null;
       _editSubmitting = false;
       _input.clear();
+      _pendingAttachments = const <_DingTalkPendingAttachment>[];
     });
     unawaited(widget.controller.ensureConversationMediaCached(id));
     _scheduleAutoFollow(force: true);
@@ -13102,7 +13193,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final responding = widget.controller.isConversationResponding(
       conversation.id,
     );
-    final enabled = responding || !widget.controller.isSending;
+    final enabled =
+        !_attachmentBusy && (responding || !widget.controller.isSending);
     return SizedBox(
       width: 124,
       height: 48,
@@ -13138,19 +13230,50 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   Widget _buildFileButton(DingTalkConversation conversation) {
     final enabled =
+        !_attachmentBusy &&
         !widget.controller.isSending &&
         !widget.controller.isConversationResponding(conversation.id);
-    return SizedBox(
-      width: 124,
-      height: 48,
-      child: FilledButton.icon(
-        style: _composerButtonStyle(),
-        onPressed: enabled
-            ? () => unawaited(_pickAndSendFile(conversation))
-            : null,
-        icon: const Icon(Icons.attach_file_rounded),
-        label: const Text('发送文件'),
-      ),
+    return ValueListenableBuilder<TextEditingValue>(
+      valueListenable: _input,
+      builder: (context, value, _) {
+        final adding =
+            value.text.trim().isNotEmpty || _pendingAttachments.isNotEmpty;
+        return SizedBox(
+          width: 124,
+          height: 48,
+          child: FilledButton.icon(
+            style: _composerButtonStyle(),
+            onPressed: enabled
+                ? () => unawaited(_handleFileButton(conversation, adding))
+                : null,
+            icon: AnimatedSwitcher(
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              child: _attachmentBusy
+                  ? const SizedBox(
+                      key: ValueKey<String>('attachment-loading'),
+                      width: 18,
+                      height: 18,
+                      child: CircularProgressIndicator(strokeWidth: 2),
+                    )
+                  : Icon(
+                      adding ? Icons.add_rounded : Icons.attach_file_rounded,
+                      key: ValueKey<bool>(adding),
+                    ),
+            ),
+            label: AnimatedSwitcher(
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              child: Text(
+                _attachmentBusy
+                    ? '正在读取'
+                    : adding
+                    ? '添加附件'
+                    : '发送文件',
+                key: ValueKey<Object?>(_attachmentBusy ? 'busy' : adding),
+              ),
+            ),
+          ),
+        );
+      },
     );
   }
 
@@ -13236,33 +13359,177 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     );
   }
 
-  Future<void> _pickAndSendFile(DingTalkConversation conversation) async {
+  Future<void> _handleFileButton(
+    DingTalkConversation conversation,
+    bool adding,
+  ) async {
+    if (_attachmentBusy || !mounted) return;
+    setState(() => _attachmentBusy = true);
     try {
-      final picked = await openFile();
-      if (!mounted || picked == null) return;
-      final path = picked.path.trim();
-      if (path.isEmpty) return;
-      final file = File(path);
-      final exists = await file.exists();
+      final picked = await openFiles();
+      if (!mounted || picked.isEmpty) return;
+      final selection = await _prepareAttachmentSelection(
+        picked.map((file) => file.path),
+        existingPaths: adding
+            ? _pendingAttachments.map((item) => item.path).toSet()
+            : const <String>{},
+      );
       if (!mounted) return;
-      if (!exists) {
-        showOpenHandErrorSnack(context, '所选文件不存在或已被移动。');
+      _showAttachmentSelectionNotices(selection);
+      if (selection.attachments.isEmpty) return;
+      final shouldAttach =
+          adding ||
+          _input.text.trim().isNotEmpty ||
+          _pendingAttachments.isNotEmpty;
+      if (shouldAttach) {
+        setState(() {
+          _pendingAttachments = <_DingTalkPendingAttachment>[
+            ..._pendingAttachments,
+            ...selection.attachments,
+          ];
+        });
         return;
       }
-      final size = await file.length();
-      if (!mounted) return;
-      if (size <= 0) {
-        showOpenHandErrorSnack(context, '不能发送空文件。');
-        return;
+      final success = await widget.controller.sendMessageWithAttachments(
+        conversation.id,
+        '',
+        selection.attachments.map((item) => item.path),
+      );
+      if (!success && mounted) {
+        showOpenHandErrorSnack(
+          context,
+          widget.controller.errorMessage ?? '文件发送失败，请稍后重试。',
+        );
       }
-      if (size > _maxUploadBytes) {
-        showOpenHandErrorSnack(context, '文件超过 512MB 上限，无法发送。');
-        return;
-      }
-      await widget.controller.sendFile(conversation.id, path);
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '选择钉钉发送文件', error, stack);
       if (mounted) showOpenHandErrorSnack(context, '选择文件失败：$error');
+    } finally {
+      if (mounted) setState(() => _attachmentBusy = false);
+    }
+  }
+
+  Future<_DingTalkAttachmentSelection> _prepareAttachmentSelection(
+    Iterable<String> rawPaths, {
+    required Set<String> existingPaths,
+  }) async {
+    final attachments = <_DingTalkPendingAttachment>[];
+    final seen = <String>{...existingPaths};
+    var limitSkipped = 0;
+    var invalid = 0;
+    var oversized = 0;
+    for (final rawPath in rawPaths) {
+      final path = rawPath.trim();
+      if (path.isEmpty || !seen.add(path)) continue;
+      if (attachments.length + existingPaths.length >=
+          kDingTalkMessageAttachmentLimit) {
+        limitSkipped += 1;
+        continue;
+      }
+      try {
+        final file = File(path);
+        final stat = await file.stat();
+        if (stat.type != FileSystemEntityType.file || stat.size <= 0) {
+          invalid += 1;
+          continue;
+        }
+        if (stat.size > kDingTalkMessageAttachmentMaxBytes) {
+          oversized += 1;
+          continue;
+        }
+        attachments.add(
+          _DingTalkPendingAttachment(
+            path: path,
+            name: p.basename(path).trim().isEmpty ? '文件' : p.basename(path),
+            sizeBytes: stat.size,
+          ),
+        );
+      } catch (error, stack) {
+        invalid += 1;
+        silentLog('dingtalk_gateway', '读取钉钉附件', error, stack);
+      }
+    }
+    return _DingTalkAttachmentSelection(
+      attachments: attachments,
+      limitSkipped: limitSkipped,
+      invalid: invalid,
+      oversized: oversized,
+    );
+  }
+
+  void _showAttachmentSelectionNotices(_DingTalkAttachmentSelection selection) {
+    if (!mounted || !selection.hasNotices) return;
+    final notices = <String>[];
+    if (selection.limitSkipped > 0) {
+      notices.add(
+        '单条消息最多添加 $kDingTalkMessageAttachmentLimit 个附件，已忽略 ${selection.limitSkipped} 个。',
+      );
+    }
+    if (selection.oversized > 0) {
+      notices.add('已忽略 ${selection.oversized} 个超过 512MB 上限的附件。');
+    }
+    if (selection.invalid > 0) {
+      notices.add('已忽略 ${selection.invalid} 个空文件、目录或无法读取的附件。');
+    }
+    showOpenHandInfoSnack(context, notices.join('\n'), maxLines: 3);
+  }
+
+  void _removePendingAttachment(String path) {
+    if (_attachmentBusy) return;
+    setState(() {
+      _pendingAttachments = _pendingAttachments
+          .where((item) => item.path != path)
+          .toList(growable: false);
+    });
+  }
+
+  void _clearPendingAttachments() {
+    if (_attachmentBusy || _pendingAttachments.isEmpty) return;
+    setState(() => _pendingAttachments = const <_DingTalkPendingAttachment>[]);
+  }
+
+  KeyEventResult _handleInputKeyEvent(FocusNode node, KeyEvent event) {
+    if (!mounted ||
+        event is! KeyDownEvent ||
+        event.logicalKey != LogicalKeyboardKey.keyV) {
+      return KeyEventResult.ignored;
+    }
+    final hardware = HardwareKeyboard.instance;
+    final modifier = Platform.isMacOS
+        ? hardware.isMetaPressed
+        : hardware.isControlPressed;
+    if (modifier && !hardware.isShiftPressed && !hardware.isAltPressed) {
+      unawaited(_tryPasteAttachmentsFromClipboard());
+    }
+    return KeyEventResult.ignored;
+  }
+
+  Future<void> _tryPasteAttachmentsFromClipboard() async {
+    if (_attachmentBusy || !mounted) return;
+    setState(() => _attachmentBusy = true);
+    try {
+      final paths = await Pasteboard.files().timeout(
+        _clipboardAttachmentReadTimeout,
+      );
+      if (!mounted || paths.isEmpty) return;
+      final selection = await _prepareAttachmentSelection(
+        paths,
+        existingPaths: _pendingAttachments.map((item) => item.path).toSet(),
+      );
+      if (!mounted) return;
+      _showAttachmentSelectionNotices(selection);
+      if (selection.attachments.isNotEmpty) {
+        setState(() {
+          _pendingAttachments = <_DingTalkPendingAttachment>[
+            ..._pendingAttachments,
+            ...selection.attachments,
+          ];
+        });
+      }
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '读取钉钉剪贴板附件', error, stack);
+    } finally {
+      if (mounted) setState(() => _attachmentBusy = false);
     }
   }
 
@@ -13529,9 +13796,28 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       return;
     }
     final text = _input.text.trim();
-    if (text.isEmpty) return;
+    final attachments = List<_DingTalkPendingAttachment>.from(
+      _pendingAttachments,
+    );
+    if (text.isEmpty && attachments.isEmpty) return;
     _input.clear();
-    unawaited(widget.controller.sendMessage(conversation.id, text));
+    setState(() => _pendingAttachments = const <_DingTalkPendingAttachment>[]);
+    unawaited(
+      widget.controller
+          .sendMessageWithAttachments(
+            conversation.id,
+            text,
+            attachments.map((item) => item.path),
+          )
+          .then((success) {
+            if (!success && mounted && _selectedId == conversation.id) {
+              showOpenHandErrorSnack(
+                context,
+                widget.controller.errorMessage ?? '消息发送失败，请稍后重试。',
+              );
+            }
+          }),
+    );
   }
 
   Future<void> _showConversationMenu(
@@ -13596,6 +13882,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     setState(() {
       _selectedId = next?.id;
       _input.clear();
+      _pendingAttachments = const <_DingTalkPendingAttachment>[];
     });
   }
 
@@ -13624,6 +13911,43 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     widget.controller.openConversation(target);
     setState(() => _selectedId = target.id);
   }
+}
+
+class _DingTalkPendingAttachment {
+  const _DingTalkPendingAttachment({
+    required this.path,
+    required this.name,
+    required this.sizeBytes,
+  });
+
+  final String path;
+  final String name;
+  final int sizeBytes;
+}
+
+class _DingTalkAttachmentSelection {
+  const _DingTalkAttachmentSelection({
+    required this.attachments,
+    this.limitSkipped = 0,
+    this.invalid = 0,
+    this.oversized = 0,
+  });
+
+  final List<_DingTalkPendingAttachment> attachments;
+  final int limitSkipped;
+  final int invalid;
+  final int oversized;
+
+  bool get hasNotices => limitSkipped > 0 || invalid > 0 || oversized > 0;
+}
+
+IconData _dingtalkAttachmentIcon(String name) {
+  return switch (DingTalkMediaKindX.fromFileName(name)) {
+    DingTalkMediaKind.image => Icons.image_outlined,
+    DingTalkMediaKind.video => Icons.videocam_outlined,
+    DingTalkMediaKind.audio => Icons.audiotrack_outlined,
+    DingTalkMediaKind.file => Icons.insert_drive_file_outlined,
+  };
 }
 
 enum _DingTalkConversationMenuAction { details, delete }
