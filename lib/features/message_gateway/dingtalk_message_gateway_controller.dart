@@ -134,6 +134,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const Duration _conversationReconcileLogInterval = Duration(
     minutes: 5,
   );
+  static const Duration _shutdownCleanupTimeout = Duration(seconds: 10);
   static const int _maxConversationReconcileCount = 12;
   static const int _conversationReconcileConcurrency = 4;
   static const int _maxConversationReconcileFailureCount = 6;
@@ -181,12 +182,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   StreamSubscription<DingTalkGatewayEvent>? _eventSubscription;
   Future<void>? _eventRestartFuture;
   Future<void>? _persistInFlight;
+  Future<void>? _shutdownInFlight;
   bool _persistQueued = false;
   Object? _persistenceError;
   bool _pollInFlight = false;
   bool _usingPollingFallback = false;
   bool _initialized = false;
   bool _disposed = false;
+  bool _shutdownRequested = false;
   bool _notificationQueued = false;
   DingTalkWriteApprovalHandler? _writeApprovalHandler;
   bool _isAuthenticating = false;
@@ -1925,8 +1928,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void> _stopEventListening() async {
     final subscription = _eventSubscription;
     _eventSubscription = null;
-    await subscription?.cancel();
-    await _service.stopEventSubscription();
+    if (subscription != null) {
+      await runAsyncCleanupBounded(
+        subscription.cancel,
+        timeout: _shutdownCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('dingtalk_gateway', '取消钉钉实时事件订阅', error, stack),
+      );
+    }
+    await runAsyncCleanupBounded(
+      _service.stopEventSubscription,
+      timeout: _shutdownCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('dingtalk_gateway', '停止钉钉实时事件订阅', error, stack),
+    );
   }
 
   bool _mergeIncomingOutgoingEcho(
@@ -3972,7 +3987,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   void _clearError() => _errorMessage = null;
 
   void _queuePersist() {
-    if (_disposed) return;
+    if (_disposed || _shutdownRequested) return;
     _persistQueued = true;
     _persistenceError = null;
     if (_persistInFlight != null) return;
@@ -3984,7 +3999,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void> _drainPersistQueue() async {
     // 让出当前帧，避免消息到达时复制大量历史消息阻塞会话切换和滚动。
     await Future<void>.delayed(Duration.zero);
-    while (_persistQueued) {
+    while (_persistQueued && !_disposed) {
       _persistQueued = false;
       final conversations = _conversations.values
           .map((conversation) {
@@ -4010,7 +4025,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       try {
         await _store
             .saveSnapshot(settings: _settings, conversations: conversations)
-            .timeout(const Duration(seconds: 10));
+            .timeout(_shutdownCleanupTimeout);
       } catch (error, stack) {
         _persistenceError = error;
         _setError('保存钉钉网关数据', error, stack);
@@ -4022,17 +4037,30 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   void _notify() {
-    if (_disposed || _notificationQueued) return;
+    if (_disposed || _shutdownRequested || _notificationQueued) return;
     // dws 运行日志使用同步广播流，设置弹窗挂载/构建期间可能立即触发
     // 通知。合并到微任务，避免 Flutter 在 build 阶段标记组件重建。
     _notificationQueued = true;
     scheduleMicrotask(() {
       _notificationQueued = false;
-      if (!_disposed) notifyListeners();
+      if (!_disposed && !_shutdownRequested) notifyListeners();
     });
   }
 
-  Future<void> shutdown() async {
+  Future<void> shutdown() {
+    if (_disposed) return Future<void>.value();
+    final active = _shutdownInFlight;
+    if (active != null) return active;
+    _shutdownRequested = true;
+    late final Future<void> task;
+    task = _shutdown().whenComplete(() {
+      if (identical(_shutdownInFlight, task)) _shutdownInFlight = null;
+    });
+    _shutdownInFlight = task;
+    return task;
+  }
+
+  Future<void> _shutdown() async {
     if (_disposed) return;
     _isPolling = false;
     _usingPollingFallback = false;
@@ -4045,11 +4073,27 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _mediaHydrationFailures.clear();
     await _stopEventListening();
     final eventRestart = _eventRestartFuture;
-    if (eventRestart != null) await eventRestart;
+    if (eventRestart != null) {
+      await runAsyncCleanupBounded(
+        () => eventRestart,
+        timeout: _shutdownCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('dingtalk_gateway', '等待钉钉事件监听重启结束', error, stack),
+      );
+    }
     final activeResponseIds = _conversations.keys
         .where(isConversationResponding)
         .toList(growable: false);
-    await Future.wait<void>(activeResponseIds.map(stopConversationResponse));
+    await Future.wait<void>(
+      activeResponseIds.map(
+        (conversationId) => runAsyncCleanupBounded(
+          () => stopConversationResponse(conversationId),
+          timeout: _shutdownCleanupTimeout,
+          onError: (error, stack) =>
+              silentLog('dingtalk_gateway', '停止钉钉会话响应', error, stack),
+        ).then<void>((_) {}),
+      ),
+    );
     for (final queue in _responseQueues.values) {
       for (final item in queue) {
         item.complete();
@@ -4061,15 +4105,33 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _responseErrors.clear();
     _responseCancellationVersions.clear();
     _writeApprovalHandler = null;
-    await _runtimeLogSubscription?.cancel();
+    final runtimeLogSubscription = _runtimeLogSubscription;
     _runtimeLogSubscription = null;
+    if (runtimeLogSubscription != null) {
+      await runAsyncCleanupBounded(
+        runtimeLogSubscription.cancel,
+        timeout: _shutdownCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('dingtalk_gateway', '取消钉钉运行日志订阅', error, stack),
+      );
+    }
     final persist = _persistInFlight;
     if (persist != null) {
-      await persist.timeout(const Duration(seconds: 10), onTimeout: () {});
+      await runAsyncCleanupBounded(
+        () => persist,
+        timeout: _shutdownCleanupTimeout,
+        onError: (error, stack) =>
+            silentLog('dingtalk_gateway', '等待钉钉数据持久化结束', error, stack),
+      );
     }
     _disposed = true;
     _mediaGenerationService.dispose();
-    await _service.cancelAuthorization();
+    await runAsyncCleanupBounded(
+      _service.cancelAuthorization,
+      timeout: _shutdownCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('dingtalk_gateway', '清理钉钉授权进程', error, stack),
+    );
   }
 
   @override

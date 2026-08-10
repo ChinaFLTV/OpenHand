@@ -375,7 +375,10 @@ class HtmlKnowledgeDocumentParser extends KnowledgeDocumentParser {
     KnowledgeDocumentParseRequest request,
   ) async {
     final raw = _decodeText(await _readDocumentBytes(request));
-    final title = _htmlTitle(raw).ifEmpty(p.basename(request.file.path));
+    final title = nonBlankStringOr(
+      _htmlTitle(raw),
+      p.basename(request.file.path),
+    );
     final text = request.settings.htmlParsingMode == 'plain_text'
         ? _compactBlankLines(
             '# $title\n\n${_htmlEntitiesToText(_stripTags(raw))}',
@@ -580,9 +583,10 @@ class DocxKnowledgeDocumentParser extends KnowledgeDocumentParser {
   ) async {
     final archive = _zip(await _readDocumentBytes(request), request.file.path);
     final document = _xmlArchiveFile(archive, 'word/document.xml');
-    final title = _corePropertyTitle(
-      archive,
-    ).ifEmpty(p.basename(request.file.path));
+    final title = nonBlankStringOr(
+      _corePropertyTitle(archive),
+      p.basename(request.file.path),
+    );
     final buffer = StringBuffer()..writeln('# $title\n');
     final body = _firstElement(document.rootElement, 'body');
     final children =
@@ -626,9 +630,10 @@ class XlsxKnowledgeDocumentParser extends KnowledgeDocumentParser {
     KnowledgeDocumentParseRequest request,
   ) async {
     final archive = _zip(await _readDocumentBytes(request), request.file.path);
-    final title = _corePropertyTitle(
-      archive,
-    ).ifEmpty(p.basename(request.file.path));
+    final title = nonBlankStringOr(
+      _corePropertyTitle(archive),
+      p.basename(request.file.path),
+    );
     final sharedStrings = _xlsxSharedStrings(archive);
     final sheetNames = _xlsxSheetNames(archive);
     final sheetFiles =
@@ -691,9 +696,10 @@ class PptxKnowledgeDocumentParser extends KnowledgeDocumentParser {
     KnowledgeDocumentParseRequest request,
   ) async {
     final archive = _zip(await _readDocumentBytes(request), request.file.path);
-    final title = _corePropertyTitle(
-      archive,
-    ).ifEmpty(p.basename(request.file.path));
+    final title = nonBlankStringOr(
+      _corePropertyTitle(archive),
+      p.basename(request.file.path),
+    );
     final slideFiles =
         archive.files
             .where(
@@ -1479,8 +1485,4 @@ String _mimeForExtension(String extension) {
     'css' || 'scss' || 'less' => 'text/css',
     _ => 'text/plain',
   };
-}
-
-extension _StringFallback on String {
-  String ifEmpty(String fallback) => trim().isEmpty ? fallback : trim();
 }

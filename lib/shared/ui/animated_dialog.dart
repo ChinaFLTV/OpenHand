@@ -1025,6 +1025,17 @@ Future<T?> _pushOpenHandDialogRoute<T>({
 
 final Expando<List<TransitionRoute<dynamic>>> _openHandRoutesByNavigator =
     Expando<List<TransitionRoute<dynamic>>>('openHandRoutesByNavigator');
+const Duration kOpenHandTransitionCompletionTimeout = Duration(seconds: 30);
+
+Future<void> _awaitOpenHandTransitionCompletion(
+  TransitionRoute<dynamic> route,
+) async {
+  try {
+    await route.completed.timeout(kOpenHandTransitionCompletionTimeout);
+  } catch (error, stack) {
+    silentLog('dialog', '等待弹窗退场动画完成', error, stack);
+  }
+}
 
 /// 推入动画路由，并在退场完成且全部遮罩条目移除后结束。
 Future<T?> pushOpenHandTransitionRoute<T>(
@@ -1041,7 +1052,7 @@ Future<T?> pushOpenHandTransitionRoute<T>(
     if (!previous.isCurrent &&
         (status == AnimationStatus.reverse ||
             status == AnimationStatus.dismissed)) {
-      await previous.completed;
+      await _awaitOpenHandTransitionCompletion(previous);
     }
   }
   if (!navigator.mounted || sourceContext?.mounted == false) return null;
@@ -1050,7 +1061,7 @@ Future<T?> pushOpenHandTransitionRoute<T>(
   try {
     return await popped;
   } finally {
-    await route.completed;
+    await _awaitOpenHandTransitionCompletion(route);
     routes.remove(route);
   }
 }

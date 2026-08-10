@@ -11,6 +11,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import '../../plugin_service/index.dart';
 import '../model/dingtalk_message_gateway.dart';
@@ -2485,9 +2486,10 @@ class DingTalkMessageGatewayService {
     }
     if (result.exitCode != 0 || error.isNotEmpty) {
       final message =
-          error['message']?.toString().trim().ifEmpty('dws 执行失败。') ??
-          payload['message']?.toString().trim().ifEmpty('dws 执行失败。') ??
-          result.stderr.trim().ifEmpty(
+          nullIfBlank(error['message']?.toString()) ??
+          nullIfBlank(payload['message']?.toString()) ??
+          nonBlankStringOr(
+            result.stderr,
             result.exitCode == 0
                 ? 'dws 执行失败。'
                 : 'dws 执行失败（退出码 ${result.exitCode}）。',
@@ -3779,8 +3781,4 @@ class DingTalkMessageGatewayService {
     final normalized = '$value'.trim().toLowerCase();
     return normalized == 'true' || normalized == '1' || normalized == 'yes';
   }
-}
-
-extension on String {
-  String ifEmpty(String fallback) => trim().isEmpty ? fallback : this;
 }
