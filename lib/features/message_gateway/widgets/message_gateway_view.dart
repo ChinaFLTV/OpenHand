@@ -14734,7 +14734,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                                 ),
                               ),
                               const SizedBox(height: 4),
-                              _buildMessageMetaPill(context),
+                              _buildMessageMetaPill(),
                             ],
                           ),
                         )
@@ -14959,50 +14959,16 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     );
   }
 
-  Widget _buildMessageMetaPill(BuildContext context) {
-    final colors = Theme.of(context).colorScheme;
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: colors.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(18),
-        border: Border.all(color: colors.outline.withValues(alpha: 0.62)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(
-              Icons.schedule_rounded,
-              size: 15,
-              color: colors.onSurfaceVariant,
-            ),
-            const SizedBox(width: 5),
-            Text(
-              formatYearMonthDayHm(widget.message.createdAt.toLocal()),
-              style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                color: colors.onSurfaceVariant,
-                fontWeight: FontWeight.w700,
-              ),
-            ),
-            if (widget.mine && widget.message.readByPeer) ...[
-              const SizedBox(width: 7),
-              Container(
-                width: 1,
-                height: 13,
-                color: colors.outlineVariant.withValues(alpha: 0.75),
-              ),
-              const SizedBox(width: 7),
-              Text(
-                '已读',
-                style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                  color: colors.primary,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ],
-          ],
-        ),
+  Widget _buildMessageMetaPill() {
+    final dateLabel = formatYearMonthDayHm(widget.message.createdAt.toLocal());
+    final label = widget.mine && widget.message.readByPeer
+        ? '$dateLabel · 已读'
+        : dateLabel;
+    return IgnorePointer(
+      child: _DingTalkMessageActionButton(
+        icon: Icons.schedule_rounded,
+        label: label,
+        onPressed: () {},
       ),
     );
   }
