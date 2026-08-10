@@ -56,6 +56,8 @@ class DingTalkGatewayCommandException implements Exception {
     this.reason,
     this.serverCode,
     this.operation,
+    this.retryable = false,
+    this.retryAfterSeconds,
   });
 
   final String message;
@@ -63,6 +65,8 @@ class DingTalkGatewayCommandException implements Exception {
   final String? reason;
   final String? serverCode;
   final String? operation;
+  final bool retryable;
+  final int? retryAfterSeconds;
 
   bool get isBusinessError =>
       category == 'api' ||
@@ -78,6 +82,9 @@ class DingTalkGatewayCommandException implements Exception {
   bool get isResourceNotFound =>
       serverCode?.trim().toUpperCase() == 'RESOURCE_NOT_FOUND' ||
       message.toUpperCase().contains('RESOURCE_NOT_FOUND');
+
+  bool get isRetryable =>
+      retryable || reason?.trim().toLowerCase() == 'timeout';
 
   @override
   String toString() => message;
@@ -1161,7 +1168,7 @@ class DingTalkMessageGatewayService {
       'older',
       '--format',
       'json',
-    ], timeout: const Duration(seconds: 15));
+    ], timeout: const Duration(seconds: 25));
     return _parseMessages(
       result,
       fallbackConversationId: conversation.dwsConversationId.isNotEmpty
@@ -1721,6 +1728,11 @@ class DingTalkMessageGatewayService {
       reason: details['reason']?.toString(),
       serverCode: details['server_error_code']?.toString(),
       operation: details['operation']?.toString(),
+      retryable:
+          _asBool(details['retryable']) || _asBool(details['is_retryable']),
+      retryAfterSeconds: int.tryParse(
+        '${details['retry_after_seconds'] ?? details['retryAfterSeconds'] ?? ''}',
+      ),
     );
   }
 
@@ -2137,6 +2149,12 @@ class DingTalkMessageGatewayService {
     Duration? timeout,
   }) async {
     final operation = arguments.take(3).join(' ');
+    final effectiveTimeout = timeout ?? _commandTimeout;
+    final commandArguments = List<String>.of(arguments);
+    if (!commandArguments.contains('--timeout')) {
+      final dwsTimeoutSeconds = math.max(1, effectiveTimeout.inSeconds - 3);
+      commandArguments.addAll(<String>['--timeout', '$dwsTimeoutSeconds']);
+    }
     _logRuntime('INFO', '执行 dws：$operation。');
     late final String executable;
     try {
@@ -2149,8 +2167,8 @@ class DingTalkMessageGatewayService {
     try {
       result = await runTrackedProcessWithLineLogging(
         executable,
-        arguments,
-        timeout: timeout ?? _commandTimeout,
+        commandArguments,
+        timeout: effectiveTimeout,
         tag: 'dingtalk_gateway.command',
         workingDirectory: workingDirectory,
         // Schema 是多行 JSON，命令目录可能超过四万行，且描述行可能超过
@@ -2180,7 +2198,20 @@ class DingTalkMessageGatewayService {
       result.exitCode == 0 ? 'SUCCESS' : 'ERROR',
       'dws 执行结束：$operation，退出码 ${result.exitCode}。',
     );
-    final decoded = _decodeJson(result.stdout);
+    if (result.timedOut) {
+      final message = 'dws 执行超时：$operation。';
+      _logRuntime('WARN', message);
+      throw DingTalkGatewayCommandException(
+        message: message,
+        reason: 'timeout',
+        operation: operation,
+        retryable: true,
+      );
+    }
+    final structuredOutput = result.stdout.trim().isNotEmpty
+        ? result.stdout
+        : result.stderr;
+    final decoded = _decodeJson(structuredOutput);
     final payload = _asMap(decoded);
     final error = _asMap(payload['error']);
     if (result.stdout.trim().isNotEmpty && decoded is Map && payload.isEmpty) {
@@ -2190,14 +2221,31 @@ class DingTalkMessageGatewayService {
       final message =
           error['message']?.toString().trim().ifEmpty('dws 执行失败。') ??
           payload['message']?.toString().trim().ifEmpty('dws 执行失败。') ??
-          result.stderr.trim().ifEmpty('dws 执行失败。');
+          result.stderr.trim().ifEmpty(
+            result.exitCode == 0
+                ? 'dws 执行失败。'
+                : 'dws 执行失败（退出码 ${result.exitCode}）。',
+          );
+      final retryAfterSeconds = int.tryParse(
+        '${error['retry_after_seconds'] ?? error['retryAfterSeconds'] ?? ''}',
+      );
+      final hasStructuredError = error.isNotEmpty;
       _logRuntime('ERROR', 'dws 业务调用失败：${_safeProcessLogLine(message)}');
       throw DingTalkGatewayCommandException(
         message: message,
         category: error['category']?.toString(),
-        reason: error['reason']?.toString(),
+        reason:
+            error['reason']?.toString() ??
+            (!hasStructuredError && result.exitCode != 0
+                ? 'process_exit'
+                : null),
         serverCode: error['server_error_code']?.toString(),
         operation: error['operation']?.toString(),
+        retryable:
+            _asBool(error['retryable']) ||
+            _asBool(error['is_retryable']) ||
+            (!hasStructuredError && result.exitCode != 0),
+        retryAfterSeconds: retryAfterSeconds,
       );
     }
     return decoded;
