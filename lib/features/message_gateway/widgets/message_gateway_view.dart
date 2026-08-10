@@ -15,6 +15,7 @@ import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
 
+import '../../../app/model/dialog_animation_settings.dart';
 import '../../../app/state/settings_controller.dart';
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/openhand_scroll_physics.dart';
@@ -24,6 +25,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/model/dingtalk_multimodal_capability.dart';
+import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
@@ -31,6 +33,7 @@ import '../../../shared/ui/data_cleanup_range_dialog.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/frame_coalesced_rebuild.dart';
+import '../../../shared/ui/image_editor_dialog.dart';
 import '../../../shared/ui/media_preview_dialog.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -44,6 +47,7 @@ import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/runtime_log_dialog.dart';
@@ -12608,79 +12612,64 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   }
 
   Widget _buildPendingAttachmentsBar() {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
+    final chipAnimationSettings = context
+        .select<SettingsController, DialogAnimationSettings>(
+          (settings) => settings.chipAnimationSettings,
+        );
     return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: DecoratedBox(
-        decoration: BoxDecoration(
-          color: colors.primaryContainer.withValues(alpha: 0.48),
-          borderRadius: BorderRadius.circular(16),
-          border: Border.all(color: colors.primary.withValues(alpha: 0.22)),
-        ),
-        child: Padding(
-          padding: const EdgeInsets.fromLTRB(12, 8, 10, 8),
-          child: Row(
-            children: [
-              Icon(
-                Icons.attach_file_rounded,
-                size: 18,
-                color: colors.onPrimaryContainer,
-              ),
-              const SizedBox(width: 7),
-              Text(
-                '附件 ${_pendingAttachments.length}/$kDingTalkMessageAttachmentLimit',
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: colors.onPrimaryContainer,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-              const SizedBox(width: 10),
-              Expanded(
-                child: SingleChildScrollView(
-                  scrollDirection: Axis.horizontal,
-                  child: Row(
-                    children: [
-                      for (final attachment in _pendingAttachments)
-                        Padding(
-                          padding: const EdgeInsets.only(right: 6),
-                          child: InputChip(
-                            avatar: Icon(
-                              _dingtalkAttachmentIcon(attachment.name),
-                              size: 17,
-                              color: colors.onSecondaryContainer,
-                            ),
-                            label: ConstrainedBox(
-                              constraints: const BoxConstraints(maxWidth: 180),
-                              child: Text(
-                                attachment.name,
-                                maxLines: 1,
-                                overflow: TextOverflow.ellipsis,
-                              ),
-                            ),
-                            deleteIcon: const Icon(
-                              Icons.close_rounded,
-                              size: 16,
-                            ),
-                            onDeleted: () =>
-                                _removePendingAttachment(attachment.path),
-                            backgroundColor: colors.secondaryContainer,
-                            side: BorderSide.none,
-                            tooltip: formatByteSize(attachment.sizeBytes),
-                          ),
-                        ),
-                    ],
+      padding: const EdgeInsets.only(bottom: 12),
+      child: Wrap(
+        spacing: 8,
+        runSpacing: 8,
+        children: [
+          for (final attachment in _pendingAttachments)
+            AnimatedRemovableChip(
+              key: ValueKey<String>('dingtalk-attachment:${attachment.path}'),
+              settings: chipAnimationSettings,
+              onRemove: () => _removePendingAttachment(attachment.path),
+              builder: (context, requestRemove) =>
+                  _DingTalkPendingAttachmentChip(
+                    attachment: attachment,
+                    onTap: () => unawaited(_openPendingAttachment(attachment)),
+                    onRemove: _attachmentBusy ? () {} : requestRemove,
                   ),
-                ),
-              ),
-              IconButton(
-                tooltip: '清空附件',
-                visualDensity: VisualDensity.compact,
-                onPressed: _attachmentBusy ? null : _clearPendingAttachments,
-                icon: const Icon(Icons.clear_all_rounded, size: 19),
-              ),
-            ],
-          ),
+            ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _openPendingAttachment(
+    _DingTalkPendingAttachment attachment,
+  ) async {
+    final path = attachment.path.trim();
+    if (path.isEmpty || !await File(path).exists()) {
+      if (mounted) showOpenHandErrorSnack(context, '附件文件已不存在。');
+      return;
+    }
+    final kind = DingTalkMediaKindX.fromFileName(attachment.name);
+    if (kind == DingTalkMediaKind.file) {
+      final opened = await openLocalPathWithSystemApp(
+        path,
+        tag: 'dingtalk_gateway',
+      );
+      if (!opened && mounted) showOpenHandErrorSnack(context, '无法打开该附件。');
+      return;
+    }
+    if (!mounted) return;
+    final previewKind = switch (kind) {
+      DingTalkMediaKind.image => MediaPreviewKind.image,
+      DingTalkMediaKind.video => MediaPreviewKind.video,
+      DingTalkMediaKind.audio => MediaPreviewKind.audio,
+      DingTalkMediaKind.file => MediaPreviewKind.audio,
+    };
+    unawaited(
+      showAnimatedDialog<void>(
+        context: context,
+        builder: (_) => MediaPreviewDialog.file(
+          filePath: path,
+          title: attachment.name,
+          kind: previewKind,
         ),
       ),
     );
@@ -13391,6 +13380,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
             ...selection.attachments,
           ];
         });
+        unawaited(_prunePastedAttachmentCache());
         return;
       }
       final success = await widget.controller.sendMessageWithAttachments(
@@ -13412,9 +13402,35 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     }
   }
 
+  Future<String> _writePastedDingTalkImage(
+    List<int> bytes, {
+    required String extension,
+  }) async {
+    final directory = Directory(
+      p.join(
+        OpenHandPaths.defaultMessageGatewayDirectoryPath(),
+        'dingtalk_pasted',
+      ),
+    );
+    await directory.create(recursive: true);
+    final path = p.join(
+      directory.path,
+      'pasted-${DateTime.now().microsecondsSinceEpoch}.${_normalizeDingTalkImageExtension(extension)}',
+    );
+    await writeTemporaryFileBytesBounded(
+      File(path),
+      bytes,
+      timeout: _clipboardImageWriteTimeout,
+      onSecondaryError: (error, stack) =>
+          silentLog('dingtalk_gateway', '清理钉钉剪贴板图片', error, stack),
+    );
+    return path;
+  }
+
   Future<_DingTalkAttachmentSelection> _prepareAttachmentSelection(
     Iterable<String> rawPaths, {
     required Set<String> existingPaths,
+    bool editImages = true,
   }) async {
     final attachments = <_DingTalkPendingAttachment>[];
     final seen = <String>{...existingPaths};
@@ -13429,26 +13445,81 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         limitSkipped += 1;
         continue;
       }
+      var resolvedPath = path;
+      var displayName = p.basename(path).trim().isEmpty
+          ? '文件'
+          : p.basename(path);
+      final isImage =
+          DingTalkMediaKindX.fromFileName(displayName) ==
+          DingTalkMediaKind.image;
+      if (editImages && isImage) {
+        try {
+          final bytes = await readBoundedFileBytes(
+            File(path),
+            maxBytes: kImageEditorSourceMaxBytes,
+            idleTimeout: defaultBoundedFileReadIdleTimeout,
+            totalTimeout: defaultBoundedFileReadTotalTimeout,
+          );
+          if (!mounted) {
+            return _DingTalkAttachmentSelection(attachments: attachments);
+          }
+          final edited = await showImageEditorDialog(
+            context,
+            imageBytes: bytes,
+            imageSizeLimitBytes: context
+                .read<SettingsController>()
+                .aiImageSizeLimitBytes,
+          );
+          if (!mounted) {
+            return _DingTalkAttachmentSelection(attachments: attachments);
+          }
+          if (edited == null) continue;
+          resolvedPath = await _writePastedDingTalkImage(
+            edited.bytes,
+            extension: edited.format,
+          );
+          if (!mounted) {
+            await _deletePastedAttachmentFile(resolvedPath);
+            return _DingTalkAttachmentSelection(attachments: attachments);
+          }
+          final basename = p.basenameWithoutExtension(displayName).trim();
+          displayName =
+              '${basename.isEmpty ? '图片' : basename}.${_normalizeDingTalkImageExtension(edited.format)}';
+        } on BoundedFileReadException catch (error, stack) {
+          silentLog('dingtalk_gateway', '读取待编辑钉钉图片', error, stack);
+        } catch (error, stack) {
+          silentLog('dingtalk_gateway', '编辑钉钉图片附件', error, stack);
+        }
+      }
       try {
-        final file = File(path);
+        final file = File(resolvedPath);
         final stat = await file.stat();
         if (stat.type != FileSystemEntityType.file || stat.size <= 0) {
           invalid += 1;
+          if (resolvedPath != path) {
+            await _deletePastedAttachmentFile(resolvedPath);
+          }
           continue;
         }
         if (stat.size > kDingTalkMessageAttachmentMaxBytes) {
           oversized += 1;
+          if (resolvedPath != path) {
+            await _deletePastedAttachmentFile(resolvedPath);
+          }
           continue;
         }
         attachments.add(
           _DingTalkPendingAttachment(
-            path: path,
-            name: p.basename(path).trim().isEmpty ? '文件' : p.basename(path),
+            path: resolvedPath,
+            name: displayName,
             sizeBytes: stat.size,
           ),
         );
       } catch (error, stack) {
         invalid += 1;
+        if (resolvedPath != path) {
+          await _deletePastedAttachmentFile(resolvedPath);
+        }
         silentLog('dingtalk_gateway', '读取钉钉附件', error, stack);
       }
     }
@@ -13484,11 +13555,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
           .where((item) => item.path != path)
           .toList(growable: false);
     });
-  }
-
-  void _clearPendingAttachments() {
-    if (_attachmentBusy || _pendingAttachments.isEmpty) return;
-    setState(() => _pendingAttachments = const <_DingTalkPendingAttachment>[]);
   }
 
   KeyEventResult _handleInputKeyEvent(FocusNode node, KeyEvent event) {
@@ -13536,6 +13602,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
               ...selection.attachments,
             ];
           });
+          unawaited(_prunePastedAttachmentCache());
         }
         return;
       }
@@ -13573,24 +13640,28 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         return;
       }
 
-      final pastedDirectory = Directory(
-        p.join(
-          OpenHandPaths.defaultMessageGatewayDirectoryPath(),
-          'dingtalk_pasted',
-        ),
+      final edited = await showImageEditorDialog(
+        context,
+        imageBytes: imageBytes,
+        imageSizeLimitBytes: context
+            .read<SettingsController>()
+            .aiImageSizeLimitBytes,
       );
-      final pastedPath = p.join(
-        pastedDirectory.path,
-        'pasted-${DateTime.now().microsecondsSinceEpoch}.png',
-      );
+      if (!mounted || _selectedId != conversationId || edited == null) return;
+      if (edited.bytes.lengthInBytes > kDingTalkMessageAttachmentMaxBytes) {
+        _showAttachmentSelectionNotices(
+          const _DingTalkAttachmentSelection(
+            attachments: <_DingTalkPendingAttachment>[],
+            oversized: 1,
+          ),
+        );
+        return;
+      }
+      String pastedPath;
       try {
-        await pastedDirectory.create(recursive: true);
-        await writeTemporaryFileBytesBounded(
-          File(pastedPath),
-          imageBytes,
-          timeout: _clipboardImageWriteTimeout,
-          onSecondaryError: (error, stack) =>
-              silentLog('dingtalk_gateway', '清理钉钉剪贴板图片', error, stack),
+        pastedPath = await _writePastedDingTalkImage(
+          edited.bytes,
+          extension: edited.format,
         );
       } catch (error, stack) {
         silentLog('dingtalk_gateway', '写入钉钉剪贴板图片', error, stack);
@@ -13600,9 +13671,11 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         await _deletePastedAttachmentFile(pastedPath);
         return;
       }
-      final selection = await _prepareAttachmentSelection(<String>[
-        pastedPath,
-      ], existingPaths: existingPaths);
+      final selection = await _prepareAttachmentSelection(
+        <String>[pastedPath],
+        existingPaths: existingPaths,
+        editImages: false,
+      );
       if (!mounted || _selectedId != conversationId) {
         await _deletePastedAttachmentFile(pastedPath);
         return;
@@ -13650,9 +13723,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       var scanned = 0;
       await for (final entity in directory.list(followLinks: false)) {
         if (++scanned > _maxPastedAttachmentCacheFiles * 4) break;
-        if (entity is! File ||
-            !p.basename(entity.path).startsWith('pasted-') ||
-            !p.basename(entity.path).endsWith('.png')) {
+        if (entity is! File || !p.basename(entity.path).startsWith('pasted-')) {
           continue;
         }
         final path = p.normalize(p.absolute(entity.path));
@@ -14088,6 +14159,157 @@ IconData _dingtalkAttachmentIcon(String name) {
     DingTalkMediaKind.audio => Icons.audiotrack_outlined,
     DingTalkMediaKind.file => Icons.insert_drive_file_outlined,
   };
+}
+
+String _normalizeDingTalkImageExtension(String value) {
+  return switch (value.trim().toLowerCase()) {
+    'jpg' || 'jpeg' || 'webp' || 'gif' || 'png' => value.trim().toLowerCase(),
+    _ => 'png',
+  };
+}
+
+class _DingTalkPendingAttachmentChip extends StatelessWidget {
+  const _DingTalkPendingAttachmentChip({
+    required this.attachment,
+    required this.onRemove,
+    this.onTap,
+  });
+
+  final _DingTalkPendingAttachment attachment;
+  final VoidCallback onRemove;
+  final VoidCallback? onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    final kind = DingTalkMediaKindX.fromFileName(attachment.name);
+    if (kind == DingTalkMediaKind.image) {
+      return Tooltip(
+        message: '${attachment.name} · ${formatByteSize(attachment.sizeBytes)}',
+        child: SizedBox(
+          width: 64,
+          height: 64,
+          child: Stack(
+            clipBehavior: Clip.none,
+            children: [
+              Positioned.fill(
+                child: OpenHandTapRegion(
+                  onTap: onTap,
+                  child: DecoratedBox(
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHighest,
+                      borderRadius: BorderRadius.circular(12),
+                      border: Border.all(color: colors.outlineVariant),
+                    ),
+                    child: ClipRRect(
+                      borderRadius: BorderRadius.circular(11),
+                      child: Image.file(
+                        File(attachment.path),
+                        fit: BoxFit.cover,
+                        cacheWidth: 192,
+                        gaplessPlayback: true,
+                        errorBuilder: (_, _, _) => Center(
+                          child: Icon(
+                            Icons.broken_image_outlined,
+                            size: 24,
+                            color: colors.onSurfaceVariant,
+                          ),
+                        ),
+                      ),
+                    ),
+                  ),
+                ),
+              ),
+              Positioned(
+                top: -6,
+                right: -6,
+                child: _DingTalkAttachmentRemoveButton(onRemove: onRemove),
+              ),
+            ],
+          ),
+        ),
+      );
+    }
+    return OpenHandTapRegion(
+      onTap: onTap,
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
+        decoration: BoxDecoration(
+          color: colors.surfaceContainerHighest,
+          borderRadius: BorderRadius.circular(16),
+          border: Border.all(color: colors.outlineVariant),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              _dingtalkAttachmentIcon(attachment.name),
+              size: 16,
+              color: colors.onSurfaceVariant,
+            ),
+            const SizedBox(width: 8),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 260),
+              child: Text(
+                '${attachment.name} · ${formatByteSize(attachment.sizeBytes)}',
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: Theme.of(
+                  context,
+                ).textTheme.bodySmall?.copyWith(color: colors.onSurface),
+              ),
+            ),
+            const SizedBox(width: 8),
+            InkWell(
+              onTap: onRemove,
+              borderRadius: BorderRadius.circular(8),
+              child: Icon(
+                Icons.close_rounded,
+                size: 16,
+                color: colors.onSurfaceVariant,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+class _DingTalkAttachmentRemoveButton extends StatelessWidget {
+  const _DingTalkAttachmentRemoveButton({required this.onRemove});
+
+  final VoidCallback onRemove;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return OpenHandTapRegion(
+      onTap: onRemove,
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.surface,
+          shape: BoxShape.circle,
+          border: Border.all(color: colors.outlineVariant),
+          boxShadow: [
+            BoxShadow(
+              color: Colors.black.withValues(alpha: 0.12),
+              blurRadius: 4,
+              offset: const Offset(0, 1),
+            ),
+          ],
+        ),
+        child: Padding(
+          padding: const EdgeInsets.all(2),
+          child: Icon(
+            Icons.close_rounded,
+            size: 14,
+            color: colors.onSurfaceVariant,
+          ),
+        ),
+      ),
+    );
+  }
 }
 
 enum _DingTalkConversationMenuAction { details, delete }
