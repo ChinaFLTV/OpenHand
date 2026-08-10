@@ -12598,11 +12598,26 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final responding = widget.controller.isConversationResponding(
       conversation.id,
     );
+    final responseError =
+        widget.controller.responseErrorMessage(conversation.id)?.trim() ?? '';
     return Padding(
       padding: const EdgeInsets.fromLTRB(16, 8, 16, 16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          AnimatedSwitcher(
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: responseError.isNotEmpty
+                ? _DingTalkResponseErrorBanner(
+                    key: ValueKey<String>(responseError),
+                    message: responseError,
+                  )
+                : const SizedBox.shrink(
+                    key: ValueKey<String>('dingtalk-response-no-error'),
+                  ),
+          ),
           if (_pendingAttachments.isNotEmpty)
             _buildPendingAttachmentsBar(conversation, chipAnimationSettings),
           AnimatedSwitcher(
@@ -14514,6 +14529,51 @@ class _DingTalkRespondingIndicator extends StatelessWidget {
       width: 16,
       height: 16,
       child: CircularProgressIndicator(strokeWidth: 2, color: color),
+    );
+  }
+}
+
+class _DingTalkResponseErrorBanner extends StatelessWidget {
+  const _DingTalkResponseErrorBanner({required this.message, super.key});
+
+  final String message;
+
+  @override
+  Widget build(BuildContext context) {
+    final colors = Theme.of(context).colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: DecoratedBox(
+        decoration: BoxDecoration(
+          color: colors.errorContainer.withValues(alpha: 0.72),
+          borderRadius: BorderRadius.circular(14),
+          border: Border.all(color: colors.error.withValues(alpha: 0.32)),
+        ),
+        child: Padding(
+          padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
+          child: Row(
+            children: [
+              Icon(
+                Icons.error_outline_rounded,
+                size: 18,
+                color: colors.onErrorContainer,
+              ),
+              const SizedBox(width: 8),
+              Expanded(
+                child: Text(
+                  message,
+                  maxLines: 2,
+                  overflow: TextOverflow.ellipsis,
+                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                    color: colors.onErrorContainer,
+                    fontWeight: FontWeight.w600,
+                  ),
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

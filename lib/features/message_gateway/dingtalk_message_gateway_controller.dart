@@ -143,6 +143,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       <String, DingTalkConversation>{};
   final Set<String> _responseInFlight = <String>{};
   final Map<String, int> _responsePreparingCounts = <String, int>{};
+  final Map<String, String> _responseErrors = <String, String>{};
 
   /// 每次停止响应都会递增。正在执行的响应携带启动时版本，前置异步
   /// 阶段完成后若版本已变化，立即结束本轮，避免停止后继续发起 AI 请求。
@@ -203,6 +204,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   int get unreadCount => _unreadCount;
   String? get errorMessage => _errorMessage;
   String? get warningMessage => _warningMessage;
+  String? responseErrorMessage(String conversationId) =>
+      _responseErrors[conversationId.trim()];
   String? get deviceUrl => _deviceUrl;
   String? get dwsCommandCatalogError => _service.dwsCommandCatalogError;
   String get deviceCode {
@@ -631,6 +634,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (conversation == null) return;
     await stopConversationResponse(conversationId);
     _conversations.remove(conversationId);
+    _responseErrors.remove(conversationId);
     _conversationReconcileFailures.remove(conversationId);
     if (!_responseDraining.contains(conversationId) &&
         !_responseInFlight.contains(conversationId) &&
@@ -2682,7 +2686,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   bool _isResponseCancelled(String conversationId, int version) {
     return _disposed ||
-        _responseCancellationVersions[conversationId] != version;
+        // 未执行过“停止响应”时不会在 map 中写入版本，缺省版本为 0。
+        // 直接比较可空值会把首次响应的 0 误判为已取消，导致 @ 消息
+        // 只同步到列表却永远不会进入 AI 队列。
+        (_responseCancellationVersions[conversationId] ?? 0) != version;
   }
 
   Future<void> _respondWithAi(
@@ -2696,7 +2703,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     try {
       final model = _resolveModel();
       final templates = _sessionController.availableTemplates;
-      if (model == null || templates.isEmpty) return;
+      if (model == null) {
+        _setResponseError(conversation.id, '未配置可用的 AI 模型，请先完善钉钉网关设置。');
+        return;
+      }
+      if (templates.isEmpty) {
+        _setResponseError(conversation.id, '没有可用的线程模板，暂时无法响应钉钉消息。');
+        return;
+      }
       final aiContent = _buildAiConversationTurn(
         conversation,
         sourceMessageId,
@@ -2805,7 +2819,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           },
           selectAfterCreate: false,
         );
-        if (!created) return;
+        if (!created) {
+          _setResponseError(
+            conversation.id,
+            _sessionController.lastErrorMessage ?? '创建钉钉 AI 会话失败，请查看运行日志。',
+          );
+          return;
+        }
         for (final candidate in _sessionController.sessions.reversed) {
           if (candidate.isDingTalkGatewaySession &&
               candidate.metadata['dingtalk_conversation_id'] ==
@@ -2817,7 +2837,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         conversation.aiSessionId = sessionId;
         if (_isResponseCancelled(conversation.id, responseVersion)) return;
       }
-      if (sessionId == null) return;
+      if (sessionId == null) {
+        _setResponseError(conversation.id, '未能建立钉钉 AI 会话，请查看运行日志。');
+        return;
+      }
       final attachmentPaths = _attachmentPathsForTurn(
         conversation,
         sourceMessageId,
@@ -2859,6 +2882,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         newUuid: _uuid.v4,
         onError: (action, error, stack) {
           silentLog('dingtalk_gateway', action, error, stack);
+          _setResponseError(conversation.id, '$action失败，请查看钉钉网关运行日志。');
         },
       );
 
@@ -2919,7 +2943,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             'dingtalk_source_message_id': sourceMessageId,
           },
         );
-        if (!sent) return;
+        if (!sent) {
+          if (!_isResponseCancelled(conversation.id, responseVersion)) {
+            _setResponseError(
+              conversation.id,
+              _sessionController.lastErrorMessageForSession(sessionId) ??
+                  'AI 未返回响应，请检查模型配置与运行日志。',
+            );
+          }
+          return;
+        }
         if (_isResponseCancelled(conversation.id, responseVersion)) return;
         if (sourceMessageId.trim().isNotEmpty &&
             identical(_conversations[conversation.id], conversation)) {
@@ -2945,6 +2978,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         echoCoordinator.dispose();
       }
     } catch (error, stack) {
+      if (!_isResponseCancelled(conversation.id, responseVersion)) {
+        _setResponseError(conversation.id, 'AI 响应失败，请查看钉钉网关运行日志。');
+      }
       silentLog('dingtalk_gateway', '生成钉钉 AI 回复', error, stack);
     } finally {
       _responseInFlight.remove(conversation.id);
@@ -3426,6 +3462,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   void _beginResponsePreparing(String conversationId) {
+    _responseErrors.remove(conversationId);
     _responsePreparingCounts.update(
       conversationId,
       (count) => count + 1,
@@ -3705,6 +3742,18 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     silentLog('dingtalk_gateway', action, error, stack);
   }
 
+  void _setResponseError(String conversationId, String message) {
+    final normalizedId = conversationId.trim();
+    final normalizedMessage = message.trim();
+    if (normalizedId.isEmpty || normalizedMessage.isEmpty || _disposed) return;
+    _responseErrors[normalizedId] = clipTextByCodeUnits(
+      normalizedMessage,
+      300,
+      suffix: '…',
+    );
+    _notify();
+  }
+
   void _clearError() => _errorMessage = null;
 
   void _queuePersist() {
@@ -3792,6 +3841,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _responseQueues.clear();
     _responseDraining.clear();
     _responsePreparingCounts.clear();
+    _responseErrors.clear();
     _responseCancellationVersions.clear();
     _writeApprovalHandler = null;
     await _runtimeLogSubscription?.cancel();
