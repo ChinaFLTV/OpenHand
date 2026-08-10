@@ -12064,6 +12064,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const int _voiceWaveformSampleCount = 40;
   static const int _maxTranslationCacheEntries = 64;
   static const double _messageCacheExtent = 120;
+  static const double _messagesScrollbarThickness = 6;
+  static const Radius _messagesScrollbarRadius = kOpenHandPillRadius;
   static const Duration _clipboardAttachmentReadTimeout = Duration(seconds: 2);
   static const Duration _clipboardImageReadTimeout = Duration(seconds: 3);
   static const Duration _clipboardImageWriteTimeout = Duration(seconds: 10);
@@ -12420,241 +12422,259 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                           behavior: HitTestBehavior.translucent,
                                           onPointerSignal:
                                               _handleMessagesPointerSignal,
-                                          child: NotificationListener<ScrollNotification>(
-                                            onNotification:
-                                                _handleMessagesScrollNotification,
-                                            child: ListView.builder(
-                                              key: ValueKey<String>(
-                                                selected.id,
-                                              ),
-                                              controller:
-                                                  _messagesScrollController,
-                                              addRepaintBoundaries: false,
-                                              keyboardDismissBehavior:
-                                                  ScrollViewKeyboardDismissBehavior
-                                                      .onDrag,
-                                              cacheExtent: _messageCacheExtent,
-                                              padding:
-                                                  const EdgeInsets.fromLTRB(
-                                                    20,
-                                                    18,
-                                                    20,
-                                                    12,
-                                                  ),
-                                              itemCount:
-                                                  selected.messages.length +
-                                                  (selectedHasOlderMessages ||
-                                                          selectedLoadingOlderMessages
-                                                      ? 1
-                                                      : 0),
-                                              itemBuilder: (context, index) {
-                                                final historyHeaderVisible =
-                                                    selectedHasOlderMessages ||
-                                                    selectedLoadingOlderMessages;
-                                                if (historyHeaderVisible &&
-                                                    index == 0) {
-                                                  final loading =
+                                          child: OpenHandSafeScrollbar(
+                                            controller:
+                                                _messagesScrollController,
+                                            thumbVisibility: true,
+                                            thickness:
+                                                _messagesScrollbarThickness,
+                                            radius: _messagesScrollbarRadius,
+                                            stabilizeMetrics: true,
+                                            child: NotificationListener<ScrollNotification>(
+                                              onNotification:
+                                                  _handleMessagesScrollNotification,
+                                              child: ListView.builder(
+                                                key: ValueKey<String>(
+                                                  selected.id,
+                                                ),
+                                                controller:
+                                                    _messagesScrollController,
+                                                addRepaintBoundaries: false,
+                                                keyboardDismissBehavior:
+                                                    ScrollViewKeyboardDismissBehavior
+                                                        .onDrag,
+                                                physics:
+                                                    kOpenHandClampingPhysics,
+                                                primary: false,
+                                                cacheExtent:
+                                                    _messageCacheExtent,
+                                                padding:
+                                                    const EdgeInsets.fromLTRB(
+                                                      20,
+                                                      18,
+                                                      20,
+                                                      12,
+                                                    ),
+                                                itemCount:
+                                                    selected.messages.length +
+                                                    (selectedHasOlderMessages ||
+                                                            selectedLoadingOlderMessages
+                                                        ? 1
+                                                        : 0),
+                                                itemBuilder: (context, index) {
+                                                  final historyHeaderVisible =
+                                                      selectedHasOlderMessages ||
                                                       selectedLoadingOlderMessages;
-                                                  return Padding(
-                                                    padding:
-                                                        const EdgeInsets.only(
-                                                          bottom: 12,
-                                                        ),
-                                                    child: Center(
-                                                      child: OutlinedButton.icon(
-                                                        onPressed: loading
-                                                            ? null
-                                                            : () => unawaited(
-                                                                _loadOlderMessages(
-                                                                  selected,
+                                                  if (historyHeaderVisible &&
+                                                      index == 0) {
+                                                    final loading =
+                                                        selectedLoadingOlderMessages;
+                                                    return Padding(
+                                                      padding:
+                                                          const EdgeInsets.only(
+                                                            bottom: 12,
+                                                          ),
+                                                      child: Center(
+                                                        child: OutlinedButton.icon(
+                                                          onPressed: loading
+                                                              ? null
+                                                              : () => unawaited(
+                                                                  _loadOlderMessages(
+                                                                    selected,
+                                                                  ),
                                                                 ),
-                                                              ),
-                                                        icon: loading
-                                                            ? const SizedBox(
-                                                                width: 16,
-                                                                height: 16,
-                                                                child:
-                                                                    CircularProgressIndicator(
-                                                                      strokeWidth:
-                                                                          2,
-                                                                    ),
-                                                              )
-                                                            : const Icon(
-                                                                Icons
-                                                                    .history_rounded,
-                                                                size: 18,
-                                                              ),
-                                                        label: Text(
-                                                          loading
-                                                              ? '加载更早消息中…'
-                                                              : '加载更早消息',
+                                                          icon: loading
+                                                              ? const SizedBox(
+                                                                  width: 16,
+                                                                  height: 16,
+                                                                  child: CircularProgressIndicator(
+                                                                    strokeWidth:
+                                                                        2,
+                                                                  ),
+                                                                )
+                                                              : const Icon(
+                                                                  Icons
+                                                                      .history_rounded,
+                                                                  size: 18,
+                                                                ),
+                                                          label: Text(
+                                                            loading
+                                                                ? '加载更早消息中…'
+                                                                : '加载更早消息',
+                                                          ),
                                                         ),
                                                       ),
+                                                    );
+                                                  }
+                                                  final message =
+                                                      selected.messages[index -
+                                                          (historyHeaderVisible
+                                                              ? 1
+                                                              : 0)];
+                                                  final textActionEnabled =
+                                                      !message.recalled &&
+                                                      message.media.isEmpty &&
+                                                      message.content
+                                                          .trim()
+                                                          .isNotEmpty;
+                                                  final translation =
+                                                      _translations[message.id];
+                                                  final translationVisible =
+                                                      textActionEnabled &&
+                                                      translation != null &&
+                                                      _visibleTranslationMessageIds
+                                                          .contains(
+                                                            message.id,
+                                                          ) &&
+                                                      translation.sourceText ==
+                                                          message.content &&
+                                                      translation
+                                                              .settingsFingerprint ==
+                                                          _translationFingerprint(
+                                                            translationSettings,
+                                                            messageActionFallbackModel,
+                                                          );
+                                                  return RepaintBoundary(
+                                                    key: ValueKey<String>(
+                                                      message.id,
+                                                    ),
+                                                    child: _DingTalkMessageBubble(
+                                                      message: message,
+                                                      mine: _isMine(message),
+                                                      actionsVisible:
+                                                          _expandedActionMessageId ==
+                                                          message.id,
+                                                      onToggleActions: () {
+                                                        if (!mounted) return;
+                                                        setState(() {
+                                                          _expandedActionMessageId =
+                                                              _expandedActionMessageId ==
+                                                                  message.id
+                                                              ? null
+                                                              : message.id;
+                                                        });
+                                                      },
+                                                      mediaLoading: widget
+                                                          .controller
+                                                          .isMessageMediaCaching(
+                                                            message.id,
+                                                          ),
+                                                      onEdit:
+                                                          _canEditMessage(
+                                                            message,
+                                                          )
+                                                          ? () =>
+                                                                _beginMessageEdit(
+                                                                  selected,
+                                                                  message,
+                                                                )
+                                                          : null,
+                                                      onShowEditHistory:
+                                                          message.isEdited
+                                                          ? () => unawaited(
+                                                              _showEditHistory(
+                                                                context,
+                                                                message,
+                                                              ),
+                                                            )
+                                                          : null,
+                                                      onRetryMedia:
+                                                          message.media.any(
+                                                            (item) => item
+                                                                .localPath
+                                                                .trim()
+                                                                .isEmpty,
+                                                          )
+                                                          ? () => unawaited(
+                                                              widget.controller
+                                                                  .ensureMessageMediaCached(
+                                                                    conversationId:
+                                                                        selected
+                                                                            .id,
+                                                                    messageId:
+                                                                        message
+                                                                            .id,
+                                                                  ),
+                                                            )
+                                                          : null,
+                                                      speechEnabled:
+                                                          textActionEnabled &&
+                                                          ttsSettings.enabled,
+                                                      speechPlaying:
+                                                          textActionEnabled &&
+                                                          ttsSettings.enabled &&
+                                                          ttsSnapshot.playing &&
+                                                          ttsSnapshot
+                                                                  .messageId ==
+                                                              message.id,
+                                                      onToggleSpeech:
+                                                          textActionEnabled &&
+                                                              ttsSettings
+                                                                  .enabled
+                                                          ? () => unawaited(
+                                                              _toggleMessageSpeech(
+                                                                message,
+                                                                ttsSettings,
+                                                                messageActionFallbackModel,
+                                                              ),
+                                                            )
+                                                          : null,
+                                                      translationEnabled:
+                                                          textActionEnabled &&
+                                                          translationSettings
+                                                              .enabled,
+                                                      translationLoading:
+                                                          _loadingTranslationMessageIds
+                                                              .contains(
+                                                                message.id,
+                                                              ),
+                                                      translationVisible:
+                                                          translationVisible,
+                                                      translatedContent:
+                                                          translationVisible
+                                                          ? translation
+                                                                .translatedText
+                                                          : null,
+                                                      onToggleTranslation:
+                                                          textActionEnabled &&
+                                                              translationSettings
+                                                                  .enabled
+                                                          ? () => unawaited(
+                                                              _toggleMessageTranslation(
+                                                                message,
+                                                                translationSettings,
+                                                                messageActionFallbackModel,
+                                                              ),
+                                                            )
+                                                          : null,
+                                                      onSetFeedback:
+                                                          message.isAssistant &&
+                                                              !message.recalled
+                                                          ? (
+                                                              feedback,
+                                                            ) => unawaited(
+                                                              _setMessageFeedback(
+                                                                selected,
+                                                                message,
+                                                                feedback,
+                                                              ),
+                                                            )
+                                                          : null,
+                                                      onAudit:
+                                                          telemetryDebugEnabled
+                                                          ? () =>
+                                                                _showMessageAudit(
+                                                                  selected,
+                                                                  message,
+                                                                )
+                                                          : null,
+                                                      showRawAction:
+                                                          message.isAssistant &&
+                                                          textActionEnabled,
                                                     ),
                                                   );
-                                                }
-                                                final message =
-                                                    selected.messages[index -
-                                                        (historyHeaderVisible
-                                                            ? 1
-                                                            : 0)];
-                                                final textActionEnabled =
-                                                    !message.recalled &&
-                                                    message.media.isEmpty &&
-                                                    message.content
-                                                        .trim()
-                                                        .isNotEmpty;
-                                                final translation =
-                                                    _translations[message.id];
-                                                final translationVisible =
-                                                    textActionEnabled &&
-                                                    translation != null &&
-                                                    _visibleTranslationMessageIds
-                                                        .contains(message.id) &&
-                                                    translation.sourceText ==
-                                                        message.content &&
-                                                    translation
-                                                            .settingsFingerprint ==
-                                                        _translationFingerprint(
-                                                          translationSettings,
-                                                          messageActionFallbackModel,
-                                                        );
-                                                return RepaintBoundary(
-                                                  key: ValueKey<String>(
-                                                    message.id,
-                                                  ),
-                                                  child: _DingTalkMessageBubble(
-                                                    message: message,
-                                                    mine: _isMine(message),
-                                                    actionsVisible:
-                                                        _expandedActionMessageId ==
-                                                        message.id,
-                                                    onToggleActions: () {
-                                                      if (!mounted) return;
-                                                      setState(() {
-                                                        _expandedActionMessageId =
-                                                            _expandedActionMessageId ==
-                                                                message.id
-                                                            ? null
-                                                            : message.id;
-                                                      });
-                                                    },
-                                                    mediaLoading: widget
-                                                        .controller
-                                                        .isMessageMediaCaching(
-                                                          message.id,
-                                                        ),
-                                                    onEdit:
-                                                        _canEditMessage(message)
-                                                        ? () =>
-                                                              _beginMessageEdit(
-                                                                selected,
-                                                                message,
-                                                              )
-                                                        : null,
-                                                    onShowEditHistory:
-                                                        message.isEdited
-                                                        ? () => unawaited(
-                                                            _showEditHistory(
-                                                              context,
-                                                              message,
-                                                            ),
-                                                          )
-                                                        : null,
-                                                    onRetryMedia:
-                                                        message.media.any(
-                                                          (item) => item
-                                                              .localPath
-                                                              .trim()
-                                                              .isEmpty,
-                                                        )
-                                                        ? () => unawaited(
-                                                            widget.controller
-                                                                .ensureMessageMediaCached(
-                                                                  conversationId:
-                                                                      selected
-                                                                          .id,
-                                                                  messageId:
-                                                                      message
-                                                                          .id,
-                                                                ),
-                                                          )
-                                                        : null,
-                                                    speechEnabled:
-                                                        textActionEnabled &&
-                                                        ttsSettings.enabled,
-                                                    speechPlaying:
-                                                        textActionEnabled &&
-                                                        ttsSettings.enabled &&
-                                                        ttsSnapshot.playing &&
-                                                        ttsSnapshot.messageId ==
-                                                            message.id,
-                                                    onToggleSpeech:
-                                                        textActionEnabled &&
-                                                            ttsSettings.enabled
-                                                        ? () => unawaited(
-                                                            _toggleMessageSpeech(
-                                                              message,
-                                                              ttsSettings,
-                                                              messageActionFallbackModel,
-                                                            ),
-                                                          )
-                                                        : null,
-                                                    translationEnabled:
-                                                        textActionEnabled &&
-                                                        translationSettings
-                                                            .enabled,
-                                                    translationLoading:
-                                                        _loadingTranslationMessageIds
-                                                            .contains(
-                                                              message.id,
-                                                            ),
-                                                    translationVisible:
-                                                        translationVisible,
-                                                    translatedContent:
-                                                        translationVisible
-                                                        ? translation
-                                                              .translatedText
-                                                        : null,
-                                                    onToggleTranslation:
-                                                        textActionEnabled &&
-                                                            translationSettings
-                                                                .enabled
-                                                        ? () => unawaited(
-                                                            _toggleMessageTranslation(
-                                                              message,
-                                                              translationSettings,
-                                                              messageActionFallbackModel,
-                                                            ),
-                                                          )
-                                                        : null,
-                                                    onSetFeedback:
-                                                        message.isAssistant &&
-                                                            !message.recalled
-                                                        ? (
-                                                            feedback,
-                                                          ) => unawaited(
-                                                            _setMessageFeedback(
-                                                              selected,
-                                                              message,
-                                                              feedback,
-                                                            ),
-                                                          )
-                                                        : null,
-                                                    onAudit:
-                                                        telemetryDebugEnabled
-                                                        ? () =>
-                                                              _showMessageAudit(
-                                                                selected,
-                                                                message,
-                                                              )
-                                                        : null,
-                                                    showRawAction:
-                                                        message.isAssistant &&
-                                                        textActionEnabled,
-                                                  ),
-                                                );
-                                              },
+                                                },
+                                              ),
                                             ),
                                           ),
                                         ),
@@ -13229,7 +13249,15 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   void _handleMessagesPointerSignal(PointerSignalEvent event) {
     if (event is! PointerScrollEvent || event.scrollDelta.dy == 0) return;
+    // 触控板/滚轮属于明确的用户输入，立即终止贴底动画，避免两套滚动
+    // 同时写入同一个 ScrollPosition 造成来回抢占。
+    _messagesProgrammaticScroll.cancel();
     _lastMessagesPointerSignalAt = _messagesScrollActivityStopwatch.elapsed;
+    final controller = _messagesScrollController;
+    if (controller.hasClients &&
+        controller.position.maxScrollExtent - controller.position.pixels > 2) {
+      _disableAutoFollow();
+    }
   }
 
   bool _hasRecentMessagesPointerSignal() {
@@ -13240,7 +13268,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   }
 
   bool _handleMessagesScrollNotification(ScrollNotification notification) {
-    final programmaticScroll = _messagesProgrammaticScroll.busy;
+    if (notification.depth != 0) return false;
+    final programmaticScroll = _messagesProgrammaticScroll.active;
     final explicitUserScroll = isExplicitUserScrollNotification(
       notification,
       programmaticScroll: programmaticScroll,
