@@ -12087,6 +12087,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   bool _followJumpToBottom = false;
   int _followRequestVersion = 0;
   String? _selectedId;
+  String? _expandedActionMessageId;
   String? _editingConversationId;
   String? _editingMessageId;
   bool _editSubmitting = false;
@@ -12525,6 +12526,19 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                   child: _DingTalkMessageBubble(
                                                     message: message,
                                                     mine: _isMine(message),
+                                                    actionsVisible:
+                                                        _expandedActionMessageId ==
+                                                        message.id,
+                                                    onToggleActions: () {
+                                                      if (!mounted) return;
+                                                      setState(() {
+                                                        _expandedActionMessageId =
+                                                            _expandedActionMessageId ==
+                                                                message.id
+                                                            ? null
+                                                            : message.id;
+                                                      });
+                                                    },
                                                     mediaLoading: widget
                                                         .controller
                                                         .isMessageMediaCaching(
@@ -13263,6 +13277,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     }
     setState(() {
       _selectedId = id;
+      _expandedActionMessageId = null;
       _editingConversationId = null;
       _editingMessageId = null;
       _editSubmitting = false;
@@ -14773,6 +14788,8 @@ class _DingTalkMessageBubble extends StatefulWidget {
   const _DingTalkMessageBubble({
     required this.message,
     required this.mine,
+    required this.actionsVisible,
+    required this.onToggleActions,
     this.mediaLoading = false,
     this.onEdit,
     this.onShowEditHistory,
@@ -14792,6 +14809,8 @@ class _DingTalkMessageBubble extends StatefulWidget {
 
   final DingTalkGatewayMessage message;
   final bool mine;
+  final bool actionsVisible;
+  final VoidCallback onToggleActions;
   final bool mediaLoading;
   final VoidCallback? onEdit;
   final VoidCallback? onShowEditHistory;
@@ -14815,32 +14834,85 @@ class _DingTalkMessageBubble extends StatefulWidget {
 class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const double _maxBubbleWidth = 560;
   static const int _maxRenderedTextCharacters = 10000;
+  static const double _actionToggleMaxDistance = 8;
+  static const Duration _actionToggleMaxDuration = Duration(milliseconds: 350);
+  static const Duration _actionToggleDelay = Duration(milliseconds: 80);
   static const int _maxClipboardImageBytes = 64 * kBytesPerMiB;
   static const Duration _mediaClipboardTimeout = Duration(seconds: 15);
   static final RegExp _markdownSyntax = RegExp(
     r'(^|\n)\s{0,3}(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|```|~~~)|\[[^\]]+\]\([^)]*\)|(?:\*\*|__|`)',
     multiLine: true,
   );
-  bool _hovered = false;
+  final GlobalKey _actionPanelKey = GlobalKey();
+  Offset? _pointerDownPosition;
+  DateTime? _pointerDownAt;
+  Timer? _pendingActionToggleTimer;
   bool _copyingMedia = false;
   bool _showRawContent = false;
   bool _showFullText = false;
-  int _actionsTransitionId = 0;
 
   @override
   void didUpdateWidget(covariant _DingTalkMessageBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.message.id != widget.message.id ||
-        oldWidget.message.content != widget.message.content) {
+    if (oldWidget.message.id != widget.message.id) {
+      _cancelPendingActionToggle();
+      _showFullText = false;
+    } else if (oldWidget.message.content != widget.message.content) {
       _showFullText = false;
     }
   }
 
-  void _setHovered(bool hovered) {
-    if (_hovered == hovered) return;
-    setState(() {
-      _hovered = hovered;
-      _actionsTransitionId++;
+  @override
+  void dispose() {
+    _cancelPendingActionToggle();
+    super.dispose();
+  }
+
+  void _cancelPendingActionToggle() {
+    _pendingActionToggleTimer?.cancel();
+    _pendingActionToggleTimer = null;
+  }
+
+  bool _isPointerInsideActionPanel(Offset globalPosition) {
+    final box = _actionPanelKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached) return false;
+    final topLeft = box.localToGlobal(Offset.zero);
+    return (topLeft & box.size).contains(globalPosition);
+  }
+
+  void _handlePointerDown(PointerDownEvent event) {
+    _pointerDownPosition = event.position;
+    _pointerDownAt = DateTime.now();
+  }
+
+  void _handlePointerCancel(PointerCancelEvent event) {
+    _pointerDownPosition = null;
+    _pointerDownAt = null;
+    _cancelPendingActionToggle();
+  }
+
+  void _handlePointerUp(PointerUpEvent event) {
+    final downPosition = _pointerDownPosition;
+    final downAt = _pointerDownAt;
+    _pointerDownPosition = null;
+    _pointerDownAt = null;
+    if (downPosition == null || downAt == null) return;
+    if (_isPointerInsideActionPanel(event.position) ||
+        _isPointerInsideActionPanel(downPosition)) {
+      _cancelPendingActionToggle();
+      return;
+    }
+    final movement = (event.position - downPosition).distance;
+    final elapsed = DateTime.now().difference(downAt);
+    if (movement > _actionToggleMaxDistance ||
+        elapsed > _actionToggleMaxDuration) {
+      return;
+    }
+    _cancelPendingActionToggle();
+    _pendingActionToggleTimer = startSafeTimer(_actionToggleDelay, () {
+      _pendingActionToggleTimer = null;
+      if (!mounted) return;
+      widget.onToggleActions();
     });
   }
 
@@ -14880,11 +14952,13 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final effectiveContent = widget.translationVisible
         ? widget.translatedContent ?? widget.message.content
         : widget.message.content;
-    return Align(
-      alignment: alignment,
-      child: MouseRegion(
-        onEnter: (_) => _setHovered(true),
-        onExit: (_) => _setHovered(false),
+    return Listener(
+      behavior: HitTestBehavior.translucent,
+      onPointerDown: _handlePointerDown,
+      onPointerCancel: _handlePointerCancel,
+      onPointerUp: _handlePointerUp,
+      child: Align(
+        alignment: alignment,
         child: Column(
           crossAxisAlignment: crossAxis,
           children: [
@@ -14944,6 +15018,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   mine: widget.mine,
                   loading: widget.mediaLoading,
                   onRetry: widget.onRetryMedia,
+                  onInteractiveTap: _cancelPendingActionToggle,
                 ),
               ),
             if (previewableMedia.isNotEmpty &&
@@ -14952,13 +15027,14 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             if (previewableMedia.isNotEmpty && widget.message.recalled)
               _buildRecalledLabel(context),
             Align(
+              key: _actionPanelKey,
               alignment: alignment,
               child: AnimatedSize(
                 duration: openHandMotionDuration(context, kOpenHandMotion180),
                 curve: Curves.easeOutCubic,
-                child: _hovered
+                child: widget.actionsVisible
                     ? TweenAnimationBuilder<double>(
-                        key: ValueKey<int>(_actionsTransitionId),
+                        key: const ValueKey<String>('dingtalk-actions-visible'),
                         tween: Tween<double>(begin: 0, end: 1),
                         duration: openHandMotionDuration(
                           context,
@@ -14990,7 +15066,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                               textDirection: widget.mine
                                   ? TextDirection.rtl
                                   : TextDirection.ltr,
-                              children: _buildHoverActions(
+                              children: _buildMessageActions(
                                 context,
                                 widget.message.media,
                               ),
@@ -15000,8 +15076,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                           ],
                         ),
                       )
-                    : SizedBox(
-                        key: ValueKey<int>(_actionsTransitionId),
+                    : const SizedBox(
+                        key: ValueKey<String>('dingtalk-actions-hidden'),
                         width: 0,
                         height: 0,
                       ),
@@ -15014,7 +15090,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     );
   }
 
-  List<Widget> _buildHoverActions(
+  List<Widget> _buildMessageActions(
     BuildContext context,
     List<DingTalkGatewayMedia> media,
   ) {
@@ -15100,7 +15176,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           label: _showRawContent ? '显示渲染' : '显示原始',
           onPressed: () => setState(() {
             _showRawContent = !_showRawContent;
-            _actionsTransitionId++;
           }),
         ),
     ];
@@ -15182,7 +15257,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           Padding(
             padding: const EdgeInsets.only(top: 6),
             child: TextButton.icon(
-              onPressed: () => setState(() => _showFullText = !_showFullText),
+              onPressed: () {
+                _cancelPendingActionToggle();
+                setState(() => _showFullText = !_showFullText);
+              },
               icon: Icon(
                 _showFullText
                     ? Icons.unfold_less_rounded
@@ -15202,6 +15280,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   }
 
   Future<void> _openMarkdownLink(BuildContext context, String? href) async {
+    _cancelPendingActionToggle();
     final target = href?.trim() ?? '';
     final uri = target.isEmpty ? null : Uri.tryParse(target);
     final scheme = uri?.scheme.toLowerCase();
@@ -16047,12 +16126,14 @@ class _DingTalkMediaRail extends StatelessWidget {
     required this.mine,
     required this.loading,
     this.onRetry,
+    this.onInteractiveTap,
   });
 
   final List<DingTalkGatewayMedia> media;
   final bool mine;
   final bool loading;
   final VoidCallback? onRetry;
+  final VoidCallback? onInteractiveTap;
 
   @override
   Widget build(BuildContext context) {
@@ -16072,6 +16153,7 @@ class _DingTalkMediaRail extends StatelessWidget {
                   media: item,
                   loading: loading,
                   onRetry: onRetry,
+                  onInteractiveTap: onInteractiveTap,
                 ),
             ],
           ),
@@ -16086,13 +16168,16 @@ class _DingTalkMediaTile extends StatelessWidget {
     required this.media,
     required this.loading,
     this.onRetry,
+    this.onInteractiveTap,
   });
 
   final DingTalkGatewayMedia media;
   final bool loading;
   final VoidCallback? onRetry;
+  final VoidCallback? onInteractiveTap;
 
   Future<void> _open(BuildContext context) async {
+    onInteractiveTap?.call();
     final path = media.localPath.trim();
     if (path.isEmpty || !await File(path).exists()) {
       onRetry?.call();
