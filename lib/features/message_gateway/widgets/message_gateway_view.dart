@@ -12060,6 +12060,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const int _voiceWaveformSampleCount = 40;
   static const int _maxTranslationCacheEntries = 64;
   static const Duration _clipboardAttachmentReadTimeout = Duration(seconds: 2);
+  static const Duration _clipboardImageReadTimeout = Duration(seconds: 3);
+  static const Duration _clipboardImageWriteTimeout = Duration(seconds: 10);
+  static const int _maxPastedAttachmentCacheFiles = 32;
   final TextEditingController _input = TextEditingController();
   final FocusNode _inputFocusNode = FocusNode();
   final ScrollController _messagesScrollController = ScrollController();
@@ -13506,30 +13509,167 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   Future<void> _tryPasteAttachmentsFromClipboard() async {
     if (_attachmentBusy || !mounted) return;
+    final conversationId = _selectedId;
+    final existingPaths = _pendingAttachments.map((item) => item.path).toSet();
     setState(() => _attachmentBusy = true);
     try {
-      final paths = await Pasteboard.files().timeout(
-        _clipboardAttachmentReadTimeout,
-      );
-      if (!mounted || paths.isEmpty) return;
-      final selection = await _prepareAttachmentSelection(
-        paths,
-        existingPaths: _pendingAttachments.map((item) => item.path).toSet(),
-      );
-      if (!mounted) return;
-      _showAttachmentSelectionNotices(selection);
-      if (selection.attachments.isNotEmpty) {
-        setState(() {
-          _pendingAttachments = <_DingTalkPendingAttachment>[
-            ..._pendingAttachments,
-            ...selection.attachments,
-          ];
-        });
+      List<String> paths = const <String>[];
+      try {
+        paths = await Pasteboard.files().timeout(
+          _clipboardAttachmentReadTimeout,
+        );
+      } catch (error, stack) {
+        silentLog('dingtalk_gateway', '读取钉钉剪贴板文件', error, stack);
       }
+      if (!mounted || _selectedId != conversationId) return;
+      if (paths.isNotEmpty) {
+        final selection = await _prepareAttachmentSelection(
+          paths,
+          existingPaths: existingPaths,
+        );
+        if (!mounted || _selectedId != conversationId) return;
+        _showAttachmentSelectionNotices(selection);
+        if (selection.attachments.isNotEmpty) {
+          setState(() {
+            _pendingAttachments = <_DingTalkPendingAttachment>[
+              ..._pendingAttachments,
+              ...selection.attachments,
+            ];
+          });
+        }
+        return;
+      }
+
+      if (_pendingAttachments.length >= kDingTalkMessageAttachmentLimit) {
+        _showAttachmentSelectionNotices(
+          const _DingTalkAttachmentSelection(
+            attachments: <_DingTalkPendingAttachment>[],
+            limitSkipped: 1,
+          ),
+        );
+        return;
+      }
+
+      Uint8List? imageBytes;
+      try {
+        imageBytes = await Pasteboard.image.timeout(_clipboardImageReadTimeout);
+      } catch (error, stack) {
+        silentLog('dingtalk_gateway', '读取钉钉剪贴板图片', error, stack);
+        return;
+      }
+      if (!mounted ||
+          _selectedId != conversationId ||
+          imageBytes == null ||
+          imageBytes.isEmpty) {
+        return;
+      }
+      if (imageBytes.lengthInBytes > kDingTalkMessageAttachmentMaxBytes) {
+        _showAttachmentSelectionNotices(
+          const _DingTalkAttachmentSelection(
+            attachments: <_DingTalkPendingAttachment>[],
+            oversized: 1,
+          ),
+        );
+        return;
+      }
+
+      final pastedDirectory = Directory(
+        p.join(
+          OpenHandPaths.defaultMessageGatewayDirectoryPath(),
+          'dingtalk_pasted',
+        ),
+      );
+      final pastedPath = p.join(
+        pastedDirectory.path,
+        'pasted-${DateTime.now().microsecondsSinceEpoch}.png',
+      );
+      try {
+        await pastedDirectory.create(recursive: true);
+        await writeTemporaryFileBytesBounded(
+          File(pastedPath),
+          imageBytes,
+          timeout: _clipboardImageWriteTimeout,
+          onSecondaryError: (error, stack) =>
+              silentLog('dingtalk_gateway', '清理钉钉剪贴板图片', error, stack),
+        );
+      } catch (error, stack) {
+        silentLog('dingtalk_gateway', '写入钉钉剪贴板图片', error, stack);
+        return;
+      }
+      if (!mounted || _selectedId != conversationId) {
+        await _deletePastedAttachmentFile(pastedPath);
+        return;
+      }
+      final selection = await _prepareAttachmentSelection(<String>[
+        pastedPath,
+      ], existingPaths: existingPaths);
+      if (!mounted || _selectedId != conversationId) {
+        await _deletePastedAttachmentFile(pastedPath);
+        return;
+      }
+      _showAttachmentSelectionNotices(selection);
+      if (selection.attachments.isEmpty) {
+        await _deletePastedAttachmentFile(pastedPath);
+        return;
+      }
+      setState(() {
+        _pendingAttachments = <_DingTalkPendingAttachment>[
+          ..._pendingAttachments,
+          ...selection.attachments,
+        ];
+      });
+      unawaited(_prunePastedAttachmentCache());
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '读取钉钉剪贴板附件', error, stack);
     } finally {
       if (mounted) setState(() => _attachmentBusy = false);
+    }
+  }
+
+  Future<void> _deletePastedAttachmentFile(String path) async {
+    try {
+      final file = File(path);
+      if (await file.exists()) await file.delete();
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '删除钉钉剪贴板图片附件', error, stack);
+    }
+  }
+
+  Future<void> _prunePastedAttachmentCache() async {
+    final directory = Directory(
+      p.join(
+        OpenHandPaths.defaultMessageGatewayDirectoryPath(),
+        'dingtalk_pasted',
+      ),
+    );
+    final protectedPaths = _pendingAttachments
+        .map((item) => p.normalize(p.absolute(item.path)))
+        .toSet();
+    final files = <File>[];
+    try {
+      var scanned = 0;
+      await for (final entity in directory.list(followLinks: false)) {
+        if (++scanned > _maxPastedAttachmentCacheFiles * 4) break;
+        if (entity is! File ||
+            !p.basename(entity.path).startsWith('pasted-') ||
+            !p.basename(entity.path).endsWith('.png')) {
+          continue;
+        }
+        final path = p.normalize(p.absolute(entity.path));
+        if (!protectedPaths.contains(path)) files.add(entity);
+      }
+      if (files.length <= _maxPastedAttachmentCacheFiles) return;
+      files.sort((a, b) => a.path.compareTo(b.path));
+      final removeCount = files.length - _maxPastedAttachmentCacheFiles;
+      for (var index = 0; index < removeCount; index++) {
+        try {
+          await files[index].delete();
+        } catch (error, stack) {
+          silentLog('dingtalk_gateway', '清理钉钉剪贴板图片缓存', error, stack);
+        }
+      }
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '扫描钉钉剪贴板图片缓存', error, stack);
     }
   }
 
