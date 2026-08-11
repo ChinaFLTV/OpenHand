@@ -15620,7 +15620,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   ),
                 ),
                 const SizedBox(width: 6),
-                TextButton.icon(
+                TextButton(
                   onPressed: _toggleExcludedContent,
                   style: TextButton.styleFrom(
                     foregroundColor: foreground,
@@ -15629,8 +15629,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     visualDensity: VisualDensity.compact,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  icon: const Icon(Icons.unfold_more_rounded, size: 16),
-                  label: const Text('展开'),
+                  child: const Text('展开'),
                 ),
               ],
             ),
