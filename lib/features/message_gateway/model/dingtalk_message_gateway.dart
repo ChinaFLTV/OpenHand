@@ -13,6 +13,20 @@ String _normalizedDingTalkString(Object? value) {
   return text.toLowerCase() == 'null' ? '' : text;
 }
 
+final RegExp _dingtalkInvisibleTextPattern = RegExp(
+  r'[\u200B-\u200D\u2060\uFEFF]',
+);
+final RegExp _dingtalkWhitespacePattern = RegExp(
+  r'[\s\u00A0\u1680\u2000-\u200A\u2028\u2029\u202F\u205F\u3000]+',
+);
+
+/// 生成钉钉消息正文的比较值，消除平台回流时产生的换行和不可见字符差异。
+String normalizeDingTalkMessageContentForComparison(Object? value) =>
+    _normalizedDingTalkString(value)
+        .replaceAll(_dingtalkInvisibleTextPattern, '')
+        .replaceAll(_dingtalkWhitespacePattern, ' ')
+        .trim();
+
 const Map<String, String> _dingtalkReactionEmojiMap = <String, String>{
   '拜托': '🙏',
   '抱拳': '🙏',

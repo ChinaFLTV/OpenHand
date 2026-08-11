@@ -120,6 +120,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _maxPendingStatusMessageIds = 512;
   static const int _maxPendingStatusEventsPerMessage = 24;
   static const int _maxReactionTypes = 12;
+  static const int _maxUnresolvedOutgoingMessageIds = 256;
   static const Duration _outgoingEchoWindow = Duration(seconds: 30);
   static const int _maxAiConversationContextCharacters = 48000;
   static const int _maxAiConversationContextMessages = 200;
@@ -1202,6 +1203,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _remember(message.id);
       }
       await refreshAuthStatus();
+      var repairedOutgoingEchoes = false;
+      for (final conversation in _conversations.values) {
+        repairedOutgoingEchoes =
+            _collapseOutgoingEchoDuplicates(conversation) > 0 ||
+            repairedOutgoingEchoes;
+      }
+      if (repairedOutgoingEchoes) _queuePersist();
     } catch (error, stack) {
       _setError('初始化钉钉消息网关', error, stack);
     } finally {
@@ -1805,7 +1813,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         if (candidate.fromSelf &&
             candidate.role == localMessage.role &&
             candidate.createdAt == localMessage.createdAt &&
-            candidate.content.trim() == localMessage.content.trim()) {
+            normalizeDingTalkMessageContentForComparison(candidate.content) ==
+                normalizeDingTalkMessageContentForComparison(
+                  localMessage.content,
+                )) {
           return candidate;
         }
       }
@@ -2067,6 +2078,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final incomingId = incoming.id.trim();
     if (incomingId.isEmpty) return false;
     final incomingContent = incoming.content.trim();
+    final incomingContentComparison =
+        normalizeDingTalkMessageContentForComparison(incomingContent);
     final incomingSenderId = incoming.senderId.trim();
     final incomingSenderName = incoming.senderName.trim();
     final incomingIsSelf = _isSelf(incoming);
@@ -2095,9 +2108,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         local.id,
       );
       if (!incomingIsSelf &&
-          !local.isAssistant &&
           !unresolvedOutgoing &&
-          (directPeerIds.contains(incomingSenderId) ||
+          (local.isAssistant ||
+              directPeerIds.contains(incomingSenderId) ||
               (incomingSenderId.isNotEmpty &&
                   localSenderId.isNotEmpty &&
                   incomingSenderId != localSenderId &&
@@ -2111,7 +2124,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final age = incoming.createdAt.difference(local.createdAt).abs();
       if (age > _outgoingEchoWindow) continue;
       final sameContent =
-          incomingContent.isNotEmpty && local.content.trim() == incomingContent;
+          incomingContentComparison.isNotEmpty &&
+          normalizeDingTalkMessageContentForComparison(local.content) ==
+              incomingContentComparison;
       final sameMedia = _outgoingMediaMatches(
         local.media,
         incoming.media,
@@ -2140,6 +2155,69 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _remember(incomingId);
     _queuePersist();
     return true;
+  }
+
+  int _collapseOutgoingEchoDuplicates(DingTalkConversation conversation) {
+    final localIds = conversation.messages
+        .where(
+          (message) =>
+              message.fromSelf &&
+              (_isTemporaryMessageId(message.id) ||
+                  message.sourceAiMessageId.trim().isNotEmpty),
+        )
+        .map((message) => message.id)
+        .toList(growable: false);
+    var removedCount = 0;
+    for (final localId in localIds) {
+      final localIndex = conversation.messages.indexWhere(
+        (message) => message.id == localId,
+      );
+      if (localIndex < 0) continue;
+      final local = conversation.messages[localIndex];
+      final localContentComparison =
+          normalizeDingTalkMessageContentForComparison(local.content);
+      var remoteIndex = -1;
+      Duration? closestAge;
+      for (final entry in conversation.messages.asMap().entries) {
+        final remote = entry.value;
+        if (entry.key == localIndex ||
+            remote.isAssistant ||
+            !_isSelf(remote) ||
+            _isTemporaryMessageId(remote.id) ||
+            remote.conversationType != local.conversationType) {
+          continue;
+        }
+        final age = remote.createdAt.difference(local.createdAt).abs();
+        if (age > _outgoingEchoWindow) continue;
+        final remoteContentComparison =
+            normalizeDingTalkMessageContentForComparison(remote.content);
+        final sameContent =
+            remoteContentComparison.isNotEmpty &&
+            remoteContentComparison == localContentComparison;
+        if (!sameContent &&
+            !_outgoingMediaMatches(local.media, remote.media, remote.content)) {
+          continue;
+        }
+        if (closestAge == null || age < closestAge) {
+          remoteIndex = entry.key;
+          closestAge = age;
+        }
+      }
+      if (remoteIndex < 0) continue;
+      final remote = conversation.messages[remoteIndex];
+      final merged = _mergeOutgoingMessage(local, remote, remote.id);
+      if (remoteIndex > localIndex) {
+        conversation.messages[localIndex] = merged;
+        conversation.messages.removeAt(remoteIndex);
+      } else {
+        conversation.messages.removeAt(remoteIndex);
+        conversation.messages[localIndex - 1] = merged;
+      }
+      _unresolvedOutgoingMessageIds.remove(local.id);
+      _remember(remote.id);
+      removedCount++;
+    }
+    return removedCount;
   }
 
   bool _outgoingMediaMatches(
@@ -2347,7 +2425,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (index < 0) return;
     final current = conversation.messages[index];
     final contentChanged =
-        remote.content.isNotEmpty && remote.content != current.content;
+        remote.content.isNotEmpty &&
+        normalizeDingTalkMessageContentForComparison(remote.content) !=
+            normalizeDingTalkMessageContentForComparison(current.content);
     final recalledChanged = remote.recalled && !current.recalled;
     final mediaChanged =
         remote.media.isNotEmpty && !_sameMedia(current.media, remote.media);
@@ -2764,6 +2844,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkConversation conversation,
     List<DingTalkGatewayMessage> messages,
   ) {
+    final initialMessageCount = conversation.messages.length;
     if (conversation.type == DingTalkConversationType.direct &&
         (conversation.openConversationId?.trim().isEmpty ?? true)) {
       final remoteConversationId = messages
@@ -2782,7 +2863,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         ? conversation.createdAt
         : conversation.updatedAt;
     final recentCutoff = latestLocalTime.subtract(_conversationStartSkew);
-    var addedCount = 0;
     for (final message in messages) {
       final messageId = normalizeDingTalkMessageId(message.id);
       final isNew = messageId.isNotEmpty && !knownIds.contains(messageId);
@@ -2791,9 +2871,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         allowResponse: !isNew || !message.createdAt.isBefore(recentCutoff),
         allowHistorical: true,
       );
-      if (isNew && messageId.isNotEmpty) addedCount++;
     }
-    return addedCount;
+    if (_collapseOutgoingEchoDuplicates(conversation) > 0) {
+      _queuePersist();
+      _notify();
+    }
+    return math.max(0, conversation.messages.length - initialMessageCount);
   }
 
   void _rememberPendingRecall(String messageId) {
@@ -4194,7 +4277,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (candidate.isDeleted || candidate.role == AiSessionMessageRole.user) {
         continue;
       }
-      if (content.isNotEmpty && candidate.content.trim() != content) continue;
+      if (content.isNotEmpty &&
+          normalizeDingTalkMessageContentForComparison(candidate.content) !=
+              normalizeDingTalkMessageContentForComparison(content)) {
+        continue;
+      }
       final distance = candidate.createdAt
           .toLocal()
           .difference(message.createdAt.toLocal())
@@ -4338,7 +4425,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final normalized = id.trim();
     if (normalized.isEmpty) return;
     _unresolvedOutgoingMessageIds.add(normalized);
-    while (_unresolvedOutgoingMessageIds.length > 256) {
+    while (_unresolvedOutgoingMessageIds.length >
+        _maxUnresolvedOutgoingMessageIds) {
       _unresolvedOutgoingMessageIds.remove(_unresolvedOutgoingMessageIds.first);
     }
   }

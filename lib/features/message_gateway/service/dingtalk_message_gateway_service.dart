@@ -1492,7 +1492,9 @@ class DingTalkMessageGatewayService {
     required DateTime createdAt,
     String senderName = '',
   }) async {
-    final normalizedContent = content.trim();
+    final normalizedContent = normalizeDingTalkMessageContentForComparison(
+      content,
+    );
     if (normalizedContent.isEmpty) return null;
     final result = await _runJson(<String>[
       'chat',
@@ -1536,7 +1538,11 @@ class DingTalkMessageGatewayService {
       }
     }
     final exact = candidates
-        .where((message) => message.content.trim() == normalizedContent)
+        .where(
+          (message) =>
+              normalizeDingTalkMessageContentForComparison(message.content) ==
+              normalizedContent,
+        )
         .toList(growable: false);
     final pool = exact.isEmpty ? candidates : exact;
     final sorted = pool.toList(growable: true)
