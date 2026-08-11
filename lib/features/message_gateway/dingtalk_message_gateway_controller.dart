@@ -54,20 +54,24 @@ class _QueuedDingTalkResponse {
   _QueuedDingTalkResponse(
     this.content,
     this.sourceMessageId,
+    this.forceResponse,
     Completer<void> completer,
   ) : waiters = <Completer<void>>[completer];
 
   String content;
   String sourceMessageId;
+  bool forceResponse;
   final List<Completer<void>> waiters;
 
   void merge(
     String nextContent,
     String nextSourceMessageId,
+    bool nextForceResponse,
     Completer<void> completer,
   ) {
     content = '$content\n\n$nextContent';
     sourceMessageId = nextSourceMessageId;
+    forceResponse = forceResponse || nextForceResponse;
     waiters.add(completer);
   }
 
@@ -1364,6 +1368,39 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   Future<void> pollNow() => _pollOnce();
+
+  bool forceRespondToConversation(String conversationId) {
+    final conversation = _conversations[conversationId];
+    if (conversation == null ||
+        _disposed ||
+        !isAuthorized ||
+        _isSending ||
+        _editingMessageInFlight ||
+        isConversationResponding(conversationId)) {
+      return false;
+    }
+    final source = conversation.messages.reversed
+        .where(
+          (message) =>
+              !message.isAssistant &&
+              !message.recalled &&
+              !message.ignoredForAiContext &&
+              message.content.trim().isNotEmpty,
+        )
+        .firstOrNull;
+    if (source == null || _configuredTargetFor(source) == null) return false;
+    final responseVersion = _responseCancellationVersions[conversationId] ?? 0;
+    unawaited(
+      _enqueueAiResponse(
+        conversation,
+        source.content,
+        sourceMessageId: source.id,
+        responseVersion: responseVersion,
+        forceResponse: true,
+      ),
+    );
+    return true;
+  }
 
   Future<bool> sendMessage(String conversationId, String text) async {
     return sendMessageWithAttachments(conversationId, text, const <String>[]);
@@ -2861,15 +2898,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<void> _ensureIncomingContextMedia(
     DingTalkConversation conversation,
-    String sourceMessageId,
-  ) async {
+    String sourceMessageId, {
+    bool forceResponse = false,
+  }) async {
     final sourceIndex = conversation.messages.indexWhere(
       (message) => message.id == sourceMessageId,
     );
     if (sourceIndex < 0) return;
     final checkpointId =
         conversation.aiContextCheckpointMessageId?.trim() ?? '';
-    final checkpointIndex = checkpointId.isEmpty
+    final checkpointIndex = forceResponse || checkpointId.isEmpty
         ? -1
         : conversation.messages.indexWhere(
             (message) => message.id == checkpointId,
@@ -3052,8 +3090,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<void> _respondWithAi(
     DingTalkConversation conversation,
     String content,
-    String sourceMessageId,
-  ) async {
+    String sourceMessageId, {
+    bool forceResponse = false,
+  }) async {
     if (_disposed || !_responseInFlight.add(conversation.id)) return;
     _activeResponseContextMessageIds[conversation.id] = <String>{
       sourceMessageId,
@@ -3084,13 +3123,23 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         conversation,
         sourceMessageId,
         fallbackContent: content,
+        forceResponse: forceResponse,
       );
       if (aiContent.isEmpty) return;
       final contextMessageIds = _pendingAiConversationMessages(
         conversation,
         sourceMessageId,
+        forceResponse: forceResponse,
       ).map((message) => message.id).toSet();
       _activeResponseContextMessageIds[conversation.id] = contextMessageIds;
+      if (forceResponse) {
+        await _ensureIncomingContextMedia(
+          conversation,
+          sourceMessageId,
+          forceResponse: true,
+        );
+        if (_isResponseCancelled(conversation.id, responseVersion)) return;
+      }
       await _mcpController.ensureRuntimeToolCatalogs(
         maxWait: const Duration(seconds: 6),
       );
@@ -3223,6 +3272,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final attachmentPaths = _attachmentPathsForTurn(
         conversation,
         sourceMessageId,
+        forceResponse: forceResponse,
       );
       await _sessionController.updateSessionFullAccessPermission(
         sessionId,
@@ -3319,6 +3369,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               : null,
           userMessageMetadata: <String, Object?>{
             'sent_via': 'dingtalk_gateway',
+            if (forceResponse) 'dingtalk_force_response': true,
             'dingtalk_source_message_id': sourceMessageId,
             'dingtalk_context_message_ids': contextMessageIds.toList(
               growable: false,
@@ -3378,6 +3429,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkConversation conversation,
     String sourceMessageId, {
     required String fallbackContent,
+    bool forceResponse = false,
   }) {
     final sourceIndex = conversation.messages.indexWhere(
       (message) => message.id == sourceMessageId,
@@ -3390,9 +3442,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final pending = _pendingAiConversationMessages(
       conversation,
       sourceMessageId,
+      forceResponse: forceResponse,
     );
     if (pending.isEmpty) return fallbackContent.trim();
-    if (pending.length == 1 && pending.single.id == sourceMessageId) {
+    if (!forceResponse &&
+        pending.length == 1 &&
+        pending.single.id == sourceMessageId) {
       return pending.single.content.trim();
     }
 
@@ -3426,8 +3481,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final ordered = retained.reversed.toList(growable: false);
     final omitted = entries.length - ordered.length;
     final buffer = StringBuffer()
-      ..writeln('以下是本轮触发前尚未交给 Agent 的钉钉消息，仅用于上下文。')
-      ..writeln('请只处理最后一条消息，其他消息不要单独回复。');
+      ..writeln(
+        forceResponse
+            ? '以下是当前钉钉会话中可用的历史消息。'
+            : '以下是本轮触发前尚未交给 Agent 的钉钉消息，仅用于上下文。',
+      )
+      ..writeln(
+        forceResponse ? '请综合分析这些消息，给出连贯、明确的回复。' : '请只处理最后一条消息，其他消息不要单独回复。',
+      );
     if (omitted > 0) {
       buffer.writeln('较早的 $omitted 条消息因上下文窗口限制已省略。');
     }
@@ -3439,8 +3500,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   List<DingTalkGatewayMessage> _pendingAiConversationMessages(
     DingTalkConversation conversation,
-    String sourceMessageId,
-  ) {
+    String sourceMessageId, {
+    bool forceResponse = false,
+  }) {
     final sourceIndex = conversation.messages.indexWhere(
       (message) => message.id == sourceMessageId,
     );
@@ -3452,7 +3514,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final checkpointIndex = conversation.messages.indexWhere(
         (message) => message.id == checkpointId,
       );
-      if (checkpointIndex >= 0 && checkpointIndex < sourceIndex) {
+      if (!forceResponse &&
+          checkpointIndex >= 0 &&
+          checkpointIndex < sourceIndex) {
         startIndex = checkpointIndex + 1;
       }
     }
@@ -3470,8 +3534,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   List<String> _attachmentPathsForTurn(
     DingTalkConversation conversation,
-    String sourceMessageId,
-  ) {
+    String sourceMessageId, {
+    bool forceResponse = false,
+  }) {
     var endIndex = conversation.messages.indexWhere(
       (message) => message.id == sourceMessageId,
     );
@@ -3480,7 +3545,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final selected = <String>[];
     for (var index = endIndex; index >= 0; index--) {
       final message = conversation.messages[index];
-      if (message.isAssistant) break;
+      if (message.isAssistant) {
+        if (forceResponse) continue;
+        break;
+      }
       if (message.role != DingTalkGatewayMessageRole.user ||
           message.recalled ||
           message.ignoredForAiContext) {
@@ -3828,6 +3896,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     String content, {
     String? sourceMessageId,
     int? responseVersion,
+    bool forceResponse = false,
   }) {
     final normalized = content.trim();
     if (normalized.isEmpty ||
@@ -3856,10 +3925,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     if (queue.length >= _maxQueuedResponsesPerConversation) {
       // 极端突发消息时合并队尾，保留全部内容并限制内存增长。
-      queue.last.merge(normalized, sourceId, completer);
+      queue.last.merge(normalized, sourceId, forceResponse, completer);
       _warningMessage = '钉钉会话消息过多，已将突发消息合并后依次处理。';
     } else {
-      queue.add(_QueuedDingTalkResponse(normalized, sourceId, completer));
+      queue.add(
+        _QueuedDingTalkResponse(normalized, sourceId, forceResponse, completer),
+      );
     }
     _beginResponsePreparing(conversation.id);
     unawaited(
@@ -3928,6 +3999,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             conversation,
             item.content,
             item.sourceMessageId,
+            forceResponse: item.forceResponse,
           );
         } catch (error, stack) {
           silentLog('dingtalk_gateway', '处理钉钉消息队列', error, stack);

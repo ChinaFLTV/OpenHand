@@ -13001,6 +13001,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
           _buildFileButton(conversation),
           const SizedBox(width: 6),
           _buildVoiceButton(conversation),
+          const SizedBox(width: 6),
+          _buildForceResponseButton(conversation),
           const SizedBox(width: 8),
           _buildSendButton(conversation),
         ],
@@ -13802,37 +13804,33 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       builder: (context, value, _) {
         final adding =
             value.text.trim().isNotEmpty || _pendingAttachments.isNotEmpty;
-        return SizedBox(
-          width: 124,
-          height: 48,
-          child: FilledButton.icon(
-            style: _composerButtonStyle(),
-            onPressed: enabled
-                ? () => unawaited(_handleFileButton(conversation, adding))
-                : null,
-            icon: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion180),
-              child: _attachmentBusy
-                  ? const SizedBox(
-                      key: ValueKey<String>('attachment-loading'),
-                      width: 18,
-                      height: 18,
-                      child: CircularProgressIndicator(strokeWidth: 2),
-                    )
-                  : Icon(
-                      adding ? Icons.add_rounded : Icons.attach_file_rounded,
-                      key: ValueKey<bool>(adding),
-                    ),
-            ),
-            label: AnimatedSwitcher(
-              duration: openHandMotionDuration(context, kOpenHandMotion180),
-              child: Text(
-                _attachmentBusy
-                    ? '正在读取'
-                    : adding
-                    ? '添加附件'
-                    : '发送文件',
-                key: ValueKey<Object?>(_attachmentBusy ? 'busy' : adding),
+        return Tooltip(
+          message: _attachmentBusy
+              ? '正在读取附件'
+              : adding
+              ? '添加附件'
+              : '发送文件',
+          child: SizedBox(
+            width: 52,
+            height: 48,
+            child: FilledButton(
+              style: _composerIconButtonStyle(),
+              onPressed: enabled
+                  ? () => unawaited(_handleFileButton(conversation, adding))
+                  : null,
+              child: AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                child: _attachmentBusy
+                    ? const SizedBox(
+                        key: ValueKey<String>('attachment-loading'),
+                        width: 18,
+                        height: 18,
+                        child: CircularProgressIndicator(strokeWidth: 2),
+                      )
+                    : Icon(
+                        adding ? Icons.add_rounded : Icons.attach_file_rounded,
+                        key: ValueKey<bool>(adding),
+                      ),
               ),
             ),
           ),
@@ -13845,16 +13843,37 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final enabled =
         !widget.controller.isSending &&
         !widget.controller.isConversationResponding(conversation.id);
-    return SizedBox(
-      width: 124,
-      height: 48,
-      child: FilledButton.icon(
-        style: _composerButtonStyle(),
-        onPressed: enabled
-            ? () => unawaited(_startVoiceRecording(conversation))
-            : null,
-        icon: const Icon(Icons.mic_none_rounded),
-        label: const Text('发送语音'),
+    return Tooltip(
+      message: '发送语音',
+      child: SizedBox(
+        width: 52,
+        height: 48,
+        child: FilledButton(
+          style: _composerIconButtonStyle(),
+          onPressed: enabled
+              ? () => unawaited(_startVoiceRecording(conversation))
+              : null,
+          child: const Icon(Icons.mic_none_rounded),
+        ),
+      ),
+    );
+  }
+
+  Widget _buildForceResponseButton(DingTalkConversation conversation) {
+    final enabled =
+        !_attachmentBusy &&
+        !widget.controller.isSending &&
+        !widget.controller.isConversationResponding(conversation.id);
+    return Tooltip(
+      message: '强制响应历史消息',
+      child: SizedBox(
+        width: 52,
+        height: 48,
+        child: FilledButton.tonal(
+          style: _composerIconButtonStyle(),
+          onPressed: enabled ? () => _forceRespond(conversation) : null,
+          child: const Icon(Icons.auto_awesome_rounded),
+        ),
       ),
     );
   }
@@ -13863,6 +13882,14 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     return FilledButton.styleFrom(
       minimumSize: const Size(124, 48),
       padding: const EdgeInsets.symmetric(horizontal: 12),
+    );
+  }
+
+  ButtonStyle _composerIconButtonStyle() {
+    return FilledButton.styleFrom(
+      minimumSize: const Size(52, 48),
+      fixedSize: const Size(52, 48),
+      padding: EdgeInsets.zero,
     );
   }
 
@@ -14601,6 +14628,15 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
             }
           }),
     );
+  }
+
+  void _forceRespond(DingTalkConversation conversation) {
+    final accepted = widget.controller.forceRespondToConversation(
+      conversation.id,
+    );
+    if (!accepted && mounted) {
+      showOpenHandErrorSnack(context, '当前会话没有可供强制响应的历史消息，或正在处理其他请求。');
+    }
   }
 
   Future<void> _showConversationMenu(
