@@ -51,6 +51,7 @@ import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/runtime_log_dialog.dart';
+import '../../../shared/ui/streaming_text_reveal.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -12651,6 +12652,11 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                     child: _DingTalkMessageBubble(
                                                       message: message,
                                                       mine: _isMine(message),
+                                                      streaming: widget
+                                                          .controller
+                                                          .isEchoStreaming(
+                                                            message,
+                                                          ),
                                                       actionsVisible:
                                                           _expandedActionMessageId ==
                                                           message.id,
@@ -15150,6 +15156,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
     required this.mine,
     required this.actionsVisible,
     required this.onToggleActions,
+    this.streaming = false,
     this.mediaLoading = false,
     this.mediaFailed = false,
     this.onEdit,
@@ -15173,6 +15180,9 @@ class _DingTalkMessageBubble extends StatefulWidget {
   final bool mine;
   final bool actionsVisible;
   final VoidCallback onToggleActions;
+
+  /// AI 流式回显中：正文按增量渐显并展示呼吸指示点。
+  final bool streaming;
   final bool mediaLoading;
   final bool mediaFailed;
   final VoidCallback? onEdit;
@@ -15225,7 +15235,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       _showExcludedContent = false;
       return;
     }
-    if (oldWidget.message.content != widget.message.content) {
+    // 流式回显期间内容持续增量更新，保留用户的展开状态不被反复重置。
+    if (oldWidget.message.content != widget.message.content &&
+        !widget.streaming) {
       _showFullText = false;
       if (widget.message.isExcludedFromAiContext) {
         _showExcludedContent = false;
@@ -15767,60 +15779,38 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       color: foreground,
       height: 1.48,
     );
-    final renderMarkdown =
-        !_showRawContent &&
-        (_showFullText || !canCollapse) &&
-        _markdownSyntax.hasMatch(visibleContent);
-    final child = !renderMarkdown
-        ? SelectableText(
-            visibleContent,
-            key: ValueKey<String>('plain:$visibleContent'),
-            textWidthBasis: TextWidthBasis.longestLine,
-            style: _showRawContent
-                ? bodyStyle?.copyWith(fontFamily: 'monospace', fontSize: 12.5)
-                : bodyStyle,
+    // 流式回显期间按字素簇渐显增量内容；生成结束后切回可选择的静态渲染。
+    final streaming = widget.streaming && !_showRawContent;
+    final body = streaming
+        ? StreamingTextRevealText(
+            text: visibleContent,
+            streaming: true,
+            // 气泡外层已有 AnimatedSize，关闭内部尺寸动画避免竞争。
+            animateSize: false,
+            builder: (context, visibleText) => _buildMessageBody(
+              context,
+              theme: theme,
+              text: visibleText,
+              bodyStyle: bodyStyle,
+              foreground: foreground,
+              canCollapse: canCollapse,
+              streaming: true,
+            ),
           )
-        : MarkdownBody(
-            key: ValueKey<String>('markdown:$visibleContent'),
-            data: visibleContent,
-            selectable: true,
-            onTapLink: (text, href, title) =>
-                unawaited(_openMarkdownLink(context, href ?? text)),
-            imageBuilder: (uri, title, alt) => Text(
-              alt?.trim().isNotEmpty == true ? '[${alt!.trim()}]' : '[图片]',
-              style: bodyStyle?.copyWith(fontStyle: FontStyle.italic),
-            ),
-            styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
-              p: bodyStyle,
-              code: theme.textTheme.bodySmall?.copyWith(
-                color: foreground,
-                fontFamily: 'monospace',
-                fontWeight: FontWeight.w600,
-              ),
-              codeblockDecoration: BoxDecoration(
-                color: theme.colorScheme.surface.withValues(alpha: 0.58),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: theme.colorScheme.outlineVariant.withValues(
-                    alpha: 0.72,
-                  ),
-                ),
-              ),
-              blockquoteDecoration: BoxDecoration(
-                color: theme.colorScheme.surface.withValues(alpha: 0.42),
-                border: Border(
-                  left: BorderSide(
-                    color: theme.colorScheme.primary.withValues(alpha: 0.72),
-                    width: 3,
-                  ),
-                ),
-              ),
-            ),
+        : _buildMessageBody(
+            context,
+            theme: theme,
+            text: visibleContent,
+            bodyStyle: bodyStyle,
+            foreground: foreground,
+            canCollapse: canCollapse,
+            streaming: false,
           );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        child,
+        body,
+        if (streaming) _DingTalkStreamingDots(color: foreground),
         if (canCollapse)
           Padding(
             padding: const EdgeInsets.only(top: 6),
@@ -15844,6 +15834,77 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             ),
           ),
       ],
+    );
+  }
+
+  Widget _buildMessageBody(
+    BuildContext context, {
+    required ThemeData theme,
+    required String text,
+    required TextStyle? bodyStyle,
+    required Color foreground,
+    required bool canCollapse,
+    required bool streaming,
+  }) {
+    final renderMarkdown =
+        !_showRawContent &&
+        (_showFullText || !canCollapse) &&
+        _markdownSyntax.hasMatch(text);
+    if (!renderMarkdown) {
+      final style = _showRawContent
+          ? bodyStyle?.copyWith(fontFamily: 'monospace', fontSize: 12.5)
+          : bodyStyle;
+      // 流式期间用稳定 key 的静态文本，避免每帧重建可选择文本的手势状态。
+      return streaming
+          ? Text(
+              text,
+              key: const ValueKey<String>('dingtalk-streaming-plain'),
+              textWidthBasis: TextWidthBasis.longestLine,
+              style: style,
+            )
+          : SelectableText(
+              text,
+              key: ValueKey<String>('plain:$text'),
+              textWidthBasis: TextWidthBasis.longestLine,
+              style: style,
+            );
+    }
+    return MarkdownBody(
+      key: streaming
+          ? const ValueKey<String>('dingtalk-streaming-markdown')
+          : ValueKey<String>('markdown:$text'),
+      data: text,
+      selectable: !streaming,
+      onTapLink: (text, href, title) =>
+          unawaited(_openMarkdownLink(context, href ?? text)),
+      imageBuilder: (uri, title, alt) => Text(
+        alt?.trim().isNotEmpty == true ? '[${alt!.trim()}]' : '[图片]',
+        style: bodyStyle?.copyWith(fontStyle: FontStyle.italic),
+      ),
+      styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
+        p: bodyStyle,
+        code: theme.textTheme.bodySmall?.copyWith(
+          color: foreground,
+          fontFamily: 'monospace',
+          fontWeight: FontWeight.w600,
+        ),
+        codeblockDecoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.58),
+          borderRadius: BorderRadius.circular(10),
+          border: Border.all(
+            color: theme.colorScheme.outlineVariant.withValues(alpha: 0.72),
+          ),
+        ),
+        blockquoteDecoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.42),
+          border: Border(
+            left: BorderSide(
+              color: theme.colorScheme.primary.withValues(alpha: 0.72),
+              width: 3,
+            ),
+          ),
+        ),
+      ),
     );
   }
 
@@ -16139,6 +16200,85 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     } finally {
       if (mounted) setState(() => _copyingMedia = false);
     }
+  }
+}
+
+/// 流式回显呼吸指示点：三个圆点按相位差起伏渐亮，传递"正在生成"的生命力；
+/// 遵循全局动效偏好，动画停用时退化为静态圆点。
+class _DingTalkStreamingDots extends StatefulWidget {
+  const _DingTalkStreamingDots({required this.color});
+
+  final Color color;
+
+  @override
+  State<_DingTalkStreamingDots> createState() => _DingTalkStreamingDotsState();
+}
+
+class _DingTalkStreamingDotsState extends State<_DingTalkStreamingDots>
+    with SingleTickerProviderStateMixin {
+  static const Duration _cycle = Duration(milliseconds: 1080);
+  static const int _dotCount = 3;
+  static const double _dotSize = 5.5;
+  static const double _dotSpacing = 4;
+  static const double _phaseStep = 0.16;
+  static const double _bounceHeight = 2.4;
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _cycle,
+  );
+
+  @override
+  void didChangeDependencies() {
+    super.didChangeDependencies();
+    if (openHandTickerMotionEnabled(context)) {
+      if (!_controller.isAnimating) _controller.repeat();
+    } else if (_controller.isAnimating) {
+      _controller.stop();
+      _controller.value = 0;
+    }
+  }
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.only(top: 7),
+      child: AnimatedBuilder(
+        animation: _controller,
+        builder: (context, _) => Row(
+          mainAxisSize: MainAxisSize.min,
+          children: List<Widget>.generate(_dotCount, (index) {
+            final phase = (_controller.value - index * _phaseStep) % 1.0;
+            final wave = math
+                .sin(phase * math.pi * 2)
+                .clamp(0.0, 1.0)
+                .toDouble();
+            return Padding(
+              padding: EdgeInsets.only(
+                right: index == _dotCount - 1 ? 0 : _dotSpacing,
+              ),
+              child: Transform.translate(
+                offset: Offset(0, -wave * _bounceHeight),
+                child: Container(
+                  width: _dotSize,
+                  height: _dotSize,
+                  decoration: BoxDecoration(
+                    color: widget.color.withValues(alpha: 0.32 + wave * 0.5),
+                    shape: BoxShape.circle,
+                  ),
+                ),
+              ),
+            );
+          }),
+        ),
+      ),
+    );
   }
 }
 
@@ -20038,7 +20178,9 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                   _DingTalkSettingsCard(
                     icon: Icons.reply_all_rounded,
                     title: '响应消息类型',
-                    subtitle: '选择同步回显到钉钉的 AI 消息；至少保留一项，工具调用仅在执行终态回显。',
+                    subtitle:
+                        '选择同步回显到钉钉的 AI 消息；正式响应与过程消息随生成进度流式更新，'
+                        '工具调用仅在执行终态回显，至少保留一项。',
                     child: Wrap(
                       spacing: 8,
                       runSpacing: 8,

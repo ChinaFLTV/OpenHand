@@ -176,6 +176,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Set<String> _responseDraining = <String>{};
   final Set<String> _seenMessageIds = <String>{};
   final Set<String> _unresolvedOutgoingMessageIds = <String>{};
+  // 正在流式回显中的源 AI 消息标识，驱动本地气泡的渐显动画与合并防回退。
+  final Set<String> _streamingEchoSourceIds = <String>{};
   final Set<String> _selfSenderIds = <String>{};
   final Set<String> _pendingRecalledMessageIds = <String>{};
   final Map<String, List<DingTalkGatewayEvent>> _pendingStatusEvents =
@@ -1781,9 +1783,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkGatewayMessage remote,
     String remoteId,
   ) {
+    // 流式回显期间本地内容领先于远端（编辑节流 + 同步延迟），
+    // 保留本地权威文本避免回退闪烁；远端稍后会被编辑追平。
+    final keepLocalContent = remote.content.isEmpty || isEchoStreaming(local);
     return local.copyWith(
       id: remoteId,
-      content: remote.content.isEmpty ? null : remote.content,
+      content: keepLocalContent ? null : remote.content,
       media: remote.media.isEmpty
           ? null
           : _mergeMediaCache(local.media, remote.media),
@@ -2432,8 +2437,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     if (index < 0) return;
     final current = conversation.messages[index];
+    // 流式回显期间远端内容滞后于本地，跳过覆盖以免回退闪烁并污染编辑历史。
     final contentChanged =
         remote.content.isNotEmpty &&
+        !isEchoStreaming(current) &&
         normalizeDingTalkMessageContentForComparison(remote.content) !=
             normalizeDingTalkMessageContentForComparison(current.content);
     final recalledChanged = remote.recalled && !current.recalled;
@@ -3416,15 +3423,30 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           text: text,
           uuid: uuid,
         ),
-        edit: (messageId, text) => _editDingTalkEcho(
+        edit: (sourceMessageId, messageId, text) => _editDingTalkEcho(
           conversation: conversation,
+          sourceMessageId: sourceMessageId,
           messageId: messageId,
           text: text,
         ),
+        resolveRemoteId: (sourceMessageId, sentText) =>
+            _resolveEchoRemoteMessageId(
+              conversation: conversation,
+              sourceMessageId: sourceMessageId,
+              sentText: sentText,
+            ),
+        syncLocal: (sourceMessageId, text) => _syncLocalEchoContent(
+          conversation: conversation,
+          sourceMessageId: sourceMessageId,
+          text: text,
+        ),
+        markStreaming: _setEchoStreaming,
         newUuid: _uuid.v4,
-        onError: (action, error, stack) {
+        onError: (action, error, stack, {required bool notifyUser}) {
           silentLog('dingtalk_gateway', action, error, stack);
-          _setResponseError(conversation.id, '$action失败，请查看钉钉网关运行日志。');
+          if (notifyUser) {
+            _setResponseError(conversation.id, '$action失败，请查看钉钉网关运行日志。');
+          }
         },
       );
 
@@ -3445,7 +3467,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
 
       _sessionController.addListener(onSessionChanged);
-      var aiRequestSucceeded = false;
       try {
         final requireWriteConfirmation =
             AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
@@ -3501,7 +3522,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           }
           return;
         }
-        aiRequestSucceeded = true;
         if (_isResponseCancelled(conversation.id, responseVersion)) return;
         if (sourceMessageId.trim().isNotEmpty &&
             identical(_conversations[conversation.id], conversation)) {
@@ -3510,8 +3530,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         }
       } finally {
         _sessionController.removeListener(onSessionChanged);
-        if (!_isResponseCancelled(conversation.id, responseVersion) &&
-            aiRequestSucceeded) {
+        if (!_isResponseCancelled(conversation.id, responseVersion)) {
+          // 请求失败时同样收敛：已流式发出的消息应停留在最后已生成内容，
+          // 避免钉钉端留下与本地不一致的半途文本。
           final session = currentSession();
           if (session != null) echoCoordinator.complete(session);
           try {
@@ -3803,7 +3824,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         uuid: uuid,
         createdAt: sentAt,
         senderName: senderName,
-        resolveId: false,
       );
     } catch (_) {
       conversation.messages.removeWhere(
@@ -3829,12 +3849,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     required String uuid,
     required DateTime createdAt,
     required String senderName,
-    bool resolveId = true,
   }) async {
     final sent = await _service
         .sendWithDetails(conversation: conversation, text: text, uuid: uuid)
         .timeout(const Duration(seconds: 30));
-    if (!resolveId) return sent;
     return _resolveDingTalkSentMessageIdIfMissing(
       conversation: conversation,
       content: text,
@@ -3875,6 +3893,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<void> _editDingTalkEcho({
     required DingTalkConversation conversation,
+    required String sourceMessageId,
     required String messageId,
     required String text,
   }) async {
@@ -3895,20 +3914,95 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           text: normalized,
         )
         .timeout(const Duration(seconds: 20));
+    _syncLocalEchoContent(
+      conversation: conversation,
+      sourceMessageId: sourceMessageId,
+      text: normalized,
+    );
+  }
+
+  /// 按源 AI 消息标识定位本地回显气泡；远端标识绑定前后该字段始终稳定。
+  DingTalkGatewayMessage? _echoMessageBySourceId(
+    DingTalkConversation conversation,
+    String sourceMessageId,
+  ) {
+    final normalized = sourceMessageId.trim();
+    if (normalized.isEmpty) return null;
+    for (var index = conversation.messages.length - 1; index >= 0; index--) {
+      final message = conversation.messages[index];
+      if (message.sourceAiMessageId == normalized) return message;
+    }
+    return null;
+  }
+
+  /// 发送接口未返回消息标识时，通过会话消息列表补齐远端标识并绑定本地消息。
+  Future<String?> _resolveEchoRemoteMessageId({
+    required DingTalkConversation conversation,
+    required String sourceMessageId,
+    required String sentText,
+  }) async {
+    if (_disposed ||
+        !identical(_conversations[conversation.id], conversation)) {
+      return null;
+    }
+    final local = _echoMessageBySourceId(conversation, sourceMessageId);
+    if (local == null) return null;
+    final resolved = await _resolveDingTalkSentMessageIdIfMissing(
+      conversation: conversation,
+      // 远端消息仍停留在最近一次成功送达的文本，优先用它匹配。
+      content: sentText.trim().isNotEmpty ? sentText : local.content,
+      createdAt: local.createdAt,
+      senderName: _authStatus.identity.label.trim(),
+      sent: null,
+    );
+    final resolvedId = resolved?.messageId?.trim() ?? '';
+    if (resolvedId.isEmpty ||
+        _disposed ||
+        !identical(_conversations[conversation.id], conversation)) {
+      return null;
+    }
+    _rememberRemoteConversationId(conversation, resolved?.conversationId);
+    _bindSentMessageId(conversation, local, resolvedId);
+    return resolvedId;
+  }
+
+  void _syncLocalEchoContent({
+    required DingTalkConversation conversation,
+    required String sourceMessageId,
+    required String text,
+  }) {
     if (_disposed ||
         !identical(_conversations[conversation.id], conversation)) {
       return;
     }
-    final index = conversation.messages.indexWhere(
-      (message) => message.id == messageId,
+    final normalized = clipTextByCodeUnits(
+      text.trim(),
+      _maxDingTalkEchoCharacters,
+      suffix: '\n\n…内容已截断',
     );
-    if (index >= 0 && conversation.messages[index].content != normalized) {
-      conversation.messages[index] = conversation.messages[index].copyWith(
-        content: normalized,
-      );
-      _queuePersist();
-      _notify();
-    }
+    if (normalized.isEmpty) return;
+    final local = _echoMessageBySourceId(conversation, sourceMessageId);
+    if (local == null || local.content == normalized) return;
+    final index = conversation.messages.indexOf(local);
+    if (index < 0) return;
+    conversation.messages[index] = local.copyWith(content: normalized);
+    _queuePersist();
+    _notify();
+  }
+
+  /// 该消息是否处于 AI 流式回显中（内容仍会持续更新）。
+  bool isEchoStreaming(DingTalkGatewayMessage message) =>
+      message.sourceAiMessageId.isNotEmpty &&
+      _streamingEchoSourceIds.contains(message.sourceAiMessageId);
+
+  void _setEchoStreaming(String sourceMessageId, bool streaming) {
+    if (_disposed) return;
+    final normalized = sourceMessageId.trim();
+    if (normalized.isEmpty) return;
+    final changed = streaming
+        ? _streamingEchoSourceIds.add(normalized)
+        : _streamingEchoSourceIds.remove(normalized);
+    if (changed) _notify();
   }
 
   String _echoTextForMessage(
@@ -4645,12 +4739,24 @@ typedef _DingTalkEchoTerminalResolver = bool Function(AiSessionMessage message);
 typedef _DingTalkEchoSender =
     Future<String?> Function(AiSessionMessage source, String text, String uuid);
 typedef _DingTalkEchoEditor =
-    Future<void> Function(String messageId, String text);
+    Future<void> Function(String sourceMessageId, String messageId, String text);
+typedef _DingTalkEchoRemoteIdResolver =
+    Future<String?> Function(String sourceMessageId, String sentText);
+typedef _DingTalkEchoLocalContentSync =
+    void Function(String sourceMessageId, String text);
+typedef _DingTalkEchoStreamingMarker =
+    void Function(String sourceMessageId, bool streaming);
 typedef _DingTalkEchoErrorHandler =
-    void Function(String action, Object error, StackTrace stack);
+    void Function(
+      String action,
+      Object error,
+      StackTrace stack, {
+      required bool notifyUser,
+    });
 typedef _DingTalkEchoCancellationChecker = bool Function();
 
-/// 单轮钉钉 AI 回显协调器：过程消息复用同一条消息，最终回复在请求成功后一次性发送。
+/// 单轮钉钉 AI 回显协调器：每类消息先发送首帧，随 AI 生成进度节流编辑同一条钉钉
+/// 消息，营造流式输出效果；远端消息标识缺失时降级为仅同步本地气泡并在终态收敛。
 class _DingTalkEchoCoordinator {
   _DingTalkEchoCoordinator({
     required String responseRoundId,
@@ -4662,6 +4768,9 @@ class _DingTalkEchoCoordinator {
     required _DingTalkEchoCancellationChecker isCancelled,
     required _DingTalkEchoSender send,
     required _DingTalkEchoEditor edit,
+    required _DingTalkEchoRemoteIdResolver resolveRemoteId,
+    required _DingTalkEchoLocalContentSync syncLocal,
+    required _DingTalkEchoStreamingMarker markStreaming,
     required String Function() newUuid,
     required _DingTalkEchoErrorHandler onError,
   }) : _responseRoundId = responseRoundId,
@@ -4673,12 +4782,17 @@ class _DingTalkEchoCoordinator {
        _isCancelled = isCancelled,
        _send = send,
        _edit = edit,
+       _resolveRemoteId = resolveRemoteId,
+       _syncLocal = syncLocal,
+       _markStreaming = markStreaming,
        _newUuid = newUuid,
        _onError = onError;
 
   static const Duration _initialStreamDelay = Duration(milliseconds: 180);
+  // 编辑节流兼顾钉钉接口频控与流式观感；本地气泡由渐显动画补足帧间平滑。
   static const Duration _editInterval = Duration(seconds: 1);
   static const int _maxTrackedMessages = 96;
+  static const int _maxRemoteIdResolveAttempts = 3;
 
   final String _responseRoundId;
   final Set<String> _deliveredSourceMessageIds;
@@ -4689,6 +4803,9 @@ class _DingTalkEchoCoordinator {
   final _DingTalkEchoCancellationChecker _isCancelled;
   final _DingTalkEchoSender _send;
   final _DingTalkEchoEditor _edit;
+  final _DingTalkEchoRemoteIdResolver _resolveRemoteId;
+  final _DingTalkEchoLocalContentSync _syncLocal;
+  final _DingTalkEchoStreamingMarker _markStreaming;
   final String Function() _newUuid;
   final _DingTalkEchoErrorHandler _onError;
   final LinkedHashMap<String, _PendingDingTalkEcho> _pending =
@@ -4699,7 +4816,6 @@ class _DingTalkEchoCoordinator {
   DateTime? _scheduledAt;
   Future<void>? _activeDrain;
   bool _disposed = false;
-  bool _roundCompleted = false;
 
   void ingest(AiSession session) {
     if (_disposed || _isCancelled() || _selectedTypes.isEmpty) return;
@@ -4725,8 +4841,6 @@ class _DingTalkEchoCoordinator {
       // 仍沿用首次解析结果；已发送消息保持原卡片生命周期不变。
       final type = state?.type ?? resolvedType ?? queued?.type;
       if (type == null ||
-          (type == DingTalkResponseEchoType.finalResponse &&
-              !_roundCompleted) ||
           (state == null && queued == null && !_selectedTypes.contains(type))) {
         continue;
       }
@@ -4738,6 +4852,7 @@ class _DingTalkEchoCoordinator {
         if (terminal) {
           state.finished = true;
           _pending.remove(message.id);
+          _markStreaming(message.id, false);
         }
         continue;
       }
@@ -4763,9 +4878,9 @@ class _DingTalkEchoCoordinator {
     _schedule();
   }
 
+  /// 轮次收敛：按会话最终状态做最后一次采集，确保终态文本在 flush 前入队。
   void complete(AiSession session) {
     if (_disposed || _isCancelled()) return;
-    _roundCompleted = true;
     ingest(session);
   }
 
@@ -4803,6 +4918,7 @@ class _DingTalkEchoCoordinator {
       removableId ??= _states.keys.first;
       _states.remove(removableId);
       _pending.remove(removableId);
+      _markStreaming(removableId, false);
     }
   }
 
@@ -4864,7 +4980,7 @@ class _DingTalkEchoCoordinator {
     // 终态之后若工具结果或格式化字段补齐，允许再编辑一次同一条消息。
     state.finished = false;
     if (state.lastText == pending.text) {
-      state.finished = pending.terminal;
+      _settle(sourceId, state, pending);
       return;
     }
     try {
@@ -4878,22 +4994,72 @@ class _DingTalkEchoCoordinator {
         if (_disposed || _isCancelled()) return;
         state.sent = true;
       } else {
-        final messageId = state.remoteMessageId?.trim() ?? '';
-        if (messageId.isNotEmpty) {
-          if (_disposed || _isCancelled()) return;
-          await _edit(messageId, pending.text);
-          if (_disposed || _isCancelled()) return;
+        final messageId = await _remoteMessageIdForEdit(
+          sourceId,
+          state,
+        );
+        if (_disposed || _isCancelled()) return;
+        if (messageId.isEmpty) {
+          // 拿不到远端消息标识时无法编辑，先保证本地气泡持续流式更新；
+          // lastText 保持为远端已送达文本，等待后续补齐或终态收敛。
+          _syncLocal(sourceId, pending.text);
+          state.lastMutationAt = DateTime.now();
+          if (pending.terminal) {
+            state.lastText = pending.text;
+            _onError(
+              '编辑钉钉 AI 回显消息',
+              StateError('缺少远端消息标识，终态内容已降级为仅同步本地会话。'),
+              StackTrace.current,
+              notifyUser: false,
+            );
+          }
+          _settle(sourceId, state, pending);
+          return;
         }
+        await _edit(sourceId, messageId, pending.text);
+        if (_disposed || _isCancelled()) return;
       }
       state.lastText = pending.text;
       state.lastMutationAt = DateTime.now();
-      state.finished = pending.terminal;
+      _settle(sourceId, state, pending);
     } catch (error, stack) {
       if (_disposed || _isCancelled()) return;
       state.lastMutationAt = DateTime.now();
-      _onError(state.sent ? '编辑钉钉 AI 回显消息' : '发送钉钉 AI 回显消息', error, stack);
-      state.finished = pending.terminal;
+      // 编辑失败无需打扰用户：后续增量会以全量文本自动追平。
+      _onError(
+        state.sent ? '编辑钉钉 AI 回显消息' : '发送钉钉 AI 回显消息',
+        error,
+        stack,
+        notifyUser: !state.sent,
+      );
+      _settle(sourceId, state, pending);
     }
+  }
+
+  void _settle(
+    String sourceId,
+    _DingTalkEchoDeliveryState state,
+    _PendingDingTalkEcho pending,
+  ) {
+    state.finished = pending.terminal;
+    _markStreaming(sourceId, state.sent && !state.finished);
+  }
+
+  /// 部分 dws 版本发送接口不返回消息标识，编辑前按有限次数补齐远端标识。
+  Future<String> _remoteMessageIdForEdit(
+    String sourceId,
+    _DingTalkEchoDeliveryState state,
+  ) async {
+    final known = state.remoteMessageId?.trim() ?? '';
+    if (known.isNotEmpty) return known;
+    if (state.remoteIdResolveAttempts >= _maxRemoteIdResolveAttempts) {
+      return '';
+    }
+    state.remoteIdResolveAttempts++;
+    final resolved =
+        (await _resolveRemoteId(sourceId, state.lastText))?.trim() ?? '';
+    if (resolved.isNotEmpty) state.remoteMessageId = resolved;
+    return resolved;
   }
 
   Future<void> flush() async {
@@ -4923,6 +5089,9 @@ class _DingTalkEchoCoordinator {
     _disposed = true;
     _timer?.cancel();
     _timer = null;
+    for (final sourceId in _states.keys) {
+      _markStreaming(sourceId, false);
+    }
     _pending.clear();
     _states.clear();
   }
@@ -4962,6 +5131,7 @@ class _DingTalkEchoDeliveryState {
   String? remoteMessageId;
   String lastText = '';
   DateTime lastMutationAt = DateTime.fromMillisecondsSinceEpoch(0);
+  int remoteIdResolveAttempts = 0;
   bool sent = false;
   bool finished = false;
 }
