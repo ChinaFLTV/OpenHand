@@ -15414,6 +15414,102 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             builder: (context, constraints) {
               final maxBubbleWidth =
                   constraints.maxWidth * _maxBubbleWidthFactor;
+              final bubbleAlignment = widget.mine
+                  ? Alignment.topRight
+                  : Alignment.topLeft;
+              final resizeDuration = widget.streaming
+                  ? Duration.zero
+                  : openHandMotionDuration(context, kOpenHandMotion220);
+              final messageContent = AnimatedSwitcher(
+                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                switchInCurve: Curves.easeOutCubic,
+                switchOutCurve: Curves.easeInCubic,
+                layoutBuilder: (current, previous) => Stack(
+                  alignment: bubbleAlignment,
+                  children: <Widget>[...previous, if (current != null) current],
+                ),
+                transitionBuilder: (child, animation) => FadeTransition(
+                  opacity: animation,
+                  child: SizeTransition(
+                    sizeFactor: animation,
+                    axisAlignment: -1,
+                    fixedCrossAxisSizeFactor: 1,
+                    child: child,
+                  ),
+                ),
+                child: !contentExpanded
+                    ? _buildCollapsedMessageContent(
+                        context,
+                        bubbleColor: bubbleColor,
+                        foreground: foreground,
+                      )
+                    : showText
+                    ? widget.message.isToolCallEcho
+                          ? SizedBox(
+                              width: double.infinity,
+                              child: _buildTextBubble(
+                                context,
+                                bubbleColor: bubbleColor,
+                                foreground: foreground,
+                                effectiveContent: effectiveContent,
+                              ),
+                            )
+                          : IntrinsicWidth(
+                              key: const ValueKey<String>(
+                                'dingtalk-message-content-expanded-text',
+                              ),
+                              child: _buildTextBubble(
+                                context,
+                                bubbleColor: bubbleColor,
+                                foreground: foreground,
+                                effectiveContent: effectiveContent,
+                              ),
+                            )
+                    : Column(
+                        key: const ValueKey<String>(
+                          'dingtalk-message-content-expanded-media',
+                        ),
+                        textDirection: TextDirection.ltr,
+                        crossAxisAlignment: crossAxis,
+                        children: [
+                          AnimatedOpacity(
+                            duration: openHandMotionDuration(
+                              context,
+                              kOpenHandMotion220,
+                            ),
+                            curve: Curves.easeOutCubic,
+                            opacity: widget.message.recalled
+                                ? 0.62
+                                : widget.message.ignoredForAiContext
+                                ? 0.68
+                                : 1,
+                            child: _DingTalkMediaRail(
+                              media: previewableMedia,
+                              mine: widget.mine,
+                              loading: widget.mediaLoading,
+                              failed: widget.mediaFailed,
+                              onRetry: widget.onRetryMedia,
+                              onInteractiveTap: _cancelPendingActionToggle,
+                            ),
+                          ),
+                          if (widget.message.reactions.isNotEmpty)
+                            _buildReactionRow(
+                              context,
+                              colors.onSurface,
+                              topSpacing: 2,
+                            ),
+                          _buildMessageStateLabel(context),
+                        ],
+                      ),
+              );
+              final bubbleContent = resizeDuration == Duration.zero
+                  ? messageContent
+                  : AnimatedSize(
+                      duration: resizeDuration,
+                      curve: Curves.easeOutCubic,
+                      alignment: bubbleAlignment,
+                      child: messageContent,
+                    );
               return Align(
                 alignment: alignment,
                 child: ConstrainedBox(
@@ -15422,106 +15518,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     onPointerDown: _handlePointerDown,
                     onPointerCancel: _handlePointerCancel,
                     onPointerUp: _handlePointerUp,
-                    child: AnimatedSize(
-                      duration: widget.streaming
-                          ? Duration.zero
-                          : openHandMotionDuration(context, kOpenHandMotion220),
-                      curve: Curves.easeOutCubic,
-                      alignment: widget.mine
-                          ? Alignment.topRight
-                          : Alignment.topLeft,
-                      child: AnimatedSwitcher(
-                        duration: openHandMotionDuration(
-                          context,
-                          kOpenHandMotion180,
-                        ),
-                        switchInCurve: Curves.easeOutCubic,
-                        switchOutCurve: Curves.easeInCubic,
-                        layoutBuilder: (current, previous) => Stack(
-                          alignment: widget.mine
-                              ? Alignment.topRight
-                              : Alignment.topLeft,
-                          children: <Widget>[
-                            ...previous,
-                            if (current != null) current,
-                          ],
-                        ),
-                        transitionBuilder: (child, animation) => FadeTransition(
-                          opacity: animation,
-                          child: SizeTransition(
-                            sizeFactor: animation,
-                            axisAlignment: -1,
-                            fixedCrossAxisSizeFactor: 1,
-                            child: child,
-                          ),
-                        ),
-                        child: !contentExpanded
-                            ? _buildCollapsedMessageContent(
-                                context,
-                                bubbleColor: bubbleColor,
-                                foreground: foreground,
-                              )
-                            : showText
-                            ? widget.message.isToolCallEcho
-                                  ? SizedBox(
-                                      width: double.infinity,
-                                      child: _buildTextBubble(
-                                        context,
-                                        bubbleColor: bubbleColor,
-                                        foreground: foreground,
-                                        effectiveContent: effectiveContent,
-                                      ),
-                                    )
-                                  : IntrinsicWidth(
-                                      key: const ValueKey<String>(
-                                        'dingtalk-message-content-expanded-text',
-                                      ),
-                                      child: _buildTextBubble(
-                                        context,
-                                        bubbleColor: bubbleColor,
-                                        foreground: foreground,
-                                        effectiveContent: effectiveContent,
-                                      ),
-                                    )
-                            : Column(
-                                key: const ValueKey<String>(
-                                  'dingtalk-message-content-expanded-media',
-                                ),
-                                textDirection: TextDirection.ltr,
-                                crossAxisAlignment: crossAxis,
-                                children: [
-                                  AnimatedOpacity(
-                                    duration: openHandMotionDuration(
-                                      context,
-                                      kOpenHandMotion220,
-                                    ),
-                                    curve: Curves.easeOutCubic,
-                                    opacity: widget.message.recalled
-                                        ? 0.62
-                                        : widget.message.ignoredForAiContext
-                                        ? 0.68
-                                        : 1,
-                                    child: _DingTalkMediaRail(
-                                      media: previewableMedia,
-                                      mine: widget.mine,
-                                      loading: widget.mediaLoading,
-                                      failed: widget.mediaFailed,
-                                      onRetry: widget.onRetryMedia,
-                                      onInteractiveTap:
-                                          _cancelPendingActionToggle,
-                                    ),
-                                  ),
-                                  if (widget.message.reactions.isNotEmpty)
-                                    _buildReactionRow(
-                                      context,
-                                      colors.onSurface,
-                                      topSpacing: 2,
-                                    ),
-                                  _buildMessageStateLabel(context),
-                                ],
-                              ),
-                      ),
-                    ),
+                    child: bubbleContent,
                   ),
                 ),
               );
