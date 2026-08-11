@@ -17,10 +17,15 @@ import '../../plugin_service/index.dart';
 import '../model/dingtalk_message_gateway.dart';
 
 class DingTalkGatewayQueryResult {
-  const DingTalkGatewayQueryResult({required this.messages, this.warning});
+  const DingTalkGatewayQueryResult({
+    required this.messages,
+    this.warning,
+    this.shouldAdvanceWindow = true,
+  });
 
   final List<DingTalkGatewayMessage> messages;
   final String? warning;
+  final bool shouldAdvanceWindow;
 }
 
 class DingTalkConversationMessagePage {
@@ -36,10 +41,15 @@ class DingTalkConversationMessagePage {
 }
 
 class _DingTalkMessagePageResult {
-  const _DingTalkMessagePageResult({required this.pages, this.warning});
+  const _DingTalkMessagePageResult({
+    required this.pages,
+    this.warning,
+    this.shouldAdvanceWindow = true,
+  });
 
   final List<Object?> pages;
   final String? warning;
+  final bool shouldAdvanceWindow;
 }
 
 class DingTalkSentMessage {
@@ -109,8 +119,16 @@ class DingTalkGatewayCommandException implements Exception {
       serverCode?.trim().toLowerCase() == 'invalidrequest.inputargs.invalid' ||
       message.contains('参数') && message.contains('缺少必要信息');
 
+  bool get isDependencyUnavailable {
+    final normalized = message.toLowerCase();
+    return normalized.contains('mcp 后端依赖暂时不可用') ||
+        normalized.contains('mcp backend dependency temporarily unavailable');
+  }
+
   bool get isRetryable =>
-      retryable || reason?.trim().toLowerCase() == 'timeout';
+      retryable ||
+      reason?.trim().toLowerCase() == 'timeout' ||
+      isDependencyUnavailable;
 
   @override
   String toString() => message;
@@ -158,6 +176,7 @@ class DingTalkMessageGatewayService {
   static const Duration _messageQueryUnavailableCooldown = Duration(
     minutes: 10,
   );
+  static const Duration _messageQueryDependencyCooldown = Duration(minutes: 2);
   static const Duration _conversationQueryUnavailableCooldown = Duration(
     minutes: 10,
   );
@@ -197,6 +216,7 @@ class DingTalkMessageGatewayService {
       <_DingTalkEventProcessHandle>[];
   final Map<String, DateTime> _messageQueryUnavailableUntil =
       <String, DateTime>{};
+  final Set<String> _messageQueryDependencyUnavailable = <String>{};
   final Map<String, DateTime> _conversationQueryUnavailableUntil =
       <String, DateTime>{};
   StreamController<DingTalkGatewayEvent>? _eventController;
@@ -367,6 +387,7 @@ class DingTalkMessageGatewayService {
 
   void resetMessageQueryCapability() {
     _messageQueryUnavailableUntil.clear();
+    _messageQueryDependencyUnavailable.clear();
     _conversationQueryUnavailableUntil.clear();
   }
 
@@ -1234,6 +1255,9 @@ class DingTalkMessageGatewayService {
     return DingTalkGatewayQueryResult(
       messages: messages,
       warning: warnings.isEmpty ? null : warnings.join('；'),
+      shouldAdvanceWindow: pageResults.every(
+        (result) => result.shouldAdvanceWindow,
+      ),
     );
   }
 
@@ -1246,12 +1270,16 @@ class DingTalkMessageGatewayService {
     final unavailableUntil = _messageQueryUnavailableUntil[capabilityKey];
     if (unavailableUntil != null) {
       if (now.isBefore(unavailableUntil)) {
-        return const _DingTalkMessagePageResult(
-          pages: <Object?>[],
+        return _DingTalkMessagePageResult(
+          pages: const <Object?>[],
           warning: _messageSearchFallbackWarning,
+          shouldAdvanceWindow: !_messageQueryDependencyUnavailable.contains(
+            capabilityKey,
+          ),
         );
       }
       _messageQueryUnavailableUntil.remove(capabilityKey);
+      _messageQueryDependencyUnavailable.remove(capabilityKey);
     }
     final pages = <Object?>[];
     var cursor = '0';
@@ -1262,15 +1290,28 @@ class DingTalkMessageGatewayService {
       } catch (error, stack) {
         final commandError = _normalizeCommandException(error);
         if (commandError != null &&
-            commandError.isBusinessError &&
-            !commandError.isRetryable) {
+            (commandError.isDependencyUnavailable ||
+                commandError.isBusinessError && !commandError.isRetryable)) {
           _messageQueryUnavailableUntil[capabilityKey] = DateTime.now().add(
-            _messageQueryUnavailableCooldown,
+            commandError.isDependencyUnavailable
+                ? _messageQueryDependencyCooldown
+                : _messageQueryUnavailableCooldown,
           );
-          _logRuntime('WARN', '钉钉$label搜索暂不可用，已切换事件流和会话对账。');
+          if (commandError.isDependencyUnavailable) {
+            _messageQueryDependencyUnavailable.add(capabilityKey);
+          } else {
+            _messageQueryDependencyUnavailable.remove(capabilityKey);
+          }
+          _logRuntime(
+            'WARN',
+            commandError.isDependencyUnavailable
+                ? '钉钉$label搜索后端暂不可用，已暂缓查询并切换事件流和会话对账。'
+                : '钉钉$label搜索暂不可用，已切换事件流和会话对账。',
+          );
           return _DingTalkMessagePageResult(
             pages: pages,
             warning: _messageSearchFallbackWarning,
+            shouldAdvanceWindow: !commandError.isDependencyUnavailable,
           );
         }
         if (pages.isEmpty) rethrow;
@@ -1288,6 +1329,7 @@ class DingTalkMessageGatewayService {
       }
       cursor = nextCursor;
     }
+    _messageQueryDependencyUnavailable.remove(capabilityKey);
     return _DingTalkMessagePageResult(pages: pages);
   }
 
@@ -1358,9 +1400,14 @@ class DingTalkMessageGatewayService {
     } catch (error) {
       final commandError = _normalizeCommandException(error);
       if (commandError != null &&
-          commandError.isBusinessError &&
-          !commandError.isRetryable) {
-        _markConversationQueryUnavailable(queryKey);
+          (commandError.isDependencyUnavailable ||
+              commandError.isBusinessError && !commandError.isRetryable)) {
+        _markConversationQueryUnavailable(
+          queryKey,
+          cooldown: commandError.isDependencyUnavailable
+              ? _messageQueryDependencyCooldown
+              : _conversationQueryUnavailableCooldown,
+        );
         _logRuntime('WARN', '钉钉会话消息搜索暂不可用，已依赖实时事件和其他对账。');
         return const DingTalkConversationMessagePage(
           messages: <DingTalkGatewayMessage>[],
@@ -1731,11 +1778,14 @@ class DingTalkMessageGatewayService {
   String _conversationQueryKey(DingTalkConversation conversation) =>
       '${conversation.type.name}:${_targetArguments(conversation).join(':')}';
 
-  void _markConversationQueryUnavailable(String queryKey) {
+  void _markConversationQueryUnavailable(
+    String queryKey, {
+    Duration cooldown = _conversationQueryUnavailableCooldown,
+  }) {
     final now = DateTime.now();
     _conversationQueryUnavailableUntil
       ..removeWhere((_, until) => !until.isAfter(now))
-      ..[queryKey] = now.add(_conversationQueryUnavailableCooldown);
+      ..[queryKey] = now.add(cooldown);
     while (_conversationQueryUnavailableUntil.length >
         _maxConversationQueryFailures) {
       final oldest = _conversationQueryUnavailableUntil.entries.reduce(
@@ -1907,7 +1957,7 @@ class DingTalkMessageGatewayService {
         _rosterAccessDenied = true;
       }
       if (normalizedError?.isBusinessError == true ||
-          _looksLikeBusinessError(error)) {
+          _isExpectedCommandFailure(error)) {
         return null;
       }
       silentLog('dingtalk_gateway', '读取$name', error, stack);
@@ -1937,10 +1987,10 @@ class DingTalkMessageGatewayService {
           'json',
         ]);
       } catch (fallbackError, fallbackStack) {
-        if (!_looksLikeBusinessError(error)) {
+        if (!_isExpectedCommandFailure(error)) {
           silentLog('dingtalk_gateway', '按标识读取联系人', error, stack);
         }
-        if (!_looksLikeBusinessError(fallbackError)) {
+        if (!_isExpectedCommandFailure(fallbackError)) {
           silentLog(
             'dingtalk_gateway',
             '按名称读取联系人',
@@ -1997,13 +2047,16 @@ class DingTalkMessageGatewayService {
         text.contains('server_error_code') && text.contains('2001');
   }
 
-  bool _looksLikeBusinessError(Object error) {
+  bool _isExpectedCommandFailure(Object error) {
     if (error is DingTalkGatewayCommandException) {
-      return error.isBusinessError;
+      return error.isBusinessError || error.isDependencyUnavailable;
     }
     final text = '$error';
-    return text.contains('"category"') &&
-        (text.contains('"reason"') || text.contains('server_error_code'));
+    final normalized = text.toLowerCase();
+    return normalized.contains('mcp 后端依赖暂时不可用') ||
+        normalized.contains('mcp backend dependency temporarily unavailable') ||
+        text.contains('"category"') &&
+            (text.contains('"reason"') || text.contains('server_error_code'));
   }
 
   DingTalkGatewayCommandException? _normalizeCommandException(Object error) {
@@ -2064,10 +2117,10 @@ class DingTalkMessageGatewayService {
             'json',
           ]);
         } catch (fallbackError, fallbackStack) {
-          if (!_looksLikeBusinessError(error)) {
+          if (!_isExpectedCommandFailure(error)) {
             silentLog('dingtalk_gateway', '读取会话基础信息', error, stack);
           }
-          if (!_looksLikeBusinessError(fallbackError)) {
+          if (!_isExpectedCommandFailure(fallbackError)) {
             silentLog(
               'dingtalk_gateway',
               '读取会话基础信息备用标识',
@@ -2195,7 +2248,7 @@ class DingTalkMessageGatewayService {
     try {
       return await _runJson(arguments);
     } catch (error, stack) {
-      if (_looksLikeBusinessError(error)) {
+      if (_isExpectedCommandFailure(error)) {
         return null;
       }
       silentLog('dingtalk_gateway', name, error, stack);
@@ -2218,7 +2271,7 @@ class DingTalkMessageGatewayService {
         try {
           results[index] = await action(values[index]);
         } catch (error, stack) {
-          if (_looksLikeBusinessError(error)) {
+          if (_isExpectedCommandFailure(error)) {
             continue;
           }
           silentLog('dingtalk_gateway', onError, error, stack);

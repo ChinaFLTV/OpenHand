@@ -1895,7 +1895,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       Object? queryError;
       try {
         final result = await _service.query(start: _lastPollAt, end: now);
-        _lastPollAt = now.subtract(const Duration(seconds: 2));
+        if (result.shouldAdvanceWindow) {
+          _lastPollAt = now.subtract(const Duration(seconds: 2));
+        }
         _warningMessage = result.warning;
         for (final message in result.messages) {
           _handleIncomingMessage(message);
