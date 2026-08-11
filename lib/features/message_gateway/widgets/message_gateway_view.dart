@@ -12060,6 +12060,7 @@ class _DingTalkMessagesDialog extends StatefulWidget {
 
 class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const Duration _maxVoiceDuration = Duration(minutes: 2);
+  static const double _composerIconButtonSize = 48;
   static const Duration _voiceVisualInterval = Duration(milliseconds: 160);
   static const int _voiceWaveformSampleCount = 40;
   static const int _maxTranslationCacheEntries = 64;
@@ -12487,18 +12488,22 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                           )) ...[
                                         const SizedBox(width: 10),
                                         Flexible(
-                                          child: Text(
-                                            widget.controller
-                                                .responseStatusText(
-                                                  selected.id,
-                                                ),
-                                            maxLines: 1,
-                                            overflow: TextOverflow.ellipsis,
-                                            style: theme.textTheme.bodySmall
-                                                ?.copyWith(
-                                                  color: colors.primary,
-                                                  fontWeight: FontWeight.w700,
-                                                ),
+                                          child: Align(
+                                            alignment: Alignment.centerRight,
+                                            child: Text(
+                                              widget.controller
+                                                  .responseStatusText(
+                                                    selected.id,
+                                                  ),
+                                              maxLines: 1,
+                                              overflow: TextOverflow.ellipsis,
+                                              textAlign: TextAlign.right,
+                                              style: theme.textTheme.bodySmall
+                                                  ?.copyWith(
+                                                    color: colors.primary,
+                                                    fontWeight: FontWeight.w700,
+                                                  ),
+                                            ),
                                           ),
                                         ),
                                         const SizedBox(width: 8),
@@ -12819,9 +12824,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final responding = widget.controller.isConversationResponding(
       conversation.id,
     );
-    final responseStatus = responding
-        ? widget.controller.responseStatusText(conversation.id)
-        : '';
     final responseError =
         widget.controller.responseErrorMessage(conversation.id)?.trim() ?? '';
     return Padding(
@@ -12829,19 +12831,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
-          AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion220),
-            switchInCurve: Curves.easeOutCubic,
-            switchOutCurve: Curves.easeInCubic,
-            child: responding
-                ? _DingTalkResponseProgressBanner(
-                    key: ValueKey<String>(responseStatus),
-                    status: responseStatus,
-                  )
-                : const SizedBox.shrink(
-                    key: ValueKey<String>('dingtalk-response-progress-idle'),
-                  ),
-          ),
           AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion180),
             switchInCurve: Curves.easeOutCubic,
@@ -13811,8 +13800,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
               ? '添加附件'
               : '发送文件',
           child: SizedBox(
-            width: 52,
-            height: 48,
+            width: _composerIconButtonSize,
+            height: _composerIconButtonSize,
             child: FilledButton(
               style: _composerIconButtonStyle(),
               onPressed: enabled
@@ -13846,8 +13835,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     return Tooltip(
       message: '发送语音',
       child: SizedBox(
-        width: 52,
-        height: 48,
+        width: _composerIconButtonSize,
+        height: _composerIconButtonSize,
         child: FilledButton(
           style: _composerIconButtonStyle(),
           onPressed: enabled
@@ -13867,8 +13856,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     return Tooltip(
       message: '强制响应历史消息',
       child: SizedBox(
-        width: 52,
-        height: 48,
+        width: _composerIconButtonSize,
+        height: _composerIconButtonSize,
         child: FilledButton.tonal(
           style: _composerIconButtonStyle(),
           onPressed: enabled ? () => _forceRespond(conversation) : null,
@@ -13887,9 +13876,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   ButtonStyle _composerIconButtonStyle() {
     return FilledButton.styleFrom(
-      minimumSize: const Size(52, 48),
-      fixedSize: const Size(52, 48),
+      minimumSize: const Size.square(_composerIconButtonSize),
+      fixedSize: const Size.square(_composerIconButtonSize),
       padding: EdgeInsets.zero,
+      shape: const CircleBorder(),
     );
   }
 
@@ -15087,74 +15077,6 @@ class _DingTalkRespondingIndicator extends StatelessWidget {
       width: 16,
       height: 16,
       child: CircularProgressIndicator(strokeWidth: 2, color: color),
-    );
-  }
-}
-
-class _DingTalkResponseProgressBanner extends StatelessWidget {
-  const _DingTalkResponseProgressBanner({required this.status, super.key});
-
-  final String status;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final colors = theme.colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 10),
-      child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
-        child: DecoratedBox(
-          decoration: BoxDecoration(
-            color: colors.primaryContainer.withValues(alpha: 0.62),
-            border: Border.all(color: colors.primary.withValues(alpha: 0.28)),
-          ),
-          child: Column(
-            children: [
-              LinearProgressIndicator(
-                minHeight: 3,
-                color: colors.primary,
-                backgroundColor: colors.primary.withValues(alpha: 0.1),
-              ),
-              Padding(
-                padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
-                child: Row(
-                  children: [
-                    Icon(
-                      Icons.auto_awesome_rounded,
-                      size: 19,
-                      color: colors.primary,
-                    ),
-                    const SizedBox(width: 9),
-                    Expanded(
-                      child: Column(
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Text(
-                            status,
-                            style: theme.textTheme.bodyMedium?.copyWith(
-                              color: colors.onPrimaryContainer,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
-                          Text(
-                            '输入框已锁定，响应结束后自动恢复',
-                            style: theme.textTheme.bodySmall?.copyWith(
-                              color: colors.onPrimaryContainer.withValues(
-                                alpha: 0.76,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ],
-                ),
-              ),
-            ],
-          ),
-        ),
-      ),
     );
   }
 }
