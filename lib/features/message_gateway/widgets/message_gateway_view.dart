@@ -15218,6 +15218,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const double _maxBubbleWidth = 560;
   static const double _maxToolBubbleWidth = 840;
   static const int _maxRenderedTextCharacters = 10000;
+  static const int _maxRenderedTextLines = 160;
+  static const int _maxRenderedToolTextCharacters = 1600;
+  static const int _maxRenderedToolTextLines = 28;
   static const double _actionToggleMaxDistance = 8;
   static const Duration _actionToggleMaxDuration = Duration(milliseconds: 350);
   static const Duration _actionToggleDelay = Duration(milliseconds: 80);
@@ -15234,6 +15237,15 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   bool _showRawContent = false;
   bool _showFullText = false;
   bool _showExcludedContent = false;
+  bool _longContentCollapseLatched = false;
+
+  @override
+  void initState() {
+    super.initState();
+    _longContentCollapseLatched = _shouldCollapseLongContent(
+      _effectiveTextContent(widget),
+    );
+  }
 
   @override
   void didUpdateWidget(covariant _DingTalkMessageBubble oldWidget) {
@@ -15243,15 +15255,20 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       _showRawContent = false;
       _showFullText = false;
       _showExcludedContent = false;
+      _longContentCollapseLatched = _shouldCollapseLongContent(
+        _effectiveTextContent(widget),
+      );
       return;
     }
-    // 流式回显期间内容持续增量更新，保留用户的展开状态不被反复重置。
-    if (oldWidget.message.content != widget.message.content &&
-        !widget.streaming) {
+    if (!_longContentCollapseLatched &&
+        _shouldCollapseLongContent(_effectiveTextContent(widget))) {
+      _longContentCollapseLatched = true;
       _showFullText = false;
-      if (widget.message.isExcludedFromAiContext) {
-        _showExcludedContent = false;
-      }
+    }
+    if (oldWidget.message.content != widget.message.content &&
+        !widget.streaming &&
+        widget.message.isExcludedFromAiContext) {
+      _showExcludedContent = false;
     }
     if (oldWidget.message.recalled != widget.message.recalled ||
         oldWidget.message.ignoredForAiContext !=
@@ -15269,6 +15286,27 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   void _cancelPendingActionToggle() {
     _pendingActionToggleTimer?.cancel();
     _pendingActionToggleTimer = null;
+  }
+
+  String _effectiveTextContent(_DingTalkMessageBubble bubble) {
+    return bubble.translationVisible
+        ? bubble.translatedContent ?? bubble.message.content
+        : bubble.message.content;
+  }
+
+  bool _shouldCollapseLongContent(String content) {
+    final characterLimit = widget.message.isToolCallEcho
+        ? _maxRenderedToolTextCharacters
+        : _maxRenderedTextCharacters;
+    if (content.length > characterLimit) return true;
+    final lineLimit = widget.message.isToolCallEcho
+        ? _maxRenderedToolTextLines
+        : _maxRenderedTextLines;
+    var lines = 1;
+    for (final codeUnit in content.codeUnits) {
+      if (codeUnit == 0x0A && ++lines > lineLimit) return true;
+    }
+    return false;
   }
 
   void _handlePointerDown(PointerDownEvent event) {
@@ -15791,73 +15829,133 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     required Color foreground,
   }) {
     final theme = Theme.of(context);
-    final canCollapse = content.length > _maxRenderedTextCharacters;
-    final visibleContent = canCollapse && !_showFullText
-        ? clipTextByCodeUnits(
-            content,
-            _maxRenderedTextCharacters,
-            suffix: '\n…',
-          )
-        : content;
+    final canCollapse =
+        _longContentCollapseLatched || _shouldCollapseLongContent(content);
+    final collapsed = canCollapse && !_showFullText;
     final bodyStyle = theme.textTheme.bodyMedium?.copyWith(
       color: foreground,
       height: 1.48,
     );
     // 流式回显期间按字素簇渐显增量内容；生成结束后切回可选择的静态渲染。
     final streaming = widget.streaming && !_showRawContent;
-    final body = streaming
-        ? StreamingTextRevealText(
-            text: visibleContent,
-            streaming: true,
-            // 气泡外层已有 AnimatedSize，关闭内部尺寸动画避免竞争。
-            animateSize: false,
-            builder: (context, visibleText) => _buildMessageBody(
-              context,
-              theme: theme,
-              text: visibleText,
-              bodyStyle: bodyStyle,
-              foreground: foreground,
-              canCollapse: canCollapse,
-              streaming: true,
-            ),
-          )
-        : _buildMessageBody(
-            context,
-            theme: theme,
-            text: visibleContent,
-            bodyStyle: bodyStyle,
-            foreground: foreground,
-            canCollapse: canCollapse,
-            streaming: false,
-          );
-    return Column(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        body,
-        if (streaming) _DingTalkStreamingDots(color: foreground),
-        if (canCollapse)
-          Padding(
-            padding: const EdgeInsets.only(top: 6),
-            child: TextButton.icon(
-              onPressed: () {
-                _cancelPendingActionToggle();
-                setState(() => _showFullText = !_showFullText);
-              },
-              icon: Icon(
-                _showFullText
-                    ? Icons.unfold_less_rounded
-                    : Icons.unfold_more_rounded,
-                size: 17,
+    return AnimatedSwitcher(
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      layoutBuilder: (current, previous) => Stack(
+        alignment: Alignment.topLeft,
+        children: <Widget>[...previous, if (current != null) current],
+      ),
+      transitionBuilder: (child, animation) => FadeTransition(
+        opacity: animation,
+        child: SizeTransition(
+          sizeFactor: animation,
+          axisAlignment: -1,
+          fixedCrossAxisSizeFactor: 1,
+          child: child,
+        ),
+      ),
+      child: collapsed
+          ? Semantics(
+              key: const ValueKey<String>('dingtalk-long-message-collapsed'),
+              container: true,
+              label: streaming ? '长消息已折叠，内容生成中' : '长消息已折叠',
+              child: Row(
+                children: [
+                  Icon(Icons.subject_rounded, size: 20, color: foreground),
+                  const SizedBox(width: 9),
+                  Expanded(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Text(
+                          '长消息已折叠',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelLarge?.copyWith(
+                            color: foreground,
+                            fontWeight: FontWeight.w800,
+                          ),
+                        ),
+                        Text(
+                          streaming ? '内容持续生成中' : '完整内容已保留',
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelSmall?.copyWith(
+                            color: foreground.withValues(alpha: 0.72),
+                            fontWeight: FontWeight.w600,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(width: 8),
+                  TextButton.icon(
+                    onPressed: () {
+                      _cancelPendingActionToggle();
+                      setState(() => _showFullText = true);
+                    },
+                    icon: const Icon(Icons.unfold_more_rounded, size: 17),
+                    label: const Text('展开'),
+                    style: TextButton.styleFrom(
+                      minimumSize: const Size(0, 32),
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                  ),
+                ],
               ),
-              label: Text(_showFullText ? '收起长消息' : '展开完整消息'),
-              style: TextButton.styleFrom(
-                minimumSize: const Size(0, 32),
-                padding: const EdgeInsets.symmetric(horizontal: 8),
-                tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-              ),
+            )
+          : Column(
+              key: const ValueKey<String>('dingtalk-long-message-expanded'),
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                if (streaming)
+                  StreamingTextRevealText(
+                    text: content,
+                    streaming: true,
+                    // 气泡外层已有 AnimatedSize，关闭内部尺寸动画避免竞争。
+                    animateSize: false,
+                    builder: (context, visibleText) => _buildMessageBody(
+                      context,
+                      theme: theme,
+                      text: visibleText,
+                      bodyStyle: bodyStyle,
+                      foreground: foreground,
+                      canCollapse: canCollapse,
+                      streaming: true,
+                    ),
+                  )
+                else
+                  _buildMessageBody(
+                    context,
+                    theme: theme,
+                    text: content,
+                    bodyStyle: bodyStyle,
+                    foreground: foreground,
+                    canCollapse: canCollapse,
+                    streaming: false,
+                  ),
+                if (streaming) _DingTalkStreamingDots(color: foreground),
+                if (canCollapse)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 6),
+                    child: TextButton.icon(
+                      onPressed: () {
+                        _cancelPendingActionToggle();
+                        setState(() => _showFullText = false);
+                      },
+                      icon: const Icon(Icons.unfold_less_rounded, size: 17),
+                      label: const Text('折叠长消息'),
+                      style: TextButton.styleFrom(
+                        minimumSize: const Size(0, 32),
+                        padding: const EdgeInsets.symmetric(horizontal: 8),
+                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                      ),
+                    ),
+                  ),
+              ],
             ),
-          ),
-      ],
     );
   }
 

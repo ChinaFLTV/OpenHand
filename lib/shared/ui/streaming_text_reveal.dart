@@ -301,11 +301,9 @@ class _StreamingTextRevealTextState extends State<StreamingTextRevealText>
       _stopTicker();
       return;
     }
-    if (widget.text.length < previousText.length) {
-      _visibleGraphemes = _visibleGraphemes.clamp(0, _targetGraphemes);
-    } else if (!widget.text.startsWith(previousText)) {
-      _visibleGraphemes = 0;
-    }
+    // 工具状态、耗时等前部字段会随流式结果一起改写。保留已展示字素数量，
+    // 避免把整段文本从头渐显，导致承载它的消息卡片高度瞬间归零。
+    _visibleGraphemes = _visibleGraphemes.clamp(0, _targetGraphemes);
     _startTickerIfNeeded();
   }
 
