@@ -858,6 +858,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<DingTalkGatewayMessage?> ensureMessageMediaCached({
     required String conversationId,
     required String messageId,
+    bool forceRetry = false,
   }) async {
     final normalizedConversationId = conversationId.trim();
     final normalizedMessageId = normalizeDingTalkMessageId(messageId);
@@ -874,10 +875,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         : normalizedMessageId;
     final active = _mediaHydrationTasks[taskKey];
     if (active != null) return active;
-    _mediaHydrationFailures.remove(taskKey);
+    if (forceRetry) _mediaHydrationFailures.remove(taskKey);
     final task = (() async {
       try {
-        final hydrated = await _hydrateMessageMedia(conversation, message);
+        final hydrated = await _hydrateMessageMedia(
+          conversation,
+          message,
+          forceRetry: forceRetry,
+        );
         _setMediaHydrationFailure(
           taskKey,
           hydrated.media.any((item) => item.localPath.trim().isEmpty),
@@ -919,8 +924,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   Future<DingTalkGatewayMessage> _hydrateMessageMedia(
     DingTalkConversation conversation,
-    DingTalkGatewayMessage message,
-  ) async {
+    DingTalkGatewayMessage message, {
+    bool forceRetry = false,
+  }) async {
     var changed = false;
     final media = <DingTalkGatewayMedia>[];
     for (final sourceItem in message.media) {
@@ -959,7 +965,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         if (next.localPath != sourceItem.localPath) changed = true;
         continue;
       }
-      final path = await _service.ensureMediaCached(item);
+      final path = await _service.ensureMediaCached(
+        item,
+        forceRetry: forceRetry,
+      );
       final next = path == null || path.trim().isEmpty
           ? item.copyWith(localPath: '')
           : item.copyWith(localPath: path);

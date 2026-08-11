@@ -170,6 +170,7 @@ class DingTalkMessageGatewayService {
   static const int _maxMediaCacheFiles = 512;
   static const int _maxMediaCacheBytes = 1024 * 1024 * 1024;
   static const int _maxMediaFileBytes = 512 * 1024 * 1024;
+  static const Duration _transientMediaFailureCooldown = Duration(minutes: 10);
   // 媒体资源一旦被钉钉明确判定不存在，在当前进程内短期内不会恢复。
   // 设定 TTL 和容量上限，既避免无效资源无限重试，也避免负缓存无限增长。
   static const Duration _unavailableMediaTtl = Duration(hours: 6);
@@ -691,14 +692,21 @@ class DingTalkMessageGatewayService {
 
   /// 将钉钉消息中的媒体资源下载到确定性本地缓存。缓存文件不存在时会自动重取，
   /// 同一资源并发请求会合并为一次 dws 调用，避免切换会话时重复下载。
-  Future<String?> ensureMediaCached(DingTalkGatewayMedia media) async {
+  Future<String?> ensureMediaCached(
+    DingTalkGatewayMedia media, {
+    bool forceRetry = false,
+  }) async {
     final resourceId = normalizeDingTalkResourceId(media.resourceId);
     if (resourceId.isEmpty) return null;
     final normalizedMedia = resourceId == media.resourceId
         ? media
         : media.copyWith(resourceId: resourceId);
     final taskKey = _mediaTaskKey(normalizedMedia);
-    if (_isMediaUnavailable(taskKey)) return null;
+    if (forceRetry) {
+      _unavailableMediaUntil.remove(taskKey);
+    } else if (_isMediaUnavailable(taskKey)) {
+      return null;
+    }
     final active = _mediaDownloadTasks[taskKey];
     if (active != null) return active;
     final task = _mediaDownloadSemaphore.withPermit(
@@ -804,6 +812,18 @@ class DingTalkMessageGatewayService {
         // 不再把完整异常堆栈交给 silentLog，避免实时事件持续刷屏。
         return null;
       }
+      if (commandError?.isPermissionDenied ?? false) {
+        _markMediaUnavailable(taskKey);
+        _logRuntime('WARN', '钉钉媒体资源无下载权限，已暂停自动重试：${media.displayName}。');
+        return null;
+      }
+      if ((commandError?.isBusinessError ?? false) ||
+          (commandError?.isRetryable ?? false)) {
+        _markMediaUnavailable(taskKey, ttl: _transientMediaFailureCooldown);
+        _logRuntime('WARN', '钉钉媒体暂时无法下载，已延后自动重试：${media.displayName}。');
+        return null;
+      }
+      _markMediaUnavailable(taskKey, ttl: _transientMediaFailureCooldown);
       _logRuntime('WARN', '缓存钉钉媒体失败：${media.displayName}。');
       silentLog('dingtalk_gateway', '缓存钉钉媒体', error, stack);
       return null;
@@ -843,8 +863,11 @@ class DingTalkMessageGatewayService {
     return false;
   }
 
-  void _markMediaUnavailable(String key) {
-    _unavailableMediaUntil[key] = DateTime.now().add(_unavailableMediaTtl);
+  void _markMediaUnavailable(
+    String key, {
+    Duration ttl = _unavailableMediaTtl,
+  }) {
+    _unavailableMediaUntil[key] = DateTime.now().add(ttl);
     _trimMediaFailureCaches();
   }
 
@@ -2465,14 +2488,22 @@ class DingTalkMessageGatewayService {
       rethrow;
     }
     final isMessageQuery = _isMessageQueryCommand(commandArguments);
-    _logRuntime(
-      result.exitCode == 0
-          ? 'SUCCESS'
-          : isMessageQuery
-          ? 'WARN'
-          : 'ERROR',
-      'dws 执行结束：$operation，退出码 ${result.exitCode}。',
-    );
+    final structuredOutput = result.stdout.trim().isNotEmpty
+        ? result.stdout
+        : result.stderr;
+    final decoded = _decodeJson(structuredOutput);
+    final payload = _asMap(decoded);
+    final error = _asMap(payload['error']);
+    final explicitFailure =
+        payload.containsKey('success') && !_asBool(payload['success']);
+    final executionFailed =
+        result.timedOut ||
+        result.exitCode != 0 ||
+        error.isNotEmpty ||
+        explicitFailure;
+    var completionLevel = 'SUCCESS';
+    if (executionFailed) completionLevel = isMessageQuery ? 'WARN' : 'ERROR';
+    _logRuntime(completionLevel, 'dws 执行结束：$operation，退出码 ${result.exitCode}。');
     if (result.timedOut) {
       final message = 'dws 执行超时：$operation。';
       _logRuntime('WARN', message);
@@ -2483,25 +2514,18 @@ class DingTalkMessageGatewayService {
         retryable: true,
       );
     }
-    final structuredOutput = result.stdout.trim().isNotEmpty
-        ? result.stdout
-        : result.stderr;
-    final decoded = _decodeJson(structuredOutput);
-    final payload = _asMap(decoded);
-    final error = _asMap(payload['error']);
     if (result.stdout.trim().isNotEmpty && decoded is Map && payload.isEmpty) {
       _logRuntime('WARN', 'dws 返回内容无法解析为有效 JSON。');
     }
-    if (result.exitCode != 0 || error.isNotEmpty) {
+    if (result.exitCode != 0 || error.isNotEmpty || explicitFailure) {
+      var fallbackMessage = result.exitCode == 0
+          ? 'dws 执行失败。'
+          : 'dws 执行失败（退出码 ${result.exitCode}）。';
+      if (explicitFailure) fallbackMessage = 'dws 返回 success=false。';
       final message =
           nullIfBlank(error['message']?.toString()) ??
           nullIfBlank(payload['message']?.toString()) ??
-          nonBlankStringOr(
-            result.stderr,
-            result.exitCode == 0
-                ? 'dws 执行失败。'
-                : 'dws 执行失败（退出码 ${result.exitCode}）。',
-          );
+          nonBlankStringOr(result.stderr, fallbackMessage);
       final retryAfterSeconds = int.tryParse(
         '${error['retry_after_seconds'] ?? error['retryAfterSeconds'] ?? ''}',
       );
@@ -2510,14 +2534,16 @@ class DingTalkMessageGatewayService {
         isMessageQuery ? 'WARN' : 'ERROR',
         'dws 业务调用失败：${_safeProcessLogLine(message)}',
       );
+      String? fallbackReason;
+      if (explicitFailure) {
+        fallbackReason = 'business_error';
+      } else if (!hasStructuredError && result.exitCode != 0) {
+        fallbackReason = 'process_exit';
+      }
       throw DingTalkGatewayCommandException(
         message: message,
         category: error['category']?.toString(),
-        reason:
-            error['reason']?.toString() ??
-            (!hasStructuredError && result.exitCode != 0
-                ? 'process_exit'
-                : null),
+        reason: error['reason']?.toString() ?? fallbackReason,
         serverCode: error['server_error_code']?.toString(),
         operation: error['operation']?.toString(),
         retryable:

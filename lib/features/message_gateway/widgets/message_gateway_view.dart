@@ -12718,6 +12718,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                                     messageId:
                                                                         message
                                                                             .id,
+                                                                    forceRetry:
+                                                                        true,
                                                                   ),
                                                             )
                                                           : null,
