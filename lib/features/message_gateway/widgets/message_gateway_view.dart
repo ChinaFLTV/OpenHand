@@ -15949,17 +15949,20 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 if (canCollapse)
                   Padding(
                     padding: const EdgeInsets.only(top: 6),
-                    child: TextButton.icon(
-                      onPressed: () {
-                        _cancelPendingActionToggle();
-                        setState(() => _showFullText = false);
-                      },
-                      icon: const Icon(Icons.unfold_less_rounded, size: 17),
-                      label: const Text('折叠长消息'),
-                      style: TextButton.styleFrom(
-                        minimumSize: const Size(0, 32),
-                        padding: const EdgeInsets.symmetric(horizontal: 8),
-                        tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    child: Align(
+                      alignment: Alignment.centerRight,
+                      child: TextButton.icon(
+                        onPressed: () {
+                          _cancelPendingActionToggle();
+                          setState(() => _showFullText = false);
+                        },
+                        icon: const Icon(Icons.unfold_less_rounded, size: 17),
+                        label: const Text('折叠'),
+                        style: TextButton.styleFrom(
+                          minimumSize: const Size(0, 32),
+                          padding: const EdgeInsets.symmetric(horizontal: 8),
+                          tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                        ),
                       ),
                     ),
                   ),
