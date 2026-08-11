@@ -152,7 +152,9 @@ class DingTalkMessageGatewayService {
   static const Duration _sentMessageLookupTimeout = Duration(seconds: 8);
   static const int _sentMessageLookupLimit = 50;
   static const int _messageQueryPageSize = 50;
-  static const int _messageQueryMaxPages = 10;
+  // 轮询窗口只取有限页数，避免两个并行查询在慢 dws 环境下拖住轮询回调；
+  // 更早消息由会话对账和用户主动加载历史补齐。
+  static const int _messageQueryMaxPages = 3;
   static const Duration _messageQueryUnavailableCooldown = Duration(
     minutes: 10,
   );

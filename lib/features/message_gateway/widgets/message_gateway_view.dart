@@ -12066,6 +12066,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const double _messageCacheExtent = 120;
   static const double _messagesScrollbarThickness = 6;
   static const Radius _messagesScrollbarRadius = kOpenHandPillRadius;
+  static const double _latestMessageBottomThreshold = 18;
   static const Duration _clipboardAttachmentReadTimeout = Duration(seconds: 2);
   static const Duration _clipboardImageReadTimeout = Duration(seconds: 3);
   static const Duration _clipboardImageWriteTimeout = Duration(seconds: 10);
@@ -12097,6 +12098,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   String? _editingMessageId;
   bool _editSubmitting = false;
   bool _autoFollow = true;
+  bool _showJumpToLatest = false;
   bool _closing = false;
   AudioRecorder? _voiceRecorder;
   String? _voicePath;
@@ -12128,6 +12130,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     super.initState();
     _inputFocusNode.onKeyEvent = _handleInputKeyEvent;
     _input.addListener(_handleInputChanged);
+    _messagesScrollController.addListener(_handleMessagesScrollChanged);
     _ttsPlaybackService.state.addListener(_handleTtsStateChanged);
     widget.controller.markAllRead();
     widget.controller.addListener(_handleControllerChanged);
@@ -12149,6 +12152,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     }
     _input.dispose();
     _inputFocusNode.dispose();
+    _messagesScrollController.removeListener(_handleMessagesScrollChanged);
     _messagesProgrammaticScroll.cancel();
     _messagesScrollController.dispose();
     _voiceVisual.dispose();
@@ -12213,6 +12217,42 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                     const SizedBox(width: 10),
                     Text('钉钉消息', style: Theme.of(context).textTheme.titleLarge),
                     const Spacer(),
+                    if (selected != null)
+                      AnimatedSwitcher(
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion220,
+                        ),
+                        switchInCurve: Curves.easeOutBack,
+                        switchOutCurve: Curves.easeInCubic,
+                        transitionBuilder: (child, animation) =>
+                            ScaleTransition(
+                              scale: animation,
+                              child: FadeTransition(
+                                opacity: animation,
+                                child: child,
+                              ),
+                            ),
+                        child: _showJumpToLatest
+                            ? IconButton.filledTonal(
+                                key: const ValueKey<String>(
+                                  'dingtalk-jump-to-latest',
+                                ),
+                                tooltip: '滚动至最新消息底部',
+                                onPressed: _jumpToLatestMessages,
+                                icon: const Icon(
+                                  Icons.vertical_align_bottom_rounded,
+                                ),
+                              )
+                            : const SizedBox(
+                                key: ValueKey<String>(
+                                  'dingtalk-jump-to-latest-hidden',
+                                ),
+                                width: 0,
+                                height: 0,
+                              ),
+                      ),
+                    if (selected != null) const SizedBox(width: 8),
                     IconButton.filledTonal(
                       tooltip: _autoFollow ? '关闭自动滚动到底部' : '开启自动滚动到底部',
                       onPressed: _toggleAutoFollow,
@@ -12404,8 +12444,26 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                       if (widget.controller
                                           .isConversationResponding(
                                             selected.id,
-                                          ))
+                                          )) ...[
+                                        const SizedBox(width: 10),
+                                        Flexible(
+                                          child: Text(
+                                            widget.controller
+                                                .responseStatusText(
+                                                  selected.id,
+                                                ),
+                                            maxLines: 1,
+                                            overflow: TextOverflow.ellipsis,
+                                            style: theme.textTheme.bodySmall
+                                                ?.copyWith(
+                                                  color: colors.primary,
+                                                  fontWeight: FontWeight.w700,
+                                                ),
+                                          ),
+                                        ),
+                                        const SizedBox(width: 8),
                                         const _DingTalkRespondingIndicator(),
+                                      ],
                                     ],
                                   ),
                                 ),
@@ -12712,6 +12770,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final responding = widget.controller.isConversationResponding(
       conversation.id,
     );
+    final responseStatus = responding
+        ? widget.controller.responseStatusText(conversation.id)
+        : '';
     final responseError =
         widget.controller.responseErrorMessage(conversation.id)?.trim() ?? '';
     return Padding(
@@ -12719,6 +12780,19 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          AnimatedSwitcher(
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
+            switchInCurve: Curves.easeOutCubic,
+            switchOutCurve: Curves.easeInCubic,
+            child: responding
+                ? _DingTalkResponseProgressBanner(
+                    key: ValueKey<String>(responseStatus),
+                    status: responseStatus,
+                  )
+                : const SizedBox.shrink(
+                    key: ValueKey<String>('dingtalk-response-progress-idle'),
+                  ),
+          ),
           AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion180),
             switchInCurve: Curves.easeOutCubic,
@@ -12844,7 +12918,16 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
             decoration: InputDecoration(
               hintText: _isEditingConversation(conversation)
                   ? '编辑当前钉钉消息内容'
+                  : responding
+                  ? '响应期间暂不可输入新消息'
                   : '以当前钉钉身份发送消息',
+              filled: responding,
+              fillColor: Theme.of(
+                context,
+              ).colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
+              prefixIcon: responding
+                  ? const Icon(Icons.lock_clock_rounded, size: 19)
+                  : null,
               isDense: true,
               contentPadding: const EdgeInsets.symmetric(
                 horizontal: 16,
@@ -13243,6 +13326,46 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       if (_inputFocusNode.hasFocus) _inputFocusNode.unfocus();
     }
     _ensureRefreshTimer();
+    _updateMessagesBottomState();
+  }
+
+  void _handleMessagesScrollChanged() {
+    _updateMessagesBottomState();
+  }
+
+  void _updateMessagesBottomState() {
+    if (!mounted) return;
+    final controller = _messagesScrollController;
+    final awayFromLatest =
+        !_autoFollow &&
+        controller.hasClients &&
+        controller.position.hasContentDimensions &&
+        controller.position.maxScrollExtent - controller.position.pixels >
+            _latestMessageBottomThreshold;
+    if (awayFromLatest == _showJumpToLatest) return;
+    setState(() => _showJumpToLatest = awayFromLatest);
+  }
+
+  void _jumpToLatestMessages() {
+    final controller = _messagesScrollController;
+    if (!controller.hasClients || !controller.position.hasContentDimensions) {
+      return;
+    }
+    _messagesProgrammaticScroll.cancel();
+    _followJumpToBottom = false;
+    _messagesProgrammaticScroll.begin();
+    unawaited(
+      controller
+          .animateTo(
+            controller.position.maxScrollExtent,
+            duration: openHandMotionDuration(context, kOpenHandMotion260),
+            curve: Curves.easeOutCubic,
+          )
+          .whenComplete(() {
+            _messagesProgrammaticScroll.end();
+            _updateMessagesBottomState();
+          }),
+    );
   }
 
   void _toggleAutoFollow() {
@@ -13256,6 +13379,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     } else {
       _messagesProgrammaticScroll.cancel();
       _followRequestVersion++;
+      _updateMessagesBottomState();
     }
   }
 
@@ -13308,6 +13432,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       _autoFollow = false;
     });
     _followRequestVersion++;
+    _updateMessagesBottomState();
   }
 
   void _selectConversation(String id) {
@@ -13318,6 +13443,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     }
     setState(() {
       _selectedId = id;
+      _showJumpToLatest = false;
       _expandedActionMessageId = null;
       _editingConversationId = null;
       _editingMessageId = null;
@@ -14801,6 +14927,74 @@ class _DingTalkRespondingIndicator extends StatelessWidget {
       width: 16,
       height: 16,
       child: CircularProgressIndicator(strokeWidth: 2, color: color),
+    );
+  }
+}
+
+class _DingTalkResponseProgressBanner extends StatelessWidget {
+  const _DingTalkResponseProgressBanner({required this.status, super.key});
+
+  final String status;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 10),
+      child: ClipRRect(
+        borderRadius: BorderRadius.circular(14),
+        child: DecoratedBox(
+          decoration: BoxDecoration(
+            color: colors.primaryContainer.withValues(alpha: 0.62),
+            border: Border.all(color: colors.primary.withValues(alpha: 0.28)),
+          ),
+          child: Column(
+            children: [
+              LinearProgressIndicator(
+                minHeight: 3,
+                color: colors.primary,
+                backgroundColor: colors.primary.withValues(alpha: 0.1),
+              ),
+              Padding(
+                padding: const EdgeInsets.fromLTRB(12, 9, 12, 10),
+                child: Row(
+                  children: [
+                    Icon(
+                      Icons.auto_awesome_rounded,
+                      size: 19,
+                      color: colors.primary,
+                    ),
+                    const SizedBox(width: 9),
+                    Expanded(
+                      child: Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            status,
+                            style: theme.textTheme.bodyMedium?.copyWith(
+                              color: colors.onPrimaryContainer,
+                              fontWeight: FontWeight.w700,
+                            ),
+                          ),
+                          Text(
+                            '输入框已锁定，响应结束后自动恢复',
+                            style: theme.textTheme.bodySmall?.copyWith(
+                              color: colors.onPrimaryContainer.withValues(
+                                alpha: 0.76,
+                              ),
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

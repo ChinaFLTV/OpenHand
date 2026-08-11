@@ -135,6 +135,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     minutes: 5,
   );
   static const Duration _shutdownCleanupTimeout = Duration(seconds: 10);
+  // 媒体只影响附件上下文，不能阻塞文本消息进入 AI 响应链路。
+  static const Duration _mediaPreparationTimeout = Duration(seconds: 12);
+  static const Duration _stopResponseTimeout = Duration(seconds: 10);
   static const int _maxConversationReconcileCount = 12;
   static const int _conversationReconcileConcurrency = 4;
   static const int _maxConversationReconcileFailureCount = 6;
@@ -181,6 +184,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Timer? _pollTimer;
   StreamSubscription<DingTalkGatewayEvent>? _eventSubscription;
   Future<void>? _eventRestartFuture;
+  Future<void>? _periodicReconcileFuture;
   Future<void>? _persistInFlight;
   Future<void>? _shutdownInFlight;
   bool _persistQueued = false;
@@ -685,6 +689,23 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             _sessionController.canStopResponding(sessionId));
   }
 
+  String responseStatusText(String conversationId) {
+    final normalizedId = conversationId.trim();
+    if (normalizedId.isEmpty) return '正在响应…';
+    if (_responsePreparingCounts.containsKey(normalizedId) &&
+        !_responseInFlight.contains(normalizedId)) {
+      return '正在准备消息上下文…';
+    }
+    final sessionId = _conversations[normalizedId]?.aiSessionId;
+    return switch (_sessionController.sendPhaseForSession(sessionId)) {
+      AiSendPhase.compressing => '正在整理会话上下文…',
+      AiSendPhase.sendingMessage => '正在发送请求…',
+      AiSendPhase.responding => 'AI 正在生成回复…',
+      AiSendPhase.awaitingApproval => '等待确认后继续…',
+      AiSendPhase.idle => 'AI 正在处理…',
+    };
+  }
+
   Future<void> stopConversationResponse(String conversationId) async {
     if (_disposed) return;
     final nextVersion =
@@ -706,7 +727,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       return;
     }
     try {
-      await _sessionController.stopResponding(sessionId);
+      await _sessionController
+          .stopResponding(sessionId)
+          .timeout(_stopResponseTimeout);
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '停止钉钉 AI 响应', error, stack);
     } finally {
@@ -944,9 +967,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final workerCount = messages.length < _mediaCacheConcurrency
         ? messages.length
         : _mediaCacheConcurrency;
-    await Future.wait<void>(
-      List<Future<void>>.generate(workerCount, (_) => worker()),
-    );
+    try {
+      await Future.wait<void>(
+        List<Future<void>>.generate(workerCount, (_) => worker()),
+      ).timeout(_mediaPreparationTimeout);
+    } on TimeoutException catch (error, stack) {
+      silentLog('dingtalk_gateway', '钉钉会话媒体预热超时', error, stack);
+    }
   }
 
   Future<Object?> loadConversationDetails(String conversationId) async {
@@ -1734,11 +1761,17 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         }
       } catch (error, stack) {
         queryError = error;
-        _setError('轮询钉钉消息', error, stack);
+        if (error is TimeoutException) {
+          _warningMessage = '钉钉消息同步较慢，已跳过本轮，下一轮将继续重试。';
+          _clearError();
+          silentLog('dingtalk_gateway', '钉钉轮询超时，跳过本轮', error, stack);
+        } else {
+          _setError('轮询钉钉消息', error, stack);
+        }
       }
       if (!now.isBefore(_nextConversationReconcileAt)) {
         _nextConversationReconcileAt = now.add(_conversationReconcileInterval);
-        await _reconcileRecentConversations();
+        _scheduleRecentConversationReconcile();
       }
       if (queryError == null) {
         _clearError();
@@ -1750,6 +1783,28 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _pollInFlight = false;
       _notify();
     }
+  }
+
+  void _scheduleRecentConversationReconcile() {
+    if (_periodicReconcileFuture != null || _disposed || !_isPolling) return;
+    late final Future<void> task;
+    task = () async {
+      try {
+        await _reconcileRecentConversations();
+      } catch (error, stack) {
+        if (!_disposed) {
+          silentLog('dingtalk_gateway', '执行钉钉会话定期对账', error, stack);
+        }
+      }
+    }();
+    _periodicReconcileFuture = task;
+    unawaited(
+      task.whenComplete(() {
+        if (identical(_periodicReconcileFuture, task)) {
+          _periodicReconcileFuture = null;
+        }
+      }),
+    );
   }
 
   Future<void> _reconcileRecentConversations() async {
@@ -2788,9 +2843,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
 
     final workerCount = math.min(candidates.length, _mediaCacheConcurrency);
-    await Future.wait<void>(
-      List<Future<void>>.generate(workerCount, (_) => worker()),
-    );
+    try {
+      await Future.wait<void>(
+        List<Future<void>>.generate(workerCount, (_) => worker()),
+      ).timeout(_mediaPreparationTimeout);
+    } on TimeoutException catch (error, stack) {
+      // 媒体准备超时后继续使用文本上下文，避免 @ 消息永久卡在准备阶段。
+      silentLog('dingtalk_gateway', '准备钉钉上下文媒体超时，已降级为文本响应', error, stack);
+    }
   }
 
   DingTalkConversation? _conversationForIncomingMessage(
@@ -2908,6 +2968,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       effectiveInterval,
       (_) => _pollOnce(),
       callbackTimeout: _pollCallbackTimeout,
+      cancelOnCallbackTimeout: false,
       onError: (error, stack) =>
           silentLog('dingtalk_gateway', '执行钉钉轮询定时任务', error, stack),
     );
