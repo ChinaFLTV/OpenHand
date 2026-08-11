@@ -124,7 +124,9 @@ class AiPromptBuilder {
   static const int _contextBudgetSummaryReserveTokens = 20000;
   static const int _contextBudgetAutoCompactBufferTokens = 13000;
   static const String _dingtalkSource = 'dingtalk_gateway';
-  static const String _dingtalkIgnoredMessageIdsKey =
+  static const String _dingtalkExcludedMessageIdsKey =
+      'dingtalk_excluded_message_ids';
+  static const String _legacyDingTalkIgnoredMessageIdsKey =
       'dingtalk_ignored_message_ids';
   static const String _dingtalkContextMessageIdsKey =
       'dingtalk_context_message_ids';
@@ -909,18 +911,25 @@ class AiPromptBuilder {
     required AiSessionRuntimeContext runtimeContext,
   }) {
     final metadata = runtimeContext.toolExecutionMetadata;
-    final ignoredIds =
-        (metadata['source'] == _dingtalkSource &&
-            metadata[_dingtalkIgnoredMessageIdsKey] is List
-        ? (metadata[_dingtalkIgnoredMessageIdsKey] as List)
+    final excludedIds = <String>{};
+    if (metadata['source'] == _dingtalkSource) {
+      for (final key in const <String>[
+        _dingtalkExcludedMessageIdsKey,
+        _legacyDingTalkIgnoredMessageIdsKey,
+      ]) {
+        final rawIds = metadata[key];
+        if (rawIds is! List) continue;
+        excludedIds.addAll(
+          rawIds
               .map((value) => '$value'.trim())
-              .where((value) => value.isNotEmpty)
-              .toSet()
-        : <String>{});
+              .where((value) => value.isNotEmpty),
+        );
+      }
+    }
     final visible = <AiSessionMessage>[];
     var omitDingTalkRound = false;
     for (final item in sessionMessages) {
-      if (ignoredIds.isNotEmpty && item.kind == AiSessionMessageKind.user) {
+      if (excludedIds.isNotEmpty && item.kind == AiSessionMessageKind.user) {
         final contextIds = <String>{};
         final rawContextIds = item.metadata[_dingtalkContextMessageIdsKey];
         if (rawContextIds is List) {
@@ -934,7 +943,7 @@ class AiPromptBuilder {
             .trim();
         if (sourceId.isNotEmpty) contextIds.add(sourceId);
         omitDingTalkRound =
-            contextIds.isNotEmpty && contextIds.any(ignoredIds.contains);
+            contextIds.isNotEmpty && contextIds.any(excludedIds.contains);
       }
       if (omitDingTalkRound ||
           item.isDeleted ||

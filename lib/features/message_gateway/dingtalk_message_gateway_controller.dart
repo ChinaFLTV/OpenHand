@@ -1126,12 +1126,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _queuePersist();
     _clearError();
     _notify();
-    if (ignored &&
-        (_activeResponseContextMessageIds[conversationId]?.contains(
-              normalizedMessageId,
-            ) ??
-            false)) {
-      unawaited(_cancelActiveResponseForIgnoredMessage(conversationId));
+    if (ignored) {
+      _cancelResponseUsingExcludedMessage(conversationId, normalizedMessageId);
     }
     return true;
   }
@@ -1393,8 +1389,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         .where(
           (message) =>
               !message.isAssistant &&
-              !message.recalled &&
-              !message.ignoredForAiContext &&
+              !message.isExcludedFromAiContext &&
               message.content.trim().isNotEmpty,
         )
         .firstOrNull;
@@ -2480,6 +2475,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     _queuePersist();
     _notify();
+    if (recalledChanged) {
+      _cancelResponseUsingExcludedMessage(conversation.id, remoteId);
+    }
   }
 
   bool _sameMedia(
@@ -2628,6 +2626,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     conversation.messages[index] = updated;
     _queuePersist();
     _notify();
+    if (event.type == DingTalkGatewayEventType.recall) {
+      _cancelResponseUsingExcludedMessage(conversation.id, eventMessageId);
+    }
     return true;
   }
 
@@ -2980,9 +2981,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           .where((item) => item.id == message.id)
           .firstOrNull;
       final effective = hydrated ?? message;
-      if (effective.isAssistant ||
-          effective.recalled ||
-          effective.ignoredForAiContext) {
+      if (effective.isAssistant || effective.isExcludedFromAiContext) {
         return;
       }
       await _enqueueAiResponse(
@@ -3025,8 +3024,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     for (var index = sourceIndex; index > checkpointIndex; index--) {
       final message = conversation.messages[index];
       if (message.isAssistant ||
-          message.recalled ||
-          message.ignoredForAiContext ||
+          message.isExcludedFromAiContext ||
           message.media.isEmpty) {
         continue;
       }
@@ -3128,8 +3126,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   bool _canRespondToMessage(DingTalkGatewayMessage message) {
     if (message.isAssistant ||
-        message.recalled ||
-        message.ignoredForAiContext ||
+        message.isExcludedFromAiContext ||
         _configuredTargetFor(message) == null) {
       return false;
     }
@@ -3213,9 +3210,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           .where((message) => message.id == sourceMessageId)
           .firstOrNull;
       if (source != null &&
-          (source.isAssistant ||
-              source.recalled ||
-              source.ignoredForAiContext)) {
+          (source.isAssistant || source.isExcludedFromAiContext)) {
         return;
       }
       final model = _resolveModel();
@@ -3326,8 +3321,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         templateId: templateId,
         toolExecutionMetadata: <String, Object?>{
           'source': 'dingtalk_gateway',
-          'dingtalk_ignored_message_ids': conversation.messages
-              .where((message) => message.ignoredForAiContext)
+          'dingtalk_excluded_message_ids': conversation.messages
+              .where((message) => message.isExcludedFromAiContext)
               .map((message) => message.id)
               .toList(growable: false),
           'dingtalk_working_directory_boundary': _settings.workingDirectory,
@@ -3548,7 +3543,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     if (sourceIndex < 0) return '';
     final source = conversation.messages[sourceIndex];
-    if (source.isAssistant || source.recalled || source.ignoredForAiContext) {
+    if (source.isAssistant || source.isExcludedFromAiContext) {
       return '';
     }
     final pending = _pendingAiConversationMessages(
@@ -3637,8 +3632,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         .where(
           (message) =>
               !message.isAssistant &&
-              !message.recalled &&
-              !message.ignoredForAiContext &&
+              !message.isExcludedFromAiContext &&
               message.content.trim().isNotEmpty,
         )
         .toList(growable: false);
@@ -3662,8 +3656,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         break;
       }
       if (message.role != DingTalkGatewayMessageRole.user ||
-          message.recalled ||
-          message.ignoredForAiContext) {
+          message.isExcludedFromAiContext) {
         continue;
       }
       for (final media in message.media.reversed) {
@@ -4091,7 +4084,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         .where((message) => message.id == sourceId)
         .firstOrNull;
     if (source != null &&
-        (source.isAssistant || source.recalled || source.ignoredForAiContext)) {
+        (source.isAssistant || source.isExcludedFromAiContext)) {
       return Future<void>.value();
     }
     final queue = _responseQueues.putIfAbsent(
@@ -4130,7 +4123,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _notify();
   }
 
-  Future<void> _cancelActiveResponseForIgnoredMessage(
+  Future<void> _cancelActiveResponseForExcludedMessage(
     String conversationId,
   ) async {
     if (_disposed || !_responseInFlight.contains(conversationId)) return;
@@ -4146,7 +4139,17 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           .stopResponding(sessionId)
           .timeout(_stopResponseTimeout);
     } catch (error, stack) {
-      silentLog('dingtalk_gateway', '忽略消息时停止钉钉 AI 响应', error, stack);
+      silentLog('dingtalk_gateway', '排除上下文消息时停止钉钉 AI 响应', error, stack);
+    }
+  }
+
+  void _cancelResponseUsingExcludedMessage(
+    String conversationId,
+    String messageId,
+  ) {
+    if (_activeResponseContextMessageIds[conversationId]?.contains(messageId) ??
+        false) {
+      unawaited(_cancelActiveResponseForExcludedMessage(conversationId));
     }
   }
 

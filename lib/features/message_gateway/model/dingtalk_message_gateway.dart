@@ -1182,6 +1182,7 @@ class DingTalkGatewayMessage {
 
   bool get isAssistant => role == DingTalkGatewayMessageRole.assistant;
   bool get isEdited => editHistory.isNotEmpty;
+  bool get isExcludedFromAiContext => recalled || ignoredForAiContext;
 
   DingTalkGatewayMessage copyWith({
     String? id,
