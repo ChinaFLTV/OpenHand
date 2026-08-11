@@ -1101,6 +1101,7 @@ class DingTalkGatewayMessage {
     this.reactions = const <String>[],
     this.editHistory = const <DingTalkMessageEditRecord>[],
     this.sourceAiMessageId = '',
+    this.responseEchoType,
     this.feedback,
   });
 
@@ -1174,6 +1175,9 @@ class DingTalkGatewayMessage {
       reactions: _reactionList(json['reactions'] ?? json['reaction']),
       editHistory: editHistory,
       sourceAiMessageId: '${json['source_ai_message_id'] ?? ''}'.trim(),
+      responseEchoType: DingTalkResponseEchoType.fromStorage(
+        json['response_echo_type'],
+      ),
       feedback: DingTalkGatewayMessageFeedback.fromStorage(json['feedback']),
     );
   }
@@ -1197,11 +1201,18 @@ class DingTalkGatewayMessage {
   final List<String> reactions;
   final List<DingTalkMessageEditRecord> editHistory;
   final String sourceAiMessageId;
+  final DingTalkResponseEchoType? responseEchoType;
   final DingTalkGatewayMessageFeedback? feedback;
 
   bool get isAssistant => role == DingTalkGatewayMessageRole.assistant;
   bool get isEdited => editHistory.isNotEmpty;
   bool get isExcludedFromAiContext => recalled || ignoredForAiContext;
+  bool get isToolCallEcho =>
+      responseEchoType == DingTalkResponseEchoType.toolCall ||
+      (responseEchoType == null &&
+          isAssistant &&
+          sourceAiMessageId.isNotEmpty &&
+          content.trimLeft().startsWith('### 工具调用'));
 
   DingTalkGatewayMessage copyWith({
     String? id,
@@ -1214,6 +1225,7 @@ class DingTalkGatewayMessage {
     List<String>? reactions,
     List<DingTalkMessageEditRecord>? editHistory,
     String? sourceAiMessageId,
+    DingTalkResponseEchoType? responseEchoType,
     DingTalkGatewayMessageFeedback? feedback,
     bool clearFeedback = false,
   }) {
@@ -1237,6 +1249,7 @@ class DingTalkGatewayMessage {
       reactions: reactions ?? this.reactions,
       editHistory: editHistory ?? this.editHistory,
       sourceAiMessageId: sourceAiMessageId ?? this.sourceAiMessageId,
+      responseEchoType: responseEchoType ?? this.responseEchoType,
       feedback: clearFeedback ? null : feedback ?? this.feedback,
     );
   }
@@ -1263,6 +1276,7 @@ class DingTalkGatewayMessage {
         .map((item) => item.toJson())
         .toList(growable: false),
     'source_ai_message_id': sourceAiMessageId,
+    'response_echo_type': responseEchoType?.storageValue,
     'feedback': feedback?.storageValue,
   };
 

@@ -12537,9 +12537,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                 _messagesScrollbarThickness,
                                             radius: _messagesScrollbarRadius,
                                             stabilizeMetrics: true,
-                                            child: NotificationListener<ScrollNotification>(
+                                            child: NotificationListener<Notification>(
                                               onNotification:
-                                                  _handleMessagesScrollNotification,
+                                                  _handleMessagesNotification,
                                               child: ListView.builder(
                                                 key: ValueKey<String>(
                                                   selected.id,
@@ -13545,6 +13545,23 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     return false;
   }
 
+  bool _handleMessagesNotification(Notification notification) {
+    if (notification is ScrollMetricsNotification) {
+      return _handleMessagesMetricsNotification(notification);
+    }
+    if (notification is ScrollNotification) {
+      return _handleMessagesScrollNotification(notification);
+    }
+    return false;
+  }
+
+  bool _handleMessagesMetricsNotification(
+    ScrollMetricsNotification notification,
+  ) {
+    if (notification.depth == 0 && _autoFollow) _scheduleAutoFollow();
+    return false;
+  }
+
   void _disableAutoFollow() {
     _messagesProgrammaticScroll.cancel();
     _followJumpToBottom = false;
@@ -13716,20 +13733,12 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       _queueAutoFollowRetry(requestVersion, attempt);
       return;
     }
-    if (_messagesProgrammaticScroll.busy) return;
     _messagesProgrammaticScroll.begin();
-    unawaited(
-      _messagesScrollController
-          .animateTo(
-            target,
-            duration: openHandMotionDuration(context, kOpenHandMotion260),
-            curve: Curves.easeOutCubic,
-          )
-          .whenComplete(() {
-            _messagesProgrammaticScroll.end();
-            if (mounted) _scheduleAutoFollow();
-          }),
-    );
+    try {
+      position.jumpTo(target);
+    } finally {
+      _messagesProgrammaticScroll.end();
+    }
   }
 
   void _queueAutoFollowRetry(int requestVersion, int attempt) {
@@ -15207,6 +15216,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
 
 class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const double _maxBubbleWidth = 560;
+  static const double _maxToolBubbleWidth = 840;
   static const int _maxRenderedTextCharacters = 10000;
   static const double _actionToggleMaxDistance = 8;
   static const Duration _actionToggleMaxDuration = Duration(milliseconds: 350);
@@ -15340,6 +15350,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         : widget.message.content;
     final contentExpanded =
         !widget.message.isExcludedFromAiContext || _showExcludedContent;
+    final maxBubbleWidth = widget.message.isToolCallEcho
+        ? _maxToolBubbleWidth
+        : _maxBubbleWidth;
     return SizedBox(
       width: double.infinity,
       child: Column(
@@ -15350,7 +15363,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             Padding(
               padding: const EdgeInsets.only(bottom: 4),
               child: ConstrainedBox(
-                constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
+                constraints: BoxConstraints(maxWidth: maxBubbleWidth),
                 child: Text(
                   senderName,
                   maxLines: 1,
@@ -15366,13 +15379,15 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           Align(
             alignment: alignment,
             child: ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
+              constraints: BoxConstraints(maxWidth: maxBubbleWidth),
               child: Listener(
                 onPointerDown: _handlePointerDown,
                 onPointerCancel: _handlePointerCancel,
                 onPointerUp: _handlePointerUp,
                 child: AnimatedSize(
-                  duration: openHandMotionDuration(context, kOpenHandMotion220),
+                  duration: widget.streaming
+                      ? Duration.zero
+                      : openHandMotionDuration(context, kOpenHandMotion220),
                   curve: Curves.easeOutCubic,
                   alignment: widget.mine
                       ? Alignment.topRight
@@ -15409,63 +15424,32 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                             foreground: foreground,
                           )
                         : showText
-                        ? IntrinsicWidth(
-                            key: const ValueKey<String>(
-                              'dingtalk-message-content-expanded-text',
-                            ),
-                            child: ConstrainedBox(
-                              constraints: const BoxConstraints(
-                                maxWidth: _maxBubbleWidth,
-                              ),
-                              child: AnimatedContainer(
-                                duration: openHandMotionDuration(
-                                  context,
-                                  kOpenHandMotion220,
-                                ),
-                                curve: Curves.easeOutCubic,
-                                margin: const EdgeInsets.only(bottom: 6),
-                                padding: const EdgeInsets.symmetric(
-                                  horizontal: 14,
-                                  vertical: 10,
-                                ),
-                                decoration: BoxDecoration(
-                                  color: bubbleColor,
-                                  border:
-                                      widget.message.ignoredForAiContext &&
-                                          !widget.message.recalled
-                                      ? Border.all(
-                                          color: colors.tertiary.withValues(
-                                            alpha: 0.42,
-                                          ),
-                                        )
-                                      : null,
-                                  borderRadius: BorderRadius.only(
-                                    topLeft: const Radius.circular(17),
-                                    topRight: const Radius.circular(17),
-                                    bottomLeft: Radius.circular(
-                                      widget.mine ? 17 : 5,
+                        ? widget.message.isToolCallEcho
+                              ? SizedBox(
+                                  width: double.infinity,
+                                  child: _buildTextBubble(
+                                    context,
+                                    bubbleColor: bubbleColor,
+                                    foreground: foreground,
+                                    effectiveContent: effectiveContent,
+                                  ),
+                                )
+                              : IntrinsicWidth(
+                                  key: const ValueKey<String>(
+                                    'dingtalk-message-content-expanded-text',
+                                  ),
+                                  child: ConstrainedBox(
+                                    constraints: const BoxConstraints(
+                                      maxWidth: _maxBubbleWidth,
                                     ),
-                                    bottomRight: Radius.circular(
-                                      widget.mine ? 5 : 17,
+                                    child: _buildTextBubble(
+                                      context,
+                                      bubbleColor: bubbleColor,
+                                      foreground: foreground,
+                                      effectiveContent: effectiveContent,
                                     ),
                                   ),
-                                ),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    _buildTextContent(
-                                      context,
-                                      content: effectiveContent,
-                                      foreground: foreground,
-                                    ),
-                                    if (widget.message.reactions.isNotEmpty)
-                                      _buildReactionRow(context, foreground),
-                                    _buildMessageStateLabel(context),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          )
+                                )
                         : Column(
                             key: const ValueKey<String>(
                               'dingtalk-message-content-expanded-media',
@@ -15565,6 +15549,46 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             ),
           ),
           const SizedBox(height: 7),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildTextBubble(
+    BuildContext context, {
+    required Color bubbleColor,
+    required Color foreground,
+    required String effectiveContent,
+  }) {
+    final colors = Theme.of(context).colorScheme;
+    return AnimatedContainer(
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      curve: Curves.easeOutCubic,
+      margin: const EdgeInsets.only(bottom: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+      decoration: BoxDecoration(
+        color: bubbleColor,
+        border: widget.message.ignoredForAiContext && !widget.message.recalled
+            ? Border.all(color: colors.tertiary.withValues(alpha: 0.42))
+            : null,
+        borderRadius: BorderRadius.only(
+          topLeft: const Radius.circular(17),
+          topRight: const Radius.circular(17),
+          bottomLeft: Radius.circular(widget.mine ? 17 : 5),
+          bottomRight: Radius.circular(widget.mine ? 5 : 17),
+        ),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          _buildTextContent(
+            context,
+            content: effectiveContent,
+            foreground: foreground,
+          ),
+          if (widget.message.reactions.isNotEmpty)
+            _buildReactionRow(context, foreground),
+          _buildMessageStateLabel(context),
         ],
       ),
     );
@@ -15883,11 +15907,32 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       ),
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
         p: bodyStyle,
+        h3: theme.textTheme.titleMedium?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+        ),
         code: theme.textTheme.bodySmall?.copyWith(
           color: foreground,
-          fontFamily: 'monospace',
+          fontFamily: kOpenHandMonospaceFontFamily,
           fontWeight: FontWeight.w600,
         ),
+        tableHead: bodyStyle?.copyWith(fontWeight: FontWeight.w800),
+        tableBody: bodyStyle?.copyWith(fontSize: 13, height: 1.42),
+        tableBorder: TableBorder.all(
+          color: theme.colorScheme.outlineVariant,
+          borderRadius: BorderRadius.circular(10),
+        ),
+        tablePadding: const EdgeInsets.symmetric(vertical: 4),
+        tableCellsPadding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+        tableCellsDecoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.32),
+        ),
+        tableHeadCellsPadding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+        tableHeadCellsDecoration: BoxDecoration(
+          color: theme.colorScheme.surface.withValues(alpha: 0.68),
+        ),
+        tableColumnWidth: const IntrinsicColumnWidth(),
+        tableScrollbarThumbVisibility: true,
         codeblockDecoration: BoxDecoration(
           color: theme.colorScheme.surface.withValues(alpha: 0.58),
           borderRadius: BorderRadius.circular(10),

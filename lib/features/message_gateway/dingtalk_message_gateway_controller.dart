@@ -3417,9 +3417,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         isTerminal: _isEchoTerminal,
         isCancelled: () =>
             _isResponseCancelled(conversation.id, responseVersion),
-        send: (source, text, uuid) => _sendDingTalkEcho(
+        send: (source, type, text, uuid) => _sendDingTalkEcho(
           conversation: conversation,
           source: source,
+          type: type,
           text: text,
           uuid: uuid,
         ),
@@ -3780,6 +3781,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<String?> _sendDingTalkEcho({
     required DingTalkConversation conversation,
     required AiSessionMessage source,
+    required DingTalkResponseEchoType type,
     required String text,
     required String uuid,
   }) async {
@@ -3806,6 +3808,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       senderId: _authStatus.identity.userId,
       fromSelf: true,
       sourceAiMessageId: source.id,
+      responseEchoType: type,
       feedback: switch (source.feedback) {
         AiSessionMessageFeedback.liked => DingTalkGatewayMessageFeedback.liked,
         AiSessionMessageFeedback.needsImprovement =>
@@ -4048,15 +4051,21 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         : durationMs >= 1000
         ? '${(durationMs / 1000).toStringAsFixed(2)} 秒'
         : '$durationMs 毫秒';
-    return '''### 工具调用 · $toolName
+    return '''### 工具调用 · ${_markdownInlineText(toolName)}
 
-| 项目 | 内容 |
-| --- | --- |
-| 工具调用 ID | ${_markdownTableCell(toolCallId)} |
-| 工具参数 | ${_markdownTableCell(arguments)} |
-| 工具响应结果 | ${_markdownTableCell(response)} |
-| 调用结果 | ${_markdownTableCell(statusLabel)} |
-| 调用耗时 | ${_markdownTableCell(durationLabel)} |''';
+**状态：** $statusLabel　　**耗时：** $durationLabel
+
+**工具调用 ID**
+
+`${_markdownInlineCode(toolCallId)}`
+
+**工具参数**
+
+${_markdownCodeBlock(arguments, language: 'json')}
+
+**工具响应结果**
+
+${_markdownCodeBlock(response)}''';
   }
 
   AiSessionMessage? _matchingToolResult(
@@ -4134,12 +4143,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
   }
 
-  String _markdownTableCell(String value) {
-    return value
-        .replaceAll('`', 'ˋ')
-        .replaceAll('|', '\\|')
-        .replaceAll(RegExp(r'[\r\n]+'), ' ↵ ')
-        .trim();
+  String _markdownInlineText(String value) => value
+      .replaceAll(RegExp(r'[\r\n]+'), ' ')
+      .replaceAllMapped(
+        RegExp(r'[\\`*_{}\[\]()<>#+.!|~-]'),
+        (match) => '\\${match.group(0)}',
+      )
+      .trim();
+
+  String _markdownInlineCode(String value) =>
+      value.replaceAll('`', 'ˋ').replaceAll(RegExp(r'[\r\n]+'), ' ').trim();
+
+  String _markdownCodeBlock(String value, {String language = 'text'}) {
+    final safe = value.replaceAll('```', 'ˋˋˋ').trim();
+    return '```$language\n${safe.isEmpty ? '—' : safe}\n```';
   }
 
   int _toolDurationMilliseconds(AiSessionMessage call) {
@@ -4737,9 +4754,18 @@ typedef _DingTalkEchoTextBuilder =
     String Function(AiSessionMessage message, List<AiSessionMessage> messages);
 typedef _DingTalkEchoTerminalResolver = bool Function(AiSessionMessage message);
 typedef _DingTalkEchoSender =
-    Future<String?> Function(AiSessionMessage source, String text, String uuid);
+    Future<String?> Function(
+      AiSessionMessage source,
+      DingTalkResponseEchoType type,
+      String text,
+      String uuid,
+    );
 typedef _DingTalkEchoEditor =
-    Future<void> Function(String sourceMessageId, String messageId, String text);
+    Future<void> Function(
+      String sourceMessageId,
+      String messageId,
+      String text,
+    );
 typedef _DingTalkEchoRemoteIdResolver =
     Future<String?> Function(String sourceMessageId, String sentText);
 typedef _DingTalkEchoLocalContentSync =
@@ -4988,16 +5014,14 @@ class _DingTalkEchoCoordinator {
       if (!state.sent) {
         state.remoteMessageId = await _send(
           pending.source,
+          pending.type,
           pending.text,
           state.uuid,
         );
         if (_disposed || _isCancelled()) return;
         state.sent = true;
       } else {
-        final messageId = await _remoteMessageIdForEdit(
-          sourceId,
-          state,
-        );
+        final messageId = await _remoteMessageIdForEdit(sourceId, state);
         if (_disposed || _isCancelled()) return;
         if (messageId.isEmpty) {
           // 拿不到远端消息标识时无法编辑，先保证本地气泡持续流式更新；
