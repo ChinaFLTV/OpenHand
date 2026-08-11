@@ -15353,108 +15353,113 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             ),
           Align(
             alignment: alignment,
-            child: Listener(
-              onPointerDown: _handlePointerDown,
-              onPointerCancel: _handlePointerCancel,
-              onPointerUp: _handlePointerUp,
-              child: AnimatedSize(
-                duration: openHandMotionDuration(context, kOpenHandMotion220),
-                curve: Curves.easeOutCubic,
-                alignment: widget.mine ? Alignment.topRight : Alignment.topLeft,
-                child: AnimatedSwitcher(
-                  duration: openHandMotionDuration(context, kOpenHandMotion180),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  layoutBuilder: (current, previous) => Stack(
-                    alignment: widget.mine
-                        ? Alignment.topRight
-                        : Alignment.topLeft,
-                    children: <Widget>[
-                      ...previous,
-                      if (current != null) current,
-                    ],
-                  ),
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SizeTransition(
-                      sizeFactor: animation,
-                      axisAlignment: -1,
-                      child: child,
+            child: ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
+              child: Listener(
+                onPointerDown: _handlePointerDown,
+                onPointerCancel: _handlePointerCancel,
+                onPointerUp: _handlePointerUp,
+                child: AnimatedSize(
+                  duration: openHandMotionDuration(context, kOpenHandMotion220),
+                  curve: Curves.easeOutCubic,
+                  alignment: widget.mine
+                      ? Alignment.topRight
+                      : Alignment.topLeft,
+                  child: AnimatedSwitcher(
+                    duration: openHandMotionDuration(
+                      context,
+                      kOpenHandMotion180,
                     ),
-                  ),
-                  child: !contentExpanded
-                      ? _buildCollapsedMessageContent(
-                          context,
-                          bubbleColor: bubbleColor,
-                          foreground: foreground,
-                        )
-                      : Column(
-                          key: const ValueKey<String>(
-                            'dingtalk-message-content-expanded',
-                          ),
-                          textDirection: TextDirection.ltr,
-                          crossAxisAlignment: crossAxis,
-                          children: [
-                            if (showText)
-                              IntrinsicWidth(
-                                child: ConstrainedBox(
-                                  constraints: const BoxConstraints(
-                                    maxWidth: _maxBubbleWidth,
-                                  ),
-                                  child: AnimatedContainer(
-                                    duration: openHandMotionDuration(
-                                      context,
-                                      kOpenHandMotion220,
-                                    ),
-                                    curve: Curves.easeOutCubic,
-                                    margin: const EdgeInsets.only(bottom: 6),
-                                    padding: const EdgeInsets.symmetric(
-                                      horizontal: 14,
-                                      vertical: 10,
-                                    ),
-                                    decoration: BoxDecoration(
-                                      color: bubbleColor,
-                                      border:
-                                          widget.message.ignoredForAiContext &&
-                                              !widget.message.recalled
-                                          ? Border.all(
-                                              color: colors.tertiary.withValues(
-                                                alpha: 0.42,
-                                              ),
-                                            )
-                                          : null,
-                                      borderRadius: BorderRadius.only(
-                                        topLeft: const Radius.circular(17),
-                                        topRight: const Radius.circular(17),
-                                        bottomLeft: Radius.circular(
-                                          widget.mine ? 17 : 5,
-                                        ),
-                                        bottomRight: Radius.circular(
-                                          widget.mine ? 5 : 17,
-                                        ),
-                                      ),
-                                    ),
-                                    child: Column(
-                                      crossAxisAlignment:
-                                          CrossAxisAlignment.start,
-                                      children: [
-                                        _buildTextContent(
-                                          context,
-                                          content: effectiveContent,
-                                          foreground: foreground,
-                                        ),
-                                        if (widget.message.reactions.isNotEmpty)
-                                          _buildReactionRow(
-                                            context,
-                                            foreground,
+                    switchInCurve: Curves.easeOutCubic,
+                    switchOutCurve: Curves.easeInCubic,
+                    layoutBuilder: (current, previous) => Stack(
+                      alignment: widget.mine
+                          ? Alignment.topRight
+                          : Alignment.topLeft,
+                      children: <Widget>[
+                        ...previous,
+                        if (current != null) current,
+                      ],
+                    ),
+                    transitionBuilder: (child, animation) => FadeTransition(
+                      opacity: animation,
+                      child: SizeTransition(
+                        sizeFactor: animation,
+                        axisAlignment: -1,
+                        child: child,
+                      ),
+                    ),
+                    child: !contentExpanded
+                        ? _buildCollapsedMessageContent(
+                            context,
+                            bubbleColor: bubbleColor,
+                            foreground: foreground,
+                          )
+                        : showText
+                        ? IntrinsicWidth(
+                            key: const ValueKey<String>(
+                              'dingtalk-message-content-expanded-text',
+                            ),
+                            child: ConstrainedBox(
+                              constraints: const BoxConstraints(
+                                maxWidth: _maxBubbleWidth,
+                              ),
+                              child: AnimatedContainer(
+                                duration: openHandMotionDuration(
+                                  context,
+                                  kOpenHandMotion220,
+                                ),
+                                curve: Curves.easeOutCubic,
+                                margin: const EdgeInsets.only(bottom: 6),
+                                padding: const EdgeInsets.symmetric(
+                                  horizontal: 14,
+                                  vertical: 10,
+                                ),
+                                decoration: BoxDecoration(
+                                  color: bubbleColor,
+                                  border:
+                                      widget.message.ignoredForAiContext &&
+                                          !widget.message.recalled
+                                      ? Border.all(
+                                          color: colors.tertiary.withValues(
+                                            alpha: 0.42,
                                           ),
-                                        _buildMessageStateLabel(context),
-                                      ],
+                                        )
+                                      : null,
+                                  borderRadius: BorderRadius.only(
+                                    topLeft: const Radius.circular(17),
+                                    topRight: const Radius.circular(17),
+                                    bottomLeft: Radius.circular(
+                                      widget.mine ? 17 : 5,
+                                    ),
+                                    bottomRight: Radius.circular(
+                                      widget.mine ? 5 : 17,
                                     ),
                                   ),
                                 ),
+                                child: Column(
+                                  crossAxisAlignment: CrossAxisAlignment.start,
+                                  children: [
+                                    _buildTextContent(
+                                      context,
+                                      content: effectiveContent,
+                                      foreground: foreground,
+                                    ),
+                                    if (widget.message.reactions.isNotEmpty)
+                                      _buildReactionRow(context, foreground),
+                                    _buildMessageStateLabel(context),
+                                  ],
+                                ),
                               ),
-                            if (previewableMedia.isNotEmpty)
+                            ),
+                          )
+                        : Column(
+                            key: const ValueKey<String>(
+                              'dingtalk-message-content-expanded-media',
+                            ),
+                            textDirection: TextDirection.ltr,
+                            crossAxisAlignment: crossAxis,
+                            children: [
                               AnimatedOpacity(
                                 duration: openHandMotionDuration(
                                   context,
@@ -15475,17 +15480,16 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                                   onInteractiveTap: _cancelPendingActionToggle,
                                 ),
                               ),
-                            if (previewableMedia.isNotEmpty &&
-                                widget.message.reactions.isNotEmpty)
-                              _buildReactionRow(
-                                context,
-                                colors.onSurface,
-                                topSpacing: 2,
-                              ),
-                            if (previewableMedia.isNotEmpty)
+                              if (widget.message.reactions.isNotEmpty)
+                                _buildReactionRow(
+                                  context,
+                                  colors.onSurface,
+                                  topSpacing: 2,
+                                ),
                               _buildMessageStateLabel(context),
-                          ],
-                        ),
+                            ],
+                          ),
+                  ),
                 ),
               ),
             ),
