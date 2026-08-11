@@ -12066,7 +12066,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const double _messageCacheExtent = 120;
   static const double _messagesScrollbarThickness = 6;
   static const Radius _messagesScrollbarRadius = kOpenHandPillRadius;
-  static const double _latestMessageBottomThreshold = 18;
+  static const double _latestMessageBottomThreshold = 2;
+  static const int _jumpToLatestMaxAttempts = 4;
   static const Duration _clipboardAttachmentReadTimeout = Duration(seconds: 2);
   static const Duration _clipboardImageReadTimeout = Duration(seconds: 3);
   static const Duration _clipboardImageWriteTimeout = Duration(seconds: 10);
@@ -12234,14 +12235,14 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                               ),
                             ),
                         child: _showJumpToLatest
-                            ? IconButton.filledTonal(
+                            ? IconButton.filled(
                                 key: const ValueKey<String>(
                                   'dingtalk-jump-to-latest',
                                 ),
-                                tooltip: '滚动至最新消息底部',
+                                tooltip: '一键滚动至最新消息底部',
                                 onPressed: _jumpToLatestMessages,
                                 icon: const Icon(
-                                  Icons.vertical_align_bottom_rounded,
+                                  Icons.keyboard_double_arrow_down_rounded,
                                 ),
                               )
                             : const SizedBox(
@@ -12264,7 +12265,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                         child: Icon(
                           _autoFollow
                               ? Icons.pause_rounded
-                              : Icons.vertical_align_bottom_rounded,
+                              : Icons.play_arrow_rounded,
                           key: ValueKey<bool>(_autoFollow),
                         ),
                       ),
@@ -13353,19 +13354,50 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     }
     _messagesProgrammaticScroll.cancel();
     _followJumpToBottom = false;
-    _messagesProgrammaticScroll.begin();
-    unawaited(
-      controller
-          .animateTo(
-            controller.position.maxScrollExtent,
-            duration: openHandMotionDuration(context, kOpenHandMotion260),
+    final requestVersion = ++_followRequestVersion;
+    unawaited(_settleMessagesAtLatest(requestVersion));
+  }
+
+  Future<void> _settleMessagesAtLatest(int requestVersion) async {
+    for (var attempt = 0; attempt <= _jumpToLatestMaxAttempts; attempt++) {
+      if (!mounted || requestVersion != _followRequestVersion) return;
+      final controller = _messagesScrollController;
+      if (!controller.hasClients || !controller.position.hasContentDimensions) {
+        await WidgetsBinding.instance.endOfFrame;
+        continue;
+      }
+      final position = controller.position;
+      final distance = position.maxScrollExtent - position.pixels;
+      if (distance <= _latestMessageBottomThreshold) break;
+
+      _messagesProgrammaticScroll.begin();
+      try {
+        if (attempt == _jumpToLatestMaxAttempts) {
+          position.jumpTo(position.maxScrollExtent);
+        } else {
+          await controller.animateTo(
+            position.maxScrollExtent,
+            duration: openHandMotionDuration(
+              context,
+              attempt == 0 ? kOpenHandMotion260 : kOpenHandMotion180,
+            ),
             curve: Curves.easeOutCubic,
-          )
-          .whenComplete(() {
-            _messagesProgrammaticScroll.end();
-            _updateMessagesBottomState();
-          }),
-    );
+          );
+        }
+      } catch (error, stack) {
+        if (mounted && requestVersion == _followRequestVersion) {
+          silentLog('dingtalk_gateway_ui', '滚动至钉钉最新消息', error, stack);
+        }
+        return;
+      } finally {
+        _messagesProgrammaticScroll.end();
+      }
+      if (!mounted || requestVersion != _followRequestVersion) return;
+      await WidgetsBinding.instance.endOfFrame;
+    }
+    if (mounted && requestVersion == _followRequestVersion) {
+      _updateMessagesBottomState();
+    }
   }
 
   void _toggleAutoFollow() {
@@ -13427,11 +13459,13 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   void _disableAutoFollow() {
     _messagesProgrammaticScroll.cancel();
     _followJumpToBottom = false;
-    if (!mounted || !_autoFollow) return;
-    setState(() {
-      _autoFollow = false;
-    });
     _followRequestVersion++;
+    if (!mounted) return;
+    if (_autoFollow) {
+      setState(() {
+        _autoFollow = false;
+      });
+    }
     _updateMessagesBottomState();
   }
 
