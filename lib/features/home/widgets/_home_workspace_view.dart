@@ -333,6 +333,8 @@ class _WorkspaceView extends StatelessWidget {
                                   onLayoutChanged: onTranscriptLayoutChanged,
                                   onMessageExpansionChanged:
                                       onMessageExpansionChanged,
+                                  preserveViewportAfterUserScroll:
+                                      !autoFollowEnabled || autoFollowPaused,
                                   onRevealOlderMessages: onRevealOlderMessages,
                                   onProgrammaticScrollCorrection:
                                       onProgrammaticScrollCorrection,

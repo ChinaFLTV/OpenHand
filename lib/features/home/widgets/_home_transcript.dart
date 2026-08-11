@@ -255,6 +255,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.onPlanTimelineCollapsedChanged,
     required this.onLayoutChanged,
     required this.onMessageExpansionChanged,
+    required this.preserveViewportAfterUserScroll,
     required this.onRevealOlderMessages,
     required this.onProgrammaticScrollCorrection,
     required this.messageActions,
@@ -279,6 +280,7 @@ class _SessionTranscript extends StatefulWidget {
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final VoidCallback onLayoutChanged;
   final ValueChanged<bool> onMessageExpansionChanged;
+  final bool preserveViewportAfterUserScroll;
   final VoidCallback onRevealOlderMessages;
   final void Function(VoidCallback correction) onProgrammaticScrollCorrection;
   final _MessageActions messageActions;
@@ -700,10 +702,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _translationVisibleMessageIds.clear();
     _translationLoadingMessageIds.clear();
     _translationGeneration += 1;
-    _pendingPrependAnchor = null;
-    _pendingPrependAnchorFrames = 0;
+    _cancelPendingViewportRestore();
     _prependAnchorCorrectionQueued = false;
-    _pendingRevealRestore = null;
     _activeRevealOlderFuture = null;
     _scrollRequestGeneration += 1;
     _activeScrollFuture = null;
@@ -1578,13 +1578,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
     if (activity.value) {
-      _pendingRevealRestore = null;
-      _pendingPrependAnchor = null;
-      _pendingPrependAnchorFrames = 0;
+      _cancelPendingViewportRestore();
       return;
     }
-    final pending = _pendingRevealRestore;
-    if (pending == null) return;
     if (!widget.controller.hasClients || widget.controller.positions.isEmpty) {
       return;
     }
@@ -1597,6 +1593,18 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       });
       return;
     }
+    final pending = _pendingRevealRestore;
+    if (pending == null) {
+      if (!widget.preserveViewportAfterUserScroll) return;
+      final anchor = _capturePrependAnchor();
+      if (anchor != null) {
+        _startPrependAnchorStabilization(
+          anchor,
+          settleFrameCount: _postScrollContentAnchorSettleFrameCount,
+        );
+      }
+      return;
+    }
     final target = pending.targetPixels.clamp(
       position.minScrollExtent,
       position.maxScrollExtent,
@@ -1607,6 +1615,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       return;
     }
     widget.onProgrammaticScrollCorrection(() => position.jumpTo(target));
+  }
+
+  void _cancelPendingViewportRestore() {
+    _pendingRevealRestore = null;
+    _pendingPrependAnchor = null;
+    _pendingPrependAnchorFrames = 0;
+  }
+
+  void _handleMessageExpansionChanged(bool expanded) {
+    _cancelPendingViewportRestore();
+    widget.onMessageExpansionChanged(expanded);
   }
 
   Future<void> _toggleMessageSpeech(
@@ -2313,7 +2332,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   bool _restorePrependAnchor(_TranscriptViewportAnchor anchor) {
-    if (!widget.controller.hasClients) return false;
+    if (!widget.controller.hasClients || _isTranscriptScrollActive(context)) {
+      return false;
+    }
     final currentOffset = _viewportOffsetForMessage(anchor.messageId);
     if (currentOffset == null) return false;
     final delta = currentOffset - anchor.viewportOffset;
@@ -2805,7 +2826,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             : null,
         onCopy: () => widget.messageActions.onCopy(message),
         onFork: () => widget.messageActions.onFork(message),
-        onUserExpansionChanged: widget.onMessageExpansionChanged,
+        onUserExpansionChanged: _handleMessageExpansionChanged,
         associatedKnowledgeBaseMetadata:
             _associatedKnowledgeBaseMetadataForMessage(
               visibleMessages: visibleMessages,

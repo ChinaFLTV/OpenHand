@@ -4918,9 +4918,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   static const Duration _kInitialRevealFallbackDelay = Duration(
     milliseconds: 1600,
   );
-  static const Duration _kPostScrollHeightApplyDelay = Duration(
-    milliseconds: 900,
-  );
   // 首次测量 outlier 阈值。WebView 第一次测高常因图片/CSS
   // 未完成返回异常大的值（如 5000+），直接应用会撑出"渲染下方空白"。
   // 当首测高度 > 估算高度 × ratio 时，**先应用估算高度**作为初始
@@ -5363,7 +5360,6 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   int _loadGeneration = 0;
   Timer? _heightDebounceTimer;
   Timer? _initialRevealFallbackTimer;
-  Timer? _postScrollHeightApplyTimer;
   // ResizeObserver updates only replace the pending value; they do not reset
   // the one-shot timer, guaranteeing that continuous reflow eventually lands.
   double? _pendingHeight;
@@ -5375,8 +5371,8 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   final GlobalKey _webViewRegionKey = GlobalKey();
   _MessageBubbleState? _bubbleStateForRegion;
   // 滚动活动协调信号。active=true 时 JS 测高只缓存、不应用，
-  // 避免 maxScrollExtent 抖动把 viewport 拽回底部。inactive 后再等待
-  // 一个安静期，才一次性应用累积的最新高度。
+  // 避免 maxScrollExtent 抖动把 viewport 拽回底部。inactive 时外层滚动
+  // 宽限期已经结束，可在当前可见消息锚点保护下一次性应用最新高度。
   TranscriptScrollActivity? _scrollActivity;
   bool _scrollActive = false;
   bool _safeSetStateQueued = false;
@@ -5389,8 +5385,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
   int get _heightCacheKey =>
       _htmlBubbleHeightCacheKey(widget.data, widget.baseTextStyle);
 
-  bool get _heightUpdatesFrozen =>
-      _scrollActive || (_postScrollHeightApplyTimer?.isActive ?? false);
+  bool get _heightUpdatesFrozen => _scrollActive;
 
   static void _writeBoundedHeightCache(
     LinkedHashMap<int, double> cache,
@@ -5455,9 +5450,7 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       _scrollActive = activity?.value ?? false;
       activity?.addListener(_onScrollActivityChanged);
       if (activity == null && wasScrollActive) {
-        _postScrollHeightApplyTimer?.cancel();
-        _postScrollHeightApplyTimer = null;
-        _schedulePostScrollHeightApply();
+        _applyPendingHeightIfAny();
       }
     }
   }
@@ -5468,36 +5461,19 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
     final isActive = activity.value;
     if (isActive == _scrollActive) return;
     if (isActive) {
-      _postScrollHeightApplyTimer?.cancel();
-      _postScrollHeightApplyTimer = null;
       _heightDebounceTimer?.cancel();
       _heightDebounceTimer = null;
       _scrollActive = true;
       return;
     }
     _scrollActive = false;
-    _schedulePostScrollHeightApply();
-  }
-
-  void _schedulePostScrollHeightApply() {
-    _postScrollHeightApplyTimer?.cancel();
-    _postScrollHeightApplyTimer = startSafeTimer(
-      _kPostScrollHeightApplyDelay,
-      () {
-        _postScrollHeightApplyTimer = null;
-        if (!mounted || _scrollActive) {
-          return;
-        }
-        _applyPendingHeightIfAny();
-      },
-    );
+    _applyPendingHeightIfAny();
   }
 
   @override
   void dispose() {
     _heightDebounceTimer?.cancel();
     _initialRevealFallbackTimer?.cancel();
-    _postScrollHeightApplyTimer?.cancel();
     _heightApplyStopwatch.stop();
     _scrollActivity?.removeListener(_onScrollActivityChanged);
     _scrollActivity = null;

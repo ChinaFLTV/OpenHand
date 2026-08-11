@@ -2686,10 +2686,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         (distanceMovedAwayFromBottom ||
             updateMovedTowardHistory ||
             directionMovedTowardHistory);
+    // 展开消息后自动跟随已经暂停，此时双向滚动都只能来自用户意图。
+    // 平台视图吞掉 PointerSignal 时也必须识别向下滚动，否则延迟测高或
+    // 锚点修正会继续抢占 ScrollPosition，把视口拉回展开卡片。
+    final implicitPausedPositionScroll =
+        !_shouldAutoFollowMessages && implicitActivePositionScroll;
     final userScrollActivity =
         explicitUserScroll ||
         implicitPointerSignalScroll ||
-        implicitActivePositionMovedTowardHistory;
+        implicitActivePositionMovedTowardHistory ||
+        implicitPausedPositionScroll;
     if (userScrollActivity) {
       _lastScrollActivityAt = _scrollActivityStopwatch.elapsed;
       _markUserScrollInProgress();

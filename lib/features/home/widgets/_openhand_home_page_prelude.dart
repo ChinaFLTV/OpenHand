@@ -52,6 +52,7 @@ const int _htmlWebViewMaxActiveInstances = 4;
 const int _htmlWebViewMaxConcurrentBootstraps = 1;
 const int _transcriptPrependAnchorSettleFrameCount = 6;
 const int _responseVariantAnchorSettleFrameCount = 18;
+const int _postScrollContentAnchorSettleFrameCount = 18;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
 
 /// 只订阅 size / padding / viewInsets 三项：整份 MediaQuery 里还有文字缩放、
