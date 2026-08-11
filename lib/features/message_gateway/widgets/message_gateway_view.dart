@@ -15207,7 +15207,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     r'(^|\n)\s{0,3}(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|```|~~~)|\[[^\]]+\]\([^)]*\)|(?:\*\*|__|`)',
     multiLine: true,
   );
-  final GlobalKey _actionPanelKey = GlobalKey();
   Offset? _pointerDownPosition;
   DateTime? _pointerDownAt;
   Timer? _pendingActionToggleTimer;
@@ -15250,13 +15249,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     _pendingActionToggleTimer = null;
   }
 
-  bool _isPointerInsideActionPanel(Offset globalPosition) {
-    final box = _actionPanelKey.currentContext?.findRenderObject();
-    if (box is! RenderBox || !box.attached) return false;
-    final topLeft = box.localToGlobal(Offset.zero);
-    return (topLeft & box.size).contains(globalPosition);
-  }
-
   void _handlePointerDown(PointerDownEvent event) {
     _pointerDownPosition = event.position;
     _pointerDownAt = DateTime.now();
@@ -15275,11 +15267,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     _pointerDownAt = null;
     if (downPosition == null || downAt == null) return;
     if (widget.message.isExcludedFromAiContext && !_showExcludedContent) {
-      return;
-    }
-    if (_isPointerInsideActionPanel(event.position) ||
-        _isPointerInsideActionPanel(downPosition)) {
-      _cancelPendingActionToggle();
       return;
     }
     final movement = (event.position - downPosition).distance;
@@ -15341,38 +15328,36 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         : widget.message.content;
     final contentExpanded =
         !widget.message.isExcludedFromAiContext || _showExcludedContent;
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: _handlePointerDown,
-      onPointerCancel: _handlePointerCancel,
-      onPointerUp: _handlePointerUp,
-      child: SizedBox(
-        width: double.infinity,
-        child: Align(
-          alignment: alignment,
-          child: Column(
-            crossAxisAlignment: crossAxis,
-            children: [
-              if (showSenderName)
-                Padding(
-                  padding: const EdgeInsets.only(bottom: 4),
-                  child: ConstrainedBox(
-                    constraints: const BoxConstraints(
-                      maxWidth: _maxBubbleWidth,
-                    ),
-                    child: Text(
-                      senderName,
-                      maxLines: 1,
-                      overflow: TextOverflow.ellipsis,
-                      style: theme.textTheme.labelSmall?.copyWith(
-                        color: colors.onSurfaceVariant,
-                        fontSize: 11,
-                        fontWeight: FontWeight.w500,
-                      ),
-                    ),
+    return SizedBox(
+      width: double.infinity,
+      child: Column(
+        textDirection: TextDirection.ltr,
+        crossAxisAlignment: CrossAxisAlignment.stretch,
+        children: [
+          if (showSenderName)
+            Padding(
+              padding: const EdgeInsets.only(bottom: 4),
+              child: ConstrainedBox(
+                constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
+                child: Text(
+                  senderName,
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                  style: theme.textTheme.labelSmall?.copyWith(
+                    color: colors.onSurfaceVariant,
+                    fontSize: 11,
+                    fontWeight: FontWeight.w500,
                   ),
                 ),
-              AnimatedSize(
+              ),
+            ),
+          Align(
+            alignment: alignment,
+            child: Listener(
+              onPointerDown: _handlePointerDown,
+              onPointerCancel: _handlePointerCancel,
+              onPointerUp: _handlePointerUp,
+              child: AnimatedSize(
                 duration: openHandMotionDuration(context, kOpenHandMotion220),
                 curve: Curves.easeOutCubic,
                 alignment: widget.mine ? Alignment.topRight : Alignment.topLeft,
@@ -15407,6 +15392,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                           key: const ValueKey<String>(
                             'dingtalk-message-content-expanded',
                           ),
+                          textDirection: TextDirection.ltr,
                           crossAxisAlignment: crossAxis,
                           children: [
                             if (showText)
@@ -15502,69 +15488,67 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                         ),
                 ),
               ),
-              Align(
-                key: _actionPanelKey,
-                alignment: alignment,
-                child: AnimatedSize(
-                  duration: openHandMotionDuration(context, kOpenHandMotion180),
-                  curve: Curves.easeOutCubic,
-                  child: contentExpanded && widget.actionsVisible
-                      ? TweenAnimationBuilder<double>(
-                          key: const ValueKey<String>(
-                            'dingtalk-actions-visible',
+            ),
+          ),
+          Align(
+            alignment: alignment,
+            child: AnimatedSize(
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
+              curve: Curves.easeOutCubic,
+              child: contentExpanded && widget.actionsVisible
+                  ? TweenAnimationBuilder<double>(
+                      key: const ValueKey<String>('dingtalk-actions-visible'),
+                      tween: Tween<double>(begin: 0, end: 1),
+                      duration: openHandMotionDuration(
+                        context,
+                        kOpenHandMotion180,
+                      ),
+                      curve: Curves.easeOutBack,
+                      builder: (context, value, child) => Opacity(
+                        opacity: value.clamp(0.0, 1.0).toDouble(),
+                        child: Transform.translate(
+                          offset: Offset(0, (1 - value) * 5),
+                          child: Transform.scale(
+                            alignment: widget.mine
+                                ? Alignment.centerRight
+                                : Alignment.centerLeft,
+                            scale: 0.96 + value * 0.04,
+                            child: child,
                           ),
-                          tween: Tween<double>(begin: 0, end: 1),
-                          duration: openHandMotionDuration(
-                            context,
-                            kOpenHandMotion180,
-                          ),
-                          curve: Curves.easeOutBack,
-                          builder: (context, value, child) => Opacity(
-                            opacity: value.clamp(0.0, 1.0).toDouble(),
-                            child: Transform.translate(
-                              offset: Offset(0, (1 - value) * 5),
-                              child: Transform.scale(
-                                alignment: widget.mine
-                                    ? Alignment.centerRight
-                                    : Alignment.centerLeft,
-                                scale: 0.96 + value * 0.04,
-                                child: child,
-                              ),
+                        ),
+                      ),
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        textDirection: TextDirection.ltr,
+                        crossAxisAlignment: widget.mine
+                            ? CrossAxisAlignment.end
+                            : CrossAxisAlignment.start,
+                        children: [
+                          Wrap(
+                            spacing: 4,
+                            runSpacing: 4,
+                            textDirection: widget.mine
+                                ? TextDirection.rtl
+                                : TextDirection.ltr,
+                            children: _buildMessageActions(
+                              context,
+                              widget.message.media,
                             ),
                           ),
-                          child: Column(
-                            mainAxisSize: MainAxisSize.min,
-                            crossAxisAlignment: widget.mine
-                                ? CrossAxisAlignment.end
-                                : CrossAxisAlignment.start,
-                            children: [
-                              Wrap(
-                                spacing: 4,
-                                runSpacing: 4,
-                                textDirection: widget.mine
-                                    ? TextDirection.rtl
-                                    : TextDirection.ltr,
-                                children: _buildMessageActions(
-                                  context,
-                                  widget.message.media,
-                                ),
-                              ),
-                              const SizedBox(height: 4),
-                              _buildMessageMetaPill(),
-                            ],
-                          ),
-                        )
-                      : const SizedBox(
-                          key: ValueKey<String>('dingtalk-actions-hidden'),
-                          width: 0,
-                          height: 0,
-                        ),
-                ),
-              ),
-              const SizedBox(height: 7),
-            ],
+                          const SizedBox(height: 4),
+                          _buildMessageMetaPill(),
+                        ],
+                      ),
+                    )
+                  : const SizedBox(
+                      key: ValueKey<String>('dingtalk-actions-hidden'),
+                      width: 0,
+                      height: 0,
+                    ),
+            ),
           ),
-        ),
+          const SizedBox(height: 7),
+        ],
       ),
     );
   }
