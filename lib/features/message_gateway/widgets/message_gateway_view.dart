@@ -15563,6 +15563,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   }) {
     final colors = Theme.of(context).colorScheme;
     final recalled = widget.message.recalled;
+    final stateStyle = Theme.of(context).textTheme.labelMedium?.copyWith(
+      color: foreground,
+      fontWeight: FontWeight.w700,
+    );
     return IntrinsicWidth(
       key: ValueKey<String>(
         recalled
@@ -15613,10 +15617,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     recalled ? '消息已撤回' : '已忽略，不参与 AI 上下文',
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
-                    style: Theme.of(context).textTheme.labelMedium?.copyWith(
-                      color: foreground,
-                      fontWeight: FontWeight.w700,
-                    ),
+                    style: stateStyle,
                   ),
                 ),
                 const SizedBox(width: 6),
@@ -15629,7 +15630,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     visualDensity: VisualDensity.compact,
                     tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                   ),
-                  child: const Text('展开'),
+                  child: Text('展开', style: stateStyle),
                 ),
               ],
             ),
@@ -16012,6 +16013,14 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final colors = Theme.of(context).colorScheme;
     final recalled = widget.message.recalled;
     final ignored = widget.message.ignoredForAiContext;
+    final stateColor = recalled
+        ? colors.onSurfaceVariant.withValues(alpha: 0.72)
+        : colors.tertiary;
+    final stateStyle = Theme.of(context).textTheme.labelSmall?.copyWith(
+      color: stateColor,
+      fontStyle: FontStyle.italic,
+      fontWeight: FontWeight.w600,
+    );
     return AnimatedSwitcher(
       duration: openHandMotionDuration(context, kOpenHandMotion180),
       switchInCurve: Curves.easeOutCubic,
@@ -16033,45 +16042,43 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               ),
               padding: const EdgeInsets.only(top: 6),
               child: Row(
-                mainAxisSize: MainAxisSize.min,
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
                 children: [
-                  Icon(
-                    recalled
-                        ? Icons.undo_rounded
-                        : Icons.visibility_off_rounded,
-                    size: 14,
-                    color: recalled
-                        ? colors.onSurfaceVariant.withValues(alpha: 0.72)
-                        : colors.tertiary,
-                  ),
-                  const SizedBox(width: 5),
                   Flexible(
-                    child: Text(
-                      recalled ? '消息已撤回' : '已忽略，不参与 AI 上下文',
-                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
-                        color: recalled
-                            ? colors.onSurfaceVariant.withValues(alpha: 0.72)
-                            : colors.tertiary,
-                        fontStyle: FontStyle.italic,
-                        fontWeight: FontWeight.w600,
-                      ),
+                    child: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Icon(
+                          recalled
+                              ? Icons.undo_rounded
+                              : Icons.visibility_off_rounded,
+                          size: 14,
+                          color: stateColor,
+                        ),
+                        const SizedBox(width: 5),
+                        Flexible(
+                          child: Text(
+                            recalled ? '消息已撤回' : '已忽略，不参与 AI 上下文',
+                            maxLines: 1,
+                            overflow: TextOverflow.ellipsis,
+                            style: stateStyle,
+                          ),
+                        ),
+                      ],
                     ),
                   ),
                   if (_showExcludedContent) ...[
-                    const SizedBox(width: 6),
-                    TextButton.icon(
+                    const SizedBox(width: 8),
+                    TextButton(
                       onPressed: _toggleExcludedContent,
                       style: TextButton.styleFrom(
-                        foregroundColor: recalled
-                            ? colors.onSurfaceVariant
-                            : colors.tertiary,
+                        foregroundColor: stateColor,
                         minimumSize: const Size(0, 28),
                         padding: const EdgeInsets.symmetric(horizontal: 7),
                         visualDensity: VisualDensity.compact,
                         tapTargetSize: MaterialTapTargetSize.shrinkWrap,
                       ),
-                      icon: const Icon(Icons.unfold_less_rounded, size: 15),
-                      label: const Text('折叠'),
+                      child: Text('折叠', style: stateStyle),
                     ),
                   ],
                 ],
