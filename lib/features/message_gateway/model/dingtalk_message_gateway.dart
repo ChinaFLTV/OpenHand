@@ -829,6 +829,7 @@ class DingTalkGatewayMessage {
     this.mentionedCurrentUser = false,
     this.readByPeer = false,
     this.recalled = false,
+    this.ignoredForAiContext = false,
     this.reactions = const <String>[],
     this.editHistory = const <DingTalkMessageEditRecord>[],
     this.sourceAiMessageId = '',
@@ -901,6 +902,7 @@ class DingTalkGatewayMessage {
       recalled: boolFromValue(
         json['recalled'] ?? json['is_recalled'] ?? json['recall'],
       ),
+      ignoredForAiContext: boolFromValue(json['ignored_for_ai_context']),
       reactions: _reactionList(json['reactions'] ?? json['reaction']),
       editHistory: editHistory,
       sourceAiMessageId: '${json['source_ai_message_id'] ?? ''}'.trim(),
@@ -923,6 +925,7 @@ class DingTalkGatewayMessage {
   final bool mentionedCurrentUser;
   final bool readByPeer;
   final bool recalled;
+  final bool ignoredForAiContext;
   final List<String> reactions;
   final List<DingTalkMessageEditRecord> editHistory;
   final String sourceAiMessageId;
@@ -938,6 +941,7 @@ class DingTalkGatewayMessage {
     bool? mentionedCurrentUser,
     bool? readByPeer,
     bool? recalled,
+    bool? ignoredForAiContext,
     List<String>? reactions,
     List<DingTalkMessageEditRecord>? editHistory,
     String? sourceAiMessageId,
@@ -960,6 +964,7 @@ class DingTalkGatewayMessage {
       mentionedCurrentUser: mentionedCurrentUser ?? this.mentionedCurrentUser,
       readByPeer: readByPeer ?? this.readByPeer,
       recalled: recalled ?? this.recalled,
+      ignoredForAiContext: ignoredForAiContext ?? this.ignoredForAiContext,
       reactions: reactions ?? this.reactions,
       editHistory: editHistory ?? this.editHistory,
       sourceAiMessageId: sourceAiMessageId ?? this.sourceAiMessageId,
@@ -983,6 +988,7 @@ class DingTalkGatewayMessage {
     'mentioned_current_user': mentionedCurrentUser,
     'read_by_peer': readByPeer,
     'recalled': recalled,
+    'ignored_for_ai_context': ignoredForAiContext,
     'reactions': reactions,
     'edit_history': editHistory
         .map((item) => item.toJson())

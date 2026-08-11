@@ -123,6 +123,13 @@ class AiPromptBuilder {
   static const int _historyAssistantContentEdgeChars = 700;
   static const int _contextBudgetSummaryReserveTokens = 20000;
   static const int _contextBudgetAutoCompactBufferTokens = 13000;
+  static const String _dingtalkSource = 'dingtalk_gateway';
+  static const String _dingtalkIgnoredMessageIdsKey =
+      'dingtalk_ignored_message_ids';
+  static const String _dingtalkContextMessageIdsKey =
+      'dingtalk_context_message_ids';
+  static const String _dingtalkSourceMessageIdKey =
+      'dingtalk_source_message_id';
   static const int _contextBudgetWarningBufferTokens = 20000;
   static const int _contextBudgetErrorBufferTokens = 20000;
   static const int _contextBudgetManualCompactBufferTokens = 3000;
@@ -212,13 +219,11 @@ class AiPromptBuilder {
     final promptAllowCommandRules = _allowCommandRulesForPrompt(
       runtimeContext.allowCommandRules,
     );
-    final visibleSessionMessages = sessionMessages
-        .where(
-          (item) =>
-              !item.isDeleted &&
-              !_shouldOmitPausedGoalQueueMessageFromPrompt(session, item),
-        )
-        .toList(growable: false);
+    final visibleSessionMessages = _visibleSessionMessagesForPrompt(
+      session: session,
+      sessionMessages: sessionMessages,
+      runtimeContext: runtimeContext,
+    );
     final runtimeContextAnchor = _messageById(
       visibleSessionMessages,
       runtimeContextAnchorMessageId,
@@ -889,13 +894,56 @@ class AiPromptBuilder {
   }
 
   String? _dingtalkIdentityReminder(AiSessionRuntimeContext runtimeContext) {
-    if (runtimeContext.toolExecutionMetadata['source'] != 'dingtalk_gateway') {
+    if (runtimeContext.toolExecutionMetadata['source'] != _dingtalkSource) {
       return null;
     }
     return '当前请求来自已绑定的钉钉账号。你就是该账号在此会话中的工作代理，'
         '普通对话回复、查询、消息状态同步和表情处理无需再向账号主人确认。'
         '仅真正有外部副作用、不可逆或高风险的写操作，按工具自身的确认策略执行；'
         '不要在普通回复中声称需要等待账号主人确认。';
+  }
+
+  List<AiSessionMessage> _visibleSessionMessagesForPrompt({
+    required AiSession session,
+    required List<AiSessionMessage> sessionMessages,
+    required AiSessionRuntimeContext runtimeContext,
+  }) {
+    final metadata = runtimeContext.toolExecutionMetadata;
+    final ignoredIds =
+        (metadata['source'] == _dingtalkSource &&
+            metadata[_dingtalkIgnoredMessageIdsKey] is List
+        ? (metadata[_dingtalkIgnoredMessageIdsKey] as List)
+              .map((value) => '$value'.trim())
+              .where((value) => value.isNotEmpty)
+              .toSet()
+        : <String>{});
+    final visible = <AiSessionMessage>[];
+    var omitDingTalkRound = false;
+    for (final item in sessionMessages) {
+      if (ignoredIds.isNotEmpty && item.kind == AiSessionMessageKind.user) {
+        final contextIds = <String>{};
+        final rawContextIds = item.metadata[_dingtalkContextMessageIdsKey];
+        if (rawContextIds is List) {
+          contextIds.addAll(
+            rawContextIds
+                .map((value) => '$value'.trim())
+                .where((value) => value.isNotEmpty),
+          );
+        }
+        final sourceId = '${item.metadata[_dingtalkSourceMessageIdKey] ?? ''}'
+            .trim();
+        if (sourceId.isNotEmpty) contextIds.add(sourceId);
+        omitDingTalkRound =
+            contextIds.isNotEmpty && contextIds.any(ignoredIds.contains);
+      }
+      if (omitDingTalkRound ||
+          item.isDeleted ||
+          _shouldOmitPausedGoalQueueMessageFromPrompt(session, item)) {
+        continue;
+      }
+      visible.add(item);
+    }
+    return visible;
   }
 
   AiChatTurn _jsonSystemSectionTurn(String header, Object? value) {

@@ -12688,6 +12688,15 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                               ),
                                                             )
                                                           : null,
+                                                      onToggleAiContextIgnored:
+                                                          !message.isAssistant &&
+                                                              !message.recalled
+                                                          ? () =>
+                                                                _toggleMessageAiContextIgnored(
+                                                                  selected,
+                                                                  message,
+                                                                )
+                                                          : null,
                                                       onRetryMedia:
                                                           message.media.any(
                                                             (item) => item
@@ -13205,6 +13214,27 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         widget.controller.errorMessage ?? '消息反馈保存失败，请稍后重试。',
       );
     }
+  }
+
+  void _toggleMessageAiContextIgnored(
+    DingTalkConversation conversation,
+    DingTalkGatewayMessage message,
+  ) {
+    final ignored = !message.ignoredForAiContext;
+    final success = widget.controller.setMessageAiContextIgnored(
+      conversation.id,
+      message.id,
+      ignored,
+    );
+    if (!mounted) return;
+    if (!success) {
+      showOpenHandErrorSnack(context, '消息状态已变化，请刷新后重试。');
+      return;
+    }
+    showOpenHandInfoSnack(
+      context,
+      ignored ? '已忽略，该消息不会参与后续 AI 上下文。' : '已撤销忽略，该消息可再次参与 AI 上下文。',
+    );
   }
 
   void _showMessageAudit(
@@ -15164,6 +15194,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
     this.mediaFailed = false,
     this.onEdit,
     this.onShowEditHistory,
+    this.onToggleAiContextIgnored,
     this.onRetryMedia,
     this.speechEnabled = false,
     this.speechPlaying = false,
@@ -15186,6 +15217,7 @@ class _DingTalkMessageBubble extends StatefulWidget {
   final bool mediaFailed;
   final VoidCallback? onEdit;
   final VoidCallback? onShowEditHistory;
+  final VoidCallback? onToggleAiContextIgnored;
   final VoidCallback? onRetryMedia;
   final bool speechEnabled;
   final bool speechPlaying;
@@ -15300,9 +15332,16 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             colors.surface.withValues(alpha: 0.46),
             baseBubbleColor,
           )
+        : widget.message.ignoredForAiContext
+        ? Color.alphaBlend(
+            colors.tertiaryContainer.withValues(alpha: 0.44),
+            baseBubbleColor,
+          )
         : baseBubbleColor;
     final foreground = widget.message.recalled
         ? colors.onSurfaceVariant.withValues(alpha: 0.72)
+        : widget.message.ignoredForAiContext
+        ? colors.onTertiaryContainer.withValues(alpha: 0.74)
         : widget.mine
         ? colors.onPrimaryContainer
         : colors.onSurface;
@@ -15352,7 +15391,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 ),
               ),
             if (showText)
-              Container(
+              AnimatedContainer(
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
+                curve: Curves.easeOutCubic,
                 constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
                 margin: const EdgeInsets.only(bottom: 6),
                 padding: const EdgeInsets.symmetric(
@@ -15361,6 +15402,13 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 ),
                 decoration: BoxDecoration(
                   color: bubbleColor,
+                  border:
+                      widget.message.ignoredForAiContext &&
+                          !widget.message.recalled
+                      ? Border.all(
+                          color: colors.tertiary.withValues(alpha: 0.42),
+                        )
+                      : null,
                   borderRadius: BorderRadius.only(
                     topLeft: const Radius.circular(17),
                     topRight: const Radius.circular(17),
@@ -15378,13 +15426,19 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     ),
                     if (widget.message.reactions.isNotEmpty)
                       _buildReactionRow(context, foreground),
-                    if (widget.message.recalled) _buildRecalledLabel(context),
+                    _buildMessageStateLabel(context),
                   ],
                 ),
               ),
             if (previewableMedia.isNotEmpty)
-              Opacity(
-                opacity: widget.message.recalled ? 0.62 : 1,
+              AnimatedOpacity(
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
+                curve: Curves.easeOutCubic,
+                opacity: widget.message.recalled
+                    ? 0.62
+                    : widget.message.ignoredForAiContext
+                    ? 0.68
+                    : 1,
                 child: _DingTalkMediaRail(
                   media: previewableMedia,
                   mine: widget.mine,
@@ -15397,8 +15451,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             if (previewableMedia.isNotEmpty &&
                 widget.message.reactions.isNotEmpty)
               _buildReactionRow(context, colors.onSurface),
-            if (previewableMedia.isNotEmpty && widget.message.recalled)
-              _buildRecalledLabel(context),
+            if (previewableMedia.isNotEmpty) _buildMessageStateLabel(context),
             Align(
               key: _actionPanelKey,
               alignment: alignment,
@@ -15469,6 +15522,15 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   ) {
     final actions = <Widget>[
       _buildCopyAction(context, media),
+      if (widget.onToggleAiContextIgnored != null)
+        _DingTalkMessageActionButton(
+          icon: widget.message.ignoredForAiContext
+              ? Icons.visibility_rounded
+              : Icons.visibility_off_rounded,
+          label: widget.message.ignoredForAiContext ? '撤销忽略' : '忽略',
+          onPressed: widget.onToggleAiContextIgnored,
+          selected: widget.message.ignoredForAiContext,
+        ),
       if (widget.speechEnabled && widget.onToggleSpeech != null)
         _DingTalkMessageActionButton(
           icon: widget.speechPlaying
@@ -15751,17 +15813,58 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     );
   }
 
-  Widget _buildRecalledLabel(BuildContext context) {
+  Widget _buildMessageStateLabel(BuildContext context) {
     final colors = Theme.of(context).colorScheme;
-    return Padding(
-      padding: const EdgeInsets.only(top: 6),
-      child: Text(
-        '消息已撤回',
-        style: Theme.of(context).textTheme.labelSmall?.copyWith(
-          color: colors.onSurfaceVariant.withValues(alpha: 0.72),
-          fontStyle: FontStyle.italic,
-        ),
+    final recalled = widget.message.recalled;
+    final ignored = widget.message.ignoredForAiContext;
+    return AnimatedSwitcher(
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
+      switchInCurve: Curves.easeOutCubic,
+      switchOutCurve: Curves.easeInCubic,
+      transitionBuilder: (child, animation) => SizeTransition(
+        sizeFactor: animation,
+        axisAlignment: -1,
+        child: FadeTransition(opacity: animation, child: child),
       ),
+      child: !recalled && !ignored
+          ? const SizedBox(
+              key: ValueKey<String>('dingtalk-message-state-normal'),
+            )
+          : Padding(
+              key: ValueKey<String>(
+                recalled
+                    ? 'dingtalk-message-state-recalled'
+                    : 'dingtalk-message-state-ignored',
+              ),
+              padding: const EdgeInsets.only(top: 6),
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  Icon(
+                    recalled
+                        ? Icons.undo_rounded
+                        : Icons.visibility_off_rounded,
+                    size: 14,
+                    color: recalled
+                        ? colors.onSurfaceVariant.withValues(alpha: 0.72)
+                        : colors.tertiary,
+                  ),
+                  const SizedBox(width: 5),
+                  Flexible(
+                    child: Text(
+                      recalled ? '消息已撤回' : '已忽略，不参与 AI 上下文',
+                      style: Theme.of(context).textTheme.labelSmall?.copyWith(
+                        color: recalled
+                            ? colors.onSurfaceVariant.withValues(alpha: 0.72)
+                            : colors.tertiary,
+                        fontStyle: FontStyle.italic,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
     );
   }
 

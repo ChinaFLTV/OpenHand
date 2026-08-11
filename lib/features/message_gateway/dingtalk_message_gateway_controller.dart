@@ -156,6 +156,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Map<String, DingTalkConversation> _conversations =
       <String, DingTalkConversation>{};
   final Set<String> _responseInFlight = <String>{};
+  final Map<String, Set<String>> _activeResponseContextMessageIds =
+      <String, Set<String>>{};
   final Map<String, int> _responsePreparingCounts = <String, int>{};
   final Map<String, String> _responseErrors = <String, String>{};
 
@@ -1095,6 +1097,37 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _notify();
       return false;
     }
+  }
+
+  bool setMessageAiContextIgnored(
+    String conversationId,
+    String messageId,
+    bool ignored,
+  ) {
+    final conversation = _conversations[conversationId];
+    if (conversation == null) return false;
+    final normalizedMessageId = messageId.trim();
+    final index = conversation.messages.indexWhere(
+      (message) => message.id == normalizedMessageId,
+    );
+    if (index < 0) return false;
+    final current = conversation.messages[index];
+    if (current.isAssistant || current.recalled) return false;
+    if (current.ignoredForAiContext == ignored) return true;
+    conversation.messages[index] = current.copyWith(
+      ignoredForAiContext: ignored,
+    );
+    _queuePersist();
+    _clearError();
+    _notify();
+    if (ignored &&
+        (_activeResponseContextMessageIds[conversationId]?.contains(
+              normalizedMessageId,
+            ) ??
+            false)) {
+      unawaited(_cancelActiveResponseForIgnoredMessage(conversationId));
+    }
+    return true;
   }
 
   Future<DingTalkMessageAuditSnapshot?> loadMessageAuditSnapshot(
@@ -2801,6 +2834,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           .where((item) => item.id == message.id)
           .firstOrNull;
       final effective = hydrated ?? message;
+      if (effective.isAssistant ||
+          effective.recalled ||
+          effective.ignoredForAiContext) {
+        return;
+      }
       await _enqueueAiResponse(
         conversation,
         effective.content,
@@ -2839,7 +2877,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final candidates = <DingTalkGatewayMessage>[];
     for (var index = sourceIndex; index > checkpointIndex; index--) {
       final message = conversation.messages[index];
-      if (message.isAssistant || message.media.isEmpty) continue;
+      if (message.isAssistant ||
+          message.recalled ||
+          message.ignoredForAiContext ||
+          message.media.isEmpty) {
+        continue;
+      }
       candidates.add(message);
       if (candidates.length >= 6) break;
     }
@@ -2937,7 +2980,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   bool _canRespondToMessage(DingTalkGatewayMessage message) {
-    if (_configuredTargetFor(message) == null) return false;
+    if (message.isAssistant ||
+        message.recalled ||
+        message.ignoredForAiContext ||
+        _configuredTargetFor(message) == null) {
+      return false;
+    }
     return message.conversationType == DingTalkConversationType.direct ||
         message.mentionedCurrentUser;
   }
@@ -3007,9 +3055,21 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     String sourceMessageId,
   ) async {
     if (_disposed || !_responseInFlight.add(conversation.id)) return;
+    _activeResponseContextMessageIds[conversation.id] = <String>{
+      sourceMessageId,
+    };
     final responseVersion = _responseCancellationVersions[conversation.id] ?? 0;
     _notify();
     try {
+      final source = conversation.messages
+          .where((message) => message.id == sourceMessageId)
+          .firstOrNull;
+      if (source != null &&
+          (source.isAssistant ||
+              source.recalled ||
+              source.ignoredForAiContext)) {
+        return;
+      }
       final model = _resolveModel();
       final templates = _sessionController.availableTemplates;
       if (model == null) {
@@ -3025,6 +3085,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         sourceMessageId,
         fallbackContent: content,
       );
+      if (aiContent.isEmpty) return;
+      final contextMessageIds = _pendingAiConversationMessages(
+        conversation,
+        sourceMessageId,
+      ).map((message) => message.id).toSet();
+      _activeResponseContextMessageIds[conversation.id] = contextMessageIds;
       await _mcpController.ensureRuntimeToolCatalogs(
         maxWait: const Duration(seconds: 6),
       );
@@ -3102,6 +3168,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         templateId: templateId,
         toolExecutionMetadata: <String, Object?>{
           'source': 'dingtalk_gateway',
+          'dingtalk_ignored_message_ids': conversation.messages
+              .where((message) => message.ignoredForAiContext)
+              .map((message) => message.id)
+              .toList(growable: false),
           'dingtalk_working_directory_boundary': _settings.workingDirectory,
           'dingtalk_allowed_knowledge_source_ids': selectedKnowledgeSourceIds,
           'dingtalk_dws_executor': _executeDwsCommandForAi,
@@ -3250,6 +3320,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           userMessageMetadata: <String, Object?>{
             'sent_via': 'dingtalk_gateway',
             'dingtalk_source_message_id': sourceMessageId,
+            'dingtalk_context_message_ids': contextMessageIds.toList(
+              growable: false,
+            ),
           },
         );
         if (!sent) {
@@ -3293,6 +3366,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       silentLog('dingtalk_gateway', '生成钉钉 AI 回复', error, stack);
     } finally {
       _responseInFlight.remove(conversation.id);
+      _activeResponseContextMessageIds.remove(conversation.id);
       if (_responseCancellationVersions[conversation.id] == responseVersion) {
         _responseCancellationVersions.remove(conversation.id);
       }
@@ -3308,27 +3382,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final sourceIndex = conversation.messages.indexWhere(
       (message) => message.id == sourceMessageId,
     );
-    if (sourceIndex < 0) return fallbackContent.trim();
-    final checkpointId =
-        conversation.aiContextCheckpointMessageId?.trim() ?? '';
-    var startIndex = 0;
-    if (checkpointId.isNotEmpty) {
-      final checkpointIndex = conversation.messages.indexWhere(
-        (message) => message.id == checkpointId,
-      );
-      if (checkpointIndex >= 0 && checkpointIndex < sourceIndex) {
-        startIndex = checkpointIndex + 1;
-      }
+    if (sourceIndex < 0) return '';
+    final source = conversation.messages[sourceIndex];
+    if (source.isAssistant || source.recalled || source.ignoredForAiContext) {
+      return '';
     }
-    final pending = conversation.messages
-        .sublist(startIndex, sourceIndex + 1)
-        .where(
-          (message) =>
-              !message.isAssistant &&
-              !message.recalled &&
-              message.content.trim().isNotEmpty,
-        )
-        .toList(growable: false);
+    final pending = _pendingAiConversationMessages(
+      conversation,
+      sourceMessageId,
+    );
     if (pending.isEmpty) return fallbackContent.trim();
     if (pending.length == 1 && pending.single.id == sourceMessageId) {
       return pending.single.content.trim();
@@ -3375,6 +3437,37 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     return buffer.toString().trim();
   }
 
+  List<DingTalkGatewayMessage> _pendingAiConversationMessages(
+    DingTalkConversation conversation,
+    String sourceMessageId,
+  ) {
+    final sourceIndex = conversation.messages.indexWhere(
+      (message) => message.id == sourceMessageId,
+    );
+    if (sourceIndex < 0) return const <DingTalkGatewayMessage>[];
+    final checkpointId =
+        conversation.aiContextCheckpointMessageId?.trim() ?? '';
+    var startIndex = 0;
+    if (checkpointId.isNotEmpty) {
+      final checkpointIndex = conversation.messages.indexWhere(
+        (message) => message.id == checkpointId,
+      );
+      if (checkpointIndex >= 0 && checkpointIndex < sourceIndex) {
+        startIndex = checkpointIndex + 1;
+      }
+    }
+    return conversation.messages
+        .sublist(startIndex, sourceIndex + 1)
+        .where(
+          (message) =>
+              !message.isAssistant &&
+              !message.recalled &&
+              !message.ignoredForAiContext &&
+              message.content.trim().isNotEmpty,
+        )
+        .toList(growable: false);
+  }
+
   List<String> _attachmentPathsForTurn(
     DingTalkConversation conversation,
     String sourceMessageId,
@@ -3388,7 +3481,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     for (var index = endIndex; index >= 0; index--) {
       final message = conversation.messages[index];
       if (message.isAssistant) break;
-      if (message.role != DingTalkGatewayMessageRole.user) continue;
+      if (message.role != DingTalkGatewayMessageRole.user ||
+          message.recalled ||
+          message.ignoredForAiContext) {
+        continue;
+      }
       for (final media in message.media.reversed) {
         final path = media.localPath.trim();
         if (path.isEmpty || !File(path).existsSync()) continue;
@@ -3746,6 +3843,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               ? ''
               : conversation.messages.last.id
         : requestedSourceId;
+    final source = conversation.messages
+        .where((message) => message.id == sourceId)
+        .firstOrNull;
+    if (source != null &&
+        (source.isAssistant || source.recalled || source.ignoredForAiContext)) {
+      return Future<void>.value();
+    }
     final queue = _responseQueues.putIfAbsent(
       conversation.id,
       () => Queue<_QueuedDingTalkResponse>(),
@@ -3778,6 +3882,26 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       ifAbsent: () => 1,
     );
     _notify();
+  }
+
+  Future<void> _cancelActiveResponseForIgnoredMessage(
+    String conversationId,
+  ) async {
+    if (_disposed || !_responseInFlight.contains(conversationId)) return;
+    _responseCancellationVersions[conversationId] =
+        (_responseCancellationVersions[conversationId] ?? 0) + 1;
+    final sessionId = _conversations[conversationId]?.aiSessionId;
+    _notify();
+    if (sessionId == null || !_sessionController.canStopResponding(sessionId)) {
+      return;
+    }
+    try {
+      await _sessionController
+          .stopResponding(sessionId)
+          .timeout(_stopResponseTimeout);
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '忽略消息时停止钉钉 AI 响应', error, stack);
+    }
   }
 
   void _endResponsePreparing(String conversationId) {
@@ -4181,6 +4305,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     _responseQueues.clear();
     _responseDraining.clear();
+    _activeResponseContextMessageIds.clear();
     _responsePreparingCounts.clear();
     _responseErrors.clear();
     _responseCancellationVersions.clear();
