@@ -15346,8 +15346,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       onPointerDown: _handlePointerDown,
       onPointerCancel: _handlePointerCancel,
       onPointerUp: _handlePointerUp,
-      child: Align(
-        alignment: alignment,
+      child: SizedBox(
+        width: double.infinity,
         child: Column(
           crossAxisAlignment: crossAxis,
           children: [
