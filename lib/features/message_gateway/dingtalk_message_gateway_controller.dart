@@ -3720,13 +3720,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     'blocked',
   };
   static const int _maxDingTalkEchoCharacters = 12000;
-  static const int _maxDingTalkToolFormattingCharacters = 12000;
+  static const int _maxDingTalkStructuredCharacters = 256 * 1024;
   static const int _maxDingTalkToolLabelCharacters = 512;
+  static const int _maxDingTalkInlineFieldCharacters = 48;
+  static const int _maxDingTalkStructuredDepth = 12;
   static const int _maxMessageEditHistoryEntries = 32;
   static final RegExp _markdownFenceLinePattern = RegExp(
     r'^ {0,3}(`{3,}|~{3,})',
   );
   static final RegExp _markdownBacktickRunPattern = RegExp(r'`+');
+  static final RegExp _markdownLineBreakPattern = RegExp(r'[\r\n]+');
+  static final RegExp _markdownInlineEscapePattern = RegExp(
+    r'[\\`*_{}\[\]()<>#+.!|~-]',
+  );
 
   DingTalkResponseEchoType? _echoTypeOf(
     AiSessionMessage message,
@@ -4071,38 +4077,53 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             .toLowerCase();
     final durationMs = _toolDurationMilliseconds(call);
     final statusLabel = switch (status) {
-      'running' => '执行中',
-      'pending' => '等待执行',
-      'success' => '成功',
-      'timed_out' => '超时',
-      'cancelled' => '已取消',
+      'running' || 'executing' || 'in_progress' || 'processing' => '执行中',
+      'pending' || 'queued' || 'waiting' || '' => '等待执行',
+      'success' || 'succeeded' || 'completed' || 'complete' || 'ok' => '成功',
+      'timed_out' || 'timeout' => '超时',
+      'cancelled' || 'canceled' => '已取消',
       'denied' || 'rejected' => '已拒绝',
       'invalid_arguments' => '参数无效',
       'blocked' => '已阻止',
-      'failed' => '失败',
-      _ => status.isEmpty ? '等待执行' : status,
+      'failed' || 'failure' || 'error' => '失败',
+      _ => status,
     };
     final durationLabel = durationMs <= 0
         ? '—'
         : durationMs >= 1000
         ? '${(durationMs / 1000).toStringAsFixed(2)} 秒'
         : '$durationMs 毫秒';
-    final summary = _markdownTable(<(String, Object?)>[
-      ('状态', statusLabel),
-      ('耗时', durationLabel),
-      ('工具调用 ID', toolCallId),
-    ]);
-    return '''### 工具调用 · ${_markdownInlineText(toolName)}
+    final summary = <String>[
+      _markdownLabeledText(
+        '工具调用',
+        _markdownInlineText(toolName),
+        valueCharacters: toolName.length,
+      ),
+      _markdownLabeledText(
+        '状态',
+        '${_toolStatusIndicator(status)} ${_markdownInlineText(statusLabel)}',
+        valueCharacters: statusLabel.length + 2,
+      ),
+      _markdownLabeledText(
+        '耗时',
+        durationLabel,
+        valueCharacters: durationLabel.length,
+      ),
+      _markdownLabeledText(
+        '工具调用 ID',
+        _markdownInlineCode(toolCallId),
+        valueCharacters: toolCallId.length,
+      ),
+    ].join('  \n');
+    return '''$summary
 
-$summary
+**工具参数：**
 
-#### 工具参数
+${_markdownStructuredFields(arguments)}
 
-${_markdownStructuredTable(arguments)}
+**工具响应：**
 
-#### 工具响应
-
-${_markdownStructuredTable(response)}''';
+${_markdownStructuredFields(response)}''';
   }
 
   AiSessionMessage? _matchingToolResult(
@@ -4147,22 +4168,12 @@ ${_markdownStructuredTable(response)}''';
 
   String _prettyToolValue(Object? raw) {
     if (raw == null) return '';
-    var value = raw is String ? raw.trim() : '';
-    if (value.isEmpty && raw is! String) {
-      try {
-        value = prettyPrintJson(raw);
-      } catch (_) {
-        value = '$raw';
-      }
-    } else if (value.isNotEmpty &&
-        value.length <= _maxDingTalkToolFormattingCharacters) {
-      try {
-        value = prettyPrintJson(jsonDecode(value));
-      } catch (_) {
-        // 普通文本不是 JSON，直接保留。
-      }
+    if (raw is String) return raw.trim();
+    try {
+      return jsonEncode(raw);
+    } catch (_) {
+      return '$raw'.trim();
     }
-    return value;
   }
 
   String _boundedToolLabel(Object? raw) {
@@ -4175,83 +4186,189 @@ ${_markdownStructuredTable(response)}''';
   }
 
   String _markdownInlineText(String value) => value
-      .replaceAll(RegExp(r'[\r\n]+'), ' ')
+      .replaceAll(_markdownLineBreakPattern, ' ')
       .replaceAllMapped(
-        RegExp(r'[\\`*_{}\[\]()<>#+.!|~-]'),
+        _markdownInlineEscapePattern,
         (match) => '\\${match.group(0)}',
       )
       .trim();
 
-  String _markdownStructuredTable(String value) {
-    final normalized = value.trim();
-    if (normalized.length > _maxDingTalkToolFormattingCharacters) {
-      return _markdownCodeBlock(normalized);
-    }
-    try {
-      final decoded = jsonDecode(normalized);
-      if (decoded is Map) {
-        final rows = decoded.entries
-            .map<(String, Object?)>((entry) => ('${entry.key}', entry.value))
-            .toList(growable: false);
-        return _markdownTable(
-          rows.isEmpty ? const <(String, Object?)>[('内容', '—')] : rows,
-        );
-      }
-      if (decoded is List) {
-        final rows = List<(String, Object?)>.generate(
-          decoded.length,
-          (index) => ('#${index + 1}', decoded[index]),
-          growable: false,
-        );
-        return _markdownTable(
-          rows.isEmpty ? const <(String, Object?)>[('内容', '[]')] : rows,
-        );
-      }
-    } catch (_) {
-      // 非 JSON 结果按单行内容展示。
-    }
-    return _markdownTable(<(String, Object?)>[
-      ('内容', normalized.isEmpty ? '—' : normalized),
-    ]);
-  }
-
-  String _markdownTable(List<(String, Object?)> rows) {
-    final body = rows
-        .map(
-          (row) =>
-              '| **${_markdownInlineText(row.$1)}** | ${_markdownTableCell(row.$2)} |',
-        )
-        .join('\n');
-    return '| 字段 | 内容 |\n| :--- | :--- |\n$body';
-  }
-
-  String _markdownTableCell(Object? raw) {
-    String value;
-    if (raw is String) {
-      value = raw;
-    } else {
-      try {
-        value = jsonEncode(raw);
-      } catch (_) {
-        value = '$raw';
-      }
-    }
-    final normalized = value.trim().replaceAll(RegExp(r'[\r\n]+'), ' ↵ ');
-    return normalized.isEmpty ? '—' : _markdownInlineText(normalized);
-  }
-
-  String _markdownCodeBlock(String value) {
-    final normalized = value.trim();
-    var fenceLength = 3;
+  String _markdownInlineCode(String value) {
+    final normalized = value.replaceAll(_markdownLineBreakPattern, ' ').trim();
+    if (normalized.isEmpty) return '`—`';
+    var fenceLength = 1;
     for (final match in _markdownBacktickRunPattern.allMatches(normalized)) {
       final runLength = match.end - match.start;
       if (runLength >= fenceLength) fenceLength = runLength + 1;
     }
     final fence = ''.padLeft(fenceLength, '`');
-    final language = normalized.startsWith('{') || normalized.startsWith('[')
-        ? 'json'
-        : 'text';
-    return '$fence$language\n${normalized.isEmpty ? '—' : normalized}\n$fence';
+    return fenceLength == 1
+        ? '$fence$normalized$fence'
+        : '$fence $normalized $fence';
+  }
+
+  String _toolStatusIndicator(String status) {
+    return switch (status.trim().toLowerCase()) {
+      'success' ||
+      'succeeded' ||
+      'completed' ||
+      'complete' ||
+      'ok' ||
+      'passed' => '🟢',
+      'running' ||
+      'pending' ||
+      'queued' ||
+      'waiting' ||
+      'executing' ||
+      'in_progress' ||
+      'processing' ||
+      'started' ||
+      '' => '🟠',
+      _ => '🔴',
+    };
+  }
+
+  String _markdownLabeledText(
+    String label,
+    String value, {
+    required int valueCharacters,
+    int? listDepth,
+  }) {
+    final depth = listDepth ?? 0;
+    final indentation = listDepth == null ? '' : '  ' * depth;
+    final prefix =
+        '$indentation${listDepth == null ? '' : '- '}**${_markdownInlineText(label)}：**';
+    final trimmed = value.trim();
+    final normalized = trimmed.isEmpty ? '—' : trimmed;
+    final fitsOneLine =
+        !normalized.contains('\n') &&
+        label.length + valueCharacters + depth * 2 + 2 <=
+            _maxDingTalkInlineFieldCharacters;
+    if (fitsOneLine) return '$prefix $normalized';
+    final continuationIndent = listDepth == null ? '' : '  ' * (depth + 1);
+    final lines = normalized
+        .split('\n')
+        .map((line) => '$continuationIndent$line')
+        .join('  \n');
+    return '$prefix  \n$lines';
+  }
+
+  String _markdownStructuredFields(String value) {
+    final normalized = value.trim();
+    if (normalized.isEmpty) return '- **内容：** —';
+    Object? decoded;
+    var structured = false;
+    if (normalized.length <= _maxDingTalkStructuredCharacters) {
+      try {
+        decoded = jsonDecode(normalized);
+        structured = true;
+      } catch (_) {
+        // 非 JSON 内容按普通多行字段展示。
+      }
+    }
+    final buffer = StringBuffer();
+    if (!structured) {
+      _writeMarkdownField(buffer, '内容', normalized, 0);
+    } else if (decoded is Map) {
+      if (decoded.isEmpty) {
+        _writeMarkdownField(buffer, '内容', const <String, Object?>{}, 0);
+      } else {
+        for (final entry in decoded.entries) {
+          _writeMarkdownField(buffer, '${entry.key}', entry.value, 0);
+        }
+      }
+    } else if (decoded is List) {
+      if (decoded.isEmpty) {
+        _writeMarkdownField(buffer, '内容', const <Object?>[], 0);
+      } else {
+        for (var index = 0; index < decoded.length; index++) {
+          _writeMarkdownField(buffer, '第 ${index + 1} 项', decoded[index], 0);
+        }
+      }
+    } else {
+      _writeMarkdownField(buffer, '内容', decoded, 0);
+    }
+    return buffer.toString().trimRight();
+  }
+
+  void _writeMarkdownField(
+    StringBuffer buffer,
+    String label,
+    Object? raw,
+    int depth,
+  ) {
+    if (depth < _maxDingTalkStructuredDepth && raw is Map) {
+      if (raw.isEmpty) {
+        buffer.writeln(
+          _markdownLabeledText(
+            label,
+            '{}',
+            valueCharacters: 2,
+            listDepth: depth,
+          ),
+        );
+        return;
+      }
+      buffer.writeln('${'  ' * depth}- **${_markdownInlineText(label)}：**');
+      for (final entry in raw.entries) {
+        _writeMarkdownField(buffer, '${entry.key}', entry.value, depth + 1);
+      }
+      return;
+    }
+    if (depth < _maxDingTalkStructuredDepth && raw is List) {
+      if (raw.isEmpty) {
+        buffer.writeln(
+          _markdownLabeledText(
+            label,
+            '[]',
+            valueCharacters: 2,
+            listDepth: depth,
+          ),
+        );
+        return;
+      }
+      buffer.writeln('${'  ' * depth}- **${_markdownInlineText(label)}：**');
+      for (var index = 0; index < raw.length; index++) {
+        _writeMarkdownField(buffer, '第 ${index + 1} 项', raw[index], depth + 1);
+      }
+      return;
+    }
+    String scalar;
+    if (raw is String) {
+      scalar = raw;
+    } else if (raw == null || raw is num || raw is bool) {
+      scalar = '$raw';
+    } else {
+      try {
+        scalar = jsonEncode(raw);
+      } catch (_) {
+        scalar = '$raw';
+      }
+    }
+    final normalized = scalar.trim().isEmpty ? '—' : scalar.trim();
+    var markdownValue = normalized
+        .replaceAll('\r\n', '\n')
+        .replaceAll('\r', '\n')
+        .split('\n')
+        .map(_markdownInlineText)
+        .join('\n');
+    final normalizedLabel = label.trim().toLowerCase();
+    if ((normalizedLabel == '状态' ||
+            normalizedLabel == 'status' ||
+            normalizedLabel.endsWith('_status')) &&
+        !markdownValue.startsWith('🔴') &&
+        !markdownValue.startsWith('🟠') &&
+        !markdownValue.startsWith('🟢')) {
+      markdownValue = '${_toolStatusIndicator(normalized)} $markdownValue';
+    }
+    buffer.writeln(
+      _markdownLabeledText(
+        label,
+        markdownValue,
+        valueCharacters: normalized.length,
+        listDepth: depth,
+      ),
+    );
   }
 
   int _toolDurationMilliseconds(AiSessionMessage call) {
