@@ -15427,43 +15427,50 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 ),
               ),
             if (showText)
-              AnimatedContainer(
-                duration: openHandMotionDuration(context, kOpenHandMotion220),
-                curve: Curves.easeOutCubic,
-                constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
-                margin: const EdgeInsets.only(bottom: 6),
-                padding: const EdgeInsets.symmetric(
-                  horizontal: 14,
-                  vertical: 10,
-                ),
-                decoration: BoxDecoration(
-                  color: bubbleColor,
-                  border:
-                      widget.message.ignoredForAiContext &&
-                          !widget.message.recalled
-                      ? Border.all(
-                          color: colors.tertiary.withValues(alpha: 0.42),
-                        )
-                      : null,
-                  borderRadius: BorderRadius.only(
-                    topLeft: const Radius.circular(17),
-                    topRight: const Radius.circular(17),
-                    bottomLeft: Radius.circular(widget.mine ? 17 : 5),
-                    bottomRight: Radius.circular(widget.mine ? 5 : 17),
-                  ),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    _buildTextContent(
+              IntrinsicWidth(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: _maxBubbleWidth),
+                  child: AnimatedContainer(
+                    duration: openHandMotionDuration(
                       context,
-                      content: effectiveContent,
-                      foreground: foreground,
+                      kOpenHandMotion220,
                     ),
-                    if (widget.message.reactions.isNotEmpty)
-                      _buildReactionRow(context, foreground),
-                    _buildMessageStateLabel(context),
-                  ],
+                    curve: Curves.easeOutCubic,
+                    margin: const EdgeInsets.only(bottom: 6),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 10,
+                    ),
+                    decoration: BoxDecoration(
+                      color: bubbleColor,
+                      border:
+                          widget.message.ignoredForAiContext &&
+                              !widget.message.recalled
+                          ? Border.all(
+                              color: colors.tertiary.withValues(alpha: 0.42),
+                            )
+                          : null,
+                      borderRadius: BorderRadius.only(
+                        topLeft: const Radius.circular(17),
+                        topRight: const Radius.circular(17),
+                        bottomLeft: Radius.circular(widget.mine ? 17 : 5),
+                        bottomRight: Radius.circular(widget.mine ? 5 : 17),
+                      ),
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        _buildTextContent(
+                          context,
+                          content: effectiveContent,
+                          foreground: foreground,
+                        ),
+                        if (widget.message.reactions.isNotEmpty)
+                          _buildReactionRow(context, foreground),
+                        _buildMessageStateLabel(context),
+                      ],
+                    ),
+                  ),
                 ),
               ),
             if (previewableMedia.isNotEmpty)
@@ -15679,6 +15686,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         ? SelectableText(
             visibleContent,
             key: ValueKey<String>('plain:$visibleContent'),
+            textWidthBasis: TextWidthBasis.longestLine,
             style: _showRawContent
                 ? bodyStyle?.copyWith(fontFamily: 'monospace', fontSize: 12.5)
                 : bodyStyle,
@@ -15815,7 +15823,11 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   Widget _buildReactionRow(BuildContext context, Color foreground) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final reactions = widget.message.reactions;
+    final reactions = widget.message.reactions
+        .map(normalizeDingTalkReaction)
+        .where((reaction) => reaction.isNotEmpty)
+        .toList(growable: false);
+    if (reactions.isEmpty) return const SizedBox.shrink();
     final motionDuration = openHandMotionDuration(context, kOpenHandMotion220);
     final chipDuration = openHandMotionDuration(context, kOpenHandMotion180);
     final containerColors = <Color>[
@@ -15856,18 +15868,15 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     constraints: const BoxConstraints(maxWidth: 180),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            containerColors[index % containerColors.length]
-                                .withValues(alpha: 0.84),
-                            colors.surfaceContainerHigh.withValues(alpha: 0.72),
-                          ],
+                        color: Color.alphaBlend(
+                          containerColors[index % containerColors.length]
+                              .withValues(alpha: 0.22),
+                          colors.surfaceContainerHigh,
                         ),
                         borderRadius: kOpenHandPillBorderRadius,
                         border: Border.all(
-                          color: colors.primary.withValues(alpha: 0.24),
+                          color: containerColors[index % containerColors.length]
+                              .withValues(alpha: 0.48),
                         ),
                         boxShadow: [
                           BoxShadow(
@@ -15888,10 +15897,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: foreground,
-                            fontSize: 14.5,
-                            fontWeight: FontWeight.w800,
-                            height: 1.1,
-                            letterSpacing: 0.1,
+                            fontSize: 21,
+                            fontWeight: FontWeight.w700,
+                            height: 1,
                           ),
                         ),
                       ),

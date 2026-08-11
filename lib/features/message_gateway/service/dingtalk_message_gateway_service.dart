@@ -3159,7 +3159,7 @@ class DingTalkMessageGatewayService {
     ]) {
       final value = map[key];
       if (value is String && value.trim().isNotEmpty) {
-        return _normalizeReaction(value);
+        return normalizeDingTalkReaction(value);
       }
       if (value is Map) {
         final nested = _eventReaction(_asMap(value), depth: depth + 1);
@@ -3171,7 +3171,7 @@ class DingTalkMessageGatewayService {
             final nested = _eventReaction(_asMap(item), depth: depth + 1);
             if (nested.isNotEmpty) return nested;
           } else if (item is String && item.trim().isNotEmpty) {
-            return _normalizeReaction(item);
+            return normalizeDingTalkReaction(item);
           }
         }
       }
@@ -3186,27 +3186,12 @@ class DingTalkMessageGatewayService {
     return '';
   }
 
-  String _normalizeReaction(String value) {
-    final normalized = value.trim();
-    if (normalized.isEmpty || normalized.toLowerCase() == 'null') return '';
-    final mapped = switch (normalized.toLowerCase()) {
-      'like' || 'thumb_up' || 'thumbup' => '👍',
-      'heart' || 'love' => '❤️',
-      'laugh' || 'joy' => '😂',
-      'surprise' || 'wow' => '😮',
-      'sad' => '😢',
-      'angry' => '😡',
-      _ => normalized,
-    };
-    return String.fromCharCodes(mapped.runes.take(24));
-  }
-
   List<String> _parseReactionList(Object? value) {
     final result = <String>[];
     void visit(Object? current, int depth) {
       if (depth > 3 || result.length >= 12 || current == null) return;
       if (current is String) {
-        final reaction = _normalizeReaction(current);
+        final reaction = normalizeDingTalkReaction(current);
         if (reaction.isNotEmpty && !result.contains(reaction)) {
           result.add(reaction);
         }
