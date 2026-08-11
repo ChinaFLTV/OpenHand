@@ -15386,6 +15386,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                       child: SizeTransition(
                         sizeFactor: animation,
                         axisAlignment: -1,
+                        fixedCrossAxisSizeFactor: 1,
                         child: child,
                       ),
                     ),
