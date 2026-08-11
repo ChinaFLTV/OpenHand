@@ -863,6 +863,21 @@ class _CollapsibleMessageMarkdownBodyState
     }
 
     final collapsed = _effectiveCollapsed;
+    final previewBody = KeyedSubtree(
+      key: const ValueKey<String>('message-markdown-preview'),
+      child: _MarkdownPreviewBody(
+        data: data,
+        maxHeight: widget.previewMaxHeight,
+        selectable: widget.selectable,
+        styleSheet: widget.styleSheet,
+        builders: widget.builders,
+        inlineSyntaxes: widget.inlineSyntaxes,
+        pathRoots: widget.pathRoots,
+        parseKey: '${widget.parseKey}|message-preview',
+        scrollStateKey: _scrollStateKey,
+        fadeColor: widget.fadeColor,
+      ),
+    );
 
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -886,21 +901,7 @@ class _CollapsibleMessageMarkdownBodyState
           collapsed: collapsed,
           animate: widget.animateSize,
           child: collapsed
-              ? KeyedSubtree(
-                  key: const ValueKey<String>('message-markdown-preview'),
-                  child: _MarkdownPreviewBody(
-                    data: data,
-                    maxHeight: widget.previewMaxHeight,
-                    selectable: widget.selectable,
-                    styleSheet: widget.styleSheet,
-                    builders: widget.builders,
-                    inlineSyntaxes: widget.inlineSyntaxes,
-                    pathRoots: widget.pathRoots,
-                    parseKey: '${widget.parseKey}|message-preview',
-                    scrollStateKey: _scrollStateKey,
-                    fadeColor: widget.fadeColor,
-                  ),
-                )
+              ? previewBody
               : KeyedSubtree(
                   key: const ValueKey<String>('message-markdown-expanded'),
                   child: _SafeMarkdownBody(
@@ -911,6 +912,7 @@ class _CollapsibleMessageMarkdownBodyState
                     inlineSyntaxes: widget.inlineSyntaxes,
                     pathRoots: widget.pathRoots,
                     parseKey: widget.parseKey,
+                    deferredPlaceholder: previewBody,
                   ),
                 ),
         ),
@@ -1397,6 +1399,7 @@ class _SafeMarkdownBody extends StatefulWidget {
     this.inlineSyntaxes = const <md.InlineSyntax>[],
     this.pathRoots = const <String>[],
     this.parseKey = '',
+    this.deferredPlaceholder,
   });
 
   final String data;
@@ -1407,13 +1410,13 @@ class _SafeMarkdownBody extends StatefulWidget {
   final List<md.InlineSyntax> inlineSyntaxes;
   final List<String> pathRoots;
   final String parseKey;
+  final Widget? deferredPlaceholder;
 
   @override
   State<_SafeMarkdownBody> createState() => _SafeMarkdownBodyState();
 }
 
-// Larger Markdown bodies paint a cheap placeholder for one frame, then build
-// the rich widget tree under the shared frame budget.
+// 大型 Markdown 冷解析先显示轻量占位，再按共享帧预算构建富文本树。
 const int _markdownDeferredParseThresholdChars = 2 * 1024;
 
 // 流式追加时更早进入 deferred 路径，并把富文本树重建合并到稳定节奏；
@@ -1995,19 +1998,8 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     _scheduleDeferredParse(throttle: widget.streaming && _children != null);
   }
 
-  /// Decides whether to parse synchronously or defer to the next frame.
-  ///
-  /// On the first mount of a non-trivial body we paint a cheap skeleton
-  /// immediately and queue the real parse via the global
-  /// [_markdownFrameScheduler]. Streaming updates keep the last rich tree
-  /// visible and coalesce reparses into a bounded cadence.
-  /// 无论是首次挂载还是展开触发的重建，只要内容超过阈值就走
-  /// deferred 路径。这是解决"展开含多代码块消息时ANR"的关键：展开时
-  /// 新的 _SafeMarkdownBody 被创建（initial=true），但即使是非 initial
-  /// 的更新（如流式追加），大内容也应该 defer 以避免阻塞当前帧。
-  /// deferred 任务交由 [_markdownFrameScheduler] 帧节流。同帧内
-  /// 多个 bubble 一起注册时，每帧只跑 1 个 markdown 解析，剩余排队到
-  /// 下一帧，避免 N 张卡片同时 parse 把单帧预算撑爆触发 ANR。
+  /// 大体量 Markdown 冷解析延迟到共享帧预算；缓存命中时同步复用 AST。
+  /// 流式更新保留上一棵富文本树，避免内容在富文本和占位之间反复切换。
   void _parseMarkdownMaybeDeferred({required bool initial}) {
     final normalizedSource = _sanitizeMarkdownSource(
       widget.data.isEmpty ? ' ' : widget.data,
@@ -2021,7 +2013,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     if (widget.data.length > deferredThreshold &&
         widget.data.length <= _markdownPlainTextSkipThresholdChars &&
         !_canRenderMarkdownAsPlainText(widget.data) &&
-        (initial || !hasWarmAst)) {
+        !hasWarmAst) {
       // 流式抽搐修复：仅在「真·首挂载」（_children == null）
       // 时铺轻量占位；后续 didUpdateWidget（流式 chunk / 主题变化）路径
       // 保留上一帧已解析好的富文本，等帧节流回调 setState 再无缝替换。
@@ -2122,6 +2114,12 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
     String normalizedSource, {
     required bool streaming,
   }) {
+    final deferredPlaceholder = widget.deferredPlaceholder;
+    if (!streaming && deferredPlaceholder != null) {
+      _disposeRecognizers();
+      _children = <Widget>[deferredPlaceholder];
+      return;
+    }
     final effectiveStyleSheet = MarkdownStyleSheet.fromTheme(
       Theme.of(context),
     ).merge(widget.styleSheet);
