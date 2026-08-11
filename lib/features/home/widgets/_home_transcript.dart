@@ -254,6 +254,7 @@ class _SessionTranscript extends StatefulWidget {
     required this.planTimelineCollapsed,
     required this.onPlanTimelineCollapsedChanged,
     required this.onLayoutChanged,
+    required this.onMessageExpansionChanged,
     required this.onRevealOlderMessages,
     required this.onProgrammaticScrollCorrection,
     required this.messageActions,
@@ -277,6 +278,7 @@ class _SessionTranscript extends StatefulWidget {
   final bool planTimelineCollapsed;
   final ValueChanged<bool>? onPlanTimelineCollapsedChanged;
   final VoidCallback onLayoutChanged;
+  final ValueChanged<bool> onMessageExpansionChanged;
   final VoidCallback onRevealOlderMessages;
   final void Function(VoidCallback correction) onProgrammaticScrollCorrection;
   final _MessageActions messageActions;
@@ -2803,6 +2805,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
             : null,
         onCopy: () => widget.messageActions.onCopy(message),
         onFork: () => widget.messageActions.onFork(message),
+        onUserExpansionChanged: widget.onMessageExpansionChanged,
         associatedKnowledgeBaseMetadata:
             _associatedKnowledgeBaseMetadataForMessage(
               visibleMessages: visibleMessages,

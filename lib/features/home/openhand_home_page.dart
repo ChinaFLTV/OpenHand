@@ -1216,6 +1216,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     _messageProgrammaticScrollWindow.cancel();
   }
 
+  void _handleMessageExpansionChanged(bool _) {
+    _shouldAutoFollowMessages = false;
+    _clearPendingAutoFollowState();
+    _syncAutoFollowPausedState();
+  }
+
   void _pauseAutoFollowUntilExplicitResume() {
     _shouldAutoFollowMessages = false;
     _autoFollowPaused = false;
@@ -9932,6 +9938,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         onComposerCollapsedChanged: _setComposerCollapsedState,
         onComposerLayoutChanged: _handleComposerLayoutChanged,
         onTranscriptLayoutChanged: _handleTranscriptLayoutChanged,
+        onMessageExpansionChanged: _handleMessageExpansionChanged,
         onRevealOlderMessages: _handleRevealOlderMessages,
         onProgrammaticScrollCorrection:
             _runProgrammaticTranscriptScrollCorrection,

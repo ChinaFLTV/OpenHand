@@ -768,6 +768,7 @@ class _CollapsibleMessageMarkdownBody extends StatefulWidget {
     this.collapsedOverride,
     this.onCollapsedChanged,
     this.showCollapseToggle = true,
+    this.animateSize = true,
     this.scrollStateKey,
   });
 
@@ -785,6 +786,7 @@ class _CollapsibleMessageMarkdownBody extends StatefulWidget {
   final bool? collapsedOverride;
   final ValueChanged<bool>? onCollapsedChanged;
   final bool showCollapseToggle;
+  final bool animateSize;
   final String? scrollStateKey;
 
   @override
@@ -841,6 +843,7 @@ class _CollapsibleMessageMarkdownBodyState
       _collapsed = value;
       _userToggled = true;
     });
+    widget.onCollapsedChanged?.call(value);
   }
 
   @override
@@ -881,6 +884,7 @@ class _CollapsibleMessageMarkdownBodyState
         _collapsibleMessageBodyMotion(
           context: context,
           collapsed: collapsed,
+          animate: widget.animateSize,
           child: collapsed
               ? KeyedSubtree(
                   key: const ValueKey<String>('message-markdown-preview'),
@@ -918,10 +922,13 @@ class _CollapsibleMessageMarkdownBodyState
 Widget _collapsibleMessageBodyMotion({
   required BuildContext context,
   required bool collapsed,
+  bool animate = true,
   required Widget child,
 }) {
   return maybeAnimatedSize(
-    duration: cardMotionDurationFor(context, expanding: !collapsed),
+    duration: animate
+        ? cardMotionDurationFor(context, expanding: !collapsed)
+        : Duration.zero,
     curve: kCardMotionCurve,
     alignment: Alignment.topLeft,
     child: ClipRect(child: child),
@@ -3259,6 +3266,7 @@ class _PlainTextMessageBody extends StatefulWidget {
     this.collapsedOverride,
     this.onCollapsedChanged,
     this.showCollapseToggle = true,
+    this.animateSize = true,
     this.scrollStateKey,
   });
 
@@ -3270,6 +3278,7 @@ class _PlainTextMessageBody extends StatefulWidget {
   final bool? collapsedOverride;
   final ValueChanged<bool>? onCollapsedChanged;
   final bool showCollapseToggle;
+  final bool animateSize;
   final String? scrollStateKey;
 
   @override
@@ -3330,6 +3339,7 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
       _collapsed = value;
       _userToggled = true;
     });
+    widget.onCollapsedChanged?.call(value);
   }
 
   @override
@@ -3366,6 +3376,7 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
         _collapsibleMessageBodyMotion(
           context: context,
           collapsed: collapsed,
+          animate: widget.animateSize,
           child: collapsed
               ? _PlainTextPreviewBody(
                   data: data,
@@ -6098,6 +6109,9 @@ class _ProgressiveHtmlMessageBody extends StatefulWidget {
     required this.backgroundColor,
     required this.baseTextStyle,
     required this.previewMaxHeight,
+    this.collapsedOverride,
+    this.onCollapsedChanged,
+    this.animateSize = true,
     this.scrollStateKey,
   });
 
@@ -6106,6 +6120,9 @@ class _ProgressiveHtmlMessageBody extends StatefulWidget {
   final Color backgroundColor;
   final TextStyle? baseTextStyle;
   final double previewMaxHeight;
+  final bool? collapsedOverride;
+  final ValueChanged<bool>? onCollapsedChanged;
+  final bool animateSize;
   final String? scrollStateKey;
 
   @override
@@ -6117,6 +6134,8 @@ class _ProgressiveHtmlMessageBodyState
     extends State<_ProgressiveHtmlMessageBody> {
   late bool _collapsed = widget.prepared.shouldUseProgressiveHighFidelity;
 
+  bool get _effectiveCollapsed => widget.collapsedOverride ?? _collapsed;
+
   String get _scrollStateKey =>
       widget.scrollStateKey ??
       'html-progressive|${widget.prepared.sourceLength}|${widget.prepared.sourceFingerprint}';
@@ -6124,6 +6143,10 @@ class _ProgressiveHtmlMessageBodyState
   @override
   void didUpdateWidget(covariant _ProgressiveHtmlMessageBody oldWidget) {
     super.didUpdateWidget(oldWidget);
+    if (oldWidget.collapsedOverride == false &&
+        widget.collapsedOverride == true) {
+      _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
+    }
     final contentChanged =
         oldWidget.prepared.sourceLength != widget.prepared.sourceLength ||
         oldWidget.prepared.sourceFingerprint !=
@@ -6139,9 +6162,12 @@ class _ProgressiveHtmlMessageBodyState
     if (value) {
       _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
     }
-    setState(() {
-      _collapsed = value;
-    });
+    if (widget.collapsedOverride != null) {
+      widget.onCollapsedChanged?.call(value);
+      return;
+    }
+    setState(() => _collapsed = value);
+    widget.onCollapsedChanged?.call(value);
   }
 
   Widget _buildHtmlBody() {
@@ -6173,7 +6199,7 @@ class _ProgressiveHtmlMessageBodyState
     final previewText = widget.prepared.previewText.isEmpty
         ? widget.prepared.healedHtml
         : widget.prepared.previewText;
-    final collapsed = _collapsed;
+    final collapsed = _effectiveCollapsed;
     final previewStyle =
         widget.baseTextStyle?.copyWith(color: widget.textColor) ??
         TextStyle(color: widget.textColor, height: 1.55);
@@ -6194,6 +6220,7 @@ class _ProgressiveHtmlMessageBodyState
         _collapsibleMessageBodyMotion(
           context: context,
           collapsed: collapsed,
+          animate: widget.animateSize,
           child: collapsed
               ? KeyedSubtree(
                   key: const ValueKey<String>('html-progressive-preview'),
@@ -6306,6 +6333,9 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
         backgroundColor: backgroundColor,
         baseTextStyle: markdownStyleSheet.p,
         previewMaxHeight: previewMaxHeight,
+        collapsedOverride: collapsedOverride,
+        onCollapsedChanged: onCollapsedChanged,
+        animateSize: collapsedOverride == null,
         scrollStateKey: scrollStateKey == null ? null : '$scrollStateKey|html',
       );
     }
@@ -6328,6 +6358,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       collapsedOverride: collapsedOverride,
       onCollapsedChanged: onCollapsedChanged,
       showCollapseToggle: showCollapseToggle,
+      animateSize: collapsedOverride == null,
       scrollStateKey: scrollStateKey == null
           ? null
           : '$scrollStateKey|markdown',
@@ -6344,6 +6375,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
       collapsedOverride: collapsedOverride,
       onCollapsedChanged: onCollapsedChanged,
       showCollapseToggle: showCollapseToggle,
+      animateSize: collapsedOverride == null,
       scrollStateKey: scrollStateKey == null ? null : '$scrollStateKey|plain',
     );
   }
@@ -6368,6 +6400,9 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
         backgroundColor: backgroundColor,
         baseTextStyle: markdownStyleSheet.p,
         previewMaxHeight: previewMaxHeight,
+        collapsedOverride: collapsedOverride,
+        onCollapsedChanged: onCollapsedChanged,
+        animateSize: collapsedOverride == null,
         scrollStateKey: scrollStateKey == null ? null : '$scrollStateKey|html',
       );
     }
@@ -6484,7 +6519,7 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
     );
     return _wrapSelection(
       maybeAnimatedSize(
-        duration: motionDuration,
+        duration: collapsedOverride == null ? motionDuration : Duration.zero,
         curve: kCardMotionCurve,
         alignment: Alignment.topLeft,
         child: body,

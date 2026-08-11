@@ -20,6 +20,7 @@ class _MessageBubble extends StatefulWidget {
     required this.onCopy,
     required this.onDelete,
     required this.onFork,
+    required this.onUserExpansionChanged,
     this.associatedKnowledgeBaseMetadata,
     this.onDeleteFromHere,
     this.onEdit,
@@ -56,6 +57,7 @@ class _MessageBubble extends StatefulWidget {
   final Future<void> Function() onCopy;
   final Future<void> Function() onDelete;
   final Future<void> Function() onFork;
+  final ValueChanged<bool> onUserExpansionChanged;
   final Map<String, Object?>? associatedKnowledgeBaseMetadata;
   final Future<void> Function()? onDeleteFromHere;
   final Future<void> Function()? onEdit;
@@ -79,7 +81,8 @@ class _MessageBubble extends StatefulWidget {
   State<_MessageBubble> createState() => _MessageBubbleState();
 }
 
-class _MessageBubbleState extends State<_MessageBubble> {
+class _MessageBubbleState extends State<_MessageBubble>
+    with AutomaticKeepAliveClientMixin<_MessageBubble> {
   static const int _messageExpansionStateCacheLimit = 500;
   static const double _messageBubbleMaxWidth = 760;
   static const double _selectionTapMaxDistance = 8;
@@ -101,6 +104,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
   late bool _showRawContent = widget.initiallyShowRawContent;
   bool _responseVariantSizeMotionActive = false;
   bool _responseVariantSizeMotionExpanding = true;
+  bool _expansionSizeMotionActive = false;
+  bool _expansionSizeMotionExpanding = true;
+  bool _uncontrolledBodyExpanded = false;
   bool _loadingFullContent = false;
   String? _fullContentLoadError;
 
@@ -136,6 +142,16 @@ class _MessageBubbleState extends State<_MessageBubble> {
   // 避免逐帧 jumpTo 底部导致上下抽搐。
   Timer? _layoutChangeThrottleTimer;
   Timer? _responseVariantSizeMotionResetTimer;
+  Timer? _expansionSizeMotionResetTimer;
+
+  String get _expansionCacheKey => '${widget.sessionId}:${widget.message.id}';
+
+  @override
+  bool get wantKeepAlive =>
+      _compressionExpanded ||
+      _reasoningExpandedOverride == true ||
+      _assistantResponseExpandedOverride == true ||
+      _uncontrolledBodyExpanded;
 
   void registerHtmlInteractiveRegion(
     GlobalKey key,
@@ -200,22 +216,28 @@ class _MessageBubbleState extends State<_MessageBubble> {
   @override
   void initState() {
     super.initState();
-    _loadExpansionOverridesForMessage(widget.message.id);
+    _loadExpansionOverridesForMessage();
   }
 
   @override
   void didUpdateWidget(covariant _MessageBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.message.id != widget.message.id) {
+    if (oldWidget.message.id != widget.message.id ||
+        oldWidget.sessionId != widget.sessionId) {
       _compressionExpanded = false;
-      _loadExpansionOverridesForMessage(widget.message.id);
+      _uncontrolledBodyExpanded = false;
+      _loadExpansionOverridesForMessage();
       _showRawContent = widget.initiallyShowRawContent;
       _responseVariantSizeMotionResetTimer?.cancel();
       _responseVariantSizeMotionResetTimer = null;
       _responseVariantSizeMotionActive = false;
+      _expansionSizeMotionResetTimer?.cancel();
+      _expansionSizeMotionResetTimer = null;
+      _expansionSizeMotionActive = false;
       _loadingFullContent = false;
       _fullContentLoadError = null;
       _invalidateCache();
+      updateKeepAlive();
       return;
     }
     if (_isResponseVariantContentChange(oldWidget.message, widget.message)) {
@@ -278,11 +300,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
     );
   }
 
-  void _loadExpansionOverridesForMessage(String messageId) {
+  void _loadExpansionOverridesForMessage() {
     _reasoningExpandedOverride =
-        _reasoningExpansionOverridesByMessageId[messageId];
+        _reasoningExpansionOverridesByMessageId[_expansionCacheKey];
     _assistantResponseExpandedOverride =
-        _assistantExpansionOverridesByMessageId[messageId];
+        _assistantExpansionOverridesByMessageId[_expansionCacheKey];
   }
 
   static void _rememberExpansionOverride(
@@ -299,25 +321,54 @@ class _MessageBubbleState extends State<_MessageBubble> {
   }
 
   void _setReasoningExpandedOverride(bool value) {
+    _armExpansionSizeMotion(expanding: value);
     _rememberExpansionOverride(
       _reasoningExpansionOverridesByMessageId,
-      widget.message.id,
+      _expansionCacheKey,
       value,
     );
     setState(() {
       _reasoningExpandedOverride = value;
     });
+    updateKeepAlive();
+    widget.onUserExpansionChanged(value);
   }
 
   void _setAssistantResponseExpandedOverride(bool value) {
+    _armExpansionSizeMotion(expanding: value);
     _rememberExpansionOverride(
       _assistantExpansionOverridesByMessageId,
-      widget.message.id,
+      _expansionCacheKey,
       value,
     );
     setState(() {
       _assistantResponseExpandedOverride = value;
     });
+    updateKeepAlive();
+    widget.onUserExpansionChanged(value);
+  }
+
+  void _handleUncontrolledBodyCollapsedChanged(bool collapsed) {
+    _uncontrolledBodyExpanded = !collapsed;
+    updateKeepAlive();
+    widget.onUserExpansionChanged(!collapsed);
+  }
+
+  void _armExpansionSizeMotion({required bool expanding}) {
+    _expansionSizeMotionResetTimer?.cancel();
+    _expansionSizeMotionResetTimer = null;
+    final duration = cardMotionDurationFor(context, expanding: expanding);
+    _expansionSizeMotionActive = duration > Duration.zero;
+    _expansionSizeMotionExpanding = expanding;
+    if (!_expansionSizeMotionActive) return;
+    _expansionSizeMotionResetTimer = startSafeTimer(
+      duration + kOpenHandFramePeriodicTimerInterval * 2,
+      () {
+        _expansionSizeMotionResetTimer = null;
+        if (!mounted || !_expansionSizeMotionActive) return;
+        setState(() => _expansionSizeMotionActive = false);
+      },
+    );
   }
 
   /// 解析（并缓存）三套专家请求卡。非用户消息一律为空。优先用 metadata 里已
@@ -432,11 +483,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
     _layoutChangeThrottleTimer = null;
     _responseVariantSizeMotionResetTimer?.cancel();
     _responseVariantSizeMotionResetTimer = null;
+    _expansionSizeMotionResetTimer?.cancel();
+    _expansionSizeMotionResetTimer = null;
     super.dispose();
   }
 
   @override
   Widget build(BuildContext context) {
+    super.build(context);
     developer.Timeline.startSync(
       'openhand.bubble.build',
       arguments: <String, Object?>{
@@ -1004,6 +1058,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     textColor: textColor,
                     backgroundColor: backgroundColor,
                     style: markdownStyleSheet.styleSheet.p,
+                    onCollapsedChanged: _handleUncontrolledBodyCollapsedChanged,
                     scrollStateKey: '${message.id}|content-preview',
                   )
                 else if (isCompressionPoint)
@@ -1016,9 +1071,11 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           '$compressionBodyScrollStateKey|preview',
                         );
                       }
-                      setState(() {
-                        _compressionExpanded = !_compressionExpanded;
-                      });
+                      final expanded = !_compressionExpanded;
+                      _armExpansionSizeMotion(expanding: expanded);
+                      setState(() => _compressionExpanded = expanded);
+                      updateKeepAlive();
+                      widget.onUserExpansionChanged(expanded);
                     },
                     selectable: true,
                     textColor: textColor,
@@ -1086,6 +1143,7 @@ class _MessageBubbleState extends State<_MessageBubble> {
                     textColor: textColor,
                     backgroundColor: backgroundColor,
                     style: markdownStyleSheet.styleSheet.p,
+                    onCollapsedChanged: _handleUncontrolledBodyCollapsedChanged,
                     scrollStateKey: userBodyScrollStateKey,
                   )
                 else
@@ -1188,13 +1246,15 @@ class _MessageBubbleState extends State<_MessageBubble> {
                           collapsedOverride: canCollapseAssistantResponse
                               ? assistantResponseCollapsed
                               : null,
-                          onCollapsedChanged: canCollapseAssistantResponse
-                              ? (collapsed) {
-                                  _setAssistantResponseExpandedOverride(
-                                    !collapsed,
-                                  );
-                                }
-                              : null,
+                          onCollapsedChanged: (collapsed) {
+                            if (canCollapseAssistantResponse) {
+                              _setAssistantResponseExpandedOverride(!collapsed);
+                            } else {
+                              _handleUncontrolledBodyCollapsedChanged(
+                                collapsed,
+                              );
+                            }
+                          },
                           showCollapseToggle: !canCollapseAssistantResponse,
                           contentMotionKey: responseVariantBodyMotionKey,
                           forceMotionWhenScrolling:
@@ -1280,23 +1340,14 @@ class _MessageBubbleState extends State<_MessageBubble> {
             final transcriptScrollActive = _isTranscriptScrollActive(context);
             final allowBubbleSizeMotion =
                 (!transcriptScrollActive || _responseVariantSizeMotionActive) &&
-                ((isReasoning && !isStreamingReasoning) ||
-                    streamingAssistantShouldCollapse ||
-                    _reasoningExpandedOverride != null ||
-                    _assistantResponseExpandedOverride != null ||
-                    _responseVariantSizeMotionActive ||
-                    _showRawContent != widget.initiallyShowRawContent);
+                (_expansionSizeMotionActive ||
+                    _responseVariantSizeMotionActive);
             final bubbleSizeDuration = allowBubbleSizeMotion
                 ? cardMotionDurationFor(
                     context,
-                    expanding:
-                        (_reasoningExpandedOverride != null &&
-                            reasoningExpanded) ||
-                        (_assistantResponseExpandedOverride != null &&
-                            assistantResponseExpanded) ||
-                        (_responseVariantSizeMotionActive &&
-                            _responseVariantSizeMotionExpanding) ||
-                        _showRawContent,
+                    expanding: _expansionSizeMotionActive
+                        ? _expansionSizeMotionExpanding
+                        : _responseVariantSizeMotionExpanding,
                   )
                 : Duration.zero;
             return ClipRect(
@@ -1449,7 +1500,9 @@ class _MessageBubbleState extends State<_MessageBubble> {
           _MessageActionSpec(
             id: 'raw-toggle',
             onPressed: () async {
-              setState(() => _showRawContent = !_showRawContent);
+              final showRawContent = !_showRawContent;
+              _armExpansionSizeMotion(expanding: showRawContent);
+              setState(() => _showRawContent = showRawContent);
               widget.onShowRawContentChanged?.call(_showRawContent);
             },
             icon: _showRawContent
