@@ -5247,6 +5247,8 @@ class _DingTalkEchoCoordinator {
     try {
       if (_disposed || _isCancelled()) return;
       if (!state.sent) {
+        // 插入本地气泡前先标记流式，避免正文先完整展开再收缩渐显。
+        _markStreaming(sourceId, !pending.terminal);
         state.remoteMessageId = await _send(
           pending.source,
           pending.type,

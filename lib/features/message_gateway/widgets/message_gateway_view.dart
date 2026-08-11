@@ -12647,7 +12647,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                           );
                                                   return RepaintBoundary(
                                                     key: ValueKey<String>(
-                                                      message.id,
+                                                      _dingTalkMessageRenderIdentity(
+                                                        message,
+                                                      ),
                                                     ),
                                                     child: _DingTalkMessageBubble(
                                                       message: message,
@@ -15159,6 +15161,11 @@ class _DingTalkResponseErrorBanner extends StatelessWidget {
   }
 }
 
+String _dingTalkMessageRenderIdentity(DingTalkGatewayMessage message) {
+  final sourceId = message.sourceAiMessageId.trim();
+  return sourceId.isEmpty ? 'message:${message.id}' : 'ai:$sourceId';
+}
+
 class _DingTalkMessageBubble extends StatefulWidget {
   const _DingTalkMessageBubble({
     required this.message,
@@ -15249,7 +15256,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   @override
   void didUpdateWidget(covariant _DingTalkMessageBubble oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.message.id != widget.message.id) {
+    if (_dingTalkMessageRenderIdentity(oldWidget.message) !=
+        _dingTalkMessageRenderIdentity(widget.message)) {
       _cancelPendingActionToggle();
       _showRawContent = false;
       _showFullText = false;
@@ -15387,6 +15395,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         : widget.message.content;
     final contentExpanded =
         !widget.message.isExcludedFromAiContext || _showExcludedContent;
+    final useStableResponseWidth = widget.message.sourceAiMessageId
+        .trim()
+        .isNotEmpty;
     return SizedBox(
       width: double.infinity,
       child: Column(
@@ -15420,8 +15431,11 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               final resizeDuration = widget.streaming
                   ? Duration.zero
                   : openHandMotionDuration(context, kOpenHandMotion220);
+              final contentTransitionDuration = widget.streaming
+                  ? Duration.zero
+                  : openHandMotionDuration(context, kOpenHandMotion180);
               final messageContent = AnimatedSwitcher(
-                duration: openHandMotionDuration(context, kOpenHandMotion180),
+                duration: contentTransitionDuration,
                 switchInCurve: Curves.easeOutCubic,
                 switchOutCurve: Curves.easeInCubic,
                 layoutBuilder: (current, previous) => Stack(
@@ -15444,8 +15458,11 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                         foreground: foreground,
                       )
                     : showText
-                    ? widget.message.isToolCallEcho
+                    ? useStableResponseWidth
                           ? SizedBox(
+                              key: const ValueKey<String>(
+                                'dingtalk-message-content-ai-response',
+                              ),
                               width: double.infinity,
                               child: _buildTextBubble(
                                 context,
@@ -15829,7 +15846,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     // 流式回显期间按字素簇渐显增量内容；生成结束后切回可选择的静态渲染。
     final streaming = widget.streaming && !_showRawContent;
     return AnimatedSwitcher(
-      duration: openHandMotionDuration(context, kOpenHandMotion220),
+      duration: widget.streaming
+          ? Duration.zero
+          : openHandMotionDuration(context, kOpenHandMotion220),
       switchInCurve: Curves.easeOutCubic,
       switchOutCurve: Curves.easeInCubic,
       layoutBuilder: (current, previous) => Stack(
