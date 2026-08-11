@@ -3720,9 +3720,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     'blocked',
   };
   static const int _maxDingTalkEchoCharacters = 12000;
-  static const int _maxDingTalkToolCellCharacters = 900;
   static const int _maxDingTalkToolFormattingCharacters = 12000;
+  static const int _maxDingTalkToolLabelCharacters = 512;
   static const int _maxMessageEditHistoryEntries = 32;
+  static final RegExp _markdownFenceLinePattern = RegExp(
+    r'^ {0,3}(`{3,}|~{3,})',
+  );
+  static final RegExp _markdownBacktickRunPattern = RegExp(r'`+');
 
   DingTalkResponseEchoType? _echoTypeOf(
     AiSessionMessage message,
@@ -3789,12 +3793,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         !identical(_conversations[conversation.id], conversation)) {
       return null;
     }
-    final normalized = clipTextByCodeUnits(
-      text.trim(),
-      _maxDingTalkEchoCharacters,
-      suffix: '\n\n…内容已截断',
-    );
-    if (normalized.isEmpty) return null;
+    final completeText = text.trim();
+    if (completeText.isEmpty) return null;
+    final remoteText = _dingTalkRemoteEchoText(completeText);
     final sentAt = DateTime.now();
     final senderName = _authStatus.identity.label.trim();
     final localMessage = DingTalkGatewayMessage(
@@ -3802,7 +3803,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       conversationId: conversation.id,
       conversationType: conversation.type,
       role: DingTalkGatewayMessageRole.assistant,
-      content: normalized,
+      content: completeText,
       createdAt: sentAt,
       senderName: senderName,
       senderId: _authStatus.identity.userId,
@@ -3823,7 +3824,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     try {
       sent = await _sendDingTalkTextWithResolvedId(
         conversation: conversation,
-        text: normalized,
+        text: remoteText,
         uuid: uuid,
         createdAt: sentAt,
         senderName: senderName,
@@ -3904,23 +3905,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         !identical(_conversations[conversation.id], conversation)) {
       return;
     }
-    final normalized = clipTextByCodeUnits(
-      text.trim(),
-      _maxDingTalkEchoCharacters,
-      suffix: '\n\n…内容已截断',
-    );
-    if (normalized.isEmpty || messageId.trim().isEmpty) return;
+    final completeText = text.trim();
+    if (completeText.isEmpty || messageId.trim().isEmpty) return;
     await _service
         .editMessage(
           conversation: conversation,
           messageId: messageId,
-          text: normalized,
+          text: _dingTalkRemoteEchoText(completeText),
         )
         .timeout(const Duration(seconds: 20));
     _syncLocalEchoContent(
       conversation: conversation,
       sourceMessageId: sourceMessageId,
-      text: normalized,
+      text: completeText,
     );
   }
 
@@ -3950,10 +3947,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     final local = _echoMessageBySourceId(conversation, sourceMessageId);
     if (local == null) return null;
+    final remoteText = _dingTalkRemoteEchoText(
+      sentText.trim().isNotEmpty ? sentText : local.content,
+    );
     final resolved = await _resolveDingTalkSentMessageIdIfMissing(
       conversation: conversation,
-      // 远端消息仍停留在最近一次成功送达的文本，优先用它匹配。
-      content: sentText.trim().isNotEmpty ? sentText : local.content,
+      // 本地保留完整正文，远端按平台预算发送；补标识时必须用远端文本匹配。
+      content: remoteText,
       createdAt: local.createdAt,
       senderName: _authStatus.identity.label.trim(),
       sent: null,
@@ -3978,19 +3978,55 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         !identical(_conversations[conversation.id], conversation)) {
       return;
     }
-    final normalized = clipTextByCodeUnits(
-      text.trim(),
-      _maxDingTalkEchoCharacters,
-      suffix: '\n\n…内容已截断',
-    );
-    if (normalized.isEmpty) return;
+    final completeText = text.trim();
+    if (completeText.isEmpty) return;
     final local = _echoMessageBySourceId(conversation, sourceMessageId);
-    if (local == null || local.content == normalized) return;
+    if (local == null || local.content == completeText) return;
     final index = conversation.messages.indexOf(local);
     if (index < 0) return;
-    conversation.messages[index] = local.copyWith(content: normalized);
+    conversation.messages[index] = local.copyWith(content: completeText);
     _queuePersist();
     _notify();
+  }
+
+  String _dingTalkRemoteEchoText(String text) {
+    final normalized = text.trim();
+    if (normalized.length <= _maxDingTalkEchoCharacters) return normalized;
+    const notice = '\n\n…完整内容已保留在 OpenHand';
+    var prefix = clipTextByCodeUnits(
+      normalized,
+      _maxDingTalkEchoCharacters - notice.length,
+      suffix: '',
+    );
+    String? activeFence;
+    var maxFenceLength = 0;
+    // 远端正文截断后补齐未闭合围栏，避免后续提示被错误渲染为代码。
+    void scanFences() {
+      activeFence = null;
+      for (final line in prefix.split('\n')) {
+        final match = _markdownFenceLinePattern.firstMatch(line);
+        final fence = match?.group(1);
+        if (fence == null) continue;
+        if (fence.length > maxFenceLength) maxFenceLength = fence.length;
+        if (activeFence == null) {
+          activeFence = fence;
+        } else if (fence.codeUnitAt(0) == activeFence!.codeUnitAt(0) &&
+            fence.length >= activeFence!.length) {
+          activeFence = null;
+        }
+      }
+    }
+
+    scanFences();
+    if (activeFence != null) {
+      prefix = clipTextByCodeUnits(
+        normalized,
+        _maxDingTalkEchoCharacters - notice.length - maxFenceLength - 1,
+        suffix: '',
+      );
+      scanFences();
+    }
+    return '$prefix${activeFence == null ? '' : '\n$activeFence'}$notice';
   }
 
   /// 该消息是否处于 AI 流式回显中（内容仍会持续更新）。
@@ -4024,8 +4060,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     List<AiSessionMessage> sessionMessages,
   ) {
     final metadata = call.metadata;
-    final toolCallId = _boundedToolValue(metadata['tool_call_id'] ?? call.id);
-    final toolName = _boundedToolValue(metadata['tool_name'] ?? '工具');
+    final toolCallId = _boundedToolLabel(metadata['tool_call_id'] ?? call.id);
+    final toolName = _boundedToolLabel(metadata['tool_name'] ?? '工具');
     final arguments = _toolArgumentsValue(metadata);
     final matchingResult = _matchingToolResult(call, sessionMessages);
     final response = _toolResponseValue(metadata, matchingResult);
@@ -4096,11 +4132,11 @@ ${_markdownStructuredTable(response)}''';
     AiSessionMessage? matchingResult,
   ) {
     final candidates = <Object?>[
+      matchingResult?.content,
       metadata['tool_execution_result'],
       metadata['result_text'],
       metadata['tool_execution_stdout'],
       metadata['tool_execution_stderr'],
-      matchingResult?.content,
     ];
     for (final candidate in candidates) {
       final value = _prettyToolValue(candidate);
@@ -4112,34 +4148,28 @@ ${_markdownStructuredTable(response)}''';
   String _prettyToolValue(Object? raw) {
     if (raw == null) return '';
     var value = raw is String ? raw.trim() : '';
-    if (value.length > _maxDingTalkToolFormattingCharacters) {
-      value = clipTextByCodeUnits(
-        value,
-        _maxDingTalkToolFormattingCharacters,
-        suffix: '…',
-      );
-    }
     if (value.isEmpty && raw is! String) {
       try {
         value = prettyPrintJson(raw);
       } catch (_) {
         value = '$raw';
       }
-    } else if (value.isNotEmpty) {
+    } else if (value.isNotEmpty &&
+        value.length <= _maxDingTalkToolFormattingCharacters) {
       try {
         value = prettyPrintJson(jsonDecode(value));
       } catch (_) {
         // 普通文本不是 JSON，直接保留。
       }
     }
-    return _boundedToolValue(value);
+    return value;
   }
 
-  String _boundedToolValue(Object? raw) {
+  String _boundedToolLabel(Object? raw) {
     final value = '$raw'.trim();
     return clipTextByCodeUnits(
       value,
-      _maxDingTalkToolCellCharacters,
+      _maxDingTalkToolLabelCharacters,
       suffix: '…',
     );
   }
@@ -4154,6 +4184,9 @@ ${_markdownStructuredTable(response)}''';
 
   String _markdownStructuredTable(String value) {
     final normalized = value.trim();
+    if (normalized.length > _maxDingTalkToolFormattingCharacters) {
+      return _markdownCodeBlock(normalized);
+    }
     try {
       final decoded = jsonDecode(normalized);
       if (decoded is Map) {
@@ -4203,12 +4236,22 @@ ${_markdownStructuredTable(response)}''';
         value = '$raw';
       }
     }
-    final normalized = clipTextByCodeUnits(
-      value.trim(),
-      _maxDingTalkToolCellCharacters,
-      suffix: '…',
-    ).replaceAll(RegExp(r'[\r\n]+'), ' ↵ ');
+    final normalized = value.trim().replaceAll(RegExp(r'[\r\n]+'), ' ↵ ');
     return normalized.isEmpty ? '—' : _markdownInlineText(normalized);
+  }
+
+  String _markdownCodeBlock(String value) {
+    final normalized = value.trim();
+    var fenceLength = 3;
+    for (final match in _markdownBacktickRunPattern.allMatches(normalized)) {
+      final runLength = match.end - match.start;
+      if (runLength >= fenceLength) fenceLength = runLength + 1;
+    }
+    final fence = ''.padLeft(fenceLength, '`');
+    final language = normalized.startsWith('{') || normalized.startsWith('[')
+        ? 'json'
+        : 'text';
+    return '$fence$language\n${normalized.isEmpty ? '—' : normalized}\n$fence';
   }
 
   int _toolDurationMilliseconds(AiSessionMessage call) {

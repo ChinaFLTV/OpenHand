@@ -362,10 +362,9 @@ class AppSettingsSnapshot {
     return _aiMessageCompressionThresholdCharsRange.normalize(value);
   }
 
-  /// 工具调用输出在压缩提示词中的字符上限。
-  /// 普通 conversation history 保留原文以稳定跨轮
-  /// prefix-cache；超过该上限的工具返回只在主动/被动压缩提示词中
-  /// 被压缩为结构化摘要，避免生成检查点时上下文爆窗。默认 1024 字符。
+  /// 工具调用输出在压缩检查点中的字符上限。
+  /// 普通会话历史保留原文；生成压缩检查点时，超过该上限的工具返回
+  /// 会转为结构化摘要，避免压缩请求超出上下文。默认 1024 字符。
   static const int defaultAiToolResultCompressionThresholdChars = 1024;
   static const int minAiToolResultCompressionThresholdChars = 256;
   static const int maxAiToolResultCompressionThresholdChars = 65536;

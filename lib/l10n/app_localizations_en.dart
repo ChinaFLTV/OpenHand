@@ -3274,7 +3274,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      'Controls whether long tool output is summarized in conversation history and compression checkpoints. Disabling it keeps raw output and can significantly increase context and cache cost.';
+      'Controls whether long tool output is summarized when creating compression checkpoints. Normal conversations always deliver complete results to the model; disabling this also keeps raw output in checkpoints and can increase compression cost.';
 
   @override
   String get aiMicroCompressionEnabledLabel => 'Micro-Compression';
@@ -5940,7 +5940,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      'Threshold used when tool results enter conversation history. Very large latest unconsumed results use a bounded preview; older consumed results over the threshold are condensed into structured summaries. Defaults to 1024.';
+      'Used only when creating compression checkpoints: historical tool results over this threshold become structured summaries. Normal conversations always deliver complete results to the model. Defaults to 1024.';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>

@@ -5762,7 +5762,7 @@ $content
     bool inlineSystemReminders = false,
   }) {
     if (!compressionConfig.enabled || !compressionConfig.summarizeResults) {
-      // 总开关关闭时直接返回原始内容，不作压缩。
+      // 普通会话始终交付完整工具结果；摘要只用于生成压缩检查点。
       return _promptContentForMessage(
         message,
         inlineSystemReminders: inlineSystemReminders,
@@ -6925,7 +6925,7 @@ class _ToolCompressionConfig {
         .clamp(0, 1 << 20);
     return _ToolCompressionConfig(
       enabled: runtimeContext.toolResultCompressionEnabled,
-      summarizeResults: runtimeContext.toolResultCompressionEnabled,
+      summarizeResults: false,
       thresholdChars: thresholdChars,
       headTailWindowChars: headTailWindowChars,
       maxPathHits: runtimeContext.toolResultCompressionMaxPathHits.clamp(
@@ -6936,11 +6936,7 @@ class _ToolCompressionConfig {
         0,
         1 << 20,
       ),
-      // Normal conversation history must be append-stable across turns.
-      // Rewriting an older tool result into [old_tool_result_cleared] after it
-      // has already appeared as [tool_result_summary] breaks provider prefix
-      // cache for every template. Keep micro-compression scoped to compression
-      // checkpoint prompts.
+      // 普通会话保持原文与追加稳定；微压缩仅用于压缩检查点。
       microCompressionEnabled: false,
     );
   }

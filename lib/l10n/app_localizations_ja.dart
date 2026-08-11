@@ -3205,7 +3205,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      '会話履歴と圧縮チェックポイントで長いツール出力を要約するかを制御します。無効にすると原文を保持し、コンテキストとキャッシュのコストが大きく増える可能性があります。';
+      '圧縮チェックポイントの作成時に長いツール出力を要約するかを制御します。通常の会話では常に完全な結果をモデルへ渡します。無効にするとチェックポイントでも原文を保持するため、圧縮コストが増える可能性があります。';
 
   @override
   String get aiMicroCompressionEnabledLabel => '微圧縮';
@@ -5791,7 +5791,7 @@ class AppLocalizationsJa extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '会話履歴に入るツール結果の要約しきい値です。未消費の最新の大きな結果は制限付きプレビューを使い、消費済みの古い結果はしきい値超過時に構造化サマリへ圧縮されます。既定値は 1024。';
+      '圧縮チェックポイントの作成時のみ使用します。このしきい値を超える過去のツール結果は構造化サマリになります。通常の会話では常に完全な結果をモデルへ渡します。既定値は 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>

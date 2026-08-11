@@ -3163,7 +3163,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      '控制对话历史与压缩检查点中是否摘要过长工具输出。关闭后保留原文，可能显著增加上下文与缓存成本。';
+      '控制生成压缩检查点时是否摘要过长工具输出。普通对话始终向模型交付完整结果；关闭后检查点也保留原文，可能增加压缩成本。';
 
   @override
   String get aiMicroCompressionEnabledLabel => '微压缩';
@@ -5709,7 +5709,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '工具结果进入对话历史时使用的摘要阈值。最新未消费的超大工具结果会使用有界预览；已消费的旧工具结果超过阈值后会压成结构化摘要。默认 1024。';
+      '仅用于生成压缩检查点：超过阈值的历史工具结果会转为结构化摘要。普通对话始终向模型交付完整结果。默认 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
@@ -13870,7 +13870,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiToolResultCompressionEnabledBody =>
-      '控制對話歷史與壓縮檢查點中是否摘要過長工具輸出。關閉後保留原文，可能顯著增加上下文與快取成本。';
+      '控制產生壓縮檢查點時是否摘要過長工具輸出。普通對話始終向模型交付完整結果；關閉後檢查點也保留原文，可能增加壓縮成本。';
 
   @override
   String get aiMicroCompressionEnabledLabel => '微壓縮';
@@ -16416,7 +16416,7 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get settingsWhenAToolCallReturnsMore =>
-      '工具結果進入對話歷史時使用的摘要閾值。最新未消費的超大工具結果會使用有界預覽；已消費的舊工具結果超過閾值後會壓成結構化摘要。預設 1024。';
+      '僅用於產生壓縮檢查點：超過閾值的歷史工具結果會轉為結構化摘要。普通對話始終向模型交付完整結果。預設 1024。';
 
   @override
   String get settingsDefaultsTo40IfOneAssistant =>
