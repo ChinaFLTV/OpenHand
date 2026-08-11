@@ -179,8 +179,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   _conversationHistoryStates = <String, _DingTalkConversationHistoryState>{};
   final Map<String, _ConversationReconcileFailure>
   _conversationReconcileFailures = <String, _ConversationReconcileFailure>{};
-  final Map<String, Future<void>> _conversationReconcileTasks =
-      <String, Future<void>>{};
+  final Map<String, Future<int?>> _conversationReconcileTasks =
+      <String, Future<int?>>{};
+  final Set<String> _conversationRefreshInFlight = <String>{};
   Timer? _pollTimer;
   StreamSubscription<DingTalkGatewayEvent>? _eventSubscription;
   Future<void>? _eventRestartFuture;
@@ -666,6 +667,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _responseErrors.remove(conversationId);
     _conversationHistoryStates.remove(conversationId);
     _conversationReconcileFailures.remove(conversationId);
+    _conversationRefreshInFlight.remove(conversationId);
     if (!_responseDraining.contains(conversationId) &&
         !_responseInFlight.contains(conversationId) &&
         !_responseQueues.containsKey(conversationId)) {
@@ -764,6 +766,39 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   bool isLoadingOlderConversationMessages(String conversationId) =>
       _conversationHistoryStates[conversationId.trim()]?.loading ?? false;
+
+  bool isRefreshingConversationMessages(String conversationId) =>
+      _conversationRefreshInFlight.contains(conversationId.trim());
+
+  Future<int?> refreshConversationMessages(String conversationId) async {
+    final normalizedId = conversationId.trim();
+    final conversation = _conversations[normalizedId];
+    if (conversation == null || _disposed) return null;
+    if (!isAuthorized || !_isPolling) {
+      _errorMessage = '钉钉消息监听尚未启动，无法刷新当前会话。';
+      _notify();
+      return null;
+    }
+    if (!_conversationRefreshInFlight.add(normalizedId)) return 0;
+    _clearError();
+    _notify();
+    try {
+      final addedCount = await _reconcileConversationNow(
+        conversation,
+        force: true,
+      );
+      if (addedCount != null) {
+        _nextConversationReconcileAt = DateTime.now().add(
+          _conversationReconcileInterval,
+        );
+        _clearError();
+      }
+      return addedCount;
+    } finally {
+      _conversationRefreshInFlight.remove(normalizedId);
+      _notify();
+    }
+  }
 
   Future<void> loadOlderConversationMessages(String conversationId) async {
     final normalizedId = conversationId.trim();
@@ -1833,80 +1868,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         final index = nextIndex++;
         if (index >= batch.length) return;
         final conversation = batch[index];
-        if (_conversationReconcileTasks.containsKey(conversation.id)) {
+        if (_conversationRefreshInFlight.contains(conversation.id) ||
+            _conversationReconcileTasks.containsKey(conversation.id)) {
           continue;
         }
         final failure = _conversationReconcileFailures[conversation.id];
         if (failure != null && DateTime.now().isBefore(failure.retryAt)) {
           continue;
         }
-        try {
-          final page = await _queryRecentConversation(conversation);
-          if (_disposed || !_isPolling) return;
-          if (!identical(_conversations[conversation.id], conversation)) {
-            continue;
-          }
-          _conversationReconcileFailures.remove(conversation.id);
-          final state = _conversationHistoryStates.putIfAbsent(
-            conversation.id,
-            _DingTalkConversationHistoryState.new,
-          );
-          state
-            ..hasMore = page.hasMore
-            ..initialized = true;
-          _ingestReconciledMessages(conversation, page.messages);
-        } catch (error, stack) {
-          if (_disposed || !_isPolling) return;
-          if (!identical(_conversations[conversation.id], conversation)) {
-            continue;
-          }
-          final now = DateTime.now();
-          final previous = _conversationReconcileFailures[conversation.id];
-          final failureCount = math.min(
-            (previous?.failureCount ?? 0) + 1,
-            _maxConversationReconcileFailureCount,
-          );
-          final commandError = error is DingTalkGatewayCommandException
-              ? error
-              : null;
-          final retryAfterSeconds = commandError?.retryAfterSeconds;
-          final exponentialSeconds = math.min(
-            _conversationReconcileInitialBackoff.inSeconds *
-                (1 << (failureCount - 1)),
-            _conversationReconcileMaxBackoff.inSeconds,
-          );
-          final backoffSeconds =
-              retryAfterSeconds != null && retryAfterSeconds > 0
-              ? retryAfterSeconds
-                    .clamp(
-                      _conversationReconcileInitialBackoff.inSeconds,
-                      _conversationReconcileMaxBackoff.inSeconds,
-                    )
-                    .toInt()
-              : commandError != null && !commandError.isRetryable
-              ? _conversationReconcileMaxBackoff.inSeconds
-              : exponentialSeconds;
-          final errorKey = commandError == null
-              ? '${error.runtimeType}:$error'
-              : '${commandError.reason}:${commandError.serverCode}:'
-                    '${commandError.operation}:${commandError.message}';
-          final shouldLog =
-              commandError == null &&
-              (previous == null ||
-                  previous.errorKey != errorKey ||
-                  now.difference(previous.lastLoggedAt) >=
-                      _conversationReconcileLogInterval);
-          _conversationReconcileFailures[conversation.id] =
-              _ConversationReconcileFailure(
-                failureCount: failureCount,
-                retryAt: now.add(Duration(seconds: backoffSeconds)),
-                errorKey: errorKey,
-                lastLoggedAt: shouldLog ? now : previous?.lastLoggedAt ?? now,
-              );
-          if (shouldLog) {
-            silentLog('dingtalk_gateway', '对账钉钉会话消息', error, stack);
-          }
-        }
+        await _reconcileConversationNow(conversation);
       }
     }
 
@@ -2589,12 +2559,30 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
   }
 
-  Future<void> _reconcileConversationNow(DingTalkConversation conversation) {
+  Future<int?> _reconcileConversationNow(
+    DingTalkConversation conversation, {
+    bool force = false,
+  }) async {
+    if (_disposed || !_isPolling) return null;
+    if (force) {
+      final active = _conversationReconcileTasks[conversation.id];
+      if (active != null) {
+        await active;
+        if (identical(_conversationReconcileTasks[conversation.id], active)) {
+          _conversationReconcileTasks.remove(conversation.id);
+        }
+      }
+      if (_disposed ||
+          !_isPolling ||
+          !identical(_conversations[conversation.id], conversation)) {
+        return null;
+      }
+    }
     final active = _conversationReconcileTasks[conversation.id];
     if (active != null) return active;
     final failure = _conversationReconcileFailures[conversation.id];
-    if (failure != null && DateTime.now().isBefore(failure.retryAt)) {
-      return Future<void>.value();
+    if (!force && failure != null && DateTime.now().isBefore(failure.retryAt)) {
+      return null;
     }
     final task = () async {
       try {
@@ -2602,7 +2590,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         if (_disposed ||
             !_isPolling ||
             !identical(_conversations[conversation.id], conversation)) {
-          return;
+          return null;
         }
         _conversationReconcileFailures.remove(conversation.id);
         final state = _conversationHistoryStates.putIfAbsent(
@@ -2612,38 +2600,68 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         state
           ..hasMore = page.hasMore
           ..initialized = true;
-        _ingestReconciledMessages(conversation, page.messages);
+        return _ingestReconciledMessages(conversation, page.messages);
       } catch (error, stack) {
-        if (_disposed || !_isPolling) return;
+        if (_disposed || !_isPolling) return null;
         final now = DateTime.now();
         final previous = _conversationReconcileFailures[conversation.id];
-        final errorKey = '${error.runtimeType}:$error';
+        final failureCount = math.min(
+          (previous?.failureCount ?? 0) + 1,
+          _maxConversationReconcileFailureCount,
+        );
+        final commandError = error is DingTalkGatewayCommandException
+            ? error
+            : null;
+        final retryAfterSeconds = commandError?.retryAfterSeconds;
+        final exponentialSeconds = math.min(
+          _conversationReconcileInitialBackoff.inSeconds *
+              (1 << (failureCount - 1)),
+          _conversationReconcileMaxBackoff.inSeconds,
+        );
+        final backoffSeconds =
+            retryAfterSeconds != null && retryAfterSeconds > 0
+            ? retryAfterSeconds
+                  .clamp(
+                    _conversationReconcileInitialBackoff.inSeconds,
+                    _conversationReconcileMaxBackoff.inSeconds,
+                  )
+                  .toInt()
+            : commandError != null && !commandError.isRetryable
+            ? _conversationReconcileMaxBackoff.inSeconds
+            : exponentialSeconds;
+        final errorKey = commandError == null
+            ? '${error.runtimeType}:$error'
+            : '${commandError.reason}:${commandError.serverCode}:'
+                  '${commandError.operation}:${commandError.message}';
         final shouldLog =
-            previous == null ||
-            previous.errorKey != errorKey ||
-            now.difference(previous.lastLoggedAt) >=
-                _conversationReconcileLogInterval;
+            commandError == null &&
+            (previous == null ||
+                previous.errorKey != errorKey ||
+                now.difference(previous.lastLoggedAt) >=
+                    _conversationReconcileLogInterval);
         _conversationReconcileFailures[conversation.id] =
             _ConversationReconcileFailure(
-              failureCount: math.min(
-                (previous?.failureCount ?? 0) + 1,
-                _maxConversationReconcileFailureCount,
-              ),
-              retryAt: now.add(_conversationReconcileInitialBackoff),
+              failureCount: failureCount,
+              retryAt: now.add(Duration(seconds: backoffSeconds)),
               errorKey: errorKey,
-              lastLoggedAt: shouldLog ? now : previous.lastLoggedAt,
+              lastLoggedAt: shouldLog ? now : previous?.lastLoggedAt ?? now,
             );
-        if (shouldLog) {
-          silentLog('dingtalk_gateway', '事件触发钉钉会话对账', error, stack);
+        if (force) {
+          _setError('刷新当前钉钉会话', error, stack);
+        } else if (shouldLog) {
+          silentLog('dingtalk_gateway', '对账钉钉会话消息', error, stack);
         }
+        return null;
       }
     }();
     _conversationReconcileTasks[conversation.id] = task;
-    return task.whenComplete(() {
+    try {
+      return await task;
+    } finally {
       if (identical(_conversationReconcileTasks[conversation.id], task)) {
         _conversationReconcileTasks.remove(conversation.id);
       }
-    });
+    }
   }
 
   int _ingestReconciledMessages(
@@ -4131,6 +4149,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _pendingStatusEvents.clear();
     _conversationReconcileFailures.clear();
     _conversationHistoryStates.clear();
+    _conversationRefreshInFlight.clear();
     _mediaHydrationFailures.clear();
     await _stopEventListening();
     final eventRestart = _eventRestartFuture;

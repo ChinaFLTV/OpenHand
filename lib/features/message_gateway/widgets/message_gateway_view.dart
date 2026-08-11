@@ -12203,6 +12203,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         final selectedLoadingOlderMessages =
             selected != null &&
             widget.controller.isLoadingOlderConversationMessages(selected.id);
+        final selectedRefreshing =
+            selected != null &&
+            widget.controller.isRefreshingConversationMessages(selected.id);
         _scheduleAutoFollow();
         return SizedBox(
           width: double.infinity,
@@ -12268,6 +12271,42 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                               : Icons.play_arrow_rounded,
                           key: ValueKey<bool>(_autoFollow),
                         ),
+                      ),
+                    ),
+                    const SizedBox(width: 8),
+                    IconButton.filledTonal(
+                      tooltip: selected == null
+                          ? '请先选择需要刷新的会话'
+                          : selectedRefreshing
+                          ? '正在刷新当前会话'
+                          : '强制刷新当前会话最新消息',
+                      onPressed: selected == null || selectedRefreshing
+                          ? null
+                          : () => unawaited(
+                              _refreshCurrentConversation(selected),
+                            ),
+                      icon: AnimatedSwitcher(
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion180,
+                        ),
+                        child: selectedRefreshing
+                            ? const SizedBox(
+                                key: ValueKey<String>(
+                                  'dingtalk-conversation-refreshing',
+                                ),
+                                width: 19,
+                                height: 19,
+                                child: CircularProgressIndicator(
+                                  strokeWidth: 2.2,
+                                ),
+                              )
+                            : const Icon(
+                                Icons.refresh_rounded,
+                                key: ValueKey<String>(
+                                  'dingtalk-conversation-refresh',
+                                ),
+                              ),
                       ),
                     ),
                     const SizedBox(width: 8),
@@ -13314,6 +13353,27 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         silentLog('message_gateway', '关闭钉钉消息弹窗', error, stack);
       }
     });
+  }
+
+  Future<void> _refreshCurrentConversation(
+    DingTalkConversation conversation,
+  ) async {
+    final addedCount = await widget.controller.refreshConversationMessages(
+      conversation.id,
+    );
+    if (!mounted || _selectedId != conversation.id) return;
+    if (addedCount == null) {
+      showOpenHandErrorSnack(
+        context,
+        widget.controller.errorMessage ?? '刷新当前钉钉会话失败，请稍后重试。',
+      );
+      return;
+    }
+    showOpenHandInfoSnack(
+      context,
+      addedCount > 0 ? '已同步 $addedCount 条最新消息' : '当前会话已刷新',
+    );
+    _scheduleAutoFollow();
   }
 
   void _handleControllerChanged() {
