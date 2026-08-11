@@ -4051,21 +4051,22 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         : durationMs >= 1000
         ? '${(durationMs / 1000).toStringAsFixed(2)} 秒'
         : '$durationMs 毫秒';
+    final summary = _markdownTable(<(String, Object?)>[
+      ('状态', statusLabel),
+      ('耗时', durationLabel),
+      ('工具调用 ID', toolCallId),
+    ]);
     return '''### 工具调用 · ${_markdownInlineText(toolName)}
 
-**状态：** $statusLabel　　**耗时：** $durationLabel
+$summary
 
-**工具调用 ID**
+#### 工具参数
 
-`${_markdownInlineCode(toolCallId)}`
+${_markdownStructuredTable(arguments)}
 
-**工具参数**
+#### 工具响应
 
-${_markdownCodeBlock(arguments, language: 'json')}
-
-**工具响应结果**
-
-${_markdownCodeBlock(response)}''';
+${_markdownStructuredTable(response)}''';
   }
 
   AiSessionMessage? _matchingToolResult(
@@ -4151,12 +4152,63 @@ ${_markdownCodeBlock(response)}''';
       )
       .trim();
 
-  String _markdownInlineCode(String value) =>
-      value.replaceAll('`', 'ˋ').replaceAll(RegExp(r'[\r\n]+'), ' ').trim();
+  String _markdownStructuredTable(String value) {
+    final normalized = value.trim();
+    try {
+      final decoded = jsonDecode(normalized);
+      if (decoded is Map) {
+        final rows = decoded.entries
+            .map<(String, Object?)>((entry) => ('${entry.key}', entry.value))
+            .toList(growable: false);
+        return _markdownTable(
+          rows.isEmpty ? const <(String, Object?)>[('内容', '—')] : rows,
+        );
+      }
+      if (decoded is List) {
+        final rows = List<(String, Object?)>.generate(
+          decoded.length,
+          (index) => ('#${index + 1}', decoded[index]),
+          growable: false,
+        );
+        return _markdownTable(
+          rows.isEmpty ? const <(String, Object?)>[('内容', '[]')] : rows,
+        );
+      }
+    } catch (_) {
+      // 非 JSON 结果按单行内容展示。
+    }
+    return _markdownTable(<(String, Object?)>[
+      ('内容', normalized.isEmpty ? '—' : normalized),
+    ]);
+  }
 
-  String _markdownCodeBlock(String value, {String language = 'text'}) {
-    final safe = value.replaceAll('```', 'ˋˋˋ').trim();
-    return '```$language\n${safe.isEmpty ? '—' : safe}\n```';
+  String _markdownTable(List<(String, Object?)> rows) {
+    final body = rows
+        .map(
+          (row) =>
+              '| **${_markdownInlineText(row.$1)}** | ${_markdownTableCell(row.$2)} |',
+        )
+        .join('\n');
+    return '| 字段 | 内容 |\n| :--- | :--- |\n$body';
+  }
+
+  String _markdownTableCell(Object? raw) {
+    String value;
+    if (raw is String) {
+      value = raw;
+    } else {
+      try {
+        value = jsonEncode(raw);
+      } catch (_) {
+        value = '$raw';
+      }
+    }
+    final normalized = clipTextByCodeUnits(
+      value.trim(),
+      _maxDingTalkToolCellCharacters,
+      suffix: '…',
+    ).replaceAll(RegExp(r'[\r\n]+'), ' ↵ ');
+    return normalized.isEmpty ? '—' : _markdownInlineText(normalized);
   }
 
   int _toolDurationMilliseconds(AiSessionMessage call) {

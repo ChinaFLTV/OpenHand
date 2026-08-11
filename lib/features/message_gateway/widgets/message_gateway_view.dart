@@ -15903,7 +15903,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               key: const ValueKey<String>('dingtalk-long-message-expanded'),
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
-                if (streaming)
+                if (streaming && !widget.message.isToolCallEcho)
                   StreamingTextRevealText(
                     text: content,
                     streaming: true,
@@ -15927,7 +15927,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     bodyStyle: bodyStyle,
                     foreground: foreground,
                     canCollapse: canCollapse,
-                    streaming: false,
+                    streaming: streaming,
                   ),
                 if (streaming) _DingTalkStreamingDots(color: foreground),
                 if (canCollapse)
@@ -16002,25 +16002,38 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           color: foreground,
           fontWeight: FontWeight.w800,
         ),
+        h3Padding: const EdgeInsets.only(bottom: 2),
+        h4: theme.textTheme.labelLarge?.copyWith(
+          color: foreground.withValues(alpha: 0.86),
+          fontWeight: FontWeight.w800,
+        ),
+        h4Padding: const EdgeInsets.only(top: 8, bottom: 2),
+        blockSpacing: 10,
         code: theme.textTheme.bodySmall?.copyWith(
           color: foreground,
           fontFamily: kOpenHandMonospaceFontFamily,
           fontWeight: FontWeight.w600,
         ),
-        tableHead: bodyStyle?.copyWith(fontWeight: FontWeight.w800),
+        tableHead: theme.textTheme.labelMedium?.copyWith(
+          color: foreground,
+          fontWeight: FontWeight.w800,
+        ),
         tableBody: bodyStyle?.copyWith(fontSize: 13, height: 1.42),
         tableBorder: TableBorder.all(
-          color: theme.colorScheme.outlineVariant,
+          color: theme.colorScheme.outlineVariant.withValues(alpha: 0.82),
+          width: 0.8,
           borderRadius: BorderRadius.circular(10),
         ),
-        tablePadding: const EdgeInsets.symmetric(vertical: 4),
-        tableCellsPadding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+        tableHeadAlign: TextAlign.left,
+        tableVerticalAlignment: TableCellVerticalAlignment.middle,
+        tablePadding: const EdgeInsets.symmetric(vertical: 3),
+        tableCellsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         tableCellsDecoration: BoxDecoration(
-          color: theme.colorScheme.surface.withValues(alpha: 0.32),
+          color: theme.colorScheme.surface.withValues(alpha: 0.38),
         ),
-        tableHeadCellsPadding: const EdgeInsets.fromLTRB(12, 9, 12, 9),
+        tableHeadCellsPadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
         tableHeadCellsDecoration: BoxDecoration(
-          color: theme.colorScheme.surface.withValues(alpha: 0.68),
+          color: theme.colorScheme.surface.withValues(alpha: 0.74),
         ),
         tableColumnWidth: const IntrinsicColumnWidth(),
         tableScrollbarThumbVisibility: true,
