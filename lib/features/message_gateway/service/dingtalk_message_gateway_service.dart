@@ -125,6 +125,18 @@ class DingTalkGatewayCommandException implements Exception {
         normalized.contains('mcp backend dependency temporarily unavailable');
   }
 
+  bool get isMessageEditLimitReached {
+    final normalized = message.toLowerCase();
+    final normalizedOperation = operation?.trim().toLowerCase() ?? '';
+    final editOperation =
+        normalizedOperation == 'im/edit_message' ||
+        normalized.contains('im/edit_message');
+    return editOperation &&
+        (message.contains('编辑次数已达上限') ||
+            normalized.contains('message edit limit reached') ||
+            normalized.contains('maximum number of edits'));
+  }
+
   bool get isRetryable =>
       retryable ||
       reason?.trim().toLowerCase() == 'timeout' ||

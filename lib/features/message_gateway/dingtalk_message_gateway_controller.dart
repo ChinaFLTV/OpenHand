@@ -4815,8 +4815,15 @@ class _DingTalkEchoCoordinator {
        _onError = onError;
 
   static const Duration _initialStreamDelay = Duration(milliseconds: 180);
-  // 编辑节流兼顾钉钉接口频控与流式观感；本地气泡由渐显动画补足帧间平滑。
-  static const Duration _editInterval = Duration(seconds: 1);
+  // 钉钉单条消息最多编辑 99 次。流式阶段固定两秒更新一次，并为终态收敛
+  // 与平台侧计数偏差保留余量，确保最终正文仍能完整追平。
+  static const Duration _editInterval = Duration(seconds: 2);
+  static const int _messageEditLimit = 99;
+  static const int _editSafetyReserve = 12;
+  static const int _finalEditReserve = 3;
+  static const int _maxRemoteEditCount = _messageEditLimit - _editSafetyReserve;
+  static const int _maxStreamingRemoteEditCount =
+      _maxRemoteEditCount - _finalEditReserve;
   static const int _maxTrackedMessages = 96;
   static const int _maxRemoteIdResolveAttempts = 3;
 
@@ -4843,7 +4850,7 @@ class _DingTalkEchoCoordinator {
   Future<void>? _activeDrain;
   bool _disposed = false;
 
-  void ingest(AiSession session) {
+  void ingest(AiSession session, {bool finalizing = false}) {
     if (_disposed || _isCancelled() || _selectedTypes.isEmpty) return;
     final roundStartIndex = session.messages.lastIndexWhere(
       (message) =>
@@ -4882,7 +4889,7 @@ class _DingTalkEchoCoordinator {
         }
         continue;
       }
-      final readyAt = terminal
+      final readyAt = finalizing
           ? now
           : queued?.readyAt ??
                 _nextReadyAt(
@@ -4897,6 +4904,7 @@ class _DingTalkEchoCoordinator {
         type: type,
         text: text,
         terminal: terminal,
+        finalizing: finalizing,
         readyAt: readyAt,
       );
     }
@@ -4907,7 +4915,7 @@ class _DingTalkEchoCoordinator {
   /// 轮次收敛：按会话最终状态做最后一次采集，确保终态文本在 flush 前入队。
   void complete(AiSession session) {
     if (_disposed || _isCancelled()) return;
-    ingest(session);
+    ingest(session, finalizing: true);
   }
 
   DateTime _nextReadyAt({
@@ -5009,6 +5017,21 @@ class _DingTalkEchoCoordinator {
       _settle(sourceId, state, pending);
       return;
     }
+    final remoteEditBudgetExhausted =
+        state.sent &&
+        (state.successfulRemoteEditCount >= _maxRemoteEditCount ||
+            !pending.finalizing &&
+                state.successfulRemoteEditCount >=
+                    _maxStreamingRemoteEditCount);
+    if (state.remoteEditingDisabled || remoteEditBudgetExhausted) {
+      _syncLocal(sourceId, pending.text);
+      state.lastMutationAt = DateTime.now();
+      if (state.remoteEditingDisabled || pending.finalizing) {
+        state.lastText = pending.text;
+      }
+      _settle(sourceId, state, pending);
+      return;
+    }
     try {
       if (_disposed || _isCancelled()) return;
       if (!state.sent) {
@@ -5042,6 +5065,7 @@ class _DingTalkEchoCoordinator {
         }
         await _edit(sourceId, messageId, pending.text);
         if (_disposed || _isCancelled()) return;
+        state.successfulRemoteEditCount++;
       }
       state.lastText = pending.text;
       state.lastMutationAt = DateTime.now();
@@ -5049,6 +5073,19 @@ class _DingTalkEchoCoordinator {
     } catch (error, stack) {
       if (_disposed || _isCancelled()) return;
       state.lastMutationAt = DateTime.now();
+      final commandError = error is DingTalkGatewayCommandException
+          ? error
+          : null;
+      if (state.sent && commandError != null && !commandError.isRetryable) {
+        state.remoteEditingDisabled = true;
+        state.lastText = pending.text;
+        _syncLocal(sourceId, pending.text);
+        _settle(sourceId, state, pending);
+        if (!commandError.isMessageEditLimitReached) {
+          _onError('编辑钉钉 AI 回显消息', error, stack, notifyUser: false);
+        }
+        return;
+      }
       // 编辑失败无需打扰用户：后续增量会以全量文本自动追平。
       _onError(
         state.sent ? '编辑钉钉 AI 回显消息' : '发送钉钉 AI 回显消息',
@@ -5127,6 +5164,7 @@ class _PendingDingTalkEcho {
     required this.type,
     required this.text,
     required this.terminal,
+    required this.finalizing,
     required this.readyAt,
   });
 
@@ -5134,6 +5172,7 @@ class _PendingDingTalkEcho {
   final DingTalkResponseEchoType type;
   final String text;
   final bool terminal;
+  final bool finalizing;
   final DateTime readyAt;
 
   _PendingDingTalkEcho copyWith({DateTime? readyAt}) {
@@ -5142,6 +5181,7 @@ class _PendingDingTalkEcho {
       type: type,
       text: text,
       terminal: terminal,
+      finalizing: finalizing,
       readyAt: readyAt ?? this.readyAt,
     );
   }
@@ -5156,6 +5196,8 @@ class _DingTalkEchoDeliveryState {
   String lastText = '';
   DateTime lastMutationAt = DateTime.fromMillisecondsSinceEpoch(0);
   int remoteIdResolveAttempts = 0;
+  int successfulRemoteEditCount = 0;
   bool sent = false;
   bool finished = false;
+  bool remoteEditingDisabled = false;
 }
