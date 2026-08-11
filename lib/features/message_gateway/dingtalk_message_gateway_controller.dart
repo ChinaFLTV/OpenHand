@@ -172,6 +172,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       <String, Queue<_QueuedDingTalkResponse>>{};
   final Set<String> _responseDraining = <String>{};
   final Set<String> _seenMessageIds = <String>{};
+  final Set<String> _unresolvedOutgoingMessageIds = <String>{};
   final Set<String> _selfSenderIds = <String>{};
   final Set<String> _pendingRecalledMessageIds = <String>{};
   final Map<String, List<DingTalkGatewayEvent>> _pendingStatusEvents =
@@ -1363,6 +1364,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _conversationReconcileFailures.clear();
     _pendingRecalledMessageIds.clear();
     _pendingStatusEvents.clear();
+    _unresolvedOutgoingMessageIds.clear();
     _notify();
     await _stopEventListening();
   }
@@ -1462,6 +1464,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           kind: DingTalkMediaKindX.fromFileName(name),
           sizeBytes: entry.stat.size,
         );
+        _rememberUnresolvedOutgoingMessage(localMessage.id);
         _appendMessage(conversation, localMessage);
         _notify();
         final sent = await _service.sendFileWithDetails(
@@ -1488,12 +1491,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           senderId: _authStatus.identity.userId,
           fromSelf: true,
         );
+        _rememberUnresolvedOutgoingMessage(localMessage.id);
         _appendMessage(conversation, localMessage);
         _notify();
-        final sent = await _service.sendWithDetails(
+        final sentAt = localMessage.createdAt;
+        final sent = await _sendDingTalkTextWithResolvedId(
           conversation: conversation,
           text: content,
           uuid: _uuid.v4(),
+          createdAt: sentAt,
+          senderName: localMessage.senderName,
         );
         _rememberRemoteConversationId(conversation, sent?.conversationId);
         lastSentMessage = _bindSentMessageId(
@@ -1575,6 +1582,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     _isSending = true;
     final responseVersion = _responseCancellationVersions[conversation.id] ?? 0;
+    _rememberUnresolvedOutgoingMessage(message.id);
     _appendMessage(conversation, message);
     _notify();
     try {
@@ -1791,7 +1799,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final outgoing = outgoingIndex >= 0
         ? conversation.messages[outgoingIndex]
         : localMessage;
-    if (id.isEmpty || id == outgoing.id) return outgoing;
+    if (id.isEmpty) {
+      if (outgoingIndex >= 0) return outgoing;
+      for (final candidate in conversation.messages) {
+        if (candidate.fromSelf &&
+            candidate.role == localMessage.role &&
+            candidate.createdAt == localMessage.createdAt &&
+            candidate.content.trim() == localMessage.content.trim()) {
+          return candidate;
+        }
+      }
+      return outgoing;
+    }
+    _unresolvedOutgoingMessageIds.remove(outgoing.id);
+    if (id == outgoing.id) return outgoing;
     final remoteIndex = conversation.messages.indexWhere(
       (message) => message.id == id && message.id != outgoing.id,
     );
@@ -2061,7 +2082,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final local = entry.value;
       if (!local.fromSelf ||
           local.id == incomingId ||
-          local.role != DingTalkGatewayMessageRole.user ||
           local.conversationType != incoming.conversationType) {
         continue;
       }
@@ -2071,7 +2091,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           incomingSenderName.isNotEmpty &&
           localSenderName.isNotEmpty &&
           _sameIdentityName(incomingSenderName, localSenderName);
+      final unresolvedOutgoing = _unresolvedOutgoingMessageIds.contains(
+        local.id,
+      );
       if (!incomingIsSelf &&
+          !local.isAssistant &&
+          !unresolvedOutgoing &&
           (directPeerIds.contains(incomingSenderId) ||
               (incomingSenderId.isNotEmpty &&
                   localSenderId.isNotEmpty &&
@@ -2110,6 +2135,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     if (refreshedIndex < 0) return false;
     conversation.messages[refreshedIndex] = merged;
+    _unresolvedOutgoingMessageIds.remove(local.id);
     if (incomingSenderId.isNotEmpty) _selfSenderIds.add(incomingSenderId);
     _remember(incomingId);
     _queuePersist();
@@ -3332,6 +3358,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
 
       _sessionController.addListener(onSessionChanged);
+      var aiRequestSucceeded = false;
       try {
         final requireWriteConfirmation =
             AiPromptTemplatePolicies.requiresWriteCommandConfirmation(
@@ -3386,6 +3413,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           }
           return;
         }
+        aiRequestSucceeded = true;
         if (_isResponseCancelled(conversation.id, responseVersion)) return;
         if (sourceMessageId.trim().isNotEmpty &&
             identical(_conversations[conversation.id], conversation)) {
@@ -3394,9 +3422,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         }
       } finally {
         _sessionController.removeListener(onSessionChanged);
-        if (!_isResponseCancelled(conversation.id, responseVersion)) {
+        if (!_isResponseCancelled(conversation.id, responseVersion) &&
+            aiRequestSucceeded) {
           final session = currentSession();
-          if (session != null) echoCoordinator.ingest(session);
+          if (session != null) echoCoordinator.complete(session);
           try {
             await echoCoordinator.flush().timeout(const Duration(seconds: 45));
           } on TimeoutException {
@@ -3635,7 +3664,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         .any(
           (item) =>
               !item.isDeleted &&
-              (item.kind == AiSessionMessageKind.toolCall ||
+              (item.kind == AiSessionMessageKind.assistant ||
+                  item.kind == AiSessionMessageKind.toolCall ||
                   item.kind == AiSessionMessageKind.hook),
         );
   }
@@ -3656,43 +3686,105 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       suffix: '\n\n…内容已截断',
     );
     if (normalized.isEmpty) return null;
-    final sent = await _service
-        .sendWithDetails(
-          conversation: conversation,
-          text: normalized,
-          uuid: uuid,
-        )
-        .timeout(const Duration(seconds: 30));
-    _rememberRemoteConversationId(conversation, sent?.conversationId);
-    final remoteMessageId = sent?.messageId;
+    final sentAt = DateTime.now();
+    final senderName = _authStatus.identity.label.trim();
+    final localMessage = DingTalkGatewayMessage(
+      id: 'assistant-${source.id}',
+      conversationId: conversation.id,
+      conversationType: conversation.type,
+      role: DingTalkGatewayMessageRole.assistant,
+      content: normalized,
+      createdAt: sentAt,
+      senderName: senderName,
+      senderId: _authStatus.identity.userId,
+      fromSelf: true,
+      sourceAiMessageId: source.id,
+      feedback: switch (source.feedback) {
+        AiSessionMessageFeedback.liked => DingTalkGatewayMessageFeedback.liked,
+        AiSessionMessageFeedback.needsImprovement =>
+          DingTalkGatewayMessageFeedback.needsImprovement,
+        null => null,
+      },
+    );
+    _rememberUnresolvedOutgoingMessage(localMessage.id);
+    _appendMessage(conversation, localMessage);
+    _notify();
+    DingTalkSentMessage? sent;
+    try {
+      sent = await _sendDingTalkTextWithResolvedId(
+        conversation: conversation,
+        text: normalized,
+        uuid: uuid,
+        createdAt: sentAt,
+        senderName: senderName,
+        resolveId: false,
+      );
+    } catch (_) {
+      conversation.messages.removeWhere(
+        (message) => message.id == localMessage.id,
+      );
+      _unresolvedOutgoingMessageIds.remove(localMessage.id);
+      rethrow;
+    }
     if (_disposed ||
         !identical(_conversations[conversation.id], conversation)) {
       return null;
     }
-    final sentId = remoteMessageId?.trim() ?? '';
-    final messageId = sentId.isEmpty ? 'assistant-${source.id}' : sentId;
-    if (sentId.isNotEmpty) _remember(sentId);
-    _appendMessage(
-      conversation,
-      DingTalkGatewayMessage(
-        id: messageId,
-        conversationId: conversation.id,
-        conversationType: conversation.type,
-        role: DingTalkGatewayMessageRole.assistant,
-        content: normalized,
-        createdAt: source.createdAt,
-        sourceAiMessageId: source.id,
-        feedback: switch (source.feedback) {
-          AiSessionMessageFeedback.liked =>
-            DingTalkGatewayMessageFeedback.liked,
-          AiSessionMessageFeedback.needsImprovement =>
-            DingTalkGatewayMessageFeedback.needsImprovement,
-          null => null,
-        },
-      ),
-    );
+    _rememberRemoteConversationId(conversation, sent?.conversationId);
+    final sentId = sent?.messageId?.trim() ?? '';
+    _bindSentMessageId(conversation, localMessage, sentId);
     _notify();
     return sentId.isEmpty ? null : sentId;
+  }
+
+  Future<DingTalkSentMessage?> _sendDingTalkTextWithResolvedId({
+    required DingTalkConversation conversation,
+    required String text,
+    required String uuid,
+    required DateTime createdAt,
+    required String senderName,
+    bool resolveId = true,
+  }) async {
+    final sent = await _service
+        .sendWithDetails(conversation: conversation, text: text, uuid: uuid)
+        .timeout(const Duration(seconds: 30));
+    if (!resolveId) return sent;
+    return _resolveDingTalkSentMessageIdIfMissing(
+      conversation: conversation,
+      content: text,
+      createdAt: createdAt,
+      senderName: senderName,
+      sent: sent,
+    );
+  }
+
+  Future<DingTalkSentMessage?> _resolveDingTalkSentMessageIdIfMissing({
+    required DingTalkConversation conversation,
+    required String content,
+    required DateTime createdAt,
+    required String senderName,
+    required DingTalkSentMessage? sent,
+  }) async {
+    if (sent?.messageId?.trim().isNotEmpty == true) return sent;
+    try {
+      final resolved = await _service
+          .resolveRecentSentMessage(
+            conversation: conversation,
+            content: content,
+            createdAt: createdAt,
+            senderName: senderName,
+          )
+          .timeout(const Duration(seconds: 9));
+      if (resolved?.messageId?.trim().isNotEmpty == true) {
+        return DingTalkSentMessage(
+          messageId: resolved!.messageId,
+          conversationId: sent?.conversationId ?? resolved.conversationId,
+        );
+      }
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '补齐钉钉已发送消息标识', error, stack);
+    }
+    return sent;
   }
 
   Future<void> _editDingTalkEcho({
@@ -4242,6 +4334,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
   }
 
+  void _rememberUnresolvedOutgoingMessage(String id) {
+    final normalized = id.trim();
+    if (normalized.isEmpty) return;
+    _unresolvedOutgoingMessageIds.add(normalized);
+    while (_unresolvedOutgoingMessageIds.length > 256) {
+      _unresolvedOutgoingMessageIds.remove(_unresolvedOutgoingMessageIds.first);
+    }
+  }
+
   void _setError(String action, Object error, StackTrace stack) {
     _errorMessage = '$action失败：$error';
     silentLog('dingtalk_gateway', action, error, stack);
@@ -4448,7 +4549,7 @@ typedef _DingTalkEchoErrorHandler =
     void Function(String action, Object error, StackTrace stack);
 typedef _DingTalkEchoCancellationChecker = bool Function();
 
-/// 单轮钉钉 AI 回显协调器：首次发送后只编辑同一条消息，并合并高频流式增量。
+/// 单轮钉钉 AI 回显协调器：过程消息复用同一条消息，最终回复在请求成功后一次性发送。
 class _DingTalkEchoCoordinator {
   _DingTalkEchoCoordinator({
     required Set<String> baselineMessageIds,
@@ -4494,6 +4595,7 @@ class _DingTalkEchoCoordinator {
   DateTime? _scheduledAt;
   Future<void>? _activeDrain;
   bool _disposed = false;
+  bool _roundCompleted = false;
 
   void ingest(AiSession session) {
     if (_disposed || _isCancelled() || _selectedTypes.isEmpty) return;
@@ -4507,6 +4609,8 @@ class _DingTalkEchoCoordinator {
       // 仍沿用首次解析结果；已发送消息保持原卡片生命周期不变。
       final type = state?.type ?? resolvedType ?? queued?.type;
       if (type == null ||
+          (type == DingTalkResponseEchoType.finalResponse &&
+              !_roundCompleted) ||
           (state == null && queued == null && !_selectedTypes.contains(type))) {
         continue;
       }
@@ -4541,6 +4645,12 @@ class _DingTalkEchoCoordinator {
     }
     _trimPending();
     _schedule();
+  }
+
+  void complete(AiSession session) {
+    if (_disposed || _isCancelled()) return;
+    _roundCompleted = true;
+    ingest(session);
   }
 
   DateTime _nextReadyAt({
