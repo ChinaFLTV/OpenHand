@@ -15814,37 +15814,93 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
 
   Widget _buildReactionRow(BuildContext context, Color foreground) {
     final theme = Theme.of(context);
-    final colors = Theme.of(context).colorScheme;
+    final colors = theme.colorScheme;
+    final reactions = widget.message.reactions;
+    final motionDuration = openHandMotionDuration(context, kOpenHandMotion220);
+    final chipDuration = openHandMotionDuration(context, kOpenHandMotion180);
+    final containerColors = <Color>[
+      colors.primaryContainer,
+      colors.secondaryContainer,
+      colors.tertiaryContainer,
+    ];
     return Padding(
       padding: const EdgeInsets.only(top: 8),
-      child: Wrap(
-        spacing: 6,
-        runSpacing: 4,
-        children: [
-          for (final reaction in widget.message.reactions)
-            DecoratedBox(
-              decoration: BoxDecoration(
-                color: colors.surface.withValues(alpha: 0.48),
-                borderRadius: BorderRadius.circular(10),
-                border: Border.all(
-                  color: colors.outlineVariant.withValues(alpha: 0.58),
-                ),
-              ),
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-                child: Text(
-                  reaction,
-                  maxLines: 1,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.labelMedium?.copyWith(
-                    color: foreground,
-                    fontSize: 15,
-                    height: 1.05,
+      child: AnimatedSize(
+        duration: motionDuration,
+        curve: Curves.easeOutCubic,
+        alignment: Alignment.topLeft,
+        child: Wrap(
+          spacing: 7,
+          runSpacing: 5,
+          children: [
+            for (var index = 0; index < reactions.length; index++)
+              TweenAnimationBuilder<double>(
+                key: ValueKey<String>('dingtalk-reaction-${reactions[index]}'),
+                duration: chipDuration,
+                curve: Curves.easeOutBack,
+                tween: Tween<double>(begin: 0, end: 1),
+                builder: (context, value, child) {
+                  final progress = value.clamp(0.0, 1.0).toDouble();
+                  return Opacity(
+                    opacity: progress,
+                    child: Transform.scale(
+                      scale: 0.86 + progress * 0.14,
+                      alignment: Alignment.centerLeft,
+                      child: child,
+                    ),
+                  );
+                },
+                child: Semantics(
+                  label: '贴表情：${reactions[index]}',
+                  child: ConstrainedBox(
+                    constraints: const BoxConstraints(maxWidth: 180),
+                    child: DecoratedBox(
+                      decoration: BoxDecoration(
+                        gradient: LinearGradient(
+                          begin: Alignment.topLeft,
+                          end: Alignment.bottomRight,
+                          colors: [
+                            containerColors[index % containerColors.length]
+                                .withValues(alpha: 0.84),
+                            colors.surfaceContainerHigh.withValues(alpha: 0.72),
+                          ],
+                        ),
+                        borderRadius: kOpenHandPillBorderRadius,
+                        border: Border.all(
+                          color: colors.primary.withValues(alpha: 0.24),
+                        ),
+                        boxShadow: [
+                          BoxShadow(
+                            color: colors.shadow.withValues(alpha: 0.12),
+                            blurRadius: 10,
+                            offset: const Offset(0, 3),
+                          ),
+                        ],
+                      ),
+                      child: Padding(
+                        padding: const EdgeInsets.symmetric(
+                          horizontal: 10,
+                          vertical: 5,
+                        ),
+                        child: Text(
+                          reactions[index],
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.labelMedium?.copyWith(
+                            color: foreground,
+                            fontSize: 14.5,
+                            fontWeight: FontWeight.w800,
+                            height: 1.1,
+                            letterSpacing: 0.1,
+                          ),
+                        ),
+                      ),
+                    ),
                   ),
                 ),
               ),
-            ),
-        ],
+          ],
+        ),
       ),
     );
   }
