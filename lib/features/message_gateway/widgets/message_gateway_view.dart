@@ -15479,7 +15479,11 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                             ),
                           if (previewableMedia.isNotEmpty &&
                               widget.message.reactions.isNotEmpty)
-                            _buildReactionRow(context, colors.onSurface),
+                            _buildReactionRow(
+                              context,
+                              colors.onSurface,
+                              topSpacing: 2,
+                            ),
                           if (previewableMedia.isNotEmpty)
                             _buildMessageStateLabel(context),
                         ],
@@ -15901,7 +15905,11 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     );
   }
 
-  Widget _buildReactionRow(BuildContext context, Color foreground) {
+  Widget _buildReactionRow(
+    BuildContext context,
+    Color foreground, {
+    double topSpacing = 6,
+  }) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final reactions = widget.message.reactions
@@ -15917,14 +15925,14 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       colors.tertiaryContainer,
     ];
     return Padding(
-      padding: const EdgeInsets.only(top: 8),
+      padding: EdgeInsets.only(top: topSpacing),
       child: AnimatedSize(
         duration: motionDuration,
         curve: Curves.easeOutCubic,
         alignment: Alignment.topLeft,
         child: Wrap(
-          spacing: 7,
-          runSpacing: 5,
+          spacing: 5,
+          runSpacing: 4,
           children: [
             for (var index = 0; index < reactions.length; index++)
               TweenAnimationBuilder<double>(
@@ -15946,7 +15954,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                 child: Semantics(
                   label: '贴表情：${reactions[index]}',
                   child: ConstrainedBox(
-                    constraints: const BoxConstraints(maxWidth: 180),
+                    constraints: const BoxConstraints(maxWidth: 148),
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: Color.alphaBlend(
@@ -15961,16 +15969,16 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                         ),
                         boxShadow: [
                           BoxShadow(
-                            color: colors.shadow.withValues(alpha: 0.12),
-                            blurRadius: 10,
-                            offset: const Offset(0, 3),
+                            color: colors.shadow.withValues(alpha: 0.08),
+                            blurRadius: 6,
+                            offset: const Offset(0, 2),
                           ),
                         ],
                       ),
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
-                          horizontal: 10,
-                          vertical: 5,
+                          horizontal: 7,
+                          vertical: 3,
                         ),
                         child: Text(
                           reactions[index],
@@ -15978,8 +15986,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: foreground,
-                            fontSize: 21,
-                            fontWeight: FontWeight.w700,
+                            fontSize: 16,
+                            fontWeight: FontWeight.w600,
                             height: 1,
                           ),
                         ),
@@ -16818,7 +16826,7 @@ class _DingTalkMediaRail extends StatelessWidget {
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: 560),
         child: Padding(
-          padding: const EdgeInsets.only(bottom: 6),
+          padding: const EdgeInsets.only(bottom: 4),
           child: Wrap(
             alignment: mine ? WrapAlignment.end : WrapAlignment.start,
             spacing: 8,
