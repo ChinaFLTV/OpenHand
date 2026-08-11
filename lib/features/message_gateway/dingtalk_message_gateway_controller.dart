@@ -30,6 +30,8 @@ import 'message_gateway_dependencies.dart';
 import 'model/dingtalk_message_gateway.dart';
 import 'service/dingtalk_message_gateway_service.dart';
 
+const String _dingTalkResponseRoundIdMetadataKey = 'dingtalk_response_round_id';
+
 typedef DingTalkWriteApprovalHandler =
     Future<BashCommandApprovalDecision> Function(
       String sessionId,
@@ -3394,18 +3396,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _settings.fullAccessPermission,
       );
       if (_isResponseCancelled(conversation.id, responseVersion)) return;
-      AiSession? sessionBeforeEcho;
-      for (final candidate in _sessionController.sessions) {
-        if (candidate.id == sessionId) {
-          sessionBeforeEcho = candidate;
-          break;
-        }
-      }
-      final baselineMessageIds = sessionBeforeEcho == null
-          ? <String>{}
-          : sessionBeforeEcho.messages.map((message) => message.id).toSet();
+      final responseRoundId = _uuid.v4();
+      final deliveredSourceMessageIds = conversation.messages
+          .map((message) => message.sourceAiMessageId.trim())
+          .where((id) => id.isNotEmpty)
+          .toSet();
       final echoCoordinator = _DingTalkEchoCoordinator(
-        baselineMessageIds: baselineMessageIds,
+        responseRoundId: responseRoundId,
+        deliveredSourceMessageIds: deliveredSourceMessageIds,
         selectedTypes: _settings.responseEchoTypes.toSet(),
         typeOf: _echoTypeOf,
         textFor: _echoTextForMessage,
@@ -3485,6 +3483,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               : null,
           userMessageMetadata: <String, Object?>{
             'sent_via': 'dingtalk_gateway',
+            _dingTalkResponseRoundIdMetadataKey: responseRoundId,
             if (forceResponse) 'dingtalk_force_response': true,
             'dingtalk_source_message_id': sourceMessageId,
             'dingtalk_context_message_ids': contextMessageIds.toList(
@@ -4654,7 +4653,8 @@ typedef _DingTalkEchoCancellationChecker = bool Function();
 /// 单轮钉钉 AI 回显协调器：过程消息复用同一条消息，最终回复在请求成功后一次性发送。
 class _DingTalkEchoCoordinator {
   _DingTalkEchoCoordinator({
-    required Set<String> baselineMessageIds,
+    required String responseRoundId,
+    required Set<String> deliveredSourceMessageIds,
     required Set<DingTalkResponseEchoType> selectedTypes,
     required _DingTalkEchoTypeResolver typeOf,
     required _DingTalkEchoTextBuilder textFor,
@@ -4664,7 +4664,8 @@ class _DingTalkEchoCoordinator {
     required _DingTalkEchoEditor edit,
     required String Function() newUuid,
     required _DingTalkEchoErrorHandler onError,
-  }) : _baselineMessageIds = baselineMessageIds,
+  }) : _responseRoundId = responseRoundId,
+       _deliveredSourceMessageIds = deliveredSourceMessageIds,
        _selectedTypes = selectedTypes,
        _typeOf = typeOf,
        _textFor = textFor,
@@ -4679,7 +4680,8 @@ class _DingTalkEchoCoordinator {
   static const Duration _editInterval = Duration(seconds: 1);
   static const int _maxTrackedMessages = 96;
 
-  final Set<String> _baselineMessageIds;
+  final String _responseRoundId;
+  final Set<String> _deliveredSourceMessageIds;
   final Set<DingTalkResponseEchoType> _selectedTypes;
   final _DingTalkEchoTypeResolver _typeOf;
   final _DingTalkEchoTextBuilder _textFor;
@@ -4701,9 +4703,21 @@ class _DingTalkEchoCoordinator {
 
   void ingest(AiSession session) {
     if (_disposed || _isCancelled() || _selectedTypes.isEmpty) return;
+    final roundStartIndex = session.messages.lastIndexWhere(
+      (message) =>
+          message.kind == AiSessionMessageKind.user &&
+          message.metadata['sent_via'] == 'dingtalk_gateway' &&
+          message.metadata[_dingTalkResponseRoundIdMetadataKey] ==
+              _responseRoundId,
+    );
+    if (roundStartIndex < 0) return;
+    final roundStartedAt = session.messages[roundStartIndex].createdAt;
     final now = DateTime.now();
-    for (final message in session.messages) {
-      if (_baselineMessageIds.contains(message.id)) continue;
+    for (final message in session.messages.skip(roundStartIndex + 1)) {
+      if (message.createdAt.isBefore(roundStartedAt) ||
+          _deliveredSourceMessageIds.contains(message.id)) {
+        continue;
+      }
       final state = _states[message.id];
       final queued = _pending[message.id];
       final resolvedType = _typeOf(message, session.messages);
@@ -4878,22 +4892,6 @@ class _DingTalkEchoCoordinator {
       if (_disposed || _isCancelled()) return;
       state.lastMutationAt = DateTime.now();
       _onError(state.sent ? '编辑钉钉 AI 回显消息' : '发送钉钉 AI 回显消息', error, stack);
-      if (pending.terminal &&
-          state.sent &&
-          (state.remoteMessageId?.trim().isNotEmpty ?? false)) {
-        try {
-          if (_disposed || _isCancelled()) return;
-          state.remoteMessageId = await _send(
-            pending.source,
-            pending.text,
-            _newUuid(),
-          );
-          if (_disposed || _isCancelled()) return;
-          state.lastText = pending.text;
-        } catch (fallbackError, fallbackStack) {
-          _onError('补发钉钉 AI 终态回显消息', fallbackError, fallbackStack);
-        }
-      }
       state.finished = pending.terminal;
     }
   }
