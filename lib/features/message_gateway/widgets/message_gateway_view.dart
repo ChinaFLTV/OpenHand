@@ -15917,6 +15917,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final reactions = widget.message.reactions
         .map(normalizeDingTalkReaction)
         .where((reaction) => reaction.isNotEmpty)
+        .map((label) => (label: label, isEmoji: isDingTalkReactionEmoji(label)))
         .toList(growable: false);
     if (reactions.isEmpty) return const SizedBox.shrink();
     final motionDuration = openHandMotionDuration(context, kOpenHandMotion220);
@@ -15938,7 +15939,9 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           children: [
             for (var index = 0; index < reactions.length; index++)
               TweenAnimationBuilder<double>(
-                key: ValueKey<String>('dingtalk-reaction-${reactions[index]}'),
+                key: ValueKey<String>(
+                  'dingtalk-reaction-${reactions[index].label}',
+                ),
                 duration: chipDuration,
                 curve: Curves.easeOutBack,
                 tween: Tween<double>(begin: 0, end: 1),
@@ -15954,7 +15957,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   );
                 },
                 child: Semantics(
-                  label: '贴表情：${reactions[index]}',
+                  label: '贴表情：${reactions[index].label}',
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 148),
                     child: DecoratedBox(
@@ -15983,13 +15986,15 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                           vertical: 3,
                         ),
                         child: Text(
-                          reactions[index],
+                          reactions[index].label,
                           maxLines: 1,
                           overflow: TextOverflow.ellipsis,
                           style: theme.textTheme.labelMedium?.copyWith(
                             color: foreground,
-                            fontSize: 16,
-                            fontWeight: FontWeight.w600,
+                            fontSize: reactions[index].isEmoji ? 16 : 12,
+                            fontWeight: reactions[index].isEmoji
+                                ? FontWeight.w600
+                                : FontWeight.w400,
                             height: 1,
                           ),
                         ),

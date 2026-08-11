@@ -262,6 +262,25 @@ String normalizeDingTalkReaction(Object? value) {
   return String.fromCharCodes(normalized.runes.take(24));
 }
 
+/// 判断钉钉贴表情是否为 Emoji，供消息卡片选择紧凑的文本样式。
+bool isDingTalkReactionEmoji(Object? value) {
+  final normalized = normalizeDingTalkReaction(value);
+  if (normalized.isEmpty) return false;
+  return normalized.runes.any(
+    (rune) =>
+        rune >= 0x1F000 && rune <= 0x1FAFF ||
+        rune >= 0x2300 && rune <= 0x23FF ||
+        rune >= 0x2600 && rune <= 0x27BF ||
+        rune >= 0x2B00 && rune <= 0x2BFF ||
+        rune == 0x00A9 ||
+        rune == 0x00AE ||
+        rune == 0x203C ||
+        rune == 0x2049 ||
+        rune == 0x2122 ||
+        rune == 0x2139,
+  );
+}
+
 /// 统一清理钉钉媒体资源标识。
 ///
 /// 历史消息内容可能以 `[图片消息](mediaId=...)` 的投影形式保存，
