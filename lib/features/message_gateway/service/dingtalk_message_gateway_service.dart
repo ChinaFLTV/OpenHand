@@ -185,6 +185,8 @@ class DingTalkMessageGatewayService {
   // 轮询窗口只取有限页数，避免两个并行查询在慢 dws 环境下拖住轮询回调；
   // 更早消息由会话对账和用户主动加载历史补齐。
   static const int _messageQueryMaxPages = 3;
+  static const Duration _messageQueryTotalTimeout = Duration(seconds: 40);
+  static const Duration _messageQueryRetryCooldown = Duration(seconds: 30);
   static const Duration _messageQueryUnavailableCooldown = Duration(
     minutes: 10,
   );
@@ -228,7 +230,7 @@ class DingTalkMessageGatewayService {
       <_DingTalkEventProcessHandle>[];
   final Map<String, DateTime> _messageQueryUnavailableUntil =
       <String, DateTime>{};
-  final Set<String> _messageQueryDependencyUnavailable = <String>{};
+  final Set<String> _messageQueryWindowPreserved = <String>{};
   final Map<String, DateTime> _conversationQueryUnavailableUntil =
       <String, DateTime>{};
   StreamController<DingTalkGatewayEvent>? _eventController;
@@ -399,7 +401,7 @@ class DingTalkMessageGatewayService {
 
   void resetMessageQueryCapability() {
     _messageQueryUnavailableUntil.clear();
-    _messageQueryDependencyUnavailable.clear();
+    _messageQueryWindowPreserved.clear();
     _conversationQueryUnavailableUntil.clear();
   }
 
@@ -1199,52 +1201,74 @@ class DingTalkMessageGatewayService {
     required DateTime start,
     required DateTime end,
   }) async {
+    final now = DateTime.now();
+    for (final capabilityKey in _messageQueryWindowPreserved) {
+      final retryAt = _messageQueryUnavailableUntil[capabilityKey];
+      if (retryAt != null && now.isBefore(retryAt)) {
+        return const DingTalkGatewayQueryResult(
+          messages: <DingTalkGatewayMessage>[],
+          warning: _messageSearchFallbackWarning,
+          shouldAdvanceWindow: false,
+        );
+      }
+    }
     final startText = start.toIso8601String();
     final endText = end.toIso8601String();
     final allStartText = _formatChatDateTime(start);
     final allEndText = _formatChatDateTime(end);
-    final pageResults = await Future.wait<_DingTalkMessagePageResult>(
-      <Future<_DingTalkMessagePageResult>>[
-        _queryMessagePages(
-          (cursor) => <String>[
-            'chat',
-            'message',
-            'list-mentions',
-            '--start',
-            startText,
-            '--end',
-            endText,
-            '--limit',
-            '$_messageQueryPageSize',
-            '--cursor',
-            cursor,
-            '--format',
-            'json',
-          ],
-          capabilityKey: 'mentions',
-          label: '@我消息',
-        ),
-        _queryMessagePages(
-          (cursor) => <String>[
-            'chat',
-            'message',
-            'list-all',
-            '--start',
-            allStartText,
-            '--end',
-            allEndText,
-            '--limit',
-            '$_messageQueryPageSize',
-            '--cursor',
-            cursor,
-            '--format',
-            'json',
-          ],
-          capabilityKey: 'all',
-          label: '全部消息',
-        ),
-      ],
+    final deadline = MonotonicDeadline(
+      _messageQueryTotalTimeout,
+      timeoutMessage: '钉钉消息轮询超过总时限。',
     );
+    late final List<_DingTalkMessagePageResult> pageResults;
+    try {
+      pageResults = await Future.wait<_DingTalkMessagePageResult>(
+        <Future<_DingTalkMessagePageResult>>[
+          _queryMessagePages(
+            (cursor) => <String>[
+              'chat',
+              'message',
+              'list-mentions',
+              '--start',
+              startText,
+              '--end',
+              endText,
+              '--limit',
+              '$_messageQueryPageSize',
+              '--cursor',
+              cursor,
+              '--format',
+              'json',
+            ],
+            capabilityKey: 'mentions',
+            label: '@我消息',
+            deadline: deadline,
+          ),
+          _queryMessagePages(
+            (cursor) => <String>[
+              'chat',
+              'message',
+              'list-all',
+              '--start',
+              allStartText,
+              '--end',
+              allEndText,
+              '--limit',
+              '$_messageQueryPageSize',
+              '--cursor',
+              cursor,
+              '--format',
+              'json',
+            ],
+            capabilityKey: 'all',
+            label: '全部消息',
+            deadline: deadline,
+          ),
+        ],
+      );
+    } finally {
+      deadline.stop();
+    }
     final mentions = pageResults[0].pages;
     final all = pageResults[1].pages;
     final messages = <DingTalkGatewayMessage>[
@@ -1277,6 +1301,7 @@ class DingTalkMessageGatewayService {
     List<String> Function(String cursor) buildArguments, {
     required String capabilityKey,
     required String label,
+    required MonotonicDeadline deadline,
   }) async {
     final now = DateTime.now();
     final unavailableUntil = _messageQueryUnavailableUntil[capabilityKey];
@@ -1285,51 +1310,72 @@ class DingTalkMessageGatewayService {
         return _DingTalkMessagePageResult(
           pages: const <Object?>[],
           warning: _messageSearchFallbackWarning,
-          shouldAdvanceWindow: !_messageQueryDependencyUnavailable.contains(
+          shouldAdvanceWindow: !_messageQueryWindowPreserved.contains(
             capabilityKey,
           ),
         );
       }
       _messageQueryUnavailableUntil.remove(capabilityKey);
-      _messageQueryDependencyUnavailable.remove(capabilityKey);
     }
     final pages = <Object?>[];
     var cursor = '0';
     for (var pageIndex = 0; pageIndex < _messageQueryMaxPages; pageIndex++) {
       late final Object? page;
       try {
-        page = await _runJson(buildArguments(cursor));
+        page = await _runJson(
+          buildArguments(cursor),
+          timeout: deadline.limit(_commandTimeout),
+        );
       } catch (error, stack) {
         final commandError = _normalizeCommandException(error);
-        if (commandError != null &&
-            (commandError.isDependencyUnavailable ||
-                commandError.isBusinessError && !commandError.isRetryable)) {
+        final dependencyUnavailable =
+            commandError?.isDependencyUnavailable == true;
+        final transientFailure =
+            error is TimeoutException || commandError?.isRetryable == true;
+        final unavailableBusinessError =
+            commandError?.isBusinessError == true &&
+            commandError?.isRetryable != true;
+        if (dependencyUnavailable ||
+            transientFailure ||
+            unavailableBusinessError) {
           _messageQueryUnavailableUntil[capabilityKey] = DateTime.now().add(
-            commandError.isDependencyUnavailable
+            dependencyUnavailable
                 ? _messageQueryDependencyCooldown
+                : transientFailure
+                ? _messageQueryRetryCooldown
                 : _messageQueryUnavailableCooldown,
           );
-          if (commandError.isDependencyUnavailable) {
-            _messageQueryDependencyUnavailable.add(capabilityKey);
+          if (dependencyUnavailable || transientFailure) {
+            _messageQueryWindowPreserved.add(capabilityKey);
           } else {
-            _messageQueryDependencyUnavailable.remove(capabilityKey);
+            _messageQueryWindowPreserved.remove(capabilityKey);
           }
           _logRuntime(
             'WARN',
-            commandError.isDependencyUnavailable
+            dependencyUnavailable
                 ? '钉钉$label搜索后端暂不可用，已暂缓查询并切换事件流和会话对账。'
+                : transientFailure
+                ? '钉钉$label同步超时，已暂停 ${_messageQueryRetryCooldown.inSeconds} 秒并保留同步窗口。'
                 : '钉钉$label搜索暂不可用，已切换事件流和会话对账。',
           );
           return _DingTalkMessagePageResult(
             pages: pages,
             warning: _messageSearchFallbackWarning,
-            shouldAdvanceWindow: !commandError.isDependencyUnavailable,
+            shouldAdvanceWindow: !dependencyUnavailable && !transientFailure,
           );
         }
         if (pages.isEmpty) rethrow;
+        _messageQueryUnavailableUntil[capabilityKey] = DateTime.now().add(
+          _messageQueryRetryCooldown,
+        );
+        _messageQueryWindowPreserved.add(capabilityKey);
         _logRuntime('WARN', '钉钉$label后续分页失败，已保留前面已同步的消息。');
         silentLog('dingtalk_gateway', '读取钉钉$label后续分页', error, stack);
-        break;
+        return _DingTalkMessagePageResult(
+          pages: pages,
+          warning: _messageSearchFallbackWarning,
+          shouldAdvanceWindow: false,
+        );
       }
       pages.add(page);
       final nextCursor = _nextPageCursor(page);
@@ -1341,7 +1387,7 @@ class DingTalkMessageGatewayService {
       }
       cursor = nextCursor;
     }
-    _messageQueryDependencyUnavailable.remove(capabilityKey);
+    _messageQueryWindowPreserved.remove(capabilityKey);
     return _DingTalkMessagePageResult(pages: pages);
   }
 
@@ -2546,13 +2592,22 @@ class DingTalkMessageGatewayService {
         },
         onStderrLine: (line) =>
             _logRuntime('WARN', 'dws 标准错误：${_safeProcessLogLine(line)}'),
-        onTimeout: () => _logRuntime('ERROR', 'dws 执行超时：$operation。'),
       );
     } catch (error) {
       _logRuntime('ERROR', 'dws 启动或执行异常：$error');
       rethrow;
     }
     final isMessageQuery = _isMessageQueryCommand(commandArguments);
+    if (result.timedOut) {
+      final message = 'dws 执行超时并已终止：$operation。';
+      _logRuntime(isMessageQuery ? 'WARN' : 'ERROR', message);
+      throw DingTalkGatewayCommandException(
+        message: message,
+        reason: 'timeout',
+        operation: operation,
+        retryable: true,
+      );
+    }
     final structuredOutput = result.stdout.trim().isNotEmpty
         ? result.stdout
         : result.stderr;
@@ -2562,23 +2617,15 @@ class DingTalkMessageGatewayService {
     final explicitFailure =
         payload.containsKey('success') && !_asBool(payload['success']);
     final executionFailed =
-        result.timedOut ||
-        result.exitCode != 0 ||
-        error.isNotEmpty ||
-        explicitFailure;
-    var completionLevel = 'SUCCESS';
-    if (executionFailed) completionLevel = isMessageQuery ? 'WARN' : 'ERROR';
-    _logRuntime(completionLevel, 'dws 执行结束：$operation，退出码 ${result.exitCode}。');
-    if (result.timedOut) {
-      final message = 'dws 执行超时：$operation。';
-      _logRuntime('WARN', message);
-      throw DingTalkGatewayCommandException(
-        message: message,
-        reason: 'timeout',
-        operation: operation,
-        retryable: true,
-      );
-    }
+        result.exitCode != 0 || error.isNotEmpty || explicitFailure;
+    _logRuntime(
+      executionFailed
+          ? isMessageQuery
+                ? 'WARN'
+                : 'ERROR'
+          : 'SUCCESS',
+      'dws 执行结束：$operation，退出码 ${result.exitCode}。',
+    );
     if (result.stdout.trim().isNotEmpty && decoded is Map && payload.isEmpty) {
       _logRuntime('WARN', 'dws 返回内容无法解析为有效 JSON。');
     }

@@ -1980,11 +1980,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _pollInFlight = true;
     try {
       final now = DateTime.now();
+      final queryStart = _lastPollAt.isBefore(now)
+          ? _lastPollAt
+          : now.subtract(const Duration(seconds: 2));
+      final maxQueryEnd = queryStart.add(_queryWindow);
+      final queryEnd = maxQueryEnd.isBefore(now) ? maxQueryEnd : now;
       Object? queryError;
       try {
-        final result = await _service.query(start: _lastPollAt, end: now);
+        final result = await _service.query(start: queryStart, end: queryEnd);
         if (result.shouldAdvanceWindow) {
-          _lastPollAt = now.subtract(const Duration(seconds: 2));
+          _lastPollAt = queryEnd.subtract(const Duration(seconds: 2));
         }
         _warningMessage = result.warning;
         for (final message in result.messages) {
@@ -1992,10 +1997,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         }
       } catch (error, stack) {
         queryError = error;
-        if (error is TimeoutException) {
+        final transientFailure =
+            error is TimeoutException ||
+            error is DingTalkGatewayCommandException && error.isRetryable;
+        if (transientFailure) {
           _warningMessage = '钉钉消息同步较慢，已跳过本轮，下一轮将继续重试。';
           _clearError();
-          silentLog('dingtalk_gateway', '钉钉轮询超时，跳过本轮', error, stack);
         } else {
           _setError('轮询钉钉消息', error, stack);
         }
@@ -2006,7 +2013,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
       if (queryError == null) {
         _clearError();
-      } else {
+      } else if (queryError is! TimeoutException &&
+          (queryError is! DingTalkGatewayCommandException ||
+              !queryError.isRetryable)) {
         await refreshAuthStatus();
         if (!isAuthorized) await stopPolling();
       }
