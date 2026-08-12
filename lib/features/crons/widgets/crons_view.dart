@@ -39,6 +39,8 @@ const BorderRadius _kCronRadiusLarge = BorderRadius.all(Radius.circular(10));
 const BorderRadius _kCronRadiusXLarge = BorderRadius.all(Radius.circular(12));
 const BorderRadius _kCronRadiusXXLarge = BorderRadius.all(Radius.circular(14));
 
+const Color _kCronRunningColor = Color(0xFF56C271);
+
 class CronsView extends StatelessWidget {
   const CronsView({super.key});
 
@@ -508,7 +510,7 @@ class _CronStatusDot extends StatelessWidget {
     final color = !enabled
         ? colorScheme.outlineVariant
         : switch (status) {
-            CronJobStatus.running => const Color(0xFF56C271),
+            CronJobStatus.running => _kCronRunningColor,
             CronJobStatus.idle => colorScheme.outline,
             CronJobStatus.paused => colorScheme.tertiary,
             CronJobStatus.failed => colorScheme.error,
@@ -535,14 +537,14 @@ class _CronStatusChip extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     final statusLabel = entry.status.label(l10n);
     final bgColor = switch (entry.status) {
-      CronJobStatus.running => const Color(0xFF56C271).withValues(alpha: 0.15),
+      CronJobStatus.running => _kCronRunningColor.withValues(alpha: 0.15),
       CronJobStatus.idle => colorScheme.surfaceContainerHigh,
       CronJobStatus.paused => colorScheme.tertiaryContainer,
       CronJobStatus.failed => colorScheme.errorContainer,
       CronJobStatus.error => colorScheme.errorContainer,
     };
     final fgColor = switch (entry.status) {
-      CronJobStatus.running => const Color(0xFF56C271),
+      CronJobStatus.running => _kCronRunningColor,
       CronJobStatus.idle => colorScheme.onSurfaceVariant,
       CronJobStatus.paused => colorScheme.onTertiaryContainer,
       CronJobStatus.failed => colorScheme.onErrorContainer,
@@ -2168,7 +2170,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     final l10n = AppLocalizations.of(context)!;
 
     final statusColor = switch (record.status) {
-      'success' => const Color(0xFF56C271),
+      'success' => _kCronRunningColor,
       'failed' => colorScheme.error,
       'timed_out' => colorScheme.tertiary,
       'running' => colorScheme.primary,

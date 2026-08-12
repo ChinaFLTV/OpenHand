@@ -1,5 +1,7 @@
 part of '../openhand_home_page.dart';
 
+const Color _kFileExplorerWarningColor = Color(0xFFB7791F);
+
 // 文件浏览器面板。
 
 enum _UnsavedCloseAction { save, discard, cancel }
@@ -8893,7 +8895,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       return colorScheme.error;
     }
     if (diagnostic.isWarning) {
-      return const Color(0xFFB7791F);
+      return _kFileExplorerWarningColor;
     }
     return colorScheme.primary;
   }
@@ -9056,7 +9058,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       return colorScheme.error;
     }
     if (diagnostics.any((item) => item.isWarning)) {
-      return const Color(0xFFB7791F);
+      return _kFileExplorerWarningColor;
     }
     if (_fileDirty[filePath] == true ||
         _diagnosticsStaleFiles.contains(filePath)) {
@@ -12528,7 +12530,7 @@ Color _editorDiagnosticUnderlineColor(_EditorDiagnostic diagnostic) {
     return const Color(0xFFD92D20);
   }
   if (diagnostic.isWarning) {
-    return const Color(0xFFB7791F);
+    return _kFileExplorerWarningColor;
   }
   return const Color(0xFF0B57D0);
 }
@@ -12801,7 +12803,7 @@ class _WorkspaceEditDiffLine extends StatelessWidget {
   final String line;
   final ColorScheme colorScheme;
 
-  static const _addedBg = Color(0xFFE6F4E6);
+static const _addedBg = Color(0xFFE6F4E6);
   static const _removedBg = Color(0xFFF7E6E6);
   static const _hunkBg = Color(0xFFE8EEF8);
   static const _addedBgDark = Color(0xFF1A3D1A);
@@ -13995,7 +13997,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
       return colorScheme.error;
     }
     if (diagnostic.isWarning) {
-      return const Color(0xFFB7791F);
+      return _kFileExplorerWarningColor;
     }
     return colorScheme.primary;
   }
@@ -15083,7 +15085,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                             child: const Icon(
                                               Icons.lightbulb_outline_rounded,
                                               size: 15,
-                                              color: Color(0xFFB7791F),
+                                              color: _kFileExplorerWarningColor,
                                             ),
                                           ),
                                         ),

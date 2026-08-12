@@ -2344,6 +2344,7 @@ const int _mcpOpsExposureInitialLimit = 14;
 const int _mcpOpsExposurePageSize = 18;
 const Duration _mcpOpsEndpointDiscoveryDebounce = Duration(milliseconds: 320);
 const Color _mcpOpsTerminalBackground = Color(0xFF0B0D10);
+const Color _mcpOpsTerminalSurface = Color(0xFF18181B);
 
 /// 运维面板外层卡片的统一表面：半透明底 + 细描边 + 一层浅投影。
 ///
@@ -14368,7 +14369,7 @@ class _ToolSchemaPanel extends StatelessWidget {
     final content = prettyPrintJson(_jsonFriendlyValue(schema));
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(color: Color(0xFF18181B), borderRadius: _mcpRadiusXXLarge),
+      decoration: const BoxDecoration(color: _mcpOpsTerminalSurface, borderRadius: _mcpRadiusXXLarge),
       padding: const EdgeInsets.all(14),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -14580,7 +14581,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
 
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(color: Color(0xFF18181B), borderRadius: _mcpRadiusXXLarge),
+      decoration: const BoxDecoration(color: _mcpOpsTerminalSurface, borderRadius: _mcpRadiusXXLarge),
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -14679,7 +14680,7 @@ class _ToolConsolePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: const BoxDecoration(color: Color(0xFF18181B), borderRadius: _mcpRadiusXXLarge),
+      decoration: const BoxDecoration(color: _mcpOpsTerminalSurface, borderRadius: _mcpRadiusXXLarge),
       padding: const EdgeInsets.all(14),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
