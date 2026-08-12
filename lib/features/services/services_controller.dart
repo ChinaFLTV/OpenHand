@@ -287,6 +287,8 @@ class ServicesController extends ChangeNotifier {
     AiJunglerClient client, {
     AiExposureProxyConfiguration? configuration,
   }) => _proxyRuntimeUpdateQueue.enqueue(() async {
+    // 确保系统代理探测完成后再同步，避免服务启动竞态导致空快照。
+    await SystemProxyResolver.instance.initialize();
     final effectiveConfiguration = configuration ?? _proxyConfiguration;
     await client.updateProxy(
       effectiveConfiguration,
