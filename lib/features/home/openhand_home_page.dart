@@ -7076,8 +7076,8 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     try {
       List<String> clipboardFiles = const <String>[];
       try {
-        clipboardFiles = await Pasteboard.files().timeout(
-          _composerClipboardReadTimeout,
+        clipboardFiles = await getOpenHandClipboardFiles(
+          timeout: _composerClipboardReadTimeout,
         );
       } catch (error, stack) {
         silentLog('openhand_home_page', '读取剪贴板文件', error, stack);
@@ -7101,7 +7101,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       }
       Uint8List? bytes;
       try {
-        bytes = await Pasteboard.image.timeout(_composerClipboardReadTimeout);
+        bytes = await getOpenHandClipboardImage(timeout: _composerClipboardReadTimeout);
       } catch (error, stack) {
         silentLog('openhand_home_page', '读取剪贴板图片', error, stack);
         return;

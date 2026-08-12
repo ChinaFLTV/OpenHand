@@ -2091,9 +2091,7 @@ void _showMediaClipboardSnack(
 Future<bool> _copyLocalFileToPasteboard(String filePath) async {
   var ok = false;
   try {
-    ok = await Pasteboard.writeFiles(<String>[
-      filePath,
-    ]).timeout(_mediaClipboardOperationTimeout);
+    ok = await writeOpenHandClipboardFiles(<String>[filePath]);
   } catch (_) {
     ok = false;
   } finally {
@@ -3075,9 +3073,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
           maxBytes: _imageClipboardMaxBytes,
         );
         try {
-          await Pasteboard.writeImage(
-            bytes,
-          ).timeout(_mediaClipboardOperationTimeout);
+          await writeOpenHandClipboardImage(bytes);
           if (!context.mounted) return;
           _showMediaClipboardSnack(
             context,
@@ -3109,9 +3105,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
           maxBytes: _imageClipboardMaxBytes,
           expectedPrimaryType: 'image',
         );
-        await Pasteboard.writeImage(
-          bytes,
-        ).timeout(_mediaClipboardOperationTimeout);
+        await writeOpenHandClipboardImage(bytes);
         if (!context.mounted) return;
         _showMediaClipboardSnack(
           context,

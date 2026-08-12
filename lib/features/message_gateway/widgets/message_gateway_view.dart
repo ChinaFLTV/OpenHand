@@ -10,7 +10,6 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
-import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
@@ -14196,8 +14195,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     try {
       List<String> paths = const <String>[];
       try {
-        paths = await Pasteboard.files().timeout(
-          _clipboardAttachmentReadTimeout,
+        paths = await getOpenHandClipboardFiles(
+          timeout: _clipboardAttachmentReadTimeout,
         );
       } catch (error, stack) {
         silentLog('dingtalk_gateway', '读取钉钉剪贴板文件', error, stack);
@@ -14234,7 +14233,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
       Uint8List? imageBytes;
       try {
-        imageBytes = await Pasteboard.image.timeout(_clipboardImageReadTimeout);
+        imageBytes = await getOpenHandClipboardImage(timeout: _clipboardImageReadTimeout);
       } catch (error, stack) {
         silentLog('dingtalk_gateway', '读取钉钉剪贴板图片', error, stack);
         return;
@@ -16355,23 +16354,23 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         final file = File(paths.single);
         final size = await file.length();
         if (size <= _maxClipboardImageBytes) {
-          await Pasteboard.writeImage(
+          await writeOpenHandClipboardImage(
             await readBoundedFileBytes(
               file,
               maxBytes: _maxClipboardImageBytes,
               idleTimeout: _mediaClipboardTimeout,
               totalTimeout: _mediaClipboardTimeout,
             ),
-          ).timeout(_mediaClipboardTimeout);
+          );
           if (context.mounted) {
             showOpenHandSuccessSnack(context, '图片已复制到剪贴板。');
           }
           return;
         }
       }
-      final copied = await Pasteboard.writeFiles(
+      final copied = await writeOpenHandClipboardFiles(
         paths,
-      ).timeout(_mediaClipboardTimeout);
+      );
       if (!copied) throw const FileSystemException('系统不支持复制媒体文件。');
       if (context.mounted) {
         showOpenHandSuccessSnack(context, '媒体文件已复制到剪贴板。');

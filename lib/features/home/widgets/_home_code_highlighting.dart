@@ -3820,7 +3820,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final pngBytes = _decodePngBytes(_pngDataUrl);
     if (pngBytes != null) {
       try {
-        await Pasteboard.writeImage(pngBytes);
+        await writeOpenHandClipboardImage(pngBytes);
         if (!mounted) return;
         showOpenHandSnackBarOn(
           context,
@@ -3839,7 +3839,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final svg = _svgMarkup.trim();
     if (svg.isEmpty) return;
     try {
-      await Pasteboard.writeImage(_svgUtf8Bytes(svg));
+      await writeOpenHandClipboardImage(_svgUtf8Bytes(svg));
       if (!mounted) return;
       showOpenHandSnackBarOn(
         context,

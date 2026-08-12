@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:pasteboard/pasteboard.dart';
 
 import '../../app/support/silent_log.dart';
 import '../util/localized_text.dart';
@@ -140,4 +141,65 @@ void _showDefaultClipboardErrorSnack(
   required Duration duration,
 }) {
   showOpenHandErrorSnack(context, message, duration: duration);
+}
+
+const Duration kOpenHandClipboardImageReadTimeout = Duration(seconds: 10);
+const Duration kOpenHandClipboardWriteTimeout = Duration(seconds: 15);
+
+/// 限时读取剪贴板文件路径列表；失败或超时返回空列表。
+Future<List<String>> getOpenHandClipboardFiles({
+  Duration timeout = kOpenHandClipboardImageReadTimeout,
+}) async {
+  try {
+    return await Pasteboard.files().timeout(
+      clampOpenHandClipboardTimeout(timeout),
+    );
+  } catch (_) {
+    return const <String>[];
+  }
+}
+
+/// 限时读取剪贴板图片字节；失败、超时或无图片时返回 `null`。
+Future<Uint8List?> getOpenHandClipboardImage({
+  Duration timeout = kOpenHandClipboardImageReadTimeout,
+}) async {
+  try {
+    final bytes = await Pasteboard.image.timeout(
+      clampOpenHandClipboardTimeout(timeout),
+    );
+    if (bytes == null || bytes.isEmpty) return null;
+    return bytes;
+  } catch (_) {
+    return null;
+  }
+}
+
+/// 限时写入图片到剪贴板；失败时返回 false。
+Future<bool> writeOpenHandClipboardImage(
+  Uint8List bytes, {
+  Duration timeout = kOpenHandClipboardWriteTimeout,
+}) async {
+  try {
+    await Pasteboard.writeImage(bytes).timeout(
+      clampOpenHandClipboardTimeout(timeout),
+    );
+    return true;
+  } catch (_) {
+    return false;
+  }
+}
+
+/// 限时写入文件路径到剪贴板；失败时返回 false。
+Future<bool> writeOpenHandClipboardFiles(
+  List<String> paths, {
+  Duration timeout = kOpenHandClipboardWriteTimeout,
+}) async {
+  try {
+    await Pasteboard.writeFiles(paths).timeout(
+      clampOpenHandClipboardTimeout(timeout),
+    );
+    return true;
+  } catch (_) {
+    return false;
+  }
 }

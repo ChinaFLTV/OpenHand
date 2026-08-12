@@ -5,7 +5,6 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
-import 'package:pasteboard/pasteboard.dart';
 import 'package:path/path.dart' as p;
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -521,21 +520,21 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       if (bytes.length > _kClipboardMaxBytes) {
         throw const FileSystemException('图片数据超过剪贴板容量上限。');
       }
-      await Pasteboard.writeImage(bytes).timeout(_kClipboardTimeout);
+      await writeOpenHandClipboardImage(bytes);
       return true;
     }
     final filePath = widget.filePath;
     if (filePath != null) {
       final file = File(filePath);
       try {
-        await Pasteboard.writeImage(
+        await writeOpenHandClipboardImage(
           await readBoundedFileBytes(
             file,
             maxBytes: _kClipboardMaxBytes,
             idleTimeout: _kClipboardTimeout,
             totalTimeout: _kClipboardTimeout,
           ),
-        ).timeout(_kClipboardTimeout);
+        );
         return true;
       } catch (_) {
         await _copyFilePathToClipboard(filePath);
@@ -548,7 +547,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
         Uri.parse(url),
         expectedPrimaryType: 'image',
       );
-      await Pasteboard.writeImage(downloaded).timeout(_kClipboardTimeout);
+      await writeOpenHandClipboardImage(downloaded);
       return true;
     }
     throw const FileSystemException('图片源不可用。');
@@ -557,9 +556,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
   Future<bool> _copyFilePathToClipboard(String filePath) async {
     var ok = false;
     try {
-      ok = await Pasteboard.writeFiles(<String>[
-        filePath,
-      ]).timeout(_kClipboardTimeout);
+      ok = await writeOpenHandClipboardFiles(<String>[filePath]);
     } catch (_) {
       ok = false;
     } finally {
