@@ -20,6 +20,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_xfile_io.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -641,7 +642,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
             setState(() => _filterQuery = '');
           },
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Expanded(
           child: filtered.isEmpty
               ? _buildEmptyState(
@@ -748,7 +749,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                 ),
                 child: Icon(icon, color: colorScheme.onPrimaryContainer),
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               Text(
                 title,
                 textAlign: TextAlign.center,
@@ -798,9 +799,9 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
             setState(() => _historyFilterQuery = '');
           },
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _buildHistoryToolbar(context, l10n),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Expanded(
           child: filtered.isEmpty
               ? _buildEmptyState(
@@ -825,7 +826,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                       primary: false,
                       padding: const EdgeInsets.only(bottom: 4),
                       itemCount: filtered.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 10),
+                      separatorBuilder: (_, _) => kOpenHandGap10,
                       itemBuilder: (_, index) =>
                           _buildHistoryEntry(context, l10n, filtered[index]),
                     ),
@@ -902,7 +903,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Align(alignment: Alignment.centerLeft, child: sourceFilter),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Align(alignment: Alignment.centerRight, child: actions),
             ],
           );
@@ -1067,7 +1068,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   IconButton(
                     tooltip: l10n.snackToolSearchLoadedHistoryReplayAction,
                     icon: Icon(
@@ -1087,7 +1088,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -1138,7 +1139,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                               color: colorScheme.primary,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Expanded(
                             child: Text(
                               name,
@@ -1361,7 +1362,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             IconButton(
               key: ValueKey<String>('mcpToolCopy:$name'),
               tooltip: '${l10n.snackToolSearchLoadedCopyAction}$name',

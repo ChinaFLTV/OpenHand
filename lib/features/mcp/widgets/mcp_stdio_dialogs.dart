@@ -15,6 +15,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -73,7 +74,7 @@ class _StdioDialogHeader extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, size: 20, color: iconColor ?? theme.colorScheme.primary),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -349,7 +350,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
                   size: 14,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   l10n.mcpStdioDialogLineCount(logs.length),
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -602,7 +603,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                             _InfoRow(label: entry.key, value: entry.value),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                       // 服务配置
                       _InfoSection(
                         title: l10n.mcpStdioDialogServiceConfig,
@@ -629,7 +630,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                       // 环境信息
                       _InfoSection(
                         title: l10n.mcpStdioDialogEnvironment,
@@ -640,7 +641,7 @@ class _StdioDetailsDialogState extends State<_StdioDetailsDialog> {
                         ],
                       ),
                       if (processInfo.errorMessage != null) ...[
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         _InfoSection(
                           title: l10n.mcpStdioDialogError,
                           icon: Icons.error_outline_rounded,
@@ -692,7 +693,7 @@ class _InfoSection extends StatelessWidget {
         Row(
           children: [
             Icon(icon, size: 16, color: effectiveColor),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Text(
               title,
               style: theme.textTheme.titleSmall?.copyWith(
@@ -702,7 +703,7 @@ class _InfoSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
@@ -1133,7 +1134,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                                   ? OpenHandStatusColors.success
                                   : theme.colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(width: 8),
+                            kOpenHandHGap8,
                             Expanded(
                               child: Text(
                                 _packageInstalled
@@ -1185,7 +1186,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
                           ],
                         ),
                         if (_latestVersion != null) ...[
-                          const SizedBox(height: 6),
+                          kOpenHandGap6,
                           Text(
                             l10n.mcpStdioDialogLatestVersion(_latestVersion!) +
                                 (hasUpdate
@@ -1211,7 +1212,7 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
               backgroundColor: theme.colorScheme.surfaceContainerHighest,
             )
           else
-            const SizedBox(height: 3),
+            kOpenHandGap3,
           // 终端输出区域
           if (_logs.isNotEmpty || _operating)
             Flexible(

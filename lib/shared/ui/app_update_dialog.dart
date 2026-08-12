@@ -8,6 +8,7 @@ import '../../app/support/app_update_checker.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../util/byte_size_format.dart';
 import '../util/date_time_format.dart';
 import '../util/input_value_parsing.dart';
@@ -259,7 +260,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
       title: Row(
         children: [
           Icon(Icons.system_update_outlined, color: colorScheme.primary),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Text(l10n.appUpdateDialogTitle),
         ],
       ),
@@ -302,7 +303,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             SizedBox(
               width: 48,
               height: 48,
@@ -311,16 +312,16 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
                 color: colorScheme.primary,
               ),
             ),
-            const SizedBox(height: 20),
+            kOpenHandGap20,
             Text(l10n.appUpdateChecking, style: theme.textTheme.bodyLarge),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               l10n.appUpdateCurrentVersion(widget.appInfo.displayVersion),
               style: theme.textTheme.bodySmall?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
           ],
         ),
       ),
@@ -344,7 +345,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
                     size: 20,
                     color: colorScheme.onPrimaryContainer,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Text(
                       l10n.appUpdateNewVersion(_release!.version),
@@ -357,7 +358,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
                 ],
               ),
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Text(
               _release!.releaseName,
               style: theme.textTheme.titleMedium?.copyWith(
@@ -365,7 +366,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
               ),
             ),
             if (_release!.releaseNotes.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 200),
                 child: SingleChildScrollView(
@@ -378,7 +379,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
                 ),
               ),
             ],
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Text(
               l10n.appUpdatePublished(
                 formatYearMonthDay(_release!.publishedAt.toLocal()),
@@ -388,7 +389,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
               ),
             ),
             if (_release!.downloadSize > 0) ...[
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Text(
                 l10n.appUpdateFileSize(formatByteSize(_release!.downloadSize)),
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -405,20 +406,20 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Icon(
               Icons.check_circle_outline_rounded,
               size: 56,
               color: colorScheme.primary,
             ),
-            const SizedBox(height: 20),
+            kOpenHandGap20,
             Text(
               l10n.appUpdateAlreadyLatestTitle,
               style: theme.textTheme.titleMedium?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               l10n.appUpdateAlreadyLatestBody(widget.appInfo.displayVersion),
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -426,7 +427,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
               ),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
           ],
         ),
       ),
@@ -436,7 +437,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Text(
               _downloadedFilePath != null
                   ? l10n.appUpdateDownloadComplete
@@ -445,7 +446,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 20),
+            kOpenHandGap20,
             AnimatedBuilder(
               animation: _progressAnimController,
               builder: (context, _) {
@@ -463,7 +464,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
                         ),
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Text(
                       '${(value * 100).toStringAsFixed(1)}%',
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -475,14 +476,14 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
               },
             ),
             if (_downloadedFilePath != null) ...[
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Icon(
                 Icons.check_circle_rounded,
                 color: colorScheme.primary,
                 size: 32,
               ),
             ],
-            const SizedBox(height: 16),
+            kOpenHandGap16,
           ],
         ),
       ),
@@ -492,20 +493,20 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Icon(
               Icons.error_outline_rounded,
               size: 48,
               color: colorScheme.error,
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Text(
               l10n.appUpdateCheckFailed,
               style: theme.textTheme.titleSmall?.copyWith(
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               _errorMessage,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -515,7 +516,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
               maxLines: 4,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
           ],
         ),
       ),

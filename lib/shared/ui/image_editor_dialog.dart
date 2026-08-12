@@ -13,6 +13,7 @@ import 'package:image/image.dart' as img;
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../db/atomic_file_operations.dart';
 import '../util/bounded_file_io.dart';
 import '../util/bounded_xfile_io.dart';
@@ -262,30 +263,30 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                         l10n.imageEditorTitle,
                         style: theme.textTheme.headlineSmall,
                       ),
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       Text(
                         l10n.imageEditorCropHint,
                         style: theme.textTheme.bodyMedium?.copyWith(
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                       Expanded(
                         child: SingleChildScrollView(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               _buildPreviewPanel(context),
-                              const SizedBox(height: 18),
+                              kOpenHandGap18,
                               _buildAspectChips(context),
-                              const SizedBox(height: 12),
+                              kOpenHandGap12,
                               _buildTransformActions(context),
-                              const SizedBox(height: 16),
+                              kOpenHandGap16,
                               _buildAdjustmentSliders(context),
-                              const SizedBox(height: 8),
+                              kOpenHandGap8,
                               _buildAdvancedPanels(context),
                               if (_statusMessage != null) ...[
-                                const SizedBox(height: 12),
+                                kOpenHandGap12,
                                 Text(
                                   _statusMessage!,
                                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -302,7 +303,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                         busy: _isSaving || _isProcessing,
                         topGap: 16,
                       ),
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                       _buildActionBar(context),
                     ],
                   ),
@@ -664,7 +665,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
           onChanged: (_) => setState(() {}),
           maxLength: 120,
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         _EditorSlider(
           label: l10n.imageEditorWatermarkSizeLabel,
           value: _watermarkSize,
@@ -683,12 +684,12 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
               ? (v) => setState(() => _watermarkOpacity = v)
               : null,
         ),
-        const SizedBox(height: 4),
+        kOpenHandGap4,
         Text(
           l10n.imageEditorWatermarkPositionLabel,
           style: theme.textTheme.titleSmall,
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Column(
           children: [
             for (final row in const <List<_WatermarkPosition>>[
@@ -739,14 +740,14 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                           ),
                         ),
                       ),
-                      if (pos != row.last) const SizedBox(width: 6),
+                      if (pos != row.last) kOpenHandHGap6,
                     ],
                   ],
                 ),
               ),
           ],
         ),
-        const SizedBox(height: 4),
+        kOpenHandGap4,
         Row(
           children: [
             Expanded(
@@ -814,7 +815,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             label: Text(l10n.imageEditorSaveToFile),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         SizedBox(
           height: barHeight,
           child: OutlinedButton.icon(
@@ -836,7 +837,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             label: Text(l10n.imageEditorApplyButton),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         SizedBox(
           height: barHeight,
           child: OutlinedButton.icon(
@@ -848,7 +849,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             label: Text(l10n.imageEditorResetAllButton),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         SizedBox(
           height: barHeight,
           child: OutlinedButton.icon(
@@ -860,12 +861,12 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
             label: Text(l10n.imageEditorUndoButton),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         OpenHandDialogActionButton.secondary(
           onPressed: _isSaving ? null : () => Navigator.of(context).pop(),
           label: l10n.commonCancel,
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         OpenHandDialogActionButton.primary(
           onPressed: _canEdit && !_isSaving ? _handleConfirmSave : null,
           label: l10n.commonSave,
@@ -1080,7 +1081,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                   child: previewBody,
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               SizedBox(
                 width: 104,
                 child: Listener(
@@ -1670,7 +1671,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -1702,7 +1703,7 @@ class _ImageEditorDialogState extends State<_ImageEditorDialog> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   _EditorSlider(
                     label: l10n.imageEditorWatermarkColorHue,
                     value: hue,

@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import '../../shared/ui/openhand_spacing.dart';
 
 /// 图表四周留白与底部标签区高度。
 const double _kChartInset = 8;
@@ -807,7 +808,7 @@ class _OpenHandOperationalTrendChartState
                 ),
                 if (widget.series.length > 1 &&
                     (widget.showLegend || !widget.externalLegendProvided)) ...[
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   _ChartLegend(
                     segments: widget.series
                         .map(
@@ -1193,7 +1194,7 @@ class _OpenHandOperationalDonutChartState
                 ),
                 if (widget.segments.length > 1 &&
                     (widget.showLegend || !widget.externalLegendProvided)) ...[
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   _ChartLegend(
                     segments: widget.segments,
                     onTap: (index) => _activate(
@@ -1395,10 +1396,10 @@ class OpenHandOperationalMeter extends StatelessWidget {
             ),
           ),
           Text(label, style: Theme.of(context).textTheme.labelLarge),
-          const SizedBox(height: 2),
+          kOpenHandGap2,
           Text(display, style: Theme.of(context).textTheme.titleMedium),
           if (helper?.trim().isNotEmpty ?? false) ...[
-            const SizedBox(height: 3),
+            kOpenHandGap3,
             Text(
               helper!,
               textAlign: TextAlign.center,
@@ -1628,7 +1629,7 @@ class _HorizontalComparisonBars extends StatelessWidget {
                     style: Theme.of(context).textTheme.bodySmall,
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   flex: 5,
                   child: ClipRRect(
@@ -1654,7 +1655,7 @@ class _HorizontalComparisonBars extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 SizedBox(
                   width: 64,
                   child: Text(
@@ -1668,7 +1669,7 @@ class _HorizontalComparisonBars extends StatelessWidget {
               ],
             ),
           ),
-          if (segment != segments.last) const SizedBox(height: 10),
+          if (segment != segments.last) kOpenHandGap10,
         ],
       ],
     );
@@ -1823,7 +1824,7 @@ class OpenHandOperationalStatusBand extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Wrap(
               spacing: 12,
               runSpacing: 7,
@@ -2039,7 +2040,7 @@ class OpenHandOperationalHeatmap extends StatelessWidget {
                                     context,
                                   ).textTheme.labelMedium,
                                 ),
-                                const SizedBox(height: 3),
+                                kOpenHandGap3,
                                 Text(
                                   _labelFor(segment),
                                   maxLines: 1,
@@ -2129,7 +2130,7 @@ class OpenHandOperationalLatencyRange extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   SizedBox(
                     width: 68,
                     child: Text(
@@ -2140,7 +2141,7 @@ class OpenHandOperationalLatencyRange extends StatelessWidget {
                   ),
                 ],
               ),
-              if (segment != segments.last) const SizedBox(height: 10),
+              if (segment != segments.last) kOpenHandGap10,
             ],
           ],
         ),

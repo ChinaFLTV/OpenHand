@@ -20,6 +20,7 @@ import '../../../shared/ui/openhand_console_log_panel.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/runtime_log_dialog.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
@@ -260,7 +261,7 @@ class _PluginServiceViewState extends State<PluginServiceView> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const CircularProgressIndicator(),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Text(
               l10n.pluginServiceScanning,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -289,7 +290,7 @@ class _PluginServiceViewState extends State<PluginServiceView> {
       children: [
         for (final plugin in controller.plugins) ...[
           _PluginCard(plugin: plugin, controller: controller),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
         ],
       ],
     );
@@ -444,7 +445,7 @@ class _PluginCard extends StatelessWidget {
                                 _PluginTemplateBadge(spec: spec),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          kOpenHandGap6,
                           Text(
                             _localizedPluginDescription(l10n, plugin),
                             style: theme.textTheme.bodyMedium?.copyWith(
@@ -460,25 +461,25 @@ class _PluginCard extends StatelessWidget {
                 if (compact) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [title, const SizedBox(height: 14), actions],
+                    children: [title, kOpenHandGap14, actions],
                   );
                 }
                 return Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: title),
-                    const SizedBox(width: 16),
+                    kOpenHandHGap16,
                     actions,
                   ],
                 );
               },
             ),
             if (plugin.isInstalled) ...[
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               _PluginMetaRow(plugin: plugin),
             ],
             if (plugin.dependencies.isNotEmpty) ...[
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               _DependencyRow(plugin: plugin, controller: controller),
             ],
             OpenHandInlineNoticeSlot(
@@ -1044,7 +1045,7 @@ class _PluginOperationProgressDialogState
                   size: 14,
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Expanded(
                   child: Text(
                     isOperating
@@ -1121,7 +1122,7 @@ class _PluginMetaRow extends StatelessWidget {
                 size: 14,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Text(
                 '${l10n.pluginServiceVersion}: ${plugin.installedVersion}',
                 style: metaStyle,
@@ -1137,7 +1138,7 @@ class _PluginMetaRow extends StatelessWidget {
                 size: 14,
                 color: OpenHandStatusColors.warning,
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Text(
                 '${l10n.pluginServiceUpdateAvailable}: ${plugin.latestVersion}',
                 style: metaStyle?.copyWith(color: OpenHandStatusColors.warning),
@@ -1153,7 +1154,7 @@ class _PluginMetaRow extends StatelessWidget {
                 size: 14,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Text(plugin.installPath!, style: metaStyle),
             ],
           ),
@@ -1183,7 +1184,7 @@ class _DependencyRow extends StatelessWidget {
           size: 14,
           color: theme.colorScheme.onSurfaceVariant,
         ),
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         Text(
           '${l10n.pluginServiceDependsOn}: ',
           style: theme.textTheme.bodySmall?.copyWith(
@@ -1484,7 +1485,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 18),
+                          kOpenHandGap18,
                           // 环境信息
                           _DetailSection(
                             title: l10n.pluginServiceDetailEnvironment,
@@ -1501,7 +1502,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                             ],
                           ),
                           if (_fileSystemInfo.isNotEmpty) ...[
-                            const SizedBox(height: 18),
+                            kOpenHandGap18,
                             _DetailSection(
                               title: l10n.pluginServiceDetailFileSystem,
                               icon: Icons.folder_open_rounded,
@@ -1520,7 +1521,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                               ],
                             ),
                           ],
-                          const SizedBox(height: 18),
+                          kOpenHandGap18,
                           // 依赖关系
                           _DetailSection(
                             title: l10n.pluginServiceDetailDependencies,
@@ -1543,7 +1544,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                           if (TemplateRuntimeDependencyRegistry.specsForPlugin(
                             plugin.id,
                           ).isNotEmpty) ...[
-                            const SizedBox(height: 18),
+                            kOpenHandGap18,
                             _DetailSection(
                               title: l10n.pluginServiceThreadTemplates,
                               icon: Icons.dashboard_customize_rounded,
@@ -1567,7 +1568,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
                             ),
                           ],
                           if (plugin.id == PluginCatalogIds.playwright) ...[
-                            const SizedBox(height: 18),
+                            kOpenHandGap18,
                             _DetailSection(
                               title: 'MCP',
                               icon: Icons.hub_rounded,
@@ -1631,7 +1632,7 @@ class _DetailSection extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 18, color: colors.onPrimaryContainer),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Text(
                 title,
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -1641,7 +1642,7 @@ class _DetailSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Divider(
             height: 1,
             color: colors.outlineVariant.withValues(alpha: 0.7),
@@ -1684,7 +1685,7 @@ class _DetailRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(label, style: labelStyle),
-                    const SizedBox(height: 3),
+                    kOpenHandGap3,
                     Text(value, style: valueStyle),
                   ],
                 )
@@ -1692,7 +1693,7 @@ class _DetailRow extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     SizedBox(width: 132, child: Text(label, style: labelStyle)),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(child: Text(value, style: valueStyle)),
                   ],
                 ),
@@ -1997,7 +1998,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                               ? OpenHandStatusColors.success
                               : theme.colorScheme.onSurfaceVariant,
                         ),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         Text(
                           _mcpInstalled
                               ? _mcpVersion != null
@@ -2026,7 +2027,7 @@ class _PluginMcpDialogState extends State<_PluginMcpDialog> {
                               size: 18,
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          kOpenHandHGap6,
                           IconButton.filledTonal(
                             tooltip: l10n.pluginServiceActionUninstall,
                             onPressed: _operating ? null : _uninstallMcp,

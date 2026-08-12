@@ -17,6 +17,7 @@ import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/local_file_media.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart'
     show
@@ -450,7 +451,7 @@ class _SkillsViewState extends State<SkillsView> {
                     skill.name,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Text(
                     skill.displayDirectoryPath,
                     style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -458,7 +459,7 @@ class _SkillsViewState extends State<SkillsView> {
                     ),
                   ),
                   if (skill.defaultPrompt != null) ...[
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(14),
@@ -476,7 +477,7 @@ class _SkillsViewState extends State<SkillsView> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   Expanded(
                     child: ClipRRect(
                       borderRadius: BorderRadius.circular(24),
@@ -492,7 +493,7 @@ class _SkillsViewState extends State<SkillsView> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   Align(
                     alignment: Alignment.centerRight,
                     child: OpenHandDialogActionButton.primary(
@@ -656,7 +657,7 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           FormField<bool>(
             initialValue: _hasEffectiveIcon,
             validator: (value) {
@@ -689,7 +690,7 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
                         child: _buildSelectedIconPreview(),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: Text(
                         _buildIconLabel(l10n),
@@ -702,7 +703,7 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Builder(
                       builder: (btnContext) {
                         return OutlinedButton.icon(
@@ -732,7 +733,7 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
                         );
                       },
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     OutlinedButton.icon(
                       onPressed: _isSaving
                           ? null
@@ -749,7 +750,7 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
               );
             },
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           TextFormField(
             controller: _descriptionController,
             enabled: !_isSaving,
@@ -764,7 +765,7 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
               return null;
             },
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           TextFormField(
             controller: _contentController,
             enabled: !_isSaving,
@@ -907,7 +908,7 @@ class _EditSkillDialogState extends State<_EditSkillDialog>
                 '${l10n.skillsEdit}: ${widget.skill.name}',
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               Expanded(
                 child: SingleChildScrollView(
                   child: _buildSkillFormFields(context, l10n),
@@ -1021,7 +1022,7 @@ class _CreateSkillDialogState extends State<_CreateSkillDialog>
                 l10n.skillsCreateDialogTitle,
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               Expanded(
                 child: SingleChildScrollView(
                   child: _buildSkillFormFields(context, l10n),
@@ -1113,7 +1114,7 @@ class _SkillCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleMedium,
                           ),
-                          const SizedBox(height: 6),
+                          kOpenHandGap6,
                           Text(
                             skill.description,
                             maxLines: 2,
@@ -1125,7 +1126,7 @@ class _SkillCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     AnimatedPopupMenuButton<_SkillCardAction>(
                       onSelected: onActionSelected,
                       itemBuilder: (context) {
@@ -1148,7 +1149,7 @@ class _SkillCard extends StatelessWidget {
                   ],
                 ),
                 if (skill.defaultPrompt != null) ...[
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(12),
@@ -1164,7 +1165,7 @@ class _SkillCard extends StatelessWidget {
                           size: 18,
                           color: colorScheme.primary,
                         ),
-                        const SizedBox(width: 10),
+                        kOpenHandHGap10,
                         Expanded(
                           child: Text(
                             skill.defaultPrompt!,

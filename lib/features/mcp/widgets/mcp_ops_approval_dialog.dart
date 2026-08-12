@@ -10,6 +10,7 @@ import '../../../shared/ui/openhand_approval_chip.dart';
 import '../../../shared/ui/openhand_countdown_progress_bar.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/duration_bounds.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -182,7 +183,7 @@ class _McpOpsWriteApprovalDialogState
                       'OpenHand will run it only after your approval.',
                 ),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               OpenHandCountdownProgressBar(
                 value: _remainingProgress,
                 color: accent,
@@ -192,7 +193,7 @@ class _McpOpsWriteApprovalDialogState
                   en: 'Approval time remaining',
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -219,7 +220,7 @@ class _McpOpsWriteApprovalDialogState
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               Expanded(
                 child: OpenHandSafeScrollbar(
                   controller: _bodyScrollController,
@@ -264,7 +265,7 @@ class _McpOpsWriteApprovalDialogState
                           ),
                         },
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       _ApprovalPayloadPanel(
                         text: _argumentsPreview,
                         expanded: _isExpanded,
@@ -279,7 +280,7 @@ class _McpOpsWriteApprovalDialogState
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Text(
                 openHandLocalizedText(
                   context,
@@ -291,7 +292,7 @@ class _McpOpsWriteApprovalDialogState
                   color: cs.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -303,7 +304,7 @@ class _McpOpsWriteApprovalDialogState
                       en: 'Reject',
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   OpenHandDialogActionButton.primary(
                     onPressed: () => _closeWith(true),
                     label: openHandLocalizedText(
@@ -352,7 +353,7 @@ class _ApprovalInfoPanel extends StatelessWidget {
           Row(
             children: [
               Icon(icon, color: cs.primary, size: 20),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 title,
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -361,7 +362,7 @@ class _ApprovalInfoPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           for (final row in rows.entries)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -378,7 +379,7 @@ class _ApprovalInfoPanel extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: SelectableText(
                       nonBlankStringOr(row.value, '-'),
@@ -455,7 +456,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
                 ),
                 child: Icon(Icons.data_object_rounded, color: accent, size: 19),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,
@@ -504,7 +505,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           AnimatedSize(
             duration: openHandMotionDuration(context, kOpenHandMotion180,
             ),
@@ -530,7 +531,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
             ),
           ),
           if (canToggle && onToggle != null) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             _ApprovalPayloadToggle(
               expanded: expanded,
               onPressed: onToggle!,
@@ -726,7 +727,7 @@ class _ApprovalPayloadField extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     _ApprovalPayloadPill(
                       icon: Icons.category_rounded,
                       label: mcpPayloadTypeLabel(context, value),
@@ -734,7 +735,7 @@ class _ApprovalPayloadField extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 _ApprovalPayloadNode(
                   value: value,
                   raw: mcpPayloadScalarText(value),
@@ -774,7 +775,7 @@ class _ApprovalPayloadOverflowNotice extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.unfold_more_rounded, size: 16, color: accent),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: Text(
               openHandLocalizedText(
@@ -941,7 +942,7 @@ class _ApprovalPayloadToggle extends StatelessWidget {
                     color: color,
                   ),
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   label,
                   style: theme.textTheme.labelMedium?.copyWith(

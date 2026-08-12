@@ -5,6 +5,7 @@ import 'package:provider/provider.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -173,7 +174,7 @@ class _ResourceUsageStatisticsDialogState
                 size: 28,
               ),
             ),
-            const SizedBox(width: 16),
+            kOpenHandHGap16,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -213,7 +214,7 @@ class _ResourceUsageStatisticsDialogState
                               ?.copyWith(color: colorScheme.onSurfaceVariant),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 8,
@@ -273,7 +274,7 @@ class _ResourceUsageStatisticsDialogState
           selected: _period,
           onSelected: (period) => setState(() => _period = period),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         _SummaryGrid(
           level: level,
           topLabel: top == null ? '—' : _labelFor(top.key),
@@ -281,7 +282,7 @@ class _ResourceUsageStatisticsDialogState
               ? 0
               : top.value / level.totalCount,
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         LayoutBuilder(
           builder: (context, constraints) {
             final wide = constraints.maxWidth >= 760;
@@ -324,20 +325,20 @@ class _ResourceUsageStatisticsDialogState
             );
             if (!wide) {
               return Column(
-                children: [trend, const SizedBox(height: 16), distribution],
+                children: [trend, kOpenHandGap16, distribution],
               );
             }
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(flex: 6, child: trend),
-                const SizedBox(width: 16),
+                kOpenHandHGap16,
                 Expanded(flex: 4, child: distribution),
               ],
             );
           },
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         _AnalyticsPanel(
           title: openHandLocalizedText(
             context,
@@ -356,7 +357,7 @@ class _ResourceUsageStatisticsDialogState
             labels: widget.resourceLabels,
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         _AnalyticsPanel(
           title: openHandLocalizedText(
             context,
@@ -387,7 +388,7 @@ class _ResourceUsageStatisticsDialogState
             labels: widget.resourceLabels,
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         _AnalyticsPanel(
           title: openHandLocalizedText(
             context,
@@ -680,7 +681,7 @@ class _AnalyticsPanel extends StatelessWidget {
               context,
             ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
           ),
-          const SizedBox(height: 3),
+          kOpenHandGap3,
           Text(
             subtitle,
             maxLines: 1,
@@ -689,7 +690,7 @@ class _AnalyticsPanel extends StatelessWidget {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 18),
+          kOpenHandGap18,
           child,
         ],
       ),
@@ -905,7 +906,7 @@ class _UsageDistribution extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         for (var index = 0; index < visible.length; index++)
           Padding(
             padding: const EdgeInsets.symmetric(vertical: 3),
@@ -919,7 +920,7 @@ class _UsageDistribution extends StatelessWidget {
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     labels[visible[index].key] ?? visible[index].key,
@@ -950,7 +951,7 @@ class _UsageDistribution extends StatelessWidget {
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     openHandLocalizedText(
@@ -1178,7 +1179,7 @@ class _ResourceDetails extends StatelessWidget {
             resource: visible[index],
             label: labels[visible[index].resourceId],
           ),
-          if (index != visible.length - 1) const SizedBox(height: 10),
+          if (index != visible.length - 1) kOpenHandGap10,
         ],
       ],
     );
@@ -1225,7 +1226,7 @@ class _ResourceDetailCard extends StatelessWidget {
                   color: colors.onPrimaryContainer,
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1261,7 +1262,7 @@ class _ResourceDetailCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1314,7 +1315,7 @@ class _ResourceDetailCard extends StatelessWidget {
                             size: 17,
                             color: colors.primary,
                           ),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Expanded(
                             child: Text(
                               children[index].resourceId,
@@ -1329,7 +1330,7 @@ class _ResourceDetailCard extends StatelessWidget {
                             style: Theme.of(context).textTheme.labelSmall
                                 ?.copyWith(color: colors.onSurfaceVariant),
                           ),
-                          const SizedBox(width: 12),
+                          kOpenHandHGap12,
                           SizedBox(
                             width: 62,
                             child: Text(
@@ -1340,7 +1341,7 @@ class _ResourceDetailCard extends StatelessWidget {
                               style: Theme.of(context).textTheme.labelSmall,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          kOpenHandHGap12,
                           SizedBox(
                             width: 38,
                             child: Text(
@@ -1489,7 +1490,7 @@ class _UsageEventCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Wrap(
             spacing: 12,
             runSpacing: 6,
@@ -1561,7 +1562,7 @@ class _EventMeta extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 14, color: color),
-        const SizedBox(width: 4),
+        kOpenHandHGap4,
         Text(
           text,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),
@@ -1627,7 +1628,7 @@ class _EmptyAnalytics extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 34, color: colorScheme.outline),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Text(
               label,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/ui/openhand_spacing.dart';
 import 'openhand_dialog_action_button.dart';
 
 class SectionPlaceholder extends StatelessWidget {
@@ -34,13 +35,13 @@ class SectionPlaceholder extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon, size: 56, color: theme.colorScheme.primary),
-                const SizedBox(height: 18),
+                kOpenHandGap18,
                 Text(
                   title,
                   textAlign: TextAlign.center,
                   style: theme.textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Text(
                   body,
                   textAlign: TextAlign.center,
@@ -48,7 +49,7 @@ class SectionPlaceholder extends StatelessWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 Text(
                   footer,
                   textAlign: TextAlign.center,
@@ -56,7 +57,7 @@ class SectionPlaceholder extends StatelessWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 20),
+                kOpenHandGap20,
                 OpenHandDialogActionButton.primary(
                   onPressed: onAction,
                   icon: Icons.arrow_back_rounded,
