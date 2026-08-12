@@ -11717,25 +11717,23 @@ $tail''';
     final int messagesLength = messages.length;
 
     if (messagesLength > 0 && messages[messagesLength - 1].id == messageId) {
-      final updatedMessages = List<AiSessionMessage>.of(messages);
-      updatedMessages[messagesLength - 1] = update(
-        updatedMessages[messagesLength - 1],
-      );
-      return session.copyWith(
-        messages: updatedMessages,
+      return session.copyWithTailMessage(
+        update(messages[messagesLength - 1]),
+        append: false,
         updatedAt: _clock().toUtc(),
       );
     }
 
-    final messageIndex = messages.indexWhere(
-      (message) => message.id == messageId,
-    );
-    final updatedMessages = List<AiSessionMessage>.of(messages);
+    final messageIndex = session.messageIndexOf(messageId);
     if (messageIndex == -1) {
-      updatedMessages.add(create());
-    } else {
-      updatedMessages[messageIndex] = update(updatedMessages[messageIndex]);
+      return session.copyWithTailMessage(
+        create(),
+        append: true,
+        updatedAt: _clock().toUtc(),
+      );
     }
+    final updatedMessages = List<AiSessionMessage>.of(messages);
+    updatedMessages[messageIndex] = update(updatedMessages[messageIndex]);
     return session.copyWith(
       messages: updatedMessages,
       updatedAt: _clock().toUtc(),

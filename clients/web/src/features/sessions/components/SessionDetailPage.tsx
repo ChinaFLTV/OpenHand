@@ -2833,6 +2833,14 @@ function VirtualMessageList({
 
   useLayoutEffect(() => {
     previousMembershipRef.current = { key: membershipKey, messageIds, virtualized };
+    if (membershipChanged) {
+      const retainedIds = new Set(messageIds);
+      for (const messageId of measuredHeightsRef.current.keys()) {
+        if (!retainedIds.has(messageId)) {
+          measuredHeightsRef.current.delete(messageId);
+        }
+      }
+    }
     setRange((current) =>
       current.start === renderRange.start && current.end === renderRange.end
         ? current

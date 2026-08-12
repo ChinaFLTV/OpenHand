@@ -1,3 +1,5 @@
+import 'dart:collection';
+
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import 'ai_session_goal.dart';
@@ -921,6 +923,35 @@ class AiSession {
     return next;
   }
 
+  /// 仅追加或替换尾消息，并增量维护已物化的派生缓存。
+  ///
+  /// 流式响应会高频更新最后一条消息。普通 [copyWith] 必须让所有消息派生
+  /// 缓存失效，而这里能证明历史前缀未变，可将每次更新从全量扫描收敛为 O(1)。
+  AiSession copyWithTailMessage(
+    AiSessionMessage nextTail, {
+    required bool append,
+    DateTime? updatedAt,
+  }) {
+    final previousLength = messages.length;
+    if (!append && previousLength == 0) {
+      throw StateError('空会话不能替换尾消息。');
+    }
+    final previousTail = append ? null : messages.last;
+    final nextMessages = append
+        ? _AiSessionTailMessages.append(messages, nextTail)
+        : _AiSessionTailMessages.replace(messages, nextTail);
+    final next = copyWith(messages: nextMessages, updatedAt: updatedAt);
+    if (hasCompleteMessages) {
+      next._seedDerivedCachesAfterTailChange(
+        this,
+        previousTail: previousTail,
+        nextTail: nextTail,
+        appended: append,
+      );
+    }
+    return next;
+  }
+
   bool get hasCompleteMessages =>
       messageLoadState == AiSessionMessageLoadState.complete;
 
@@ -972,7 +1003,7 @@ class AiSession {
     return _displayMessagesCache ??= _computeDisplayMessages();
   }
 
-  int _messageIndexOf(String messageId) {
+  int messageIndexOf(String messageId) {
     return (_messageIndexByIdCache ??= <String, int>{
           for (var index = 0; index < messages.length; index += 1)
             messages[index].id: index,
@@ -988,7 +1019,7 @@ class AiSession {
   AiSessionMessage? transcriptAnchorForRoundStarter(String starterMessageId) {
     final normalizedId = starterMessageId.trim();
     if (normalizedId.isEmpty) return null;
-    final starterIndex = _messageIndexOf(normalizedId);
+    final starterIndex = messageIndexOf(normalizedId);
     if (starterIndex < 0 || messages[starterIndex].isDeleted) return null;
 
     final displayById = _displayMessageByIdCache ??= <String, AiSessionMessage>{
@@ -1008,7 +1039,7 @@ class AiSession {
                 _messageMetadataText(message, 'tool_call_id'): message,
           };
       final toolCall = toolCallsById[toolCallId];
-      if (toolCall != null && _messageIndexOf(toolCall.id) < starterIndex) {
+      if (toolCall != null && messageIndexOf(toolCall.id) < starterIndex) {
         return toolCall;
       }
     }
@@ -1048,6 +1079,144 @@ class AiSession {
     if (source._displayToolCallByCallIdCache != null) {
       _displayToolCallByCallIdCache = source._displayToolCallByCallIdCache;
     }
+  }
+
+  void _seedDerivedCachesAfterTailChange(
+    AiSession source, {
+    required AiSessionMessage? previousTail,
+    required AiSessionMessage nextTail,
+    required bool appended,
+  }) {
+    final previousVisible = source._visibleMessagesCache;
+    if (previousVisible != null) {
+      _visibleMessagesCache = _updatedTailDerivedList(
+        previousVisible,
+        previousTail: previousTail,
+        nextTail: nextTail,
+        previousIncluded: previousTail?.isVisible ?? false,
+        nextIncluded: nextTail.isVisible,
+        displayList: false,
+      );
+    }
+
+    final previousDisplay = source._displayMessagesCache;
+    if (previousDisplay != null) {
+      final previousIncluded =
+          previousTail != null &&
+          previousDisplay.isNotEmpty &&
+          identical(previousDisplay.last, previousTail);
+      final nextIncluded = _tailDisplayMembershipAfterChange(
+        previousTail: previousTail,
+        nextTail: nextTail,
+        previousIncluded: previousIncluded,
+        appended: appended,
+      );
+      if (nextIncluded != null) {
+        _displayMessagesCache = _updatedTailDerivedList(
+          previousDisplay,
+          previousTail: previousTail,
+          nextTail: nextTail,
+          previousIncluded: previousIncluded,
+          nextIncluded: nextIncluded,
+          displayList: true,
+        );
+      }
+    }
+
+    if (source._latestCompressionPointIndexComputed) {
+      if (appended) {
+        if (nextTail.kind == AiSessionMessageKind.compressionPoint &&
+            !nextTail.isDeleted) {
+          _latestCompressionPointIndexCache = messages.length - 1;
+        } else {
+          _latestCompressionPointIndexCache =
+              source._latestCompressionPointIndexCache;
+        }
+        _latestCompressionPointIndexComputed = true;
+      } else if (previousTail?.kind != AiSessionMessageKind.compressionPoint &&
+          nextTail.kind != AiSessionMessageKind.compressionPoint) {
+        _latestCompressionPointIndexCache =
+            source._latestCompressionPointIndexCache;
+        _latestCompressionPointIndexComputed = true;
+      }
+    }
+
+    final previousIndex = source._messageIndexByIdCache;
+    if (previousIndex != null &&
+        (previousTail == null || previousTail.id == nextTail.id)) {
+      if (appended) {
+        _messageIndexByIdCache = _AiSessionTailMessageIndex.append(
+          previousIndex,
+          nextTail.id,
+          messages.length - 1,
+        );
+      } else {
+        _messageIndexByIdCache = previousIndex;
+      }
+    }
+  }
+
+  List<AiSessionMessage> _updatedTailDerivedList(
+    List<AiSessionMessage> previous, {
+    required AiSessionMessage? previousTail,
+    required AiSessionMessage nextTail,
+    required bool previousIncluded,
+    required bool nextIncluded,
+    required bool displayList,
+  }) {
+    if (!previousIncluded && !nextIncluded) return previous;
+    if (!previousIncluded) {
+      return _AiSessionTailMessages.append(previous, nextTail);
+    }
+    if (previous.isEmpty || !identical(previous.last, previousTail)) {
+      return displayList
+          ? _computeDisplayMessages()
+          : messages
+                .where((message) => message.isVisible)
+                .toList(growable: false);
+    }
+    if (!nextIncluded) {
+      return _AiSessionTailMessages.removeLast(previous);
+    }
+    return _AiSessionTailMessages.replace(previous, nextTail);
+  }
+
+  bool? _tailDisplayMembershipAfterChange({
+    required AiSessionMessage? previousTail,
+    required AiSessionMessage nextTail,
+    required bool previousIncluded,
+    required bool appended,
+  }) {
+    if (appended) {
+      if (nextTail.kind == AiSessionMessageKind.toolCall &&
+          _messageMetadataText(nextTail, 'tool_call_id').isNotEmpty) {
+        return null;
+      }
+      if (nextTail.kind.isToolResultKind) return null;
+      return nextTail.isTranscriptRenderable &&
+          nextTail.metadata['plan_mode_approved'] != true;
+    }
+    if (previousTail == null ||
+        previousTail.id != nextTail.id ||
+        previousTail.kind != nextTail.kind ||
+        previousTail.isTranscriptRenderable !=
+            nextTail.isTranscriptRenderable ||
+        previousTail.metadata['plan_mode_approved'] !=
+            nextTail.metadata['plan_mode_approved']) {
+      return null;
+    }
+    if ((nextTail.kind == AiSessionMessageKind.toolCall ||
+            nextTail.kind.isToolResultKind) &&
+        _messageMetadataText(previousTail, 'tool_call_id') !=
+            _messageMetadataText(nextTail, 'tool_call_id')) {
+      return null;
+    }
+    if (nextTail.kind.isToolResultKind &&
+        _isStandaloneMachineTerminalToolResult(previousTail) !=
+            _isStandaloneMachineTerminalToolResult(nextTail)) {
+      return null;
+    }
+    return previousIncluded;
   }
 
   AiSessionPlanRecord? get latestPlanRecord {
@@ -1240,6 +1409,166 @@ class AiSession {
 
   static DateTime? _parseNullableDateTime(Object? value) {
     return utcDateTimeFromValue(value);
+  }
+}
+
+/// 流式尾消息共享历史前缀，只复制极小尾段，避免每个片段复制整段会话历史。
+class _AiSessionTailMessages extends ListBase<AiSessionMessage> {
+  _AiSessionTailMessages._(this._prefix, this._prefixLength, this._tail);
+
+  factory _AiSessionTailMessages.append(
+    List<AiSessionMessage> source,
+    AiSessionMessage message,
+  ) {
+    if (source is _AiSessionTailMessages &&
+        source._tail.length < _maxSharedTailLength) {
+      return _AiSessionTailMessages._(
+        source._prefix,
+        source._prefixLength,
+        List<AiSessionMessage>.unmodifiable(<AiSessionMessage>[
+          ...source._tail,
+          message,
+        ]),
+      );
+    }
+    final prefix = source is _AiSessionTailMessages
+        ? List<AiSessionMessage>.unmodifiable(source)
+        : source;
+    return _AiSessionTailMessages._(
+      prefix,
+      prefix.length,
+      List<AiSessionMessage>.unmodifiable(<AiSessionMessage>[message]),
+    );
+  }
+
+  factory _AiSessionTailMessages.replace(
+    List<AiSessionMessage> source,
+    AiSessionMessage message,
+  ) {
+    if (source is _AiSessionTailMessages) {
+      return _AiSessionTailMessages._(
+        source._prefix,
+        source._tail.isEmpty ? source._prefixLength - 1 : source._prefixLength,
+        List<AiSessionMessage>.unmodifiable(<AiSessionMessage>[
+          if (source._tail.isNotEmpty)
+            ...source._tail.take(source._tail.length - 1),
+          message,
+        ]),
+      );
+    }
+    return _AiSessionTailMessages._(
+      source,
+      source.length - 1,
+      List<AiSessionMessage>.unmodifiable(<AiSessionMessage>[message]),
+    );
+  }
+
+  factory _AiSessionTailMessages.removeLast(List<AiSessionMessage> source) {
+    if (source.isEmpty) {
+      throw StateError('空会话消息列表不能移除尾消息。');
+    }
+    if (source is _AiSessionTailMessages) {
+      return _AiSessionTailMessages._(
+        source._prefix,
+        source._tail.isEmpty ? source._prefixLength - 1 : source._prefixLength,
+        source._tail.isEmpty
+            ? const <AiSessionMessage>[]
+            : List<AiSessionMessage>.unmodifiable(
+                source._tail.take(source._tail.length - 1),
+              ),
+      );
+    }
+    return _AiSessionTailMessages._(
+      source,
+      source.length - 1,
+      const <AiSessionMessage>[],
+    );
+  }
+
+  static const int _maxSharedTailLength = 64;
+
+  final List<AiSessionMessage> _prefix;
+  final int _prefixLength;
+  final List<AiSessionMessage> _tail;
+
+  @override
+  int get length => _prefixLength + _tail.length;
+
+  @override
+  set length(int value) => throw UnsupportedError('会话消息列表不可修改。');
+
+  @override
+  AiSessionMessage operator [](int index) {
+    RangeError.checkValidIndex(index, this);
+    return index < _prefixLength
+        ? _prefix[index]
+        : _tail[index - _prefixLength];
+  }
+
+  @override
+  void operator []=(int index, AiSessionMessage value) {
+    throw UnsupportedError('会话消息列表不可修改。');
+  }
+}
+
+class _AiSessionTailMessageIndex extends MapBase<String, int> {
+  _AiSessionTailMessageIndex._(this._prefix, this._tail);
+
+  factory _AiSessionTailMessageIndex.append(
+    Map<String, int> source,
+    String messageId,
+    int index,
+  ) {
+    if (source is _AiSessionTailMessageIndex &&
+        source._tail.length < _maxSharedTailLength) {
+      return _AiSessionTailMessageIndex._(
+        source._prefix,
+        Map<String, int>.unmodifiable(<String, int>{
+          ...source._tail,
+          messageId: index,
+        }),
+      );
+    }
+    final prefix = source is _AiSessionTailMessageIndex
+        ? Map<String, int>.unmodifiable(source)
+        : source;
+    return _AiSessionTailMessageIndex._(
+      prefix,
+      Map<String, int>.unmodifiable(<String, int>{messageId: index}),
+    );
+  }
+
+  static const int _maxSharedTailLength = 64;
+
+  final Map<String, int> _prefix;
+  final Map<String, int> _tail;
+
+  @override
+  int? operator [](Object? key) {
+    return _tail.containsKey(key) ? _tail[key] : _prefix[key];
+  }
+
+  @override
+  void operator []=(String key, int value) {
+    throw UnsupportedError('会话消息索引不可修改。');
+  }
+
+  @override
+  void clear() {
+    throw UnsupportedError('会话消息索引不可修改。');
+  }
+
+  @override
+  Iterable<String> get keys sync* {
+    for (final key in _prefix.keys) {
+      if (!_tail.containsKey(key)) yield key;
+    }
+    yield* _tail.keys;
+  }
+
+  @override
+  int? remove(Object? key) {
+    throw UnsupportedError('会话消息索引不可修改。');
   }
 }
 
