@@ -1380,7 +1380,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
                       child: Row(
                         children: [
                           Icon(e.icon, size: 20, color: cs.primary),
-                          const SizedBox(width: 14),
+                          kOpenHandHGap14,
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,

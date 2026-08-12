@@ -1123,7 +1123,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                           size: 15,
                           color: palette.badgeTextColor.withValues(alpha: 0.8),
                         ),
-                        const SizedBox(width: 7),
+                        kOpenHandHGap7,
                         Flexible(
                           child: Text(
                             '$displayLanguage · $lineCountLabel',

@@ -582,7 +582,7 @@ class _BuiltinToolTile extends StatelessWidget {
                   ? colorScheme.primary
                   : colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
-            const SizedBox(width: 14),
+            kOpenHandHGap14,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1068,7 +1068,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          kOpenHandHGap14,
                           Expanded(
                             child:
                                 AnimatedDropdownButtonFormField<
@@ -1131,7 +1131,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          kOpenHandHGap14,
                           Expanded(
                             child: TextField(
                               controller: _timeoutSecondsController,
@@ -1173,7 +1173,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                                   setState(() => _retryOnFailure = value),
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          kOpenHandHGap14,
                           Expanded(
                             child: TextField(
                               controller: _maxRetriesController,

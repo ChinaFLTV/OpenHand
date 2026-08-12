@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
 import '../../features/ai/model/ai_model_config.dart';
@@ -270,7 +271,7 @@ class _OpenHandModelSelectorFieldState
             ),
           ),
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Text(
           helper,
           style: theme.textTheme.bodySmall?.copyWith(

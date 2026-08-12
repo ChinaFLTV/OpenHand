@@ -5,6 +5,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 import 'package:path/path.dart' as p;
 import 'package:webview_flutter/webview_flutter.dart';
 
@@ -28,6 +29,7 @@ import 'natural_image_size_resolver.dart';
 import 'openhand_clipboard.dart';
 import 'openhand_snack_bar.dart';
 import 'openhand_video_player_web_styles.dart';
+
 
 /// 通用图片 / 音频 / 视频预览弹窗。覆盖三种来源：
 ///   - `bytes`：内存 Uint8List（CDP 拉回的 base64 解码后的二进制）
@@ -344,7 +346,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                         size: 20,
                         color: cs.primary,
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(
                         child: Text(
                           widget.title,
@@ -360,7 +362,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
                             : () => _copyToClipboard(context),
                         icon: const Icon(Icons.content_copy_outlined),
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       IconButton(
                         tooltip: l10n.commonClose,
                         onPressed: () => Navigator.of(context).pop(),

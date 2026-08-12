@@ -2533,7 +2533,7 @@ class _SectionTitle extends StatelessWidget {
           ),
           child: Icon(icon, size: 18, color: cs.primary),
         ),
-        const SizedBox(width: 9),
+        kOpenHandHGap9,
         Expanded(
           child: Text(
             title,
@@ -3406,7 +3406,7 @@ class _InlineNotice extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 18, color: cs.onSurfaceVariant),
-        const SizedBox(width: 9),
+        kOpenHandHGap9,
         Expanded(
           child: Text(
             text,

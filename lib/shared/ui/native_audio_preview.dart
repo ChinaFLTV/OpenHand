@@ -5,6 +5,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:media_kit/media_kit.dart' as mk;
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
@@ -17,6 +18,7 @@ import '../util/timer_safety.dart';
 import 'animated_menu.dart';
 import 'motion_durations.dart';
 import 'motion_preference.dart';
+
 
 const Duration kNativeAudioLoadTimeout = Duration(seconds: 18);
 const Duration kNativeAudioControlTimeout = Duration(seconds: 8);
@@ -1308,7 +1310,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
             fontSize: compact ? 17 : 21,
           ),
         ),
-        const SizedBox(height: 3),
+        kOpenHandGap3,
         Text(
           _hasMeaningfulAlbumLabel
               ? '${meta.artist} · ${meta.album}'
@@ -1394,14 +1396,14 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
               ? () => unawaited(_seekBy(-kNativeAudioSeekStep))
               : null,
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         _NativeAudioIconButton(
           tooltip: _isPlaying ? l10n.nativeAudioPause : l10n.nativeAudioPlay,
           icon: _isPlaying ? Icons.pause_rounded : Icons.play_arrow_rounded,
           prominent: true,
           onPressed: _sourceReady ? () => unawaited(_togglePlayPause()) : null,
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         _NativeAudioIconButton(
           tooltip: l10n.nativeAudioForward15Seconds,
           icon: Icons.forward_10_rounded,
@@ -1495,7 +1497,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(Icons.error_outline_rounded, color: cs.error, size: 30),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Text(
                     _loadError!,
                     textAlign: TextAlign.center,
@@ -1503,7 +1505,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
                       color: cs.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   Wrap(
                     alignment: WrapAlignment.center,
                     spacing: 10,
@@ -1992,7 +1994,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
                     ? cs.primary
                     : cs.onSurfaceVariant,
               ),
-              const SizedBox(width: 5),
+              kOpenHandHGap5,
               Text(
                 label,
                 style: TextStyle(
@@ -2004,7 +2006,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
                   letterSpacing: 0,
                 ),
               ),
-              const SizedBox(width: 3),
+              kOpenHandHGap3,
               Icon(
                 Icons.expand_more_rounded,
                 size: 14,
@@ -2043,7 +2045,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
                 size: 18,
                 color: e == effect ? cs.primary : cs.onSurfaceVariant,
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Text(
                 eLabel,
                 style: TextStyle(

@@ -2512,7 +2512,7 @@ class _KnowledgeBaseConfigDialogState
                 size: 18,
                 color: foreground,
               ),
-              const SizedBox(width: 7),
+              kOpenHandHGap7,
               Expanded(
                 child: Text(
                   ready
@@ -2544,7 +2544,7 @@ class _KnowledgeBaseConfigDialogState
               ),
             ],
           ),
-          const SizedBox(height: 7),
+          kOpenHandGap7,
           Text(
             ready
                 ? trimmedNonEmptyStrings(<Object?>[
@@ -3026,7 +3026,7 @@ class _KnowledgeBaseConfigDialogState
               color: colorScheme.onSecondaryContainer,
             ),
           ),
-          const SizedBox(width: 9),
+          kOpenHandHGap9,
           Expanded(
             child: Column(
               mainAxisAlignment: MainAxisAlignment.center,
@@ -3487,7 +3487,7 @@ class _KnowledgeBaseConfigDialogState
                   ),
                   child: Icon(icon, size: 18, color: colorScheme.primary),
                 ),
-                const SizedBox(width: 9),
+                kOpenHandHGap9,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

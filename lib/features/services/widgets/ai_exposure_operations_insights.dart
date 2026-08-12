@@ -370,7 +370,7 @@ class _InsightContextBar extends StatelessWidget {
               ),
               kOpenHandHGap16,
               for (final entry in items.indexed) ...[
-                if (entry.$1 > 0) const SizedBox(width: 14),
+                if (entry.$1 > 0) kOpenHandHGap14,
                 Expanded(
                   flex: entry.$2.flex,
                   child: _InsightContextMetric(item: entry.$2),
@@ -404,7 +404,7 @@ class _InsightContextMetric extends StatelessWidget {
           padding: const EdgeInsets.only(top: 2),
           child: Icon(item.icon, size: 17, color: colors.onSurfaceVariant),
         ),
-        const SizedBox(width: 7),
+        kOpenHandHGap7,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

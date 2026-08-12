@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import 'highlight_pulse.dart';
 import 'motion_preference.dart';
@@ -79,7 +80,7 @@ class FeaturePageShell extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: header),
-                    const SizedBox(width: 20),
+                    kOpenHandHGap20,
                     Flexible(
                       child: Align(
                         alignment: Alignment.topRight,
@@ -146,7 +147,7 @@ class FeaturePageHeader extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: theme.textTheme.displaySmall),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Text(
           subtitle,
           style: theme.textTheme.bodyLarge?.copyWith(

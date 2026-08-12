@@ -577,7 +577,7 @@ class _TaskStageGanttSection extends StatelessWidget {
                               ),
                             ],
                           ),
-                          const SizedBox(height: 7),
+                          kOpenHandGap7,
                           LayoutBuilder(
                             builder: (context, constraints) {
                               final safeWidth = constraints.maxWidth;
@@ -3216,7 +3216,7 @@ Widget _entityProbeWaterfall(
                           ),
                         ),
                         if (step.message?.trim().isNotEmpty == true) ...[
-                          const SizedBox(height: 5),
+                          kOpenHandGap5,
                           Text(
                             _entitySafeText(step.message),
                             maxLines: 2,

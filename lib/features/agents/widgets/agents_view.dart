@@ -1239,7 +1239,7 @@ class _AgentActivityBubble extends StatelessWidget {
                       ),
                     ),
                     if (body.trim().isNotEmpty) ...[
-                      const SizedBox(height: 7),
+                      kOpenHandGap7,
                       SelectableText(
                         body,
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -1489,7 +1489,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
                           ),
                         ),
                         if (event.summary.trim().isNotEmpty) ...[
-                          const SizedBox(height: 5),
+                          kOpenHandGap5,
                           SelectableText(
                             _agentAuditSummaryText(context, event),
                             style: theme.textTheme.bodyMedium?.copyWith(
@@ -2249,7 +2249,7 @@ class _AgentCapabilityLogDetailHero extends StatelessWidget {
             }
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [leading, const SizedBox(width: 14), content],
+              children: [leading, kOpenHandHGap14, content],
             );
           },
         ),
@@ -2497,7 +2497,7 @@ class _AgentApprovalRequestCard extends StatelessWidget {
                     ),
                   ],
                   if (approval.reason.trim().isNotEmpty) ...[
-                    const SizedBox(height: 5),
+                    kOpenHandGap5,
                     SelectableText(
                       approval.reason,
                       style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
@@ -3373,7 +3373,7 @@ class _AgentTaskCard extends StatelessWidget {
                         ),
                       ),
                       if (task.description.trim().isNotEmpty) ...[
-                        const SizedBox(height: 5),
+                        kOpenHandGap5,
                         Text(
                           task.description,
                           maxLines: 2,
@@ -3414,7 +3414,7 @@ class _AgentTaskCard extends StatelessWidget {
                           task.note.trim().isNotEmpty ||
                           tracking.isNotEmpty ||
                           metadata.isNotEmpty) ...[
-                        const SizedBox(height: 9),
+                        kOpenHandGap9,
                         Wrap(
                           spacing: 6,
                           runSpacing: 6,
@@ -4370,7 +4370,7 @@ class _AgentKpiCard extends StatelessWidget {
                     ),
                   ),
                   if (item.target.trim().isNotEmpty) ...[
-                    const SizedBox(height: 5),
+                    kOpenHandGap5,
                     Text(
                       item.target,
                       maxLines: 2,
@@ -4382,7 +4382,7 @@ class _AgentKpiCard extends StatelessWidget {
                     ),
                   ],
                   if (item.plan.trim().isNotEmpty) ...[
-                    const SizedBox(height: 5),
+                    kOpenHandGap5,
                     Text(
                       item.plan,
                       maxLines: 3,
@@ -4418,7 +4418,7 @@ class _AgentKpiCard extends StatelessWidget {
                     ],
                   ),
                   if (metadata.isNotEmpty) ...[
-                    const SizedBox(height: 9),
+                    kOpenHandGap9,
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
@@ -5068,7 +5068,7 @@ class _AgentResourceLiveSummary extends StatelessWidget {
             fontWeight: FontWeight.w900,
           ),
         ),
-        const SizedBox(height: 7),
+        kOpenHandGap7,
         AnimatedSwitcher(
           duration: settings.entranceDuration,
           reverseDuration: settings.exitDuration,
@@ -5870,7 +5870,7 @@ class _AgentResourcePressureCard extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.stretch,
                           children: [
                             progressBar,
-                            const SizedBox(height: 7),
+                            kOpenHandGap7,
                             valueText,
                           ],
                         );
@@ -5882,7 +5882,7 @@ class _AgentResourcePressureCard extends StatelessWidget {
                       return Row(
                         children: [
                           Expanded(child: progressBar),
-                          const SizedBox(width: 14),
+                          kOpenHandHGap14,
                           SizedBox(width: valueWidth, child: valueText),
                         ],
                       );
@@ -6970,7 +6970,7 @@ class _AgentAuditEventRow extends StatelessWidget {
                         height: 1.25,
                       ),
                     ),
-                    const SizedBox(height: 7),
+                    kOpenHandGap7,
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
@@ -7031,7 +7031,7 @@ class _AgentAuditTaskStatusRow extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 7),
+          kOpenHandGap7,
           LinearProgressIndicator(
             value: normalized,
             minHeight: 8,
@@ -7208,7 +7208,7 @@ class _AgentTaskDetailHero extends StatelessWidget {
                               _AgentActivityMetadataChip(text: next),
                           ],
                         ),
-                        const SizedBox(height: 9),
+                        kOpenHandGap9,
                         Text(
                           title,
                           maxLines: compact ? 3 : 2,
@@ -7263,7 +7263,7 @@ class _AgentTaskDetailHero extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(height: 9),
+                          kOpenHandGap9,
                           TweenAnimationBuilder<double>(
                             tween: Tween<double>(begin: 0, end: progress),
                             duration: settings.duration,
@@ -7536,7 +7536,7 @@ class _AgentDialogMetricTile extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 9),
+            kOpenHandGap9,
             AnimatedSwitcher(
               duration: settings.entranceDuration,
               reverseDuration: settings.exitDuration,
@@ -11738,7 +11738,7 @@ class _AgentToolGroupSection extends StatelessWidget {
                   size: 17,
                   color: colors.primary,
                 ),
-                const SizedBox(width: 7),
+                kOpenHandHGap7,
                 Expanded(
                   child: Text(
                     agentBuiltinToolGroupLabel(context, group),

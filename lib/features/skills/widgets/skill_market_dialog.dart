@@ -148,14 +148,14 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                               width: leftWidth,
                               child: _buildSearchPane(context),
                             ),
-                            const SizedBox(width: 18),
+                            kOpenHandHGap18,
                             VerticalDivider(
                               width: 1,
                               color: Theme.of(
                                 context,
                               ).colorScheme.outlineVariant,
                             ),
-                            const SizedBox(width: 18),
+                            kOpenHandHGap18,
                             Expanded(child: _buildDetailPane(context)),
                           ],
                         );
@@ -213,7 +213,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
             color: colorScheme.onPrimaryContainer,
           ),
         ),
-        const SizedBox(width: 14),
+        kOpenHandHGap14,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -901,7 +901,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                   imageUrl: skill.iconUrl,
                   size: 52,
                 ),
-                const SizedBox(width: 14),
+                kOpenHandHGap14,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1200,7 +1200,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                   imageUrl: skill.iconUrl ?? summary.iconUrl,
                   size: 58,
                 ),
-                const SizedBox(width: 14),
+                kOpenHandHGap14,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,

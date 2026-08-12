@@ -474,7 +474,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 7),
+                    kOpenHandGap7,
                     Wrap(
                       spacing: 7,
                       runSpacing: 7,
@@ -716,7 +716,7 @@ class _ApprovalPayloadField extends StatelessWidget {
                         color: tone,
                       ),
                     ),
-                    const SizedBox(width: 9),
+                    kOpenHandHGap9,
                     Expanded(
                       child: SelectableText(
                         label,
@@ -868,7 +868,7 @@ class _ApprovalPayloadPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 13, color: color.withValues(alpha: 0.9)),
-          const SizedBox(width: 5),
+          kOpenHandHGap5,
           Text(
             label,
             maxLines: 1,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -259,7 +260,7 @@ Widget buildMcpPayloadTextCard(
                 size: _kPayloadHeaderIconSize,
                 color: accent,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: Text(
                   mcpPayloadContentLabel(context, semanticKey, mono),

@@ -686,7 +686,7 @@ class _VectorPointPopover extends StatelessWidget {
                               ],
                             ),
                           ),
-                          const SizedBox(width: 9),
+                          kOpenHandHGap9,
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -702,7 +702,7 @@ class _VectorPointPopover extends StatelessWidget {
                                     height: 1.18,
                                   ),
                                 ),
-                                const SizedBox(height: 7),
+                                kOpenHandGap7,
                                 Wrap(
                                   spacing: 6,
                                   runSpacing: 6,
@@ -767,7 +767,7 @@ class _VectorPointPopover extends StatelessWidget {
                                 color: axisColors.axisX,
                               ),
                             ),
-                            const SizedBox(width: 7),
+                            kOpenHandHGap7,
                             Expanded(
                               child: _VectorMetricTile(
                                 label: 'Y',
@@ -775,7 +775,7 @@ class _VectorPointPopover extends StatelessWidget {
                                 color: axisColors.axisY,
                               ),
                             ),
-                            const SizedBox(width: 7),
+                            kOpenHandHGap7,
                             Expanded(
                               child: _VectorMetricTile(
                                 label: 'Z',
@@ -817,7 +817,7 @@ class _VectorPointPopover extends StatelessWidget {
                                   ),
                                 ),
                               if (score != null && rerankScore != null)
-                                const SizedBox(width: 7),
+                                kOpenHandHGap7,
                               if (rerankScore != null)
                                 Expanded(
                                   child: _VectorMetricTile(
@@ -1042,7 +1042,7 @@ class _VectorMetricTile extends StatelessWidget {
                 height: 1,
               ),
             ),
-            const SizedBox(height: 5),
+            kOpenHandGap5,
             FittedBox(
               fit: BoxFit.scaleDown,
               alignment: Alignment.centerLeft,

@@ -1330,7 +1330,7 @@ class _ChartLegend extends StatelessWidget {
                       size: 12,
                       color: segments[index].color,
                     ),
-                    const SizedBox(width: 5),
+                    kOpenHandHGap5,
                     Text(segments[index].label, style: textStyle),
                   ],
                 ),
@@ -1715,7 +1715,7 @@ class _VerticalComparisonBars extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
-                      const SizedBox(height: 5),
+                      kOpenHandGap5,
                       Expanded(
                         child: Align(
                           alignment: Alignment.bottomCenter,
@@ -1738,7 +1738,7 @@ class _VerticalComparisonBars extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 5),
+                      kOpenHandGap5,
                       Text(
                         segment.label,
                         maxLines: 2,
@@ -1838,7 +1838,7 @@ class OpenHandOperationalStatusBand extends StatelessWidget {
                         size: 12,
                         color: segment.color,
                       ),
-                      const SizedBox(width: 5),
+                      kOpenHandHGap5,
                       Text(
                         '${segment.label} ${_labelFor(segment)}',
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(

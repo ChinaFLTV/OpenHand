@@ -1,6 +1,7 @@
 import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../util/input_value_parsing.dart';
 import 'oh_pill.dart';
@@ -34,7 +35,7 @@ class OpenHandApprovalChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 16, color: accent),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxWidth),
             child: Text(

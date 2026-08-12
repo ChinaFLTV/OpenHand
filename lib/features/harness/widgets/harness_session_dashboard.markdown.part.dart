@@ -479,7 +479,7 @@ class _HeSmallPill extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 13, color: colorScheme.primary),
-              const SizedBox(width: 5),
+              kOpenHandHGap5,
               Text(
                 label,
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -925,7 +925,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                                 ? Colors.white.withValues(alpha: 0.8)
                                 : cs.onSurface,
                           ),
-                          const SizedBox(width: 5),
+                          kOpenHandHGap5,
                           Text(
                             effectiveLanguage,
                             style: TextStyle(
@@ -970,7 +970,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                                   ? Colors.white.withValues(alpha: 0.8)
                                   : cs.onSurface,
                             ),
-                            const SizedBox(width: 5),
+                            kOpenHandHGap5,
                             Text(
                               _copied
                                   ? openHandLocalizedText(

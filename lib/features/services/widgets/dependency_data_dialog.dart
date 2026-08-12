@@ -1062,7 +1062,7 @@ class _TelemetryTileState extends State<_TelemetryTile> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 9),
+                      kOpenHandGap9,
                       Text(
                         widget.value,
                         maxLines: 1,
@@ -1340,7 +1340,7 @@ class _DataRecordTile extends StatelessWidget {
           ),
         ),
         if (tags.isNotEmpty) ...[
-          const SizedBox(height: 7),
+          kOpenHandGap7,
           Wrap(
             spacing: 6,
             runSpacing: 6,

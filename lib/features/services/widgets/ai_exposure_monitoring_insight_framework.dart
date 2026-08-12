@@ -288,7 +288,7 @@ class _DistributionDetailRow extends StatelessWidget {
           height: 9,
           decoration: BoxDecoration(color: item.color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 9),
+        kOpenHandHGap9,
         Expanded(
           child: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
@@ -674,7 +674,7 @@ class _InsightRecordRow extends StatelessWidget {
                   ),
                 ),
                 if (record.tags.isNotEmpty) ...[
-                  const SizedBox(height: 5),
+                  kOpenHandGap5,
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
@@ -685,7 +685,7 @@ class _InsightRecordRow extends StatelessWidget {
                   ),
                 ],
                 if (record.subtitle.trim().isNotEmpty) ...[
-                  const SizedBox(height: 5),
+                  kOpenHandGap5,
                   Text(
                     record.subtitle,
                     maxLines: 2,
@@ -1118,7 +1118,7 @@ class _InsightKpiBand extends StatelessWidget {
                                   size: 18,
                                   color: items[index].color,
                                 ),
-                                const SizedBox(width: 7),
+                                kOpenHandHGap7,
                                 Expanded(
                                   child: Text(
                                     items[index].label,
@@ -1301,7 +1301,7 @@ class _InsightRankingSectionState extends State<_InsightRankingSection> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 7),
+                              kOpenHandGap7,
                               ClipRRect(
                                 borderRadius: BorderRadius.circular(99),
                                 child: ServiceAnimatedProgressBar(
@@ -1316,7 +1316,7 @@ class _InsightRankingSectionState extends State<_InsightRankingSection> {
                                 ),
                               ),
                               if (item.helper.isNotEmpty) ...[
-                                const SizedBox(height: 5),
+                                kOpenHandGap5,
                                 Text(
                                   item.helper,
                                   maxLines: 2,
@@ -1451,7 +1451,7 @@ class _InsightMatrixSection extends StatelessWidget {
                                   color: entry.$2.color,
                                 ),
                               ),
-                              const SizedBox(width: 11),
+                              kOpenHandHGap11,
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -1479,7 +1479,7 @@ class _InsightMatrixSection extends StatelessWidget {
                                             ),
                                       ),
                                     ],
-                                    const SizedBox(height: 7),
+                                    kOpenHandGap7,
                                     Wrap(
                                       spacing: 6,
                                       runSpacing: 6,
@@ -1744,7 +1744,7 @@ class _InsightFunnelSection extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 7),
+                            kOpenHandGap7,
                             _AnimatedFunnelBar(
                               widthFactor: width,
                               color: item.color,

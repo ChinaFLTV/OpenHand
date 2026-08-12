@@ -3552,7 +3552,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
                         alpha: 0.8,
                       ),
                     ),
-                    const SizedBox(width: 5),
+                    kOpenHandHGap5,
                     Text(
                       l10n.commonViewDetails,
                       style: theme.textTheme.labelSmall?.copyWith(

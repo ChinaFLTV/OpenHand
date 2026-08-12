@@ -374,7 +374,7 @@ class _ResponsiveSettingRow extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 20),
+            kOpenHandHGap20,
             Flexible(
               child: ConstrainedBox(
                 constraints: BoxConstraints(maxWidth: controlMaxWidth),
@@ -969,7 +969,7 @@ class _AiTranslationProviderCardState
                         _AiTtsStatusBadge(enabled: providerSettings.enabled),
                       ],
                     ),
-                    const SizedBox(height: 5),
+                    kOpenHandGap5,
                     Text(
                       _translationProviderHint(context, provider),
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -1824,7 +1824,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                         _AiTtsStatusBadge(enabled: providerSettings.enabled),
                       ],
                     ),
-                    const SizedBox(height: 5),
+                    kOpenHandGap5,
                     Text(
                       _ttsProviderHint(context, provider),
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -4679,7 +4679,7 @@ class _SettingsStatusChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 11, color: foregroundColor),
-          const SizedBox(width: 3),
+          kOpenHandHGap3,
           Text(label, style: TextStyle(color: foregroundColor, fontSize: 11)),
         ],
       ),
@@ -5089,7 +5089,7 @@ class _AiProviderModelChip extends StatelessWidget {
                 ),
               ],
               if (effectiveOnDeleted != null) ...<Widget>[
-                const SizedBox(width: 2),
+                kOpenHandHGap2,
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: effectiveOnDeleted,
@@ -5167,7 +5167,7 @@ class _AiProviderOverflowChip extends StatelessWidget {
                   size: 14,
                   color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 5),
+                kOpenHandHGap5,
                 Text(
                   '+$hiddenCount',
                   style: theme.textTheme.labelSmall?.copyWith(

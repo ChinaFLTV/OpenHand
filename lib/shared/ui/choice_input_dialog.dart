@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
@@ -234,7 +235,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
             ),
             if (widget.description != null &&
                 widget.description!.trim().isNotEmpty) ...[
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 widget.description!,
                 style: textTheme.bodyMedium?.copyWith(
@@ -242,7 +243,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
                 ),
               ),
             ],
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Flexible(
               child: SingleChildScrollView(
                 child: Column(
@@ -287,7 +288,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -295,7 +296,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
                   label: cancel,
                   onPressed: () => Navigator.of(context).pop(),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 OpenHandDialogActionButton.primary(
                   label: confirm,
                   onPressed: _canConfirm ? _confirm : null,
@@ -377,7 +378,7 @@ class _ChoiceTile extends StatelessWidget {
                         : colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -392,7 +393,7 @@ class _ChoiceTile extends StatelessWidget {
                         ),
                       ),
                       if (subtitle != null && subtitle!.trim().isNotEmpty) ...[
-                        const SizedBox(height: 2),
+                        kOpenHandGap2,
                         Text(
                           subtitle!,
                           style: theme.textTheme.bodySmall?.copyWith(

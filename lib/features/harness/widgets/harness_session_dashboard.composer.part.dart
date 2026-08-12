@@ -118,7 +118,7 @@ class _HeComposer extends StatelessWidget {
                         if (!fullAccessPermission)
                           const Icon(Icons.check_rounded, size: 20)
                         else
-                          const SizedBox(width: 20),
+                          kOpenHandHGap20,
                       ],
                     ),
                   ),
@@ -132,7 +132,7 @@ class _HeComposer extends StatelessWidget {
                         if (fullAccessPermission)
                           const Icon(Icons.check_rounded, size: 20)
                         else
-                          const SizedBox(width: 20),
+                          kOpenHandHGap20,
                       ],
                     ),
                   ),

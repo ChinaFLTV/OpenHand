@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
@@ -184,9 +185,9 @@ class _ErrorDetailsScrollBodyState extends State<_ErrorDetailsScrollBody> {
             children: [
               _ErrorSummaryBlock(text: primaryText, theme: widget.theme),
               if (showStructuredSections) ...[
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 for (var i = 0; i < details.sections.length; i++) ...[
-                  if (i > 0) const SizedBox(height: 14),
+                  if (i > 0) kOpenHandGap14,
                   _ErrorDetailSectionBlock(
                     section: details.sections[i],
                     theme: widget.theme,
@@ -221,7 +222,7 @@ class _ErrorSummaryBlock extends StatelessWidget {
             color: colorScheme.error,
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Expanded(
           child: SelectableText(
             text,
@@ -250,7 +251,7 @@ class _ErrorDetailSectionBlock extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Divider(height: 1, color: colorScheme.outlineVariant),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Text(
           section.title,
           style: theme.textTheme.labelLarge?.copyWith(
@@ -259,7 +260,7 @@ class _ErrorDetailSectionBlock extends StatelessWidget {
             letterSpacing: 0,
           ),
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         SelectableText(
           section.body,
           style: theme.textTheme.bodyMedium?.copyWith(

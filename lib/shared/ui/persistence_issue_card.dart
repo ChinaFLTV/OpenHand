@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 /// Error-container banner that surfaces a data persistence issue (recovered /
 /// sanitized / save-failed) with a dismiss affordance.
@@ -38,7 +39,7 @@ class PersistenceIssueCard extends StatelessWidget {
               Icons.warning_amber_rounded,
               color: colorScheme.onErrorContainer,
             ),
-            const SizedBox(width: 14),
+            kOpenHandHGap14,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -49,7 +50,7 @@ class PersistenceIssueCard extends StatelessWidget {
                       color: colorScheme.onErrorContainer,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text(
                     body,
                     style: theme.textTheme.bodyMedium?.copyWith(

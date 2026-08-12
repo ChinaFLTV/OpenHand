@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../app/model/app_settings_snapshot.dart';
 import '../../features/ai/model/ai_model_config.dart';
@@ -269,7 +270,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                 ),
               ),
             ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           // ─── Model list ───
           Flexible(
             child: !hasAnyModels
@@ -303,7 +304,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                           if (entry == null) {
                             final label = row.headerLabel;
                             if (label == null) {
-                              return const SizedBox(height: 4);
+                              return kOpenHandGap4;
                             }
                             return _ModelSectionHeader(label: label);
                           }
@@ -404,7 +405,7 @@ class _ModelTile extends StatelessWidget {
               size: 18,
               color: isActive ? colorScheme.primary : colorScheme.outline,
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,

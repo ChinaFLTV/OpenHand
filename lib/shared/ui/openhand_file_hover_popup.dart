@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../util/localized_text.dart';
 import 'animated_overlay.dart';
@@ -267,7 +268,7 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
                     maxLines: 4,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _MetadataRow(
                     openHandLocalizedText(
                       context,
@@ -525,7 +526,7 @@ class OpenHandFilePathChip extends StatelessWidget {
                       ? textColor.withValues(alpha: 0.5)
                       : textColor.withValues(alpha: 0.9),
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Flexible(
                   child: ConstrainedBox(
                     constraints: const BoxConstraints(

@@ -2953,7 +2953,7 @@ class _ProcessingDialog extends StatelessWidget {
               height: 22,
               child: CircularProgressIndicator(strokeWidth: 2.6),
             ),
-            const SizedBox(width: 14),
+            kOpenHandHGap14,
             Flexible(
               child: Text(
                 message,

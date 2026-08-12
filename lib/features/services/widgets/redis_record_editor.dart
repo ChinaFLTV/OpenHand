@@ -182,7 +182,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
                     child: Row(
                       children: [
                         Icon(_redisTypeIcon(type), size: 18),
-                        const SizedBox(width: 9),
+                        kOpenHandHGap9,
                         Text(_kRedisTypeLabels[type]!),
                       ],
                     ),

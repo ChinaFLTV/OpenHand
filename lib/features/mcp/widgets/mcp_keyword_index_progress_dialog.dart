@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/silent_log.dart';
@@ -11,6 +12,7 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../mcp_controller.dart';
 import '../mcp_errors.dart';
 import '../service/mcp_keyword_index.dart';
+
 
 /// 「构建关键词映射」按钮触发的进度弹窗。负责：
 ///   * 调用 [McpController.buildKeywordIndex]
@@ -114,7 +116,7 @@ class _McpKeywordIndexProgressDialogState
         ),
       );
       if (result.skippedServers > 0) {
-        body.add(const SizedBox(height: 8));
+        body.add(kOpenHandGap8);
         body.add(
           Text(
             l10n.mcpKeywordIndexBuildSkipped(result.skippedServers),
@@ -125,7 +127,7 @@ class _McpKeywordIndexProgressDialogState
         );
       }
       if (result.errors.isNotEmpty) {
-        body.add(const SizedBox(height: 8));
+        body.add(kOpenHandGap8);
         body.add(
           Text(
             result.errors.take(4).join('\n'),
@@ -137,7 +139,7 @@ class _McpKeywordIndexProgressDialogState
       }
     } else {
       body.add(LinearProgressIndicator(value: ratio, minHeight: 4));
-      body.add(const SizedBox(height: 12));
+      body.add(kOpenHandGap12);
       body.add(
         Text(
           progress == null
@@ -152,7 +154,7 @@ class _McpKeywordIndexProgressDialogState
         ),
       );
       if (progress != null && progress.skipped > 0) {
-        body.add(const SizedBox(height: 6));
+        body.add(kOpenHandGap6);
         body.add(
           Text(
             l10n.mcpKeywordIndexBuildSkipped(progress.skipped),

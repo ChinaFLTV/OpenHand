@@ -4350,7 +4350,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                           ja: 'プリセット',
                         ),
                       ),
-                      const SizedBox(width: 2),
+                      kOpenHandHGap2,
                       const Icon(Icons.arrow_drop_down_rounded, size: 18),
                     ],
                   ),
@@ -4538,7 +4538,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         _AiTtsStatusBadge(enabled: draft.enabled),
                       ],
                     ),
-                    const SizedBox(height: 5),
+                    kOpenHandGap5,
                     Text(
                       nativeValue ??
                           openHandLocalizedText(

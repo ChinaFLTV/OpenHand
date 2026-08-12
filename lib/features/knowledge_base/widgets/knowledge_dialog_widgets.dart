@@ -699,7 +699,7 @@ class KnowledgeDialogChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: colorScheme.onPrimaryContainer),
-          const SizedBox(width: 5),
+          kOpenHandHGap5,
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 220),
             child: Text(

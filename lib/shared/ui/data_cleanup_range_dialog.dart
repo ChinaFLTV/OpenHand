@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../util/date_time_format.dart';
 import '../util/localized_text.dart';
@@ -109,7 +110,7 @@ class _OpenHandCleanupRangeDialogState
                     color: cs.error,
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Text(
                     widget.title,
@@ -127,7 +128,7 @@ class _OpenHandCleanupRangeDialogState
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Text(
               widget.description,
               style: theme.textTheme.bodyMedium?.copyWith(
@@ -135,7 +136,7 @@ class _OpenHandCleanupRangeDialogState
                 height: 1.35,
               ),
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -175,7 +176,7 @@ class _OpenHandCleanupRangeDialogState
                               ),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          kOpenHandHGap10,
                           Expanded(
                             child: TextField(
                               controller: _endController,
@@ -203,7 +204,7 @@ class _OpenHandCleanupRangeDialogState
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             buildOpenHandDialogActionsBar(
               padding: EdgeInsets.zero,
               actions: [
@@ -329,7 +330,7 @@ class _OpenHandCleanupRangePresetPill extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 18, color: foreground),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               DefaultTextStyle.merge(
                 style: theme.textTheme.labelLarge?.copyWith(
                   color: foreground,

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import 'motion_preference.dart';
 
@@ -37,7 +38,7 @@ class OhPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: resolvedForeground),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Text(
             label,
             maxLines: 1,
@@ -95,7 +96,7 @@ class OpenHandStatusPill extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 17, color: color),
-            const SizedBox(width: 7),
+            kOpenHandHGap7,
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 280),
               child: Text(
@@ -229,7 +230,7 @@ class OpenHandToolChip extends StatelessWidget {
               key: ValueKey<int>(icon.codePoint),
             ),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           // 工作目录、耗时这类长文案在窄 Wrap 行里会撑爆 chip 触发 RenderFlex
           // 溢出；缩略展示并让上层 Wrap 自行换行。
           Flexible(

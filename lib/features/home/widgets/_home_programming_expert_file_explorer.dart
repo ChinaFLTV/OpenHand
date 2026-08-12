@@ -975,7 +975,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 2),
+              kOpenHandHGap2,
               // Select Opened File (scroll-from-source)
               Tooltip(
                 message: AppLocalizations.of(
@@ -998,7 +998,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 2),
+              kOpenHandHGap2,
               // Expand Selected
               Tooltip(
                 message: AppLocalizations.of(context)!.progExpFEExpandSelected,
@@ -1019,7 +1019,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 2),
+              kOpenHandHGap2,
               // Collapse All
               Tooltip(
                 message: AppLocalizations.of(context)!.progExpFECollapseAll,
@@ -1040,7 +1040,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 2),
+              kOpenHandHGap2,
               Material(
                 color: Colors.transparent,
                 borderRadius: kOpenHandPillBorderRadius,
@@ -9089,7 +9089,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 13, color: resolvedForeground),
-              const SizedBox(width: 5),
+              kOpenHandHGap5,
               Text(
                 label,
                 style: TextStyle(fontSize: 11, color: resolvedForeground),

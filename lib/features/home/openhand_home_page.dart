@@ -1683,7 +1683,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         content: Row(
           children: [
             const Icon(Icons.search_rounded, size: 18),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Text(
                 l10n.snackToolSearchLoaded(
@@ -1780,7 +1780,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         content: Row(
           children: [
             const Icon(Icons.search_rounded, size: 18),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Text(
                 l10n.snackToolSearchLoaded(loadedNames.length, totalDeferred),

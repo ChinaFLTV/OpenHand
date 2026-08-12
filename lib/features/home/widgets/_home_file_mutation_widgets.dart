@@ -2101,7 +2101,7 @@ class _CodexDiffFoldRow extends StatelessWidget {
               ),
             ),
             Container(width: 1, color: palette.separator),
-            const SizedBox(width: 14),
+            kOpenHandHGap14,
             Text(
               label,
               style: TextStyle(
@@ -4566,7 +4566,7 @@ class _PathSubGroupHeader extends StatelessWidget {
                   color: cs.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
               ),
-              const SizedBox(width: 2),
+              kOpenHandHGap2,
               Icon(
                 Icons.folder_rounded,
                 size: 12,

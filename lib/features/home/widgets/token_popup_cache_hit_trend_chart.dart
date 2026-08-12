@@ -1420,7 +1420,7 @@ class _CacheHitCompositionSummary extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 7),
+        kOpenHandGap7,
         Wrap(
           spacing: 10,
           runSpacing: 5,

@@ -194,7 +194,7 @@ class _ResourceUsageStatisticsDialogState
                       letterSpacing: -0.4,
                     ),
                   ),
-                  const SizedBox(height: 5),
+                  kOpenHandGap5,
                   Row(
                     children: [
                       Flexible(
@@ -235,7 +235,7 @@ class _ResourceUsageStatisticsDialogState
                                 shape: BoxShape.circle,
                               ),
                             ),
-                            const SizedBox(width: 5),
+                            kOpenHandHGap5,
                             Text(
                               formatYearMonthDayHms(generatedAt.toLocal()),
                               style: Theme.of(context).textTheme.labelSmall
@@ -619,7 +619,7 @@ class _SummaryCard extends StatelessWidget {
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 5),
+                kOpenHandGap5,
                 Row(
                   children: [
                     Expanded(
@@ -1095,7 +1095,7 @@ class _ResourceRanking extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 14),
+                kOpenHandHGap14,
                 Expanded(
                   flex: 5,
                   child: ClipRRect(
@@ -1108,7 +1108,7 @@ class _ResourceRanking extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                kOpenHandHGap14,
                 SizedBox(
                   width: 48,
                   child: Text(
@@ -1392,7 +1392,7 @@ class _MetricPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: color),
-          const SizedBox(width: 5),
+          kOpenHandHGap5,
           Text(
             label,
             style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -1431,7 +1431,7 @@ class _RecentUsageEvents extends StatelessWidget {
       children: [
         for (var index = 0; index < events.length; index++) ...[
           _UsageEventCard(event: events[index]),
-          if (index != events.length - 1) const SizedBox(height: 9),
+          if (index != events.length - 1) kOpenHandGap9,
         ],
       ],
     );
@@ -1468,7 +1468,7 @@ class _UsageEventCard extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 9),
+              kOpenHandHGap9,
               Expanded(
                 child: Text(
                   event.subResourceId.isEmpty

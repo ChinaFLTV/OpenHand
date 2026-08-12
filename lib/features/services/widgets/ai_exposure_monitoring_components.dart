@@ -92,7 +92,7 @@ class _DependencyServiceCard extends StatelessWidget {
             ),
             child: Icon(icon, size: 24, color: color),
           ),
-          const SizedBox(width: 14),
+          kOpenHandHGap14,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -117,7 +117,7 @@ class _DependencyServiceCard extends StatelessWidget {
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 7),
+                    kOpenHandHGap7,
                     Expanded(
                       child: Text(
                         detail,
@@ -694,7 +694,7 @@ class _TrendPanelState extends State<_TrendPanel> {
             Row(
               children: [
                 _OpsSectionIcon(icon: widget.icon),
-                const SizedBox(width: 9),
+                kOpenHandHGap9,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -846,7 +846,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
             Row(
               children: [
                 _OpsSectionIcon(icon: widget.icon),
-                const SizedBox(width: 9),
+                kOpenHandHGap9,
                 Expanded(
                   child: Text(
                     widget.title,
@@ -909,7 +909,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                                     shape: BoxShape.circle,
                                   ),
                                 ),
-                                const SizedBox(width: 7),
+                                kOpenHandHGap7,
                                 SizedBox(
                                   width: 74,
                                   child: Text(
@@ -955,7 +955,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                   return Row(
                     children: [
                       donut,
-                      const SizedBox(width: 18),
+                      kOpenHandHGap18,
                       Expanded(child: rows),
                     ],
                   );
@@ -1153,7 +1153,7 @@ class _OpsLegend extends StatelessWidget {
         height: 8,
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
-      const SizedBox(width: 5),
+      kOpenHandHGap5,
       Text(label, style: Theme.of(context).textTheme.labelSmall),
     ],
   );

@@ -513,7 +513,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(width: 14),
+                    kOpenHandHGap14,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -672,7 +672,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: title),
-                    const SizedBox(width: 18),
+                    kOpenHandHGap18,
                     Flexible(
                       child: Align(
                         alignment: Alignment.topRight,
@@ -1358,7 +1358,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                     color: colorScheme.onPrimaryContainer,
                   ),
                 ),
-                const SizedBox(width: 14),
+                kOpenHandHGap14,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2863,7 +2863,7 @@ class _AgentExposureChip extends StatelessWidget {
                           : colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(width: 7),
+                  kOpenHandHGap7,
                   ConstrainedBox(
                     constraints: const BoxConstraints(maxWidth: 220),
                     child: Text(
@@ -6518,7 +6518,7 @@ class _WebOpsStatusChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 15, color: color),
-          const SizedBox(width: 7),
+          kOpenHandHGap7,
           Flexible(
             child: Text(
               label,
@@ -7135,7 +7135,7 @@ class _WebOpsDistributionPanel extends StatelessWidget {
                 return Row(
                   children: [
                     chart,
-                    const SizedBox(width: 14),
+                    kOpenHandHGap14,
                     Expanded(child: legend),
                   ],
                 );
@@ -7197,7 +7197,7 @@ class _WebOpsDistributionRow extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 5),
+          kOpenHandGap5,
           ClipRRect(
             borderRadius: kOpenHandPillBorderRadius,
             child: LinearProgressIndicator(
@@ -8273,7 +8273,7 @@ class _SectionTitle extends StatelessWidget {
             ),
             child: Icon(icon, size: 15, color: colorScheme.onPrimaryContainer),
           ),
-          const SizedBox(width: 9),
+          kOpenHandHGap9,
           Text(
             text,
             style: theme.textTheme.titleSmall?.copyWith(
@@ -11708,7 +11708,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(width: 14),
+                        kOpenHandHGap14,
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -11809,7 +11809,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         Expanded(child: title),
-                        const SizedBox(width: 18),
+                        kOpenHandHGap18,
                         Flexible(
                           child: Align(
                             alignment: Alignment.topRight,
@@ -12413,7 +12413,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                     ? colors.onPrimaryContainer
                                                     : colors.onSurfaceVariant,
                                               ),
-                                              const SizedBox(width: 9),
+                                              kOpenHandHGap9,
                                               Expanded(
                                                 child: Text(
                                                   item.title,
@@ -15585,7 +15585,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     ),
             ),
           ),
-          const SizedBox(height: 7),
+          kOpenHandGap7,
         ],
       ),
     );
@@ -15864,7 +15864,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               child: Row(
                 children: [
                   Icon(Icons.subject_rounded, size: 20, color: foreground),
-                  const SizedBox(width: 9),
+                  kOpenHandHGap9,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -16300,7 +16300,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                           size: 14,
                           color: stateColor,
                         ),
-                        const SizedBox(width: 5),
+                        kOpenHandHGap5,
                         Flexible(
                           child: Text(
                             recalled ? '消息已撤回' : '已忽略，不参与 AI 上下文',
@@ -16941,7 +16941,7 @@ class _DingTalkAuditNotice extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 5),
+            kOpenHandGap5,
             Text(
               message,
               textAlign: TextAlign.center,
@@ -17983,7 +17983,7 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
                 color: colors.onPrimaryContainer,
               ),
             ),
-            const SizedBox(width: 11),
+            kOpenHandHGap11,
             Expanded(
               child: Row(
                 children: [
@@ -18024,7 +18024,7 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 9),
+                  kOpenHandHGap9,
                   Expanded(
                     child: SelectableText(
                       _dingtalkConversationIdLabel(context, conversation.id),
@@ -19908,7 +19908,7 @@ class _DingTalkTargetAllowlistField extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 11),
+                kOpenHandHGap11,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -20496,7 +20496,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                               ? theme.colorScheme.onPrimaryContainer
                               : theme.colorScheme.onSurfaceVariant,
                         ),
-                        const SizedBox(width: 11),
+                        kOpenHandHGap11,
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -21460,7 +21460,7 @@ class _DingTalkMultimodalPickerDialogState
             Row(
               children: [
                 Icon(Icons.auto_awesome_motion_rounded, color: colors.primary),
-                const SizedBox(width: 9),
+                kOpenHandHGap9,
                 Text('多模态能力', style: theme.textTheme.titleLarge),
                 const Spacer(),
                 IconButton(
@@ -21517,7 +21517,7 @@ class _DingTalkMultimodalPickerDialogState
                             AiDingTalkMultimodalCapability.audioGeneration =>
                               Icons.graphic_eq_rounded,
                           }, color: colors.primary),
-                          const SizedBox(width: 9),
+                          kOpenHandHGap9,
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -21618,7 +21618,7 @@ class _DingTalkSettingsCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 11),
+              kOpenHandHGap11,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -21735,7 +21735,7 @@ class _DingTalkResourceField extends StatelessWidget {
           child: Row(
             children: [
               Icon(icon, color: theme.colorScheme.primary),
-              const SizedBox(width: 11),
+              kOpenHandHGap11,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -22032,7 +22032,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 18, color: colors.primary),
-              const SizedBox(width: 7),
+              kOpenHandHGap7,
               Text(
                 title,
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -22041,7 +22041,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 9),
+          kOpenHandGap9,
           SelectableText(
             content,
             style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
@@ -22073,7 +22073,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.table_rows_rounded, size: 18, color: colors.primary),
-              const SizedBox(width: 7),
+              kOpenHandHGap7,
               Text(
                 '参数说明',
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -22207,7 +22207,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(Icons.terminal_rounded, size: 18, color: colors.primary),
-                  const SizedBox(width: 7),
+                  kOpenHandHGap7,
                   Text(
                     '调用示例',
                     style: theme.textTheme.titleSmall?.copyWith(
@@ -22408,7 +22408,7 @@ class _DingTalkResourcePickerDialogState
             Row(
               children: [
                 Icon(widget.icon, color: theme.colorScheme.primary),
-                const SizedBox(width: 9),
+                kOpenHandHGap9,
                 Text(widget.title, style: theme.textTheme.titleLarge),
                 const Spacer(),
               ],

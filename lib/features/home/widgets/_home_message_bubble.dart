@@ -2540,7 +2540,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                               color: colorScheme.onPrimaryContainer,
                             ),
                           ),
-                          const SizedBox(width: 14),
+                          kOpenHandHGap14,
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -4483,7 +4483,7 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
                 size: 14,
                 color: style.metaIconColor,
               ),
-              const SizedBox(width: 5),
+              kOpenHandHGap5,
               Expanded(
                 child: Text(
                   '${meta.artist} · ${meta.album}',

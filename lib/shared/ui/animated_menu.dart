@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import 'animated_dialog.dart';
@@ -1035,7 +1036,7 @@ class _AnimatedDropdownButtonState<T> extends State<AnimatedDropdownButton<T>> {
       else
         Flexible(child: selected),
       if (widget._inputDecoration == null) ...<Widget>[
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         _buildMenuIcon(theme),
       ],
     ];

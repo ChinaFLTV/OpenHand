@@ -691,7 +691,7 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
                   color: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 14),
+              kOpenHandHGap14,
               Expanded(
                 child: Column(
                   mainAxisSize: MainAxisSize.min,

@@ -1909,7 +1909,7 @@ class _MetadataCapabilityChip extends StatelessWidget {
             size: 15,
             color: color,
           ),
-          const SizedBox(width: 5),
+          kOpenHandHGap5,
           Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(

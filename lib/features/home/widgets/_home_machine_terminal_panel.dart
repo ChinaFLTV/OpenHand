@@ -429,7 +429,7 @@ class _MachineTerminalHeader extends StatelessWidget {
               onPressed: onCopyId,
             ),
             if (onPanelClose != null) ...[
-              const SizedBox(width: 7),
+              kOpenHandHGap7,
               _MachineTerminalIconButton(
                 icon: Icons.close_rounded,
                 tooltip: _homeMachineTerClosePanelLabel(context),
@@ -1006,7 +1006,7 @@ class _MachineTerminalHistoryDialogState
               ? MainAxisAlignment.end
               : MainAxisAlignment.start,
           children: [
-            if (leading != null) ...[leading, const SizedBox(width: 7)],
+            if (leading != null) ...[leading, kOpenHandHGap7],
             Flexible(
               child: Align(
                 alignment: alignEnd
@@ -1023,7 +1023,7 @@ class _MachineTerminalHistoryDialogState
                     : label,
               ),
             ),
-            if (trailing != null) ...[const SizedBox(width: 7), trailing],
+            if (trailing != null) ...[kOpenHandHGap7, trailing],
           ],
         ),
       ),
@@ -1771,10 +1771,10 @@ class _MachineTerminalDialogHeader extends StatelessWidget {
             ),
           ),
           for (final action in trailingActions) ...[
-            const SizedBox(width: 7),
+            kOpenHandHGap7,
             action,
           ],
-          if (trailingActions.isNotEmpty) const SizedBox(width: 7),
+          if (trailingActions.isNotEmpty) kOpenHandHGap7,
           _MachineTerminalIconButton(
             icon: Icons.close_rounded,
             tooltip: openHandCloseLabel(context),
@@ -1812,7 +1812,7 @@ class _MachineTerminalHistoryMetric extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon, size: 18, color: cs.primary),
-            const SizedBox(width: 9),
+            kOpenHandHGap9,
             Expanded(
               child: Text(
                 label,
@@ -1999,7 +1999,7 @@ class _MachineTerminalTabs extends StatelessWidget {
                     size: 16,
                     color: _terminalStatusColor(cs, terminal.status),
                   ),
-                  const SizedBox(width: 7),
+                  kOpenHandHGap7,
                   Flexible(
                     child: Text(
                       terminal.terminalId,
@@ -2014,7 +2014,7 @@ class _MachineTerminalTabs extends StatelessWidget {
                     ),
                   ),
                   if (canCloseTabs) ...[
-                    const SizedBox(width: 5),
+                    kOpenHandHGap5,
                     _MachineTerminalTabCloseButton(
                       onPressed: () => onClosed(terminal.terminalId),
                     ),
@@ -2024,7 +2024,7 @@ class _MachineTerminalTabs extends StatelessWidget {
             ),
           );
         },
-        separatorBuilder: (_, _) => const SizedBox(width: 7),
+        separatorBuilder: (_, _) => kOpenHandHGap7,
         itemCount: terminals.length,
       ),
     );
@@ -2084,14 +2084,14 @@ class _MachineTerminalMetadataBar extends StatelessWidget {
               icon: Icons.folder_open_rounded,
               text: snapshot.workingDirectory,
             ),
-            const SizedBox(height: 5),
+            kOpenHandGap5,
             _MachineTerminalMetaLine(
               icon: Icons.schedule_rounded,
               text:
                   '${openHandLocalizedText(context, zh: '更新', en: 'Updated')} ${formatYearMonthDayHms(snapshot.updatedAt.toLocal())}',
             ),
             if (snapshot.errorMessage != null) ...[
-              const SizedBox(height: 5),
+              kOpenHandGap5,
               _MachineTerminalMetaLine(
                 icon: Icons.error_outline_rounded,
                 text: snapshot.errorMessage!,
@@ -2124,7 +2124,7 @@ class _MachineTerminalMetaLine extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, size: 15, color: effectiveColor),
-        const SizedBox(width: 7),
+        kOpenHandHGap7,
         Expanded(
           child: Text(
             text,

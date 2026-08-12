@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import 'motion_preference.dart';
 import 'openhand_notice_actions.dart';
@@ -108,7 +109,7 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(widget.icon, color: widget.foregroundColor),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: ConstrainedBox(
               constraints: BoxConstraints(
@@ -127,7 +128,7 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           OpenHandNoticeActionButtons(
             copyText: widget.copyText ?? widget.message,
             onDismiss: widget.showCloseAction ? _dismiss : null,

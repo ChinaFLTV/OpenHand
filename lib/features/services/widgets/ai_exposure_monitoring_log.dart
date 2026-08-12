@@ -336,7 +336,7 @@ class _LogRow extends StatelessWidget {
             child: Row(
               children: [
                 Icon(_logIcon(entry.level), size: 14, color: color),
-                const SizedBox(width: 5),
+                kOpenHandHGap5,
                 Text(
                   _logLevelName(context, entry.level),
                   style: TextStyle(

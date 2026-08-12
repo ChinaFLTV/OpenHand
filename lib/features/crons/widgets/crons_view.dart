@@ -939,7 +939,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 24),
+                  kOpenHandHGap24,
                   Text(l10n.cronsRetries, style: theme.textTheme.titleSmall),
                   kOpenHandHGap8,
                   SizedBox(
@@ -956,7 +956,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 24),
+                  kOpenHandHGap24,
                   Text(
                     l10n.cronsMaxRetryDelaySeconds,
                     style: theme.textTheme.titleSmall,

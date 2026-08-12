@@ -1103,7 +1103,7 @@ class _SkillCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _SkillCardAvatar(skill: skill),
-                    const SizedBox(width: 14),
+                    kOpenHandHGap14,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

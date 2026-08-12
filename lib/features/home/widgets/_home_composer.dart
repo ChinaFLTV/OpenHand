@@ -1541,7 +1541,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                               context,
                             ).colorScheme.onSurfaceVariant,
                           ),
-                          const SizedBox(width: 2),
+                          kOpenHandHGap2,
                           Text(
                             '${msg.attachments.length}',
                             style: Theme.of(context).textTheme.labelSmall
@@ -2248,7 +2248,7 @@ class _ComposerFullAccessModeButtonState
               if (!widget.fullAccess)
                 const Icon(Icons.check_rounded, size: 20)
               else
-                const SizedBox(width: 20),
+                kOpenHandHGap20,
             ],
           ),
         ),
@@ -2262,7 +2262,7 @@ class _ComposerFullAccessModeButtonState
               if (widget.fullAccess)
                 const Icon(Icons.check_rounded, size: 20)
               else
-                const SizedBox(width: 20),
+                kOpenHandHGap20,
             ],
           ),
         ),
@@ -2386,7 +2386,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
                 if (mode == widget.mode)
                   const Icon(Icons.check_rounded, size: 20)
                 else
-                  const SizedBox(width: 20),
+                  kOpenHandHGap20,
               ],
             ),
           ),
@@ -3111,7 +3111,7 @@ class _ProjectReferenceChip extends StatelessWidget {
             size: 14,
             color: colorScheme.primary,
           ),
-          const SizedBox(width: 5),
+          kOpenHandHGap5,
           ConstrainedBox(
             constraints: const BoxConstraints(maxWidth: 220),
             child: Text(

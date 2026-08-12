@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/scheduler.dart';
 import 'package:flutter/services.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../features/ai/model/ai_model_config.dart';
 import '../util/localized_text.dart';
@@ -262,7 +263,7 @@ class _ReasoningEffortPopupEntryState
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             SizedBox(
               height: 68,
               child: Stack(
@@ -312,7 +313,7 @@ class _ReasoningEffortPopupEntryState
                 ],
               ),
             ),
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             Center(
               child: _ReasoningEffortCapsule(
                 label: option.labelForLocaleName(localeName),

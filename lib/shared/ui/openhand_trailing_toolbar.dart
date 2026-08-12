@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 /// 右对齐的横向工具栏。空间不足时从左侧溢出，优先保留末端操作可见。
 class OpenHandTrailingToolbar extends StatelessWidget {
@@ -125,7 +126,7 @@ class OpenHandSessionHeaderBar extends StatelessWidget {
     final headerRow = Row(
       children: [
         Expanded(flex: 2, child: title),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Expanded(
           flex: 3,
           child: OpenHandTrailingToolbar(

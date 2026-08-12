@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import 'openhand_notice_actions.dart';
 
@@ -76,13 +77,13 @@ class FeatureStateCard extends StatelessWidget {
                     alignment: Alignment.center,
                     child: Icon(icon, color: colors.iconForeground),
                   ),
-                  const SizedBox(height: 18),
+                  kOpenHandGap18,
                   Text(
                     title,
                     textAlign: TextAlign.center,
                     style: theme.textTheme.headlineSmall,
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Text(
                     body,
                     textAlign: TextAlign.center,
@@ -91,7 +92,7 @@ class FeatureStateCard extends StatelessWidget {
                     ),
                   ),
                   if (action != null || noticeActions != null) ...[
-                    const SizedBox(height: 20),
+                    kOpenHandGap20,
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -146,13 +147,13 @@ class FeatureStateCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: colors.iconForeground),
-          const SizedBox(width: 14),
+          kOpenHandHGap14,
           if (maxWidth == null)
             Expanded(child: textArea)
           else
             Flexible(child: textArea),
           if (trailingActions != null) ...[
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             trailingActions,
           ],
         ],
@@ -220,7 +221,7 @@ class _InlineTextArea extends StatelessWidget {
             overflow: TextOverflow.ellipsis,
             style: titleStyle,
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           SelectableText(body, style: bodyStyle),
         ],
       ),

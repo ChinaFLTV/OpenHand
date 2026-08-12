@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../util/input_value_parsing.dart';
@@ -114,7 +115,7 @@ class OpenHandTokenUsageCapsule extends StatelessWidget {
                             size: 14,
                             color: colorScheme.primary,
                           ),
-                          const SizedBox(width: 6),
+                          kOpenHandHGap6,
                           _OpenHandCacheHitRateBadge(ratio: cacheHitRatio),
                           Container(
                             width: 1,
@@ -214,7 +215,7 @@ class _OpenHandCacheHitRateBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(Icons.savings_rounded, size: 11, color: foreground),
-          const SizedBox(width: 3),
+          kOpenHandHGap3,
           RollingText(
             text: '$percent',
             style: theme.textTheme.labelSmall!.copyWith(

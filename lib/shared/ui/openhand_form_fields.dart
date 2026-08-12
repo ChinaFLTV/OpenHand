@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import 'motion_preference.dart';
 
@@ -91,7 +92,7 @@ class OpenHandDirectoryField extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Tooltip(
           message: browseTooltip,
           child: SizedBox(
@@ -164,7 +165,7 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
             size: 18,
             color: value ? colorScheme.primary : colorScheme.onSurfaceVariant,
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -177,7 +178,7 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
                     color: colorScheme.onSurface,
                   ),
                 ),
-                const SizedBox(height: 3),
+                kOpenHandGap3,
                 Text(
                   description,
                   style: theme.textTheme.bodySmall?.copyWith(

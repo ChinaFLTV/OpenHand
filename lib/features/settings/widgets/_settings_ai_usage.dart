@@ -515,7 +515,7 @@ class _AiUsageHero extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.end,
             children: [
               Expanded(child: primary),
-              const SizedBox(width: 24),
+              kOpenHandHGap24,
               Flexible(child: alignedSide),
             ],
           );
@@ -553,7 +553,7 @@ class _AiUsageHeroPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 20, color: color),
-          const SizedBox(width: 9),
+          kOpenHandHGap9,
           Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -816,7 +816,7 @@ class _AiUsageMetricCard extends StatelessWidget {
               letterSpacing: -0.5,
             ),
           ),
-          const SizedBox(height: 5),
+          kOpenHandGap5,
           Text(
             data.detail,
             maxLines: 1,
@@ -1423,7 +1423,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
                   ),
                 ],
               ),
-              const SizedBox(height: 5),
+              kOpenHandGap5,
               TweenAnimationBuilder<double>(
                 tween: Tween<double>(
                   begin: 0,
@@ -1696,7 +1696,7 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const SizedBox(height: 5),
+                        kOpenHandGap5,
                         Text('Token  ${_usageInteger(bucket.totalTokens)}'),
                         Text(
                           '${_settingsAiUsagInputLabel(context)}  ${_usageInteger(bucket.promptTokens)}  ·  '
@@ -2124,9 +2124,9 @@ class _AiUsageHeatmap extends StatelessWidget {
                     borderRadius: BorderRadius.circular(3),
                   ),
                 ),
-                const SizedBox(width: 3),
+                kOpenHandHGap3,
               ],
-              const SizedBox(width: 3),
+              kOpenHandHGap3,
               Text(
                 openHandLocalizedText(context, zh: '多', en: 'More'),
                 style: theme.textTheme.labelSmall?.copyWith(

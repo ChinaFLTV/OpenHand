@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../app/support/silent_log.dart';
 import '../db/atomic_file_operations.dart';
@@ -169,7 +170,7 @@ class _OpenHandRuntimeLogDialogState extends State<_OpenHandRuntimeLogDialog> {
             child: Row(
               children: [
                 Icon(Icons.article_outlined, color: theme.colorScheme.primary),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Text(widget.title, style: theme.textTheme.titleMedium),
                 ),
@@ -267,7 +268,7 @@ class _OpenHandRuntimeLogDialogState extends State<_OpenHandRuntimeLogDialog> {
                       ? theme.colorScheme.primary
                       : theme.colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 7),
+                kOpenHandHGap7,
                 Expanded(
                   child: Text(
                     _follow

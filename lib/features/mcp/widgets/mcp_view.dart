@@ -4934,7 +4934,7 @@ class _McpOpsHeaderTabButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon, size: 18, color: foreground),
-                const SizedBox(width: 7),
+                kOpenHandHGap7,
                 Flexible(
                   child: Text(
                     label,
@@ -5197,7 +5197,7 @@ class _McpOpsHeaderActionButton extends StatelessWidget {
                       ? foreground
                       : cs.onSurfaceVariant.withValues(alpha: 0.42),
                 ),
-                const SizedBox(width: 7),
+                kOpenHandHGap7,
                 Flexible(
                   child: Text(
                     label,
@@ -5256,7 +5256,7 @@ class _McpOpsHeaderMessage extends StatelessWidget {
               size: 16,
               color: accent,
             ),
-            const SizedBox(width: 7),
+            kOpenHandHGap7,
             Flexible(
               child: Text(
                 text,
@@ -6153,7 +6153,7 @@ class _McpOpsPanel extends StatelessWidget {
                   ),
                   child: Icon(icon, color: cs.primary, size: 19),
                 ),
-                const SizedBox(width: 11),
+                kOpenHandHGap11,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -6235,7 +6235,7 @@ class _McpOpsFieldGroup extends StatelessWidget {
         Row(
           children: [
             Icon(icon, size: 16, color: cs.primary),
-            const SizedBox(width: 7),
+            kOpenHandHGap7,
             _McpOpsCopyText(
               label,
               maxLines: 1,
@@ -6492,7 +6492,7 @@ class _McpOpsDistributionPanel extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 14),
+                kOpenHandHGap14,
                 Expanded(
                   child: Column(
                     children: [
@@ -6565,7 +6565,7 @@ class _McpOpsDistributionRow extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 5),
+          kOpenHandGap5,
           ClipRRect(
             borderRadius: kOpenHandPillBorderRadius,
             child: LinearProgressIndicator(
@@ -6785,7 +6785,7 @@ class _McpOpsTogglePill extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 16, color: tone),
-              const SizedBox(width: 7),
+              kOpenHandHGap7,
               Text(
                 label,
                 style: theme.textTheme.labelMedium?.copyWith(
@@ -6986,7 +6986,7 @@ class _McpOpsSchemaPill extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.data_object_rounded, size: 16, color: cs.primary),
-              const SizedBox(width: 7),
+              kOpenHandHGap7,
               Text(
                 _localizedText(context, zh: '参数结构', en: 'Parameter Schema'),
                 style: theme.textTheme.labelMedium?.copyWith(
@@ -6994,7 +6994,7 @@ class _McpOpsSchemaPill extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(width: 5),
+              kOpenHandHGap5,
               Icon(
                 editable ? Icons.edit_rounded : Icons.open_in_full_rounded,
                 size: 14,
@@ -9152,7 +9152,7 @@ class _McpOpsPayloadFieldHeader extends StatelessWidget {
           ),
           child: Icon(mcpPayloadValueIcon(value), size: 16, color: accent),
         ),
-        const SizedBox(width: 9),
+        kOpenHandHGap9,
         Expanded(
           child: SelectableText(
             label,
@@ -9200,7 +9200,7 @@ class _McpOpsPayloadPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 13, color: accent.withValues(alpha: 0.88)),
-          const SizedBox(width: 5),
+          kOpenHandHGap5,
           Text(
             label,
             maxLines: 1,
@@ -13732,7 +13732,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(width: 2),
+                                        kOpenHandHGap2,
                                         IconButton(
                                           onPressed: _isRunning
                                               ? null

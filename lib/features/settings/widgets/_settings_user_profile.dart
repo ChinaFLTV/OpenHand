@@ -64,7 +64,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
                         color: colorScheme.onPrimaryContainer,
                       ),
                     ),
-                    const SizedBox(width: 14),
+                    kOpenHandHGap14,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,

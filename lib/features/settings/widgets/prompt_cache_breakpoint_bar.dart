@@ -637,7 +637,7 @@ class _SegmentLegendChip extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
             ),
-            const SizedBox(width: 5),
+            kOpenHandHGap5,
             Text(
               segment.label,
               style: theme.textTheme.bodySmall?.copyWith(

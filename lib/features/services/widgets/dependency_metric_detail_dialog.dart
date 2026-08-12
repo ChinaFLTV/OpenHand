@@ -775,7 +775,7 @@ class _DependencyMetricDetailDialogState
                     '命中 ${_compactCount(hits)} · 磁盘读取 ${_compactCount(reads)}',
               ),
             ),
-            const SizedBox(width: 14),
+            kOpenHandHGap14,
             Expanded(
               child: _RadialMeter(
                 label: '索引命中率',
@@ -2051,7 +2051,7 @@ class _MetricDialogHeader extends StatelessWidget {
                 ),
                 child: Icon(kind.icon, color: tone, size: 24),
               ),
-              const SizedBox(width: 14),
+              kOpenHandHGap14,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2478,7 +2478,7 @@ class _KpiStrip extends StatelessWidget {
                             ),
                             child: Icon(item.icon, size: 17, color: tone),
                           ),
-                          const SizedBox(width: 9),
+                          kOpenHandHGap9,
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2770,7 +2770,7 @@ class _ConnectionCapacityHero extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(flex: 2, child: usage),
-                      const SizedBox(width: 24),
+                      kOpenHandHGap24,
                       Expanded(flex: 3, child: facts),
                     ],
                   );
@@ -2879,7 +2879,7 @@ class _MemoryRiskHero extends StatelessWidget {
           return Row(
             children: [
               Expanded(flex: 3, child: title),
-              const SizedBox(width: 20),
+              kOpenHandHGap20,
               Expanded(flex: 2, child: facts),
             ],
           );
@@ -2922,7 +2922,7 @@ class _ThroughputHero extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text('当前吞吐', style: theme.textTheme.labelMedium),
-          const SizedBox(height: 5),
+          kOpenHandGap5,
           FittedBox(
             fit: BoxFit.scaleDown,
             alignment: AlignmentDirectional.centerStart,
@@ -3881,7 +3881,7 @@ class _RedisHitGauge extends StatelessWidget {
             : Row(
                 children: [
                   Expanded(child: gauge),
-                  const SizedBox(width: 24),
+                  kOpenHandHGap24,
                   Expanded(child: facts),
                 ],
               );

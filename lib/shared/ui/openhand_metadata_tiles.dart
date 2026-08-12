@@ -6,6 +6,7 @@
 library;
 
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 const BorderRadius _kSectionRadius = BorderRadius.all(Radius.circular(20));
 const BorderRadius _kSummaryTileRadius = BorderRadius.all(Radius.circular(18));
@@ -43,7 +44,7 @@ class OpenHandMetadataSection extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           ...children,
         ],
       ),
@@ -81,7 +82,7 @@ class OpenHandMetadataSummaryTile extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Text(
             value,
             style: theme.textTheme.titleLarge?.copyWith(
@@ -120,7 +121,7 @@ class OpenHandMetadataEntryRow extends StatelessWidget {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           SelectableText(
             value,
             style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
@@ -162,7 +163,7 @@ class OpenHandMetadataDialogHeader extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 subtitle,
                 maxLines: 2,

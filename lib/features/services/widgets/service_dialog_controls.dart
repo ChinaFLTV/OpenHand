@@ -992,7 +992,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
           : Row(
               children: [
                 donut,
-                const SizedBox(width: 20),
+                kOpenHandHGap20,
                 Expanded(
                   child: values.isEmpty
                       ? Text(
@@ -1023,7 +1023,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
           : Row(
               children: [
                 donut,
-                const SizedBox(width: 20),
+                kOpenHandHGap20,
                 Expanded(child: bars),
               ],
             ),
@@ -1103,7 +1103,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 9),
+                  kOpenHandHGap9,
                   Expanded(
                     child: Padding(
                       padding: const EdgeInsets.only(bottom: 14),
@@ -1228,7 +1228,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
           : Row(
               children: [
                 donut,
-                const SizedBox(width: 20),
+                kOpenHandHGap20,
                 Expanded(child: signals),
               ],
             ),
@@ -1532,7 +1532,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(width: 7),
+                      kOpenHandHGap7,
                       Expanded(
                         child: Text(
                           item.label,
@@ -1864,7 +1864,7 @@ class ServiceFilterChip extends StatelessWidget {
         children: [
           if (icon != null) ...[
             IconTheme.merge(data: const IconThemeData(size: 17), child: icon!),
-            const SizedBox(width: 7),
+            kOpenHandHGap7,
           ],
           label,
         ],

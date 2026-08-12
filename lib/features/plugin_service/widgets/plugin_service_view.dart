@@ -420,7 +420,7 @@ class _PluginCard extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(width: 14),
+                    kOpenHandHGap14,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1647,7 +1647,7 @@ class _DetailSection extends StatelessWidget {
             height: 1,
             color: colors.outlineVariant.withValues(alpha: 0.7),
           ),
-          const SizedBox(height: 9),
+          kOpenHandGap9,
           Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: children,

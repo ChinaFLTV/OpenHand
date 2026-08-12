@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:collection';
 
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/theme/openhand_status_colors.dart';
@@ -812,7 +813,7 @@ class _OpenHandSnackBarMessage extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: <Widget>[
         Icon(icon, color: tint, size: 20),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         Flexible(child: child),
       ],
     );
@@ -840,7 +841,7 @@ class _OpenHandSnackBarContent extends StatelessWidget {
       children: [
         Expanded(child: message),
         if (action != null) ...[
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           ConstrainedBox(
             constraints: const BoxConstraints(
               maxWidth: OpenHandSnackBar._actionMaxWidth,
@@ -853,7 +854,7 @@ class _OpenHandSnackBarContent extends StatelessWidget {
                   ),
           ),
         ],
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         onDismiss == null
             ? const _SnackBarCloseButton()
             : _OpenHandGlobalSnackBarCloseButton(onTap: onDismiss!),

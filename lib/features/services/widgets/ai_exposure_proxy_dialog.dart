@@ -838,7 +838,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                       return Row(
                         children: [
                           Expanded(child: strategy),
-                          const SizedBox(width: 14),
+                          kOpenHandHGap14,
                           Expanded(child: bypass),
                         ],
                       );
@@ -2884,7 +2884,7 @@ class _ProxyTelemetrySection extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Icon(icon, size: 17, color: colors.primary),
               ),
-              const SizedBox(width: 9),
+              kOpenHandHGap9,
               Expanded(
                 child: Text(
                   title,
@@ -3021,7 +3021,7 @@ class _ProxyRequestDistribution extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.end,
           children: [
             donut,
-            const SizedBox(width: 20),
+            kOpenHandHGap20,
             Expanded(child: legend),
           ],
         );
@@ -3064,7 +3064,7 @@ class _ProxyOutcomeCard extends StatelessWidget {
               borderRadius: kServiceRadiusPill,
             ),
           ),
-          const SizedBox(width: 9),
+          kOpenHandHGap9,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3737,7 +3737,7 @@ class _ProxyDetailTrendTooltip extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Icon(point.icon, size: 14, color: point.color),
                 ),
-                const SizedBox(width: 7),
+                kOpenHandHGap7,
                 Expanded(
                   child: Text(
                     '${point.value} ms',
@@ -3793,7 +3793,7 @@ class _ProxyLegend extends StatelessWidget {
         height: 8,
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
-      const SizedBox(width: 5),
+      kOpenHandHGap5,
       Text(label, style: Theme.of(context).textTheme.labelSmall),
     ],
   );
@@ -4785,7 +4785,7 @@ class _ProxyEndpointDetailsDialogState
                             size: 18,
                             color: color,
                           ),
-                          const SizedBox(width: 9),
+                          kOpenHandHGap9,
                           Expanded(
                             child: Text(
                               item.succeeded
@@ -4869,7 +4869,7 @@ class _ProxyDetailSection extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 18, color: colors.primary),
               ),
-              const SizedBox(width: 9),
+              kOpenHandHGap9,
               Expanded(
                 child: Text(
                   title,
@@ -5501,7 +5501,7 @@ class _ProxyEndpointCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 7),
+              kOpenHandGap7,
               Wrap(
                 spacing: 7,
                 runSpacing: 6,
@@ -5701,7 +5701,7 @@ class _ProxyEndpointCard extends StatelessWidget {
           return Row(
             children: [
               Expanded(child: interactiveDetails),
-              const SizedBox(width: 14),
+              kOpenHandHGap14,
               SizedBox(width: 190, child: chart),
               kOpenHandHGap12,
               actions,
@@ -6008,7 +6008,7 @@ class _ProxyLatencyTooltip extends StatelessWidget {
             Row(
               children: [
                 Icon(Icons.speed_rounded, size: 14, color: colors.primary),
-                const SizedBox(width: 5),
+                kOpenHandHGap5,
                 Expanded(
                   child: Text(
                     '${sample.latencyMs} ms',

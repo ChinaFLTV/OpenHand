@@ -1403,7 +1403,7 @@ class _StatusPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: color),
-          const SizedBox(width: 5),
+          kOpenHandHGap5,
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(

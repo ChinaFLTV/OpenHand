@@ -4,6 +4,7 @@ import 'dart:math' as math;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
@@ -1259,7 +1260,7 @@ Widget buildOpenHandLoadingDialogContent({String? message}) {
                   height: 24,
                   child: CircularProgressIndicator(strokeWidth: 2.5),
                 ),
-                const SizedBox(width: 16),
+                kOpenHandHGap16,
                 Flexible(child: Text(message)),
               ],
             ),
@@ -1373,9 +1374,9 @@ Widget buildOpenHandDialogFormShell({
               title,
               style: const TextStyle(fontWeight: FontWeight.w800, fontSize: 16),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Flexible(child: content),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             buildOpenHandDialogActionsBar(
               actions: actions,
               padding: EdgeInsets.zero,
@@ -1542,7 +1543,7 @@ Widget buildOpenHandToolDialogHeader({
   final leading = <Widget>[
     iconWidget ??
         Icon(icon, size: iconSize, color: iconColor ?? colorScheme.primary),
-    const SizedBox(width: 10),
+    kOpenHandHGap10,
     titleBlock,
   ];
   return Padding(
@@ -1558,7 +1559,7 @@ Widget buildOpenHandToolDialogHeader({
             mainAxisSize: MainAxisSize.min,
             children: [
               Row(children: leading),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Align(
                 alignment: Alignment.centerRight,
                 child: Wrap(
@@ -1640,7 +1641,7 @@ Widget buildOpenHandApprovalDialogHeader(
         ),
         child: Icon(icon, color: accent),
       ),
-      const SizedBox(width: 14),
+      kOpenHandHGap14,
       Expanded(
         child: Column(
           mainAxisSize: MainAxisSize.min,
@@ -1654,7 +1655,7 @@ Widget buildOpenHandApprovalDialogHeader(
                 fontWeight: FontWeight.w900,
               ),
             ),
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             Text(
               description,
               maxLines: 2,
@@ -1703,7 +1704,7 @@ Widget buildOpenHandDialogValidationMessage(
                   size: 18,
                   color: colorScheme.onErrorContainer,
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     message,

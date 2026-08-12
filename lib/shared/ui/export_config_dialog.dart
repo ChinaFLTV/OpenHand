@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../features/ai/model/ai_session_message.dart';
 import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
@@ -321,7 +322,7 @@ class _AiSessionExportConfigDialogState
                 l10n.exportTotalMessages(widget.totalMessages),
                 style: theme.textTheme.bodyMedium,
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               _SectionHeader(text: l10n.exportRolesSection),
               CheckboxListTile(
                 dense: true,
@@ -348,7 +349,7 @@ class _AiSessionExportConfigDialogState
                   title: Text(_roleLabel(role, l10n)),
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               _SectionHeader(text: l10n.exportMessageKindsSection),
               CheckboxListTile(
                 dense: true,
@@ -513,7 +514,7 @@ class _HarnessSessionExportConfigDialogState
                 l10n.exportTotalPhaseLogs(widget.totalPhaseLogs),
                 style: theme.textTheme.bodyMedium,
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               _SectionHeader(text: l10n.exportPhaseLogRangeSection),
               SwitchListTile(
                 dense: true,
@@ -528,7 +529,7 @@ class _HarnessSessionExportConfigDialogState
                   startController: _startController,
                   endController: _endController,
                 ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               _SectionHeader(text: l10n.exportOtherOptions),
               buildOpenHandDialogValidationMessage(
                 context,

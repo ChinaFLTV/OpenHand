@@ -7058,7 +7058,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(width: 14),
+              kOpenHandHGap14,
               for (final entry in _kLaneMeta.asMap().entries) ...[
                 if (entry.key != 0) kOpenHandHGap8,
                 Container(

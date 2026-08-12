@@ -124,7 +124,7 @@ class _CommandRuleTile extends StatelessWidget {
               alignment: Alignment.center,
               child: Icon(icon, color: iconColor),
             ),
-            const SizedBox(width: 14),
+            kOpenHandHGap14,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,

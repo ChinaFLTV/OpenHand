@@ -729,7 +729,7 @@ class _KnowledgeModeToggleButton extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               Icon(icon, size: 18, color: foreground),
-              const SizedBox(width: 7),
+              kOpenHandHGap7,
               Text(
                 label,
                 maxLines: 1,

@@ -1253,7 +1253,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                 size: 13,
                                 color: colorScheme.outline,
                               ),
-                              const SizedBox(width: 5),
+                              kOpenHandHGap5,
                               Expanded(
                                 child: Text(
                                   openHandLocalizedText(
@@ -2192,7 +2192,7 @@ class _ScanChip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 8, color: iconColor),
-        const SizedBox(width: 3),
+        kOpenHandHGap3,
         Text(
           label,
           style: theme.textTheme.bodySmall?.copyWith(

@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import 'openhand_reveal_switcher.dart';
 
@@ -107,7 +108,7 @@ class OpenHandDialogSaveActions extends StatelessWidget {
                   : (onCancel ?? () => Navigator.of(context).pop()),
               label: cancelLabel,
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             OpenHandDialogActionButton.primary(
               onPressed: busy ? null : onConfirm,
               label: confirmLabel,
@@ -178,7 +179,7 @@ class OpenHandDialogActionButton extends StatelessWidget {
             height: 14,
             child: CircularProgressIndicator(strokeWidth: 2),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Flexible(child: label),
         ],
       );
@@ -188,7 +189,7 @@ class OpenHandDialogActionButton extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 18),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Flexible(child: label),
         ],
       );

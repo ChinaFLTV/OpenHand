@@ -1,4 +1,5 @@
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../util/input_value_parsing.dart';
 import 'motion_durations.dart';
@@ -111,7 +112,7 @@ class _OpenHandExpansionTileState extends State<OpenHandExpansionTile> {
               children: [
                 if (widget.leading != null) ...[
                   widget.leading!,
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                 ],
                 Expanded(
                   child: Column(
@@ -127,10 +128,10 @@ class _OpenHandExpansionTileState extends State<OpenHandExpansionTile> {
                   ),
                 ),
                 if (widget.trailing != null) ...[
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   widget.trailing!,
                 ],
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 AnimatedExpandChevron(
                   expanded: _expanded,
                   color: theme.colorScheme.onSurfaceVariant,

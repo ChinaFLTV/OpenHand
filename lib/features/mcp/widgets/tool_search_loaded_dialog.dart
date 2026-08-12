@@ -575,7 +575,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(Icons.checklist_rounded, size: 18),
-                const SizedBox(width: 7),
+                kOpenHandHGap7,
                 Flexible(
                   child: Text(
                     '${l10n.snackToolSearchLoadedTabLoaded} · ${_names.length}',
@@ -592,7 +592,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
                 const Icon(Icons.history_rounded, size: 18),
-                const SizedBox(width: 7),
+                kOpenHandHGap7,
                 Flexible(
                   child: Text(
                     '${l10n.snackToolSearchLoadedTabHistory} · ${_history.length}',
@@ -758,7 +758,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                 ),
               ),
               if (description != null && description.isNotEmpty) ...[
-                const SizedBox(height: 5),
+                kOpenHandGap5,
                 Text(
                   description,
                   textAlign: TextAlign.center,
@@ -1032,7 +1032,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                               size: 15,
                               color: colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(width: 5),
+                            kOpenHandHGap5,
                             Text(
                               timestampLabel,
                               style: theme.textTheme.bodySmall?.copyWith(
@@ -1122,7 +1122,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                 ),
               ),
               if (entry.addedNames.isNotEmpty) ...[
-                const SizedBox(height: 9),
+                kOpenHandGap9,
                 for (final name in entry.addedNames)
                   Padding(
                     padding: const EdgeInsets.only(top: 4),
@@ -1235,7 +1235,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   ),
                 ),
               ),
-              const SizedBox(width: 7),
+              kOpenHandHGap7,
               Container(
                 key: ValueKey<String>('mcpToolGroupCount:${group.persistKey}'),
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1350,7 +1350,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(width: 11),
+            kOpenHandHGap11,
             Expanded(
               child: SelectableText(
                 name,

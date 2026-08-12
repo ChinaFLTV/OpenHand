@@ -1161,7 +1161,7 @@ class _TokenStatsPanel extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 15, color: accent),
               ),
-              const SizedBox(width: 9),
+              kOpenHandHGap9,
               Expanded(
                 child: Text(
                   title,
@@ -1495,7 +1495,7 @@ class _ContextWindowUsageBar extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 7),
+          kOpenHandGap7,
           SizedBox(
             width: double.infinity,
             height: 7,
@@ -1516,7 +1516,7 @@ class _ContextWindowUsageBar extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 5),
+          kOpenHandGap5,
           Align(
             alignment: Alignment.centerRight,
             child: Text(
@@ -1886,7 +1886,7 @@ class _CompactCacheHitSparkline extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 7),
+          kOpenHandGap7,
           Wrap(
             spacing: 10,
             runSpacing: 5,
@@ -1926,7 +1926,7 @@ class _LegendDot extends StatelessWidget {
           height: 6,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 3),
+        kOpenHandHGap3,
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(

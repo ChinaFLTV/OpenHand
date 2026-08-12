@@ -1,6 +1,7 @@
 import 'dart:async';
 
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../features/ai/service/session_io/ai_session_jsonl_exporter.dart';
 import '../../l10n/app_localizations.dart';
@@ -91,7 +92,7 @@ class ExportProgressDialog extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(subtitle, style: theme.textTheme.bodyMedium),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   ClipRRect(
                     borderRadius: BorderRadius.circular(8),
                     child: LinearProgressIndicator(
@@ -99,7 +100,7 @@ class ExportProgressDialog extends StatelessWidget {
                       minHeight: 8,
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   Text(
                     progress.total > 0
                         ? '${progress.processed} / ${progress.total}'
@@ -107,7 +108,7 @@ class ExportProgressDialog extends StatelessWidget {
                     style: theme.textTheme.bodySmall,
                   ),
                   if (isCancelling) ...[
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     Text(
                       l10n.exportProgressCancelling,
                       style: theme.textTheme.bodySmall?.copyWith(

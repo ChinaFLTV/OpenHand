@@ -145,7 +145,7 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _KnowledgeIndexingPulseIcon(cancelling: cancelling),
-                        const SizedBox(width: 14),
+                        kOpenHandHGap14,
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
