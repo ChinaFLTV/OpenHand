@@ -287,7 +287,7 @@ class _InsightContextBar extends StatelessWidget {
           ),
           child: Icon(icon, size: 20, color: color),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -342,9 +342,9 @@ class _InsightContextBar extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 identity,
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Divider(height: 1, color: colors.outlineVariant),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Wrap(
                   spacing: spacing,
                   runSpacing: 12,
@@ -363,12 +363,12 @@ class _InsightContextBar extends StatelessWidget {
           return Row(
             children: [
               SizedBox(width: 226, child: identity),
-              const SizedBox(width: 16),
+              kOpenHandHGap16,
               SizedBox(
                 height: 48,
                 child: VerticalDivider(color: colors.outlineVariant),
               ),
-              const SizedBox(width: 16),
+              kOpenHandHGap16,
               for (final entry in items.indexed) ...[
                 if (entry.$1 > 0) const SizedBox(width: 14),
                 Expanded(
@@ -418,7 +418,7 @@ class _InsightContextMetric extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 2),
+              kOpenHandGap2,
               AnimatedSwitcher(
                 duration: motion.entranceDuration,
                 switchInCurve: motion.curve.curve,
@@ -699,7 +699,7 @@ class _TaskStatusTrendSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Wrap(
             spacing: 12,
             runSpacing: 6,
@@ -707,7 +707,7 @@ class _TaskStatusTrendSection extends StatelessWidget {
                 .map((item) => _OpsLegend(label: item.label, color: item.color))
                 .toList(growable: false),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           SizedBox(
             height: 250,
             child: GestureDetector(
@@ -836,9 +836,9 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
                 end: end,
                 refreshedAt: refreshedAt,
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               _buildToolbar(context, compact),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               if (shown.isEmpty)
                 const _InsightEmpty(label: '当前筛选范围内没有任务。')
               else if (compact)
@@ -878,7 +878,7 @@ class _TaskLedgerState extends State<AiExposureTaskLedger> {
                     ),
                   ),
                 ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               _TaskLedgerFooter(
                 compact: compact,
                 countLabel: tasks.isEmpty
@@ -1163,7 +1163,7 @@ class _TaskLedgerSourceFilter extends StatelessWidget {
                 style: Theme.of(context).textTheme.titleMedium,
               ),
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             Icon(
               Icons.arrow_drop_down_rounded,
               size: 24,
@@ -1330,26 +1330,26 @@ class _TaskLedgerFooter extends StatelessWidget {
           style: buttonStyle,
           icon: Icon(descending ? Icons.south_rounded : Icons.north_rounded),
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         IconButton(
           tooltip: '重置筛选',
           onPressed: onReset,
           style: buttonStyle,
           icon: const Icon(Icons.restart_alt_rounded),
         ),
-        const SizedBox(width: 16),
+        kOpenHandHGap16,
         SizedBox(
           height: 24,
           child: VerticalDivider(color: colors.outlineVariant),
         ),
-        const SizedBox(width: 16),
+        kOpenHandHGap16,
         IconButton(
           tooltip: '上一页',
           onPressed: onPrevious,
           style: buttonStyle,
           icon: const Icon(Icons.chevron_left_rounded),
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         SizedBox(
           width: 52,
           child: AnimatedSwitcher(
@@ -1376,7 +1376,7 @@ class _TaskLedgerFooter extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         IconButton(
           tooltip: '下一页',
           onPressed: onNext,
@@ -1390,7 +1390,7 @@ class _TaskLedgerFooter extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           count,
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Align(alignment: Alignment.centerRight, child: controls),
         ],
       );
@@ -1498,7 +1498,7 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
               child: Row(
                 children: [
                   Icon(status.$1, size: 15, color: status.$3),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   Flexible(
                     child: Text(status.$2, overflow: TextOverflow.ellipsis),
                   ),
@@ -1570,7 +1570,7 @@ class _TaskLedgerDesktopRow extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text('${task.progress.processed}/${task.progress.total}'),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   ServiceAnimatedProgressBar(value: fraction),
                 ],
               ),
@@ -1680,7 +1680,7 @@ class _TaskLedgerCompactRow extends StatelessWidget {
           Row(
             children: [
               Icon(status.$1, size: 17, color: status.$3),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: Text(
                   task.name.trim().isEmpty ? task.id : task.name.trim(),
@@ -1691,7 +1691,7 @@ class _TaskLedgerCompactRow extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Text(
             task.createdAtReported
                 ? '创建时间：${_taskLedgerDateTime(task.createdAt)}'
@@ -1700,13 +1700,13 @@ class _TaskLedgerCompactRow extends StatelessWidget {
               color: Theme.of(context).colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Text(
             '${status.$2} · ${task.mode == AiExposureScanMode.full ? '全量' : '增量'} · ${_taskLedgerSources(task.sources)} · 处理 ${task.progress.processed}/${task.progress.total} · 候选 ${task.progress.candidates} · 有效 ${task.progress.valid} · 高价值 ${task.progress.highValue}',
             maxLines: 3,
             overflow: TextOverflow.ellipsis,
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Text(
             finishedAt == null
                 ? '结束时间：运行中 · 已运行 ${_taskLedgerDurationText(task)}'
@@ -1716,7 +1716,7 @@ class _TaskLedgerCompactRow extends StatelessWidget {
             ),
           ),
           if (task.errorMessage?.trim().isNotEmpty == true) ...[
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             Text(
               task.errorMessage!.trim(),
               maxLines: 2,

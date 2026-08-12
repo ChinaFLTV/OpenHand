@@ -19,6 +19,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -885,7 +886,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
               ),
             ),
             if (matchLabel.isNotEmpty) ...[
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Text(
                 matchLabel,
                 style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -894,12 +895,12 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             _KnowledgeEditorToolButtonGroup(children: findActions),
           ],
         ),
         if (controls.replaceVisible) ...[
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Row(
             children: [
               Expanded(
@@ -917,7 +918,7 @@ class _KnowledgeFindReplaceBar extends StatelessWidget {
                   onSubmitted: (_) => controls.onReplaceCurrent(),
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               _KnowledgeEditorToolButtonGroup(
                 children: [
                   _KnowledgeEditorToolButton(
@@ -1122,7 +1123,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                       size: 22,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1135,7 +1136,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        kOpenHandGap4,
                         Text(
                           snapshot.path.isEmpty
                               ? source.originalPath
@@ -1151,7 +1152,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -1204,7 +1205,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
             message: _localizedNotice(snapshot.notice!, context),
             tone: KnowledgeDialogNoticeTone.warning,
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
         ],
         _KnowledgeViewerPanel(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
@@ -1223,7 +1224,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                         preview: preview,
                         onChanged: onPreviewChanged,
                       ),
-                    if (previewAvailable) const SizedBox(width: 8),
+                    if (previewAvailable) kOpenHandHGap8,
                     SizedBox(
                       height: 48,
                       child: FilledButton.tonalIcon(
@@ -1257,7 +1258,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: Align(
                         alignment: Alignment.centerRight,
@@ -1286,11 +1287,11 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                 ),
               ),
               if (editorControls.sourceMode) ...[
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 _KnowledgeEditorToolbar(controls: editorControls),
               ],
               if (editorControls.sourceMode && editorControls.findVisible) ...[
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 _KnowledgeFindReplaceBar(controls: editorControls),
               ],
             ],

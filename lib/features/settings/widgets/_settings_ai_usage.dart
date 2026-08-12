@@ -217,12 +217,12 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
         children: [
           _buildToolbar(context),
           if (_loading && _snapshot == null) ...[
-            const SizedBox(height: 24),
+            kOpenHandGap24,
             const LinearProgressIndicator(minHeight: 3),
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             _AiUsageLoadingState(),
           ] else if (_error != null && _snapshot == null) ...[
-            const SizedBox(height: 20),
+            kOpenHandGap20,
             Column(
               children: [
                 _SettingsStateBox(
@@ -234,7 +234,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
                   ),
                   body: '$_error',
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 FilledButton.tonalIcon(
                   onPressed: _load,
                   icon: const Icon(Icons.refresh_rounded),
@@ -243,7 +243,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
               ],
             ),
           ] else if (_snapshot case final snapshot?) ...[
-            const SizedBox(height: 20),
+            kOpenHandGap20,
             _buildAiUsageAnimatedSwap(
               context,
               KeyedSubtree(
@@ -348,11 +348,11 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _AiUsageHero(summary: snapshot.summary),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _AiUsageOverviewPanel(snapshot: snapshot),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _AiUsageMetricGrid(summary: snapshot.summary),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _AiUsagePanel(
           title: openHandLocalizedText(context, zh: '使用趋势', en: 'Usage Trend'),
           subtitle: openHandLocalizedText(
@@ -363,7 +363,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
           trailing: Text(_usageRangeLabel(context, snapshot.filter.range)),
           child: _AiUsageTrendChart(buckets: snapshot.trend),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _AiUsagePanel(
           title: openHandLocalizedText(
             context,
@@ -377,9 +377,9 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
           ),
           child: _AiUsageHeatmap(buckets: snapshot.heatmap),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _AiUsageBreakdownPanel(snapshot: snapshot),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _AiUsageRecentPanel(records: snapshot.recentRequests),
       ],
     );
@@ -421,7 +421,7 @@ class _AiUsageHero extends StatelessWidget {
                     ),
                     child: Icon(Icons.bolt_rounded, color: colorScheme.primary),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -435,7 +435,7 @@ class _AiUsageHero extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               Text(
                 _usageCompactNumber(summary.totalTokens, decimals: 2),
                 style: theme.textTheme.displaySmall?.copyWith(
@@ -444,7 +444,7 @@ class _AiUsageHero extends StatelessWidget {
                   height: 1,
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -508,7 +508,7 @@ class _AiUsageHero extends StatelessWidget {
           if (compact) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [primary, const SizedBox(height: 20), alignedSide],
+              children: [primary, kOpenHandGap20, alignedSide],
             );
           }
           return Row(
@@ -563,7 +563,7 @@ class _AiUsageHeroPill extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 2),
+              kOpenHandGap2,
               Text(
                 value,
                 style: theme.textTheme.titleMedium?.copyWith(
@@ -796,7 +796,7 @@ class _AiUsageMetricCard extends StatelessWidget {
                 ),
                 child: Icon(data.icon, size: 19, color: data.color),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Text(
                   data.label,
@@ -808,7 +808,7 @@ class _AiUsageMetricCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Text(
             data.value,
             style: theme.textTheme.headlineSmall?.copyWith(
@@ -1016,7 +1016,7 @@ class _AiUsageOverviewPanel extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           LayoutBuilder(
             builder: (context, constraints) {
               if (constraints.maxWidth >=
@@ -1025,7 +1025,7 @@ class _AiUsageOverviewPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Expanded(child: modelDistribution),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(child: providerDistribution),
                   ],
                 );
@@ -1033,7 +1033,7 @@ class _AiUsageOverviewPanel extends StatelessWidget {
               return Column(
                 children: [
                   modelDistribution,
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   providerDistribution,
                 ],
               );
@@ -1098,7 +1098,7 @@ class _AiUsageOverviewMetricCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   flex: 6,
                   child: Align(
@@ -1135,7 +1135,7 @@ class _AiUsageOverviewMetricCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             Text(
               data.detail,
               maxLines: 1,
@@ -1340,7 +1340,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                kOpenHandGap14,
                 SizedBox(
                   height: bodyHeight,
                   child: widget.items.isEmpty
@@ -1396,7 +1396,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         Expanded(
           child: Column(
             mainAxisAlignment: MainAxisAlignment.center,
@@ -1411,7 +1411,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
                       style: secondaryStyle,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Flexible(
                     child: Text(
                       widget.trailingValue(item),
@@ -1498,7 +1498,7 @@ class _AiUsagePanel extends StatelessWidget {
                         letterSpacing: -0.3,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                     Text(
                       subtitle,
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -1509,7 +1509,7 @@ class _AiUsagePanel extends StatelessWidget {
                 ),
               ),
               if (trailing != null) ...[
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 DefaultTextStyle(
                   style: theme.textTheme.labelLarge!.copyWith(
                     color: theme.colorScheme.onSurfaceVariant,
@@ -1519,7 +1519,7 @@ class _AiUsagePanel extends StatelessWidget {
               ],
             ],
           ),
-          const SizedBox(height: 20),
+          kOpenHandGap20,
           child,
         ],
       ),
@@ -1581,7 +1581,7 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         LayoutBuilder(
           builder: (context, constraints) {
             const height = 220.0;
@@ -1909,7 +1909,7 @@ class _AiUsageLegendDot extends StatelessWidget {
           height: 9,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         Text(
           label,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -1976,7 +1976,7 @@ class _AiUsageHeatmap extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         LayoutBuilder(
           builder: (context, constraints) {
             final contentWidth = math.max(
@@ -2102,7 +2102,7 @@ class _AiUsageHeatmap extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Align(
           alignment: Alignment.centerLeft,
           child: Row(
@@ -2114,7 +2114,7 @@ class _AiUsageHeatmap extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               for (var level = 0; level < 5; level++) ...[
                 Container(
                   width: 11,
@@ -2258,7 +2258,7 @@ class _AiUsageBreakdownPanelState extends State<_AiUsageBreakdownPanel> {
                 ),
             ],
           ),
-          const SizedBox(height: 18),
+          kOpenHandGap18,
           _buildAiUsageAnimatedSwap(
             context,
             items.isEmpty
@@ -2470,7 +2470,7 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
                           color: colorScheme.onPrimaryContainer,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(
                         child: Tooltip(
                           message: label,
@@ -2718,7 +2718,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
             : CrossAxisAlignment.start,
         children: [
           value(primary, align: alignEnd ? TextAlign.right : TextAlign.left),
-          const SizedBox(height: 3),
+          kOpenHandGap3,
           Text(
             secondary,
             maxLines: 1,
@@ -2816,7 +2816,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                             '${_usageInteger(record!.usage.totalTokens ?? 0)}${record.usageEstimated ? ' ≈' : ''}',
                             align: TextAlign.right,
                           ),
-                          const SizedBox(height: 3),
+                          kOpenHandGap3,
                           Wrap(
                             spacing: 8,
                             runSpacing: 2,
@@ -2902,7 +2902,7 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
                                   shape: BoxShape.circle,
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                              kOpenHandHGap6,
                               Text(
                                 _usageRequestStatusLabel(
                                   context,
@@ -3024,7 +3024,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                     color: statusColor,
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -3039,7 +3039,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         '${formatYearMonthDayHms(record.startedAt)} · ${_usageRequestStatusLabel(context, record.status)}',
                         maxLines: 1,
@@ -3117,7 +3117,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                     },
                   ),
                   if (unsuccessful) ...[
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Container(
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
@@ -3141,7 +3141,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 8),
+                          kOpenHandGap8,
                           SelectableText(
                             record.errorMessage ??
                                 record.errorType ??
@@ -3159,7 +3159,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                     ),
                   ],
                   if (diagnosticRows.isNotEmpty) ...[
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     _AiUsageDetailSection(
                       title: openHandLocalizedText(
                         context,
@@ -3169,7 +3169,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                       rows: diagnosticRows,
                     ),
                   ],
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _AiUsageDetailSection(
                     title: openHandLocalizedText(
                       context,
@@ -3178,7 +3178,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                     ),
                     rows: requestRows,
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _AiUsageDetailSection(
                     title: openHandLocalizedText(
                       context,
@@ -3265,7 +3265,7 @@ class _AiUsageDetailMetric extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, size: 20, color: theme.colorScheme.primary),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3276,7 +3276,7 @@ class _AiUsageDetailMetric extends StatelessWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   value,
                   maxLines: 1,
@@ -3320,7 +3320,7 @@ class _AiUsageDetailSection extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           for (var index = 0; index < rows.length; index++) ...[
             _AiUsageDetailRow(
               label: rows[index].label,
@@ -3366,14 +3366,14 @@ class _AiUsageDetailRow extends StatelessWidget {
           if (compact) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.start,
-              children: [label, const SizedBox(height: 4), value],
+              children: [label, kOpenHandGap4, value],
             );
           }
           return Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               SizedBox(width: 138, child: label),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(child: value),
             ],
           );
@@ -3601,7 +3601,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         LayoutBuilder(
           builder: (context, constraints) {
             Widget chip(({String label, String? value}) option) {
@@ -3707,7 +3707,7 @@ class _AiUsageEmptyState extends StatelessWidget {
               color: theme.colorScheme.onPrimaryContainer,
             ),
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           Text(
             hasFilters
                 ? openHandLocalizedText(
@@ -3724,7 +3724,7 @@ class _AiUsageEmptyState extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Text(
             openHandLocalizedText(
               context,
@@ -3755,7 +3755,7 @@ class _AiUsageLoadingState extends StatelessWidget {
             borderRadius: BorderRadius.circular(24),
           ),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Row(
           children: [
             for (var index = 0; index < 3; index++) ...[
@@ -3768,7 +3768,7 @@ class _AiUsageLoadingState extends StatelessWidget {
                   ),
                 ),
               ),
-              if (index < 2) const SizedBox(width: 10),
+              if (index < 2) kOpenHandHGap10,
             ],
           ],
         ),

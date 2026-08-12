@@ -143,7 +143,7 @@ class _HeStreamingSubConversationState
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (var i = 0; i < segments.length; i++) ...[
-          if (i > 0) const SizedBox(height: 8),
+          if (i > 0) kOpenHandGap8,
           () {
             final card = _HeSegmentMiniCard(
               key: ValueKey<String>(_heSegmentWidgetKey(segments[i], i)),
@@ -205,7 +205,7 @@ class _HeStreamingSubConversationState
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       Expanded(
                         child: Text(
                           _showEarlierSegments
@@ -255,7 +255,7 @@ class _HeStreamingSubConversationState
                       color: colorScheme.primary,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -280,7 +280,7 @@ class _HeStreamingSubConversationState
             RepaintBoundary(
               child: _buildSegmentList(olderSegments, animateLast: false),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
           ],
         ],
         if (segments.isNotEmpty) _buildSegmentList(segments, animateLast: true),
@@ -297,7 +297,7 @@ class _HeStreamingSubConversationState
                   color: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -593,14 +593,14 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                           size: 18,
                           color: cardText.withValues(alpha: 0.88),
                         ),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         Text(
                           label,
                           style: widget.theme.textTheme.labelLarge?.copyWith(
                             color: cardText.withValues(alpha: 0.88),
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        kOpenHandHGap6,
                         AnimatedRotation(
                           turns: _expanded ? 0.5 : 0,
                           duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -635,7 +635,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                         size: 14,
                         color: cardText.withValues(alpha: 0.72),
                       ),
-                      const SizedBox(width: 6),
+                      kOpenHandHGap6,
                       Text(
                         label,
                         style: widget.theme.textTheme.labelMedium?.copyWith(
@@ -644,7 +644,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                         ),
                       ),
                       if (needsCollapse) ...[
-                        const SizedBox(width: 4),
+                        kOpenHandHGap4,
                         AnimatedRotation(
                           turns: _expanded ? 0.5 : 0,
                           duration: openHandMotionDuration(context, kOpenHandMotion220),

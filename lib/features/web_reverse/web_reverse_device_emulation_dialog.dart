@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -226,7 +227,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                     loc?.webReverseDeviceEmuPresets ?? 'Presets',
                     style: theme.textTheme.labelLarge,
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -247,12 +248,12 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                         )
                         .toList(),
                   ),
-                  const SizedBox(height: 18),
+                  kOpenHandGap18,
                   Text(
                     loc?.webReverseDeviceEmuCustom ?? 'Custom',
                     style: theme.textTheme.labelLarge,
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Row(
                     children: [
                       Expanded(
@@ -265,7 +266,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                           keyboardType: TextInputType.number,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(
                         child: TextField(
                           controller: _h,
@@ -277,7 +278,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                           keyboardType: TextInputType.number,
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(
                         child: TextField(
                           controller: _dpr,
@@ -287,7 +288,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   SwitchListTile(
                     value: _mobile,
                     onChanged: _busy
@@ -297,7 +298,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                     dense: true,
                     contentPadding: EdgeInsets.zero,
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   TextField(
                     controller: _ua,
                     decoration: InputDecoration(
@@ -310,7 +311,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                     minLines: 2,
                     maxLines: 4,
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,

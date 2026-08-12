@@ -5,6 +5,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../knowledge_base_controller.dart';
 import '../knowledge_base_errors.dart';
 import '../model/knowledge_vector_distribution.dart';
@@ -65,7 +66,7 @@ class _KnowledgeVectorDistributionDialogState
                     mainAxisSize: MainAxisSize.min,
                     children: [
                       const CircularProgressIndicator(),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
                       Text(l10n.knowledgeVectorDistributionLoading),
                     ],
                   ),
@@ -97,7 +98,7 @@ class _KnowledgeVectorDistributionDialogState
                     distribution: distribution,
                     height: 520,
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   KnowledgeDialogSection(
                     title: l10n.knowledgeVectorProjectionSection,
                     icon: Icons.account_tree_outlined,

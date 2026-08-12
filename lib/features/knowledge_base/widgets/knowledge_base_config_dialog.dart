@@ -15,6 +15,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/reader_file_type.dart';
@@ -1707,7 +1708,7 @@ class _KnowledgeBaseConfigDialogState
                                   );
                                 },
                               ),
-                              const SizedBox(height: 12),
+                              kOpenHandGap12,
                               if (skipModelRerankEffective)
                                 KnowledgeDialogNotice(
                                   icon: Icons.check_circle_outline_rounded,
@@ -1749,7 +1750,7 @@ class _KnowledgeBaseConfigDialogState
                                       ja: '現在の埋め込みモデルは再ランク対応としてマークされていないため、下で選択した再ランクモデルをリクエストします。',
                                     ),
                                   ),
-                                  const SizedBox(height: 12),
+                                  kOpenHandGap12,
                                 ],
                                 OpenHandModelSelectorField(
                                   models: rerankModels,
@@ -2567,7 +2568,7 @@ class _KnowledgeBaseConfigDialogState
             ),
           ),
           if (ready) ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Wrap(
               spacing: 6,
               runSpacing: 6,
@@ -2881,7 +2882,7 @@ class _KnowledgeBaseConfigDialogState
                         color: colorScheme.onPrimaryContainer,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2900,7 +2901,7 @@ class _KnowledgeBaseConfigDialogState
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          kOpenHandGap2,
                           Text(
                             trimmedNonEmptyStrings(<Object?>[
                               selectedConfig?.providerLabel,
@@ -2916,7 +2917,7 @@ class _KnowledgeBaseConfigDialogState
                         ],
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
@@ -2944,9 +2945,9 @@ class _KnowledgeBaseConfigDialogState
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 _embeddingMetricsGrid(context, metrics),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 _embeddingDetailsGrid(context, details),
               ],
             ),
@@ -3040,7 +3041,7 @@ class _KnowledgeBaseConfigDialogState
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 3),
+                kOpenHandGap3,
                 Text(
                   metric.value.trim().isEmpty ? '-' : metric.value,
                   maxLines: 1,
@@ -3112,7 +3113,7 @@ class _KnowledgeBaseConfigDialogState
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(detail.icon, size: 17, color: colorScheme.onSurfaceVariant),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3126,7 +3127,7 @@ class _KnowledgeBaseConfigDialogState
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 3),
+                kOpenHandGap3,
                 Text(
                   detail.value.trim().isEmpty ? '-' : detail.value,
                   maxLines: 2,
@@ -3500,7 +3501,7 @@ class _KnowledgeBaseConfigDialogState
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         subtitle,
                         maxLines: 2,
@@ -3515,7 +3516,7 @@ class _KnowledgeBaseConfigDialogState
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             child,
           ],
         ),
@@ -3618,7 +3619,7 @@ class _KnowledgeBaseConfigDialogState
                     height: 1.22,
                   ),
                 ),
-                const SizedBox(height: 3),
+                kOpenHandGap3,
                 Text(
                   subtitle,
                   maxLines: 2,
@@ -3631,7 +3632,7 @@ class _KnowledgeBaseConfigDialogState
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Switch(
             value: value,
             onChanged: onChanged,
@@ -3685,7 +3686,7 @@ class _KnowledgeBaseConfigDialogState
                 size: 18,
                 color: colorScheme.primary,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   openHandLocalizedText(
@@ -3704,7 +3705,7 @@ class _KnowledgeBaseConfigDialogState
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Text(
             openHandLocalizedText(
               context,
@@ -3719,7 +3720,7 @@ class _KnowledgeBaseConfigDialogState
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           for (final sourceType in ReaderFileType.sourceTypes) ...[
             _readerParserRuleRow(
               context: context,
@@ -3731,10 +3732,10 @@ class _KnowledgeBaseConfigDialogState
               ),
             ),
             if (sourceType != ReaderFileType.sourceTypes.last)
-              const SizedBox(height: 10),
+              kOpenHandGap10,
           ],
           if (readerModels.isEmpty) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             KnowledgeDialogNotice(
               icon: Icons.info_outline_rounded,
               message: openHandLocalizedText(
@@ -3802,7 +3803,7 @@ class _KnowledgeBaseConfigDialogState
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               SizedBox(
                 width: 150,
                 child: AnimatedDropdownButtonFormField<String>(
@@ -3963,7 +3964,7 @@ class _KnowledgeBaseConfigDialogState
                                 );
                               },
                             ),
-                            const SizedBox(height: 10),
+                            kOpenHandGap10,
                             AnimatedDropdownButtonFormField<String>(
                               initialValue: safeTarget,
                               isExpanded: true,
@@ -4159,7 +4160,7 @@ class _KnowledgeBaseConfigDialogState
                       ),
                     ),
                     if (subtitle != null) ...[
-                      const SizedBox(height: 4),
+                      kOpenHandGap4,
                       Text(
                         subtitle,
                         maxLines: 2,
@@ -4173,7 +4174,7 @@ class _KnowledgeBaseConfigDialogState
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Switch(
                 value: value,
                 onChanged: onChanged,

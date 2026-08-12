@@ -21,6 +21,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -354,7 +355,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 6),
+                        kOpenHandGap6,
                         Text(
                           loc?.webReverseHarCapturedEntries(entryCount) ??
                               'Captured entries: $entryCount',
@@ -376,14 +377,14 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   Text(
                     loc?.webReverseHarManual ?? 'Manual',
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
@@ -420,18 +421,18 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  kOpenHandGap18,
                   Text(
                     loc?.webReverseHarAutoRotate ?? 'Auto-rotate',
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Row(
                     children: [
                       Text(loc?.webReverseHarIntervalLabel ?? 'Interval:'),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       WebReverseSelectButton<Duration>(
                         value: _interval,
                         dense: true,
@@ -461,7 +462,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Row(
                     children: [
                       OutlinedButton.icon(
@@ -471,7 +472,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                           loc?.webReverseHarChooseFolder ?? 'Choose folder',
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(
                         child: Text(
                           _folder ??
@@ -486,7 +487,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Row(
                     children: [
                       if (!running)
@@ -508,7 +509,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                     ],
                   ),
                   if (running) ...[
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(10),
@@ -529,7 +530,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                             style: theme.textTheme.bodySmall,
                           ),
                           if (_autoRotate.lastFile != null) ...[
-                            const SizedBox(height: 4),
+                            kOpenHandGap4,
                             Text(
                               (loc?.webReverseHarLastFilePrefix ?? 'Last: ') +
                                   _autoRotate.lastFile!,
@@ -544,17 +545,17 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                     ),
                   ],
                   if (_status.isNotEmpty) ...[
-                    const SizedBox(height: 14),
+                    kOpenHandGap14,
                     buildWebReverseStatusCard(context, _status),
                   ],
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   Text(
                     loc?.webReverseHarNotes ?? 'Notes',
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text(
                     loc?.webReverseHarNotesBody ??
                         '· Save now: copy internal HAR draft to chosen .har path.\n'

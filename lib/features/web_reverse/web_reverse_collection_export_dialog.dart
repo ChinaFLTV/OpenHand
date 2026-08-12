@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -403,7 +404,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: TextField(
                     controller: _filterCtrl,
@@ -421,7 +422,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 FilterChip(
                   label: Text(
                     loc?.webReverseCollectionExportXhrOnly ?? 'XHR/Fetch only',
@@ -451,7 +452,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Flexible(
                   child: Text(
                     '${loc?.webReverseCollectionExportPreview2 ?? 'Preview: first 2 entries'} · ${openHandLocalizedText(context, zh: '导出上限', zhHant: '匯出上限', en: 'export cap', fr: 'limite d’export', de: 'Exportlimit', ja: 'エクスポート上限')} $_kCollectionExportMaxEntries',
@@ -466,7 +467,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Expanded(
             child: Container(
               margin: const EdgeInsets.symmetric(horizontal: 16),

@@ -153,7 +153,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                     child: Row(
                       children: [
                         Icon(Icons.bolt_rounded, size: 16, color: cs.primary),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         Expanded(
                           child: Text(
                             loc?.webReverseRealtimeTitle ?? 'Realtime',
@@ -168,7 +168,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                             color: cs.onSurfaceVariant,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                       ],
                     ),
                   ),
@@ -185,7 +185,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             itemCount: entries.length,
                             separatorBuilder: (_, _) =>
-                                const SizedBox(height: 2),
+                                kOpenHandGap2,
                             itemBuilder: (_, i) {
                               final e = entries[i];
                               final isSel = e.requestId == _selectedReqId;
@@ -212,7 +212,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           // 右侧：帧流
           Expanded(
             child: AnimatedContainer(
@@ -268,9 +268,9 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                   }
                 }),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
             ],
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Expanded(
               child: TextField(
                 decoration: InputDecoration(
@@ -284,7 +284,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                 onChanged: (v) => setState(() => _filter = v.trim()),
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             FilterChip(
               label: Text(loc?.webReverseRealtimeAutoFollow ?? 'Auto-follow'),
               avatar: const Icon(Icons.vertical_align_bottom_rounded, size: 14),
@@ -293,7 +293,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         // 标题条：连接 URL + 帧数 + 时长
         Container(
           width: double.infinity,
@@ -306,7 +306,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
           child: Row(
             children: [
               Icon(Icons.link_rounded, size: 14, color: cs.primary),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: SelectableText(
                   entry.url,
@@ -317,7 +317,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 loc?.webReverseRealtimeFrameCount(entry.wsFrames.length) ??
                     '${entry.wsFrames.length} frames',
@@ -328,7 +328,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         // 帧列表
         Expanded(
           child: frames.isEmpty
@@ -343,7 +343,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
                   child: ListView.separated(
                     controller: _scroll,
                     itemCount: frames.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 4),
+                    separatorBuilder: (_, _) => kOpenHandGap4,
                     itemBuilder: (_, i) {
                       final f = frames[i];
                       return _FrameTile(
@@ -418,7 +418,7 @@ class _ConnTile extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -480,7 +480,7 @@ class _FrameTile extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 12, color: color),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 label,
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -488,14 +488,14 @@ class _FrameTile extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Text(
                 formatHourMinuteSecondMillis(frame.timestamp),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: cs.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Text(
                 '${payload.length} B',
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -511,7 +511,7 @@ class _FrameTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           SelectableText(
             preview,
             style: const TextStyle(

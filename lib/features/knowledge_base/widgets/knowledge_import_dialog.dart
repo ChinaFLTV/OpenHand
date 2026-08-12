@@ -14,6 +14,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
 import '../knowledge_base_errors.dart';
@@ -532,7 +533,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                   color: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Text(
                   openHandLocalizedText(
@@ -591,7 +592,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           TextField(
             controller: title,
             decoration: knowledgeDialogInputDecoration(
@@ -599,7 +600,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
               knowledgeTitleLabel(context),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Row(
             children: [
               Expanded(
@@ -625,7 +626,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: 116),
                 child: SizedBox(
@@ -647,7 +648,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
             ],
           ),
           if (tags.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -662,7 +663,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
               ],
             ),
           ],
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _MarkdownToolbar(
             onUndo: onUndo,
             onRedo: onRedo,
@@ -683,7 +684,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
             onDivider: onDivider,
             onTable: onTable,
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Expanded(
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion180,

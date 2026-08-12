@@ -26,6 +26,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -168,7 +169,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
               : ListView.separated(
                   padding: const EdgeInsets.symmetric(horizontal: 8),
                   itemCount: filtered.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 2),
+                  separatorBuilder: (_, _) => kOpenHandGap2,
                   itemBuilder: (_, idx) {
                     final g = filtered[idx];
                     final active = _selected == g;
@@ -207,7 +208,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                                           ),
                                     ),
                                   ),
-                                  const SizedBox(width: 6),
+                                  kOpenHandHGap6,
                                   Container(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 6,
@@ -248,7 +249,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                                     ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
+                              kOpenHandGap4,
                               Text(
                                 g.path,
                                 maxLines: 2,
@@ -483,7 +484,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -495,7 +496,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   _formatValuesPreview(f),
                   maxLines: 3,

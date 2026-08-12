@@ -17,6 +17,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
@@ -260,7 +261,7 @@ class _LogTile extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.chevron_right_rounded, size: 14, color: cs.primary),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: SelectableText(
                   entry.expr,
@@ -285,7 +286,7 @@ class _LogTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -296,7 +297,7 @@ class _LogTile extends StatelessWidget {
                 size: 14,
                 color: entry.error ? cs.error : cs.tertiary,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: SelectableText(
                   entry.result,

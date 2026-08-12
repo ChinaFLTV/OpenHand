@@ -132,7 +132,7 @@ class _ActiveToolCallsPanelState extends State<_ActiveToolCallsPanel> {
                         size: 18,
                         color: colors.primary,
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,7 +145,7 @@ class _ActiveToolCallsPanelState extends State<_ActiveToolCallsPanel> {
                               maxLines: 1,
                               overflow: TextOverflow.ellipsis,
                             ),
-                            const SizedBox(height: 2),
+                            kOpenHandGap2,
                             Text(
                               [
                                 _kindLabel(record.kind, l10n),
@@ -162,7 +162,7 @@ class _ActiveToolCallsPanelState extends State<_ActiveToolCallsPanel> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       TextButton.icon(
                         style: TextButton.styleFrom(
                           foregroundColor: colors.error,
@@ -284,7 +284,7 @@ class _ToolHardeningParamsPanelState extends State<_ToolHardeningParamsPanel> {
               onSubmitted: (_) => onSave(),
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           FilledButton.tonal(onPressed: onSave, child: Text(l10n.commonSave)),
         ],
       ),

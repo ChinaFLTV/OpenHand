@@ -481,7 +481,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                 size: 14,
                 color: cs.onSurfaceVariant,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 AppLocalizations.of(
                   context,
@@ -492,7 +492,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           for (final p in paths)
             InkWell(
               borderRadius: const BorderRadius.all(Radius.circular(12)),
@@ -506,7 +506,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                       size: 14,
                       color: cs.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Expanded(
                       child: Text(
                         _FileMutationCard._shortenFilePath(p),
@@ -616,14 +616,14 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                             size: 16,
                             color: cs.primary,
                           ),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Text(
                             AppLocalizations.of(context)!.fileMutationSection,
                             style: theme.textTheme.labelLarge?.copyWith(
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           _StatPill(
                             label: AppLocalizations.of(
                               context,
@@ -635,7 +635,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                           ),
                           if (totalLineDelta.available &&
                               totalLineDelta.hasChanges) ...[
-                            const SizedBox(width: 6),
+                            kOpenHandHGap6,
                             _FileMutationLineDeltaBadge(delta: totalLineDelta),
                           ],
                           // 批量撤销进度 chip：宽度随动效增减，否则忙碌一
@@ -646,7 +646,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                                 ? Row(
                                     mainAxisSize: MainAxisSize.min,
                                     children: [
-                                      const SizedBox(width: 8),
+                                      kOpenHandHGap8,
                                       SizedBox(
                                         width: 12,
                                         height: 12,
@@ -660,7 +660,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                                                 ),
                                         ),
                                       ),
-                                      const SizedBox(width: 6),
+                                      kOpenHandHGap6,
                                       Text(
                                         '$_bulkUndoDone/$_bulkUndoTotal',
                                         style: theme.textTheme.labelSmall
@@ -1012,7 +1012,7 @@ class _FileMutationCardRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.folder_open_outlined, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(_fileMutationRevealPathLabel(context)),
             ],
           ),
@@ -1022,7 +1022,7 @@ class _FileMutationCardRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.content_copy_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(l10n.fileMutationCopyPath),
             ],
           ),
@@ -1032,7 +1032,7 @@ class _FileMutationCardRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.difference_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(l10n.fileMutationCopyAllDiff),
             ],
           ),
@@ -1042,7 +1042,7 @@ class _FileMutationCardRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.history_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(l10n.fileMutationHistoryInspector),
             ],
           ),
@@ -1052,7 +1052,7 @@ class _FileMutationCardRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.open_in_new_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -1186,9 +1186,9 @@ class _FileMutationCardRow extends StatelessWidget {
                             color: cs.onSurfaceVariant,
                           ),
                         ),
-                        const SizedBox(width: 6),
+                        kOpenHandHGap6,
                         Icon(_kindIcon, size: 14, color: _kindColor(cs)),
-                        const SizedBox(width: 6),
+                        kOpenHandHGap6,
                         Expanded(
                           // hover 显示完整路径，右键 / Ctrl-长按复制路径。
                           child: Tooltip(
@@ -1233,7 +1233,7 @@ class _FileMutationCardRow extends StatelessWidget {
                           ),
                         ),
                         if (view.directlyUndone && !view.cascadeUndone) ...[
-                          const SizedBox(width: 6),
+                          kOpenHandHGap6,
                           _StatPill(
                             label: AppLocalizations.of(
                               context,
@@ -1245,7 +1245,7 @@ class _FileMutationCardRow extends StatelessWidget {
                           ),
                         ],
                         if (view.cascadeUndone) ...[
-                          const SizedBox(width: 6),
+                          kOpenHandHGap6,
                           _StatPill(
                             label: AppLocalizations.of(
                               context,
@@ -1254,7 +1254,7 @@ class _FileMutationCardRow extends StatelessWidget {
                             bg: cs.tertiaryContainer.withValues(alpha: 0.55),
                           ),
                         ],
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         if (busy)
                           const OpenHandBusyStatusIcon(
                             busy: true,
@@ -1278,7 +1278,7 @@ class _FileMutationCardRow extends StatelessWidget {
                             )!.fileMutationRedo,
                             onTap: onRedo,
                           ),
-                        const SizedBox(width: 4),
+                        kOpenHandHGap4,
                         _FileMutationRevealPathButton(
                           filePath: view.record.filePath,
                         ),
@@ -1996,7 +1996,7 @@ class _CodexDiffLineRow extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
-            ColoredBox(color: _accentColor, child: const SizedBox(width: 4)),
+            ColoredBox(color: _accentColor, child: kOpenHandHGap4),
             SizedBox(
               width: 58,
               child: Align(
@@ -2454,7 +2454,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
                     color: colorScheme.primary,
                     size: 22,
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -2473,7 +2473,7 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 4),
+                        kOpenHandGap4,
                         Text(
                           _FileMutationCard._shortenFilePath(widget.filePath),
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -2594,7 +2594,7 @@ class _RevealMoreRow extends StatelessWidget {
         child: Row(
           children: [
             Icon(Icons.unfold_more_rounded, size: 16, color: cs.primary),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Text(
                 l10n.fileMutationRevealMore(remaining),
@@ -2683,7 +2683,7 @@ class _FileMutationHistoryInspectorDialogState
             child: Row(
               children: [
                 Icon(Icons.history_rounded, size: 18, color: cs.primary),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     l10n.fileMutationHistoryInspectorTitle,
@@ -2876,7 +2876,7 @@ class _HistoryInspectorGroup extends StatelessWidget {
                       size: 14,
                       color: cs.primary,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Expanded(
                       child: Tooltip(
                         message: filePath,
@@ -2910,10 +2910,10 @@ class _HistoryInspectorGroup extends StatelessWidget {
                         minHeight: 28,
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                     if (lineDelta.available && lineDelta.hasChanges) ...[
                       _FileMutationLineDeltaBadge(delta: lineDelta),
-                      const SizedBox(width: 6),
+                      kOpenHandHGap6,
                     ],
                     Container(
                       padding: const EdgeInsets.symmetric(
@@ -2964,7 +2964,7 @@ class _InspectorEntryRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.data_object_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -2984,7 +2984,7 @@ class _InspectorEntryRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.tag_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -3055,7 +3055,7 @@ class _InspectorEntryRow extends StatelessWidget {
         child: Row(
           children: [
             _RecordKindBadge(kind: view.record.kind),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Text(
                 view.record.toolName,
@@ -3070,7 +3070,7 @@ class _InspectorEntryRow extends StatelessWidget {
                 fontFeatures: const [FontFeature.tabularFigures()],
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             if (view.directlyUndone)
               Tooltip(
                 message: l10n.fileMutationUndone,
@@ -3126,7 +3126,7 @@ class _RecordKindBadge extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: color),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           Text(
             label,
             style: TextStyle(
@@ -3313,7 +3313,7 @@ class _BulkUndoOverlay extends StatelessWidget {
                   backgroundColor: cs.primary.withValues(alpha: 0.15),
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 '$done/$total',
                 style: theme.textTheme.labelMedium?.copyWith(
@@ -3776,7 +3776,7 @@ class _RoundFileMutationSummaryCardState
                                   color: cs.primary,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              kOpenHandHGap8,
                               Text(
                                 openHandLocalizedText(
                                   context,
@@ -3887,7 +3887,7 @@ class _RoundFileMutationSummaryCardState
       child: Row(
         children: [
           Icon(Icons.auto_awesome_motion_rounded, size: 18, color: cs.primary),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Text(
             openHandLocalizedText(
               context,
@@ -3899,7 +3899,7 @@ class _RoundFileMutationSummaryCardState
               color: cs.onSurface,
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           if (rows.isNotEmpty)
             _StatPill(
               label: AppLocalizations.of(
@@ -3909,7 +3909,7 @@ class _RoundFileMutationSummaryCardState
               bg: cs.surfaceContainerHighest.withValues(alpha: 0.65),
             ),
           if (created > 0) ...[
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             _StatPill(
               label: 'C $created',
               color: _kFileMutationAddedColor,
@@ -3917,7 +3917,7 @@ class _RoundFileMutationSummaryCardState
             ),
           ],
           if (modified > 0) ...[
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             _StatPill(
               label: 'M $modified',
               color: cs.primary,
@@ -3925,7 +3925,7 @@ class _RoundFileMutationSummaryCardState
             ),
           ],
           if (deleted > 0) ...[
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             _StatPill(
               label: 'D $deleted',
               color: cs.error,
@@ -3966,14 +3966,14 @@ class _RoundFileMutationSummaryCardState
                               : unitRatio(_bulkUndoDone, _bulkUndoTotal),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      kOpenHandHGap6,
                       Text(
                         '$_bulkUndoDone/$_bulkUndoTotal',
                         style: theme.textTheme.labelSmall?.copyWith(
                           color: cs.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      kOpenHandHGap6,
                     ],
                   )
                 : null,
@@ -4339,7 +4339,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
       child: Row(
         children: [
           Icon(_kindIcon(), size: 15, color: _kindColor(cs)),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: Tooltip(
               message: row.view.record.filePath,
@@ -4360,22 +4360,22 @@ class _RoundSummaryRowTile extends StatelessWidget {
           ),
           if (row.view.lineDelta.available &&
               row.view.lineDelta.hasChanges) ...[
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             _FileMutationLineDeltaBadge(
               delta: row.view.lineDelta,
               style: _FileMutationLineDeltaStyle.text,
             ),
           ],
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           if (row.sourceMessageId != null)
             _RoundSummarySourceJumpButton(onTap: onJump),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           _FileMutationRevealPathButton(filePath: row.view.record.filePath),
           // 任意有快照的记录都支持 inline Diff 预览；create/delete
           // 分别以空 before/after 参与 diff，与单个工具调用卡片保持一致。
           if (row.view.record.beforeSha != null ||
               row.view.record.afterSha != null) ...[
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             Tooltip(
               message: openHandLocalizedText(
                 context,
@@ -4499,7 +4499,7 @@ class _GroupHeader extends StatelessWidget {
                   color: cs.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Text(
                 toolName.isEmpty ? '·' : toolName,
                 style: theme.textTheme.labelMedium?.copyWith(
@@ -4507,7 +4507,7 @@ class _GroupHeader extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
                 decoration: BoxDecoration(
@@ -4572,7 +4572,7 @@ class _PathSubGroupHeader extends StatelessWidget {
                 size: 12,
                 color: cs.onSurfaceVariant.withValues(alpha: 0.55),
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Flexible(
                 child: Text(
                   dir,
@@ -4584,7 +4584,7 @@ class _PathSubGroupHeader extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 '($count)',
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -4709,7 +4709,7 @@ class _DiffLoadingPlaceholder extends StatelessWidget {
                 color: colorScheme.primary,
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Text(
               openHandLocalizedText(
                 context,

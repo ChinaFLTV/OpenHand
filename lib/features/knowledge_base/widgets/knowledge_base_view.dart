@@ -15,6 +15,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
@@ -448,7 +449,7 @@ class _KnowledgeBaseBody extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             FutureBuilder<
               ({
                 int sourceCount,
@@ -470,11 +471,11 @@ class _KnowledgeBaseBody extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         Expanded(
           child: ListView.separated(
             itemCount: controller.sources.length,
-            separatorBuilder: (_, _) => const SizedBox(height: 10),
+            separatorBuilder: (_, _) => kOpenHandGap10,
             itemBuilder: (context, index) {
               final source = controller.sources[index];
               return _KnowledgeSourceCard(source: source);
@@ -569,7 +570,7 @@ class _KbStatChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const Icon(Icons.data_object_rounded, size: 18),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Text(
             '$label $value',
             style: Theme.of(
@@ -656,7 +657,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(width: 16),
+                      kOpenHandHGap16,
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -669,7 +670,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                             Text(
                               localizedKnowledgeSourceKind(
                                 context,
@@ -680,7 +681,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                                 fontWeight: FontWeight.w800,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                             Text(
                               source.originalPath,
                               maxLines: 2,
@@ -692,7 +693,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      kOpenHandHGap12,
                       Flexible(
                         child: Align(
                           alignment: Alignment.topRight,
@@ -769,7 +770,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   Align(
                     alignment: Alignment.centerLeft,
                     child: Wrap(

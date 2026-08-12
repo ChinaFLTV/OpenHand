@@ -5,6 +5,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import '../ai/index.dart';
@@ -206,7 +207,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       ja: '解析目標 *',
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _objectiveCtrl,
                     maxLines: 3,
@@ -224,7 +225,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandModelSelectorField(
                     models: widget.availableModels,
                     recentSelections: widget.recentModelSelections,
@@ -233,7 +234,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                     required: true,
                     onSelected: selectOpenHandModel,
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     _text(
                       zh: '目标包名（可选）',
@@ -244,7 +245,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       ja: '対象パッケージ名（任意）',
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _packageCtrl,
                     decoration: const InputDecoration(
@@ -253,7 +254,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     _text(
                       zh: 'APK 路径（可选，仅用于静态分析）',
@@ -264,7 +265,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       ja: 'APK パス（任意）',
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _apkCtrl,
                     decoration: const InputDecoration(
@@ -273,7 +274,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     _text(
                       zh: 'ADB 设备序列号（可选，留空自动选唯一在线设备）',
@@ -284,7 +285,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       ja: 'ADB デバイスシリアル（任意）',
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _deviceCtrl,
                     decoration: const InputDecoration(
@@ -293,7 +294,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     _text(
                       zh: '分析模式',
@@ -304,7 +305,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       ja: '解析モード',
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   SegmentedButton<AndroidReverseAnalysisMode>(
                     showSelectedIcon: false,
                     segments: [
@@ -359,7 +360,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       }
                     },
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     _requiresAuthorizationScope
                         ? _text(
@@ -379,7 +380,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                             ja: '許可範囲（推奨）',
                           ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _authorizationScopeCtrl,
                     maxLines: 2,
@@ -408,7 +409,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                           : null,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandAnimatedSwitchTile(
                     icon: Icons.usb_rounded,
                     title: _text(
@@ -430,7 +431,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                     value: _adbMcpEnabled,
                     onChanged: (v) => setState(() => _adbMcpEnabled = v),
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   OpenHandAnimatedSwitchTile(
                     icon: Icons.bug_report_rounded,
                     title: _text(
@@ -452,7 +453,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                     value: _fridaMcpEnabled,
                     onChanged: (v) => setState(() => _fridaMcpEnabled = v),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     _text(
                       zh: '关键字（可选，逗号分隔）',
@@ -463,7 +464,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       ja: 'キーワード（任意、カンマ区切り）',
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _keywordsCtrl,
                     decoration: const InputDecoration(
@@ -472,7 +473,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     _text(
                       zh: '备注（可选）',
@@ -483,7 +484,7 @@ class _AndroidReverseSetupDialogState extends State<_AndroidReverseSetupDialog>
                       ja: 'メモ（任意）',
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _notesCtrl,
                     maxLines: 2,

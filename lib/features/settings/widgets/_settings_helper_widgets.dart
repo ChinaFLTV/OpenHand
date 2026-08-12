@@ -219,15 +219,15 @@ class _SettingsGroupCard extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 description,
                 style: theme.textTheme.bodyLarge?.copyWith(
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 18),
-              ..._intersperse(children, const SizedBox(height: 18)),
+              kOpenHandGap18,
+              ..._intersperse(children, kOpenHandGap18),
             ],
           ),
         ),
@@ -258,14 +258,14 @@ class _SettingsSubsectionCard extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: theme.textTheme.titleLarge),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Text(
           description,
           style: theme.textTheme.bodyMedium?.copyWith(
             color: colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         if (motionEnabled)
           ClipRect(
             child: AnimatedSize(
@@ -340,7 +340,7 @@ class _ResponsiveSettingRow extends StatelessWidget {
             children: [
               Text(title, style: theme.textTheme.titleMedium),
               if (subtitle != null) ...[
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 Text(
                   subtitle!,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -348,7 +348,7 @@ class _ResponsiveSettingRow extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               control,
             ],
           );
@@ -363,7 +363,7 @@ class _ResponsiveSettingRow extends StatelessWidget {
                 children: [
                   Text(title, style: theme.textTheme.titleMedium),
                   if (subtitle != null) ...[
-                    const SizedBox(height: 6),
+                    kOpenHandGap6,
                     Text(
                       subtitle!,
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -474,7 +474,7 @@ class _AiTtsSettingsPanel extends StatelessWidget {
                   ),
                   controlMaxWidth: _settingsStandardFieldWidth,
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 _ResponsiveSettingRow(
                   title: openHandLocalizedText(
                     context,
@@ -496,7 +496,7 @@ class _AiTtsSettingsPanel extends StatelessWidget {
                   ),
                   controlMaxWidth: _settingsStandardFieldWidth,
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 _AiTtsProviderDeck(
                   settings: settings,
                   onChanged: onChanged,
@@ -574,7 +574,7 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
                   ),
                   controlMaxWidth: _settingsStandardFieldWidth,
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 _ResponsiveSettingRow(
                   title: openHandLocalizedText(
                     context,
@@ -602,7 +602,7 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
                   ),
                   controlMaxWidth: _settingsStandardFieldWidth,
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 _ResponsiveSettingRow(
                   title: openHandLocalizedText(
                     context,
@@ -625,7 +625,7 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
                   ),
                   controlMaxWidth: _settingsStandardFieldWidth,
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 _ResponsiveSettingRow(
                   title: openHandLocalizedText(
                     context,
@@ -647,7 +647,7 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
                   ),
                   controlMaxWidth: _settingsStandardFieldWidth,
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 _AiTranslationProviderDeck(
                   settings: settings,
                   onChanged: onChanged,
@@ -711,7 +711,7 @@ class _AiTranslationProviderDeckState
           ),
           style: theme.textTheme.titleMedium,
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Text(
           openHandLocalizedText(
             context,
@@ -722,7 +722,7 @@ class _AiTranslationProviderDeckState
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         DragTarget<AiTranslationProvider>(
           onWillAcceptWithDetails: (details) =>
               providers.contains(details.data),
@@ -980,7 +980,7 @@ class _AiTranslationProviderCardState
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -1015,7 +1015,7 @@ class _AiTranslationProviderCardState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 if (readiness != null) ...[
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Text(
                     readiness,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -1023,7 +1023,7 @@ class _AiTranslationProviderCardState
                     ),
                   ),
                 ],
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 provider == AiTranslationProvider.ai
                     ? _buildAiModelSection(context, providerSettings)
                     : _buildProviderAccessSection(context, providerSettings),
@@ -1152,7 +1152,7 @@ class _AiTranslationProviderCardState
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Text(
             selectedLabel == null
                 ? openHandLocalizedText(
@@ -1455,9 +1455,9 @@ class _AiTranslationProviderDragFeedbackCard extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               const Icon(Icons.drag_indicator_rounded, size: 22),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               _AiTtsPriorityBadge(index: priorityIndex),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Flexible(
                 child: Text(
                   label,
@@ -1467,7 +1467,7 @@ class _AiTranslationProviderDragFeedbackCard extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _AiTtsStatusBadge(enabled: enabled),
             ],
           ),
@@ -1521,7 +1521,7 @@ class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck> {
           openHandLocalizedText(context, zh: 'TTS 服务优先级', en: 'TTS Priority'),
           style: theme.textTheme.titleMedium,
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Text(
           openHandLocalizedText(
             context,
@@ -1532,7 +1532,7 @@ class _AiTtsProviderDeckState extends State<_AiTtsProviderDeck> {
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         DragTarget<AiTtsProvider>(
           onWillAcceptWithDetails: (details) =>
               providers.contains(details.data),
@@ -1835,7 +1835,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -1996,7 +1996,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Text(
             selectedLabel == null
                 ? openHandLocalizedText(
@@ -2013,7 +2013,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _AiTtsProviderFieldGrid(
             children: [
               _AiTtsDropdown(
@@ -2391,7 +2391,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
         ),
         if (_providerNeedsEndpoint(provider) ||
             _providerNeedsCredentials(provider)) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _AiTtsProviderSection(
             title: _settingsHelperAccessLabel(context),
             child: _AiTtsProviderFieldGrid(
@@ -2452,7 +2452,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
           ),
         ],
         if (provider == AiTtsProvider.doubao) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _AiTtsProviderSection(
             title: openHandLocalizedText(context, zh: '豆包参数', en: 'Doubao'),
             child: _AiTtsProviderFieldGrid(
@@ -2481,7 +2481,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             ),
           ),
         ] else if (provider == AiTtsProvider.mimo) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _AiTtsProviderSection(
             title: 'Mimo TTS',
             child: _AiTtsProviderFieldGrid(
@@ -2537,7 +2537,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
             ),
           ),
         ] else if (provider == AiTtsProvider.xfyun) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _AiTtsProviderSection(
             title: _settingsHelperAudioLabel(context),
             child: _AiTtsProviderFieldGrid(
@@ -2553,7 +2553,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
           ),
         ] else if (provider == AiTtsProvider.google ||
             provider == AiTtsProvider.bing) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _AiTtsProviderSection(
             title: _settingsHelperAudioLabel(context),
             child: _AiTtsProviderFieldGrid(
@@ -2791,9 +2791,9 @@ class _AiTtsProviderDragFeedbackCard extends StatelessWidget {
                       color: colorScheme.onPrimaryContainer,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   _AiTtsPriorityBadge(index: priorityIndex),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Text(
                       label,
@@ -2807,7 +2807,7 @@ class _AiTtsProviderDragFeedbackCard extends StatelessWidget {
                   _AiTtsStatusBadge(enabled: enabled),
                 ],
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               for (var row = 0; row < 3; row++) ...[
                 FractionallySizedBox(
                   widthFactor: row == 2 ? 0.56 : 1,
@@ -2821,7 +2821,7 @@ class _AiTtsProviderDragFeedbackCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                if (row != 2) const SizedBox(height: 8),
+                if (row != 2) kOpenHandGap8,
               ],
             ],
           ),
@@ -3101,7 +3101,7 @@ class _AiTtsProviderSection extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           child,
         ],
       ),
@@ -3438,7 +3438,7 @@ class _AiTtsProviderNumberFieldState extends State<_AiTtsProviderNumberField> {
                     ? null
                     : () => _commit(clamped + range.step),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               ConstrainedBox(
                 constraints: const BoxConstraints(minWidth: 54),
                 child: Text(
@@ -4608,7 +4608,7 @@ class _SettingsIntSliderState extends State<_SettingsIntSlider> {
                 ? null
                 : () => _commit(clamped + widget.step),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           ConstrainedBox(
             constraints: const BoxConstraints(minWidth: 58),
             child: Text(
@@ -4729,7 +4729,7 @@ class _ReadonlySettingRow extends StatelessWidget {
                     color: theme.colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 SelectableText(value, style: theme.textTheme.bodyLarge),
               ],
             );
@@ -4794,13 +4794,13 @@ class _SettingsStateBox extends StatelessWidget {
               alignment: Alignment.center,
               child: Icon(icon, color: colorScheme.onPrimaryContainer),
             ),
-            const SizedBox(width: 16),
+            kOpenHandHGap16,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(title, style: theme.textTheme.titleLarge),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text(
                     body,
                     style: theme.textTheme.bodyMedium?.copyWith(
@@ -5074,7 +5074,7 @@ class _AiProviderModelChip extends StatelessWidget {
                 ),
               ),
               if (effectiveOnEdit != null) ...<Widget>[
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 GestureDetector(
                   behavior: HitTestBehavior.opaque,
                   onTap: effectiveOnEdit,
@@ -5523,7 +5523,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                             widget.model.providerLabel,
                             style: theme.textTheme.titleLarge,
                           ),
-                          const SizedBox(height: 4),
+                          kOpenHandGap4,
                           _buildProviderMetaLine(
                             context: context,
                             l10n: l10n,
@@ -5533,7 +5533,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                             ),
                           ),
                           if (widget.model.modelId.trim().isNotEmpty) ...[
-                            const SizedBox(height: 4),
+                            kOpenHandGap4,
                             Text(
                               openHandLocalizedText(
                                 context,
@@ -5549,7 +5549,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Wrap(
                       spacing: 4,
                       children: [
@@ -5642,7 +5642,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                kOpenHandGap14,
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
@@ -5708,7 +5708,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                 ),
                 // 限制模型胶囊数量，避免卡片过高和滚动时重复构建过多控件。
                 if (allModels.isNotEmpty) ...[
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   if (canExpandModels)
                     _AnimatedSettingReveal(
                       visible: _modelSearchVisible,
@@ -5914,7 +5914,7 @@ class _WebEngineDispatchControls extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         Row(
           children: [
             Expanded(
@@ -5943,7 +5943,7 @@ class _WebEngineDispatchControls extends StatelessWidget {
                 onChanged: onParallelChanged,
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             SizedBox(
               width: 120,
               child: TextField(
@@ -6126,7 +6126,7 @@ mixin _ToolTelemetryPanelHost<W extends StatefulWidget, L, K, S, H>
         onRefresh: _refreshTelemetry,
         onClear: _confirmAndClearTelemetry,
       ),
-      const SizedBox(height: 8),
+      kOpenHandGap8,
       ..._buildToolTelemetryBody(
         context: context,
         loading: _telemetryLoading,
@@ -6345,14 +6345,14 @@ List<Widget> buildWebEngineListSection({
 }) {
   return [
     Text(title, style: theme.textTheme.titleSmall),
-    const SizedBox(height: 4),
+    kOpenHandGap4,
     Text(
       description,
       style: theme.textTheme.bodySmall?.copyWith(
         color: colorScheme.onSurfaceVariant,
       ),
     ),
-    const SizedBox(height: 8),
+    kOpenHandGap8,
     ReorderableListView.builder(
       shrinkWrap: true,
       buildDefaultDragHandles: false,
@@ -6432,7 +6432,7 @@ class _ToolEngineCardShell extends StatelessWidget {
                       child: Icon(Icons.drag_indicator_rounded, size: 20),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -6449,7 +6449,7 @@ class _ToolEngineCardShell extends StatelessWidget {
                   ),
                   if (headerTrailing != null) ...[
                     headerTrailing!,
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                   ],
                   IconButton(
                     tooltip: expanded
@@ -6656,7 +6656,7 @@ class _ToolEngineCardState extends State<_ToolEngineCard> {
                   onChanged: widget.onMaxRetriesChanged,
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: _buildEngineNumberField(
                   controller: _truncationController,
@@ -6675,7 +6675,7 @@ class _ToolEngineCardState extends State<_ToolEngineCard> {
           ),
           ...widget.extrasBeforeApiKey,
           if (widget.requiresApiKey) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             TextField(
               controller: _apiKeyController,
               decoration: InputDecoration(
@@ -6730,7 +6730,7 @@ class _ToolEngineCardState extends State<_ToolEngineCard> {
               onChanged: (text) => widget.onApiKeyChanged(nullIfBlank(text)),
             ),
             if (widget.onProviderConfigIdChanged != null) ...[
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               AnimatedDropdownButtonFormField<String?>(
                 initialValue: widget.providerConfigId,
                 isExpanded: true,

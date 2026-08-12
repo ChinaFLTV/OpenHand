@@ -14,6 +14,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/date_time_format.dart';
@@ -383,7 +384,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
             child: Row(
               children: [
                 Icon(Icons.vpn_key_rounded, color: cs.primary),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -477,7 +478,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   TextField(
                     controller: _refreshExpr,
                     maxLength:
@@ -495,7 +496,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                       isDense: true,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   Text(
                     loc?.webReverseJwtFoundCount(_samples.length) ??
                         'JWTs (${_samples.length})',
@@ -503,7 +504,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   if (_samples.isEmpty)
                     Text(
                       loc?.webReverseJwtNoneFound ?? 'No JWT found',
@@ -519,14 +520,14 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                       formatRemaining: _formatRemaining,
                     ),
                   if (_logs.isNotEmpty) ...[
-                    const SizedBox(height: 18),
+                    kOpenHandGap18,
                     Text(
                       loc?.webReverseJwtRefreshLog ?? 'Refresh log',
                       style: theme.textTheme.labelLarge?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    kOpenHandGap6,
                     for (final l in _logs.take(20))
                       Container(
                         margin: const EdgeInsets.only(bottom: 4),
@@ -547,7 +548,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                               size: 14,
                               color: l.ok ? cs.primary : cs.onErrorContainer,
                             ),
-                            const SizedBox(width: 6),
+                            kOpenHandHGap6,
                             Text(
                               formatHourMinuteSecond(l.at),
                               style: const TextStyle(
@@ -555,7 +556,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                                 fontSize: 11,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            kOpenHandHGap8,
                             Expanded(
                               child: SelectableText(
                                 l.detail,
@@ -641,7 +642,7 @@ class _SampleCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Expanded(
                   child: Text(
                     sample.key,
@@ -661,7 +662,7 @@ class _SampleCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             SelectableText(
               sample.value,
               maxLines: 2,
@@ -674,7 +675,7 @@ class _SampleCard extends StatelessWidget {
             if (sample.exp != null ||
                 sample.iss != null ||
                 sample.sub != null) ...[
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Wrap(
                 spacing: 8,
                 runSpacing: 2,

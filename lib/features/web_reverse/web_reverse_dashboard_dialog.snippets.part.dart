@@ -190,7 +190,7 @@ class _SnippetsBodyState extends State<_SnippetsBody>
                         label: loc?.webReverseHooksNameLabel ?? 'Name',
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     FilledButton.icon(
                       onPressed: _running ? null : _run,
                       icon: OpenHandBusyStatusIcon(
@@ -199,7 +199,7 @@ class _SnippetsBodyState extends State<_SnippetsBody>
                       ),
                       label: Text(loc?.webReverseSnippetsRun ?? 'Run (⌘R)'),
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     FilledButton.tonalIcon(
                       onPressed: _dirty ? _save : null,
                       icon: const Icon(Icons.save_rounded, size: 18),
@@ -209,7 +209,7 @@ class _SnippetsBodyState extends State<_SnippetsBody>
                             : (loc?.webReverseHooksSaved ?? 'Saved'),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     IconButton(
                       tooltip: loc?.webReverseSnippetsDelete ?? 'Delete',
                       icon: Icon(Icons.delete_outline_rounded, color: cs.error),
@@ -217,7 +217,7 @@ class _SnippetsBodyState extends State<_SnippetsBody>
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Expanded(
                   child: _DashboardScriptCodeEditor(
                     controller: _codeCtrl,
@@ -291,7 +291,7 @@ class _SnippetTileState extends State<_SnippetTile>
                 size: 16,
                 color: widget.selected ? cs.primary : cs.onSurfaceVariant,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   widget.snippet.name,

@@ -13,6 +13,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -271,7 +272,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                             ClipRRect(
                               borderRadius: BorderRadius.circular(3),
                               child: LinearProgressIndicator(
@@ -282,7 +283,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                                 backgroundColor: cs.surfaceContainerHighest,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                             Text(
                               loc?.webReverseCssCovRuleStats(
                                     r.usedRanges,
@@ -329,7 +330,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
             shape: BoxShape.circle,
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Text(
           stateLabel,
           style: theme.textTheme.titleSmall?.copyWith(
@@ -361,7 +362,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 state,
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Align(alignment: Alignment.centerRight, child: button),
               ],
             );

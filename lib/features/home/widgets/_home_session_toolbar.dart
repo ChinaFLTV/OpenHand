@@ -319,7 +319,7 @@ class _ToolbarPill extends StatelessWidget {
             size: _kSessionToolbarPillIconSize,
             color: theme.colorScheme.primary,
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Text(
             label,
             maxLines: 1,
@@ -437,13 +437,13 @@ class _SessionToolbarStatusPill extends StatelessWidget {
                   : null,
             ),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Icon(
             icon,
             size: _kSessionToolbarPillIconSize,
             color: cs.onSurfaceVariant,
           ),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           if (maxLabelWidth == null)
             labelText
           else
@@ -564,7 +564,7 @@ class _HermesSelfLearningWarningPill extends StatelessWidget {
                 size: 16,
                 color: colorScheme.onErrorContainer,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 openHandLocalizedText(
                   context,
@@ -783,7 +783,7 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
                   color: statusColor,
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -794,7 +794,7 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    kOpenHandGap2,
                     Text(
                       subtitle,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -811,7 +811,7 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
                   color: statusColor,
                   onTap: onVisibilityToggle,
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
               ],
               AnimatedSwitcher(
                 duration: openHandMotionDuration(
@@ -835,7 +835,7 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           SingleChildScrollView(
             controller: _stepsScrollController,
             scrollDirection: Axis.horizontal,
@@ -897,7 +897,7 @@ class _PlanTimelineVisibilityButton extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon, size: 14, color: color),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   label,
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -985,7 +985,7 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
           alignment: Alignment.center,
           child: marker,
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 220),
           child: Text(
@@ -1684,10 +1684,10 @@ class _GoalDetailsDialog extends StatelessWidget {
                     en: 'No goal is currently active.',
                   ),
                 ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               _GoalEnvironmentSection(session: session),
               if (recentHistory.isNotEmpty) ...[
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 Text(
                   openHandLocalizedText(
                     context,
@@ -1698,7 +1698,7 @@ class _GoalDetailsDialog extends StatelessWidget {
                     context,
                   ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 ...recentHistory.map(
                   (goal) => Padding(
                     padding: const EdgeInsets.only(bottom: 10),
@@ -1758,9 +1758,9 @@ class _GoalRecordSection extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(goal.objective, style: theme.textTheme.bodyMedium),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -1785,7 +1785,7 @@ class _GoalRecordSection extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             _GoalKeyValue(
               openHandCreatedLabel(context),
               _formatGoalDateTime(context, goal.createdAt),
@@ -1805,7 +1805,7 @@ class _GoalRecordSection extends StatelessWidget {
                 _formatGoalDateTime(context, goal.terminatedAt),
               ),
             if ((goal.statusReason ?? '').trim().isNotEmpty) ...[
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Text(
                 _goalStatusReasonLabel(context, goal.statusReason!),
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -1814,7 +1814,7 @@ class _GoalRecordSection extends StatelessWidget {
               ),
             ],
             if (evaluations.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               ...evaluations.map(
                 (evaluation) => Padding(
                   padding: const EdgeInsets.only(top: 8),
@@ -1849,7 +1849,7 @@ class _GoalMiniChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 14, color: theme.colorScheme.primary),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Text(label, style: theme.textTheme.labelMedium),
         ],
       ),
@@ -1891,7 +1891,7 @@ class _GoalEvaluationRow extends StatelessWidget {
                   size: 16,
                   color: color,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Expanded(
                   child: Text(
                     statusLabel,
@@ -1914,7 +1914,7 @@ class _GoalEvaluationRow extends StatelessWidget {
               context,
               evaluation.summary,
             ).isNotEmpty) ...[
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               Text(
                 _goalEvaluationSummaryLabel(context, evaluation.summary),
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -1924,7 +1924,7 @@ class _GoalEvaluationRow extends StatelessWidget {
               ),
             ],
             if (evaluation.evidence.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               _GoalInlineList(
                 label: _homeEvidenceLabel(context),
                 values: evaluation.evidence,
@@ -1932,7 +1932,7 @@ class _GoalEvaluationRow extends StatelessWidget {
               ),
             ],
             if (evaluation.missing.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               _GoalInlineList(
                 label: _homeMissingLabel(context),
                 values: evaluation.missing,
@@ -1971,7 +1971,7 @@ class _GoalInlineList extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Wrap(
           spacing: 6,
           runSpacing: 6,
@@ -2063,7 +2063,7 @@ class _GoalRecordShell extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             ...children,
           ],
         ),
@@ -2997,7 +2997,7 @@ class _StreamThrottlePill extends StatelessWidget {
                       size: _kSessionToolbarPillIconSize,
                       color: iconColor,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Text(
                       label,
                       maxLines: 1,
@@ -3009,7 +3009,7 @@ class _StreamThrottlePill extends StatelessWidget {
                       ),
                     ),
                     if (backlog > 0) ...[
-                      const SizedBox(width: 4),
+                      kOpenHandHGap4,
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -3030,7 +3030,7 @@ class _StreamThrottlePill extends StatelessWidget {
                       ),
                     ],
                     if (override != null) ...[
-                      const SizedBox(width: 4),
+                      kOpenHandHGap4,
                       Icon(Icons.history_rounded, size: 13, color: iconColor),
                     ],
                   ],
@@ -3179,7 +3179,7 @@ class _StreamThrottleSessionDialogState
               ),
               style: theme.textTheme.titleLarge,
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               text(
                 zh: '调整后随会话持久保存，重启后仍保留。留空 = 沿用全局值。',
@@ -3193,7 +3193,7 @@ class _StreamThrottleSessionDialogState
                 color: theme.colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             // 会话级启用开关：关闭后从现在起不再对 AI
             // 流式响应做任何节流；立即推送给活跃 throttle，正在输出
             // 的字符也会立刻全速放出。
@@ -3224,7 +3224,7 @@ class _StreamThrottleSessionDialogState
                             fontWeight: FontWeight.w600,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        kOpenHandGap2,
                         Text(
                           _enabledOverride == null
                               ? text(
@@ -3273,14 +3273,14 @@ class _StreamThrottleSessionDialogState
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             // 实时字符吞吐仪表盘：长窗口按秒采样，绘制前
             // 降采样；主曲线使用节流后的展示吞吐。
             _StreamThroughputMiniGauge(
               sessionId: widget.sessionId,
               maxRate: effectiveChars <= 0 ? 1 : effectiveChars,
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             TextField(
               controller: _charsCtrl,
               keyboardType: TextInputType.number,
@@ -3305,7 +3305,7 @@ class _StreamThrottleSessionDialogState
                 if (mounted) setState(() {});
               },
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             TextField(
               controller: _cardsCtrl,
               keyboardType: TextInputType.number,
@@ -3328,7 +3328,7 @@ class _StreamThrottleSessionDialogState
                 if (mounted) setState(() {});
               },
             ),
-            const SizedBox(height: 20),
+            kOpenHandGap20,
             // 三枚操作按钮明确居中聚集：丢到 SizedBox(double.infinity)
             // 里以推翻外层 Column.crossAxisAlignment.start 带来的隱性左贴边；
             // Wrap 仍用来兼顾窄幅对话框的软换行。
@@ -3817,7 +3817,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
           Row(
             children: [
               Icon(Icons.show_chart_rounded, size: 14, color: scheme.primary),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: Text(
                   openHandLocalizedText(
@@ -3838,7 +3838,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Tooltip(
                 message: openHandLocalizedText(
                   context,
@@ -3855,7 +3855,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
                   color: scheme.onSurfaceVariant.withValues(alpha: 0.7),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Flexible(
                 child: Text(
                   openHandLocalizedText(
@@ -3880,7 +3880,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: SegmentedButton<int>(
@@ -3909,7 +3909,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               ),
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Row(
             children: [
               Icon(
@@ -3943,7 +3943,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Row(
             children: [
               Icon(
@@ -3985,7 +3985,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           SizedBox(
             height: 96,
             // 鼠标悬停 / 触屏拖动时高亮当前桶并展示
@@ -4134,7 +4134,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
               },
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Text(
             openHandLocalizedText(
               context,
@@ -4507,7 +4507,7 @@ class _ThroughputTooltip extends StatelessWidget {
                             size: 12,
                             color: color,
                           ),
-                          const SizedBox(width: 4),
+                          kOpenHandHGap4,
                           Flexible(
                             child: Text(
                               '$timeLabel · $valueLabel',

@@ -315,19 +315,19 @@ class _ElementsBodyState extends State<_ElementsBody> {
               onPressed: _loading ? null : _loadDocument,
             ),
           ),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           OutlinedButton.icon(
             onPressed: hasSel ? _copySelector : null,
             icon: const Icon(Icons.link_rounded, size: 14),
             label: Text(loc?.webReverseElementsCopySelector ?? 'Copy selector'),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           OutlinedButton.icon(
             onPressed: hasSel ? _copyXPath : null,
             icon: const Icon(Icons.alt_route_rounded, size: 14),
             label: Text(loc?.webReverseElementsCopyXPath ?? 'Copy XPath'),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           OutlinedButton.icon(
             onPressed: hasSel ? _scrollIntoView : null,
             icon: const Icon(Icons.center_focus_strong_rounded, size: 14),
@@ -500,7 +500,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
           height: 40,
           child: Row(
             children: [
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               _subTabBtn(
                 theme,
                 cs,
@@ -706,7 +706,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   if (useCapture) _flag('capture', cs),
                   if (passive) _flag('passive', cs),
                   if (once) _flag('once', cs),

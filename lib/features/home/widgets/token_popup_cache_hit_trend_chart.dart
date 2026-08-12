@@ -8,6 +8,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_token_usage_capsule.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/session_cache_hit_trend.dart';
@@ -446,7 +447,7 @@ class _TokenPopupCacheHitTrendChartState
               // 平均前缀复用率：衡量 Prompt 装配是否保持前缀延展的健康口径。
               // 命中率会被本轮新增（必然未缓存）的输入稀释，复用率不会。
               if (displayData.averagePrefixReuseRatio != null) ...[
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Text(
                   '${l10n.tokenPopupPrefixReuse}: ${(displayData.averagePrefixReuseRatio! * 100).round()}%',
                   style: valueStyle?.copyWith(
@@ -455,7 +456,7 @@ class _TokenPopupCacheHitTrendChartState
                   ),
                 ),
               ],
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               InkWell(
                 onTap: () {
                   final anchor = _viewport.start + _viewport.span / 2;
@@ -477,7 +478,7 @@ class _TokenPopupCacheHitTrendChartState
                 ),
               ),
               if (!_viewport.isFullRange) ...[
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 InkWell(
                   onTap: () {
                     _resetHoverTooltip();
@@ -505,14 +506,14 @@ class _TokenPopupCacheHitTrendChartState
               ],
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _CacheHitCompositionSummary(
             cacheRead: displayData.cacheReadTokens,
             cacheWrite: displayData.cacheWriteTokens,
             uncachedPrompt: displayData.uncachedPromptTokens,
             averageRatio: displayData.averageHitRatio,
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Row(
             children: [
               Expanded(
@@ -532,7 +533,7 @@ class _TokenPopupCacheHitTrendChartState
                           );
                         },
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       _CacheHitModeChip(
                         label: l10n.tokenPopupCacheHitModeIncludeExpired,
                         selected:
@@ -549,7 +550,7 @@ class _TokenPopupCacheHitTrendChartState
                 ),
               ),
               if (exclusionHint.isNotEmpty) ...[
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Flexible(
                   child: Text(
                     exclusionHint,
@@ -561,7 +562,7 @@ class _TokenPopupCacheHitTrendChartState
               ],
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           if (displayData.trend.points.isEmpty)
             _CacheHitTrendEmptyState(
               hasAnyPoints: widget.trend.points.isNotEmpty,
@@ -1120,7 +1121,7 @@ class _TokenPopupCacheHitTrendChartState
                           height: 1.1,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         percentText,
                         style: theme.textTheme.labelMedium?.copyWith(
@@ -1133,7 +1134,7 @@ class _TokenPopupCacheHitTrendChartState
                         ),
                       ),
                       if (firstRequestNote.isNotEmpty) ...[
-                        const SizedBox(height: 3),
+                        kOpenHandGap3,
                         Text(
                           firstRequestNote,
                           maxLines: 1,
@@ -1146,7 +1147,7 @@ class _TokenPopupCacheHitTrendChartState
                         ),
                       ],
                       if (freshReuseNote.isNotEmpty) ...[
-                        const SizedBox(height: 3),
+                        kOpenHandGap3,
                         Text(
                           freshReuseNote,
                           maxLines: 1,
@@ -1462,7 +1463,7 @@ class _CacheHitCompositionLegend extends StatelessWidget {
           height: 6,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 4),
+        kOpenHandHGap4,
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(

@@ -41,6 +41,7 @@ import '../../../shared/ui/openhand_metadata_tiles.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_sweep_shimmer.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
@@ -2054,9 +2055,9 @@ class _HarnessSessionPaneState extends State<HarnessSessionPane> {
               widget.replayPendingDeadlineListenable,
           onCancelPendingReplay: widget.onCancelPendingReplay,
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Expanded(child: _buildFeed(context)),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _HeComposer(
           isCollapsed: _composerCollapsed,
           onCollapsedChanged: (collapsed) => _setComposerCollapsedState(

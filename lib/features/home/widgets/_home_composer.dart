@@ -1420,7 +1420,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               onRemoved: requestRemove,
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
         ],
         if (widget.editingMessageId != null) ...[
           AnimatedRemovableChip(
@@ -1444,7 +1444,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                     size: 16,
                     color: colorScheme.onSecondaryContainer,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -1455,7 +1455,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                       color: colorScheme.onSecondaryContainer,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   InkWell(
                     onTap: requestRemove,
                     child: Icon(
@@ -1468,7 +1468,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
         ],
         if (widget.queuedPanel.messages.isNotEmpty) ...[
           ListView.builder(
@@ -1517,7 +1517,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                           size: 14,
                           color: Theme.of(context).colorScheme.onSurfaceVariant,
                         ),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         Expanded(
                           child: Text(
                             msg.text.replaceAll('\n', ' '),
@@ -1533,7 +1533,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                           ),
                         ),
                         if (msg.attachments.isNotEmpty) ...[
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Icon(
                             Icons.attach_file_rounded,
                             size: 12,
@@ -1552,7 +1552,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                                 ),
                           ),
                         ],
-                        const SizedBox(width: 4),
+                        kOpenHandHGap4,
                         // 2026-05 — wrap inline toolbar buttons in
                         // MicroPressFeedback for an 80ms scale-down +
                         // 140ms ease-out rebound on tap. Honors
@@ -1583,7 +1583,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        kOpenHandHGap4,
                         MicroPressFeedback(
                           enabled: !isLast && !queueActionsLocked,
                           child: IconButton(
@@ -1610,7 +1610,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        kOpenHandHGap4,
                         MicroPressFeedback(
                           enabled: !queueActionsLocked,
                           child: IconButton(
@@ -1642,7 +1642,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        kOpenHandHGap4,
                         MicroPressFeedback(
                           enabled: !queueActionsLocked,
                           child: IconButton(
@@ -1664,7 +1664,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        kOpenHandHGap4,
                         MicroPressFeedback(
                           enabled: !queueActionsLocked,
                           child: IconButton(
@@ -1693,7 +1693,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               );
             },
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
         ],
         if (_projectFileReferences.isNotEmpty) ...[
           _ReorderableProjectReferenceWrap(
@@ -1717,7 +1717,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               });
             },
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
         ],
         if (widget.attachments.drafts.isNotEmpty) ...[
           _ReorderableAttachmentWrap(
@@ -1726,7 +1726,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             onRemove: (filePath) => widget.attachments.onRemove(filePath),
             onTap: (draft) => _openComposerAttachment(context, draft),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
         ],
         AnimatedSize(
           duration: openHandMotionDuration(context, kOpenHandMotion180,
@@ -1985,7 +1985,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Tooltip(
           message: openHandLocalizedText(
             context,
@@ -2013,7 +2013,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Tooltip(
           message: openHandLocalizedText(
             context,
@@ -2062,7 +2062,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         _ComposerCreationModeButton(
           creationMode: widget.creationMode,
           onCreationModeChanged: widget.onCreationModeChanged,
@@ -2087,7 +2087,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                 )
               : const SizedBox(key: ValueKey<String>('creation-options-off')),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         if (showGoalControls)
           SizedBox(
             height: 52,
@@ -2117,7 +2117,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                           ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 FilledButton.icon(
                   onPressed: () => unawaited(widget.goalControls.onTerminate()),
                   style: FilledButton.styleFrom(
@@ -2243,7 +2243,7 @@ class _ComposerFullAccessModeButtonState
           child: Row(
             children: [
               const Icon(Icons.admin_panel_settings_outlined, size: 20),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(child: Text(_homeComposerDefaultAccessLabel(context))),
               if (!widget.fullAccess)
                 const Icon(Icons.check_rounded, size: 20)
@@ -2257,7 +2257,7 @@ class _ComposerFullAccessModeButtonState
           child: Row(
             children: [
               const Icon(Icons.gpp_maybe_outlined, size: 20),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(child: Text(_homeComposerFullAccessLabel(context))),
               if (widget.fullAccess)
                 const Icon(Icons.check_rounded, size: 20)
@@ -2316,14 +2316,14 @@ class _ComposerFullAccessModeButtonState
             size: 18,
             color: foregroundColor,
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Text(
             modeLabel,
             style: theme.textTheme.labelLarge?.copyWith(
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           Icon(
             Icons.keyboard_arrow_down_rounded,
             size: 18,
@@ -2372,7 +2372,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
                   _runtimeModeIcon(widget.runtimeStatus, explicitMode: mode),
                   size: 20,
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Text(
                     _runtimeModeLabel(
@@ -2459,7 +2459,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           // FadeTransition-only: SlideTransition is unsafe inside
           // LayoutBuilder (see note in _ComposerPanelState.build).
           AnimatedSwitcher(
@@ -2473,7 +2473,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
               ),
             ),
           ),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           Icon(
             Icons.keyboard_arrow_down_rounded,
             size: 18,
@@ -2618,7 +2618,7 @@ class _ComposerCreationModeButtonState
                     ? colorScheme.primary
                     : null,
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Text(
                   openHandLocalizedText(
@@ -2644,7 +2644,7 @@ class _ComposerCreationModeButtonState
                     ? colorScheme.primary
                     : null,
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Text(
                   openHandLocalizedText(
@@ -2670,7 +2670,7 @@ class _ComposerCreationModeButtonState
                     ? colorScheme.primary
                     : null,
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Text(
                   openHandLocalizedText(
@@ -2690,7 +2690,7 @@ class _ComposerCreationModeButtonState
           child: Row(
             children: [
               const Icon(Icons.travel_explore_rounded, size: 20),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Text(
                   openHandLocalizedText(
@@ -2935,7 +2935,7 @@ class _ComposerAttachmentChip extends StatelessWidget {
               size: 16,
               color: colorScheme.onSurfaceVariant,
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 260),
               child: Text(
@@ -2946,7 +2946,7 @@ class _ComposerAttachmentChip extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             InkWell(
               onTap: onRemove,
               child: Icon(
@@ -3123,7 +3123,7 @@ class _ProjectReferenceChip extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           OpenHandTapRegion(
             onTap: onRemove,
             child: Icon(
@@ -3451,7 +3451,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
                               size: 16,
                               color: colorScheme.primary,
                             ),
-                            const SizedBox(width: 8),
+                            kOpenHandHGap8,
                             Text(
                               titleLabel,
                               style: theme.textTheme.labelLarge?.copyWith(
@@ -3583,7 +3583,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
                                               ? colorScheme.primary
                                               : colorScheme.onSurfaceVariant,
                                         ),
-                                        const SizedBox(width: 10),
+                                        kOpenHandHGap10,
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
@@ -3640,7 +3640,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
                                           ),
                                         ),
                                         if (item.isDirectory) ...[
-                                          const SizedBox(width: 4),
+                                          kOpenHandHGap4,
                                           Semantics(
                                             button: true,
                                             label: openHandLocalizedText(
@@ -3726,7 +3726,7 @@ class _AtMentionBreadcrumbChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 12, color: colorScheme.primary),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Text(
                 label,
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -3832,7 +3832,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
                   size: 14,
                   color: colorScheme.primary,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   openHandLocalizedText(
                     context,
@@ -3904,7 +3904,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
                         child: Row(
                           children: [
                             _SkillPickerLeading(skill: item),
-                            const SizedBox(width: 10),
+                            kOpenHandHGap10,
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4052,7 +4052,7 @@ class _SelectedSkillChip extends StatelessWidget {
                 size: 14,
                 color: colorScheme.onPrimaryContainer,
               ),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 240),
               child: Text(
@@ -4065,7 +4065,7 @@ class _SelectedSkillChip extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Tooltip(
               message: openHandLocalizedText(
                 context,

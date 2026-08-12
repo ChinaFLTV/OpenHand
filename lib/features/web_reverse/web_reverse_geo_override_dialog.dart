@@ -17,6 +17,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -261,7 +262,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
@@ -273,7 +274,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 18),
+                  kOpenHandGap18,
                   Row(
                     children: [
                       Checkbox(
@@ -303,7 +304,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       Expanded(
                         child: TextField(
                           controller: _lngCtl,
@@ -315,7 +316,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       SizedBox(
                         width: 110,
                         child: TextField(
@@ -330,7 +331,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   Row(
                     children: [
                       Checkbox(
@@ -346,7 +347,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   TextField(
                     controller: _tzCtl,
                     enabled: _enableTz,
@@ -356,7 +357,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                       isDense: true,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   Row(
                     children: [
                       Checkbox(
@@ -373,7 +374,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   TextField(
                     controller: _localeCtl,
                     enabled: _enableLocale,
@@ -384,7 +385,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                     ),
                   ),
                   if (_lastStatus != null) ...[
-                    const SizedBox(height: 14),
+                    kOpenHandGap14,
                     Container(
                       width: double.infinity,
                       padding: const EdgeInsets.all(10),
@@ -401,7 +402,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   Container(
                     width: double.infinity,
                     padding: const EdgeInsets.all(10),

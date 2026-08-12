@@ -290,7 +290,7 @@ class _WorkspaceView extends StatelessWidget {
                                         selectedModel?.protocolType ==
                                         AiProtocolType.claude,
                                   ),
-                                  const SizedBox(height: 14),
+                                  kOpenHandGap14,
                                   Expanded(
                                     child: shouldShowTranscriptHydrating
                                         ? _TranscriptHydratingPlaceholder(
@@ -360,7 +360,7 @@ class _WorkspaceView extends StatelessWidget {
               ),
             ),
             if (currentSession != null) ...[
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               _ComposerInstructionsStrip(
                 skippedIds: skippedInstructionIds,
                 onToggle: onToggleInstructionSkip,
@@ -454,7 +454,7 @@ class _TranscriptLoadFailure extends StatelessWidget {
                   size: 38,
                   color: colors.onErrorContainer,
                 ),
-                const SizedBox(height: 14),
+                kOpenHandGap14,
                 Text(
                   openHandLocalizedText(
                     context,
@@ -466,7 +466,7 @@ class _TranscriptLoadFailure extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Text(
                   message,
                   textAlign: TextAlign.center,
@@ -474,7 +474,7 @@ class _TranscriptLoadFailure extends StatelessWidget {
                     color: colors.onErrorContainer.withValues(alpha: 0.82),
                   ),
                 ),
-                const SizedBox(height: 18),
+                kOpenHandGap18,
                 FilledButton.icon(
                   onPressed: () => unawaited(onRetry()),
                   icon: const Icon(Icons.refresh_rounded),
@@ -587,16 +587,16 @@ class _WorkspaceEmptyStateState extends State<_WorkspaceEmptyState>
               color: colorScheme.onPrimaryContainer,
             ),
           ),
-          const SizedBox(height: 20),
+          kOpenHandGap20,
           Text(title, style: theme.textTheme.headlineMedium),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Text(
             subtitle,
             style: theme.textTheme.titleLarge?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Text(
             l10n.appTagline,
             textAlign: TextAlign.center,
@@ -749,7 +749,7 @@ class _ComposerInstructionChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: <Widget>[
               Icon(Icons.tips_and_updates_outlined, size: 14, color: fg),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 140),
                 child: Text(
@@ -764,7 +764,7 @@ class _ComposerInstructionChip extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Icon(
                 skipped ? Icons.add_rounded : Icons.close_rounded,
                 size: 14,

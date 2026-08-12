@@ -630,7 +630,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 16),
+              kOpenHandHGap16,
               Text(
                 '⇧⌘C',
                 style: TextStyle(
@@ -1163,7 +1163,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
               ),
             ),
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
         ],
         Divider(
           height: 1,
@@ -1274,7 +1274,7 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                         ? colorScheme.primary
                         : colorScheme.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1453,7 +1453,7 @@ class _FileTreeTile extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(Icons.drive_file_rename_outline, size: 18),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Text(
                     text(
                       zh: '重命名',
@@ -1473,7 +1473,7 @@ class _FileTreeTile extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(Icons.content_cut_rounded, size: 18),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Text(
                     text(
                       zh: '剪切',
@@ -1492,7 +1492,7 @@ class _FileTreeTile extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(Icons.content_copy_rounded, size: 18),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Text(
                     text(
                       zh: '复制',
@@ -1512,7 +1512,7 @@ class _FileTreeTile extends StatelessWidget {
                 child: Row(
                   children: [
                     const Icon(Icons.content_paste_rounded, size: 18),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Text(
                       text(
                         zh: '粘贴',
@@ -1532,7 +1532,7 @@ class _FileTreeTile extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(Icons.link_rounded, size: 18),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Text(
                       text(
@@ -1563,7 +1563,7 @@ class _FileTreeTile extends StatelessWidget {
                     size: 18,
                     color: colorScheme.error,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Text(
                     text(
                       zh: '删除',
@@ -1584,7 +1584,7 @@ class _FileTreeTile extends StatelessWidget {
               child: Row(
                 children: [
                   const Icon(Icons.folder_open_outlined, size: 18),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Text(
                     text(
                       zh: '在系统文件浏览器中打开',
@@ -1650,8 +1650,8 @@ class _FileTreeTile extends StatelessWidget {
                     ),
                   )
                 else
-                  const SizedBox(width: 16),
-                const SizedBox(width: 4),
+                  kOpenHandHGap16,
+                kOpenHandHGap4,
                 Icon(
                   _fileExplorerIcon(node),
                   size: 16,
@@ -1661,7 +1661,7 @@ class _FileTreeTile extends StatelessWidget {
                       ? colorScheme.primary
                       : colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   node.name,
                   style: labelStyle,
@@ -3033,7 +3033,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -3076,7 +3076,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ],
                 ),
                 if (description?.trim().isNotEmpty == true) ...[
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Text(
                     description!,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -3086,7 +3086,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ),
                 ],
                 if (preparedEdit.edit.hasUnsupportedOperations) ...[
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   _buildDiagnosticsHint(
                     colorScheme,
                     text(
@@ -3099,7 +3099,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ),
                   ),
                 ],
-                const SizedBox(height: 14),
+                kOpenHandGap14,
                 Expanded(
                   child: preparedEdit.files.isEmpty
                       ? OpenHandInlineEmptyState(
@@ -3115,7 +3115,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       : ListView.separated(
                           itemCount: preparedEdit.files.length,
                           separatorBuilder: (_, _) =>
-                              const SizedBox(height: 12),
+                              kOpenHandGap12,
                           itemBuilder: (dialogContext, index) {
                             final file = preparedEdit.files[index];
                             return Container(
@@ -3152,7 +3152,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                                     fontWeight: FontWeight.w700,
                                                   ),
                                             ),
-                                            const SizedBox(height: 2),
+                                            kOpenHandGap2,
                                             Text(
                                               _displayPathForFilePath(
                                                 file.filePath,
@@ -3167,7 +3167,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                           ],
                                         ),
                                       ),
-                                      const SizedBox(width: 12),
+                                      kOpenHandHGap12,
                                       Wrap(
                                         spacing: 6,
                                         runSpacing: 6,
@@ -3213,7 +3213,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 10),
+                                  kOpenHandGap10,
                                   if (file.diffLines.isEmpty)
                                     Text(
                                       text(
@@ -3289,7 +3289,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           },
                         ),
                 ),
-                const SizedBox(height: 14),
+                kOpenHandGap14,
                 Row(
                   mainAxisAlignment: MainAxisAlignment.center,
                   children: [
@@ -3297,7 +3297,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       onPressed: () => Navigator.of(dialogContext).pop(false),
                       label: openHandCancelLabel(dialogContext),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     OpenHandDialogActionButton.primary(
                       onPressed: canApply
                           ? () => Navigator.of(dialogContext).pop(true)
@@ -4242,7 +4242,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                             : colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4270,7 +4270,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 2),
+                          kOpenHandGap2,
                           Text(
                             _codeActionSummary(entry.$2),
                             style: TextStyle(
@@ -5559,7 +5559,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: Text(
               value,
@@ -6219,7 +6219,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 alignment: Alignment.center,
                 child: Icon(node.icon, size: 13, color: accentColor),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -6258,7 +6258,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                     Text(
                       node.description,
                       style: TextStyle(
@@ -6293,7 +6293,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     node: node.children[index],
                   ),
                   if (index < node.children.length - 1)
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                 ],
               ],
             ),
@@ -6450,7 +6450,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               if (isResolving)
                 Row(
                   children: [
@@ -6462,7 +6462,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         color: colorScheme.primary,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Text(
                       text(
                         zh: '项目切换或配置变更后，正在重新绑定当前文件的 LSP 后端…',
@@ -6571,7 +6571,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ),
                     value: OpenHandPaths.shortenHomePath(resolution!.rootPath),
                   ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.fromLTRB(10, 10, 10, 9),
@@ -6602,7 +6602,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           color: colorScheme.onSurface,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      kOpenHandGap6,
                       _buildProjectToolchainSourceTreeNode(
                         colorScheme: colorScheme,
                         node: sourceTree,
@@ -7662,7 +7662,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           ),
           // ── Replace row ──
           if (_replaceBarVisible) ...[
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             Row(
               children: [
                 Expanded(
@@ -7689,7 +7689,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ),
                   ),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 _FindBarButton(
                   icon: Icons.find_replace_rounded,
                   tooltip: AppLocalizations.of(
@@ -7732,7 +7732,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             ),
             style: TextStyle(fontSize: 13, color: colorScheme.onSurfaceVariant),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           SizedBox(
             width: 100,
             height: 30,
@@ -7745,7 +7745,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               onSubmitted: (val) => _goToLine(val),
             ),
           ),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           _FindBarButton(
             icon: Icons.close_rounded,
             tooltip: AppLocalizations.of(context)!.progExpFECloseEsc,
@@ -7805,7 +7805,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               _FindBarButton(
                 icon: Icons.article_outlined,
                 tooltip: AppLocalizations.of(
@@ -7898,7 +7898,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           if (_symbolsLoading && _allSymbols.isEmpty)
             Row(
               children: [
@@ -7910,7 +7910,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     color: colorScheme.primary,
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Text(
                   _editorText(
                     zh: '正在加载符号列表…',
@@ -8006,7 +8006,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                               size: 16,
                               color: colorScheme.primary,
                             ),
-                            const SizedBox(width: 8),
+                            kOpenHandHGap8,
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -8046,7 +8046,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            kOpenHandHGap8,
                             Text(
                               '${symbol.line}:${symbol.column}',
                               style: TextStyle(
@@ -8158,7 +8158,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Flexible(
             child: _buildDiagnosticsContent(
               colorScheme: colorScheme,
@@ -8195,7 +8195,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               color: colorScheme.primary,
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Text(
             _editorText(
               zh: '正在连接 LSP 后端…',
@@ -8227,7 +8227,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               color: colorScheme.primary,
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Text(
             _editorText(
               zh: '正在等待 LSP 诊断结果…',
@@ -8314,7 +8314,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                             size: 16,
                             color: severityColor,
                           ),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -8326,7 +8326,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                     color: colorScheme.onSurface,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
+                                kOpenHandGap2,
                                 Text(
                                   '${diagnostic.code}  •  ${diagnostic.line}:${diagnostic.column}',
                                   style: TextStyle(
@@ -8395,7 +8395,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       ),
                     ),
                     if (resultCount > 0) ...[
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       Text(
                         '($resultCount)',
                         style: TextStyle(
@@ -8415,7 +8415,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           if (_lspResultPreviewLoading && hasLocations)
             Padding(
               padding: const EdgeInsets.only(bottom: 8),
@@ -8442,7 +8442,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     color: colorScheme.primary,
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Text(
                   _editorText(
                     zh: '正在执行 LSP 请求…',
@@ -8462,7 +8462,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           else ...[
             if (message != null) ...[
               _buildDiagnosticsHint(colorScheme, message),
-              if (hasScrollableContent) const SizedBox(height: 8),
+              if (hasScrollableContent) kOpenHandGap8,
             ],
             if (hasScrollableContent)
               Flexible(
@@ -8565,7 +8565,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           ? colorScheme.onSurfaceVariant.withValues(alpha: 0.45)
                           : colorScheme.primary,
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -8592,7 +8592,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 2),
+                          kOpenHandGap2,
                           Text(
                             _codeActionSummary(action),
                             style: TextStyle(
@@ -8643,7 +8643,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     size: 16,
                     color: colorScheme.primary,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -8656,7 +8656,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                             color: colorScheme.onSurface,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        kOpenHandGap2,
                         Text(
                           '$displayPath  •  ${location.line}:${location.character}',
                           style: TextStyle(
@@ -8666,7 +8666,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                           ),
                         ),
                         if (preview != null) ...[
-                          const SizedBox(height: 6),
+                          kOpenHandGap6,
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.symmetric(
@@ -8712,7 +8712,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
+                                        kOpenHandHGap8,
                                         Expanded(
                                           child: Text(
                                             line.text.isEmpty ? ' ' : line.text,
@@ -8754,7 +8754,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(Icons.info_outline_rounded, size: 14, color: colorScheme.primary),
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         Expanded(
           child: Text(
             text,
@@ -9161,7 +9161,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       fontFamily: kOpenHandMonospaceFontFamily,
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  kOpenHandHGap16,
                   Text(
                     _programmingLanguageLabel(context, language),
                     style: TextStyle(
@@ -9170,7 +9170,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     ),
                   ),
                   if (zoomPct != 100) ...[
-                    const SizedBox(width: 16),
+                    kOpenHandHGap16,
                     Text(
                       '$zoomPct%',
                       style: TextStyle(
@@ -9179,7 +9179,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       ),
                     ),
                   ],
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.account_tree_rounded,
@@ -9190,7 +9190,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     onTap: _showSymbolBar,
                     active: _symbolBarVisible && !_workspaceSymbolMode,
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.travel_explore_rounded,
@@ -9201,7 +9201,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     onTap: _showWorkspaceSymbolBar,
                     active: _symbolBarVisible && _workspaceSymbolMode,
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: _supportsDiagnosticsForFile(widget.activeFilePath)
@@ -9242,7 +9242,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       widget.activeFilePath,
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: _hasProjectToolchainOverride()
@@ -9268,7 +9268,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       widget.activeFilePath,
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: switch (backendResolution?.availability) {
@@ -9299,7 +9299,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                       widget.activeFilePath,
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.subdirectory_arrow_right_rounded,
@@ -9315,7 +9315,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         _lspResultTitle == definitionTitle,
                     foregroundColor: lspActionColor,
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.format_list_bulleted_rounded,
@@ -9331,7 +9331,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         _lspResultTitle == referencesTitle,
                     foregroundColor: lspActionColor,
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.info_outline_rounded,
@@ -9346,7 +9346,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         _lspResultBarVisible && _lspResultTitle == hoverTitle,
                     foregroundColor: lspActionColor,
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.drive_file_rename_outline_rounded,
@@ -9361,7 +9361,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         _lspResultBarVisible && _lspResultTitle == renameTitle,
                     foregroundColor: lspActionColor,
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.lightbulb_outline_rounded,
@@ -9377,7 +9377,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                         _lspResultTitle == codeActionsTitle,
                     foregroundColor: lspActionColor,
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   _buildStatusChip(
                     colorScheme: colorScheme,
                     icon: Icons.auto_fix_high_rounded,
@@ -9397,7 +9397,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Text(
             'UTF-8',
             style: TextStyle(fontSize: 11, color: colorScheme.onSurfaceVariant),
@@ -9780,7 +9780,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         child: Row(
           children: [
             Icon(icon, size: 18),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(child: Text(label)),
           ],
         ),
@@ -9956,7 +9956,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
         child: Row(
           children: [
             Icon(icon, size: 18, color: iconColor),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(
               child: Text(
                 label,
@@ -10227,7 +10227,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       child: Row(
         children: [
           Icon(icon, size: 18),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(child: Text(label)),
           if (shortcut != null)
             Padding(
@@ -11175,12 +11175,12 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                   color: colorScheme.onSurfaceVariant,
                   onPressed: widget.onCloseAll,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
               ],
             ),
           ),
           // ── Gap between tab bar and editor ──
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           // ── Editor content — rounded outer shell, square code area ──
           Expanded(
             child: _EditorZoomWrapper(
@@ -11336,7 +11336,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
               size: 40,
               color: colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Text(
               _editorText(
                 zh: '无法加载文件',
@@ -11350,7 +11350,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             Text(
               p.basename(filePath),
               style: theme.textTheme.bodySmall?.copyWith(
@@ -11692,7 +11692,7 @@ class _CompletionOverlay extends StatelessWidget {
                             ? colorScheme.primary
                             : colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       Expanded(
                         child: Text(
                           item.label,
@@ -11711,7 +11711,7 @@ class _CompletionOverlay extends StatelessWidget {
                         ),
                       ),
                       if (item.detail != null && item.detail!.isNotEmpty) ...[
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         Flexible(
                           child: Text(
                             item.detail!,
@@ -11727,7 +11727,7 @@ class _CompletionOverlay extends StatelessWidget {
                         ),
                       ],
                       if (kindLabel.isNotEmpty) ...[
-                        const SizedBox(width: 6),
+                        kOpenHandHGap6,
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 5,
@@ -11849,7 +11849,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 SelectableText.rich(
                   TextSpan(
                     children: _buildSignatureLabelSpans(
@@ -11861,7 +11861,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
                   ),
                 ),
                 if (hasParameterChips) ...[
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Wrap(
                     spacing: 6,
                     runSpacing: 6,
@@ -11879,7 +11879,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
                   ),
                 ],
                 if (parameterDoc.isNotEmpty) ...[
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -11895,7 +11895,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
                       color: colorScheme.primary,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   SelectableText(
                     parameterDoc,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -11905,7 +11905,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
                   ),
                 ],
                 if (signatureDoc.isNotEmpty) ...[
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -11921,7 +11921,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
                       color: colorScheme.primary,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   SelectableText(
                     signatureDoc,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -12054,7 +12054,7 @@ class _EditorBreadcrumb extends StatelessWidget {
             size: 13,
             color: colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Expanded(
             child: SingleChildScrollView(
               scrollDirection: Axis.horizontal,
@@ -12267,7 +12267,7 @@ class _BreadcrumbSegment extends StatelessWidget {
                         ? colorScheme.primary
                         : colorScheme.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Text(
                       entryName,
@@ -14680,7 +14680,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                       ),
                     ],
                     if (diagnostics.length > visibleDiagnostics.length) ...[
-                      const SizedBox(height: 6),
+                      kOpenHandGap6,
                       Text(
                         openHandLocalizedText(
                           context,
@@ -14700,7 +14700,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                     if (widget.onDiagnosticTooltipQuickFixRequested != null ||
                         widget.onDiagnosticTooltipMoreActionsRequested !=
                             null) ...[
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                       Align(
                         alignment: Alignment.centerRight,
                         child: Wrap(
@@ -14835,7 +14835,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
             color: accent,
           ),
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -14849,7 +14849,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                   height: 1.35,
                 ),
               ),
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Text(
                 '${diagnostic.code}  •  $severityLabel  •  ${diagnostic.line}:${diagnostic.column}',
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -15034,7 +15034,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                         )
                                       : null,
                                 ),
-                                const SizedBox(width: 6),
+                                kOpenHandHGap6,
                                 Expanded(
                                   child: Text(
                                     '$lineNumber',
@@ -15057,7 +15057,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                                   ),
                                 ),
                                 if (hasAnyDiagnostics) ...[
-                                  const SizedBox(width: 4),
+                                  kOpenHandHGap4,
                                   SizedBox(
                                     width: 18,
                                     child: AnimatedOpacity(
@@ -15372,7 +15372,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
           child: Row(
             children: [
               Icon(Icons.speed_rounded, size: 16, color: colorScheme.primary),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   AppLocalizations.of(
@@ -15384,7 +15384,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               TextButton(
                 onPressed: widget.onOpenFullEditor,
                 child: Text(
@@ -15596,7 +15596,7 @@ class _EditorTab extends StatelessWidget {
                       size: 14,
                       color: fgColor,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Text(
                       fileName,
                       style: theme.textTheme.labelMedium?.copyWith(
@@ -15607,7 +15607,7 @@ class _EditorTab extends StatelessWidget {
                         letterSpacing: 0,
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     if (isDirty)
                       Container(
                         width: 8,

@@ -16,6 +16,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../ai/index.dart';
@@ -721,7 +722,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                   ),
                   style: theme.textTheme.headlineSmall,
                 ),
-                const SizedBox(height: 20),
+                kOpenHandGap20,
                 Expanded(
                   child: SingleChildScrollView(
                     child: Column(
@@ -743,7 +744,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        const SizedBox(height: 24),
+                        kOpenHandGap24,
 
                         TextField(
                           controller: _taskController,
@@ -778,7 +779,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             border: const OutlineInputBorder(),
                           ),
                         ),
-                        const SizedBox(height: 20),
+                        kOpenHandGap20,
 
                         OpenHandDirectoryField(
                           controller: _workingDirController,
@@ -806,7 +807,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                           onBrowse: () => _pickDirectory(_workingDirController),
                           crossAxisAlignment: CrossAxisAlignment.center,
                         ),
-                        const SizedBox(height: 14),
+                        kOpenHandGap14,
 
                         OpenHandDirectoryField(
                           controller: _persistenceDirController,
@@ -879,7 +880,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 4),
+                        kOpenHandGap4,
                         Text(
                           openHandLocalizedText(
                             context,
@@ -895,14 +896,14 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                             color: colorScheme.onSurfaceVariant,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
 
                         if (!_isScanning) ...[
                           _CliScanSummary(
                             scanResults: _scanResults,
                             isCheckingAuth: _isCheckingAuth,
                           ),
-                          const SizedBox(height: 12),
+                          kOpenHandGap12,
                         ],
 
                         _QuickApplyBar(
@@ -936,7 +937,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                           onApply: _applyQuickConfig,
                           modelsForCli: _modelsForCli,
                         ),
-                        const SizedBox(height: 12),
+                        kOpenHandGap12,
 
                         if (_isScanning && _scanResults.isEmpty)
                           Center(
@@ -948,7 +949,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                   const CircularProgressIndicator(
                                     strokeWidth: 2,
                                   ),
-                                  const SizedBox(height: 12),
+                                  kOpenHandGap12,
                                   Text(
                                     openHandLocalizedText(
                                       context,
@@ -1052,7 +1053,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                           }),
 
                         if (!_isScanning && configurationIssues.isNotEmpty) ...[
-                          const SizedBox(height: 4),
+                          kOpenHandGap4,
                           DecoratedBox(
                             decoration: BoxDecoration(
                               color: colorScheme.errorContainer.withValues(
@@ -1084,7 +1085,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                         size: 16,
                                         color: colorScheme.error,
                                       ),
-                                      const SizedBox(width: 8),
+                                      kOpenHandHGap8,
                                       Expanded(
                                         child: Text(
                                           openHandLocalizedText(
@@ -1105,7 +1106,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
+                                  kOpenHandGap8,
                                   for (final issue in configurationIssues.take(
                                     4,
                                   ))
@@ -1145,7 +1146,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
 
                         if (!_isScanning &&
                             geminiAccessAdvisories.isNotEmpty) ...[
-                          const SizedBox(height: 12),
+                          kOpenHandGap12,
                           DecoratedBox(
                             decoration: BoxDecoration(
                               color: colorScheme.secondaryContainer.withValues(
@@ -1177,7 +1178,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                         size: 16,
                                         color: colorScheme.secondary,
                                       ),
-                                      const SizedBox(width: 8),
+                                      kOpenHandHGap8,
                                       Expanded(
                                         child: Text(
                                           openHandLocalizedText(
@@ -1198,7 +1199,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                       ),
                                     ],
                                   ),
-                                  const SizedBox(height: 8),
+                                  kOpenHandGap8,
                                   for (final advisory in geminiAccessAdvisories)
                                     Padding(
                                       padding: const EdgeInsets.only(bottom: 4),
@@ -1211,7 +1212,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                                             ),
                                       ),
                                     ),
-                                  const SizedBox(height: 4),
+                                  kOpenHandGap4,
                                   TextButton.icon(
                                     onPressed: () =>
                                         _openDocUrl(kHarnessGeminiModelsDocUrl),
@@ -1278,7 +1279,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 OverflowBar(
                   spacing: 8,
                   overflowAlignment: OverflowBarAlignment.end,
@@ -1434,7 +1435,7 @@ List<DropdownMenuItem<String>> _harnessCliDropdownItems(
                     ? colorScheme.primary
                     : colorScheme.outline,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: Text(
                   entry.cli.name,
@@ -1442,7 +1443,7 @@ List<DropdownMenuItem<String>> _harnessCliDropdownItems(
                   style: const TextStyle(fontSize: 13),
                 ),
               ),
-              if (loginIcon != null) ...[const SizedBox(width: 4), loginIcon],
+              if (loginIcon != null) ...[kOpenHandHGap4, loginIcon],
             ],
           ),
         );
@@ -1544,7 +1545,7 @@ class _RoleConfigRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               SizedBox(
                 width: _kHarnessModeDropdownWidth,
                 child: _CompactDropdown<HarnessExecutionMode>(
@@ -1563,7 +1564,7 @@ class _RoleConfigRow extends StatelessWidget {
                   onChanged: onExecutionModeChanged,
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               if (isUrlMode) ...[
                 Expanded(
                   flex: 2,
@@ -1579,7 +1580,7 @@ class _RoleConfigRow extends StatelessWidget {
                   ),
                 ),
                 if (settingsModels.isEmpty) ...[
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Tooltip(
                     message: openHandLocalizedText(
                       context,
@@ -1610,7 +1611,7 @@ class _RoleConfigRow extends StatelessWidget {
                     onChanged: onCliChanged,
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: _CompactDropdown<String>(
                     label: openHandModelLabel(context),
@@ -1621,7 +1622,7 @@ class _RoleConfigRow extends StatelessWidget {
                   ),
                 ),
                 if (showInstallButton) ...[
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Tooltip(
                     message: openHandLocalizedText(
                       context,
@@ -1654,7 +1655,7 @@ class _RoleConfigRow extends StatelessWidget {
                   ),
                 ],
                 if (showViewDocsButton && onViewDocs != null) ...[
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Tooltip(
                     message: openHandLocalizedText(
                       context,
@@ -1700,7 +1701,7 @@ class _RoleConfigRow extends StatelessWidget {
                   selectedCli != null &&
                   (_selectedEntry?.installed ?? false) &&
                   (_selectedEntry?.cli.hasLoginCheck ?? false)) ...[
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Tooltip(
                   message: openHandLocalizedText(
                     context,
@@ -1726,7 +1727,7 @@ class _RoleConfigRow extends StatelessWidget {
                   selectedCli != null &&
                   _selectedEntry?.isLoggedIn == true &&
                   (_selectedEntry?.cli.hasLoginCheck ?? false)) ...[
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Tooltip(
                   message: openHandLocalizedText(
                     context,
@@ -1745,7 +1746,7 @@ class _RoleConfigRow extends StatelessWidget {
                 ),
               ],
               if (!isUrlMode && showLoginButton) ...[
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Tooltip(
                   message: openHandLocalizedText(
                     context,
@@ -1786,7 +1787,7 @@ class _RoleConfigRow extends StatelessWidget {
                 ),
               ],
               if (!isUrlMode && showLogoutButton) ...[
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Tooltip(
                   message: openHandLocalizedText(
                     context,
@@ -1829,7 +1830,7 @@ class _RoleConfigRow extends StatelessWidget {
               if (!isUrlMode &&
                   selectedCli != null &&
                   _selectedEntry?.cli.supportsHeadless == false) ...[
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Tooltip(
                   message: openHandLocalizedText(
                     context,
@@ -1985,7 +1986,7 @@ class _QuickApplyBar extends StatelessWidget {
         child: Row(
           children: [
             Icon(Icons.bolt_rounded, size: 16, color: colorScheme.primary),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Text(
               openHandLocalizedText(
                 context,
@@ -2001,7 +2002,7 @@ class _QuickApplyBar extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             SizedBox(
               width: _kHarnessModeDropdownWidth,
               child: _CompactDropdown<HarnessExecutionMode>(
@@ -2020,7 +2021,7 @@ class _QuickApplyBar extends StatelessWidget {
                 onChanged: onExecutionModeChanged,
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             if (isUrlMode) ...[
               Expanded(
                 flex: 2,
@@ -2043,7 +2044,7 @@ class _QuickApplyBar extends StatelessWidget {
                   enabled: !isScanning && scanResults.isNotEmpty,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: _CompactDropdown<String>(
                   label: openHandModelLabel(context),
@@ -2054,7 +2055,7 @@ class _QuickApplyBar extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             FilledButton.tonal(
               onPressed: _canApply ? onApply : null,
               style: FilledButton.styleFrom(

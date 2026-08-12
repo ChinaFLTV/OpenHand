@@ -169,7 +169,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
                     letterSpacing: 0,
                   ),
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Text(
                   subtitle,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -342,7 +342,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
               ),
             ),
             if (!validSelection || invalidLimit) ...[
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Text(
                 openHandLocalizedText(
                   context,
@@ -475,7 +475,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(openHandModelLabel(context), style: sectionStyle),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             OpenHandModelSelectorField(
               models: widget.availableModels,
               recentSelections: widget.recentModelSelections,
@@ -493,9 +493,9 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
                 });
               },
             ),
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             Divider(height: 1, color: colorScheme.outlineVariant),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Text(
               openHandLocalizedText(
                 context,
@@ -508,7 +508,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
               ),
               style: sectionStyle,
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Row(
               children: [
                 Expanded(
@@ -526,7 +526,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
                     preview: previewLabel(_startIdx),
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: _TitleSummaryRangeEndpoint(
                     label: openHandLocalizedText(
@@ -544,7 +544,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Row(
               children: [
                 Icon(
@@ -552,7 +552,7 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
                   size: 16,
                   color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Expanded(
                   child: Text(
                     selectedCountLabel,
@@ -645,7 +645,7 @@ class _TitleSummaryRangeEndpoint extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 3),
+          kOpenHandGap3,
           Text(
             preview,
             maxLines: 1,
@@ -712,7 +712,7 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    kOpenHandGap3,
                     Text(
                       openHandLocalizedText(
                         context,
@@ -1019,9 +1019,9 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Text(title, style: theme.textTheme.titleMedium),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Flexible(
               child: SingleChildScrollView(
                 physics: openHandDialogAwareScrollPhysics(context),
@@ -1038,7 +1038,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                         ),
                         sectionStyle,
                       ),
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -1063,7 +1063,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                               ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                     ],
                     if (isVideo || isAudio) ...[
                       _sectionLabel(
@@ -1075,7 +1075,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                         ),
                         sectionStyle,
                       ),
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -1089,7 +1089,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                     ],
                     if (isImage) ...[
                       _choiceSection<String>(
@@ -1235,14 +1235,14 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                         controller: _negativePromptController,
                         maxLines: 2,
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       _textInput(
                         context,
                         label: 'Seed',
                         controller: _seedController,
                         keyboardType: TextInputType.number,
                       ),
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                     ],
                     if (isAudio) ...[
                       _audioVoiceSection(context, sectionStyle),
@@ -1324,7 +1324,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                 ),
               ),
             ),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             _actions(context),
           ],
         ),
@@ -1355,7 +1355,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _sectionLabel(context, title, sectionStyle),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1391,7 +1391,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _sectionLabel(context, title, sectionStyle),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1440,7 +1440,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _sectionLabel(context, openHandVoiceLabel(context), sectionStyle),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -1467,7 +1467,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
             ],
           ),
           if (_customVoiceInputVisible) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             _textInput(
               context,
               label: openHandLocalizedText(
@@ -1528,7 +1528,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
             openHandLocalizedText(context, zh: '数量', en: 'Count'),
             sectionStyle,
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Row(
             children: [
               SizedBox(
@@ -1544,14 +1544,14 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Text(
                 '$_count',
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               SizedBox(
                 width: 46,
                 height: 46,

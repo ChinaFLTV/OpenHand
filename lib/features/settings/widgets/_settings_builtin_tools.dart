@@ -51,7 +51,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
               alignment: Alignment.center,
               child: Icon(Icons.terminal_rounded, color: cs.tertiary),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -66,7 +66,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -78,7 +78,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                       height: 1.35,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -107,7 +107,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -212,7 +212,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
               alignment: Alignment.center,
               child: Icon(Icons.account_tree_rounded, color: cs.primary),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -227,7 +227,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -239,7 +239,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                       height: 1.35,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -268,7 +268,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -300,7 +300,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
                     ],
                   ),
                   if (groupSummaries.isNotEmpty) ...[
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Wrap(
                       spacing: 8,
                       runSpacing: 8,
@@ -362,7 +362,7 @@ class _AgentToolGroupChip extends StatelessWidget {
                 size: 18,
                 color: statusColor,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -377,7 +377,7 @@ class _AgentToolGroupChip extends StatelessWidget {
                         color: cs.onSurface,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    kOpenHandGap2,
                     Text(
                       openHandLocalizedText(
                         context,
@@ -424,7 +424,7 @@ class _AgentToolMetricChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 15, color: cs.primary),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Text(
               label,
               style: theme.textTheme.labelMedium?.copyWith(
@@ -604,7 +604,7 @@ class _BuiltinToolTile extends StatelessWidget {
                         ),
                       ),
                       if (config.isCustom) ...[
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -622,7 +622,7 @@ class _BuiltinToolTile extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -642,7 +642,7 @@ class _BuiltinToolTile extends StatelessWidget {
                         ),
                       ),
                       if (config.forceLoad) ...[
-                        const SizedBox(width: 6),
+                        kOpenHandHGap6,
                         Container(
                           padding: const EdgeInsets.symmetric(
                             horizontal: 6,
@@ -662,7 +662,7 @@ class _BuiltinToolTile extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(width: 6),
+                      kOpenHandHGap6,
                       Container(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 6,
@@ -684,7 +684,7 @@ class _BuiltinToolTile extends StatelessWidget {
                     ],
                   ),
                   if (summaryText != null) ...[
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                     Text(
                       summaryText,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -695,7 +695,7 @@ class _BuiltinToolTile extends StatelessWidget {
                     ),
                   ],
                   if (config.tags.isNotEmpty) ...[
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                     Wrap(
                       spacing: 4,
                       runSpacing: 2,
@@ -727,7 +727,7 @@ class _BuiltinToolTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -738,7 +738,7 @@ class _BuiltinToolTile extends StatelessWidget {
                     onPressed: onMoveUp,
                     visualDensity: VisualDensity.compact,
                   ),
-                if (onMoveUp != null) const SizedBox(width: 8),
+                if (onMoveUp != null) kOpenHandHGap8,
                 if (onMoveDown != null)
                   IconButton(
                     icon: const Icon(Icons.arrow_downward_rounded, size: 18),
@@ -746,7 +746,7 @@ class _BuiltinToolTile extends StatelessWidget {
                     onPressed: onMoveDown,
                     visualDensity: VisualDensity.compact,
                   ),
-                if (onMoveDown != null) const SizedBox(width: 8),
+                if (onMoveDown != null) kOpenHandHGap8,
                 IconButton(
                   icon: const Icon(Icons.edit_outlined, size: 18),
                   tooltip: l10n.commonEdit,
@@ -754,7 +754,7 @@ class _BuiltinToolTile extends StatelessWidget {
                   visualDensity: VisualDensity.compact,
                 ),
                 if (onDelete != null) ...[
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   IconButton(
                     icon: Icon(
                       Icons.delete_outline_rounded,
@@ -766,7 +766,7 @@ class _BuiltinToolTile extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                   ),
                 ],
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Switch(value: config.enabled, onChanged: onToggle),
               ],
             ),
@@ -971,7 +971,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
               Row(
                 children: [
                   Icon(Icons.build_circle_outlined, color: colorScheme.primary),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: Text(
                       l10n.builtinToolEditorTitle(widget.initial.kind.name),
@@ -986,7 +986,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
 
               Flexible(
                 child: SingleChildScrollView(
@@ -1005,7 +1005,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         value: _enabled,
                         onChanged: (value) => setState(() => _enabled = value),
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
 
                       TextField(
                         controller: _displayNameController,
@@ -1015,7 +1015,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           helperText: l10n.builtinToolDisplayNameHelper,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
 
                       TextField(
                         controller: _summaryController,
@@ -1025,7 +1025,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         ),
                         maxLines: 2,
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
 
                       TextField(
                         controller: _promptOverrideController,
@@ -1036,7 +1036,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         maxLines: 4,
                         minLines: 2,
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
 
                       TextField(
                         controller: _schemaOverrideController,
@@ -1050,7 +1050,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
 
                       // Priority & Load Strategy row
                       Row(
@@ -1098,7 +1098,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
 
                       SwitchListTile(
                         contentPadding: EdgeInsets.zero,
@@ -1113,7 +1113,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         onChanged: (value) =>
                             setState(() => _forceLoad = value),
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
 
                       // Max output chars & Timeout
                       Row(
@@ -1152,7 +1152,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
 
                       // Retry on failure / Max retries
                       Row(
@@ -1194,7 +1194,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
 
                       // Retry backoff base (ms)
                       TextField(
@@ -1214,7 +1214,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
 
                       // Require confirmation
                       _RequireConfirmationField(
@@ -1222,7 +1222,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         onChanged: (v) =>
                             setState(() => _requireConfirmation = v),
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
 
                       // ── WebSearch-specific section ──
                       if (widget.initial.kind == AiBuiltinToolKind.webSearch &&
@@ -1234,7 +1234,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           onChanged: (next) =>
                               setState(() => _webSearchSettings = next),
                         ),
-                        const SizedBox(height: 14),
+                        kOpenHandGap14,
                       ],
 
                       // ── WebFetch-specific section ──
@@ -1247,7 +1247,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                           onChanged: (next) =>
                               setState(() => _webFetchSettings = next),
                         ),
-                        const SizedBox(height: 14),
+                        kOpenHandGap14,
                       ],
 
                       // Tags
@@ -1264,7 +1264,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
               ),
 
               // ── Actions ──
-              const SizedBox(height: 20),
+              kOpenHandGap20,
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -1274,7 +1274,7 @@ class _BuiltinToolEditorDialogState extends State<_BuiltinToolEditorDialog> {
                         : () => Navigator.of(context).pop(),
                     label: l10n.commonCancel,
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   OpenHandDialogActionButton.primary(
                     onPressed: _isSaving
                         ? null
@@ -1326,14 +1326,14 @@ class _RequireConfirmationField extends StatelessWidget {
           l10n.builtinToolRequireConfirmationTitle,
           style: theme.textTheme.titleSmall,
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Text(
           l10n.builtinToolRequireConfirmationBody,
           style: theme.textTheme.bodySmall?.copyWith(
             color: theme.colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         SegmentedButton<bool?>(
           segments: [
             ButtonSegment<bool?>(

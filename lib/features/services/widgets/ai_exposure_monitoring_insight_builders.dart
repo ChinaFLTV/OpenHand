@@ -4,7 +4,7 @@ Widget _metricInsightPage(List<Widget> sections) => Column(
   crossAxisAlignment: CrossAxisAlignment.stretch,
   children: sections.indexed
       .expand(
-        (entry) => [if (entry.$1 > 0) const SizedBox(height: 14), entry.$2],
+        (entry) => [if (entry.$1 > 0) kOpenHandGap14, entry.$2],
       )
       .toList(growable: false),
 );

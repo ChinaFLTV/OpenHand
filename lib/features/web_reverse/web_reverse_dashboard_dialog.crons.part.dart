@@ -414,7 +414,7 @@ class _CronsBodyState extends State<_CronsBody>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     SizedBox(
                       width: 110,
                       child: TextField(
@@ -440,7 +440,7 @@ class _CronsBodyState extends State<_CronsBody>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     FilledButton.icon(
                       onPressed: _runningNow ? null : _runNow,
                       icon: OpenHandBusyStatusIcon(
@@ -458,7 +458,7 @@ class _CronsBodyState extends State<_CronsBody>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     FilledButton.tonalIcon(
                       onPressed: _dirty ? _save : null,
                       icon: const Icon(Icons.save_rounded, size: 18),
@@ -482,7 +482,7 @@ class _CronsBodyState extends State<_CronsBody>
                               ),
                       ),
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     IconButton(
                       tooltip: _text(
                         zh: '删除',
@@ -497,7 +497,7 @@ class _CronsBodyState extends State<_CronsBody>
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Expanded(
                   child: _DashboardScriptCodeEditor(
                     controller: _codeCtrl,

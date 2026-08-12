@@ -761,7 +761,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       child: Row(
         children: <Widget>[
           Icon(statusIcon, color: statusColor, size: 22),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -771,7 +771,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                   l10n.proxyTestConsoleTitle,
                   style: theme.textTheme.titleMedium,
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
@@ -815,14 +815,14 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             ),
           ),
           // 工具按钮之间保留固定间距，窄宽度下仍维持可点按的视觉分隔。
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           IconButton(
             tooltip: l10n.proxyTestConsoleClear,
             // 运行中允许清空历史行；不重置总计时，也不打断诊断流程。
             onPressed: _entries.isEmpty ? null : _clearConsole,
             icon: const Icon(Icons.cleaning_services_outlined, size: 18),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           IconButton(
             tooltip: l10n.proxyTestConsoleCopy,
             onPressed: _entries.isEmpty ? null : _copyLogs,
@@ -850,7 +850,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         mainAxisSize: MainAxisSize.min,
         children: <Widget>[
           Icon(icon, size: 12, color: fg),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -1073,7 +1073,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                 size: 14,
                 color: theme.colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: Wrap(
                   spacing: 6,
@@ -1089,7 +1089,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Row(
             children: <Widget>[
               if (_finalSummary != null)
@@ -1103,14 +1103,14 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                 )
               else
                 const Spacer(),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               if (!_running)
                 OpenHandDialogActionButton.secondary(
                   onPressed: _rerun,
                   icon: Icons.refresh,
                   label: l10n.proxyTestConsoleRerun,
                 ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               OpenHandDialogActionButton.primary(
                 onPressed: _running
                     ? null
@@ -1170,7 +1170,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
                   ? levelColor
                   : theme.colorScheme.onSurfaceVariant.withValues(alpha: 0.6),
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             Text(
               label,
               style: theme.textTheme.labelSmall?.copyWith(

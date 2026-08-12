@@ -17,6 +17,7 @@ import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_notice.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -264,7 +265,7 @@ class _CorsDialogState extends State<_CorsDialog> {
             child: Row(
               children: [
                 Icon(Icons.shield_moon_rounded, color: cs.primary),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -311,7 +312,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                     isDense: true,
                   ),
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Row(
                   children: [
                     SizedBox(
@@ -327,7 +328,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     Expanded(
                       child: TextField(
                         controller: _originCtl,
@@ -342,7 +343,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 TextField(
                   controller: _headersCtl,
                   maxLines: 4,
@@ -357,14 +358,14 @@ class _CorsDialogState extends State<_CorsDialog> {
                     border: const OutlineInputBorder(),
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Row(
                   children: [
                     Switch(
                       value: _withCredentials,
                       onChanged: (v) => setState(() => _withCredentials = v),
                     ),
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                     Text('withCredentials', style: theme.textTheme.labelMedium),
                     const Spacer(),
                     FilledButton.icon(
@@ -404,7 +405,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                         ),
                 ),
                 if (res != null) ...[
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   OpenHandVerticalRevealSwitcher(
                     duration: kOpenHandMotion280,
                     child: res['ok'] == true
@@ -442,21 +443,21 @@ class _CorsDialogState extends State<_CorsDialog> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        kOpenHandHGap10,
                         Text(
                           'origin: ${res['origin']}',
                           style: theme.textTheme.labelSmall,
                         ),
                       ],
                     ),
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Text(
                       loc?.webReverseCorsDiagnostics ?? 'Diagnostics',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    kOpenHandGap6,
                     for (final d in diags)
                       Container(
                         margin: const EdgeInsets.only(bottom: 6),
@@ -482,7 +483,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                                   size: 16,
                                   color: d.pass ? cs.primary : cs.error,
                                 ),
-                                const SizedBox(width: 6),
+                                kOpenHandHGap6,
                                 Text(
                                   d.label,
                                   style: const TextStyle(
@@ -493,7 +494,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 4),
+                            kOpenHandGap4,
                             SelectableText(
                               d.value.isEmpty ? '—' : d.value,
                               style: const TextStyle(
@@ -501,7 +502,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                                 fontSize: 11,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            kOpenHandGap2,
                             Text(
                               d.hint,
                               style: theme.textTheme.labelSmall?.copyWith(
@@ -511,14 +512,14 @@ class _CorsDialogState extends State<_CorsDialog> {
                           ],
                         ),
                       ),
-                    const SizedBox(height: 10),
+                    kOpenHandGap10,
                     Text(
                       loc?.webReverseCorsAllHeaders ?? 'All response headers',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 6),
+                    kOpenHandGap6,
                     Container(
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(

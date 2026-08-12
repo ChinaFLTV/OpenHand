@@ -243,7 +243,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
             size: 22,
             color: colorScheme.primary,
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(child: Text(title)),
         ],
       ),
@@ -264,7 +264,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
                           : Icons.error_rounded,
                       color: statusColor,
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Expanded(
                       child: Text(
                         statusLabel,
@@ -296,7 +296,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
                               if (_errorMessage!.toLowerCase().contains(
                                 _certificateVerificationFailedMarker,
                               )) ...[
-                                const SizedBox(height: 6),
+                                kOpenHandGap6,
                                 Text(
                                   l10n.settingsScraplingRuntimeCertificateDiagnosis,
                                   style: theme.textTheme.bodySmall?.copyWith(
@@ -308,7 +308,7 @@ class _ScraplingRuntimeDialogState extends State<_ScraplingRuntimeDialog> {
                           ),
                         ),
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Expanded(
                   child: OpenHandConsoleLogView(
                     controller: _scrollController,

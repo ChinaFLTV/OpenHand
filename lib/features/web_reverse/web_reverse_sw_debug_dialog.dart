@@ -18,6 +18,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -238,7 +239,7 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                   value: _forceUpdate,
                   onChanged: _loading ? null : _setForceUpdate,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   loc?.webReverseSwDebugForceUpdateLabel ??
                       'Force update SW on every navigation',
@@ -351,7 +352,7 @@ class _SwDebugDialogState extends State<_SwDebugDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: TextField(
                     controller: _pushData,
@@ -427,7 +428,7 @@ class _RegTile extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   reg.scopeURL,
@@ -446,7 +447,7 @@ class _RegTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Padding(
             padding: const EdgeInsets.only(left: 16),
             child: Text(
@@ -456,7 +457,7 @@ class _RegTile extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Padding(
             padding: const EdgeInsets.only(left: 16),
             child: Wrap(

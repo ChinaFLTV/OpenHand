@@ -18,6 +18,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -163,7 +164,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 FilterChip(
                   label: Text(
                     loc?.webReverseWaterfallOnlyXhr ?? 'XHR/Fetch only',
@@ -171,7 +172,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                   selected: _onlyXhr,
                   onSelected: (v) => setState(() => _onlyXhr = v),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 WebReverseSelectButton<_SortMode>(
                   value: _sort,
                   dense: true,
@@ -193,7 +194,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Text(
                   '${entries.length}',
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -322,7 +323,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           SizedBox(
             width: barWidth,
             height: 16,
@@ -421,7 +422,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             SizedBox(
               width: barWidth,
               height: 16,

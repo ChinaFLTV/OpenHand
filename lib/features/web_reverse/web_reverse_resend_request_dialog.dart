@@ -24,6 +24,7 @@ import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -701,21 +702,21 @@ print(resp.text[:2000])''';
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildUrlRow(theme, cs, loc),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _buildTransportRow(theme, cs, loc),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _buildHeadersBlock(theme, cs, loc),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _buildBodyBlock(theme, cs, loc),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _buildExportBlock(theme, cs, loc),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   AnimatedSwitcher(
                     duration: reduceMotion ? Duration.zero : kOpenHandMotion220,
                     switchInCurve: Curves.easeOutCubic,
                     child: _buildResultBlock(theme, cs, loc),
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                 ],
               ),
             ),
@@ -747,7 +748,7 @@ print(resp.text[:2000])''';
                   onPressed: () => Navigator.of(context).pop(),
                   label: loc?.webReverseResendRequestClose ?? 'Close',
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 _sending
                     ? OpenHandDialogActionButton.destructive(
                         onPressed: _abort,
@@ -776,7 +777,7 @@ print(resp.text[:2000])''';
     return Row(
       children: [
         Icon(Icons.route_rounded, size: 16, color: cs.primary),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Text(
           openHandLocalizedText(
             context,
@@ -791,7 +792,7 @@ print(resp.text[:2000])''';
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         SegmentedButton<_ReplayTransport>(
           selected: <_ReplayTransport>{_transport},
           showSelectedIcon: false,
@@ -814,7 +815,7 @@ print(resp.text[:2000])''';
             setState(() => _transport = next);
           },
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Expanded(
           child: Text(
             _transport == _ReplayTransport.browser
@@ -879,7 +880,7 @@ print(resp.text[:2000])''';
             onChanged: (v) => setState(() => _method = v),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Expanded(
           child: TextField(
             controller: _urlCtrl,
@@ -910,7 +911,7 @@ print(resp.text[:2000])''';
           Row(
             children: [
               Icon(Icons.list_rounded, size: 16, color: cs.primary),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 loc?.webReverseResendRequestHeadersLabel ?? 'Headers',
                 style: theme.textTheme.labelLarge?.copyWith(
@@ -927,7 +928,7 @@ print(resp.text[:2000])''';
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           for (var i = 0; i < _headers.length; i++)
             Padding(
               padding: const EdgeInsets.only(bottom: 6),
@@ -955,7 +956,7 @@ print(resp.text[:2000])''';
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   Expanded(
                     flex: 7,
                     child: TextField(
@@ -1003,7 +1004,7 @@ print(resp.text[:2000])''';
           Row(
             children: [
               Icon(Icons.data_object_rounded, size: 16, color: cs.primary),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 loc?.webReverseResendRequestBodyLabel ?? 'Body',
                 style: theme.textTheme.labelLarge?.copyWith(
@@ -1042,7 +1043,7 @@ print(resp.text[:2000])''';
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           TextField(
             controller: _bodyCtrl,
             enabled: canBody,
@@ -1130,7 +1131,7 @@ print(resp.text[:2000])''';
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(Icons.error_outline_rounded, color: cs.error, size: 16),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: SelectableText(
                 _lastError!,
@@ -1182,7 +1183,7 @@ print(resp.text[:2000])''';
                   style: TextStyle(color: color, fontWeight: FontWeight.w800),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 '${r.transport.label(context)} · ${r.byteSize} B · ${r.elapsed.inMilliseconds} ms',
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -1212,7 +1213,7 @@ print(resp.text[:2000])''';
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           OpenHandExpansionTile(
             tilePadding: EdgeInsets.zero,
             title: Text(
@@ -1257,7 +1258,7 @@ print(resp.text[:2000])''';
               color: cs.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Container(
             constraints: const BoxConstraints(maxHeight: 200),
             padding: const EdgeInsets.all(8),

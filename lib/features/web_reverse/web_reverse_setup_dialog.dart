@@ -6,6 +6,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -255,7 +256,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                   OpenHandFormLabel(
                     loc?.webReverseSetupTargetUrl ?? 'Target URL *',
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _urlCtrl,
                     decoration: const InputDecoration(
@@ -265,11 +266,11 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     loc?.webReverseSetupObjective ?? 'Objective *',
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _objectiveCtrl,
                     maxLines: 3,
@@ -282,7 +283,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                     ),
                     onChanged: (_) => setState(() {}),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandModelSelectorField(
                     models: widget.availableModels,
                     recentSelections: widget.recentModelSelections,
@@ -291,12 +292,12 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                     required: true,
                     onSelected: selectOpenHandModel,
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     loc?.webReverseSetupTriggerActions ??
                         'Trigger actions (optional)',
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _triggerCtrl,
                     maxLines: 2,
@@ -308,11 +309,11 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                       border: const OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     loc?.webReverseSetupLoginMode ?? 'Login mode',
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   SegmentedButton<WebReverseLoginMode>(
                     segments: WebReverseLoginMode.values
                         .map(
@@ -326,11 +327,11 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                     onSelectionChanged: (s) =>
                         setState(() => _loginMode = s.first),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     loc?.webReverseSetupBrowser ?? 'Browser (detected)',
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   WebReverseSelectFormField<WebReverseBrowserProbeResult>(
                     initialValue: _selectedProbe,
                     decoration: const InputDecoration(
@@ -352,7 +353,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                         ? null
                         : (v) => setState(() => _selectedProbe = v),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   Text(
                     _selectedProbe.executablePath ?? '',
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -360,7 +361,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                       fontFamily: kOpenHandMonospaceFontFamily,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandAnimatedSwitchTile(
                     icon: Icons.hub_rounded,
                     disabledIcon: Icons.hub_outlined,
@@ -387,11 +388,11 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                     onChanged: (value) =>
                         setState(() => _cdpMcpEnabled = value),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     loc?.webReverseSetupProxy ?? 'Proxy (optional)',
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _proxyCtrl,
                     decoration: const InputDecoration(
@@ -400,12 +401,12 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   OpenHandFormLabel(
                     loc?.webReverseSetupKeywords ??
                         'Keywords (optional, comma-separated)',
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   TextField(
                     controller: _keywordsCtrl,
                     decoration: const InputDecoration(
@@ -414,7 +415,7 @@ class _WebReverseSetupDialogState extends State<_WebReverseSetupDialog>
                       border: OutlineInputBorder(),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _ProfileDirRow(userDataDir: _previewUserDataDir),
                 ],
               ),
@@ -522,7 +523,7 @@ class _ProfileDirRowState extends State<_ProfileDirRow>
                 size: 18,
                 color: hasLock ? cs.error : cs.onSurfaceVariant,
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -535,7 +536,7 @@ class _ProfileDirRowState extends State<_ProfileDirRow>
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    kOpenHandGap2,
                     Text(
                       widget.userDataDir,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -546,7 +547,7 @@ class _ProfileDirRowState extends State<_ProfileDirRow>
                       overflow: TextOverflow.ellipsis,
                     ),
                     if (hasLock) ...[
-                      const SizedBox(height: 4),
+                      kOpenHandGap4,
                       Text(
                         loc?.webReverseSetupLockDetected ??
                             'Stale SingletonLock / lockfile detected — may block next launch.',
@@ -561,7 +562,7 @@ class _ProfileDirRowState extends State<_ProfileDirRow>
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           // 渐进式单按钮：先清理 → 仍有锁就引导用户重置；重置成功后 60s 冷却
           // 防止误连击两次。
           Align(

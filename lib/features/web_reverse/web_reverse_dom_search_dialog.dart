@@ -14,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/text_clip.dart';
@@ -287,7 +288,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                     onSubmitted: _busy ? null : (_) => _runSearch(),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 FilledButton.icon(
                   onPressed: _busy ? null : _runSearch,
                   icon: const Icon(Icons.play_arrow_rounded),

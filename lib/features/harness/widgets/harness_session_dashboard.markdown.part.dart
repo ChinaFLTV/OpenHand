@@ -387,7 +387,7 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
           ),
         ),
         if (_needsCollapse && !_expanded) ...[
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           ClipRect(
             child: Column(
               children: [
@@ -407,7 +407,7 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
               ],
             ),
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           OpenHandTapRegion(
             onTap: _expand,
             child: Container(
@@ -425,7 +425,7 @@ class _HeMarkdownContentState extends State<_HeMarkdownContent>
                     size: 16,
                     color: colorScheme.primary,
                   ),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -1190,7 +1190,7 @@ class _HeReadyPlaceholder extends StatelessWidget {
             size: 48,
             color: colorScheme.onSurfaceVariant.withValues(alpha: 0.35),
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           Text(
             openHandLocalizedText(
               context,
@@ -1203,7 +1203,7 @@ class _HeReadyPlaceholder extends StatelessWidget {
             ),
             style: TextStyle(color: colorScheme.onSurfaceVariant, fontSize: 13),
           ),
-          const SizedBox(height: 20),
+          kOpenHandGap20,
           FilledButton.icon(
             onPressed: onStart,
             icon: const Icon(Icons.play_arrow_rounded),
@@ -1235,7 +1235,7 @@ class _InitializingPlaceholder extends StatelessWidget {
               color: colorScheme.primary,
             ),
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           Text(
             openHandLocalizedText(
               context,
@@ -1314,7 +1314,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
               size: 48,
               color: colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Text(
               title,
               style: Theme.of(
@@ -1322,7 +1322,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w700),
               textAlign: TextAlign.center,
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               openHandLocalizedText(
                 context,
@@ -1339,7 +1339,7 @@ class _HeRestoredSessionPlaceholder extends StatelessWidget {
                 fontSize: 13,
               ),
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             OutlinedButton.icon(
               onPressed: onRestart,
               icon: const Icon(Icons.restart_alt_rounded),

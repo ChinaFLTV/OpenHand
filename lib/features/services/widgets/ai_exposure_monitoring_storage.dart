@@ -79,9 +79,9 @@ class _StoragePanel extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _DependencyDataAccessPanel(controller: controller),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _OpsPanelGrid(
           children: [
             _TrendPanel(
@@ -192,7 +192,7 @@ class _StoragePanel extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _OpsPanelGrid(
           children: [
             _Section(
@@ -228,7 +228,7 @@ class _StoragePanel extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _Section(
           title: '最近持久化任务',
           icon: Icons.history_rounded,
@@ -264,7 +264,7 @@ class _StoragePanel extends StatelessWidget {
                                   ? OpenHandStatusColors.error
                                   : OpenHandStatusColors.warning,
                             ),
-                            const SizedBox(width: 4),
+                            kOpenHandHGap4,
                             const Icon(Icons.chevron_right_rounded, size: 19),
                           ],
                         ),
@@ -274,7 +274,7 @@ class _StoragePanel extends StatelessWidget {
                 ),
         ),
         if (controller.health?.databasePath.isNotEmpty == true) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _Section(
             title: '数据库位置',
             icon: Icons.folder_open_outlined,
@@ -285,7 +285,7 @@ class _StoragePanel extends StatelessWidget {
                   controller.health!.databasePath,
                   style: const TextStyle(fontFamily: 'monospace'),
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Align(
                   alignment: Alignment.centerRight,
                   child: OpenHandDialogActionButton.secondary(

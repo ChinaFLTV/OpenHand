@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -140,7 +141,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
       child: Row(
         children: [
           Icon(Icons.notifications_active_rounded, color: cs.primary),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -209,7 +210,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
     return ListView.separated(
       padding: const EdgeInsets.all(8),
       itemCount: list.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 2),
+      separatorBuilder: (_, _) => kOpenHandGap2,
       itemBuilder: (_, idx) {
         final bp = list[idx];
         final active = _selected?.id == bp.id;
@@ -227,7 +228,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                     value: bp.enabled,
                     onChanged: (v) => _update(bp.copyWith(enabled: v)),
                   ),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -289,7 +290,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
             child: Row(
               children: [
                 Icon(Icons.bolt_rounded, size: 16, color: cs.primary),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   loc?.webReverseReqBpHitsCount(hits.length) ??
                       'Hits (recent ${hits.length})',
@@ -352,7 +353,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 6),
+                              kOpenHandHGap6,
                               Container(
                                 padding: const EdgeInsets.symmetric(
                                   horizontal: 4,
@@ -370,7 +371,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              kOpenHandHGap8,
                               Expanded(
                                 child: Text(
                                   h.url,
@@ -462,7 +463,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
             ),
             onChanged: (_) => _commit(),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 8,
             children: [
@@ -486,7 +487,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           TextField(
             controller: _urlCtrl,
             maxLength: WebReverseSessionController.maxBreakpointTextChars,
@@ -498,7 +499,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
             ),
             onChanged: (_) => _commit(),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           TextField(
             controller: _bodyCtrl,
             maxLength: WebReverseSessionController.maxDebuggerExpressionChars,
@@ -510,14 +511,14 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
             ),
             onChanged: (_) => _commit(),
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           Text(
             loc?.webReverseReqBpEvalOnHit ?? 'Eval on hit (optional)',
             style: theme.textTheme.labelMedium?.copyWith(
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           TextField(
             controller: _evalCtrl,
             maxLength: WebReverseSessionController.maxDebuggerExpressionChars,
@@ -536,7 +537,7 @@ class _BreakpointEditorState extends State<_BreakpointEditor> {
             ),
             onChanged: (_) => _commit(),
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [

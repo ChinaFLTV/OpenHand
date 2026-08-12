@@ -289,7 +289,7 @@ class _ResourceFilterBar extends StatelessWidget {
                 onTap: () => onChanged(f),
                 dense: true,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
             ],
           ],
         ),
@@ -484,7 +484,7 @@ class _NetworkRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               // Waterfall：宽 140，按整窗 totalMs 推算条带 left/width。
               Expanded(
                 flex: 2,
@@ -538,7 +538,7 @@ class _NetworkRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.link_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -558,7 +558,7 @@ class _NetworkRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.terminal_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -578,7 +578,7 @@ class _NetworkRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.code_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -599,7 +599,7 @@ class _NetworkRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.replay_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -619,7 +619,7 @@ class _NetworkRow extends StatelessWidget {
           child: Row(
             children: [
               const Icon(Icons.edit_note_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -641,7 +641,7 @@ class _NetworkRow extends StatelessWidget {
             child: Row(
               children: [
                 const Icon(Icons.lock_open_rounded, size: 16),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Text(
                   openHandLocalizedText(
                     context,
@@ -662,7 +662,7 @@ class _NetworkRow extends StatelessWidget {
             child: Row(
               children: [
                 const Icon(Icons.block_rounded, size: 16),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Text(
                   openHandLocalizedText(
                     context,
@@ -1032,7 +1032,7 @@ class _PendingFetchBanner extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.block_rounded, size: 16, color: cs.onTertiaryContainer),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Expanded(
             child: Text(
               openHandLocalizedText(
@@ -1070,7 +1070,7 @@ class _PendingFetchBanner extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             AnimatedPopupMenuButton<String>(
               tooltip: openHandLocalizedText(
                 context,
@@ -1253,7 +1253,7 @@ class _PendingFetchBanner extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 TextField(
                   controller: methodCtrl,
                   maxLength: WebReverseSessionController.maxRuleMethodChars,
@@ -1263,7 +1263,7 @@ class _PendingFetchBanner extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 TextField(
                   controller: headersCtrl,
                   maxLength: WebReverseSessionController.maxRuleHeadersChars,
@@ -1285,7 +1285,7 @@ class _PendingFetchBanner extends StatelessWidget {
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 TextField(
                   controller: bodyCtrl,
                   maxLength:
@@ -1398,7 +1398,7 @@ class _ReplayOverrideEditorState extends State<_ReplayOverrideEditor> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             TextField(
               controller: _headersCtrl,
               maxLines: 8,

@@ -14,6 +14,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -262,7 +263,7 @@ class _SmDialogState extends State<_SmDialog> {
                     border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
                   ),
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Row(
                   children: [
                     Expanded(
@@ -276,7 +277,7 @@ class _SmDialogState extends State<_SmDialog> {
                         keyboardType: TextInputType.number,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     Expanded(
                       child: TextField(
                         controller: _col,
@@ -288,7 +289,7 @@ class _SmDialogState extends State<_SmDialog> {
                         keyboardType: TextInputType.number,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     FilledButton.icon(
                       onPressed: _busy ? null : _resolve,
                       icon: const Icon(Icons.search_rounded),
@@ -343,7 +344,7 @@ class _SmDialogState extends State<_SmDialog> {
                             ),
                           ),
                         if (r.snippet.isNotEmpty) ...[
-                          const SizedBox(height: 12),
+                          kOpenHandGap12,
                           Container(
                             width: double.infinity,
                             padding: const EdgeInsets.all(10),

@@ -421,7 +421,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
               // re-trigger the cross-fade; only the structural transition
               // does. Slide+fade gives the swap a soft, slick feel; the outer
               // AnimatedSize already handles overall height.
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               OpenHandCrossFadeSwitcher(
                 duration: _kToolStructureSwitchDuration,
                 slideBeginOffsetY: _kToolStructureSlideOffsetY,
@@ -468,7 +468,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                                       selectable: widget.selectable,
                                     ),
                                   if (toolCall.command.isNotEmpty)
-                                    const SizedBox(height: 10),
+                                    kOpenHandGap10,
                                   _ToolOutputPanel(
                                     label: AppLocalizations.of(
                                       context,
@@ -480,7 +480,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                                 ],
                               ),
                             ),
-                            const SizedBox(height: 10),
+                            kOpenHandGap10,
                             _ExpandableToolSection(
                               title: AppLocalizations.of(
                                 context,
@@ -511,7 +511,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                                     ),
                                   if (toolCall.stderr.isNotEmpty) ...[
                                     if (toolCall.stdout.isNotEmpty)
-                                      const SizedBox(height: 10),
+                                      kOpenHandGap10,
                                     _ToolOutputPanel(
                                       label: AppLocalizations.of(
                                         context,
@@ -526,7 +526,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
                                   if (toolCall.showResultText) ...[
                                     if (toolCall.stdout.isNotEmpty ||
                                         toolCall.stderr.isNotEmpty)
-                                      const SizedBox(height: 10),
+                                      kOpenHandGap10,
                                     _ToolOutputPanel(
                                       label: AppLocalizations.of(
                                         context,
@@ -560,7 +560,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
               // ── File mutation card (Codex-style multi-file list + ledger undo/redo) ──
               if (_fileMutationPaths(message).isNotEmpty &&
                   _toolExecutionStatus(message) == 'success') ...[
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 _FileMutationCard(
                   key: ValueKey<String>(
                     'file-mutation-${message.id}-${message.metadata['tool_call_id'] ?? ''}',
@@ -676,7 +676,7 @@ class _ExpandableToolSection extends StatelessWidget {
                         size: 18,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Expanded(
                       child: Text(
                         title,
@@ -856,7 +856,7 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                   ),
                 ),
                 if (isLong) ...[
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   TextButton.icon(
                     onPressed: _toggleExpanded,
                     icon: Icon(
@@ -882,7 +882,7 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
                     ),
                   ),
                   if (_isExpanded) ...[
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     TextButton.icon(
                       onPressed: () => _showFullContentDialog(context),
                       icon: const Icon(Icons.open_in_new_rounded, size: 14),
@@ -904,7 +904,7 @@ class _ToolOutputPanelState extends State<_ToolOutputPanel> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         _HighlightedCodePanel(
           content: displayContent,
           theme: widget.theme,
@@ -1333,7 +1333,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
                   final title = Row(
                     children: [
                       _ToolContentDialogLeadingIcon(isError: widget.isError),
-                      const SizedBox(width: 12),
+                      kOpenHandHGap12,
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1350,7 +1350,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
                                     : colorScheme.onSurface,
                               ),
                             ),
-                            const SizedBox(height: 2),
+                            kOpenHandGap2,
                             Text(
                               openHandLocalizedText(
                                 context,
@@ -1450,7 +1450,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
                       crossAxisAlignment: CrossAxisAlignment.stretch,
                       children: [
                         title,
-                        const SizedBox(height: 12),
+                        kOpenHandGap12,
                         Align(alignment: Alignment.centerRight, child: actions),
                       ],
                     );
@@ -1458,7 +1458,7 @@ class _ToolContentFullDialogState extends State<_ToolContentFullDialog> {
                   return Row(
                     children: [
                       Expanded(child: title),
-                      const SizedBox(width: 16),
+                      kOpenHandHGap16,
                       actions,
                     ],
                   );
@@ -1658,7 +1658,7 @@ class _ToolContentDialogChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 14, color: tint),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Text(
               label,
               maxLines: 1,
@@ -1772,7 +1772,7 @@ class _ToolContentDialogStatePane extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               icon,
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Text(
                 title,
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -1903,7 +1903,7 @@ class _ToolCacheChip extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 14, color: tint),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Text(
               label,
               style: theme.textTheme.labelMedium?.copyWith(color: tint),
@@ -2081,7 +2081,7 @@ class _ToolConstructingBadgeState extends State<_ToolConstructingBadge>
                 valueColor: AlwaysStoppedAnimation<Color>(fg),
               ),
             ),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Text(
               widget.label,
               style: theme.textTheme.labelMedium?.copyWith(color: fg),
@@ -3688,7 +3688,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
           label: AppLocalizations.of(context)!.tlCallSelfLearning,
           color: colorScheme.tertiary,
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -3719,7 +3719,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
               ),
           ],
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _ExpandableToolSection(
           title: AppLocalizations.of(context)!.tlCallProfileChanges,
           preview: _changeItemsPreview(context, profileItems),
@@ -3732,7 +3732,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
           expandedBuilder: (context) =>
               _SelfLearningChangeList(items: profileItems),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _ExpandableToolSection(
           title: AppLocalizations.of(context)!.tlCallMemoryChanges,
           preview: _changeItemsPreview(context, memoryItems),
@@ -3745,7 +3745,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
           expandedBuilder: (context) =>
               _SelfLearningChangeList(items: memoryItems),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _ExpandableToolSection(
           title: AppLocalizations.of(context)!.tlCallSkillChanges,
           preview: _changeItemsPreview(context, skillItems),
@@ -3759,7 +3759,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
               _SelfLearningChangeList(items: skillItems),
         ),
         if (profileDiff.isNotEmpty) ...[
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _ExpandableToolSection(
             title: AppLocalizations.of(context)!.tlCallProfileDiff,
             preview: profileDiff,
@@ -3776,7 +3776,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
           ),
         ],
         if (aiReasoning.isNotEmpty) ...[
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _ExpandableToolSection(
             title: (isStreaming
                 ? AppLocalizations.of(context)!.tlCallAiThinkingStreaming
@@ -3802,7 +3802,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
           ),
         ],
         if (aiResponse.isNotEmpty) ...[
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _ExpandableToolSection(
             title: (isStreaming
                 ? AppLocalizations.of(context)!.tlCallAiResponseStreaming
@@ -3828,7 +3828,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
           ),
         ],
         if (status == 'error' && aiResponse.isEmpty) ...[
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Text(
             widget.message.content,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -3849,7 +3849,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
           // "无变更" 三连而让用户误以为是 BUG。把 message.content 作为简要
           // 说明展示出来（通常是 dispatcher 给出的 "模型本轮未调用任何工具…"
           // 这类文案，或后端返回的 finish_reason 提示）。
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Container(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
@@ -3864,7 +3864,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
                   size: 16,
                   color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     widget.message.content,
@@ -3958,7 +3958,7 @@ class _SelfLearningHeaderRow extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 18, color: color),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Flexible(
             child: Text(
               label,
@@ -4000,7 +4000,7 @@ class _SelfLearningChangeList extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         for (var i = 0; i < items.length; i++) ...[
-          if (i > 0) const SizedBox(height: 10),
+          if (i > 0) kOpenHandGap10,
           _SelfLearningChangeTile(item: items[i]),
         ],
       ],
@@ -4041,7 +4041,7 @@ class _SelfLearningChangeTile extends StatelessWidget {
                 ),
               ),
               if (item.summary.isNotEmpty) ...[
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   item.summary,
                   style: theme.textTheme.bodySmall?.copyWith(

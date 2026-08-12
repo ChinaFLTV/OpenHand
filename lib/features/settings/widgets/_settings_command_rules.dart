@@ -130,7 +130,7 @@ class _CommandRuleTile extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(pattern, style: theme.textTheme.titleSmall),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text(
                     matchMode == AiCommandMatchMode.regex
                         ? _commandRuleMatchModeLabel(
@@ -146,7 +146,7 @@ class _CommandRuleTile extends StatelessWidget {
                     ),
                   ),
                   if (trimmedNote.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     Text(
                       trimmedNote,
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -157,7 +157,7 @@ class _CommandRuleTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             OpenHandRowEditDeleteActions(
               editTooltip: AppLocalizations.of(context)!.commonEdit,
               deleteTooltip: AppLocalizations.of(context)!.commonDelete,
@@ -419,7 +419,7 @@ class _CommandRuleEditorDialogState<T>
                       return null;
                     },
                   ),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   AnimatedDropdownButtonFormField<AiCommandMatchMode>(
                     initialValue: _matchMode,
                     decoration: InputDecoration(
@@ -454,7 +454,7 @@ class _CommandRuleEditorDialogState<T>
                       });
                     },
                   ),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   TextFormField(
                     controller: _noteController,
                     decoration: InputDecoration(

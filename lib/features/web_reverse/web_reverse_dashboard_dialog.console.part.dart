@@ -311,7 +311,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                       : Icons.unfold_more_rounded,
                   size: 18,
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Text(
                   expanded
                       ? openHandLocalizedText(
@@ -341,7 +341,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
           child: Row(
             children: [
               const Icon(Icons.copy_rounded, size: 18),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Text(
                 openHandLocalizedText(
                   context,
@@ -609,7 +609,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                           size: 14,
                           color: cs.onErrorContainer,
                         ),
-                        const SizedBox(width: 6),
+                        kOpenHandHGap6,
                         Expanded(
                           child: Text(
                             loc?.webReverseConsolePausedHint ??
@@ -658,7 +658,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Tooltip(
                 message: _autoFollowConsole
                     ? openHandLocalizedText(
@@ -699,7 +699,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               SizedBox(
                 height: _kConsoleReplControlHeight,
                 child: FilledButton.icon(

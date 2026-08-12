@@ -7,7 +7,6 @@ import 'package:flutter/foundation.dart';
 import 'package:sqflite_common_ffi/sqflite_ffi.dart';
 
 import '../../../shared/db/database_service.dart';
-
 import '../model/user_instruction_entry.dart';
 
 class InstructionsStore {

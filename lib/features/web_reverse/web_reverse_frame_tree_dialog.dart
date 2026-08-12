@@ -13,6 +13,7 @@ import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -284,7 +285,7 @@ class _FrameTile extends StatelessWidget {
                 size: 14,
                 color: cs.primary,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               if (row.name.isNotEmpty)
                 Padding(
                   padding: const EdgeInsets.only(right: 6),
@@ -338,7 +339,7 @@ class _FrameTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Row(
             children: [
               Expanded(

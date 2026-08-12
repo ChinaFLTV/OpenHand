@@ -16,6 +16,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../plugin_service/index.dart';
 import '../model/ai_exposure_models.dart';
@@ -317,7 +318,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                           onSelectionChanged: (selection) =>
                               setState(() => _forumFetchMode = selection.first),
                         ),
-                        const SizedBox(height: 8),
+                        kOpenHandGap8,
                         _InlineNotice(
                           icon:
                               controller
@@ -955,7 +956,7 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
         ),
         const SizedBox(height: _kSectionGap),
         Text(progress.message),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         ClipRRect(
           borderRadius: kOpenHandPillBorderRadius,
           child: ServiceAnimatedProgressBar(
@@ -1006,7 +1007,7 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
           child: Row(
             children: [
               for (var index = 0; index < filters.length; index++) ...[
-                if (index > 0) const SizedBox(width: 8),
+                if (index > 0) kOpenHandHGap8,
                 filters[index],
               ],
             ],
@@ -1026,7 +1027,7 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
               : ListView.separated(
                   physics: openHandDialogAwareScrollPhysics(context),
                   itemCount: results.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 10),
+                  separatorBuilder: (_, _) => kOpenHandGap10,
                   itemBuilder: (context, index) =>
                       _ResultTile(result: results[index]),
                 ),
@@ -1053,7 +1054,7 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
     return ListView.separated(
       physics: openHandDialogAwareScrollPhysics(context),
       itemCount: controller.history.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 10),
+      separatorBuilder: (_, _) => kOpenHandGap10,
       itemBuilder: (context, index) {
         final entry = controller.history[index];
         return _HistoryTile(
@@ -1174,7 +1175,7 @@ class _ToolsDialogState extends State<_ToolsDialog> {
               }),
             ),
             if (source != AiExposureSource.values.last)
-              const SizedBox(height: 8),
+              kOpenHandGap8,
           ],
           const SizedBox(height: _kSectionGap),
           _SectionTitle(
@@ -1190,7 +1191,7 @@ class _ToolsDialogState extends State<_ToolsDialog> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _giteeToken,
             obscureText: true,
@@ -1199,7 +1200,7 @@ class _ToolsDialogState extends State<_ToolsDialog> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _gitcodeToken,
             obscureText: true,
@@ -1208,7 +1209,7 @@ class _ToolsDialogState extends State<_ToolsDialog> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _fofaEmail,
             decoration: const InputDecoration(
@@ -1216,7 +1217,7 @@ class _ToolsDialogState extends State<_ToolsDialog> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _fofaKey,
             obscureText: true,
@@ -1225,7 +1226,7 @@ class _ToolsDialogState extends State<_ToolsDialog> {
               border: OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _shodanKey,
             obscureText: true,
@@ -1345,7 +1346,7 @@ class _RulesDialogState extends State<_RulesDialog> {
             )
           : ListView.separated(
               itemCount: _rules.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 8),
+              separatorBuilder: (_, _) => kOpenHandGap8,
               itemBuilder: (context, index) {
                 final rule = _rules[index];
                 return _RuleTile(
@@ -1518,7 +1519,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                             border: const OutlineInputBorder(),
                           ),
                         ),
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                         TextField(
                           controller: _token,
                           obscureText: true,
@@ -1544,7 +1545,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
                   controller.sourceStatus[_sourceStatusKey(source)] == true,
               quota: _sourceQuota(controller.quotas, source),
             ),
-            if (source != _kCredentialSources.last) const SizedBox(height: 8),
+            if (source != _kCredentialSources.last) kOpenHandGap8,
           ],
           const SizedBox(height: _kSectionGap),
           _SectionTitle(
@@ -1576,7 +1577,7 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             operating: _dependencyOperationId == PluginCatalogIds.playwright,
             onAction: _runPlaywrightAction,
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           _InlineNotice(
             icon: Icons.lan_outlined,
             text: text(
@@ -2080,7 +2081,7 @@ class _PlaywrightDependencyTile extends StatelessWidget {
             ),
             child: Icon(Icons.language_rounded, color: tone, size: 20),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2091,7 +2092,7 @@ class _PlaywrightDependencyTile extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   detail,
                   maxLines: 2,
@@ -2103,7 +2104,7 @@ class _PlaywrightDependencyTile extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           IconButton.filledTonal(
             tooltip: installed ? '更新 Playwright' : '安装 Playwright',
             onPressed: canAct ? onAction : null,
@@ -2211,13 +2212,13 @@ class _ManagedDependencyTile extends StatelessWidget {
                 ),
                 child: Icon(icon, color: colors.onPrimaryContainer, size: 20),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: theme.textTheme.titleSmall),
-                    const SizedBox(height: 2),
+                    kOpenHandGap2,
                     Text(
                       purpose,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -2227,15 +2228,15 @@ class _ManagedDependencyTile extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Switch(value: selected, onChanged: isBusy ? null : onSelected),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Row(
             children: [
               Icon(Icons.circle, size: 9, color: statusColor),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   statusText,
@@ -2246,7 +2247,7 @@ class _ManagedDependencyTile extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               if (isBusy)
                 const SizedBox.square(
                   dimension: 34,
@@ -2338,7 +2339,7 @@ class _DialogFrame extends StatelessWidget {
                 ),
                 child: Icon(icon, color: cs.onPrimaryContainer),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2352,7 +2353,7 @@ class _DialogFrame extends StatelessWidget {
                       ),
                     ),
                     if (subtitle?.trim().isNotEmpty == true) ...[
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         subtitle!,
                         maxLines: 2,
@@ -2372,7 +2373,7 @@ class _DialogFrame extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Container(
             height: 1,
             color: cs.outlineVariant.withValues(alpha: 0.75),
@@ -2480,7 +2481,7 @@ class _MetricTile extends StatelessWidget {
               ),
               child: Icon(data.icon, size: 19, color: tone),
             ),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2492,7 +2493,7 @@ class _MetricTile extends StatelessWidget {
                       color: cs.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   Text(
                     data.value,
                     maxLines: 1,
@@ -2593,7 +2594,7 @@ class _DependencyRow extends StatelessWidget {
           ready ? Icons.check_circle_outline_rounded : Icons.circle_outlined,
           color: ready ? cs.primary : cs.outline,
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -2698,7 +2699,7 @@ class _QueryFields extends StatelessWidget {
           border: OutlineInputBorder(),
         ),
       ),
-      const SizedBox(height: 10),
+      kOpenHandGap10,
       TextField(
         controller: shodan,
         decoration: const InputDecoration(
@@ -2706,7 +2707,7 @@ class _QueryFields extends StatelessWidget {
           border: OutlineInputBorder(),
         ),
       ),
-      const SizedBox(height: 10),
+      kOpenHandGap10,
       TextField(
         controller: github,
         decoration: const InputDecoration(
@@ -2714,7 +2715,7 @@ class _QueryFields extends StatelessWidget {
           border: OutlineInputBorder(),
         ),
       ),
-      const SizedBox(height: 10),
+      kOpenHandGap10,
       TextField(
         controller: gitee,
         decoration: const InputDecoration(
@@ -2722,7 +2723,7 @@ class _QueryFields extends StatelessWidget {
           border: OutlineInputBorder(),
         ),
       ),
-      const SizedBox(height: 10),
+      kOpenHandGap10,
       TextField(
         controller: gitcode,
         decoration: const InputDecoration(
@@ -2730,7 +2731,7 @@ class _QueryFields extends StatelessWidget {
           border: OutlineInputBorder(),
         ),
       ),
-      const SizedBox(height: 10),
+      kOpenHandGap10,
       TextField(
         controller: nodeseek,
         decoration: const InputDecoration(
@@ -2739,7 +2740,7 @@ class _QueryFields extends StatelessWidget {
           border: OutlineInputBorder(),
         ),
       ),
-      const SizedBox(height: 10),
+      kOpenHandGap10,
       TextField(
         controller: linuxDo,
         decoration: const InputDecoration(
@@ -2748,7 +2749,7 @@ class _QueryFields extends StatelessWidget {
           border: OutlineInputBorder(),
         ),
       ),
-      const SizedBox(height: 10),
+      kOpenHandGap10,
       TextField(
         controller: v2ex,
         decoration: const InputDecoration(
@@ -2929,7 +2930,7 @@ class _ResultTile extends StatelessWidget {
             alignment: Alignment.center,
             child: Icon(_categoryIcon(result.category), size: 20, color: color),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2953,7 +2954,7 @@ class _ResultTile extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Text(
                   result.url,
                   maxLines: 1,
@@ -2962,7 +2963,7 @@ class _ResultTile extends StatelessWidget {
                     color: cs.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 Wrap(
                   spacing: 12,
                   runSpacing: 6,
@@ -3100,7 +3101,7 @@ class _HistoryTile extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.history_rounded, color: cs.primary),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: ServiceInteractiveSurface(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -3122,7 +3123,7 @@ class _HistoryTile extends StatelessWidget {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   Text(
                     '${_stageLabel(context, entry.stage)} · ${_dateTime(entry.createdAt)} · ${entry.progress.processed}/${entry.progress.total}',
                     maxLines: 2,
@@ -3135,7 +3136,7 @@ class _HistoryTile extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           ServiceDialogIconActions(
             children: [
               Tooltip(
@@ -3258,7 +3259,7 @@ class _SourceSwitch extends StatelessWidget {
     return Row(
       children: [
         Icon(_sourceIcon(source), color: cs.primary),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -3340,7 +3341,7 @@ class _RuleTile extends StatelessWidget {
       child: Row(
         children: [
           Switch(value: rule.enabled, onChanged: onToggle),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: ServiceInteractiveSurface(
               padding: const EdgeInsets.symmetric(vertical: 4),
@@ -3441,9 +3442,9 @@ class _EmptyState extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 42, color: cs.outline),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Text(title, style: theme.textTheme.titleMedium),
-            const SizedBox(height: 6),
+            kOpenHandGap6,
             Text(
               body,
               textAlign: TextAlign.center,
@@ -3554,7 +3555,7 @@ class _RuleEditorState extends State<_RuleEditor> {
               border: const OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _protocol,
             decoration: InputDecoration(
@@ -3562,7 +3563,7 @@ class _RuleEditorState extends State<_RuleEditor> {
               border: const OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _patterns,
             minLines: 3,
@@ -3575,7 +3576,7 @@ class _RuleEditorState extends State<_RuleEditor> {
               border: const OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _contexts,
             minLines: 2,
@@ -3588,7 +3589,7 @@ class _RuleEditorState extends State<_RuleEditor> {
               border: const OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: Wrap(
@@ -3612,7 +3613,7 @@ class _RuleEditorState extends State<_RuleEditor> {
                   .toList(growable: false),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _modelPaths,
             minLines: 2,
@@ -3625,7 +3626,7 @@ class _RuleEditorState extends State<_RuleEditor> {
               border: const OutlineInputBorder(),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _balancePaths,
             minLines: 1,
@@ -3816,7 +3817,7 @@ class _ExportFormatDialog extends StatelessWidget {
               Navigator.of(context).pop(_ExposureExportFormat.json),
           label: 'JSON',
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         OpenHandDialogActionButton.secondary(
           icon: Icons.table_rows_outlined,
           onPressed: () => Navigator.of(context).pop(_ExposureExportFormat.csv),

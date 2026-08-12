@@ -13,6 +13,7 @@ import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -197,7 +198,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                     onChanged: (v) => setState(() => _filter = v.trim()),
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 TextButton.icon(
                   onPressed: entries.isEmpty
                       ? null
@@ -298,7 +299,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    kOpenHandHGap8,
                                     if (e.statusCode != null)
                                       Text(
                                         '${e.statusCode}',
@@ -339,7 +340,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                                       ),
                                   ],
                                 ),
-                                const SizedBox(height: 4),
+                                kOpenHandGap4,
                                 Text(
                                   e.url,
                                   maxLines: 2,

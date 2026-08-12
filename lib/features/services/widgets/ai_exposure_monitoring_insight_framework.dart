@@ -132,7 +132,7 @@ class _OperationsInsightDialog extends StatelessWidget {
                       ),
                       child: Icon(icon, color: tone),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -145,7 +145,7 @@ class _OperationsInsightDialog extends StatelessWidget {
                               fontWeight: FontWeight.w900,
                             ),
                           ),
-                          const SizedBox(height: 2),
+                          kOpenHandGap2,
                           Text(
                             subtitle,
                             maxLines: 1,
@@ -166,12 +166,12 @@ class _OperationsInsightDialog extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 14),
+                kOpenHandGap14,
                 Divider(height: 1, color: colors.outlineVariant),
-                const SizedBox(height: 14),
+                kOpenHandGap14,
                 if (showDataScope) ...[
                   const _OperationsDataScopeBar(),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                 ],
                 Flexible(
                   fit: adaptiveHeight ? FlexFit.loose : FlexFit.tight,
@@ -292,7 +292,7 @@ class _DistributionDetailRow extends StatelessWidget {
         Expanded(
           child: Text(item.label, maxLines: 1, overflow: TextOverflow.ellipsis),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Text(
           '${item.value} · ${(share * 100).toStringAsFixed(1)}%',
           textAlign: TextAlign.end,
@@ -311,12 +311,12 @@ class _DistributionDetailRow extends StatelessWidget {
       child: LayoutBuilder(
         builder: (context, constraints) {
           if (constraints.maxWidth < 440) {
-            return Column(children: [label, const SizedBox(height: 8), bar]);
+            return Column(children: [label, kOpenHandGap8, bar]);
           }
           return Row(
             children: [
               SizedBox(width: 238, child: label),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(child: bar),
             ],
           );
@@ -604,7 +604,7 @@ class _InsightRecordPanel extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (truncationNotice != null) const SizedBox(height: 8),
+                  if (truncationNotice != null) kOpenHandGap8,
                   ...shown.indexed.map(
                     (entry) => Column(
                       children: [
@@ -660,7 +660,7 @@ class _InsightRecordRow extends StatelessWidget {
             ),
             child: Icon(record.icon, size: 18, color: record.color),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -749,7 +749,7 @@ class _InsightEmpty extends StatelessWidget {
             Icons.inbox_outlined,
             color: colors.onSurfaceVariant.withValues(alpha: 0.65),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Text(
             label,
             textAlign: TextAlign.center,
@@ -802,7 +802,7 @@ class _TrendSampleTable extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
         ],
         ...indexes.map((index) {
           final target = index < targets.length ? targets[index] : null;
@@ -825,7 +825,7 @@ class _TrendSampleTable extends StatelessWidget {
                     style: Theme.of(context).textTheme.labelMedium,
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Wrap(
                     spacing: 8,
@@ -882,7 +882,7 @@ class _InsightTrendSection extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
           _buildChart(context),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Wrap(
             spacing: 12,
             runSpacing: 6,
@@ -890,7 +890,7 @@ class _InsightTrendSection extends StatelessWidget {
                 .map((item) => _OpsLegend(label: item.label, color: item.color))
                 .toList(growable: false),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _TrendSampleTable(
             series: series,
             sampleLabels: sampleLabels,
@@ -1003,7 +1003,7 @@ class _InsightDonutSectionState extends State<_InsightDonutSection> {
                 .toList(growable: false),
           );
           if (constraints.maxWidth < 560) {
-            return Column(children: [donut, const SizedBox(height: 12), rows]);
+            return Column(children: [donut, kOpenHandGap12, rows]);
           }
           return Row(
             children: [
@@ -1020,7 +1020,7 @@ class _InsightDonutSectionState extends State<_InsightDonutSection> {
       children: [
         distribution,
         if (selected != null && widget.detailBuilder != null) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           widget.detailBuilder!(context, selected),
         ],
       ],
@@ -1131,7 +1131,7 @@ class _InsightKpiBand extends StatelessWidget {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 10),
+                            kOpenHandGap10,
                             Text(
                               items[index].value,
                               maxLines: 1,
@@ -1139,7 +1139,7 @@ class _InsightKpiBand extends StatelessWidget {
                               style: Theme.of(context).textTheme.titleLarge
                                   ?.copyWith(fontWeight: FontWeight.w900),
                             ),
-                            const SizedBox(height: 3),
+                            kOpenHandGap3,
                             Text(
                               items[index].helper,
                               maxLines: 2,
@@ -1292,7 +1292,7 @@ class _InsightRankingSectionState extends State<_InsightRankingSection> {
                                           ),
                                     ),
                                   ),
-                                  const SizedBox(width: 12),
+                                  kOpenHandHGap12,
                                   Text(
                                     item.value <= 0 ? '无记录' : item.valueLabel,
                                     style: Theme.of(
@@ -1343,7 +1343,7 @@ class _InsightRankingSectionState extends State<_InsightRankingSection> {
       children: [
         ranking,
         if (selected != null && widget.detailBuilder != null) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           widget.detailBuilder!(context, selected),
         ],
       ],
@@ -1415,7 +1415,7 @@ class _InsightMatrixSection extends StatelessWidget {
                         ),
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                   ],
                   ...shown.indexed.map(
                     (entry) => Column(
@@ -1466,7 +1466,7 @@ class _InsightMatrixSection extends StatelessWidget {
                                           ),
                                     ),
                                     if (entry.$2.subtitle.isNotEmpty) ...[
-                                      const SizedBox(height: 3),
+                                      kOpenHandGap3,
                                       Text(
                                         entry.$2.subtitle,
                                         maxLines: 2,
@@ -1566,7 +1566,7 @@ class _InsightTimelineSection extends StatelessWidget {
                         ),
                       ),
                     ),
-                  if (truncationNotice != null) const SizedBox(height: 8),
+                  if (truncationNotice != null) kOpenHandGap8,
                   ...shown.indexed.map((entry) {
                     final item = entry.$2;
                     return ServiceInteractiveSurface(
@@ -1611,7 +1611,7 @@ class _InsightTimelineSection extends StatelessWidget {
                                 ],
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            kOpenHandHGap8,
                             Expanded(
                               child: Padding(
                                 padding: const EdgeInsets.only(bottom: 14),
@@ -1634,13 +1634,13 @@ class _InsightTimelineSection extends StatelessWidget {
                                           ),
                                         ),
                                         if (item.tag.isNotEmpty) ...[
-                                          const SizedBox(width: 8),
+                                          kOpenHandHGap8,
                                           _InsightMiniTag(label: item.tag),
                                         ],
                                       ],
                                     ),
                                     if (item.detail.isNotEmpty) ...[
-                                      const SizedBox(height: 4),
+                                      kOpenHandGap4,
                                       Text(
                                         item.detail,
                                         maxLines: 3,
@@ -1841,7 +1841,7 @@ class _InsightCapacitySection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           LayoutBuilder(
             builder: (context, constraints) {
               const gap = 4.0;
@@ -1875,7 +1875,7 @@ class _InsightCapacitySection extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Text(
             '该图展示任务内部工作并发配置，不推断服务未上报的实时槽位占用。',
             style: Theme.of(

@@ -34,7 +34,7 @@ class _ShortcutBindingTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: theme.textTheme.titleSmall),
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 Text(
                   subtitle,
                   style: theme.textTheme.bodyMedium?.copyWith(
@@ -126,14 +126,14 @@ class _ShortcutBindingTile extends StatelessWidget {
             if (stacked) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [content, const SizedBox(height: 14), controls],
+                children: [content, kOpenHandGap14, controls],
               );
             }
             return Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: content),
-                const SizedBox(width: 16),
+                kOpenHandHGap16,
                 Flexible(child: controls),
               ],
             );
@@ -218,7 +218,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(l10n.settingsShortcutRecorderBody),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.all(16),
@@ -233,7 +233,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
                   ),
                 ),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Text(
                 l10n.settingsShortcutRecorderTip,
                 style: Theme.of(context).textTheme.bodySmall?.copyWith(

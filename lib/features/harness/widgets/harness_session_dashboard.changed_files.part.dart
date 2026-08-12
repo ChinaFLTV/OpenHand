@@ -27,7 +27,7 @@ class _HeChangedFilesList extends StatelessWidget {
                 size: 14,
                 color: colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 openHandLocalizedText(
                   context,
@@ -44,7 +44,7 @@ class _HeChangedFilesList extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           ListView.builder(
             shrinkWrap: true,
             physics: const NeverScrollableScrollPhysics(),
@@ -79,7 +79,7 @@ class _HeChangedFilesList extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(icon, size: 14, color: iconColor),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         Expanded(
                           child: Text(
                             file.relativePath,
@@ -207,7 +207,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      kOpenHandGap4,
                       Row(
                         children: [
                           _DiffStatChip(
@@ -222,7 +222,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                             },
                           ),
                           if (!_computing) ...[
-                            const SizedBox(width: 8),
+                            kOpenHandHGap8,
                             Text(
                               openHandLocalizedText(
                                 context,
@@ -250,7 +250,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
               ],
             ),
             if (file.contentTruncated) ...[
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Container(
                 width: double.infinity,
                 padding: const EdgeInsets.symmetric(
@@ -277,7 +277,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                 ),
               ),
             ],
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             // ── Diff view ──
             Expanded(
               child: Container(
@@ -301,7 +301,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                               mainAxisSize: MainAxisSize.min,
                               children: [
                                 const CircularProgressIndicator(),
-                                const SizedBox(height: 16),
+                                kOpenHandGap16,
                                 Text(
                                   openHandLocalizedText(
                                     context,
@@ -333,7 +333,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -367,7 +367,7 @@ class _HeFileDiffDialogState extends State<_HeFileDiffDialog> {
                     ja: 'Diff をコピー',
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 OpenHandDialogActionButton.secondary(
                   onPressed: () => Navigator.of(context).pop(),
                   label: openHandCloseLabel(context),

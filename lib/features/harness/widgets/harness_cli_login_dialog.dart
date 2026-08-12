@@ -13,6 +13,7 @@ import '../../../shared/ui/highlight_pulse.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_text_buffer.dart';
@@ -516,7 +517,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                     height: 1.5,
                   ),
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 DecoratedBox(
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
@@ -539,7 +540,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         IconButton(
                           onPressed: _copyCommand,
                           tooltip: l10n.harnessCliLoginCopyCommandTooltip,
@@ -552,7 +553,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Row(
                   children: [
                     Icon(
@@ -568,7 +569,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                           ? Colors.green.shade600
                           : colorScheme.primary,
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Expanded(
                       child: Text(
                         statusText,
@@ -581,7 +582,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Expanded(
                   child: DecoratedBox(
                     decoration: BoxDecoration(
@@ -620,7 +621,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: [
                     Expanded(
@@ -636,7 +637,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     FilledButton.icon(
                       onPressed:
                           (!_starting && !_finished && _errorMessage == null)
@@ -647,7 +648,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,

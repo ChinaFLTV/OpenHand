@@ -14,6 +14,7 @@ import '../../../shared/ui/openhand_busy_indicators.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_view.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../service/harness_cli_catalog.dart';
 
@@ -481,7 +482,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog>
       title: Row(
         children: [
           Icon(Icons.download_rounded, size: 22, color: colorScheme.primary),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(child: Text(l10n.harnessCliInstallTitle(widget.cli.name))),
         ],
       ),
@@ -500,7 +501,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog>
                       icon: statusIcon,
                       color: statusColor,
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Text(
                       statusLabel,
                       style: theme.textTheme.labelLarge?.copyWith(
@@ -531,7 +532,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog>
                       ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Expanded(
                   child: OpenHandConsoleLogView(
                     controller: logScrollController,

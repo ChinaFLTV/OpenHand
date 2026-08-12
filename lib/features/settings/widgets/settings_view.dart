@@ -67,6 +67,7 @@ import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
@@ -308,14 +309,14 @@ List<Widget> _buildToolTelemetryHeader({
       ),
       style: theme.textTheme.titleSmall,
     ),
-    const SizedBox(height: 4),
+    kOpenHandGap4,
     Text(
       description,
       style: theme.textTheme.bodySmall?.copyWith(
         color: colorScheme.onSurfaceVariant,
       ),
     ),
-    const SizedBox(height: 8),
+    kOpenHandGap8,
     Row(
       children: [
         const Spacer(),
@@ -324,7 +325,7 @@ List<Widget> _buildToolTelemetryHeader({
           icon: const Icon(Icons.code, size: 16),
           label: Text(openHandExportJsonLabel(context)),
         ),
-        const SizedBox(width: 4),
+        kOpenHandHGap4,
         TextButton.icon(
           onPressed: exportEnabled ? onExportCsv : null,
           icon: OpenHandBusyStatusIcon(
@@ -334,7 +335,7 @@ List<Widget> _buildToolTelemetryHeader({
           ),
           label: Text(openHandExportCsvLabel(context)),
         ),
-        const SizedBox(width: 4),
+        kOpenHandHGap4,
         TextButton.icon(
           onPressed: loading || clearing ? null : onRefresh,
           icon: OpenHandBusyStatusIcon(
@@ -344,7 +345,7 @@ List<Widget> _buildToolTelemetryHeader({
           ),
           label: Text(openHandRefreshLabel(context)),
         ),
-        const SizedBox(width: 4),
+        kOpenHandHGap4,
         TextButton.icon(
           onPressed: !hasData || loading || clearing ? null : onClear,
           icon: OpenHandBusyStatusIcon(
@@ -398,9 +399,9 @@ List<Widget> _buildToolTelemetryBody({
           fontWeight: FontWeight.w600,
         ),
       ),
-      const SizedBox(height: 6),
+      kOpenHandGap6,
       ...engineRows,
-      const SizedBox(height: 12),
+      kOpenHandGap12,
     ],
     if (callRows.isNotEmpty) ...[
       Text(
@@ -409,7 +410,7 @@ List<Widget> _buildToolTelemetryBody({
           fontWeight: FontWeight.w600,
         ),
       ),
-      const SizedBox(height: 6),
+      kOpenHandGap6,
       ...callRows,
       if (totalCallCount > callRows.length)
         Padding(
@@ -478,7 +479,7 @@ Widget _buildWebEngineCacheFields({
           ),
         ),
       ),
-      const SizedBox(width: 12),
+      kOpenHandHGap12,
       Expanded(
         child: TextField(
           controller: maxBytesController,
@@ -537,7 +538,7 @@ Widget _buildToolCacheActions({
           ),
         ),
       ),
-      const SizedBox(width: 12),
+      kOpenHandHGap12,
       TextButton.icon(
         onPressed: loading || clearing ? null : onRefresh,
         icon: OpenHandBusyStatusIcon(
@@ -547,7 +548,7 @@ Widget _buildToolCacheActions({
         ),
         label: Text(openHandRefreshLabel(context)),
       ),
-      const SizedBox(width: 4),
+      kOpenHandHGap4,
       FilledButton.tonalIcon(
         style: FilledButton.styleFrom(
           foregroundColor: colorScheme.onPrimary,
@@ -615,7 +616,7 @@ Widget _buildToolEngineStatRow<T extends WebEngineSampleBase>({
                 overflow: TextOverflow.ellipsis,
               ),
             ),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             SizedBox(
               width: 84,
               child: Stack(
@@ -640,7 +641,7 @@ Widget _buildToolEngineStatRow<T extends WebEngineSampleBase>({
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             SizedBox(
               width: 48,
               child: Text(
@@ -710,7 +711,7 @@ List<Widget> _buildToolEngineStatusDetails<T extends WebEngineSampleBase>({
                 backgroundColor: colorScheme.errorContainer,
                 foregroundColor: colorScheme.onErrorContainer,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               InkWell(
                 onTap: onResetCooldown,
                 child: Padding(
@@ -730,7 +731,7 @@ List<Widget> _buildToolEngineStatusDetails<T extends WebEngineSampleBase>({
               ),
             ],
             if (quotaError != null) ...[
-              if (inCooldown) const SizedBox(width: 6),
+              if (inCooldown) kOpenHandHGap6,
               Tooltip(
                 message: quotaError,
                 child: _SettingsStatusChip(
@@ -834,7 +835,7 @@ Widget _buildToolCallLogRow({
             ),
           ),
         ),
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
@@ -849,7 +850,7 @@ Widget _buildToolCallLogRow({
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1017,7 +1018,7 @@ List<Widget> _buildWebEngineResilienceSettingsSection({
       ),
       style: theme.textTheme.titleSmall,
     ),
-    const SizedBox(height: 8),
+    kOpenHandGap8,
     Text(
       openHandLocalizedText(
         context,
@@ -1028,7 +1029,7 @@ List<Widget> _buildWebEngineResilienceSettingsSection({
         color: colorScheme.onSurfaceVariant,
       ),
     ),
-    const SizedBox(height: 6),
+    kOpenHandGap6,
     _ToolAdvancedCooldownTierRow(
       label: openHandLocalizedText(context, zh: '一级', en: 'Tier 1'),
       failures: resilience.cooldownTier1Failures,
@@ -1056,7 +1057,7 @@ List<Widget> _buildWebEngineResilienceSettingsSection({
       onChangedSeconds: (value) =>
           onChanged(resilience.copyWith(cooldownTier3Seconds: value)),
     ),
-    const SizedBox(height: 4),
+    kOpenHandGap4,
     _ToolAdvancedNumberRow(
       label: openHandLocalizedText(
         context,
@@ -1069,7 +1070,7 @@ List<Widget> _buildWebEngineResilienceSettingsSection({
       onChanged: (value) =>
           onChanged(resilience.copyWith(cooldownQuotaSeconds: value)),
     ),
-    const SizedBox(height: 12),
+    kOpenHandGap12,
     Text(
       openHandLocalizedText(
         context,
@@ -1080,7 +1081,7 @@ List<Widget> _buildWebEngineResilienceSettingsSection({
         color: colorScheme.onSurfaceVariant,
       ),
     ),
-    const SizedBox(height: 6),
+    kOpenHandGap6,
     _ToolAdvancedNumberRow(
       label: openHandLocalizedText(
         context,
@@ -1105,7 +1106,7 @@ List<Widget> _buildWebEngineResilienceSettingsSection({
       onChanged: (value) =>
           onChanged(resilience.copyWith(alertAvgDurationMs: value)),
     ),
-    const SizedBox(height: 12),
+    kOpenHandGap12,
     Text(
       openHandLocalizedText(
         context,
@@ -1116,7 +1117,7 @@ List<Widget> _buildWebEngineResilienceSettingsSection({
         color: colorScheme.onSurfaceVariant,
       ),
     ),
-    const SizedBox(height: 6),
+    kOpenHandGap6,
     _ToolAdvancedNumberRow(
       label: openHandLocalizedText(context, zh: '上限', en: 'Cap'),
       value: resilience.throttlePerMinute,
@@ -1811,7 +1812,7 @@ class _SettingsViewState extends State<SettingsView> {
                   padding: const EdgeInsets.fromLTRB(0, 2, 0, 8),
                   itemCount: sections.length,
                   separatorBuilder: (context, index) =>
-                      const SizedBox(height: 18),
+                      kOpenHandGap18,
                   itemBuilder: (context, index) {
                     return _buildSettingsSection(
                       context,
@@ -1923,7 +1924,7 @@ class _SettingsViewState extends State<SettingsView> {
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             _ThemePresetSwatch(color: preset.seedColor),
-                            const SizedBox(width: 12),
+                            kOpenHandHGap12,
                             Text(preset.label(l10n)),
                           ],
                         ),
@@ -2113,7 +2114,7 @@ class _SettingsViewState extends State<SettingsView> {
             value: settingsController.displaySettingsFilePath,
           ),
           if (!kIsWeb) ...[
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             _ResponsiveSettingRow(
               title: openHandLocalizedText(
                 context,
@@ -2185,7 +2186,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           onSubmitted: (value) => _saveCompressionThreshold(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2223,7 +2224,7 @@ class _SettingsViewState extends State<SettingsView> {
           onSubmitted: (value) =>
               _saveToolResultCompressionThreshold(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2383,7 +2384,7 @@ class _SettingsViewState extends State<SettingsView> {
           onSubmitted: (value) =>
               _saveToolResultCompressionHeadTailWindow(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2421,7 +2422,7 @@ class _SettingsViewState extends State<SettingsView> {
           onSubmitted: (value) =>
               _saveToolResultCompressionMaxPathHits(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2456,7 +2457,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           onSubmitted: (value) => _saveWriteToolSummaryMaxChars(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2493,7 +2494,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           onSubmitted: (value) => _saveToolCallLimit(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2526,7 +2527,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           onSubmitted: (value) => _saveSequentialToolRoundLimit(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2560,7 +2561,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           onSubmitted: (value) => _saveMaxRecentErrors(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2590,7 +2591,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           onSubmitted: (value) => _saveMaxPlanHistoryEntries(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2628,7 +2629,7 @@ class _SettingsViewState extends State<SettingsView> {
           onSubmitted: (value) =>
               _saveMaxTruncationContinuations(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2666,7 +2667,7 @@ class _SettingsViewState extends State<SettingsView> {
           onSubmitted: (value) =>
               _saveEstimatedCharactersPerToken(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2704,7 +2705,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           onSubmitted: (value) => _saveImageSizeLimit(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Align(
           alignment: Alignment.centerLeft,
           child: FilledButton.icon(
@@ -2721,7 +2722,7 @@ class _SettingsViewState extends State<SettingsView> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         const _AiUsageSettingsSection(),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsSessionSettings,
           description: AppLocalizations.of(
@@ -2758,7 +2759,7 @@ class _SettingsViewState extends State<SettingsView> {
                       onSubmitted: (value) =>
                           _saveConnectTimeout(context, value),
                     ),
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Align(
                       alignment: Alignment.centerLeft,
                       child: FilledButton.icon(
@@ -2776,7 +2777,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsResponseTimeoutS,
                 subtitle: AppLocalizations.of(
@@ -2802,7 +2803,7 @@ class _SettingsViewState extends State<SettingsView> {
                       onSubmitted: (value) =>
                           _saveResponseTimeout(context, value),
                     ),
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Align(
                       alignment: Alignment.centerLeft,
                       child: FilledButton.icon(
@@ -2820,7 +2821,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsStreamIdleTimeoutS,
                 subtitle: AppLocalizations.of(
@@ -2846,7 +2847,7 @@ class _SettingsViewState extends State<SettingsView> {
                       onSubmitted: (value) =>
                           _saveStreamIdleTimeout(context, value),
                     ),
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Align(
                       alignment: Alignment.centerLeft,
                       child: FilledButton.icon(
@@ -2864,19 +2865,19 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Text(
                 AppLocalizations.of(context)!.aiThrottleSettingsLabel,
                 style: Theme.of(context).textTheme.titleLarge,
               ),
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               Text(
                 AppLocalizations.of(context)!.aiThrottleSettingsBody,
                 style: Theme.of(context).textTheme.bodyMedium?.copyWith(
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               // 先决定是否启用/自适应，再调整具体速率。
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
@@ -2906,7 +2907,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
                   context,
@@ -2941,13 +2942,13 @@ class _SettingsViewState extends State<SettingsView> {
                       ),
                     ),
                     if (settingsController.aiStreamThrottleAutoMode) ...[
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       const _AutoModeFpsIndicator(),
                     ],
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               // 流式输出节流：每秒最多向卡片追加渲染的字符数
               _ResponsiveSettingRow(
                 title: _settingsViewMaxRenderCharsSecLabel(context),
@@ -2980,7 +2981,7 @@ class _SettingsViewState extends State<SettingsView> {
                           _saveStreamMaxCharsPerSecond(context, value),
                     ),
                     if (settingsController.aiStreamMaxCharsPerSecond <= 0) ...[
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       _ThrottleDisabledBadge(
                         message: openHandLocalizedText(
                           context,
@@ -2993,7 +2994,7 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Align(
                       alignment: Alignment.centerLeft,
                       child: FilledButton.icon(
@@ -3011,7 +3012,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               // 卡片限速：每秒最多新追加多少张消息卡片
               _ResponsiveSettingRow(
                 title: _settingsViewMaxRenderCardsSecLabel(context),
@@ -3045,7 +3046,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     if (settingsController.aiStreamMaxMessageCardsPerSecond <=
                         0) ...[
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       _ThrottleDisabledBadge(
                         message: openHandLocalizedText(
                           context,
@@ -3058,7 +3059,7 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Align(
                       alignment: Alignment.centerLeft,
                       child: FilledButton.icon(
@@ -3077,7 +3078,7 @@ class _SettingsViewState extends State<SettingsView> {
                 controlMaxWidth: 360,
               ),
               // 节流持续时长入口。
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: _settingsViewThrottleDurationSLabel(context),
                 subtitle: openHandLocalizedText(
@@ -3110,7 +3111,7 @@ class _SettingsViewState extends State<SettingsView> {
                     ),
                     if (settingsController.aiStreamThrottleDurationSeconds <=
                         0) ...[
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       _ThrottleDisabledBadge(
                         message: openHandLocalizedText(
                           context,
@@ -3123,7 +3124,7 @@ class _SettingsViewState extends State<SettingsView> {
                         ),
                       ),
                     ],
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Align(
                       alignment: Alignment.centerLeft,
                       child: FilledButton.icon(
@@ -3141,7 +3142,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               // 节流配置 export / import 入口。
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
@@ -3191,7 +3192,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
                   context,
@@ -3214,7 +3215,7 @@ class _SettingsViewState extends State<SettingsView> {
                 control: const _ThrottleCloudSyncEditor(),
                 controlMaxWidth: 720,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: l10n.settingsAutoTitle,
                 subtitle: l10n.settingsWhenEnabledATitleIsAutomatically,
@@ -3227,7 +3228,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: l10n.settingsTitleFetchMode,
                 subtitle: l10n.settingsTitleFetchModeDescription,
@@ -3266,7 +3267,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
                   context,
@@ -3304,7 +3305,7 @@ class _SettingsViewState extends State<SettingsView> {
                             .updateAiAutoTitleMaxRetryCount(value.round()),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Text(
                       '${settingsController.aiAutoTitleMaxRetryCount}',
                       style: Theme.of(context).textTheme.bodyMedium,
@@ -3312,7 +3313,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsDefaultSessionMode,
                 subtitle: AppLocalizations.of(
@@ -3351,7 +3352,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsDefaultFullAccess,
                 subtitle: AppLocalizations.of(
@@ -3366,7 +3367,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsUserProfile,
                 subtitle: AppLocalizations.of(
@@ -3377,7 +3378,7 @@ class _SettingsViewState extends State<SettingsView> {
                   child: _UserProfileSettingsButton(),
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(
                   context,
@@ -3401,7 +3402,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsModelProviderManagement,
           description: AppLocalizations.of(
@@ -3415,7 +3416,7 @@ class _SettingsViewState extends State<SettingsView> {
                 icon: const Icon(Icons.add_rounded),
                 label: Text(l10n.aiModelAdd),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               AnimatedSwitcher(
                 duration: openHandMotionDuration(context, kOpenHandMotion260),
                 reverseDuration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -3473,7 +3474,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _SettingsSubsectionCard(
           title: l10n.aiCompressionThresholdLabel,
           description: l10n.aiCompressionThresholdBody,
@@ -3487,7 +3488,7 @@ class _SettingsViewState extends State<SettingsView> {
                 control: compressionControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(
                   context,
@@ -3498,42 +3499,42 @@ class _SettingsViewState extends State<SettingsView> {
                 control: toolResultCompressionControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: l10n.aiToolResultCompressionEnabledLabel,
                 subtitle: l10n.aiToolResultCompressionEnabledBody,
                 control: toolResultCompressionEnabledControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: l10n.aiMicroCompressionEnabledLabel,
                 subtitle: l10n.aiMicroCompressionEnabledBody,
                 control: microCompressionEnabledControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: l10n.aiToolResultCompressionHeadTailWindowLabel,
                 subtitle: l10n.aiToolResultCompressionHeadTailWindowBody,
                 control: toolResultCompressionHeadTailWindowControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: l10n.aiToolResultCompressionMaxPathHitsLabel,
                 subtitle: l10n.aiToolResultCompressionMaxPathHitsBody,
                 control: toolResultCompressionMaxPathHitsControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: l10n.aiWriteToolSummaryMaxCharsLabel,
                 subtitle: l10n.aiWriteToolSummaryMaxCharsBody,
                 control: writeToolSummaryMaxCharsControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(
                   context,
@@ -3544,7 +3545,7 @@ class _SettingsViewState extends State<SettingsView> {
                 control: toolCallLimitControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(
                   context,
@@ -3555,35 +3556,35 @@ class _SettingsViewState extends State<SettingsView> {
                 control: sequentialToolRoundLimitControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: l10n.aiMaxRecentErrorsLabel,
                 subtitle: l10n.aiMaxRecentErrorsBody,
                 control: maxRecentErrorsControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: l10n.aiMaxPlanHistoryEntriesLabel,
                 subtitle: l10n.aiMaxPlanHistoryEntriesBody,
                 control: maxPlanHistoryEntriesControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: l10n.aiMaxTruncationContinuationsLabel,
                 subtitle: l10n.aiMaxTruncationContinuationsBody,
                 control: maxTruncationContinuationsControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: l10n.aiEstimatedCharactersPerTokenLabel,
                 subtitle: l10n.aiEstimatedCharactersPerTokenBody,
                 control: estimatedCharactersPerTokenControl,
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(context)!.settingsImageSizeLimit,
                 subtitle: AppLocalizations.of(
@@ -3595,7 +3596,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _SettingsSubsectionCard(
           title: l10n.aiMessageContentSectionLabel,
           description: l10n.aiMessageContentFormatBody,
@@ -3632,7 +3633,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
                   context,
@@ -3660,7 +3661,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: openHandLocalizedText(
                   context,
@@ -3690,7 +3691,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsCostControl,
           description: AppLocalizations.of(
@@ -3718,7 +3719,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(
                   context,
@@ -3771,7 +3772,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(
                   context,
@@ -3799,7 +3800,7 @@ class _SettingsViewState extends State<SettingsView> {
                       onSubmitted: (value) =>
                           _saveAiInputCacheUpdateInterval(context, value),
                     ),
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Align(
                       alignment: Alignment.centerLeft,
                       child: FilledButton.icon(
@@ -3818,7 +3819,7 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(
                   context,
@@ -3846,7 +3847,7 @@ class _SettingsViewState extends State<SettingsView> {
                       onSubmitted: (value) =>
                           _saveAiInputCacheBreakpointCount(context, value),
                     ),
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Align(
                       alignment: Alignment.centerLeft,
                       child: FilledButton.icon(
@@ -3865,9 +3866,9 @@ class _SettingsViewState extends State<SettingsView> {
                 ),
                 controlMaxWidth: 360,
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _buildAiInputCacheBreakpointPositionsRow(context),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _ResponsiveSettingRow(
                 title: AppLocalizations.of(
                   context,
@@ -3894,7 +3895,7 @@ class _SettingsViewState extends State<SettingsView> {
                       onSubmitted: (value) =>
                           _saveAiBudgetUsdPerSession(context, value),
                     ),
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Align(
                       alignment: Alignment.centerLeft,
                       child: FilledButton.icon(
@@ -3916,7 +3917,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsCommandSafety,
           description: AppLocalizations.of(
@@ -3949,12 +3950,12 @@ class _SettingsViewState extends State<SettingsView> {
                 onPersistenceFailure: () =>
                     _showPersistenceFailureSnackBar(context),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Text(
                 AppLocalizations.of(context)!.settingsAllowCommandList,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 AppLocalizations.of(
                   context,
@@ -3963,13 +3964,13 @@ class _SettingsViewState extends State<SettingsView> {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               FilledButton.icon(
                 onPressed: () => _showAllowCommandRuleDialog(context),
                 icon: const Icon(Icons.verified_outlined),
                 label: Text(AppLocalizations.of(context)!.settingsAddAllowRule),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               if (allowCommandRules.isEmpty)
                 _SettingsStateBox(
                   icon: Icons.verified_user_outlined,
@@ -3988,7 +3989,7 @@ class _SettingsViewState extends State<SettingsView> {
                     padding: EdgeInsets.zero,
                     itemCount: allowCommandRules.length,
                     separatorBuilder: (context, index) =>
-                        const SizedBox(height: 12),
+                        kOpenHandGap12,
                     itemBuilder: (context, index) {
                       final rule = allowCommandRules[index];
                       return AppearOnce(
@@ -4006,12 +4007,12 @@ class _SettingsViewState extends State<SettingsView> {
                     },
                   ),
                 ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Text(
                 AppLocalizations.of(context)!.settingsDenyCommandList,
                 style: Theme.of(context).textTheme.titleMedium,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 AppLocalizations.of(
                   context,
@@ -4020,13 +4021,13 @@ class _SettingsViewState extends State<SettingsView> {
                   color: Theme.of(context).colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               FilledButton.icon(
                 onPressed: () => _showDenyCommandRuleDialog(context),
                 icon: const Icon(Icons.block_rounded),
                 label: Text(AppLocalizations.of(context)!.settingsAddRule),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               if (denyCommandRules.isEmpty)
                 _SettingsStateBox(
                   icon: Icons.rule_folder_outlined,
@@ -4045,7 +4046,7 @@ class _SettingsViewState extends State<SettingsView> {
                     padding: EdgeInsets.zero,
                     itemCount: denyCommandRules.length,
                     separatorBuilder: (context, index) =>
-                        const SizedBox(height: 12),
+                        kOpenHandGap12,
                     itemBuilder: (context, index) {
                       final rule = denyCommandRules[index];
                       return AppearOnce(
@@ -4065,7 +4066,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _buildTelemetrySubsection(context, settingsController),
       ],
     );
@@ -4101,7 +4102,7 @@ class _SettingsViewState extends State<SettingsView> {
               },
             ),
           ),
-          const SizedBox(height: 18),
+          kOpenHandGap18,
           _ResponsiveSettingRow(
             title: AppLocalizations.of(context)!.settingsCaptureRawPayload,
             subtitle: AppLocalizations.of(
@@ -4122,7 +4123,7 @@ class _SettingsViewState extends State<SettingsView> {
                   : null,
             ),
           ),
-          const SizedBox(height: 18),
+          kOpenHandGap18,
           _ResponsiveSettingRow(
             title: AppLocalizations.of(context)!.settingsCaptureEnvironment,
             subtitle: AppLocalizations.of(
@@ -4171,7 +4172,7 @@ class _SettingsViewState extends State<SettingsView> {
               primary: false,
               padding: EdgeInsets.zero,
               itemCount: actions.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              separatorBuilder: (context, index) => kOpenHandGap12,
               itemBuilder: (context, index) {
                 final action = actions[index];
                 return _ShortcutBindingTile(
@@ -4216,14 +4217,14 @@ class _SettingsViewState extends State<SettingsView> {
           ),
           onSubmitted: (value) => _saveSkillsPath(context, value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Text(
           l10n.skillsStorageSectionBody,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -4252,7 +4253,7 @@ class _SettingsViewState extends State<SettingsView> {
             ),
           ],
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         _ReadonlySettingRow(
           label: l10n.skillsStorageCurrentPath,
           value: settingsController.displaySkillsStoragePath,
@@ -4293,7 +4294,7 @@ class _SettingsViewState extends State<SettingsView> {
             },
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         Text(
           AppLocalizations.of(
             context,
@@ -4357,7 +4358,7 @@ class _SettingsViewState extends State<SettingsView> {
             },
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         Text(
           AppLocalizations.of(
             context,
@@ -4387,7 +4388,7 @@ class _SettingsViewState extends State<SettingsView> {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         Text(
           AppLocalizations.of(context)!.selfLearningFlushIntervalLabel(flushMs),
           style: Theme.of(context).textTheme.bodyMedium,
@@ -4416,7 +4417,7 @@ class _SettingsViewState extends State<SettingsView> {
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         _ResponsiveSettingRow(
           title: AppLocalizations.of(context)!.settingsShowSelfLearningMessages,
           subtitle: AppLocalizations.of(
@@ -4458,14 +4459,14 @@ class _SettingsViewState extends State<SettingsView> {
             },
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         Text(
           l10n.memoryFileBody,
           style: Theme.of(context).textTheme.bodyMedium?.copyWith(
             color: Theme.of(context).colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         _ReadonlySettingRow(
           label: l10n.userMemoryFileLabel,
           value: context.read<MemoryController>().userMemoryFilePath,
@@ -4556,7 +4557,7 @@ class _SettingsViewState extends State<SettingsView> {
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _AgentBuiltinToolSummaryCard(
           configs: agentToolConfigs,
           onEnableAll: agentToolConfigs.isEmpty
@@ -4574,7 +4575,7 @@ class _SettingsViewState extends State<SettingsView> {
                   enabled: false,
                 ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _MachineTerminalBuiltinToolSummaryCard(
           configs: machineTerminalToolConfigs,
           onEnableAll: machineTerminalToolConfigs.isEmpty
@@ -4592,7 +4593,7 @@ class _SettingsViewState extends State<SettingsView> {
                   enabled: false,
                 ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _SettingsSubsectionCard(
           title: AppLocalizations.of(context)!.settingsToolCatalogOverview,
           description: AppLocalizations.of(context)!
@@ -4656,7 +4657,7 @@ class _SettingsViewState extends State<SettingsView> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               if (sorted.isEmpty)
                 _SettingsStateBox(
                   icon: Icons.build_circle_outlined,
@@ -4675,7 +4676,7 @@ class _SettingsViewState extends State<SettingsView> {
                     padding: EdgeInsets.zero,
                     itemCount: sorted.length,
                     separatorBuilder: (context, index) =>
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                     itemBuilder: (context, index) {
                       final config = sorted[index];
                       return _BuiltinToolTile(
@@ -4886,12 +4887,12 @@ class _SettingsViewState extends State<SettingsView> {
             },
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _ReadonlySettingRow(
           label: l10n.mcpFilePathLabel,
           value: settingsController.displayMcpServersFilePath,
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -4908,7 +4909,7 @@ class _SettingsViewState extends State<SettingsView> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _ResponsiveSettingRow(
           title: l10n.mcpStdioMirrorModeLabel,
           subtitle: l10n.mcpStdioMirrorModeBody,
@@ -4920,7 +4921,7 @@ class _SettingsViewState extends State<SettingsView> {
             onReconnect: () => _reconnectMcpServersForMirrorChange(context),
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _ResponsiveSettingRow(
           title: l10n.mcpAutoProbeConcurrencyLabel,
           subtitle: l10n.mcpAutoProbeConcurrencyBody,
@@ -4945,7 +4946,7 @@ class _SettingsViewState extends State<SettingsView> {
                 onSubmitted: (value) =>
                     _saveMcpAutoProbeConcurrency(context, value),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Align(
                 alignment: Alignment.centerLeft,
                 child: FilledButton.icon(
@@ -4963,7 +4964,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _ResponsiveSettingRow(
           title: l10n.mcpKeywordIndexUpdateModeLabel,
           subtitle: l10n.mcpKeywordIndexUpdateModeBody,
@@ -4973,9 +4974,9 @@ class _SettingsViewState extends State<SettingsView> {
                 _showPersistenceFailureSnackBar(context),
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         _McpLazyLoadingHelpBanner(text: l10n.mcpLazyLoadingHowItWorks),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: OutlinedButton.icon(
@@ -4984,7 +4985,7 @@ class _SettingsViewState extends State<SettingsView> {
             label: Text(l10n.mcpLazyLoadingViewLoadedAction),
           ),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: TextButton.icon(
@@ -5013,7 +5014,7 @@ class _SettingsViewState extends State<SettingsView> {
             },
           ),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _ResponsiveSettingRow(
           title: l10n.mcpLazyLoadingModeLabel,
           subtitle: l10n.mcpLazyLoadingModeBody,
@@ -5052,7 +5053,7 @@ class _SettingsViewState extends State<SettingsView> {
             ),
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _ResponsiveSettingRow(
           title: l10n.mcpLazyLoadingThresholdLabel,
           subtitle: l10n.mcpLazyLoadingThresholdBody,
@@ -5078,7 +5079,7 @@ class _SettingsViewState extends State<SettingsView> {
                 onSubmitted: (value) =>
                     _saveMcpLazyLoadingThreshold(context, value),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Align(
                 alignment: Alignment.centerLeft,
                 child: FilledButton.icon(
@@ -5096,7 +5097,7 @@ class _SettingsViewState extends State<SettingsView> {
             ],
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         FirstFramePulseBox(
           child: _buildHarnessToolSearchHistoryRow(
             context,
@@ -5104,7 +5105,7 @@ class _SettingsViewState extends State<SettingsView> {
             l10n,
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         FirstFramePulseBox(
           child: _buildToolSearchReplayCancelWindowRow(
             context,
@@ -7046,7 +7047,7 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
             onPersistenceFailure();
           },
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Container(
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           decoration: BoxDecoration(
@@ -7064,7 +7065,7 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
                     size: 18,
                     color: statusFg,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Text(
                       injects
@@ -7078,7 +7079,7 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Padding(
                 padding: const EdgeInsets.only(left: 26),
                 child: Text(
@@ -7092,7 +7093,7 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Align(
           alignment: AlignmentDirectional.centerStart,
           child: TextButton.icon(
@@ -7163,7 +7164,7 @@ class _McpKeywordIndexUpdateModeControl extends StatelessWidget {
             onPersistenceFailure();
           },
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         if (mode == McpKeywordIndexUpdateMode.interval)
           _McpKeywordIndexIntervalForm(
             settingsController: settingsController,
@@ -7286,7 +7287,7 @@ class _McpKeywordIndexIntervalFormState
             onEditingComplete: () => _saveValue(_valueController.text),
           ),
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         Expanded(
           flex: 3,
           child: AnimatedDropdownButtonFormField<McpKeywordIndexIntervalUnit>(
@@ -7372,7 +7373,7 @@ class _McpKeywordIndexScheduledForm extends StatelessWidget {
                   size: 18,
                   color: theme.colorScheme.primary,
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     l10n.mcpKeywordIndexScheduledLabel(scheduledTimeOfDay),
@@ -7385,7 +7386,7 @@ class _McpKeywordIndexScheduledForm extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         FilledButton.tonalIcon(
           onPressed: () => _pickTime(context),
           icon: const Icon(Icons.edit_calendar_outlined),
@@ -7416,7 +7417,7 @@ class _McpLazyLoadingHelpBanner extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(Icons.search_rounded, size: 18, color: colorScheme.primary),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Text(
               text,
@@ -7456,7 +7457,7 @@ class _ThrottleDisabledBadge extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.flash_off_rounded, size: 18, color: scheme.error),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: Text(
               message,
@@ -7529,7 +7530,7 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
             size: 14,
             color: color,
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Text(
             openHandLocalizedText(
               context,
@@ -7636,7 +7637,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
         Row(
           children: [
             Icon(Icons.compare_arrows_rounded, size: 20, color: scheme.primary),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Text(
                 openHandLocalizedText(
@@ -7653,7 +7654,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Text(
           openHandLocalizedText(
             context,
@@ -7668,7 +7669,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
             color: scheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Flexible(
           child: Container(
             decoration: BoxDecoration(
@@ -7714,7 +7715,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
                       size: 14,
                       color: scheme.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Expanded(
                       flex: 5,
                       child: Text(
@@ -7733,7 +7734,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
           ),
         ),
         if (showActions) ...[
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           Row(
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
@@ -7741,7 +7742,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
                 onPressed: () => Navigator.of(context).pop(false),
                 label: AppLocalizations.of(context)!.commonCancel,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               OpenHandDialogActionButton.primary(
                 onPressed: () => Navigator.of(context).pop(true),
                 label: openHandLocalizedText(
@@ -8099,7 +8100,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
                     );
                   },
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           if (providerEnum != ThrottleCloudSyncProvider.custom &&
               providerEnum != ThrottleCloudSyncProvider.gistGitHub)
             Container(
@@ -8129,7 +8130,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
                 ),
               ),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             TextField(
               controller: _endpointCtrl,
               focusNode: _endpointFocus,
@@ -8147,7 +8148,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
                 hintText: '83a1b9b0...',
               ),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             TextField(
               controller: _tokenCtrl,
               focusNode: _tokenFocus,
@@ -8185,7 +8186,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
                 hintText: 'https://example.com/openhand/throttle',
               ),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             TextField(
               controller: _tokenCtrl,
               focusNode: _tokenFocus,
@@ -8205,7 +8206,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -8243,7 +8244,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
             ],
           ),
           if (_status.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
               decoration: BoxDecoration(

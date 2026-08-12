@@ -21,6 +21,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
@@ -71,7 +72,7 @@ class CronsView extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Text(l10n.settingsCrons, style: theme.textTheme.displaySmall),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Text(
                     l10n.cronsViewDescription,
                     style: theme.textTheme.bodyLarge?.copyWith(
@@ -81,7 +82,7 @@ class CronsView extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            kOpenHandHGap16,
             Wrap(
               spacing: 12,
               runSpacing: 12,
@@ -104,7 +105,7 @@ class CronsView extends StatelessWidget {
           ],
         ),
         if (snapshot.errorMessage != null && entries.isNotEmpty) ...[
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           FeatureStateCard.inline(
             icon: Icons.error_outline_rounded,
             tone: FeatureStateTone.error,
@@ -112,7 +113,7 @@ class CronsView extends StatelessWidget {
             body: snapshot.errorMessage!,
           ),
         ],
-        const SizedBox(height: 24),
+        kOpenHandGap24,
         // 三种状态平滑切换，避免列表增删时跳变。
         Expanded(
           child: AnimatedSwitcher(
@@ -149,7 +150,7 @@ class CronsView extends StatelessWidget {
                         padding: const EdgeInsets.only(top: 2),
                         itemCount: entries.length,
                         separatorBuilder: (context, index) =>
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                         itemBuilder: (context, index) {
                           final entry = entries[index];
                           return AppearOnce(
@@ -277,7 +278,7 @@ class _CronEntryCard extends StatelessWidget {
             Row(
               children: [
                 _CronStatusDot(status: entry.status, enabled: entry.enabled),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -294,7 +295,7 @@ class _CronEntryCard extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                       ),
                       if (entry.description.isNotEmpty) ...[
-                        const SizedBox(height: 2),
+                        kOpenHandGap2,
                         Text(
                           entry.description,
                           style: theme.textTheme.bodySmall?.copyWith(
@@ -307,7 +308,7 @@ class _CronEntryCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Tooltip(
                   message: l10n.cronsCronExpressionTooltip,
                   child: Container(
@@ -329,12 +330,12 @@ class _CronEntryCard extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 OpenHandMetricChip(
                   label: '${entry.timeoutSeconds}s',
                   tooltip: l10n.cronsTimeoutTooltip,
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 if (entry.retryCount > 0) ...[
                   Tooltip(
                     message: l10n.cronsRetryCountTooltip,
@@ -355,7 +356,7 @@ class _CronEntryCard extends StatelessWidget {
                             size: 12,
                             color: colorScheme.onSurfaceVariant,
                           ),
-                          const SizedBox(width: 4),
+                          kOpenHandHGap4,
                           Text(
                             '${entry.retryCount}',
                             style: theme.textTheme.labelSmall?.copyWith(
@@ -366,7 +367,7 @@ class _CronEntryCard extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                 ],
                 Builder(
                   builder: (context) {
@@ -384,20 +385,20 @@ class _CronEntryCard extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 // 系统任务允许启停，但禁止编辑和删除以保持参数不可变。
                 IconButton(
                   icon: const Icon(Icons.bolt_rounded, size: 20),
                   tooltip: l10n.cronsRunOnceNow,
                   onPressed: entry.enabled ? onRunNow : null,
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 IconButton(
                   icon: const Icon(Icons.history_rounded, size: 20),
                   tooltip: l10n.cronsHistory,
                   onPressed: onHistory,
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 IconButton(
                   icon: Icon(
                     Icons.edit_outlined,
@@ -409,7 +410,7 @@ class _CronEntryCard extends StatelessWidget {
                   tooltip: l10n.commonEdit,
                   onPressed: entry.tags.contains('system') ? null : onEdit,
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 IconButton(
                   icon: Icon(
                     Icons.delete_outline_rounded,
@@ -424,7 +425,7 @@ class _CronEntryCard extends StatelessWidget {
               ],
             ),
             if (entry.tags.isNotEmpty || entry.lastRunAt != null) ...[
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Row(
                 children: [
                   if (entry.tags.isNotEmpty)
@@ -474,7 +475,7 @@ class _CronEntryCard extends StatelessWidget {
                     ),
                   _CronStatusChip(entry: entry),
                   if (entry.lastRunAt != null) ...[
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Text(
                       l10n.cronsLastRunAt(formatMonthDayHms(entry.lastRunAt!)),
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -770,7 +771,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 context,
                 message: _formError,
               ),
-              if (_formError != null) const SizedBox(height: 12),
+              if (_formError != null) kOpenHandGap12,
               TextField(
                 controller: _nameController,
                 decoration: InputDecoration(
@@ -778,7 +779,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   hintText: l10n.cronsFieldNameHint,
                 ),
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               TextField(
                 controller: _descriptionController,
                 decoration: InputDecoration(
@@ -786,9 +787,9 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   hintText: l10n.commonOptional,
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Text(l10n.cronsFieldType, style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               SegmentedButton<CronScriptType>(
                 segments: [
                   ButtonSegment(
@@ -807,7 +808,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   setState(() => _scriptType = selected.first);
                 },
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               if (_scriptType == CronScriptType.script) ...[
                 Row(
                   children: [
@@ -821,7 +822,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                         readOnly: true,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     FilledButton.tonal(
                       onPressed: _pickScriptFile,
                       child: Text(l10n.cronsBrowse),
@@ -853,9 +854,9 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   ),
                 ),
               ],
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Text(l10n.cronsCronSchedule, style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Row(
                 children: [
                   SizedBox(
@@ -881,18 +882,18 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   _cronField(_cronMinController, l10n.cronParserFieldMinute),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   _cronField(_cronHourController, l10n.cronParserFieldHour),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   _cronField(
                     _cronDomController,
                     l10n.cronParserFieldDayOfMonthShort,
                   ),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   _cronField(_cronMonController, l10n.cronParserFieldMonth),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   _cronField(
                     _cronDowController,
                     l10n.cronParserFieldDayOfWeekShort,
@@ -900,7 +901,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ],
               ),
               if (_cronError != null) ...[
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Text(
                   _cronError!,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -908,7 +909,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   ),
                 ),
               ],
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Text(
                 l10n.cronsCronScheduleHelper,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -916,14 +917,14 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   fontSize: 11,
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Row(
                 children: [
                   Text(
                     l10n.cronsTimeoutSeconds,
                     style: theme.textTheme.titleSmall,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   SizedBox(
                     width: 80,
                     child: TextField(
@@ -940,7 +941,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   ),
                   const SizedBox(width: 24),
                   Text(l10n.cronsRetries, style: theme.textTheme.titleSmall),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   SizedBox(
                     width: 60,
                     child: TextField(
@@ -960,7 +961,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     l10n.cronsMaxRetryDelaySeconds,
                     style: theme.textTheme.titleSmall,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   SizedBox(
                     width: 60,
                     child: TextField(
@@ -977,9 +978,9 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Text(l10n.cronsRunAsUser, style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               AnimatedDropdownButtonFormField<String>(
                 initialValue: _runAsUser,
                 decoration: InputDecoration(
@@ -997,7 +998,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ],
                 onChanged: (v) => setState(() => _runAsUser = v),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               TextField(
                 controller: _tagsController,
                 decoration: InputDecoration(
@@ -1005,7 +1006,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   hintText: l10n.cronsTagsHint,
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               TextField(
                 controller: _workingDirController,
                 decoration: InputDecoration(
@@ -1013,7 +1014,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   hintText: l10n.cronsWorkingDirectoryHint,
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               TextField(
                 controller: _envController,
                 maxLines: 3,
@@ -1033,14 +1034,14 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               Text(
                 l10n.cronsExecutionContextCollection,
                 style: theme.textTheme.titleMedium?.copyWith(
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Container(
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
                 decoration: BoxDecoration(
@@ -1080,7 +1081,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   ],
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Row(
                 children: [
                   Expanded(
@@ -1135,14 +1136,14 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                             size: 16,
                             color: colorScheme.onSurfaceVariant,
                           ),
-                          const SizedBox(width: 6),
+                          kOpenHandHGap6,
                           Text(
                             l10n.cronsTestNotification,
                             style: theme.textTheme.labelLarge?.copyWith(
                               color: colorScheme.onSurface,
                             ),
                           ),
-                          const SizedBox(width: 4),
+                          kOpenHandHGap4,
                           Icon(
                             Icons.arrow_drop_down_rounded,
                             size: 18,
@@ -1154,14 +1155,14 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Text(
                 l10n.cronsNotificationSettingsHelper,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               _notifyRow(
                 label: l10n.cronsOnSuccess,
                 notifyType: _onSuccessNotify,
@@ -1176,7 +1177,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 onVibrationChanged: (v) =>
                     setState(() => _onSuccessVibration = v),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               _notifyRow(
                 label: l10n.cronsOnFailure,
                 notifyType: _onFailureNotify,
@@ -1191,7 +1192,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 onVibrationChanged: (v) =>
                     setState(() => _onFailureVibration = v),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               _notifyRow(
                 label: l10n.cronsOnTimeout,
                 notifyType: _onTimeoutNotify,
@@ -1206,7 +1207,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 onVibrationChanged: (v) =>
                     setState(() => _onTimeoutVibration = v),
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               Row(
                 children: [
                   Text(l10n.cronsEnabled, style: theme.textTheme.titleSmall),
@@ -1256,7 +1257,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               onChanged: (_) => _validateCron(),
             ),
           ),
-          const SizedBox(height: 2),
+          kOpenHandGap2,
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -1305,7 +1306,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Row(
               children: [
                 Flexible(
@@ -1328,7 +1329,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     },
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Flexible(
                   child: AnimatedDropdownButtonFormField<CronNotifySeverity>(
                     initialValue: severity,
@@ -1349,7 +1350,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     },
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Tooltip(
                   message: _soundSupportTooltip(soundEnabled),
                   child: IconButton.filledTonal(
@@ -1363,7 +1364,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     visualDensity: VisualDensity.compact,
                   ),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 Tooltip(
                   message: _vibrationSupportTooltip(vibrationEnabled),
                   child: IconButton.filledTonal(
@@ -1379,7 +1380,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             TextField(
               controller: msgController,
               decoration: InputDecoration(
@@ -1391,7 +1392,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
               ),
             ),
             if (vibrationUnsupported) ...[
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               Text(
                 l10n.cronsVibrationUnsupportedHint,
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -1877,7 +1878,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                         : colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1909,7 +1910,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         subtitle,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -1919,7 +1920,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Switch(
                   value: value,
                   onChanged: onChanged,
@@ -2226,7 +2227,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                         shape: BoxShape.circle,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     Text(
                       statusLabel,
                       style: theme.textTheme.labelMedium?.copyWith(
@@ -2234,7 +2235,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Text(
                       formatYearMonthDayHms(record.startedAt),
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -2249,7 +2250,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                         fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     if (record.exitCode != null)
                       Text(
                         'exit: ${record.exitCode}',
@@ -2258,7 +2259,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                           fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                       ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Container(
                       padding: const EdgeInsets.symmetric(
                         horizontal: 6,
@@ -2282,7 +2283,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     IconButton(
                       icon: Icon(
                         Icons.delete_outline_rounded,
@@ -2301,7 +2302,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                       tooltip: l10n.cronsDeleteThisRecord,
                       onPressed: widget.onDelete,
                     ),
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                     AnimatedRotation(
                       turns: _expanded ? 0.5 : 0.0,
                       duration: _expanded
@@ -2388,7 +2389,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               colorScheme,
             ),
           if (record.environment.isNotEmpty) ...[
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             Text(
               l10n.cronsScriptEnvironmentOverrides,
               style: theme.textTheme.labelSmall?.copyWith(
@@ -2396,7 +2397,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 2),
+            kOpenHandGap2,
             ...record.environment.entries.map(
               (e) => Padding(
                 padding: const EdgeInsets.only(left: 8),
@@ -2419,7 +2420,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                 record.appContext.containsKey(
                   CronsController.hermesTalkerStatsKey,
                 )) ...[
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               _HermesTalkerHistoryPanel(appContext: record.appContext),
             ],
             ..._buildPlainAppContextSection(
@@ -2430,7 +2431,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             ),
           ],
           if (record.environmentSnapshot.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             _kvSection(
               title: l10n.cronsEnvironmentSnapshot,
               data: record.environmentSnapshot,
@@ -2441,7 +2442,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
           ],
           if (record.errorMessage != null &&
               record.errorMessage!.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               l10n.cronsErrorReason,
               style: theme.textTheme.labelSmall?.copyWith(
@@ -2449,7 +2450,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 2),
+            kOpenHandGap2,
             SelectableText(
               record.errorMessage!,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -2460,7 +2461,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             ),
           ],
           if (record.stdout.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               l10n.cronsStdout,
               style: theme.textTheme.labelSmall?.copyWith(
@@ -2468,7 +2469,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 2),
+            kOpenHandGap2,
             Container(
               width: double.infinity,
               constraints: const BoxConstraints(maxHeight: 200),
@@ -2494,7 +2495,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             ),
           ],
           if (record.stderr.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               l10n.cronsStderr,
               style: theme.textTheme.labelSmall?.copyWith(
@@ -2502,7 +2503,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 2),
+            kOpenHandGap2,
             Container(
               width: double.infinity,
               constraints: const BoxConstraints(maxHeight: 200),
@@ -2583,7 +2584,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
     };
     if (filtered.isEmpty) return const <Widget>[];
     return <Widget>[
-      const SizedBox(height: 8),
+      kOpenHandGap8,
       _kvSection(
         title: l10n.cronsExecutionContext,
         data: filtered,
@@ -2612,7 +2613,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             fontWeight: FontWeight.w600,
           ),
         ),
-        const SizedBox(height: 4),
+        kOpenHandGap4,
         Container(
           width: double.infinity,
           constraints: const BoxConstraints(maxHeight: 160),
@@ -2763,7 +2764,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
                   color: colorScheme.onPrimaryContainer,
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2800,7 +2801,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
               ),
             )
           else ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Text(
               l10n.cronsHermesAffectedSessions(reports.length),
               style: theme.textTheme.labelMedium?.copyWith(
@@ -2808,7 +2809,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
                 fontWeight: FontWeight.w600,
               ),
             ),
-            const SizedBox(height: 6),
+            kOpenHandGap6,
             ...reports.map(
               (r) => Padding(
                 padding: const EdgeInsets.only(bottom: 8),
@@ -3121,7 +3122,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: foreground),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -3172,7 +3173,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
                     color: colorScheme.onPrimaryContainer,
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Text(
                   '$title (${changes.length})',
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -3182,7 +3183,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             ...changes.map(
               (m) => _changeRow(
                 theme: theme,
@@ -3252,7 +3253,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
               ],
             ),
             if (heading != null) ...[
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               _hermesInlineMarkdown(
                 data: heading,
                 theme: theme,
@@ -3262,7 +3263,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
               ),
             ],
             if (details.isNotEmpty) ...[
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               ...details.map(
                 (line) => Padding(
                   padding: const EdgeInsets.only(top: 2),
@@ -3276,7 +3277,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
                 ),
               ),
             ] else if (heading == null) ...[
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               SelectableText(
                 fallback,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -3314,7 +3315,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: foreground),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -3484,7 +3485,7 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
                   size: 14,
                   color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   widget.title,
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -3507,7 +3508,7 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
                   ),
               ],
             ),
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             bodyWidget,
           ],
         ),

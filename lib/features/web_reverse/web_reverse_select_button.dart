@@ -4,6 +4,7 @@ import '../../shared/ui/animated_menu.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/oh_pill.dart';
+import '../../shared/ui/openhand_spacing.dart';
 
 class WebReverseSelectOption<T> {
   const WebReverseSelectOption({required this.value, required this.label});
@@ -69,7 +70,7 @@ class WebReverseSelectButton<T> extends StatelessWidget {
                   ),
                 ),
                 if (option.value == value) ...[
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Icon(Icons.check_rounded, size: 16, color: cs.primary),
                 ],
               ],
@@ -110,7 +111,7 @@ class WebReverseSelectButton<T> extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Icon(
               icon,
               size: dense ? 15 : 16,

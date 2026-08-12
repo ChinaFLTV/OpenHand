@@ -3126,7 +3126,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           activeProfile: widget.activeProfile,
           claudeStyle: widget.claudeStyle,
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         Expanded(
           child: ValueListenableBuilder<AiTtsPlaybackSnapshot>(
             valueListenable: widget.ttsPlaybackService.state,
@@ -3356,7 +3356,7 @@ class _TranscriptHydratingPlaceholder extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Text(
             label,
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -3494,7 +3494,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
                   color: colorScheme.onErrorContainer,
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -3506,7 +3506,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                     Text(
                       presentation.message,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -3517,7 +3517,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
                   ],
                 ),
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               OpenHandTapRegion(
                 onTap: _handleDismiss,
                 behavior: HitTestBehavior.opaque,
@@ -3533,7 +3533,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
             ],
           ),
           if (hasFullDetails) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Padding(
               padding: const EdgeInsets.only(left: 28),
               child: OpenHandTapRegion(
@@ -3772,7 +3772,7 @@ class _PendingCreationPlaceholderCardState
               );
             },
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
@@ -4226,7 +4226,7 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Icon(icon, size: 22, color: cs.onErrorContainer),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -4239,7 +4239,7 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
                         fontWeight: FontWeight.w600,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                     Text(
                       presentation.message,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -4250,7 +4250,7 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               IconButton(
                 key: ValueKey<String>(
                   'creation-failure-dismiss-${widget.error.id}',

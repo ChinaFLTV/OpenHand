@@ -11,6 +11,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
@@ -209,7 +210,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                     color: colors.onPrimaryContainer,
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -253,7 +254,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           SegmentedButton<DependencyDataView>(
             segments: const [
               ButtonSegment(
@@ -272,7 +273,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                 ? null
                 : (selection) => _changeView(selection.first),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Expanded(
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion220,
@@ -369,13 +370,13 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _DependencyNotice(
           connected: connected,
           message: controller.dependencyStatus?.postgresql.message ?? '未启用',
         ),
         if (connected) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _SurfaceSection(
             title: '数据表与记录',
             icon: Icons.table_rows_rounded,
@@ -481,7 +482,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                       );
                     },
                   ),
-                if (tables.isNotEmpty) const SizedBox(height: 12),
+                if (tables.isNotEmpty) kOpenHandGap12,
                 if (rows.isEmpty)
                   const _EmptyState(
                     icon: Icons.inbox_outlined,
@@ -519,7 +520,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                         )
                         .toList(growable: false),
                   ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 _PaginationBar(
                   summary: '共 $total 条',
                   page: '${_postgresOffset ~/ 50 + 1}',
@@ -622,13 +623,13 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _DependencyNotice(
           connected: connected,
           message: controller.dependencyStatus?.redis.message ?? '未启用',
         ),
         if (connected) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _SurfaceSection(
             title: '键值与 TTL',
             icon: Icons.key_rounded,
@@ -694,7 +695,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                         )
                         .toList(growable: false),
                   ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 _PaginationBar(
                   summary: '游标 ${_redisCursorHistory.last}',
                   onPrevious: _redisCursorHistory.length <= 1 || _busy
@@ -1036,7 +1037,7 @@ class _TelemetryTileState extends State<_TelemetryTile> {
                       Row(
                         children: [
                           Icon(widget.icon, size: 18, color: widget.color),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Expanded(
                             child: Text(
                               widget.label,
@@ -1070,7 +1071,7 @@ class _TelemetryTileState extends State<_TelemetryTile> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      kOpenHandGap3,
                       Text(
                         widget.detail,
                         maxLines: 2,
@@ -1115,7 +1116,7 @@ class _DependencyNotice extends StatelessWidget {
             connected ? Icons.check_circle_rounded : Icons.link_off_rounded,
             color: color,
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(child: Text(message)),
           Text(
             connected ? '已就绪' : '未连接',
@@ -1163,20 +1164,20 @@ class _SurfaceSection extends StatelessWidget {
                       Row(
                         children: [
                           Icon(icon),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Text(title, style: theme.textTheme.titleMedium),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                       trailing,
                     ],
                   )
                 : Row(
                     children: [
                       Icon(icon),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       Text(title, style: theme.textTheme.titleMedium),
-                      const SizedBox(width: 16),
+                      kOpenHandHGap16,
                       Expanded(
                         child: Align(
                           alignment: AlignmentDirectional.centerEnd,
@@ -1186,7 +1187,7 @@ class _SurfaceSection extends StatelessWidget {
                     ],
                   ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           child,
         ],
       ),
@@ -1212,7 +1213,7 @@ class _SurfaceToolbar extends StatelessWidget {
       Flexible(
         child: SizedBox(width: fieldWidth, child: field),
       ),
-      for (final action in actions) ...[const SizedBox(width: 8), action],
+      for (final action in actions) ...[kOpenHandHGap8, action],
     ],
   );
 }
@@ -1329,7 +1330,7 @@ class _DataRecordTile extends StatelessWidget {
             fontWeight: FontWeight.w700,
           ),
         ),
-        const SizedBox(height: 2),
+        kOpenHandGap2,
         Text(
           subtitle,
           maxLines: 2,
@@ -1411,7 +1412,7 @@ class _DataRecordTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               leading,
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(child: details),
             ],
           );
@@ -1420,7 +1421,7 @@ class _DataRecordTile extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 content,
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Align(
                   alignment: AlignmentDirectional.centerEnd,
                   child: actions,
@@ -1432,7 +1433,7 @@ class _DataRecordTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: content),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               actions,
             ],
           );
@@ -1523,7 +1524,7 @@ class _QueryConsole extends StatelessWidget {
             border: OutlineInputBorder(),
           ),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Align(
           alignment: AlignmentDirectional.centerEnd,
           child: FilledButton.icon(
@@ -1534,7 +1535,7 @@ class _QueryConsole extends StatelessWidget {
           ),
         ),
         if (rows.isNotEmpty) ...[
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 280),
             child: SingleChildScrollView(
@@ -1566,7 +1567,7 @@ class _EmptyState extends StatelessWidget {
     child: Column(
       children: [
         Icon(icon, size: 32, color: Theme.of(context).colorScheme.outline),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Text(label),
       ],
     ),

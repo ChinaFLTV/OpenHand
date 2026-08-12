@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../model/dependency_telemetry.dart';
 import '../services_controller.dart';
@@ -2067,11 +2068,11 @@ class _MetricDialogHeader extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        kOpenHandHGap10,
                         _StatusTag(label: '遥测详情', color: tone),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                     Text(
                       kind.subtitle,
                       maxLines: 1,
@@ -2090,7 +2091,7 @@ class _MetricDialogHeader extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 identity,
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Align(alignment: Alignment.centerRight, child: actions),
               ],
             );
@@ -2168,7 +2169,7 @@ class _MetricRangeBar extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     range,
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     Align(
                       alignment: AlignmentDirectional.centerEnd,
                       child: stamp,
@@ -2178,7 +2179,7 @@ class _MetricRangeBar extends StatelessWidget {
               : Row(
                   children: [
                     Expanded(child: range),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Flexible(
                       child: Align(
                         alignment: AlignmentDirectional.centerEnd,
@@ -2223,7 +2224,7 @@ class _MetricLoadState extends StatelessWidget {
                 size: 42,
                 color: error == null ? colors.onSurfaceVariant : colors.error,
               ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Text(
               loading
                   ? '正在加载遥测数据'
@@ -2233,7 +2234,7 @@ class _MetricLoadState extends StatelessWidget {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             if (!loading) ...[
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               Text(
                 error ?? '服务连接后将在此展示监控详情。',
                 textAlign: TextAlign.center,
@@ -2243,7 +2244,7 @@ class _MetricLoadState extends StatelessWidget {
                   context,
                 ).textTheme.bodySmall?.copyWith(color: colors.onSurfaceVariant),
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               FilledButton.icon(
                 onPressed: onReload,
                 icon: const Icon(Icons.refresh_rounded),
@@ -2302,7 +2303,7 @@ class _MetricSection extends StatelessWidget {
                   ),
                   child: Icon(icon, size: 18, color: colors.primary),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2313,7 +2314,7 @@ class _MetricSection extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         subtitle,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -2323,7 +2324,7 @@ class _MetricSection extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+                if (trailing != null) ...[kOpenHandHGap10, trailing!],
               ],
             ),
             const SizedBox(height: 15),
@@ -2490,7 +2491,7 @@ class _KpiStrip extends StatelessWidget {
                                     color: colors.onSurfaceVariant,
                                   ),
                                 ),
-                                const SizedBox(height: 3),
+                                kOpenHandGap3,
                                 Text(
                                   item.value,
                                   maxLines: 1,
@@ -2537,7 +2538,7 @@ class _InlineNotice extends StatelessWidget {
     child: Row(
       children: [
         Icon(icon, size: 18, color: color),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Expanded(
           child: Text(label, style: Theme.of(context).textTheme.bodySmall),
         ),
@@ -2563,7 +2564,7 @@ class _InlineUnavailable extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.data_array_rounded, color: colors.outline, size: 30),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 label,
                 textAlign: TextAlign.center,
@@ -2601,7 +2602,7 @@ class _StatusTag extends StatelessWidget {
           height: 6,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         Text(
           label,
           maxLines: 1,
@@ -2677,7 +2678,7 @@ class _ConnectionCapacityHero extends StatelessWidget {
                     color: riskColor,
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2697,7 +2698,7 @@ class _ConnectionCapacityHero extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 _StatusTag(label: riskLabel, color: riskColor),
               ],
             );
@@ -2714,7 +2715,7 @@ class _ConnectionCapacityHero extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 ClipRRect(
                   borderRadius: kServiceRadiusPill,
                   child: ServiceAnimatedProgressBar(
@@ -2763,7 +2764,7 @@ class _ConnectionCapacityHero extends StatelessWidget {
             final body = constraints.maxWidth < 620
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [usage, const SizedBox(height: 16), facts],
+                    children: [usage, kOpenHandGap16, facts],
                   )
                 : Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2775,7 +2776,7 @@ class _ConnectionCapacityHero extends StatelessWidget {
                   );
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [header, const SizedBox(height: 18), body],
+              children: [header, kOpenHandGap18, body],
             );
           },
         ),
@@ -2831,13 +2832,13 @@ class _MemoryRiskHero extends StatelessWidget {
               Row(
                 children: [
                   Icon(Icons.memory_rounded, color: riskColor),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Text('内存风险', style: theme.textTheme.titleMedium),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   _StatusTag(label: riskLabel, color: riskColor),
                 ],
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 formatByteSize(used),
                 style: theme.textTheme.headlineSmall?.copyWith(
@@ -2872,7 +2873,7 @@ class _MemoryRiskHero extends StatelessWidget {
           if (constraints.maxWidth < 620) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [title, const SizedBox(height: 14), facts],
+              children: [title, kOpenHandGap14, facts],
             );
           }
           return Row(
@@ -2966,14 +2967,14 @@ class _ThroughputHero extends StatelessWidget {
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 620) {
-          return Column(children: [current, const SizedBox(height: 10), facts]);
+          return Column(children: [current, kOpenHandGap10, facts]);
         }
         return IntrinsicHeight(
           child: Row(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               Expanded(flex: 2, child: current),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(flex: 3, child: facts),
             ],
           ),
@@ -3061,13 +3062,13 @@ class _NetworkDirectionHeader extends StatelessWidget {
       ];
       if (constraints.maxWidth < 520) {
         return Column(
-          children: [cards.first, const SizedBox(height: 10), cards.last],
+          children: [cards.first, kOpenHandGap10, cards.last],
         );
       }
       return Row(
         children: [
           Expanded(child: cards.first),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(child: cards.last),
         ],
       );
@@ -3106,7 +3107,7 @@ class _DirectionMetric extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, color: color, size: 28),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3155,7 +3156,7 @@ class _HeroFact extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 3),
+          kOpenHandGap3,
           Text(
             value,
             maxLines: 1,
@@ -3444,7 +3445,7 @@ class _UsageRail extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         ClipRRect(
           borderRadius: kServiceRadiusPill,
           child: ServiceAnimatedProgressBar(
@@ -3523,7 +3524,7 @@ class _OperationalSummary extends StatelessWidget {
                       borderRadius: BorderRadius.circular(2),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   Expanded(
                     child: Text(
                       items[index].label,
@@ -3532,7 +3533,7 @@ class _OperationalSummary extends StatelessWidget {
                       style: TextStyle(color: colors.onSurfaceVariant),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Flexible(
                     child: Text(
                       items[index].value,
@@ -3637,7 +3638,7 @@ class _AnomalyTimeline extends StatelessWidget {
                       ),
                   ],
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Padding(
                     padding: const EdgeInsets.only(bottom: 12),
@@ -3714,7 +3715,7 @@ class _CompactRecordList extends StatelessWidget {
               ).textTheme.labelSmall?.copyWith(color: colors.onSurfaceVariant),
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
         ],
         for (var index = 0; index < records.length; index++) ...[
           if (index > 0)
@@ -3754,7 +3755,7 @@ class _CompactRecordList extends StatelessWidget {
                   trailing(records[index]),
                   style: const TextStyle(fontWeight: FontWeight.w700),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 const Icon(Icons.chevron_right_rounded, size: 19),
               ],
             ),
@@ -3861,13 +3862,13 @@ class _RedisHitGauge extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             _GaugeFact(label: '累计命中', value: _compactCount(hits), color: tone),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             _GaugeFact(
               label: '累计未命中',
               value: _compactCount(misses),
               color: colors.error,
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             _GaugeFact(
               label: '总请求',
               value: _compactCount(hits + misses),
@@ -3876,7 +3877,7 @@ class _RedisHitGauge extends StatelessWidget {
           ],
         );
         return constraints.maxWidth < 600
-            ? Column(children: [gauge, const SizedBox(height: 10), facts])
+            ? Column(children: [gauge, kOpenHandGap10, facts])
             : Row(
                 children: [
                   Expanded(child: gauge),
@@ -3906,7 +3907,7 @@ class _GaugeFact extends StatelessWidget {
         height: 8,
         decoration: BoxDecoration(color: color, shape: BoxShape.circle),
       ),
-      const SizedBox(width: 8),
+      kOpenHandHGap8,
       Expanded(child: Text(label)),
       Text(value, style: const TextStyle(fontWeight: FontWeight.w800)),
     ],

@@ -299,7 +299,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
                 ),
             ],
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           SelectableText(
             value.isEmpty ? '—' : value,
             style: TextStyle(

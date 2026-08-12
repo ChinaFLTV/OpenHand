@@ -15,6 +15,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -672,7 +673,7 @@ class _WsDialogState extends State<_WsDialog> {
                         ),
                         style: Theme.of(ctx).textTheme.labelSmall,
                       ),
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       Row(
                         children: [
                           Expanded(
@@ -716,7 +717,7 @@ class _WsDialogState extends State<_WsDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
                       Text(
                         openHandLocalizedText(
                           ctx,
@@ -924,7 +925,7 @@ class _WsDialogState extends State<_WsDialog> {
                                         fontSize: 11,
                                       ),
                                     ),
-                                    const SizedBox(height: 4),
+                                    kOpenHandGap4,
                                     Text(
                                       openHandLocalizedText(
                                         context,
@@ -1046,7 +1047,7 @@ class _WsDialogState extends State<_WsDialog> {
                                                         ? cs.primary
                                                         : cs.tertiary,
                                                   ),
-                                                  const SizedBox(width: 6),
+                                                  kOpenHandHGap6,
                                                   Text(
                                                     _opName(f.opcode),
                                                     style: TextStyle(
@@ -1074,7 +1075,7 @@ class _WsDialogState extends State<_WsDialog> {
                                                   ),
                                                 ],
                                               ),
-                                              const SizedBox(height: 4),
+                                              kOpenHandGap4,
                                               SelectableText(
                                                 clipTextByCodeUnits(
                                                   f.payload,
@@ -1132,7 +1133,7 @@ class _WsDialogState extends State<_WsDialog> {
                                                         // 直接重发=编辑窗预填，用户点发送即可；
                                                         // 若想免确认重发可改成 _replaySingle
                                                       ),
-                                                      const SizedBox(width: 6),
+                                                      kOpenHandHGap6,
                                                       _MiniFrameAction(
                                                         icon:
                                                             Icons.edit_rounded,
@@ -1152,7 +1153,7 @@ class _WsDialogState extends State<_WsDialog> {
                                                                     f.payload,
                                                                   ),
                                                       ),
-                                                      const SizedBox(width: 6),
+                                                      kOpenHandHGap6,
                                                       _MiniFrameAction(
                                                         icon: Icons
                                                             .bug_report_rounded,

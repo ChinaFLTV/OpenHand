@@ -6,6 +6,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import 'service_dialog_controls.dart';
 
 const List<String> _kRedisTypes = <String>[
@@ -130,7 +131,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
         Row(
           children: [
             const Icon(Icons.key_rounded),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(
               child: Text(
                 widget.record == null ? '新增 Redis 键' : '编辑 Redis 键',
@@ -144,7 +145,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         TextField(
           controller: _key,
           readOnly: widget.record != null,
@@ -156,7 +157,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
             border: OutlineInputBorder(),
           ),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         LayoutBuilder(
           builder: (context, constraints) {
             final typeField = AnimatedDropdownButtonFormField<String>(
@@ -201,19 +202,19 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
             if (constraints.maxWidth < _kRedisMetadataCompactBreakpoint) {
               return Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
-                children: [typeField, const SizedBox(height: 12), ttlField],
+                children: [typeField, kOpenHandGap12, ttlField],
               );
             }
             return Row(
               children: [
                 Expanded(child: typeField),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(child: ttlField),
               ],
             );
           },
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Expanded(
           child: OpenHandContentStateSwitcher(
             stateKey: _type,
@@ -222,7 +223,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
           ),
         ),
         OpenHandDialogErrorText(message: _error, topGap: 8),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         Wrap(
           alignment: WrapAlignment.end,
           spacing: 10,
@@ -285,7 +286,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
         selected: {_jsonRootMode},
         onSelectionChanged: (selection) => _changeJsonMode(selection.first),
       ),
-      const SizedBox(height: 10),
+      kOpenHandGap10,
       Expanded(
         child: OpenHandContentStateSwitcher(
           stateKey: _jsonRootMode.name,
@@ -823,7 +824,7 @@ class _RedisStructuredPanel extends StatelessWidget {
             child: Row(
               children: [
                 Icon(icon, size: 20, color: colors.primary),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     title,
@@ -838,7 +839,7 @@ class _RedisStructuredPanel extends StatelessWidget {
                     color: colors.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 ServiceDialogCompactIconButton(
                   tooltip: addTooltip,
                   onPressed: onAdd,
@@ -862,7 +863,7 @@ class _RedisStructuredPanel extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     physics: const ClampingScrollPhysics(),
                     itemCount: itemCount,
-                    separatorBuilder: (_, _) => const SizedBox(height: 10),
+                    separatorBuilder: (_, _) => kOpenHandGap10,
                     itemBuilder: itemBuilder,
                   ),
           ),
@@ -934,7 +935,7 @@ class _RedisTextEntryRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               field,
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Align(alignment: AlignmentDirectional.centerEnd, child: actions),
             ],
           );
@@ -942,7 +943,7 @@ class _RedisTextEntryRow extends StatelessWidget {
         return Row(
           children: [
             Expanded(child: field),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             actions,
           ],
         );
@@ -1008,7 +1009,7 @@ class _RedisPairEntryRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               first,
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               second,
               Align(alignment: AlignmentDirectional.centerEnd, child: remove),
             ],
@@ -1017,9 +1018,9 @@ class _RedisPairEntryRow extends StatelessWidget {
         return Row(
           children: [
             Expanded(child: first),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(child: second),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             remove,
           ],
         );
@@ -1119,9 +1120,9 @@ class _RedisJsonEntryRow extends StatelessWidget {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
-              if (showKey) ...[keyField, const SizedBox(height: 10)],
+              if (showKey) ...[keyField, kOpenHandGap10],
               typeField,
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               valueField,
               Align(alignment: AlignmentDirectional.centerEnd, child: remove),
             ],
@@ -1131,12 +1132,12 @@ class _RedisJsonEntryRow extends StatelessWidget {
           children: [
             if (showKey) ...[
               Expanded(flex: 4, child: keyField),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
             ],
             SizedBox(width: 118, child: typeField),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(flex: 5, child: valueField),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             remove,
           ],
         );

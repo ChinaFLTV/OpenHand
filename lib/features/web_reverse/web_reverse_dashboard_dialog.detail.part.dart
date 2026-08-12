@@ -144,7 +144,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: SizedBox(
               height: 32,
@@ -162,7 +162,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
               ),
             ),
           ),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           SizedBox(
             width: 32,
             height: 32,
@@ -193,7 +193,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
               ),
             ),
           ),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           SizedBox(
             width: 32,
             height: 32,
@@ -281,7 +281,7 @@ class _RequestDetailPanelState extends State<_RequestDetailPanel> {
                 active: _tab == t,
                 onTap: () => setState(() => _tab = t),
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
             ],
           ],
         ),
@@ -517,7 +517,7 @@ class _HeadersTab extends StatelessWidget {
           ),
           rows: general,
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _HeaderSection(
           title: openHandLocalizedText(
             context,
@@ -532,7 +532,7 @@ class _HeadersTab extends StatelessWidget {
               .map((e) => (e.key, e.value))
               .toList(growable: false),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _HeaderSection(
           title: openHandLocalizedText(
             context,
@@ -549,7 +549,7 @@ class _HeadersTab extends StatelessWidget {
         ),
         if (entry.requestPostData != null &&
             entry.requestPostData!.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Text(
             openHandLocalizedText(
               context,
@@ -565,7 +565,7 @@ class _HeadersTab extends StatelessWidget {
               color: cs.primary,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           _CodeBlock(text: entry.requestPostData!),
         ],
       ],
@@ -598,7 +598,7 @@ class _HeaderSection extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         if (rows.isEmpty)
           Padding(
             padding: const EdgeInsets.all(6),
@@ -733,7 +733,7 @@ class _BodyTab extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             Text(
               openHandLocalizedText(
                 context,
@@ -749,7 +749,7 @@ class _BodyTab extends StatelessWidget {
                 color: cs.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Expanded(child: _CodeBlock(text: text!)),
           ],
         ),
@@ -850,7 +850,7 @@ class _InitiatorTab extends StatelessWidget {
             color: cs.primary,
           ),
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         _MetaRow(label: openHandTypeLabel(context), value: type),
         if (initUrl.isNotEmpty)
           _ClickableSourceRow(
@@ -874,7 +874,7 @@ class _InitiatorTab extends StatelessWidget {
             ),
             value: '${initLine + 1}',
           ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         Text(
           openHandLocalizedText(
             context,
@@ -890,7 +890,7 @@ class _InitiatorTab extends StatelessWidget {
             color: cs.primary,
           ),
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         if (stack.isEmpty)
           Text(
             openHandLocalizedText(
@@ -909,7 +909,7 @@ class _InitiatorTab extends StatelessWidget {
         else
           for (final frame in stack)
             _StackFrame(frame: frame, onJump: _jumpToSource, isZh: isZh),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         // Request Initiator Chain：重定向链按时间顺序展示，与 Chrome
         // DevTools 同名区段对齐。每一跳显示状态码 + URL + 跳转时间。
         Text(
@@ -927,7 +927,7 @@ class _InitiatorTab extends StatelessWidget {
             color: cs.primary,
           ),
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         if (chain.isEmpty)
           Text(
             openHandLocalizedText(
@@ -1289,7 +1289,7 @@ class _TimingTab extends StatelessWidget {
             color: cs.primary,
           ),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         if (phases == null)
           Text(
             openHandLocalizedText(
@@ -1308,7 +1308,7 @@ class _TimingTab extends StatelessWidget {
           )
         else
           _TimingWaterfall(phases: phases),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         Text(
           openHandLocalizedText(
             context,
@@ -1324,7 +1324,7 @@ class _TimingTab extends StatelessWidget {
             color: cs.primary,
           ),
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         _MetaRow(
           label: openHandLocalizedText(
             context,
@@ -1680,7 +1680,7 @@ class _TimingWaterfall extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   SizedBox(
                     width: durW,
                     child: Text(
@@ -1701,9 +1701,9 @@ class _TimingWaterfall extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.stretch,
             children: [
               for (final p in phases) row(p),
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               Divider(height: 1, color: cs.outlineVariant),
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Row(
                 children: [
                   const SizedBox(width: 130),
@@ -1716,7 +1716,7 @@ class _TimingWaterfall extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   SizedBox(
                     width: 80,
                     child: Text(
@@ -1918,7 +1918,7 @@ class _MessagesTab extends StatelessWidget {
                       size: 14,
                       color: onColor,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Text(
                       _opcodeLabel(f.opcode),
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -1927,7 +1927,7 @@ class _MessagesTab extends StatelessWidget {
                         fontWeight: FontWeight.w700,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Text(
                       ts,
                       style: theme.textTheme.labelSmall?.copyWith(
@@ -1945,7 +1945,7 @@ class _MessagesTab extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 SelectableText(
                   f.errorMessage ?? f.payload,
                   maxLines: 8,
@@ -2025,7 +2025,7 @@ class _ImageInlinePreview extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.image_rounded, size: 16, color: cs.primary),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 openHandLocalizedText(
                   context,
@@ -2042,7 +2042,7 @@ class _ImageInlinePreview extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Expanded(
             child: Center(
               child: OpenHandTapRegion(
@@ -2120,7 +2120,7 @@ class _MediaInlinePreview extends StatelessWidget {
                 size: 16,
                 color: cs.primary,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: Text(
                   fallbackName.isEmpty ? entry.url : fallbackName,
@@ -2132,7 +2132,7 @@ class _MediaInlinePreview extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               FilledButton.tonalIcon(
                 onPressed: () => webReverseToolDialogs.show<void>(
                   context: context,
@@ -2161,7 +2161,7 @@ class _MediaInlinePreview extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           // 紧凑播放器：直接走 MediaPreviewDialog.network 的核心 surface。
           // 这里我们简化为弹大图的入口已存在，inline 仅给一个引导 banner，
           // 避免对外置 Chrome 网络鉴权（Referer/Cookie）做无意义的二次 fetch。

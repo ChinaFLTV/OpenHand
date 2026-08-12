@@ -20,6 +20,7 @@ import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/bounded_file_io.dart';
@@ -197,7 +198,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                                 color: colors.onPrimaryContainer,
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            kOpenHandHGap12,
                             Expanded(
                               child: Column(
                                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -245,13 +246,13 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                           icon: const Icon(Icons.close_rounded),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
                       _ProxyPoolOverview(
                         endpoints: _endpoints,
                         statusStatistics: statusStatistics,
                         inFlight: status?.inFlight ?? 0,
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
                       _buildSettingsPanel(
                         context,
                         controllerInspectionBusy: controllerInspectionBusy,
@@ -260,7 +261,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                         activeCount: activeCount,
                         systemProxyAvailable: controller.systemProxyAvailable,
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
                       DecoratedBox(
                         decoration: BoxDecoration(
                           color: colors.surface,
@@ -279,7 +280,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                         ),
                       ),
                       if (_inspectionBusy) ...[
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                         Row(
                           children: [
                             Expanded(
@@ -293,7 +294,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            kOpenHandHGap10,
                             Text(
                               '$_inspectionCompleted/$_inspectionTotal',
                               style: theme.textTheme.labelMedium,
@@ -301,7 +302,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                           ],
                         ),
                       ],
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                     ],
                   ),
                   SliverToBoxAdapter(
@@ -746,7 +747,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                 _enabled ? Icons.vpn_lock_rounded : Icons.public_rounded,
                 color: _enabled ? colors.primary : colors.onSurfaceVariant,
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -769,7 +770,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                   ],
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Switch(
                 value: _enabled,
                 onChanged: (value) => setState(() => _enabled = value),
@@ -786,7 +787,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final strategy =
@@ -817,7 +818,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                             onChanged: (value) =>
                                 setState(() => _bypassLocal = value == true),
                           ),
-                          const SizedBox(width: 6),
+                          kOpenHandHGap6,
                           Expanded(
                             child: Text(
                               text(zh: '本地与私网直连', en: 'Bypass local networks'),
@@ -829,7 +830,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                         return Column(
                           children: [
                             strategy,
-                            const SizedBox(height: 8),
+                            kOpenHandGap8,
                             bypass,
                           ],
                         );
@@ -843,7 +844,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                       );
                     },
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Text(
                     text(
                       zh: '每 ${_rotationEvery.round()} 次请求轮换',
@@ -904,7 +905,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                     onChanged: (value) =>
                         setState(() => _inspectionEnabled = value),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Flexible(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1009,7 +1010,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     toggle,
-                    const SizedBox(height: 10),
+                    kOpenHandGap10,
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -1023,11 +1024,11 @@ class _ProxyDialogState extends State<_ProxyDialog> {
               return Row(
                 children: [
                   Expanded(child: toggle),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   interval,
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   concurrency,
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   inspect,
                 ],
               );
@@ -1333,13 +1334,13 @@ class _ProxyDialogState extends State<_ProxyDialog> {
         if (constraints.maxWidth < 720) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.stretch,
-            children: [summary, const SizedBox(height: 8), actions],
+            children: [summary, kOpenHandGap8, actions],
           );
         }
         return Row(
           children: [
             Expanded(child: summary),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(flex: 2, child: actions),
           ],
         );
@@ -1924,7 +1925,7 @@ class _ProxyAverageResponseDialogState
                   alignment: Alignment.center,
                   child: Icon(Icons.av_timer_rounded, color: colors.tertiary),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1970,7 +1971,7 @@ class _ProxyAverageResponseDialogState
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Flexible(
             child: ListView(
               shrinkWrap: true,
@@ -1978,7 +1979,7 @@ class _ProxyAverageResponseDialogState
               children: [
                 if (_error != null) ...[
                   _ProxyTelemetryNotice(message: _error!),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                 ],
                 _ProxyTelemetrySection(
                   icon: Icons.show_chart_rounded,
@@ -2041,7 +2042,7 @@ class _ProxyAverageResponseDialogState
                           ],
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                       Text(
                         text(
                           zh: '双指缩放可调整时间范围和粒度，默认粒度为 5 分钟。',
@@ -2245,7 +2246,7 @@ class _ProxyPoolOverview extends StatelessWidget {
                 color: colors.primary,
               ),
             ),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(
               child: Text(
                 text(zh: '代理池实时运维', en: 'Proxy pool operations'),
@@ -2262,7 +2263,7 @@ class _ProxyPoolOverview extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth < 700) {
@@ -2272,7 +2273,7 @@ class _ProxyPoolOverview extends StatelessWidget {
                   scrollDirection: Axis.horizontal,
                   physics: openHandDialogAwareScrollPhysics(context),
                   itemCount: metrics.length,
-                  separatorBuilder: (_, _) => const SizedBox(width: 8),
+                  separatorBuilder: (_, _) => kOpenHandHGap8,
                   itemBuilder: (context, index) => SizedBox(
                     width: 154,
                     child: _ProxyPoolMetricTile(data: metrics[index]),
@@ -2349,7 +2350,7 @@ class _ProxyPoolMetricTile extends StatelessWidget {
             Row(
               children: [
                 Icon(data.icon, size: 16, color: data.color),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Expanded(
                   child: Text(
                     data.label,
@@ -2623,7 +2624,7 @@ class _ProxyRequestTelemetryDialogState
                   alignment: Alignment.center,
                   child: Icon(Icons.query_stats_rounded, color: colors.primary),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2661,7 +2662,7 @@ class _ProxyRequestTelemetryDialogState
                         )
                       : const Icon(Icons.refresh_rounded),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 ServiceDialogHeaderIconButton(
                   tooltip: MaterialLocalizations.of(context).closeButtonTooltip,
                   onPressed: () => Navigator.of(context).maybePop(),
@@ -2670,14 +2671,14 @@ class _ProxyRequestTelemetryDialogState
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Expanded(
             child: ListView(
               physics: openHandDialogAwareScrollPhysics(context),
               children: [
                 if (_error != null) ...[
                   _ProxyTelemetryNotice(message: _error!),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                 ],
                 _ProxyTelemetrySection(
                   icon: Icons.donut_large_rounded,
@@ -2698,7 +2699,7 @@ class _ProxyRequestTelemetryDialogState
                     timeouts: timeouts,
                   ),
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 _ProxyTelemetrySection(
                   icon: Icons.stacked_line_chart_rounded,
                   title: text(zh: '请求趋势', en: 'Request trend'),
@@ -2761,7 +2762,7 @@ class _ProxyRequestTelemetryDialogState
                           ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       SizedBox(
                         height: 210,
                         child: Stack(
@@ -2790,7 +2791,7 @@ class _ProxyRequestTelemetryDialogState
                     ],
                   ),
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 _ProxyTelemetrySection(
                   icon: Icons.receipt_long_outlined,
                   title: text(zh: '最近请求明细', en: 'Recent request details'),
@@ -2810,7 +2811,7 @@ class _ProxyRequestTelemetryDialogState
                         records: _records,
                         loading: _loading,
                       ),
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                       Wrap(
                         alignment: WrapAlignment.end,
                         spacing: 8,
@@ -2897,7 +2898,7 @@ class _ProxyTelemetrySection extends StatelessWidget {
               if (trailing != null) ...[const Spacer(), trailing!],
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           child,
         ],
       ),
@@ -2927,7 +2928,7 @@ class _ProxyTelemetryNotice extends StatelessWidget {
           size: 18,
           color: OpenHandStatusColors.error,
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Expanded(child: Text(message)),
       ],
     ),
@@ -3014,7 +3015,7 @@ class _ProxyRequestDistribution extends StatelessWidget {
           ],
         );
         if (constraints.maxWidth < 520) {
-          return Column(children: [donut, const SizedBox(height: 12), legend]);
+          return Column(children: [donut, kOpenHandGap12, legend]);
         }
         return Row(
           crossAxisAlignment: CrossAxisAlignment.end,
@@ -3356,7 +3357,7 @@ class _ProxyPoolChartPanel extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 16, color: colors.primary),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 title,
                 style: theme.textTheme.labelMedium?.copyWith(
@@ -3365,7 +3366,7 @@ class _ProxyPoolChartPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Expanded(child: child),
         ],
       ),
@@ -3756,7 +3757,7 @@ class _ProxyDetailTrendTooltip extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 3),
+            kOpenHandGap3,
             Text(
               _dateTimeLabel(point.at),
               maxLines: 1,
@@ -3961,7 +3962,7 @@ class _ProxyEndpointDetailsDialogState
                   ),
                   child: Icon(Icons.dns_outlined, color: tone.color),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -4026,7 +4027,7 @@ class _ProxyEndpointDetailsDialogState
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -4068,7 +4069,7 @@ class _ProxyEndpointDetailsDialogState
                 ),
             ],
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Expanded(
             child: SingleChildScrollView(
               physics: openHandDialogAwareScrollPhysics(context),
@@ -4076,9 +4077,9 @@ class _ProxyEndpointDetailsDialogState
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _buildProbeSection(context),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _buildIdentitySection(context),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final metrics = <_ProxyPoolMetricData>[
@@ -4170,11 +4171,11 @@ class _ProxyEndpointDetailsDialogState
                       );
                     },
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _buildCharts(context, statistics),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _buildHttpDistribution(context, statistics),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _buildRecentRequests(context, statistics),
                 ],
               ),
@@ -4514,7 +4515,7 @@ class _ProxyEndpointDetailsDialogState
                             )
                             .toList(growable: false),
                       ),
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -4647,13 +4648,13 @@ class _ProxyEndpointDetailsDialogState
       builder: (context, constraints) {
         if (constraints.maxWidth < 680) {
           return Column(
-            children: [requestChart, const SizedBox(height: 8), probeChart],
+            children: [requestChart, kOpenHandGap8, probeChart],
           );
         }
         return Row(
           children: [
             Expanded(child: requestChart),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(child: probeChart),
           ],
         );
@@ -4723,7 +4724,7 @@ class _ProxyEndpointDetailsDialogState
                         ),
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     SizedBox(
                       width: 48,
                       child: Text(
@@ -4811,7 +4812,7 @@ class _ProxyEndpointDetailsDialogState
                               style: Theme.of(context).textTheme.labelMedium,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          kOpenHandHGap12,
                           SizedBox(
                             width: 58,
                             child: Text(
@@ -4880,7 +4881,7 @@ class _ProxyDetailSection extends StatelessWidget {
               if (trailing != null) trailing!,
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           child,
         ],
       ),
@@ -4916,7 +4917,7 @@ class _ProxyDetailField extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, size: 17, color: colors.primary),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -5108,7 +5109,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               if (!editing) ...[
                 TextFormField(
                   controller: _rawProxy,
@@ -5179,7 +5180,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                                 size: 16,
                                 color: OpenHandStatusColors.success,
                               ),
-                              const SizedBox(width: 6),
+                              kOpenHandHGap6,
                               Expanded(
                                 child: Text(
                                   text(
@@ -5200,7 +5201,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                         )
                       : null,
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
               ],
               TextFormField(
                 controller: _name,
@@ -5211,7 +5212,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                 ),
                 maxLength: 80,
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               LayoutBuilder(
                 builder: (context, constraints) {
                   final scheme = DropdownButtonFormField<String>(
@@ -5259,11 +5260,11 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                         Row(
                           children: [
                             Expanded(child: scheme),
-                            const SizedBox(width: 10),
+                            kOpenHandHGap10,
                             Expanded(child: port),
                           ],
                         ),
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                         host,
                       ],
                     );
@@ -5271,15 +5272,15 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                   return Row(
                     children: [
                       SizedBox(width: 118, child: scheme),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(child: host),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       SizedBox(width: 110, child: port),
                     ],
                   );
                 },
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               TextFormField(
                 controller: _username,
                 decoration: InputDecoration(
@@ -5287,7 +5288,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                   border: const OutlineInputBorder(),
                 ),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               TextFormField(
                 controller: _password,
                 obscureText: _obscurePassword,
@@ -5308,7 +5309,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                   ),
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Wrap(
                 alignment: WrapAlignment.end,
                 spacing: kOpenHandDialogActionSpacing,
@@ -5484,7 +5485,7 @@ class _ProxyEndpointCard extends StatelessWidget {
                   ),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -5682,9 +5683,9 @@ class _ProxyEndpointCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 interactiveDetails,
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 chart,
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Align(
                   alignment: AlignmentDirectional.centerEnd,
                   child: Wrap(
@@ -5702,7 +5703,7 @@ class _ProxyEndpointCard extends StatelessWidget {
               Expanded(child: interactiveDetails),
               const SizedBox(width: 14),
               SizedBox(width: 190, child: chart),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               actions,
             ],
           );
@@ -6020,7 +6021,7 @@ class _ProxyLatencyTooltip extends StatelessWidget {
                 Text('$index/$total', style: theme.textTheme.labelSmall),
               ],
             ),
-            const SizedBox(height: 2),
+            kOpenHandGap2,
             Text(
               _dateTimeLabel(sample.checkedAt),
               maxLines: 1,
@@ -6073,7 +6074,7 @@ class _ProxyCleanupMenuItem extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, size: 20, color: color),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -6097,7 +6098,7 @@ class _ProxyCleanupMenuItem extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Text(
             '$count',
             style: theme.textTheme.labelLarge?.copyWith(
@@ -6127,7 +6128,7 @@ class _ProxyMetric extends StatelessWidget {
     mainAxisSize: MainAxisSize.min,
     children: [
       Icon(icon, size: 14, color: color),
-      const SizedBox(width: 4),
+      kOpenHandHGap4,
       Text(
         label,
         style: Theme.of(context).textTheme.labelSmall?.copyWith(color: color),

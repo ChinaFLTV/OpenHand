@@ -231,7 +231,7 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
               children: [
                 if (widget.icon != null) ...[
                   Icon(widget.icon, size: 18, color: colorScheme.primary),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                 ],
                 Expanded(
                   child: Text(
@@ -259,7 +259,7 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
             ),
           ),
           if (widget.subtitle != null) ...[
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             Text(
               widget.subtitle!,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -339,7 +339,7 @@ class _AuditKvRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child:
                 valueWidget ??
@@ -424,7 +424,7 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
                       color: colorScheme.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   Expanded(
                     child: Text(
                       widget.label,
@@ -841,7 +841,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
         title: Row(
           children: [
             Icon(Icons.fact_check_outlined, color: colorScheme.primary),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(
               child: Text(
                 AppLocalizations.of(context)!.auditMessageAudit,
@@ -971,7 +971,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         ),
                       if (sendPreflightTimings != null &&
                           sendPreflightTimings.isNotEmpty) ...[
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                         _AuditJsonBlock(
                           label: openHandLocalizedText(
                             context,
@@ -987,7 +987,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                       ],
                       if (preRequestTimings != null &&
                           preRequestTimings.isNotEmpty) ...[
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                         _AuditJsonBlock(
                           label: openHandLocalizedText(
                             context,
@@ -1206,7 +1206,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                               ),
                       ),
                       if (composedPromptText != null) ...[
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                         _AuditKvRow(
                           label: AppLocalizations.of(
                             context,
@@ -1534,7 +1534,7 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
         Row(
           children: [
             Icon(Icons.assignment_outlined, color: colorScheme.primary),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(
               child: Text(
                 AppLocalizations.of(context)!.auditSessionAudit,
@@ -1558,7 +1558,7 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _AuditSectionCard(
           icon: Icons.info_outline_rounded,
           title: AppLocalizations.of(context)!.auditOverview,
@@ -1649,7 +1649,7 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
                   labelText: AppLocalizations.of(context)!.auditSessionTitle,
                 ),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Align(
                 alignment: Alignment.centerRight,
                 child: OpenHandDialogActionButton.primary(
@@ -1683,7 +1683,7 @@ class _SessionAuditContentState extends State<_SessionAuditContent> {
                   errorText: _metadataError,
                 ),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Align(
                 alignment: Alignment.centerRight,
                 child: OpenHandDialogActionButton.primary(
@@ -1825,7 +1825,7 @@ class _AuditMessageRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1837,14 +1837,14 @@ class _AuditMessageRow extends StatelessWidget {
                     fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   preview,
                   maxLines: 3,
                   overflow: TextOverflow.ellipsis,
                   style: theme.textTheme.bodySmall,
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Text(
                   _auditFormatInstant(message.createdAt),
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -1859,7 +1859,7 @@ class _AuditMessageRow extends StatelessWidget {
             icon: const Icon(Icons.fact_check_outlined, size: 20),
             onPressed: onInspect,
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           IconButton(
             tooltip: AppLocalizations.of(context)!.auditDelete,
             icon: Icon(

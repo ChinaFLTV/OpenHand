@@ -136,7 +136,7 @@ extension on _SettingsViewState {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _SettingsSubsectionCard(
           title: openHandLocalizedText(context, zh: '缩进', en: 'Indentation'),
           description: openHandLocalizedText(
@@ -175,7 +175,7 @@ extension on _SettingsViewState {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _SettingsSubsectionCard(
           title: openHandLocalizedText(context, zh: '代码主题', en: 'Code Theme'),
           description: openHandLocalizedText(
@@ -221,9 +221,9 @@ extension on _SettingsViewState {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _buildEditorShortcutBindingsSection(context, settingsController),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _SettingsSubsectionCard(
           title: openHandLocalizedText(
             context,
@@ -247,7 +247,7 @@ extension on _SettingsViewState {
                   padding: EdgeInsets.zero,
                   itemCount: supportedLanguages.length,
                   separatorBuilder: (context, index) =>
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                   itemBuilder: (context, index) {
                     return _buildEditorLspLanguageRow(
                       context,
@@ -291,7 +291,7 @@ extension on _SettingsViewState {
               primary: false,
               padding: EdgeInsets.zero,
               itemCount: actions.length,
-              separatorBuilder: (context, index) => const SizedBox(height: 12),
+              separatorBuilder: (context, index) => kOpenHandGap12,
               itemBuilder: (context, index) {
                 final action = actions[index];
                 return _ShortcutBindingTile(
@@ -827,7 +827,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                         color: colorScheme.onPrimaryContainer,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -868,7 +868,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          kOpenHandGap6,
                           Text(
                             widget.summary,
                             maxLines: 3,
@@ -879,7 +879,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                             ),
                           ),
                           if (widget.supportsManagedInstall) ...[
-                            const SizedBox(height: 8),
+                            kOpenHandGap8,
                             Text(
                               openHandLocalizedText(
                                 context,
@@ -895,7 +895,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     AnimatedSlide(
                       offset: Offset(_hovered && motionEnabled ? 0.18 : 0, 0),
                       duration: openHandMotionDuration(context, kOpenHandMotion180),
@@ -941,7 +941,7 @@ class _EditorLspInlineNotice extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 16, color: color),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: Text(
               text,
@@ -1790,7 +1790,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               AnimatedDropdownButtonFormField<String>(
                 initialValue: _selectedBackendId,
                 decoration: InputDecoration(
@@ -1828,7 +1828,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   _scheduleInstallRootValidation();
                 },
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               OpenHandDirectoryField(
                 controller: _sdkController,
                 label: openHandLocalizedText(
@@ -1862,14 +1862,14 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                 onBrowse: _browseSdkDirectory,
               ),
               if (sdkVersionNoticeText != null) ...[
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 _EditorLspInlineNotice(
                   icon: sdkVersionNoticeIcon,
                   color: sdkVersionNoticeColor,
                   text: sdkVersionNoticeText,
                 ),
               ],
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               TextField(
                 controller: _versionController,
                 decoration: InputDecoration(
@@ -1895,7 +1895,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   ),
                 ),
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               OpenHandDirectoryField(
                 controller: _pathController,
                 label: openHandLocalizedText(
@@ -1920,7 +1920,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                 browseTooltip: _settingsEditorBrowseFolderLabel(context),
                 onBrowse: _browseLspDirectory,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -1978,7 +1978,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                     ),
                 ],
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               if (installValidationPending)
                 _EditorLspInlineNotice(
                   icon: Icons.sync_rounded,
@@ -2060,7 +2060,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                               )),
                 ),
               if (managedInstallManifest != null) ...[
-                const SizedBox(height: 14),
+                kOpenHandGap14,
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -2089,7 +2089,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      kOpenHandGap6,
                       Text(
                         openHandLocalizedText(
                           context,
@@ -2110,7 +2110,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   ),
                 ),
               ],
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Text(
                 supportsManagedInstall
                     ? openHandLocalizedText(
@@ -2420,7 +2420,7 @@ class _EditorLspInstallRunnerDialogState
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             Expanded(
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -2449,11 +2449,11 @@ class _EditorLspInstallRunnerDialogState
                       child: Row(
                         children: [
                           _terminalDot(const Color(0xFFFF5F57)),
-                          const SizedBox(width: 6),
+                          kOpenHandHGap6,
                           _terminalDot(const Color(0xFFFEBB2E)),
-                          const SizedBox(width: 6),
+                          kOpenHandHGap6,
                           _terminalDot(const Color(0xFF28C840)),
-                          const SizedBox(width: 12),
+                          kOpenHandHGap12,
                           Expanded(
                             child: Text(
                               OpenHandPaths.shortenHomePath(

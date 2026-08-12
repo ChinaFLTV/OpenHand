@@ -392,9 +392,9 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
             if (category != DataCleanupCategory.values.last)
               const Divider(height: 24),
           ],
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           const _LedgerAdvancedControls(),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Align(
             alignment: Alignment.centerRight,
             child: TextButton.icon(
@@ -471,20 +471,20 @@ class _DataCleanupRow extends StatelessWidget {
                       ? colorScheme.error
                       : colorScheme.primary,
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Text(title, style: theme.textTheme.titleMedium),
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            kOpenHandGap6,
             Text(
               subtitle,
               style: theme.textTheme.bodyMedium?.copyWith(
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Row(
               children: [
                 if (isMeasuring) ...[
@@ -496,7 +496,7 @@ class _DataCleanupRow extends StatelessWidget {
                       color: colorScheme.primary,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                 ],
                 RollingText(
                   text: sizeText,
@@ -508,7 +508,7 @@ class _DataCleanupRow extends StatelessWidget {
                   ),
                 ),
                 if (detailText != null) ...[
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   Text(
                     '· ',
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -525,7 +525,7 @@ class _DataCleanupRow extends StatelessWidget {
               ],
             ),
             if (breakdown != null) ...[
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Row(
                 children: [
                   Icon(
@@ -533,7 +533,7 @@ class _DataCleanupRow extends StatelessWidget {
                     size: 14,
                     color: colorScheme.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   Flexible(
                     child: Text(
                       breakdown!,
@@ -623,7 +623,7 @@ class _DataCleanupRow extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               infoColumn,
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Align(alignment: Alignment.centerLeft, child: cleanButton),
             ],
           );
@@ -632,7 +632,7 @@ class _DataCleanupRow extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Expanded(child: infoColumn),
-            const SizedBox(width: 16),
+            kOpenHandHGap16,
             cleanButton,
           ],
         );
@@ -1180,7 +1180,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
               Row(
                 children: [
                   Icon(Icons.tune_rounded, size: 16, color: cs.primary),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -1211,7 +1211,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                     ),
                 ],
               ),
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               _SliderRow(
                 label: openHandLocalizedText(
                   context,
@@ -1273,7 +1273,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                   _scheduleSave(config.copyWith(miniDiffMaxBytes: snapped));
                 },
               ),
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               Align(
                 alignment: Alignment.centerRight,
                 child: Wrap(
@@ -1355,7 +1355,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                 ),
               ),
               if (_lastGcStats != null) ...[
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Align(
                   alignment: Alignment.centerRight,
                   child: Text(
@@ -1423,7 +1423,7 @@ class _SliderRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Text(valueText, style: theme.textTheme.labelMedium),
             ],
           ),
@@ -1595,7 +1595,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                 Row(
                   children: [
                     Icon(Icons.search_rounded, color: cs.primary, size: 18),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Text(
                       openHandLocalizedText(
                         context,
@@ -1614,7 +1614,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 TextField(
                   controller: _pathCtrl,
                   onChanged: (_) => _scheduleSearch(),
@@ -1628,7 +1628,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 TextField(
                   controller: _toolCtrl,
                   onChanged: (_) => _scheduleSearch(),
@@ -1642,7 +1642,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 Wrap(
                   spacing: 6,
                   runSpacing: 4,
@@ -1664,7 +1664,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                       ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 // 时间范围预设。
                 Wrap(
                   spacing: 6,
@@ -1714,7 +1714,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                                   Icons.error_outline_rounded,
                                   color: cs.error,
                                 ),
-                                const SizedBox(height: 6),
+                                kOpenHandGap6,
                                 Text(
                                   openHandLocalizedText(
                                     context,
@@ -1725,7 +1725,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                                     color: cs.error,
                                   ),
                                 ),
-                                const SizedBox(height: 4),
+                                kOpenHandGap4,
                                 IconButton(
                                   tooltip: openHandLocalizedText(
                                     context,
@@ -1784,7 +1784,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                                             ),
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
+                                    kOpenHandHGap6,
                                     Text(
                                       r.toolName,
                                       style: theme.textTheme.labelSmall
@@ -1792,7 +1792,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                                             color: cs.onSurfaceVariant,
                                           ),
                                     ),
-                                    const SizedBox(width: 8),
+                                    kOpenHandHGap8,
                                     Expanded(
                                       child: _PathHighlightText(
                                         path: r.filePath,
@@ -1812,7 +1812,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                                         textStyle: theme.textTheme.bodySmall,
                                       ),
                                     ),
-                                    const SizedBox(width: 6),
+                                    kOpenHandHGap6,
                                     Text(
                                       r.createdAt
                                           .toLocal()
@@ -1833,7 +1833,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                           ),
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Row(
                   children: [
                     Text(
@@ -1860,7 +1860,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                     TextButton.icon(
                       onPressed: _results.isEmpty ? null : _copyResults,
                       icon: const Icon(Icons.copy_all_rounded, size: 16),

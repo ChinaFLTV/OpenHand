@@ -329,7 +329,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               ClipRect(
                 child: expanded
                     ? KeyedSubtree(
@@ -894,7 +894,7 @@ class _CollapsibleMessageMarkdownBodyState
               _setCollapsed(!collapsed);
             },
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
         ],
         _collapsibleMessageBodyMotion(
           context: context,
@@ -1008,7 +1008,7 @@ class _MessageCollapseToggleCapsuleState
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.subject_rounded, size: 18, color: effectiveColor),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Flexible(
           child: Text(
             label,
@@ -1020,7 +1020,7 @@ class _MessageCollapseToggleCapsuleState
         Text(' · ', style: textStyle),
         RollingText(text: '${widget.characterCount}', style: textStyle),
         Text(unitText, style: textStyle),
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         AnimatedRotation(
           turns: widget.collapsed ? 0 : 0.5,
           duration: cardMotionDurationFor(
@@ -2592,7 +2592,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
             size: 18,
             color: Theme.of(context).colorScheme.error,
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Flexible(
             child: Text(
               label,
@@ -3359,7 +3359,7 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
               _setCollapsed(!collapsed);
             },
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
         ],
         _collapsibleMessageBodyMotion(
           context: context,
@@ -4315,7 +4315,7 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
                       size: 14,
                       color: cs.primary.withValues(alpha: 0.85),
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Flexible(
                       child: Text(
                         openHandLocalizedText(
@@ -4327,7 +4327,7 @@ class _StreamingHtmlPlaceholderState extends State<_StreamingHtmlPlaceholder>
                         overflow: TextOverflow.ellipsis,
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                     AnimatedBuilder(
                       animation: _dotAnim,
                       builder: (context, _) => Row(
@@ -4409,11 +4409,11 @@ class _HtmlBubbleShimmer extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           _buildBar(color),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           _buildBar(color),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           _buildBar(color),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           _buildBar(color, width: 180),
         ],
       ),
@@ -6180,7 +6180,7 @@ class _ProgressiveHtmlMessageBodyState
             _setCollapsed(!collapsed);
           },
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         _collapsibleMessageBodyMotion(
           context: context,
           collapsed: collapsed,

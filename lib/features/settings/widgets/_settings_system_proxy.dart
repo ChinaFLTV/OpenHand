@@ -238,7 +238,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
           label: l10n.proxyModeLabel,
           description: l10n.proxyModeBody,
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -260,7 +260,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         IgnorePointer(
           ignoring: !isManual,
           child: Opacity(
@@ -272,7 +272,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                   label: l10n.proxyProtocolsLabel,
                   description: l10n.proxyProtocolsBody,
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Wrap(
                   spacing: 8,
                   children: <Widget>[
@@ -300,7 +300,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 // 自动模式下虽然字段禁用，但仍把 SystemProxyResolver
                 // 探测到的 host:port 实时回填到文本框，方便用户校验"系统现在
                 // 走的哪条代理"。手动模式下保留用户自填值。
@@ -340,7 +340,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        kOpenHandHGap12,
                         Expanded(
                           child: TextField(
                             controller: _portCtrl,
@@ -362,7 +362,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                     );
                   },
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 SwitchListTile.adaptive(
                   contentPadding: EdgeInsets.zero,
                   title: Text(l10n.proxyAuthLabel),
@@ -377,7 +377,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                   value: proxy.authEnabled,
                   onChanged: isManual ? _toggleAuth : null,
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 IgnorePointer(
                   ignoring: !proxy.authEnabled,
                   child: Opacity(
@@ -399,7 +399,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        kOpenHandHGap12,
                         Expanded(
                           child: TextField(
                             controller: _pwdCtrl,
@@ -430,12 +430,12 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 _SettingRowLabel(
                   label: l10n.proxyExceptionsLabel,
                   description: l10n.proxyExceptionsBody,
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 TextField(
                   controller: _exceptionsCtrl,
                   focusNode: _exceptionsFocus,
@@ -454,12 +454,12 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
             ),
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _SettingRowLabel(
           label: l10n.proxyTestEndpointLabel,
           description: l10n.proxyTestEndpointHint,
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: <Widget>[
@@ -471,7 +471,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
               ),
               label: Text(l10n.proxyTestButton),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: TextField(
                 controller: _testEndpointCtrl,
@@ -483,7 +483,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
                 onSubmitted: (_) => _saveTestEndpoint(),
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             IconButton(
               tooltip: Localizations.localeOf(context).languageCode == 'en'
                   ? 'Save Test URL'
@@ -494,7 +494,7 @@ class _SystemProxySectionState extends State<_SystemProxySection> {
           ],
         ),
         if (_testMessage != null) ...<Widget>[
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Text(
             _testMessage!,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -796,7 +796,7 @@ class _SettingRowLabel extends StatelessWidget {
       children: [
         Text(label, style: theme.textTheme.titleSmall),
         if (description != null && description!.isNotEmpty) ...[
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Text(
             description!,
             style: theme.textTheme.bodySmall?.copyWith(

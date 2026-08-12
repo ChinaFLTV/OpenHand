@@ -828,7 +828,7 @@ class _InlineCodexDiffHeader extends StatelessWidget {
               foregroundColor: palette.footerForeground,
               onTap: onCopy,
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             _InlineDiffPill(
               label: openHandLocalizedText(
                 context,
@@ -870,7 +870,7 @@ class _InlineDiffPill extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 15, color: foregroundColor),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Text(
             label,
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -1151,7 +1151,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                       active: _mermaidViewActive,
                       onTap: _toggleMermaidView,
                     ),
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                   ],
                   _buildToolbarAction(
                     label: copyLabel,
@@ -1167,7 +1167,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                       _copyCodeBlock();
                     },
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   _buildToolbarAction(
                     label: downloadLabel,
                     icon: _downloaded
@@ -1183,7 +1183,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
                     },
                   ),
                   if (isHtmlLanguage) ...[
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                     _buildToolbarAction(
                       label: runLabel,
                       icon: Icons.play_arrow_rounded,
@@ -2295,7 +2295,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
                     color: widget.theme.colorScheme.primary,
                     size: 22,
                   ),
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   Text(
                     titleText,
                     style: widget.theme.textTheme.titleMedium?.copyWith(
@@ -2328,13 +2328,13 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
                         : () => _applyZoom(_zoom + _zoomStep),
                     icon: const Icon(Icons.zoom_in_rounded, size: 20),
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   IconButton(
                     tooltip: zoomResetText,
                     onPressed: (_zoom - 1.0).abs() < 0.001 ? null : _resetZoom,
                     icon: const Icon(Icons.restart_alt_rounded, size: 20),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   IconButton(
                     tooltip: cleanupText,
                     onPressed: _isCleaning ? null : _cleanupTempHtmlFiles,
@@ -2344,13 +2344,13 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
                       size: 20,
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   IconButton(
                     tooltip: openInBrowserText,
                     onPressed: () => _openInBrowser(context),
                     icon: const Icon(Icons.open_in_browser_rounded, size: 20),
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   IconButton(
                     tooltip: closeText,
                     onPressed: () => Navigator.of(context).pop(),
@@ -2933,7 +2933,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
                 color: theme.colorScheme.error,
                 size: 48,
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               Text(
                 openHandLocalizedText(
                   context,
@@ -2948,7 +2948,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
                   color: theme.colorScheme.error,
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 _errorMessage!,
                 style: theme.textTheme.bodySmall,
@@ -2966,7 +2966,7 @@ class _HtmlWebViewPreviewState extends State<_HtmlWebViewPreview> {
           mainAxisSize: MainAxisSize.min,
           children: [
             const CircularProgressIndicator(),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Text(
               openHandLocalizedText(
                 context,
@@ -3084,7 +3084,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 15, color: foregroundColor),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(
@@ -3439,7 +3439,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
                 foregroundColor: widget.palette.actionTextColor,
                 onTap: controlsLocked ? null : _fitToView,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _buildToolPill(
                 label: openHandResetLabel(context),
                 icon: Icons.center_focus_strong_rounded,
@@ -3447,7 +3447,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
                 foregroundColor: widget.palette.actionTextColor,
                 onTap: controlsLocked ? null : _resetView,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _buildToolPill(
                 label: openHandLocalizedText(
                   context,
@@ -3461,7 +3461,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
                     ? null
                     : () => unawaited(_copySvgMarkup()),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _buildToolPill(
                 label: openHandLocalizedText(
                   context,
@@ -3473,7 +3473,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
                 foregroundColor: widget.palette.actionTextColor,
                 onTap: controlsLocked ? null : () => unawaited(_copySvgImage()),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _buildToolPill(
                 label: openHandLocalizedText(
                   context,
@@ -3485,7 +3485,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
                 foregroundColor: widget.palette.actionTextColor,
                 onTap: controlsLocked ? null : () => unawaited(_downloadSvg()),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _buildToolPill(
                 label: openHandLocalizedText(
                   context,
@@ -3497,7 +3497,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
                 foregroundColor: widget.palette.actionTextColor,
                 onTap: controlsLocked ? null : () => unawaited(_downloadPng()),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _buildToolPill(
                 label: '${_zoomPercent.toStringAsFixed(0)}%',
                 icon: Icons.search_rounded,
@@ -3510,7 +3510,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         // 画布区域手势完全交给 WebView JS（touch-action: none + pointerdown/move/up），
         // 这里不要再用 Flutter Listener 拦截：macOS 的 WKWebView 是 platform view，
         // 不会把 pointer 事件回灌到 Flutter；iOS / Android 上的 webview_flutter 也是

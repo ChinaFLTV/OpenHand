@@ -206,7 +206,7 @@ class _WriteCommandConfirmationDialogState
                 ),
               ),
               if (progress != null) ...[
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 OpenHandCountdownProgressBar(
                   value: progress,
                   color: accent,
@@ -218,7 +218,7 @@ class _WriteCommandConfirmationDialogState
                 ),
               ],
               if (remaining != null) ...[
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -238,7 +238,7 @@ class _WriteCommandConfirmationDialogState
                   ],
                 ),
               ],
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               Expanded(
                 child: OpenHandSafeScrollbar(
                   controller: _bodyScrollController,
@@ -337,7 +337,7 @@ class _WriteCommandConfirmationDialogState
                               ),
                             ),
                           ),
-                        const SizedBox(height: 12),
+                        kOpenHandGap12,
                         _WriteCommandDirectoryPanel(
                           workingDirectory: widget.request.workingDirectory,
                         ),
@@ -346,7 +346,7 @@ class _WriteCommandConfirmationDialogState
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Text(
                 openHandLocalizedText(
                   context,
@@ -357,7 +357,7 @@ class _WriteCommandConfirmationDialogState
                   context,
                 ).textTheme.bodySmall?.copyWith(color: cs.onSurfaceVariant),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: [
@@ -366,7 +366,7 @@ class _WriteCommandConfirmationDialogState
                         _closeWith(BashCommandApprovalDecision.rejected),
                     label: AppLocalizations.of(context)!.commonCancel,
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   OpenHandDialogActionButton.primary(
                     onPressed: () =>
                         _closeWith(BashCommandApprovalDecision.approved),
@@ -407,7 +407,7 @@ class _WriteCommandDirectoryPanel extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.folder_open_rounded, size: 18, color: cs.primary),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               mainAxisSize: MainAxisSize.min,
@@ -420,7 +420,7 @@ class _WriteCommandDirectoryPanel extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 SelectableText(
                   nonBlankStringOr(workingDirectory, '-'),
                   style: theme.textTheme.bodyMedium?.copyWith(

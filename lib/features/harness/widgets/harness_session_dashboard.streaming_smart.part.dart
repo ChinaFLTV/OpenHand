@@ -181,7 +181,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
           ),
         if (_lastCommand != null) ...[
           _HeCommandStrip(command: _lastCommand!),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
         ],
         if (children != null && children.isNotEmpty)
           ShaderMask(
@@ -233,7 +233,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
                   color: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,

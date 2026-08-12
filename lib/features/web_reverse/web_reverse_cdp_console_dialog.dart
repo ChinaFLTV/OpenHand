@@ -17,6 +17,7 @@ import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -293,7 +294,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                   fontSize: 12,
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              kOpenHandGap8,
                               TextField(
                                 controller: _paramsCtl,
                                 focusNode: _paramsFocus,
@@ -307,7 +308,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                   border: OutlineInputBorder(),
                                 ),
                               ),
-                              const SizedBox(height: 8),
+                              kOpenHandGap8,
                               Row(
                                 children: [
                                   Switch(
@@ -315,7 +316,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                     onChanged: (v) =>
                                         setState(() => _useSession = v),
                                   ),
-                                  const SizedBox(width: 4),
+                                  kOpenHandHGap4,
                                   Text(
                                     loc?.webReverseCdpUseSession ??
                                         'use page session',
@@ -378,7 +379,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                                                   ? cs.primary
                                                   : cs.error,
                                             ),
-                                            const SizedBox(width: 6),
+                                            kOpenHandHGap6,
                                             Expanded(
                                               child: Text(
                                                 h.method,
@@ -476,7 +477,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
             ],
           ),
           if (h.paramsJson.isNotEmpty) ...[
-            const SizedBox(height: 6),
+            kOpenHandGap6,
             Text(
               h.paramsClipped
                   ? '${loc?.webReverseCdpParams ?? 'Params'} (clipped)'
@@ -499,7 +500,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
               ),
             ),
           ],
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Text(
             h.error == null
                 ? (loc?.webReverseCdpResponse ?? 'Response')

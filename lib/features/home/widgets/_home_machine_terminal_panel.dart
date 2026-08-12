@@ -192,13 +192,13 @@ class _MachineExpertTerminalPanelState
             onClear: () => _control('clear', activeSnapshot.terminalId),
             onHistory: _showHistoryDialog,
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _MachineTerminalTabs(
             workspace: workspace,
             onSelected: (terminalId) => _control('select', terminalId),
             onClosed: (terminalId) => _control('close', terminalId),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Expanded(
             child: DecoratedBox(
               decoration: _machineTerminalSurfaceDecoration(cs, radius: 8),
@@ -216,7 +216,7 @@ class _MachineExpertTerminalPanelState
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _MachineTerminalMetadataBar(snapshot: activeSnapshot),
         ],
       ),
@@ -393,7 +393,7 @@ class _MachineTerminalHeader extends StatelessWidget {
                 color: _terminalStatusColor(cs, snapshot.status),
               ),
             ),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -410,7 +410,7 @@ class _MachineTerminalHeader extends StatelessWidget {
                       fontWeight: FontWeight.w900,
                     ),
                   ),
-                  const SizedBox(height: 3),
+                  kOpenHandGap3,
                   Text(
                     '${snapshot.identity} · ${snapshot.shell}',
                     maxLines: 1,
@@ -438,7 +438,7 @@ class _MachineTerminalHeader extends StatelessWidget {
             ],
           ],
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Wrap(
           spacing: 7,
           runSpacing: 7,
@@ -465,7 +465,7 @@ class _MachineTerminalHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Wrap(
           spacing: 7,
           runSpacing: 7,
@@ -892,7 +892,7 @@ class _MachineTerminalHistoryDialogState
                       ? null
                       : () => widget.onReplay(terminal),
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 _MachineTerminalMiniActionButton(
                   icon: restoring
                       ? Icons.hourglass_top_rounded
@@ -912,7 +912,7 @@ class _MachineTerminalHistoryDialogState
                       ? null
                       : () => _restoreTerminal(terminal),
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 _MachineTerminalMiniActionButton(
                   icon: deleting
                       ? Icons.hourglass_top_rounded
@@ -923,7 +923,7 @@ class _MachineTerminalHistoryDialogState
                       ? null
                       : () => _deleteTerminal(terminal),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
               ],
             ),
           ),
@@ -1243,7 +1243,7 @@ class _MachineTerminalHistoryMetrics extends StatelessWidget {
               children: [
                 for (var index = 0; index < metrics.length; index++) ...[
                   metrics[index],
-                  if (index != metrics.length - 1) const SizedBox(height: 8),
+                  if (index != metrics.length - 1) kOpenHandGap8,
                 ],
               ],
             );
@@ -1252,7 +1252,7 @@ class _MachineTerminalHistoryMetrics extends StatelessWidget {
             children: [
               for (var index = 0; index < metrics.length; index++) ...[
                 Expanded(child: metrics[index]),
-                if (index != metrics.length - 1) const SizedBox(width: 10),
+                if (index != metrics.length - 1) kOpenHandHGap10,
               ],
             ],
           );
@@ -1606,7 +1606,7 @@ class _MachineTerminalCommandHistoryList extends StatelessWidget {
               total: commands.length,
             );
           },
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => kOpenHandGap10,
           itemCount: commands.length,
         ),
       ),
@@ -1744,7 +1744,7 @@ class _MachineTerminalDialogHeader extends StatelessWidget {
             ),
             child: Icon(icon, color: cs.primary, size: 22),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1757,7 +1757,7 @@ class _MachineTerminalDialogHeader extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 3),
+                kOpenHandGap3,
                 Text(
                   subtitle,
                   maxLines: 1,
@@ -1824,7 +1824,7 @@ class _MachineTerminalHistoryMetric extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Text(
               value,
               maxLines: 1,
@@ -2169,7 +2169,7 @@ class _MachineTerminalChip extends StatelessWidget {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 14, color: color),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Flexible(
                 child: Text(
                   label,

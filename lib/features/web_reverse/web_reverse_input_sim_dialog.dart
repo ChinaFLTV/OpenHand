@@ -14,6 +14,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
@@ -259,7 +260,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
                   keyboardType: TextInputType.number,
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: TextField(
                   controller: _mouseY,
@@ -269,12 +270,12 @@ class _InputSimDialogState extends State<_InputSimDialog>
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Text(
             loc?.webReverseInputSimButton ?? 'Button',
             style: theme.textTheme.labelMedium,
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Wrap(
             spacing: 6,
             children: ['left', 'middle', 'right']
@@ -287,11 +288,11 @@ class _InputSimDialogState extends State<_InputSimDialog>
                 )
                 .toList(),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Row(
             children: [
               Text(loc?.webReverseInputSimClickCount ?? 'Click count'),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               ...List.generate(3, (i) {
                 final n = i + 1;
                 return Padding(
@@ -305,14 +306,14 @@ class _InputSimDialogState extends State<_InputSimDialog>
               }),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Text(
             loc?.webReverseInputSimModifiers ?? 'Modifiers',
             style: theme.textTheme.labelMedium,
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           _modifierChips(),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -351,12 +352,12 @@ class _InputSimDialogState extends State<_InputSimDialog>
             controller: _keyKey,
             decoration: const InputDecoration(labelText: 'key', hintText: 'Enter / ArrowDown / a', border: OutlineInputBorder(borderRadius: kWebReverseRadiusLarge)),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _keyCode,
             decoration: const InputDecoration(labelText: 'code', hintText: 'KeyA / Enter / ArrowDown', border: OutlineInputBorder(borderRadius: kWebReverseRadiusLarge)),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _keyText,
             decoration: InputDecoration(
@@ -366,14 +367,14 @@ class _InputSimDialogState extends State<_InputSimDialog>
               border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Text(
             loc?.webReverseInputSimModifiers ?? 'Modifiers',
             style: theme.textTheme.labelMedium,
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           _modifierChips(),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           FilledButton.icon(
             onPressed: _busy ? null : _runKey,
             icon: const Icon(Icons.keyboard_rounded),
@@ -403,7 +404,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
             minLines: 4,
             maxLines: 8,
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           FilledButton.icon(
             onPressed: _busy ? null : _runInsertText,
             icon: const Icon(Icons.text_fields_rounded),

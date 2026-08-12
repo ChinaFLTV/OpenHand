@@ -6,6 +6,7 @@
 library;
 
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
@@ -14,6 +15,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -269,7 +271,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                     onChanged: (v) => setState(() => _filter = v),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 FilledButton.tonalIcon(
                   onPressed: _loading || _mutating ? null : () => _edit(null),
                   icon: const Icon(Icons.add_rounded),
@@ -310,7 +312,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
                                 overflow: TextOverflow.ellipsis,
                               ),
                             ),
-                            const SizedBox(width: 8),
+                            kOpenHandHGap8,
                             Text(
                               c.domain,
                               style: theme.textTheme.labelSmall?.copyWith(
@@ -539,7 +541,7 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
                     hint: '1700000000',
                     maxLength: 32,
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Row(
                     children: [
                       Expanded(
@@ -566,9 +568,9 @@ class _CookieEditPanelState extends State<_CookieEditPanel> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text('SameSite', style: theme.textTheme.labelMedium),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   Wrap(
                     spacing: 6,
                     children: ['', 'Strict', 'Lax', 'None']

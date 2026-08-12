@@ -66,7 +66,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                           onTap: () => _setTab(tabs[i]),
                           reduceMotion: reduceMotion,
                         ),
-                        if (i != tabs.length - 1) const SizedBox(width: 6),
+                        if (i != tabs.length - 1) kOpenHandHGap6,
                       ],
                     ],
                   ),
@@ -75,7 +75,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
             },
           ),
           if (showSearch || showNetworkControls) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             SizedBox(
               height: _kToolbarHeight,
               child: SingleChildScrollView(
@@ -109,7 +109,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                           () => _networkFilter = v.trim(),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                     ],
                     if (showNetworkControls) ...[
                       _ToolbarTogglePill(
@@ -129,7 +129,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                         },
                         reduceMotion: reduceMotion,
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       _ToolbarTogglePill(
                         label: openHandLocalizedText(
                           context,
@@ -145,7 +145,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                         onChanged: (v) => ctrl.preserveLog = v,
                         reduceMotion: reduceMotion,
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       _ToolbarThrottleButton(
                         value: ctrl.networkThrottlePreset,
                         onChanged: (preset) async {
@@ -167,7 +167,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                           }
                         },
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                     ],
                     _ToolbarIconButton(
                       tooltip: openHandLocalizedText(
@@ -186,7 +186,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                         if (st != null) rebuildFromExternal(() {});
                       },
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     _ToolbarIconButton(
                       tooltip: openHandLocalizedText(
                         context,
@@ -200,7 +200,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       icon: Icons.archive_rounded,
                       onPressed: () => _saveHarToFile(ctrl, isZh),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     _ToolbarIconButton(
                       tooltip: openHandLocalizedText(
                         context,
@@ -214,7 +214,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       icon: Icons.unarchive_rounded,
                       onPressed: () => _loadHarFromFile(ctrl, isZh),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     _ToolbarIconButton(
                       tooltip: openHandLocalizedText(
                         context,
@@ -229,7 +229,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       onPressed: () =>
                           _saveScreenshot(ctrl, isZh, fullPage: false),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     _ToolbarIconButton(
                       tooltip: openHandLocalizedText(
                         context,
@@ -244,7 +244,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       onPressed: () =>
                           _saveScreenshot(ctrl, isZh, fullPage: true),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     _ToolbarTogglePill(
                       label: openHandLocalizedText(
                         context,
@@ -262,7 +262,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       },
                       reduceMotion: reduceMotion,
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     _ToolbarIconButton(
                       tooltip: openHandLocalizedText(
                         context,
@@ -276,13 +276,13 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       icon: Icons.dynamic_form_rounded,
                       onPressed: () => _showBatchActions(context, ctrl, isZh),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     _ToolbarIconButton(
                       tooltip: _webReverseDashHarDiffLabel(context),
                       icon: Icons.difference_rounded,
                       onPressed: () => _showHarDiff(context, isZh),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     _ToolbarIconButton(
                       tooltip: openHandLocalizedText(
                         context,
@@ -299,7 +299,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                         controller: ctrl,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     // 高级菜单：把"持久 Header / 体检报告 / 原生 CDP / 反向脚本"
                     // 等低频但威力强的功能合到一颗按钮，避免 Toolbar 二行膨胀。
                     _ToolbarIconButton(
@@ -315,7 +315,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                       icon: Icons.tune_rounded,
                       onPressed: () => _showAdvancedMenu(context, ctrl, isZh),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     _ToolbarPrimaryPill(
                       icon: Icons.open_in_new_rounded,
                       label: openHandLocalizedText(
@@ -935,7 +935,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
               ),
             ),
             if (capped) ...[
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Text(
                 '${webReverseHarDiffCappedMessage(setA.parsed, setA.total, context: context, isZh: isZh)} · '
                 '${webReverseHarDiffCappedMessage(setB.parsed, setB.total, context: context, isZh: isZh)}',
@@ -944,7 +944,7 @@ extension _WebReverseDashboardToolbar on _WebReverseDashboardDialogState {
                 ),
               ),
             ],
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Expanded(
               child: Row(
                 crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1335,7 +1335,7 @@ class _ToolbarTabPill extends StatelessWidget {
                     size: 16,
                     color: active ? cs.onPrimaryContainer : cs.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   Text(
                     label,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -1344,7 +1344,7 @@ class _ToolbarTabPill extends StatelessWidget {
                     ),
                   ),
                   if (count != null) ...[
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     AnimatedSwitcher(
                       duration: reduceMotion
                           ? Duration.zero
@@ -1439,7 +1439,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
                   size: 16,
                   color: t == current ? cs.primary : cs.onSurfaceVariant,
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     labelFor(t),
@@ -1452,7 +1452,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
                   ),
                 ),
                 if (countFor(t) != null) ...[
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -1472,7 +1472,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
                   ),
                 ],
                 if (t == current) ...[
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   Icon(Icons.check_rounded, size: 16, color: cs.primary),
                 ],
               ],
@@ -1493,7 +1493,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 16, color: cs.onPrimaryContainer),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Text(
               label,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -1502,7 +1502,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
               ),
             ),
             if (count != null) ...[
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -1519,7 +1519,7 @@ class _ToolbarTabDropdown extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Icon(
               Icons.expand_more_rounded,
               size: 18,
@@ -1619,7 +1619,7 @@ class _ToolbarSearchFieldState extends State<_ToolbarSearchField> {
                 color: _focused ? cs.primary : cs.onSurfaceVariant,
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: TextField(
                 controller: widget.controller,
@@ -1740,7 +1740,7 @@ class _ToolbarTogglePill extends StatelessWidget {
                         ? cs.onPrimaryContainer
                         : cs.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   Text(
                     label,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -1828,7 +1828,7 @@ class _ToolbarPrimaryPill extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 Icon(icon, size: 16, color: cs.onPrimary),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   label,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -1900,7 +1900,7 @@ class _ToolbarThrottleButton extends StatelessWidget {
                     ? cs.onSurfaceVariant
                     : cs.onPrimaryContainer,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 value.displayLabel(locale),
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -1910,7 +1910,7 @@ class _ToolbarThrottleButton extends StatelessWidget {
                       : cs.onPrimaryContainer,
                 ),
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Icon(
                 Icons.arrow_drop_down_rounded,
                 size: 18,
@@ -1955,7 +1955,7 @@ class _HarDiffColumn extends StatelessWidget {
                   shape: BoxShape.circle,
                 ),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 '$title (${items.length})',
                 style: theme.textTheme.labelLarge?.copyWith(
@@ -1964,7 +1964,7 @@ class _HarDiffColumn extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Expanded(
             child: items.isEmpty
                 ? Text(
@@ -2062,7 +2062,7 @@ class _HarChangedColumn extends StatelessWidget {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -2076,7 +2076,7 @@ class _HarChangedColumn extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Expanded(
             child: changes.isEmpty
                 ? OpenHandInlineEmptyState(
@@ -2184,7 +2184,7 @@ class _HarChangeRow extends StatelessWidget {
                     body: c.a.bodyText,
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: _BodyPreview(
                     title: 'B · ${c.b.mimeType}',
@@ -2272,7 +2272,7 @@ class _BodyPreview extends StatelessWidget {
               color: cs.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 220),
             child: SingleChildScrollView(
@@ -2345,13 +2345,13 @@ class _UnifiedBodyDiff extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _HarUnifiedStat(label: '+${stats.added}', color: Colors.green),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               _HarUnifiedStat(label: '-${stats.removed}', color: cs.error),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 360),
             child: SingleChildScrollView(

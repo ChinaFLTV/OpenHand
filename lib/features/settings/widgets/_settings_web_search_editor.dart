@@ -295,7 +295,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
           ),
           style: theme.textTheme.titleMedium,
         ),
-        const SizedBox(height: 4),
+        kOpenHandGap4,
         Text(
           openHandLocalizedText(
             context,
@@ -310,14 +310,14 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
             color: colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
 
         // 子代理模型。
         Text(
           openHandLocalizedText(context, zh: 'Summary 模型', en: 'Summary Model'),
           style: theme.textTheme.titleSmall,
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         SegmentedButton<AiWebSearchModelMode>(
           segments: [
             ButtonSegment(
@@ -348,7 +348,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
             }
           },
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         if (v.modelMode == AiWebSearchModelMode.fixed) ...[
           Row(
             children: [
@@ -360,7 +360,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
                 ),
               ),
               if (v.fixedModelProviderConfigId != null) ...[
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 IconButton(
                   tooltip: openHandLocalizedText(
                     context,
@@ -378,7 +378,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
             ],
           ),
         ],
-        const SizedBox(height: 14),
+        kOpenHandGap14,
 
         _WebEngineDispatchControls(
           featureName: 'WebSearch',
@@ -394,7 +394,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
           onParallelWorkersChanged: (value) =>
               _emit(v.copyWith(parallelWorkers: value)),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
 
         // 摘要细节与风格。
         Row(
@@ -422,7 +422,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
                 },
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: AnimatedDropdownButtonFormField<AiWebSearchSummaryStyle>(
                 initialValue: v.summaryStyle,
@@ -448,7 +448,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Row(
           children: [
             Expanded(
@@ -482,7 +482,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
                 },
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: TextField(
                 controller: _summaryMaxController,
@@ -516,14 +516,14 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
             ),
           ],
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
 
         // ── 本地持久化缓存 ──
         Text(
           _settingsLocalCacheLabel(context),
           style: theme.textTheme.titleSmall,
         ),
-        const SizedBox(height: 4),
+        kOpenHandGap4,
         Text(
           openHandLocalizedText(
             context,
@@ -539,7 +539,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
             color: colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         _buildWebEngineCacheFields(
           context: context,
           ttlController: _cacheTtlController,
@@ -549,9 +549,9 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
           onTtlChanged: (value) => _emit(v.copyWith(cacheTtlSeconds: value)),
           onMaxBytesChanged: (value) => _emit(v.copyWith(cacheMaxBytes: value)),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _buildCacheActionsRow(context),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
 
         ...buildWebEngineListSection(
           context: context,
@@ -585,7 +585,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
           },
         ),
 
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         ..._buildWebEngineResilienceSettingsSection(
           context: context,
           theme: theme,
@@ -594,7 +594,7 @@ class _WebSearchSettingsEditorState extends State<_WebSearchSettingsEditor>
           onChanged: (resilience) => _emit(v.copyWith(resilience: resilience)),
         ),
 
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         ..._buildTelemetrySection(context),
       ],
     );
@@ -833,7 +833,7 @@ class _WebSearchEngineCardState extends State<_WebSearchEngineCard> {
           : null,
       extrasAfterApiKey: [
         if (cfg.kind == AiWebSearchEngineKind.searxng) ...[
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           TextField(
             controller: _endpointController,
             decoration: InputDecoration(

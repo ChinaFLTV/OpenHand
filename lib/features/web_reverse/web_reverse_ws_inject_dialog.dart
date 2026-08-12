@@ -11,8 +11,10 @@ library;
 
 import 'dart:async';
 import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
@@ -21,6 +23,7 @@ import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -403,7 +406,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: _rows.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 4),
+                    separatorBuilder: (_, _) => kOpenHandGap4,
                     itemBuilder: (_, i) {
                       final row = _rows[i];
                       final selected = row.id == _selectedId;
@@ -428,7 +431,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                                       ? Colors.green
                                       : cs.onSurfaceVariant,
                                 ),
-                                const SizedBox(width: 8),
+                                kOpenHandHGap8,
                                 SizedBox(
                                   width: 24,
                                   child: Text(
@@ -448,7 +451,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                kOpenHandHGap8,
                                 Text(
                                   row.readyStateLabel,
                                   style: TextStyle(
@@ -547,7 +550,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                   : ListView.separated(
                       padding: const EdgeInsets.all(8),
                       itemCount: _log.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 4),
+                      separatorBuilder: (_, _) => kOpenHandGap4,
                       itemBuilder: (_, i) {
                         final e = _log[i];
                         return Container(
@@ -568,7 +571,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                                 size: 14,
                                 color: e.ok ? Colors.green : cs.error,
                               ),
-                              const SizedBox(width: 6),
+                              kOpenHandHGap6,
                               Expanded(
                                 child: Column(
                                   crossAxisAlignment: CrossAxisAlignment.start,

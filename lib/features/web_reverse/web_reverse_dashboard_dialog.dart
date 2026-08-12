@@ -41,6 +41,7 @@ import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_scroll_behaviors.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_tap_region.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/ui/resizable_splitter.dart';
@@ -434,7 +435,7 @@ class _DashboardScriptResultPreview extends StatelessWidget {
                       size: 14,
                       color: cs.primary,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Expanded(
                       child: SelectableText(
                         text!,
@@ -503,7 +504,7 @@ class _DashboardScriptWorkspace extends StatelessWidget {
                     child: Row(
                       children: [
                         Icon(libraryIcon, size: 16, color: colorScheme.primary),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         Expanded(
                           child: Text(
                             libraryTitle,
@@ -531,7 +532,7 @@ class _DashboardScriptWorkspace extends StatelessWidget {
                             padding: const EdgeInsets.symmetric(vertical: 4),
                             itemCount: itemCount,
                             separatorBuilder: (_, _) =>
-                                const SizedBox(height: 2),
+                                kOpenHandGap2,
                             itemBuilder: itemBuilder,
                           ),
                   ),
@@ -539,7 +540,7 @@ class _DashboardScriptWorkspace extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: AnimatedContainer(
               duration: _wrMotionEnabled(context)
@@ -630,7 +631,7 @@ class _DashboardToggleTileState extends State<_DashboardToggleTile>
                       : cs.outlineVariant,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: widget.subtitle == null
                     ? title
@@ -1666,7 +1667,7 @@ class _WebReverseDashboardDialogState
               size: 20,
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1685,7 +1686,7 @@ class _WebReverseDashboardDialogState
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   _cdpHeaderSubtitle(ctrl, version),
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -1695,19 +1696,19 @@ class _WebReverseDashboardDialogState
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           _CdpMcpBridgeToggle(
             enabled: cdpMcpEnabled,
             busy: _cdpMcpToggleBusy,
             reduceMotion: !_wrMotionEnabled(context),
             onChanged: _setCdpMcpEnabled,
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _CdpMcpBridgeStatusPill(
             status: bridgeStatus,
             reduceMotion: !_wrMotionEnabled(context),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           IconButton(
             tooltip: openHandCloseLabel(context),
             onPressed: () => Navigator.of(context).pop(),
@@ -2131,7 +2132,7 @@ class _CdpMcpBridgeToggle extends StatelessWidget {
                       color: color,
                     ),
             ),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Text(
               enabled
                   ? openHandLocalizedText(
@@ -2210,7 +2211,7 @@ class _CdpMcpBridgeStatusPill extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(status.icon, size: 15, color: color),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Flexible(
               child: Text(
                 status.label,
@@ -2461,7 +2462,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                   color: cs.onTertiaryContainer,
                   size: 20,
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2481,7 +2482,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                           color: cs.onTertiaryContainer,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         antiBot.join(' · '),
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -2489,7 +2490,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                           fontFamily: kOpenHandMonospaceFontFamily,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      kOpenHandGap4,
                       Text(
                         openHandLocalizedText(
                           context,
@@ -2537,7 +2538,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                         color: cs.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                     Text(
                       value,
                       style: theme.textTheme.titleLarge?.copyWith(
@@ -2549,7 +2550,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
               ),
           ],
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         Container(
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
           decoration: webReverseSurfaceCardDecoration(cs, radius: 14),
@@ -2563,7 +2564,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                     size: 18,
                     color: cs.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -2580,7 +2581,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               Text(
                 openHandLocalizedText(
                   context,
@@ -2597,7 +2598,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                   height: 1.45,
                 ),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Row(
                 children: [
                   FilledButton.tonalIcon(
@@ -2615,7 +2616,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   FilledButton.tonalIcon(
                     onPressed: _busy ? null : _importSnapshot,
                     icon: const Icon(Icons.file_upload_outlined, size: 18),
@@ -2797,7 +2798,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner>
                   size: 18,
                   color: cs.error,
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     diagnosis.phenomenon,
@@ -2835,7 +2836,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner>
                         : Icons.expand_more_rounded,
                   ),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 IconButton(
                   tooltip: openHandLocalizedText(
                     context,
@@ -2859,12 +2860,12 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner>
               ],
             ),
             if (_expanded) ...[
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               for (var i = 0; i < diagnosis.causes.length; i++) ...[
                 _CauseEntry(cause: diagnosis.causes[i], index: i),
-                if (i != diagnosis.causes.length - 1) const SizedBox(height: 8),
+                if (i != diagnosis.causes.length - 1) kOpenHandGap8,
               ],
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -2989,7 +2990,7 @@ class _CauseEntry extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   cause.title,
@@ -3000,7 +3001,7 @@ class _CauseEntry extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Text(
             cause.suggestion,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -3290,7 +3291,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
                                 ),
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            kOpenHandHGap12,
                             Expanded(
                               child: Text(
                                 r.desc,

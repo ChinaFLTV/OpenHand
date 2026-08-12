@@ -4,7 +4,6 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 
 import '../../shared/net/tcp_port_utils.dart';
-
 import '../../shared/util/input_value_parsing.dart';
 
 enum AppProxyMode { disabled, automatic, manual }

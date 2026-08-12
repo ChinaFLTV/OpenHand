@@ -24,6 +24,7 @@ import '../../shared/ui/animated_expandable.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/text_clip.dart';
 import 'web_reverse_clipboard.dart';
@@ -362,12 +363,12 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                   ),
                   label: Text(loc?.webReverseCallgraphScanBtn ?? 'Scan'),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Text(
                   loc?.webReverseCallgraphScriptLimit ?? 'Script limit',
                   style: theme.textTheme.labelSmall,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 WebReverseSelectButton<int>(
                   value: _scriptLimit,
                   dense: true,
@@ -384,12 +385,12 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                       ? null
                       : (v) => setState(() => _scriptLimit = v),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Text(
                   loc?.webReverseCallgraphPerScriptKb ?? 'Per script (KB)',
                   style: theme.textTheme.labelSmall,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 WebReverseSelectButton<int>(
                   value: _maxScriptKb,
                   dense: true,
@@ -406,7 +407,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
                       ? null
                       : (v) => setState(() => _maxScriptKb = v),
                 ),
-                const SizedBox(width: 16),
+                kOpenHandHGap16,
                 Expanded(
                   child: Text(
                     _status,
@@ -682,7 +683,7 @@ class _CallgraphDialogState extends State<_CallgraphDialog> {
           child: Row(
             children: [
               Icon(Icons.travel_explore_rounded, size: 16, color: cs.primary),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 loc?.webReverseCallgraphHitsHeader(
                       hits.length,

@@ -17,7 +17,7 @@ class _MessageMetaRow extends StatelessWidget {
     return Row(
       children: [
         Icon(icon, size: 18, color: color),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Expanded(
           child: Text(
             label,
@@ -130,7 +130,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
           size: 18,
           color: widget.color.withValues(alpha: widget.showSweep ? 0.94 : 0.88),
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Flexible(
           child: Text(
             '$labelText$elapsedText',
@@ -143,7 +143,7 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
             ),
           ),
         ),
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         AnimatedRotation(
           turns: widget.expanded ? 0.5 : 0,
           duration: cardMotionDurationFor(context, expanding: widget.expanded),
@@ -240,7 +240,7 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(Icons.smart_toy_outlined, size: 18, color: effectiveColor),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Flexible(
           child: Text(
             '$labelText$elapsedText',
@@ -250,7 +250,7 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
           ),
         ),
         if (widget.onTap != null) ...[
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           AnimatedRotation(
             turns: widget.expanded ? 0.5 : 0,
             duration: cardMotionDurationFor(
@@ -396,7 +396,7 @@ class _ToolCallMetaRowState extends State<_ToolCallMetaRow>
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(data.statusIcon, size: 18, color: effectiveColor),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Flexible(
           child: Text(
             data.statusLabel,

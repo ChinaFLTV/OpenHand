@@ -18,6 +18,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -697,7 +698,7 @@ class _ThreadSessionManagementDialogState
                         maxLines: 2,
                         overflow: TextOverflow.ellipsis,
                       ),
-                      const SizedBox(height: 4),
+                      kOpenHandGap4,
                       Text(
                         l10n.tsmPreviewMessageCount(stats.totalMessageCount),
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -728,7 +729,7 @@ class _ThreadSessionManagementDialogState
                   : ListView.separated(
                       padding: const EdgeInsets.all(12),
                       itemCount: tail.length,
-                      separatorBuilder: (_, _) => const SizedBox(height: 8),
+                      separatorBuilder: (_, _) => kOpenHandGap8,
                       itemBuilder: (context, index) {
                         final m = tail[index];
                         final preview = clipTextByCodeUnits(
@@ -751,7 +752,7 @@ class _ThreadSessionManagementDialogState
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
-                              const SizedBox(height: 4),
+                              kOpenHandGap4,
                               Text(
                                 preview.isEmpty
                                     ? l10n.tsmEmptyMessage
@@ -949,7 +950,7 @@ class _ThreadSessionManagementDialogState
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               AnimatedDropdownButton<_SortMode>(
                 value: _sortMode,
                 isDense: true,
@@ -965,7 +966,7 @@ class _ThreadSessionManagementDialogState
                   setState(() => _sortMode = value);
                 },
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Tooltip(
                 message: _denseMode
                     ? AppLocalizations.of(context)!.tsmDensityComfortable
@@ -980,7 +981,7 @@ class _ThreadSessionManagementDialogState
             ],
           ),
           if (templates.isNotEmpty) ...[
-            const SizedBox(height: 6),
+            kOpenHandGap6,
             Wrap(
               spacing: 6,
               runSpacing: 4,
@@ -1054,7 +1055,7 @@ class _ThreadSessionManagementDialogState
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(l10n.tsmTitle, style: theme.textTheme.titleLarge),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Text(
                   l10n.tsmHeaderSubtitle(totalCount),
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -1092,7 +1093,7 @@ class _ThreadSessionManagementDialogState
               unawaited(_refreshFlags());
             },
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           IconButton(
             tooltip: _isSelectionMode
                 ? l10n.tsmExitSelection
@@ -1109,7 +1110,7 @@ class _ThreadSessionManagementDialogState
               });
             },
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           IconButton(
             tooltip: l10n.tsmClose,
             icon: const Icon(Icons.close),
@@ -1152,7 +1153,7 @@ class _ThreadSessionManagementDialogState
             icon: const Icon(Icons.download_outlined),
             label: Text(AppLocalizations.of(context)!.tsmBatchExportButton),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           TextButton.icon(
             onPressed: _selectedIds.isEmpty ? null : _confirmDeleteSelected,
             icon: const Icon(Icons.delete_outline),
@@ -1379,7 +1380,7 @@ class _SessionRow extends StatelessWidget {
                               size: 14,
                               color: theme.colorScheme.primary,
                             ),
-                            const SizedBox(width: 4),
+                            kOpenHandHGap4,
                           ],
                           if (isArchived) ...[
                             Icon(
@@ -1387,7 +1388,7 @@ class _SessionRow extends StatelessWidget {
                               size: 14,
                               color: theme.colorScheme.onSurfaceVariant,
                             ),
-                            const SizedBox(width: 4),
+                            kOpenHandHGap4,
                           ],
                           Expanded(
                             child: Text(
@@ -1399,7 +1400,7 @@ class _SessionRow extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Text(
                             session.templateName,
                             style: theme.textTheme.labelSmall?.copyWith(
@@ -1408,7 +1409,7 @@ class _SessionRow extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 6),
+                      kOpenHandGap6,
                       Wrap(
                         spacing: 14,
                         runSpacing: 4,
@@ -1443,7 +1444,7 @@ class _SessionRow extends StatelessWidget {
                         ],
                       ),
                       if (total > 0 && !denseMode) ...[
-                        const SizedBox(height: 4),
+                        kOpenHandGap4,
                         Text(
                           '${l10n.tsmRowByKind}: '
                           'user ${pct(stats.userMessageCount)} · '
@@ -1498,7 +1499,7 @@ class _MetaChip extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 14, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: 4),
+        kOpenHandHGap4,
         Text(
           '$label: ',
           style: theme.textTheme.bodySmall?.copyWith(

@@ -445,7 +445,7 @@ class _HeStructuredToolTraceCardState
                 mainAxisSize: MainAxisSize.min,
                 children: [
                   Icon(data.statusIcon, size: 18, color: textColor),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Flexible(
                     child: Text(
                       data.headerLabel,
@@ -460,7 +460,7 @@ class _HeStructuredToolTraceCardState
                 ],
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -495,7 +495,7 @@ class _HeStructuredToolTraceCardState
               ],
             ),
             if (data.hasInputSection) ...[
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               _HeStructuredToolSection(
                 title: openHandLocalizedText(
                   context,
@@ -524,7 +524,7 @@ class _HeStructuredToolTraceCardState
                         theme: widget.theme,
                         colorScheme: colorScheme,
                       ),
-                    if (data.command.isNotEmpty) const SizedBox(height: 10),
+                    if (data.command.isNotEmpty) kOpenHandGap10,
                     if (data.argumentsText.trim().isNotEmpty)
                       _HeToolTextPanel(
                         label: 'arguments',
@@ -538,7 +538,7 @@ class _HeStructuredToolTraceCardState
               ),
             ],
             if (data.hasOutputSection) ...[
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               _HeStructuredToolSection(
                 title: openHandLocalizedText(
                   context,
@@ -568,7 +568,7 @@ class _HeStructuredToolTraceCardState
                         colorScheme: colorScheme,
                       ),
                     if (data.stderr.isNotEmpty) ...[
-                      if (data.stdout.isNotEmpty) const SizedBox(height: 10),
+                      if (data.stdout.isNotEmpty) kOpenHandGap10,
                       _HeToolTextPanel(
                         label: 'stderr',
                         content: data.stderr,
@@ -580,7 +580,7 @@ class _HeStructuredToolTraceCardState
                     ],
                     if (data.resultText.isNotEmpty) ...[
                       if (data.stdout.isNotEmpty || data.stderr.isNotEmpty)
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                       _HeToolTextPanel(
                         label: 'result',
                         content: data.resultText,
@@ -657,7 +657,7 @@ class _HeStructuredToolSection extends StatelessWidget {
                       expanded: expanded,
                       color: theme.colorScheme.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Expanded(
                       child: Text(
                         title,
@@ -824,7 +824,7 @@ class _HeToolTextPanelState extends State<_HeToolTextPanel> {
                 ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Container(
             width: double.infinity,
             padding: const EdgeInsets.all(12),

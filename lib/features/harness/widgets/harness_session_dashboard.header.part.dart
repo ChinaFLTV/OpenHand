@@ -714,7 +714,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
               ),
               subtitle: sessionTitle,
             ),
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -722,7 +722,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                   children: [
                     // ── Summary tiles ──
                     Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
-                    const SizedBox(height: 18),
+                    kOpenHandGap18,
 
                     // ── Session overview ──
                     OpenHandMetadataSection(
@@ -771,7 +771,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    kOpenHandGap16,
 
                     // ── Task config ──
                     OpenHandMetadataSection(
@@ -811,7 +811,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    kOpenHandGap16,
 
                     // ── Role configs ──
                     OpenHandMetadataSection(
@@ -836,7 +836,7 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    kOpenHandGap16,
 
                     // ── Phase status ──
                     OpenHandMetadataSection(
@@ -875,12 +875,12 @@ class _HeSessionMetadataDialog extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            kOpenHandGap18,
 
             // ── Close button ──
             Row(

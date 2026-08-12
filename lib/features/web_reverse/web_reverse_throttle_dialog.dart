@@ -12,6 +12,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -282,7 +283,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -306,14 +307,14 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                         })
                         .toList(),
                   ),
-                  const SizedBox(height: 18),
+                  kOpenHandGap18,
                   Text(
                     loc?.webReverseThrottleCustom ?? 'Custom',
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Row(
                     children: [
                       Expanded(
@@ -329,7 +330,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(
                         child: TextField(
                           controller: _upCtrl,
@@ -343,7 +344,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(
                         child: TextField(
                           controller: _latencyCtrl,
@@ -359,7 +360,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Row(
                     children: [
                       Checkbox(
@@ -368,7 +369,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                             setState(() => _customOffline = v ?? false),
                       ),
                       Text(loc?.webReverseThrottleOffline ?? 'Offline'),
-                      const SizedBox(width: 16),
+                      kOpenHandHGap16,
                       Checkbox(
                         value: _disableCache,
                         onChanged: (v) =>
@@ -379,7 +380,7 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Wrap(
                     spacing: 10,
                     runSpacing: 10,
@@ -407,17 +408,17 @@ class _ThrottleDialogState extends State<_ThrottleDialog> {
                     ],
                   ),
                   if (_status.isNotEmpty) ...[
-                    const SizedBox(height: 14),
+                    kOpenHandGap14,
                     buildWebReverseStatusCard(context, _status),
                   ],
-                  const SizedBox(height: 18),
+                  kOpenHandGap18,
                   Text(
                     loc?.webReverseThrottleNotes ?? 'Notes',
                     style: theme.textTheme.labelLarge?.copyWith(
                       fontWeight: FontWeight.w700,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text(
                     loc?.webReverseThrottleNotesBody ??
                         '· Throttle applies to the entire session of current target; reset or close to restore.\n'

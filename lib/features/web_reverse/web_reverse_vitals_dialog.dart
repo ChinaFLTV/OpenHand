@@ -21,6 +21,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/oh_pill.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/timer_safety.dart';
 import 'web_reverse_clipboard.dart';
@@ -287,10 +288,10 @@ class _VitalsDialogState extends State<_VitalsDialog> {
               children: [
                 for (final m in _metrics) _metricCard(m, cs, tt),
                 if (_status.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Text(_status, style: tt.bodySmall?.copyWith(color: cs.error)),
                 ],
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Container(
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
@@ -356,7 +357,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
                   color: color,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
                 decoration: BoxDecoration(
@@ -378,7 +379,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           ClipRRect(
             borderRadius: kOpenHandPillBorderRadius,
             child: LinearProgressIndicator(

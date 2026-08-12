@@ -20,6 +20,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_form_fields.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -348,7 +349,7 @@ class _WatchDialogState extends State<_WatchDialog> {
                                 padding: const EdgeInsets.all(8),
                                 itemCount: _exprs.length,
                                 separatorBuilder: (_, _) =>
-                                    const SizedBox(height: 4),
+                                    kOpenHandGap4,
                                 itemBuilder: (_, i) {
                                   final e = _exprs[i];
                                   final sel = i == _selected;
@@ -366,7 +367,7 @@ class _WatchDialogState extends State<_WatchDialog> {
                                               ? cs.error
                                               : cs.primary,
                                         ),
-                                        const SizedBox(width: 8),
+                                        kOpenHandHGap8,
                                         Expanded(
                                           child: Column(
                                             crossAxisAlignment:
@@ -435,7 +436,7 @@ class _WatchDialogState extends State<_WatchDialog> {
                                 isDense: true,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                             TextField(
                               controller: _newCode,
                               minLines: 2,
@@ -456,7 +457,7 @@ class _WatchDialogState extends State<_WatchDialog> {
                                 isDense: true,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                             SizedBox(
                               width: double.infinity,
                               child: FilledButton.tonalIcon(
@@ -523,7 +524,7 @@ class _IntervalRow extends StatelessWidget {
               color: cs.onSurfaceVariant,
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Wrap(
             spacing: 6,
             children: presets.map((d) {
@@ -563,7 +564,7 @@ class _HistoryPane extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 2),
+              kOpenHandGap2,
               SelectableText(
                 expr.code,
                 style: const TextStyle(
@@ -608,7 +609,7 @@ class _HistoryPane extends StatelessWidget {
               : ListView.separated(
                   padding: const EdgeInsets.fromLTRB(14, 0, 14, 12),
                   itemCount: expr.samples.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 4),
+                  separatorBuilder: (_, _) => kOpenHandGap4,
                   itemBuilder: (_, i) {
                     final s = expr.samples[i];
                     return Container(
@@ -629,7 +630,7 @@ class _HistoryPane extends StatelessWidget {
                               fontSize: 11,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Expanded(
                             child: SelectableText(
                               s.value,

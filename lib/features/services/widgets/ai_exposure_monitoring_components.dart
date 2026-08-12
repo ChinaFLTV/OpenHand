@@ -106,7 +106,7 @@ class _DependencyServiceCard extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 Row(
                   children: [
                     Container(
@@ -147,7 +147,7 @@ class _DependencyServiceCard extends StatelessWidget {
             color: statusColor,
           ),
           if (onTap != null) ...[
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Icon(
               Icons.arrow_forward_rounded,
               size: 20,
@@ -177,14 +177,14 @@ class _DependencyServiceCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     identity,
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Align(alignment: Alignment.centerRight, child: action),
                   ],
                 )
               : Row(
                   children: [
                     Expanded(child: identity),
-                    const SizedBox(width: 16),
+                    kOpenHandHGap16,
                     action,
                   ],
                 ),
@@ -303,7 +303,7 @@ class _MetricTile extends StatelessWidget {
               ),
               child: Icon(metric.icon, size: 20, color: color),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -333,7 +333,7 @@ class _MetricTile extends StatelessWidget {
               ),
             ),
             if (onTap != null) ...[
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Icon(
                 Icons.chevron_right_rounded,
                 size: 20,
@@ -379,7 +379,7 @@ class _Section extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 20, color: cs.primary),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   title,
@@ -392,7 +392,7 @@ class _Section extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           child,
         ],
       ),
@@ -433,7 +433,7 @@ class _OpsKeyValue extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         Expanded(
           flex: 6,
           child: Row(
@@ -463,7 +463,7 @@ class _OpsKeyValue extends StatelessWidget {
                       ),
               ),
               if (copyable) ...[
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 IconButton(
                   visualDensity: VisualDensity.compact,
                   tooltip: '复制$label',
@@ -559,7 +559,7 @@ class _InsightFlowNode extends StatelessWidget {
       mainAxisAlignment: MainAxisAlignment.center,
       children: [
         Icon(node.icon, size: 21, color: node.color),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Flexible(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -721,7 +721,7 @@ class _TrendPanelState extends State<_TrendPanel> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Expanded(
               child: RepaintBoundary(
                 child: ServiceAnimatedChart(
@@ -741,7 +741,7 @@ class _TrendPanelState extends State<_TrendPanel> {
                 ),
               ),
             ),
-            const SizedBox(height: 6),
+            kOpenHandGap6,
             Wrap(
               spacing: 12,
               runSpacing: 6,
@@ -862,7 +862,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             if (visible.isEmpty)
               SizedBox(
                 height: 174,
@@ -932,7 +932,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                kOpenHandHGap8,
                                 SizedBox(
                                   width: 42,
                                   child: Text(
@@ -949,7 +949,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                   );
                   if (constraints.maxWidth < 430) {
                     return Column(
-                      children: [donut, const SizedBox(height: 12), rows],
+                      children: [donut, kOpenHandGap12, rows],
                     );
                   }
                   return Row(
@@ -1097,7 +1097,7 @@ class _RecentActivityPanel extends StatelessWidget {
                             borderRadius: _kAiExposureRadiusPill,
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        kOpenHandHGap10,
                         Expanded(
                           child: Text(
                             entry.message,
@@ -1105,7 +1105,7 @@ class _RecentActivityPanel extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        kOpenHandHGap12,
                         Text(
                           _reportedShortDateTime(entry.at, entry.atReported),
                           style: Theme.of(context).textTheme.labelSmall,
@@ -1195,7 +1195,7 @@ class _StatusPill extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 15, color: color),
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         Text(
           label,
           style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -1303,7 +1303,7 @@ class _DependencyLine extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Text(ready ? '正常' : '未启用'),
-        const SizedBox(width: 4),
+        kOpenHandHGap4,
         const Icon(Icons.chevron_right_rounded, size: 19),
       ],
     ),

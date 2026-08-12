@@ -179,7 +179,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                     ),
                     style: Theme.of(dialogContext).textTheme.bodySmall,
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   Text(
                     '${b.url}  ${_lineLabel(b.line)}',
                     style: Theme.of(dialogContext).textTheme.labelSmall
@@ -190,7 +190,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                           ).colorScheme.onSurfaceVariant,
                         ),
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   TextField(
                     controller: ctrl,
                     autofocus: true,
@@ -723,7 +723,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _SectionCard(
             icon: Icons.location_on_rounded,
             title: _text(
@@ -777,7 +777,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                     ),
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _SectionCard(
             icon: Icons.error_outline_rounded,
             title: _text(
@@ -842,7 +842,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _SectionCard(
             icon: Icons.cloud_download_outlined,
             title: _text(
@@ -876,7 +876,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                         onSubmitted: (_) => _addXhr(),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     FilledButton.icon(
                       onPressed: _addXhr,
                       icon: const Icon(Icons.add_rounded, size: 18),
@@ -884,7 +884,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 AnimatedSize(
                   duration: reduceMotion ? Duration.zero : _kSwitchDuration,
                   curve: _kSwitchInCurve,
@@ -925,7 +925,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _SectionCard(
             icon: Icons.touch_app_outlined,
             title: _text(
@@ -968,7 +968,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _SectionCard(
             icon: Icons.account_tree_outlined,
             title: _text(
@@ -1002,7 +1002,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                         onSubmitted: (_) => _addDomBp(),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     WebReverseSelectButton<String>(
                       value: _domType,
                       dense: true,
@@ -1031,7 +1031,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                       ],
                       onChanged: (v) => setState(() => _domType = v),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     FilledButton.icon(
                       onPressed: _addDomBp,
                       icon: const Icon(Icons.add_rounded, size: 18),
@@ -1039,7 +1039,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 AnimatedSize(
                   duration: reduceMotion ? Duration.zero : _kSwitchDuration,
                   curve: _kSwitchInCurve,
@@ -1071,7 +1071,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _SectionCard(
             icon: Icons.security_outlined,
             title: _text(
@@ -1103,7 +1103,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _SectionCard(
             icon: Icons.list_alt_rounded,
             title: _text(
@@ -1162,7 +1162,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 if (_globalListeners != null &&
                     _globalListeners!.isNotEmpty) ...[
                   for (final l in _globalListeners!)
@@ -1175,7 +1175,7 @@ class _BreakpointsBodyState extends State<_BreakpointsBody>
                             size: 14,
                             color: cs.tertiary,
                           ),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Expanded(
                             child: Text(
                               '${l['type']}'
@@ -1227,7 +1227,7 @@ class _SectionCard extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 16, color: cs.primary),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 title,
                 style: theme.textTheme.titleSmall?.copyWith(
@@ -1236,7 +1236,7 @@ class _SectionCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           child,
         ],
       ),
@@ -1278,7 +1278,7 @@ class _BpRow extends StatelessWidget {
       child: Row(
         children: [
           Icon(icon, size: 10, color: iconColor),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

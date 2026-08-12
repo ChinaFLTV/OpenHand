@@ -84,7 +84,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              kOpenHandHGap8,
                               if (hasProfile)
                                 Container(
                                   padding: const EdgeInsets.symmetric(
@@ -109,7 +109,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
                                 ),
                             ],
                           ),
-                          const SizedBox(height: 6),
+                          kOpenHandGap6,
                           Text(
                             preview,
                             maxLines: 2,
@@ -122,7 +122,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
                         ],
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     AnimatedSlide(
                       offset: Offset(
                         openHandHovered && motionEnabled ? 0.18 : 0,
@@ -226,7 +226,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                         Icons.account_circle_outlined,
                         color: colorScheme.primary,
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(
                         child: Text(
                           openHandLocalizedText(
@@ -239,7 +239,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -251,7 +251,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                       height: 1.45,
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   Expanded(
                     child: TextField(
                       controller: _contentController,
@@ -278,7 +278,7 @@ class _UserProfileEditorDialogState extends State<_UserProfileEditorDialog> {
                   ),
                   OpenHandDialogErrorText(message: _errorMessage),
                   OpenHandDialogBusyBar(busy: _isSaving),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   SizedBox(
                     width: double.infinity,
                     child: Wrap(

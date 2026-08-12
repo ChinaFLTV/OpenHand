@@ -19,6 +19,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -341,13 +342,13 @@ class _PmDialogState extends State<_PmDialog> {
                         : (loc?.webReversePmInject ?? 'Inject'),
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 FilledButton.tonalIcon(
                   onPressed: _records.isEmpty ? null : _clear,
                   icon: const Icon(Icons.delete_outline_rounded),
                   label: Text(loc?.webReversePmClear ?? 'Clear'),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 FilledButton.tonalIcon(
                   onPressed: filtered.isEmpty ? null : _copy,
                   icon: const Icon(Icons.copy_all_rounded),
@@ -380,13 +381,13 @@ class _PmDialogState extends State<_PmDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 FilterChip(
                   label: Text(loc?.webReversePmChipSend ?? 'Send'),
                   selected: _showSend,
                   onSelected: (v) => setState(() => _showSend = v),
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 FilterChip(
                   label: Text(loc?.webReversePmChipRecv ?? 'Recv'),
                   selected: _showRecv,
@@ -409,7 +410,7 @@ class _PmDialogState extends State<_PmDialog> {
                 ),
               ),
             ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Expanded(
             child: Container(
               margin: const EdgeInsets.fromLTRB(16, 0, 16, 12),
@@ -465,7 +466,7 @@ class _PmDialogState extends State<_PmDialog> {
                                       ),
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  kOpenHandHGap8,
                                   Text(
                                     formatHourMinuteSecondMillis(r.at),
                                     style: const TextStyle(
@@ -473,7 +474,7 @@ class _PmDialogState extends State<_PmDialog> {
                                       fontSize: 11,
                                     ),
                                   ),
-                                  const SizedBox(width: 8),
+                                  kOpenHandHGap8,
                                   Expanded(
                                     child: Text(
                                       isSend
@@ -490,7 +491,7 @@ class _PmDialogState extends State<_PmDialog> {
                                   ),
                                 ],
                               ),
-                              const SizedBox(height: 4),
+                              kOpenHandGap4,
                               SelectableText(
                                 r.data,
                                 style: const TextStyle(

@@ -14,6 +14,7 @@ import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/persistence_issue_card.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart'
@@ -221,7 +222,7 @@ class MemoryView extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
         itemCount: items.length,
         cacheExtent: 600,
-        separatorBuilder: (context, index) => const SizedBox(height: 14),
+        separatorBuilder: (context, index) => kOpenHandGap14,
         itemBuilder: (context, index) {
           final item = items[index];
           switch (item.kind) {
@@ -432,7 +433,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: Theme.of(context).textTheme.headlineSmall),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               Expanded(
                 child: SingleChildScrollView(
                   child: Form(
@@ -453,7 +454,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                             counterText: '',
                           ),
                         ),
-                        const SizedBox(height: 12),
+                        kOpenHandGap12,
                         TextFormField(
                           controller: _contentController,
                           minLines: 7,
@@ -473,7 +474,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         TextField(
                           controller: _tagInputController,
                           focusNode: _tagInputFocusNode,
@@ -514,7 +515,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                           ),
                         ),
                         if (_tags.isNotEmpty) ...[
-                          const SizedBox(height: 12),
+                          kOpenHandGap12,
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
@@ -536,7 +537,7 @@ class _MemoryEditorDialogState extends State<_MemoryEditorDialog> {
                           ),
                         ],
                         // 防误操作提示：解释为什么 `自主学习` 标签被特殊处理。
-                        const SizedBox(height: 8),
+                        kOpenHandGap8,
                         Text(
                           _isAutoLearnedEntry
                               ? '"${UserMemoryEntry.autoLearnedTag}" 是自主学习记忆的固定标识，不可移除。'
@@ -796,7 +797,7 @@ class _MemoryEntryCard extends StatelessWidget {
                         color: colorScheme.onPrimaryContainer,
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    kOpenHandHGap16,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -811,7 +812,7 @@ class _MemoryEntryCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.titleLarge,
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                           ] else if (_shouldShowTitle(entry)) ...[
                             Text(
                               entry.preview,
@@ -819,7 +820,7 @@ class _MemoryEntryCard extends StatelessWidget {
                               overflow: TextOverflow.ellipsis,
                               style: theme.textTheme.titleLarge,
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                           ],
                           Text(
                             '${l10n.memoryCreatedAtLabel}: ${_formatCreatedAt(context, entry.createdAt)}',
@@ -827,7 +828,7 @@ class _MemoryEntryCard extends StatelessWidget {
                               color: colorScheme.onSurfaceVariant,
                             ),
                           ),
-                          const SizedBox(height: 6),
+                          kOpenHandGap6,
                           Text(
                             entry.content,
                             maxLines: 4,
@@ -837,7 +838,7 @@ class _MemoryEntryCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     AnimatedPopupMenuButton<_MemoryCardAction>(
                       onSelected: onActionSelected,
                       itemBuilder: (context) {
@@ -855,7 +856,7 @@ class _MemoryEntryCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,

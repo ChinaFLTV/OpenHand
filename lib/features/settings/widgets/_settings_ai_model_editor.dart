@@ -709,7 +709,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                       ),
                       style: theme.textTheme.titleSmall,
                     ),
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                     Text(
                       _autoCompleteBaseUrl
                           ? openHandLocalizedText(
@@ -729,7 +729,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
+              kOpenHandHGap16,
               Switch(
                 value: _autoCompleteBaseUrl,
                 onChanged: _isSaving
@@ -832,7 +832,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                           ),
                           if (usesResponsesRouting &&
                               preview.responses.isNotEmpty) ...[
-                            const SizedBox(height: 10),
+                            kOpenHandGap10,
                             _EndpointPreviewRow(
                               icon: Icons.auto_awesome_rounded,
                               label: openHandLocalizedText(
@@ -861,7 +861,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               color: colorScheme.primary,
                             ),
                           ],
-                          const SizedBox(height: 8),
+                          kOpenHandGap8,
                           _EndpointPreviewRow(
                             icon:
                                 !usesResponsesRouting ||
@@ -960,7 +960,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                           ),
                           style: theme.textTheme.titleSmall,
                         ),
-                        const SizedBox(height: 4),
+                        kOpenHandGap4,
                         Text(
                           globalInputCacheEnabled
                               ? openHandLocalizedText(
@@ -989,7 +989,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 16),
+                  kOpenHandHGap16,
                   Switch(
                     value: _explicitPromptCacheEnabled,
                     onChanged: _isSaving
@@ -1132,7 +1132,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                         : l10n.aiModelDialogEditTitle,
                     style: Theme.of(context).textTheme.headlineSmall,
                   ),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   Expanded(
                     child: SingleChildScrollView(
                       // Disable the macOS trackpad rubber-band / overscroll
@@ -1158,7 +1158,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 )!.mdlEdOptionalEGDeepseekLocalOllama,
                               ),
                             ),
-                            const SizedBox(height: 16),
+                            kOpenHandGap16,
                             TextFormField(
                               controller: _officialWebsiteUrlController,
                               enabled: !_isSaving,
@@ -1178,7 +1178,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 16),
+                            kOpenHandGap16,
                             TextFormField(
                               controller: _baseUrlController,
                               enabled: !_isSaving,
@@ -1199,9 +1199,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 16),
+                            kOpenHandGap16,
                             _buildAutoCompleteBaseUrlControl(),
-                            const SizedBox(height: 16),
+                            kOpenHandGap16,
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
@@ -1271,7 +1271,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       authDropdown,
-                                      const SizedBox(height: 16),
+                                      kOpenHandGap16,
                                       protocolDropdown,
                                     ],
                                   );
@@ -1279,7 +1279,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 return Row(
                                   children: [
                                     Expanded(child: authDropdown),
-                                    const SizedBox(width: 16),
+                                    kOpenHandHGap16,
                                     Expanded(child: protocolDropdown),
                                   ],
                                 );
@@ -1296,7 +1296,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         'ai-model-token-field',
                                       ),
                                       children: [
-                                        const SizedBox(height: 16),
+                                        kOpenHandGap16,
                                         TextFormField(
                                           controller: _tokenController,
                                           enabled: !_isSaving,
@@ -1368,7 +1368,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                       ),
                                     ),
                             ),
-                            const SizedBox(height: 20),
+                            kOpenHandGap20,
                             // ── Model scan section ──
                             Row(
                               children: [
@@ -1376,7 +1376,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   l10n.aiModelAvailableModels,
                                   style: Theme.of(context).textTheme.titleSmall,
                                 ),
-                                const SizedBox(width: 12),
+                                kOpenHandHGap12,
                                 if (_isScanning)
                                   const SizedBox(
                                     width: 16,
@@ -1395,7 +1395,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     label: Text(l10n.aiModelScanButton),
                                   ),
                                 if (_isScanning) ...[
-                                  const SizedBox(width: 8),
+                                  kOpenHandHGap8,
                                   Text(
                                     l10n.aiModelScanning,
                                     style: Theme.of(context).textTheme.bodySmall
@@ -1414,7 +1414,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               ],
                             ),
                             if (_scanError != null) ...[
-                              const SizedBox(height: 8),
+                              kOpenHandGap8,
                               Text(
                                 _scanError!,
                                 style: Theme.of(context).textTheme.bodySmall
@@ -1448,7 +1448,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             if (_filteredVisibleModelIds.isNotEmpty)
                               ConstrainedBox(
                                 constraints: const BoxConstraints(
@@ -1523,7 +1523,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 ),
                                 dense: true,
                               ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             Row(
                               children: [
                                 Expanded(
@@ -1537,7 +1537,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     onSubmitted: (_) => _addManualModelId(),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                kOpenHandHGap8,
                                 FilledButton.tonal(
                                   onPressed: _isSaving
                                       ? null
@@ -1546,7 +1546,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 16),
+                            kOpenHandGap16,
                             _buildModelIdDropdown(
                               label: AppLocalizations.of(
                                 context,
@@ -1557,7 +1557,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               selectedModelId: _activeModelId,
                               onChanged: (value) => _selectModelId(value ?? ''),
                             ),
-                            const SizedBox(height: 16),
+                            kOpenHandGap16,
                             _buildModelIdDropdown(
                               label: openHandLocalizedText(
                                 context,
@@ -1573,7 +1573,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               allowUnset: true,
                               onChanged: _selectDefaultTitleModelId,
                             ),
-                            const SizedBox(height: 16),
+                            kOpenHandGap16,
                             TextFormField(
                               controller: _maxContextTokensController,
                               enabled: !_isSaving,
@@ -1600,7 +1600,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 return null;
                               },
                             ),
-                            const SizedBox(height: 16),
+                            kOpenHandGap16,
                             // ── Request configuration section ──
                             LayoutBuilder(
                               builder: (context, constraints) {
@@ -1694,7 +1694,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       methodDropdown,
-                                      const SizedBox(height: 16),
+                                      kOpenHandGap16,
                                       streamToggle,
                                     ],
                                   );
@@ -1703,13 +1703,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Expanded(child: methodDropdown),
-                                    const SizedBox(width: 16),
+                                    kOpenHandHGap16,
                                     Expanded(child: streamToggle),
                                   ],
                                 );
                               },
                             ),
-                            const SizedBox(height: 16),
+                            kOpenHandGap16,
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
@@ -1774,7 +1774,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       maxTokensField,
-                                      const SizedBox(height: 16),
+                                      kOpenHandGap16,
                                       temperatureField,
                                     ],
                                   );
@@ -1783,13 +1783,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                   crossAxisAlignment: CrossAxisAlignment.start,
                                   children: [
                                     Expanded(child: maxTokensField),
-                                    const SizedBox(width: 16),
+                                    kOpenHandHGap16,
                                     Expanded(child: temperatureField),
                                   ],
                                 );
                               },
                             ),
-                            const SizedBox(height: 20),
+                            kOpenHandGap20,
                             Text(
                               openHandLocalizedText(
                                 context,
@@ -1802,7 +1802,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                               ),
                               style: Theme.of(context).textTheme.titleSmall,
                             ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
@@ -1886,7 +1886,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       dialectDropdown,
-                                      const SizedBox(height: 16),
+                                      kOpenHandGap16,
                                       providerKindDropdown,
                                     ],
                                   );
@@ -1894,13 +1894,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 return Row(
                                   children: [
                                     Expanded(child: dialectDropdown),
-                                    const SizedBox(width: 16),
+                                    kOpenHandHGap16,
                                     Expanded(child: providerKindDropdown),
                                   ],
                                 );
                               },
                             ),
-                            const SizedBox(height: 16),
+                            kOpenHandGap16,
                             TextField(
                               controller: _responsesModelIdController,
                               enabled: !_isSaving,
@@ -1916,7 +1916,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             TextField(
                               controller: _embeddingModelIdController,
                               enabled: !_isSaving,
@@ -1932,7 +1932,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
@@ -1972,7 +1972,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       moderationField,
-                                      const SizedBox(height: 12),
+                                      kOpenHandGap12,
                                       rerankField,
                                     ],
                                   );
@@ -1980,13 +1980,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 return Row(
                                   children: [
                                     Expanded(child: moderationField),
-                                    const SizedBox(width: 16),
+                                    kOpenHandHGap16,
                                     Expanded(child: rerankField),
                                   ],
                                 );
                               },
                             ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
@@ -2026,7 +2026,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       imageField,
-                                      const SizedBox(height: 12),
+                                      kOpenHandGap12,
                                       videoField,
                                     ],
                                   );
@@ -2034,13 +2034,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 return Row(
                                   children: [
                                     Expanded(child: imageField),
-                                    const SizedBox(width: 16),
+                                    kOpenHandHGap16,
                                     Expanded(child: videoField),
                                   ],
                                 );
                               },
                             ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
@@ -2080,7 +2080,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       speechField,
-                                      const SizedBox(height: 12),
+                                      kOpenHandGap12,
                                       voiceField,
                                     ],
                                   );
@@ -2088,13 +2088,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 return Row(
                                   children: [
                                     Expanded(child: speechField),
-                                    const SizedBox(width: 16),
+                                    kOpenHandHGap16,
                                     Expanded(child: voiceField),
                                   ],
                                 );
                               },
                             ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
@@ -2134,7 +2134,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       transcriptionField,
-                                      const SizedBox(height: 12),
+                                      kOpenHandGap12,
                                       translationField,
                                     ],
                                   );
@@ -2142,13 +2142,13 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 return Row(
                                   children: [
                                     Expanded(child: transcriptionField),
-                                    const SizedBox(width: 16),
+                                    kOpenHandHGap16,
                                     Expanded(child: translationField),
                                   ],
                                 );
                               },
                             ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
@@ -2203,9 +2203,9 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                         CrossAxisAlignment.start,
                                     children: [
                                       realtimeTransportField,
-                                      const SizedBox(height: 12),
+                                      kOpenHandGap12,
                                       realtimeUrlField,
-                                      const SizedBox(height: 12),
+                                      kOpenHandGap12,
                                       realtimeModelField,
                                     ],
                                   );
@@ -2215,17 +2215,17 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     Row(
                                       children: [
                                         Expanded(child: realtimeTransportField),
-                                        const SizedBox(width: 16),
+                                        kOpenHandHGap16,
                                         Expanded(child: realtimeUrlField),
                                       ],
                                     ),
-                                    const SizedBox(height: 12),
+                                    kOpenHandGap12,
                                     realtimeModelField,
                                   ],
                                 );
                               },
                             ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             TextField(
                               controller: _endpointOverridesController,
                               enabled: !_isSaving,
@@ -2253,7 +2253,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             TextField(
                               controller: _operationExtrasController,
                               enabled: !_isSaving,
@@ -2281,7 +2281,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 ),
                               ),
                             ),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             LayoutBuilder(
                               builder: (context, constraints) {
                                 final stacked = constraints.maxWidth < 640;
@@ -2412,12 +2412,12 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                     children: [
                                       if (showsResponsesRouting) ...[
                                         responsesDropdown,
-                                        const SizedBox(height: 12),
+                                        kOpenHandGap12,
                                       ],
                                       realtimeDropdown,
-                                      const SizedBox(height: 12),
+                                      kOpenHandGap12,
                                       filesDropdown,
-                                      const SizedBox(height: 12),
+                                      kOpenHandGap12,
                                       fineTunesDropdown,
                                     ],
                                   );
@@ -2428,11 +2428,11 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                       Row(
                                         children: [
                                           Expanded(child: realtimeDropdown),
-                                          const SizedBox(width: 16),
+                                          kOpenHandHGap16,
                                           Expanded(child: filesDropdown),
                                         ],
                                       ),
-                                      const SizedBox(height: 12),
+                                      kOpenHandGap12,
                                       fineTunesDropdown,
                                     ],
                                   );
@@ -2444,15 +2444,15 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                           CrossAxisAlignment.start,
                                       children: [
                                         Expanded(child: responsesDropdown),
-                                        const SizedBox(width: 16),
+                                        kOpenHandHGap16,
                                         Expanded(child: realtimeDropdown),
                                       ],
                                     ),
-                                    const SizedBox(height: 12),
+                                    kOpenHandGap12,
                                     Row(
                                       children: [
                                         Expanded(child: filesDropdown),
-                                        const SizedBox(width: 16),
+                                        kOpenHandHGap16,
                                         Expanded(child: fineTunesDropdown),
                                       ],
                                     ),
@@ -2460,7 +2460,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 );
                               },
                             ),
-                            const SizedBox(height: 20),
+                            kOpenHandGap20,
                             // ── Custom headers section ──
                             Row(
                               children: [
@@ -2480,7 +2480,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 8),
+                            kOpenHandGap8,
                             if (_customHeaderEntries.isEmpty)
                               Text(
                                 AppLocalizations.of(
@@ -2514,7 +2514,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 8),
+                                      kOpenHandHGap8,
                                       Expanded(
                                         flex: 3,
                                         child: TextField(
@@ -2528,7 +2528,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                                           ),
                                         ),
                                       ),
-                                      const SizedBox(width: 4),
+                                      kOpenHandHGap4,
                                       IconButton(
                                         onPressed: _isSaving
                                             ? null
@@ -3888,7 +3888,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ),
                 style: theme.textTheme.titleSmall,
               ),
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Text(
                 openHandLocalizedText(
                   context,
@@ -3907,7 +3907,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             ],
           ),
         ),
-        const SizedBox(width: 16),
+        kOpenHandHGap16,
         Switch(
           value: _isGlobalDefaultTitleModel,
           onChanged: (value) {
@@ -3966,7 +3966,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               AnimatedSwitcher(
                 duration: duration,
                 switchInCurve: Curves.easeOutCubic,
@@ -3982,7 +3982,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             ],
           ),
         ),
-        const SizedBox(width: 16),
+        kOpenHandHGap16,
         Switch(
           value: _oneMillionContextEnabled,
           onChanged: _setOneMillionContextEnabled,
@@ -4035,7 +4035,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   fontWeight: FontWeight.w600,
                 ),
               ),
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               AnimatedSwitcher(
                 duration: duration,
                 switchInCurve: Curves.easeOutCubic,
@@ -4051,7 +4051,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             ],
           ),
         ),
-        const SizedBox(width: 16),
+        kOpenHandHGap16,
         Switch(
           value: _thinkingEnabled,
           onChanged: (value) {
@@ -4124,7 +4124,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       fontWeight: FontWeight.w600,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   AnimatedSwitcher(
                     duration: duration,
                     switchInCurve: Curves.easeOutCubic,
@@ -4142,7 +4142,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ],
               ),
             ),
-            const SizedBox(width: 16),
+            kOpenHandHGap16,
             Switch(
               value: _thinkingEnabled && _reasoningEffortControlEnabled,
               onChanged: !_thinkingEnabled
@@ -4256,7 +4256,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               ? null
               : (value) => setState(() => _reasoningEffort = value),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Row(
           children: [
             Expanded(
@@ -4275,7 +4275,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -4303,7 +4303,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         child: Row(
                           children: [
                             const Icon(Icons.auto_awesome_rounded, size: 18),
-                            const SizedBox(width: 10),
+                            kOpenHandHGap10,
                             Expanded(
                               child: Column(
                                 mainAxisSize: MainAxisSize.min,
@@ -4338,7 +4338,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     mainAxisAlignment: MainAxisAlignment.center,
                     children: [
                       const Icon(Icons.auto_awesome_rounded, size: 18),
-                      const SizedBox(width: 6),
+                      kOpenHandHGap6,
                       Text(
                         openHandLocalizedText(
                           context,
@@ -4378,7 +4378,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         AnimatedSize(
           duration: duration,
           curve: Curves.easeOutCubic,
@@ -4386,7 +4386,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           child: _buildReasoningEffortOptionsList(),
         ),
         if (options.isEmpty) ...[
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Text(
             openHandLocalizedText(
               context,
@@ -4560,7 +4560,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -4799,7 +4799,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: theme.textTheme.bodyMedium),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Wrap(
           spacing: 8,
           runSpacing: 6,
@@ -4828,7 +4828,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Wrap(
           spacing: 8,
           runSpacing: 6,
@@ -4870,7 +4870,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           ),
           style: theme.textTheme.bodyMedium,
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Wrap(
           spacing: 8,
           runSpacing: 6,
@@ -4957,7 +4957,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   FocusScope.of(context).nextFocus();
                 },
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               if (_profileErrorMessage != null) ...[
                 Text(
                   _profileErrorMessage!,
@@ -4966,7 +4966,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     fontWeight: FontWeight.w600,
                   ),
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
               ],
 
               // Display name
@@ -4980,7 +4980,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
 
               // Description
               TextField(
@@ -4991,16 +4991,16 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 ),
                 maxLines: 2,
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
 
               _buildGlobalDefaultTitleModelControl(),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
 
               // Multimodal toggle (tri-state)
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdMultimodalSupport,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -5022,7 +5022,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
 
               // Supports attachments toggle (tri-state). Drives whether the
               // composer's attachment button is enabled for sessions using
@@ -5030,7 +5030,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdSupportsAttachments,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -5055,25 +5055,25 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
 
               _buildThinkingEnabledControl(),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
 
               _buildReasoningEffortControl(),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
 
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdReasoningEcho,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 AppLocalizations.of(context)!.mdlEdReasoningEchoHint,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -5098,12 +5098,12 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
 
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdSupportedModalities,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -5140,13 +5140,13 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     })
                     .toList(growable: false),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
 
               // Capabilities
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdGenerationCapabilities,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -5218,7 +5218,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     })
                     .toList(growable: false),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
 
               if (_capabilities.contains(
                 AiModelCapability.readerConversion,
@@ -5234,7 +5234,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ja: '読み取り変換設定',
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Text(
                   openHandLocalizedText(
                     context,
@@ -5249,7 +5249,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 _buildReaderTypeChips(
                   title: openHandLocalizedText(
                     context,
@@ -5265,7 +5265,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   onChanged: (next) =>
                       setState(() => _readerSourceTypes = next),
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 _buildReaderTypeChips(
                   title: openHandLocalizedText(
                     context,
@@ -5281,7 +5281,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   onChanged: (next) =>
                       setState(() => _readerTargetTypes = next),
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
               ],
 
               if (_capabilities.contains(
@@ -5298,7 +5298,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ja: '埋め込み生成設定',
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5316,7 +5316,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingMaxInputTokensController,
@@ -5334,7 +5334,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5352,7 +5352,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         hint: '/v1/embeddings',
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingBatchSizeController,
@@ -5370,7 +5370,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5388,7 +5388,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         hint: widget.modelId,
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDocumentModelIdController,
@@ -5406,7 +5406,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5424,7 +5424,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingMaxDimensionsController,
@@ -5442,7 +5442,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5460,7 +5460,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         hint: 'text, image',
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingSupportedTaskTypesController,
@@ -5478,7 +5478,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5496,7 +5496,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         hint: 'document',
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingQueryInputTypeController,
@@ -5514,7 +5514,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 _buildCompactTextField(
                   controller: _embeddingDocumentInputTypeController,
                   label: openHandLocalizedText(
@@ -5528,7 +5528,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                   hint: 'document',
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5546,7 +5546,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         hint: 'retrieval_document',
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingSimilarityMetricController,
@@ -5564,7 +5564,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5582,7 +5582,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         hint: 'RETRIEVAL_QUERY',
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultDocumentTaskTypeController,
@@ -5600,7 +5600,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5618,7 +5618,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         hint: 'query:',
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDocumentTextPrefixController,
@@ -5636,7 +5636,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5654,7 +5654,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         hint: 'float, base64',
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultEncodingFormatController,
@@ -5672,7 +5672,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 _buildCompactTextField(
                   controller: _embeddingDefaultTruncationController,
                   label: openHandLocalizedText(
@@ -5686,7 +5686,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                   hint: 'END / true',
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5704,7 +5704,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         hint: 'float, int8, uint8, binary',
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingDefaultOutputDTypeController,
@@ -5722,7 +5722,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   children: <Widget>[
                     Expanded(
@@ -5740,7 +5740,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(
                       child: _buildCompactTextField(
                         controller: _embeddingMaxTokensPerBatchController,
@@ -5758,7 +5758,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 SwitchListTile(
                   dense: true,
                   contentPadding: EdgeInsets.zero,
@@ -5814,18 +5814,18 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   onChanged: (value) =>
                       setState(() => _embeddingSupportsTruncation = value),
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 _buildEmbeddingNormalizedControl(),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
               ],
 
               // Token limits
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdTokenLimits,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               _buildOneMillionContextControl(),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Row(
                 children: <Widget>[
                   Expanded(
@@ -5852,7 +5852,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: TextField(
                       controller: _maxSummaryLengthController,
@@ -5867,7 +5867,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Row(
                 children: <Widget>[
                   Expanded(
@@ -5882,7 +5882,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: TextField(
                       controller: _maxThinkingLengthController,
@@ -5897,11 +5897,11 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               _buildSectionHeader(
                 AppLocalizations.of(context)!.mdlEdTokenPricingUsd1mTokensLeave,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Row(
                 children: <Widget>[
                   Expanded(
@@ -5916,7 +5916,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: TextField(
                       controller: _outputUsdPer1MController,
@@ -5931,7 +5931,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Row(
                 children: <Widget>[
                   Expanded(
@@ -5946,7 +5946,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: TextField(
                       controller: _cacheWriteUsdPer1MController,
@@ -5963,9 +5963,9 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               _buildSectionHeader('OpenRouter Metadata Overrides'),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               TextField(
                 controller: _canonicalSlugController,
                 decoration: const InputDecoration(
@@ -5973,7 +5973,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               TextField(
                 controller: _huggingFaceIdController,
                 decoration: const InputDecoration(
@@ -5981,7 +5981,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               TextField(
                 controller: _knowledgeCutoffController,
                 decoration: const InputDecoration(
@@ -5989,7 +5989,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               TextField(
                 controller: _expirationDateController,
                 decoration: const InputDecoration(
@@ -5997,7 +5997,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               TextField(
                 controller: _supportedParametersController,
                 decoration: const InputDecoration(
@@ -6006,7 +6006,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               TextField(
                 controller: _defaultParametersController,
                 minLines: 2,
@@ -6022,7 +6022,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               OpenHandExpansionTile(
                 tilePadding: EdgeInsets.zero,
                 title: _buildSectionHeader('OpenRouter Raw Metadata'),
@@ -6033,7 +6033,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                   ),
                 ),
                 children: [
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   SelectionArea(
                     child: Container(
                       width: double.infinity,
@@ -6158,7 +6158,7 @@ class _EndpointPreviewRow extends StatelessWidget {
           ),
           child: Icon(icon, size: 16, color: color),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -6170,7 +6170,7 @@ class _EndpointPreviewRow extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 2),
+              kOpenHandGap2,
               Text(
                 url,
                 maxLines: 2,

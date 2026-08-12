@@ -9,6 +9,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
@@ -655,7 +656,7 @@ class _ServiceInteractiveSurfaceState extends State<ServiceInteractiveSurface> {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: widget.child),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Padding(
                 // 预留位移动画的绘制空间，避免右侧按钮被圆角材质裁剪。
                 padding: const EdgeInsets.only(right: 2),
@@ -805,7 +806,7 @@ class _ServiceDetailsDialog extends StatelessWidget {
                 ),
                 child: Icon(icon, color: tone),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -817,7 +818,7 @@ class _ServiceDetailsDialog extends StatelessWidget {
                       ),
                     ),
                     if (subtitle?.trim().isNotEmpty == true) ...[
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         subtitle!,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -859,7 +860,7 @@ class _ServiceDetailsDialog extends StatelessWidget {
                         fields: fields,
                         accentColor: tone,
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
                       _ServiceDetailFacts(fields: fields, accentColor: tone),
                     ],
                   ),
@@ -987,7 +988,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
     final bars = _bars(context, values, showRank: false);
     return LayoutBuilder(
       builder: (context, constraints) => constraints.maxWidth < 620
-          ? Column(children: [donut, const SizedBox(height: 12), bars])
+          ? Column(children: [donut, kOpenHandGap12, bars])
           : Row(
               children: [
                 donut,
@@ -1018,7 +1019,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
     final bars = _bars(context, values, showRank: false, total: total);
     return LayoutBuilder(
       builder: (context, constraints) => constraints.maxWidth < 620
-          ? Column(children: [donut, const SizedBox(height: 12), bars])
+          ? Column(children: [donut, kOpenHandGap12, bars])
           : Row(
               children: [
                 donut,
@@ -1115,7 +1116,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                                 ?.copyWith(fontWeight: FontWeight.w800),
                           ),
                           if (item.valueLabel?.trim().isNotEmpty == true) ...[
-                            const SizedBox(height: 3),
+                            kOpenHandGap3,
                             Text(
                               item.valueLabel!,
                               style: Theme.of(context).textTheme.bodySmall
@@ -1126,7 +1127,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                             ),
                           ],
                           if (item.helper?.trim().isNotEmpty == true) ...[
-                            const SizedBox(height: 3),
+                            kOpenHandGap3,
                             Text(
                               item.helper!,
                               style: Theme.of(context).textTheme.labelSmall,
@@ -1203,7 +1204,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
           '$positive',
           OpenHandStatusColors.success,
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _healthRow(
           context,
           Icons.warning_amber_rounded,
@@ -1211,7 +1212,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
           '$negative',
           OpenHandStatusColors.warning,
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _healthRow(
           context,
           Icons.fact_check_outlined,
@@ -1223,7 +1224,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
     );
     return LayoutBuilder(
       builder: (context, constraints) => constraints.maxWidth < 620
-          ? Column(children: [donut, const SizedBox(height: 12), signals])
+          ? Column(children: [donut, kOpenHandGap12, signals])
           : Row(
               children: [
                 donut,
@@ -1298,7 +1299,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
             );
           },
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         Row(
           children: [
             Expanded(
@@ -1312,7 +1313,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Text(
               '完整度 ${(ratio * 100).round()}%',
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -1365,7 +1366,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(
               child: Text(
                 fields
@@ -1383,7 +1384,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Container(
           constraints: const BoxConstraints(minHeight: 96),
           padding: const EdgeInsets.all(13),
@@ -1452,7 +1453,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 3),
+                kOpenHandGap3,
                 Text(
                   centerLabel,
                   maxLines: 2,
@@ -1545,7 +1546,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                               ),
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       Text(
                         valueLabel,
                         style: Theme.of(context).textTheme.labelMedium
@@ -1556,7 +1557,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   ClipRRect(
                     borderRadius: kServiceRadiusPill,
                     child: ServiceAnimatedProgressBar(
@@ -1567,7 +1568,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                     ),
                   ),
                   if (item.helper?.trim().isNotEmpty == true) ...[
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                     Text(
                       item.helper!,
                       maxLines: 2,
@@ -1603,7 +1604,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
         ),
         child: Icon(icon, size: 19, color: color),
       ),
-      const SizedBox(width: 10),
+      kOpenHandHGap10,
       Expanded(
         child: Text(label, style: Theme.of(context).textTheme.labelLarge),
       ),
@@ -1635,7 +1636,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 18, color: color),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Text('$label  ', style: Theme.of(context).textTheme.labelMedium),
         Text(
           value,
@@ -1690,7 +1691,7 @@ class _ServiceDetailSection extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 19, color: accentColor),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   title,
@@ -1701,7 +1702,7 @@ class _ServiceDetailSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           child,
         ],
       ),
@@ -1772,14 +1773,14 @@ class _ServiceDetailFieldRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: SelectableText(
                   field.value,
                   style: theme.textTheme.bodyMedium?.copyWith(height: 1.45),
                 ),
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               ServiceDialogCompactIconButton(
                 tooltip: openHandLocalizedText(
                   context,

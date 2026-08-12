@@ -4,6 +4,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import 'service_dialog_controls.dart';
 
 const int _kPostgresqlJsonMaxEntries = 200;
@@ -194,7 +195,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
                 ),
                 child: Icon(Icons.table_view_rounded, color: colors.primary),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -205,7 +206,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    kOpenHandGap3,
                     Text(
                       _editing ? '按字段修改记录，主键仅用于定位' : '按字段填写记录，留空项将使用数据库默认值',
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -222,7 +223,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           DecoratedBox(
             decoration: BoxDecoration(
               color: colors.primaryContainer.withValues(alpha: 0.28),
@@ -238,7 +239,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
                     size: 18,
                     color: colors.primary,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Text(
                       '结构化表单会按 PostgreSQL 字段类型校验文本、数字、布尔值和 JSONB，减少格式错误。',
@@ -249,7 +250,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
               ),
             ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Expanded(
             child: OpenHandSafeScrollbar(
               controller: _scrollController,
@@ -275,7 +276,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
                     child: Text(_error!, style: TextStyle(color: colors.error)),
                   ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Wrap(
             alignment: WrapAlignment.end,
             spacing: 10,
@@ -315,7 +316,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
               children: groups[label]!,
               fieldBuilder: _buildField,
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
           ],
       ],
     );
@@ -381,7 +382,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
             padding: const EdgeInsets.only(left: 6),
             child: Icon(Icons.key_rounded, size: 15, color: colors.primary),
           ),
-        if (trailing != null) ...[const SizedBox(width: 8), trailing],
+        if (trailing != null) ...[kOpenHandHGap8, trailing],
       ],
     );
   }
@@ -401,7 +402,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
           column,
           trailing: _TypeBadge(label: column.dataType),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         TextField(
           controller: controller,
           readOnly: readOnly,
@@ -442,7 +443,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
           column,
           trailing: _TypeBadge(label: column.dataType),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         DropdownButtonFormField<String>(
           initialValue: _selectValues[column.name],
           isExpanded: true,
@@ -482,7 +483,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
           column,
           trailing: _TypeBadge(label: column.dataType),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         DecoratedBox(
           decoration: BoxDecoration(
             color: colors.surfaceContainerHighest.withValues(alpha: 0.42),
@@ -547,7 +548,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
           column,
           trailing: _TypeBadge(label: column.dataType),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         DecoratedBox(
           decoration: BoxDecoration(
             color: colors.primaryContainer.withValues(alpha: 0.24),
@@ -563,7 +564,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
                   size: 20,
                   color: colors.primary,
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -732,14 +733,14 @@ class _PostgresqlFormSection extends StatelessWidget {
                 size: 19,
                 color: Theme.of(context).colorScheme.primary,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 title,
                 style: Theme.of(
                   context,
                 ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.w800),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 '${children.length} 项',
                 style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -748,7 +749,7 @@ class _PostgresqlFormSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           LayoutBuilder(
             builder: (context, constraints) {
               final columns = constraints.maxWidth >= 720 ? 2 : 1;
@@ -1010,7 +1011,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
                 ),
                 child: Icon(Icons.data_object_rounded, color: colors.primary),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Text(
                   title,
@@ -1026,7 +1027,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           SegmentedButton<_PostgresqlJsonRootMode>(
             segments: const [
               ButtonSegment(
@@ -1048,7 +1049,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
             selected: {_mode},
             onSelectionChanged: (selection) => _changeMode(selection.first),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Expanded(child: _buildDraftList(context)),
           OpenHandVerticalRevealSwitcher(
             presentKey: ValueKey<String>('postgres-json-error-$_error'),
@@ -1059,7 +1060,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
                     child: Text(_error!, style: TextStyle(color: colors.error)),
                   ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Wrap(
             alignment: WrapAlignment.end,
             spacing: 10,
@@ -1098,7 +1099,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
         index,
         showKey: _mode == _PostgresqlJsonRootMode.object,
       ),
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => kOpenHandGap8,
     );
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -1106,7 +1107,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
         Row(
           children: [
             Icon(Icons.account_tree_outlined, size: 18, color: colors.primary),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Text(
                 '$title · ${_drafts.length} 项',
@@ -1127,7 +1128,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Expanded(
           child: _drafts.isEmpty
               ? Center(
@@ -1187,7 +1188,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
                     crossAxisAlignment: CrossAxisAlignment.stretch,
                     children: [
                       typeField,
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       valueField,
                     ],
                   )
@@ -1195,7 +1196,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       SizedBox(width: 132, child: typeField),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       Expanded(child: valueField),
                     ],
                   );
@@ -1212,7 +1213,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
                       isDense: true,
                     ),
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                 ],
                 controls,
                 Align(

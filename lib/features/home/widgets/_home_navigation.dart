@@ -412,7 +412,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
                               ),
                             ),
                             if (hasThreads) ...[
-                              const SizedBox(width: 8),
+                              kOpenHandHGap8,
                               Container(
                                 constraints: const BoxConstraints(minWidth: 22),
                                 padding: const EdgeInsets.symmetric(
@@ -440,7 +440,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       MicroPressFeedback(
                         scale: 0.94,
                         enabled: !_creatingThread,
@@ -511,7 +511,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
                     color: colorScheme.outlineVariant.withValues(alpha: 0.48),
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Expanded(
                   child: OpenHandSafeScrollbar(
                     controller: _threadScrollController,

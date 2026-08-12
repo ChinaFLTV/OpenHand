@@ -22,6 +22,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -595,7 +596,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                 loc?.webReverseAiCryptoAnalyze ?? 'Analyze',
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            kOpenHandHGap10,
                             FilledButton.tonalIcon(
                               onPressed: _prompt.isEmpty ? null : _copy,
                               icon: const Icon(Icons.copy_all_rounded),
@@ -616,7 +617,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                           ],
                         ),
                         if (_suspects.isNotEmpty) ...[
-                          const SizedBox(height: 8),
+                          kOpenHandGap8,
                           Wrap(
                             spacing: 6,
                             runSpacing: 4,
@@ -649,7 +650,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                             ],
                           ),
                         ],
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                         Expanded(
                           child: Container(
                             decoration: webReverseSurfaceCardDecoration(

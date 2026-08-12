@@ -20,6 +20,7 @@ import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -346,7 +347,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                     );
                   },
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 _sectionTitle(
                   AppLocalizations.of(
                         context,
@@ -354,7 +355,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                       'Performance emulation',
                 ),
                 _cpuThrottleRow(cs, tt),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 _sectionTitle(
                   AppLocalizations.of(
                         context,
@@ -401,7 +402,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                   },
                 ),
                 if (_status.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -484,7 +485,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
       child: Row(
         children: [
           Icon(icon, size: 20, color: value ? cs.primary : cs.onSurfaceVariant),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -517,7 +518,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
           Row(
             children: [
               Icon(Icons.memory_rounded, size: 20, color: cs.onSurfaceVariant),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Text(
                 AppLocalizations.of(
                       context,
@@ -545,7 +546,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Wrap(
             spacing: 6,
             runSpacing: 6,

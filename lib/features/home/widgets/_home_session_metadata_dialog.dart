@@ -145,7 +145,7 @@ class _SessionMetadataDialog extends StatelessWidget {
               )!.sessMetaCurrentSessionMetadata,
               subtitle: session.title,
             ),
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -153,7 +153,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                   children: [
                     Wrap(spacing: 12, runSpacing: 12, children: summaryBlocks),
                     ..._buildSessionCostSection(context, theme, colorScheme),
-                    const SizedBox(height: 18),
+                    kOpenHandGap18,
                     OpenHandMetadataSection(
                       title: AppLocalizations.of(
                         context,
@@ -220,26 +220,26 @@ class _SessionMetadataDialog extends StatelessWidget {
                       ],
                     ),
                     if (session.templateId == 'harness_engineering') ...[
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                       _buildHarnessConfigSection(context, session),
                     ],
                     if (session.templateId == 'programming_expert') ...[
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                       _buildProgrammingExpertConfigSection(context, session),
                     ],
                     if (session.templateId == 'web_reverse_expert') ...[
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                       _buildWebReverseConfigSection(context, session),
                     ],
                     if (machineTerminalMetadata.isNotEmpty) ...[
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                       _buildMachineTerminalMetadataSection(
                         context,
                         machineTerminalMetadata,
                       ),
                     ],
                     if (extendedMetadataEntries.isNotEmpty) ...[
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                       OpenHandMetadataSection(
                         title: AppLocalizations.of(
                           context,
@@ -254,7 +254,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                             .toList(growable: false),
                       ),
                     ],
-                    const SizedBox(height: 16),
+                    kOpenHandGap16,
                     OpenHandMetadataSection(
                       title: AppLocalizations.of(context)!.sessMetaStatistics,
                       children: [
@@ -287,7 +287,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        kOpenHandGap12,
                         OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(
                             context,
@@ -336,7 +336,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                       lastPromptMetadata,
                     ),
                     ..._buildCompactMemorySection(context, lastPromptMetadata),
-                    const SizedBox(height: 16),
+                    kOpenHandGap16,
                     OpenHandMetadataSection(
                       title: AppLocalizations.of(context)!.sessMetaEnvironment,
                       children: [
@@ -428,7 +428,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    kOpenHandGap16,
                     OpenHandMetadataSection(
                       title: AppLocalizations.of(
                         context,
@@ -498,7 +498,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                                 ),
                             ],
                     ),
-                    const SizedBox(height: 16),
+                    kOpenHandGap16,
                     OpenHandMetadataSection(
                       title: AppLocalizations.of(
                         context,
@@ -560,7 +560,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                                 )!.sessMetaRefreshesNextRound,
                         ),
                         if (runtimeStatus.notices.isNotEmpty) ...[
-                          const SizedBox(height: 12),
+                          kOpenHandGap12,
                           Text(
                             AppLocalizations.of(
                               context,
@@ -569,7 +569,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          kOpenHandGap10,
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
@@ -580,7 +580,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                         ],
                         if (runtimeStatus.toolNames.isNotEmpty &&
                             !runtimeStatus.stale) ...[
-                          const SizedBox(height: 12),
+                          kOpenHandGap12,
                           Text(
                             AppLocalizations.of(
                               context,
@@ -589,7 +589,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          kOpenHandGap10,
                           Wrap(
                             spacing: 8,
                             runSpacing: 8,
@@ -600,7 +600,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    kOpenHandGap16,
                     OpenHandMetadataSection(
                       title: AppLocalizations.of(context)!.sessMetaTaskTracking,
                       children: [
@@ -665,14 +665,14 @@ class _SessionMetadataDialog extends StatelessWidget {
                                 .toList(growable: false),
                           ),
                         if (planHistory.isNotEmpty) ...[
-                          const SizedBox(height: 12),
+                          kOpenHandGap12,
                           Text(
                             AppLocalizations.of(context)!.sessMetaPlanHistory,
                             style: theme.textTheme.labelLarge?.copyWith(
                               fontWeight: FontWeight.w800,
                             ),
                           ),
-                          const SizedBox(height: 10),
+                          kOpenHandGap10,
                           ...planHistory.asMap().entries.map(
                             (entry) => _MetadataPlanRecordCard(
                               planIndex: planHistory.length - entry.key,
@@ -682,7 +682,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                         ],
                       ],
                     ),
-                    const SizedBox(height: 16),
+                    kOpenHandGap16,
                     OpenHandMetadataSection(
                       title: AppLocalizations.of(context)!.sessMetaRecentErrors,
                       children: recentErrors.isEmpty
@@ -702,7 +702,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                                 )
                                 .toList(growable: false),
                     ),
-                    const SizedBox(height: 16),
+                    kOpenHandGap16,
                     OpenHandMetadataSection(
                       title: AppLocalizations.of(
                         context,
@@ -718,12 +718,12 @@ class _SessionMetadataDialog extends StatelessWidget {
                       controller: controller,
                       claudeStyle: claudeStyle,
                     ),
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                   ],
                 ),
               ),
             ),
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             Row(
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
@@ -757,7 +757,7 @@ class _SessionMetadataDialog extends StatelessWidget {
     if (!trend.hasEnoughPoints) return const <Widget>[];
 
     return [
-      const SizedBox(height: 12),
+      kOpenHandGap12,
       _CacheHitTrendChart(trend: trend, primaryClaudeStyle: claudeStyle),
     ];
   }
@@ -828,7 +828,7 @@ class _SessionMetadataDialog extends StatelessWidget {
     }
 
     return <Widget>[
-      const SizedBox(height: 14),
+      kOpenHandGap14,
       Container(
         width: double.infinity,
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
@@ -843,7 +843,7 @@ class _SessionMetadataDialog extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Text(l10n.tokenPopupCostHeading.toUpperCase(), style: headStyle),
-            const SizedBox(height: 6),
+            kOpenHandGap6,
             if (breakdown.inputUsd != null)
               row(l10n.tokenPopupCostInput, breakdown.inputUsd!),
             if (breakdown.outputUsd != null)
@@ -861,7 +861,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                 style: amberStyle,
               ),
             if (breakdown.totalUsd != null) ...[
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Padding(
                 padding: const EdgeInsets.symmetric(vertical: 2),
                 child: Row(
@@ -884,7 +884,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                 ),
               ),
               if (overBudget) ...[
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.symmetric(
@@ -903,7 +903,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                         size: 16,
                         color: colorScheme.onErrorContainer,
                       ),
-                      const SizedBox(width: 6),
+                      kOpenHandHGap6,
                       Expanded(
                         child: Text(
                           l10n.sessionMetadataOverBudgetNotice(
@@ -980,7 +980,7 @@ class _SessionMetadataDialog extends StatelessWidget {
         : null;
 
     return <Widget>[
-      const SizedBox(height: 16),
+      kOpenHandGap16,
       OpenHandMetadataSection(
         title: openHandLocalizedText(
           context,
@@ -1000,11 +1000,11 @@ class _SessionMetadataDialog extends StatelessWidget {
                     backgroundColor: colorScheme.surfaceContainerHighest,
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 _MetadataChip(label: statusLabel),
               ],
             ),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             OpenHandMetadataEntryRow(
               label: _localizedMetadataField(
                 context,
@@ -1058,7 +1058,7 @@ class _SessionMetadataDialog extends StatelessWidget {
             ),
           ],
           if (cacheHitTrendWidgets.isNotEmpty) ...[
-            if (estimatedTokens > 0) const SizedBox(height: 4),
+            if (estimatedTokens > 0) kOpenHandGap4,
             ...cacheHitTrendWidgets,
           ],
         ],
@@ -1096,7 +1096,7 @@ class _SessionMetadataDialog extends StatelessWidget {
           );
 
     return <Widget>[
-      const SizedBox(height: 16),
+      kOpenHandGap16,
       OpenHandMetadataSection(
         title: openHandLocalizedText(
           context,
@@ -1182,7 +1182,7 @@ class _SessionMetadataDialog extends StatelessWidget {
     final agentTypeCount = _metadataInt(rehydration['agent_type_count']);
 
     return <Widget>[
-      const SizedBox(height: 16),
+      kOpenHandGap16,
       OpenHandMetadataSection(
         title: openHandLocalizedText(
           context,
@@ -1214,14 +1214,14 @@ class _SessionMetadataDialog extends StatelessWidget {
             value:
                 'read_files=$recentReadFileCount, skills=$invokedSkillCount, mcp_instructions=$mcpServerInstructionCount, session_hooks=$sessionStartHookCount, agent_results=$agentResultCount, deferred_tools=$deferredBuiltinToolCount, agent_types=$agentTypeCount',
           ),
-          const SizedBox(height: 2),
+          kOpenHandGap2,
           Text(
             openHandLocalizedText(context, zh: '恢复通道', en: 'Restored Channels'),
             style: Theme.of(
               context,
             ).textTheme.labelLarge?.copyWith(fontWeight: FontWeight.w800),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           if (channels.isEmpty)
             Text(
               openHandLocalizedText(context, zh: '暂无恢复通道。', en: 'No channels.'),
@@ -1339,7 +1339,7 @@ Widget _buildMachineTerminalMetadataSection(
           ),
         ],
       ),
-      const SizedBox(height: 14),
+      kOpenHandGap14,
       OpenHandMetadataEntryRow(
         label: openHandLocalizedText(context, zh: '工作流', en: 'Workflow'),
         value: _metadataDisplayValue(metadata['workflow']),
@@ -1383,7 +1383,7 @@ Widget _buildMachineTerminalMetadataSection(
           value: defaults,
         ),
       if (capabilities.isNotEmpty) ...[
-        const SizedBox(height: 4),
+        kOpenHandGap4,
         _MetadataGroupLabel(
           label: openHandLocalizedText(context, zh: '终端能力', en: 'Capabilities'),
           detail: openHandLocalizedText(
@@ -1392,7 +1392,7 @@ Widget _buildMachineTerminalMetadataSection(
             en: 'Terminal capabilities available in this template',
           ),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -1412,7 +1412,7 @@ Widget _buildMachineTerminalMetadataSection(
           value: ui,
         ),
       if (toolNames.isNotEmpty) ...[
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _MetadataGroupLabel(
           label: openHandLocalizedText(
             context,
@@ -1425,7 +1425,7 @@ Widget _buildMachineTerminalMetadataSection(
             en: 'Scoped to the machine expert template',
           ),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -1435,7 +1435,7 @@ Widget _buildMachineTerminalMetadataSection(
         ),
       ],
       if (terminals.isNotEmpty) ...[
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _MetadataGroupLabel(
           label: openHandLocalizedText(
             context,
@@ -1448,7 +1448,7 @@ Widget _buildMachineTerminalMetadataSection(
             en: 'Lightweight status summaries without terminal output',
           ),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         ...terminals.asMap().entries.map(
           (entry) => _MachineTerminalMetadataCard(
             index: entry.key + 1,
@@ -1651,7 +1651,7 @@ Widget _buildMetadataStructuredNode(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     _MetadataGroupLabel(label: _metadataFieldTitle(entry.key)),
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     _buildMetadataStructuredNode(
                       context,
                       entry.value,
@@ -1715,7 +1715,7 @@ Widget _buildMetadataStructuredNode(
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 scalar
                     ? SelectableText(
                         _metadataDisplayValue(item),
@@ -1813,7 +1813,7 @@ class _MetadataInfoTile extends StatelessWidget {
             ),
             child: Icon(icon, size: 18, color: color),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -1827,7 +1827,7 @@ class _MetadataInfoTile extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Text(
                   value,
                   maxLines: 1,
@@ -1869,7 +1869,7 @@ class _MetadataGroupLabel extends StatelessWidget {
           ),
         ),
         if (detailText != null && detailText.isNotEmpty) ...[
-          const SizedBox(height: 3),
+          kOpenHandGap3,
           Text(
             detailText,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -1946,7 +1946,7 @@ class _MetadataStructuredValue extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           _buildMetadataStructuredNode(context, value),
         ],
       ),
@@ -2048,7 +2048,7 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -2066,7 +2066,7 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           ...extraRows,
         ],
       ),
@@ -2167,7 +2167,7 @@ class _MetadataPlanRecordCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Text(
             '${AppLocalizations.of(context)!.sessMetaCreated} ${_formatDateTime(planRecord.createdAt)} · ${AppLocalizations.of(context)!.sessMetaUpdated} ${_formatDateTime(planRecord.updatedAt)}',
             style: theme.textTheme.bodySmall?.copyWith(
@@ -2175,14 +2175,14 @@ class _MetadataPlanRecordCard extends StatelessWidget {
             ),
           ),
           if (planSummary.isNotEmpty && steps.isEmpty) ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             SelectableText(
               planSummary,
               style: theme.textTheme.bodyMedium?.copyWith(height: 1.4),
             ),
           ],
           if (steps.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Wrap(spacing: 8, runSpacing: 8, children: steps),
           ],
         ],
@@ -2221,7 +2221,7 @@ class _MetadataErrorCard extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           SelectableText(
             presentation.message,
             style: theme.textTheme.bodyMedium?.copyWith(
@@ -2230,7 +2230,7 @@ class _MetadataErrorCard extends StatelessWidget {
             ),
           ),
           if (detail.isNotEmpty && detail != rawMessage) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               AppLocalizations.of(context)!.sessMetaErrorDetail,
               style: theme.textTheme.labelMedium?.copyWith(
@@ -2238,7 +2238,7 @@ class _MetadataErrorCard extends StatelessWidget {
                 fontWeight: FontWeight.w700,
               ),
             ),
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             SelectableText(
               detail,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -2247,7 +2247,7 @@ class _MetadataErrorCard extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Text(
             '${_sessionErrorStageLabel(context, error.stage)} · ${_formatDateTime(error.createdAt)} · ${error.hasBeenPresented ? AppLocalizations.of(context)!.sessMetaPresented : AppLocalizations.of(context)!.sessMetaPending}',
             style: theme.textTheme.bodySmall?.copyWith(
@@ -2734,14 +2734,14 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
           Row(
             children: [
               Text(l10n.sessMetaCacheHitTrend, style: headStyle),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _CacheHitLegendChip(
                 color: colorScheme.primary,
                 label: primaryLabel,
                 solid: true,
               ),
               if (_overlayOn) ...[
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 _CacheHitLegendChip(
                   color: altColor,
                   label: altLabel,
@@ -2756,7 +2756,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                 ' · n=${primary.length}',
                 style: valueStyle,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               InkWell(
                 onTap: () => setState(() => _overlayOn = !_overlayOn),
                 borderRadius: _kHomeRadiusSmall,
@@ -2778,7 +2778,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -2800,7 +2800,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           SizedBox(
             height: _chartHeight,
             child: LayoutBuilder(
@@ -3020,7 +3020,7 @@ class _CacheHitLegendChip extends StatelessWidget {
             border: solid ? null : Border.all(color: color, width: 1.4),
           ),
         ),
-        const SizedBox(width: 4),
+        kOpenHandHGap4,
         Text(
           label,
           style: theme.textTheme.labelSmall?.copyWith(

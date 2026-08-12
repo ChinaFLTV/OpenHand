@@ -207,7 +207,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                   color: colorScheme.primary,
                   size: 26,
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Text(
                     openHandLocalizedText(
@@ -230,11 +230,11 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
 
             // ── Breadcrumb ──
             _HeBreadcrumb(segments: _pathSegments, onNavigate: _navigateTo),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             const Divider(height: 1),
 
             // ── File list ──
@@ -267,7 +267,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
                         ),
                         padding: const EdgeInsets.symmetric(vertical: 8),
                         itemCount: _entries.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 2),
+                        separatorBuilder: (_, _) => kOpenHandGap2,
                         itemBuilder: (ctx, i) {
                           final entry = _entries[i];
                           return _HeSteeringEntryTile(
@@ -386,7 +386,7 @@ class _HeBreadcrumb extends StatelessWidget {
                     ? colorScheme.onPrimaryContainer
                     : colorScheme.onSurfaceVariant,
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Text(
                 label,
                 style: theme.textTheme.labelMedium?.copyWith(
@@ -455,7 +455,7 @@ class _HeSteeringEntryTile extends StatelessWidget {
           child: Row(
             children: [
               Icon(_icon, size: 24, color: _iconColor(colorScheme)),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -481,7 +481,7 @@ class _HeSteeringEntryTile extends StatelessWidget {
                 ),
               ),
               if (!entry.isDirectory && entry.size != null) ...[
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Text(
                   formatByteSize(entry.size!),
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -490,7 +490,7 @@ class _HeSteeringEntryTile extends StatelessWidget {
                 ),
               ],
               if (entry.modified != null) ...[
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Text(
                   formatYearMonthDayHm(entry.modified!),
                   style: theme.textTheme.labelSmall?.copyWith(
@@ -498,7 +498,7 @@ class _HeSteeringEntryTile extends StatelessWidget {
                   ),
                 ),
               ],
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Icon(
                 entry.isDirectory
                     ? Icons.chevron_right_rounded
@@ -864,7 +864,7 @@ class _HeSteeringFileEditorDialogState
                     size: 22,
                     color: colorScheme.primary,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -915,7 +915,7 @@ class _HeSteeringFileEditorDialogState
                         size: 20,
                       ),
                     ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   IconButton(
                     onPressed: () async {
                       if (await _confirmDiscard()) {
@@ -926,14 +926,14 @@ class _HeSteeringFileEditorDialogState
                   ),
                 ],
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               const Divider(height: 1),
-              const SizedBox(height: 6),
+              kOpenHandGap6,
 
               // ── Markdown toolbar ──
               if (isMarkdown && !_loading && _error == null) ...[
                 _buildToolbar(context, theme, colorScheme),
-                const SizedBox(height: 6),
+                kOpenHandGap6,
               ],
 
               // ── Body ──
@@ -966,12 +966,12 @@ class _HeSteeringFileEditorDialogState
                                 colorScheme,
                               ),
                             ),
-                            const SizedBox(width: 10),
+                            kOpenHandHGap10,
                             VerticalDivider(
                               width: 1,
                               color: colorScheme.outlineVariant,
                             ),
-                            const SizedBox(width: 10),
+                            kOpenHandHGap10,
                             Expanded(
                               child: _buildPreviewPane(
                                 context,
@@ -987,9 +987,9 @@ class _HeSteeringFileEditorDialogState
                         ),
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               const Divider(height: 1),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
 
               // ── Action row ──
               Row(
@@ -1044,7 +1044,7 @@ class _HeSteeringFileEditorDialogState
                     },
                     label: openHandCloseLabel(context),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   OpenHandDialogActionButton.primary(
                     onPressed: _dirty && !_saving ? _save : null,
                     icon: Icons.save_rounded,

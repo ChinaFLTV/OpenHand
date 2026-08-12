@@ -26,7 +26,7 @@ Future<void> _showSidebarThreadContextMenu(
         child: Row(
           children: [
             const Icon(Icons.edit_outlined, size: 18),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Text(_homeRenameThreadLabel(context)),
           ],
         ),
@@ -36,7 +36,7 @@ Future<void> _showSidebarThreadContextMenu(
         child: Row(
           children: [
             const Icon(Icons.delete_outline_rounded, size: 18),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Text(AppLocalizations.of(context)!.commonDelete),
           ],
         ),
@@ -46,7 +46,7 @@ Future<void> _showSidebarThreadContextMenu(
         child: Row(
           children: [
             const Icon(Icons.file_download_outlined, size: 18),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Text(_homeExportSessionDataLabel(context)),
           ],
         ),
@@ -57,7 +57,7 @@ Future<void> _showSidebarThreadContextMenu(
           child: Row(
             children: [
               const Icon(Icons.auto_awesome_outlined, size: 18),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(openHandGenerateAiTitleLabel(context)),
             ],
           ),
@@ -166,7 +166,7 @@ class _HarnessSessionTile extends StatelessWidget {
                     ),
                   ),
                   if (showBadge) ...[
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     _HarnessStatusCapsule(
                       status: status,
                       awaitingApproval: awaitingApproval,
@@ -216,7 +216,7 @@ class _HarnessStatusCapsule extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             const _PulsingDot(color: foregroundColor, size: 8),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Text(
               openHandAwaitingApprovalLabel(context),
               style: theme.textTheme.labelMedium?.copyWith(
@@ -286,7 +286,7 @@ class _HarnessStatusCapsule extends StatelessWidget {
               height: 8,
               decoration: BoxDecoration(color: fg, shape: BoxShape.circle),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             labelWidget,
           ],
         ),
@@ -405,7 +405,7 @@ class _ThreadTile extends StatelessWidget {
                     ),
                   ),
                   if (isActive) ...[
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     _ActiveThreadBadge(
                       key: ValueKey<String>('thread-active-${session.id}'),
                       sendPhase: sendPhase,
@@ -479,7 +479,7 @@ class _ActiveThreadBadge extends StatelessWidget {
                 shape: BoxShape.circle,
               ),
             ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Text(
             label,
             style: theme.textTheme.labelMedium?.copyWith(

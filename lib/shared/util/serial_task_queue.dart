@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'argument_guards.dart';
 
 /// 按 FIFO 顺序执行异步任务。单个任务失败不会阻断队列，调用方仍会收到

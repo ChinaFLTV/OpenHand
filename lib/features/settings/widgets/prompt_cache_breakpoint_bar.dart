@@ -13,6 +13,7 @@ import 'package:flutter/material.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/interaction_timings.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
 class PromptCacheBreakpointBar extends StatefulWidget {
@@ -217,7 +218,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
             );
           },
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Wrap(
           spacing: 10,
           runSpacing: 6,
@@ -225,7 +226,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
             for (final seg in segments) _SegmentLegendChip(segment: seg),
           ],
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Wrap(
           spacing: 12,
           runSpacing: 4,
@@ -244,7 +245,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Align(
           alignment: Alignment.centerLeft,
           child: TextButton.icon(

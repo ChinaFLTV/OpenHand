@@ -1367,7 +1367,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
             child: ListView.separated(
               padding: const EdgeInsets.all(8),
               itemCount: entries.length,
-              separatorBuilder: (_, _) => const SizedBox(height: 4),
+              separatorBuilder: (_, _) => kOpenHandGap4,
               itemBuilder: (_, idx) {
                 final e = entries[idx];
                 return Material(
@@ -1391,7 +1391,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
+                                kOpenHandGap2,
                                 Text(
                                   e.subtitle,
                                   style: theme.textTheme.labelSmall?.copyWith(
@@ -1475,7 +1475,7 @@ Future<void> _showExtraHeadersDialog(
               ),
               style: Theme.of(dialogContext).textTheme.bodySmall,
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             TextField(
               controller: ctrlText,
               maxLength: WebReverseSessionController.maxRuleHeadersChars,
@@ -1563,7 +1563,7 @@ Future<void> _showCdpPaletteDialog(
                     fontSize: 12.5,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 TextField(
                   controller: params,
                   maxLines: 8,
@@ -1577,7 +1577,7 @@ Future<void> _showCdpPaletteDialog(
                     fontSize: 12.5,
                   ),
                 ),
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 ValueListenableBuilder(
                   valueListenable: useSession,
                   builder: (_, v, _) => SwitchListTile(
@@ -1598,7 +1598,7 @@ Future<void> _showCdpPaletteDialog(
                     onChanged: (n) => useSession.value = n,
                   ),
                 ),
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 ValueListenableBuilder(
                   valueListenable: result,
                   builder: (_, v, _) => v == null
@@ -1918,7 +1918,7 @@ class _DiffViewerDialog extends StatelessWidget {
               maxLines: 2,
               overflow: TextOverflow.ellipsis,
             ),
-            const SizedBox(height: 6),
+            kOpenHandGap6,
             Text('status=${e.statusCode ?? '-'} mime=${e.mimeType ?? '-'}'),
             const Divider(),
             Text(
@@ -1968,7 +1968,7 @@ class _DiffViewerDialog extends StatelessWidget {
             ),
             Expanded(
               child: Row(
-                children: [col('A', a), const SizedBox(width: 12), col('B', b)],
+                children: [col('A', a), kOpenHandHGap12, col('B', b)],
               ),
             ),
           ],
@@ -2656,7 +2656,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   selected: _tab == 0,
                   onTap: () => setState(() => _tab = 0),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 _RtcTab(
                   label: openHandLocalizedText(
                     context,
@@ -2670,7 +2670,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   selected: _tab == 1,
                   onTap: () => setState(() => _tab = 1),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 _RtcTab(
                   label: openHandLocalizedText(
                     context,
@@ -2684,7 +2684,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                   selected: _tab == 2,
                   onTap: () => setState(() => _tab = 2),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 _RtcTab(
                   label: openHandLocalizedText(
                     context,
@@ -2733,7 +2733,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           const Divider(height: 1),
           Flexible(
             child: AnimatedSwitcher(
@@ -2793,7 +2793,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 12,
             runSpacing: 6,
@@ -2844,7 +2844,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Expanded(
             child: CustomPaint(
               painter: _RtcChartPainter(
@@ -2958,7 +2958,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Expanded(
             child: _iceGraphMode
                 ? _IceTopologyGraph(
@@ -3097,7 +3097,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -3117,7 +3117,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                     previous: pair.prevLocal,
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: _SdpDiffColumn(
                     title: openHandLocalizedText(
@@ -3299,9 +3299,9 @@ class _RtcStatChip extends StatelessWidget {
             height: 8,
             decoration: BoxDecoration(color: color, shape: BoxShape.circle),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Text(label, style: theme.textTheme.labelSmall),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Text(
             value,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -3451,7 +3451,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
                 ),
                 style: Theme.of(dialogContext).textTheme.bodySmall,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Expanded(
                 child: TextField(
                   controller: input,
@@ -3467,7 +3467,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
                   ),
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Expanded(
                 child: ValueListenableBuilder<String?>(
                   valueListenable: output,
@@ -3967,7 +3967,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                               icon: const Icon(Icons.edit_rounded),
                               onPressed: () => _editRule(i),
                             ),
-                            const SizedBox(width: 4),
+                            kOpenHandHGap4,
                             IconButton(
                               tooltip: openHandDeleteLabel(context),
                               visualDensity: VisualDensity.compact,
@@ -4001,7 +4001,7 @@ class _InterceptRulesDialogState extends State<_InterceptRulesDialog> {
                   onPressed: () => Navigator.of(context).pop(),
                   label: openHandCancelLabel(context),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 OpenHandDialogActionButton.primary(
                   onPressed: _save,
                   label: openHandSaveLabel(context),
@@ -4116,7 +4116,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
                 value: _block,
                 onChanged: (v) => setState(() => _block = v),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               TextField(
                 controller: _replaceCtrl,
                 maxLength: WebReverseSessionController.maxBreakpointTextChars,
@@ -4133,7 +4133,7 @@ class _InterceptRuleEditorState extends State<_InterceptRuleEditor> {
                   hintText: 'https://mock.local/v1/',
                 ),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               TextField(
                 controller: _headersCtrl,
                 maxLength: WebReverseSessionController.maxRuleHeadersChars,
@@ -4270,7 +4270,7 @@ class _SdpDiffColumn extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Container(
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
@@ -4281,7 +4281,7 @@ class _SdpDiffColumn extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Expanded(
             child: ListView.builder(
               itemCount: rows.length,

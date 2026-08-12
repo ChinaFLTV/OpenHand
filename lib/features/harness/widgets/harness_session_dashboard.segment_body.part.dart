@@ -94,7 +94,7 @@ class _HeReviewVerdictCard extends StatelessWidget {
                   size: 14,
                   color: colorScheme.onSurface.withValues(alpha: 0.60),
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   roleLabel,
                   style: theme.textTheme.labelMedium?.copyWith(
@@ -104,7 +104,7 @@ class _HeReviewVerdictCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             // ── Verdict banner ──────────────────────────────────────
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
@@ -120,7 +120,7 @@ class _HeReviewVerdictCard extends StatelessWidget {
                     size: 22,
                     color: verdictColor,
                   ),
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   Text(
                     isPass
                         ? openHandLocalizedText(
@@ -152,7 +152,7 @@ class _HeReviewVerdictCard extends StatelessWidget {
             ),
             // ── Comment body ────────────────────────────────────────
             if (comment.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Text(
                 comment,
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -221,7 +221,7 @@ class _HeSegmentBody extends StatelessWidget {
             cardBackground: cardBackground,
           ),
         if (!expanded) ...[
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           OpenHandTapRegion(
             onTap: onExpand,
             child: Builder(
@@ -251,7 +251,7 @@ class _HeSegmentBody extends StatelessWidget {
                         size: 14,
                         color: expandFg,
                       ),
-                      const SizedBox(width: 4),
+                      kOpenHandHGap4,
                       Text(
                         openHandLocalizedText(
                           context,
@@ -648,7 +648,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(Icons.terminal_rounded, size: 14, color: colorScheme.primary),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: AnimatedCrossFade(
                 duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -677,7 +677,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             RotationTransition(
               turns: _turn,
               child: Icon(

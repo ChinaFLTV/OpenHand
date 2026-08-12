@@ -5,6 +5,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
@@ -183,7 +184,7 @@ class _AiExposureServiceCard extends StatelessWidget {
               children: [
                 if (compact) ...[
                   identity,
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
                     child: actions,
@@ -193,11 +194,11 @@ class _AiExposureServiceCard extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Expanded(child: identity),
-                      const SizedBox(width: 16),
+                      kOpenHandHGap16,
                       Expanded(child: actions),
                     ],
                   ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
@@ -259,10 +260,10 @@ class _AiExposureServiceCard extends StatelessWidget {
                   ],
                 ),
                 if (snapshot.progress != null) ...[
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _CompactProgress(progress: snapshot.progress!),
                 ],
-                const SizedBox(height: 14),
+                kOpenHandGap14,
                 Text(
                   capabilitySummary,
                   maxLines: 2,
@@ -272,7 +273,7 @@ class _AiExposureServiceCard extends StatelessWidget {
                   ),
                 ),
                 if (snapshot.error?.trim().isNotEmpty ?? false) ...[
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _ServiceError(message: snapshot.error!),
                 ],
               ],
@@ -336,13 +337,13 @@ class _ServiceIdentity extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(width: 16),
+        kOpenHandHGap16,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(title, style: theme.textTheme.headlineSmall),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 description,
                 maxLines: 3,
@@ -492,7 +493,7 @@ class _CompactProgress extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         Text(
           '${progress.processed}/${progress.total}',
           style: theme.textTheme.labelMedium?.copyWith(
@@ -516,7 +517,7 @@ class _ServiceError extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(Icons.error_outline_rounded, size: 18, color: cs.error),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Expanded(
           child: Text(
             message,

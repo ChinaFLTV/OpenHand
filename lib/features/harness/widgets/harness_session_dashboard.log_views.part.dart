@@ -44,7 +44,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
                   size: 14,
                   color: colorScheme.onSurfaceVariant,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   openHandLocalizedText(
                     context,
@@ -87,7 +87,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
                           ),
                     onTap: () => setState(() => _showRaw = !_showRaw),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                 ],
                 _HeSmallPill(
                   icon: Icons.copy_rounded,
@@ -96,7 +96,7 @@ class _HeLogSectionState extends State<_HeLogSection> {
                 ),
               ],
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             if (lines.isEmpty)
               _HeEmptyOutputPlaceholder(isZh: widget.isZh)
             else if (isRunning)
@@ -148,7 +148,7 @@ class _HeEmptyOutputPlaceholder extends StatelessWidget {
               color: colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Text(
             openHandLocalizedText(
               context,
@@ -233,7 +233,7 @@ class _HeRawFullViewState extends State<_HeRawFullView> {
                       size: 14,
                       color: colorScheme.primary,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Text(
                       openHandLocalizedText(
                         context,
@@ -300,7 +300,7 @@ Widget _heProcessingIndicator(BuildContext context, ColorScheme colorScheme) {
             color: colorScheme.onSurfaceVariant.withValues(alpha: 0.55),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Text(
           openHandLocalizedText(
             context,
@@ -390,7 +390,7 @@ class _HeSmartViewState extends State<_HeSmartView> {
       children: [
         if (command != null) ...[
           _HeCommandStrip(command: command),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
         ],
         if (body.isNotEmpty)
           _HeMarkdownContent(
@@ -528,7 +528,7 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
                         size: 16,
                         color: colorScheme.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       Expanded(
                         child: Text(
                           openHandLocalizedText(
@@ -555,7 +555,7 @@ class _HeSubConversationViewState extends State<_HeSubConversationView> {
             ),
           ),
         for (var i = 0; i < visibleSegments.length; i++) ...[
-          if (i > 0) const SizedBox(height: 8),
+          if (i > 0) kOpenHandGap8,
           () {
             final segmentKey = _heSegmentWidgetKey(visibleSegments[i], i);
             final card = RepaintBoundary(

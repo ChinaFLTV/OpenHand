@@ -625,7 +625,7 @@ class _TaskStageGanttSection extends StatelessWidget {
                             },
                           ),
                           if (!hasCalendarPosition) ...[
-                            const SizedBox(height: 4),
+                            kOpenHandGap4,
                             Text(
                               '仅记录耗时，条形表示相对时长，不代表绝对开始时间。',
                               style: Theme.of(context).textTheme.bodySmall
@@ -3108,7 +3108,7 @@ Widget _entityTextList({
             children: [
               if (truncationNotice != null) ...[
                 Text(truncationNotice),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
               ],
               ...shown.indexed.map(
                 (entry) => Padding(
@@ -3194,7 +3194,7 @@ Widget _entityProbeWaterfall(
                                 style: Theme.of(context).textTheme.labelLarge,
                               ),
                             ),
-                            const SizedBox(width: 12),
+                            kOpenHandHGap12,
                             Text(
                               '${step.durationMs} ms · ${step.succeeded ? '通过' : '失败'}',
                               style: Theme.of(
@@ -3203,7 +3203,7 @@ Widget _entityProbeWaterfall(
                             ),
                           ],
                         ),
-                        const SizedBox(height: 6),
+                        kOpenHandGap6,
                         ClipRRect(
                           borderRadius: BorderRadius.circular(99),
                           child: ServiceAnimatedProgressBar(

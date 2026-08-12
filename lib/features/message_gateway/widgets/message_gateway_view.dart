@@ -48,6 +48,7 @@ import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -444,7 +445,7 @@ class _MessageGatewayViewState extends State<MessageGatewayView>
       padding: const EdgeInsets.fromLTRB(0, 2, 0, 16),
       children: [
         _WebPlatformServiceCard(controller: controller),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _DingTalkGatewayCard(controller: controller),
       ],
     );
@@ -523,7 +524,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                             style: theme.textTheme.titleLarge,
                             overflow: TextOverflow.ellipsis,
                           ),
-                          const SizedBox(height: 6),
+                          kOpenHandGap6,
                           Text(
                             config.description,
                             style: theme.textTheme.bodyMedium?.copyWith(
@@ -664,7 +665,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 if (compact) {
                   return Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [title, const SizedBox(height: 14), actions],
+                    children: [title, kOpenHandGap14, actions],
                   );
                 }
                 return Row(
@@ -685,7 +686,7 @@ class _WebPlatformServiceCard extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -946,10 +947,10 @@ class _WebPlatformServiceCard extends StatelessWidget {
             // 全部可访问 URL（含 LAN IP），点 chip 即拷贝。仅当 URL 数量 >1
             // 时渲染，避免与上方"已运行单 URL"的 InfoChip 重复。
             if (isRunning && controller.webUrls.length > 1) ...[
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               _AccessibleUrlsBar(urls: controller.webUrls),
             ],
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             LayoutBuilder(
               builder: (context, constraints) {
                 final columns = constraints.maxWidth < 820 ? 1 : 4;
@@ -1370,7 +1371,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 4),
+                      kOpenHandGap4,
                       Text(
                         openHandLocalizedText(
                           context,
@@ -1390,7 +1391,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 IconButton.filledTonal(
                   tooltip: openHandCloseLabel(context),
                   onPressed: () => Navigator.of(context).pop(),
@@ -1705,7 +1706,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                                 key: ValueKey('agents-disabled'),
                               ),
                       ),
-                      const SizedBox(height: 18),
+                      kOpenHandGap18,
                       _SectionTitle(
                         openHandLocalizedText(
                           context,
@@ -1800,7 +1801,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         ],
                       ),
                       if (_authEnabled) ...[
-                        const SizedBox(height: 18),
+                        kOpenHandGap18,
                         _SectionTitle(
                           openHandLocalizedText(
                             context,
@@ -1844,7 +1845,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           ],
                         ),
                       ],
-                      const SizedBox(height: 18),
+                      kOpenHandGap18,
                       _SectionTitle(
                         openHandLocalizedText(
                           context,
@@ -2024,7 +2025,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         selected: _models,
                         onChanged: (next) => setState(() => _models = next),
                       ),
-                      const SizedBox(height: 18),
+                      kOpenHandGap18,
                       _SectionTitle(
                         openHandLocalizedText(
                           context,
@@ -2093,7 +2094,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 18),
+                      kOpenHandGap18,
                       _SectionTitle(
                         openHandLocalizedText(
                           context,
@@ -2120,7 +2121,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                         onChanged: (v) =>
                             setState(() => _healthFollowRedirects = v),
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       _ResponsiveFields(
                         twoColumns: twoColumns,
                         children: [
@@ -2200,7 +2201,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 18),
+                      kOpenHandGap18,
                       _SectionTitle(
                         openHandLocalizedText(
                           context,
@@ -2300,7 +2301,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
                           ? null
                           : () => Navigator.of(context).pop(),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     OpenHandDialogActionButton.primary(
                       label: _saving
                           ? openHandLocalizedText(
@@ -2654,13 +2655,13 @@ class _EditorNotice extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, color: color, size: 20),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Text(title, style: theme.textTheme.labelLarge),
-                const SizedBox(height: 3),
+                kOpenHandGap3,
                 Text(
                   body,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -2717,7 +2718,7 @@ class _AgentExposurePanel extends StatelessWidget {
                   color: colorScheme.onPrimaryContainer,
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -2738,7 +2739,7 @@ class _AgentExposurePanel extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 2),
+                    kOpenHandGap2,
                     Text(
                       options.isEmpty
                           ? openHandLocalizedText(
@@ -2764,13 +2765,13 @@ class _AgentExposurePanel extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _GatewayRoundIconActionButton(
                 tooltip: _messageGatewaySelectAllLabel(context),
                 icon: Icons.done_all_rounded,
                 onPressed: options.isEmpty ? null : () => onChanged(optionIds),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _GatewayRoundIconActionButton(
                 tooltip: _messageGatewayDeselectAllLabel(context),
                 icon: Icons.remove_done_rounded,
@@ -2781,7 +2782,7 @@ class _AgentExposurePanel extends StatelessWidget {
             ],
           ),
           if (options.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -2971,7 +2972,7 @@ class _WebGatewayConnectivityDialogState
                       ? OpenHandStatusColors.success
                       : colorScheme.error,
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -2980,7 +2981,7 @@ class _WebGatewayConnectivityDialogState
                         _messageGatewayPortConnectivityTestLabel(context),
                         style: theme.textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         openHandLocalizedText(
                           context,
@@ -3094,7 +3095,7 @@ class _ConnectivityLoadingView extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           const CircularProgressIndicator(),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           Text(
             openHandLocalizedText(
               context,
@@ -3107,7 +3108,7 @@ class _ConnectivityLoadingView extends StatelessWidget {
             ),
             style: theme.textTheme.titleSmall,
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Text(
             openHandLocalizedText(
               context,
@@ -3191,13 +3192,13 @@ class _ConnectivityResultView extends StatelessWidget {
                       ? OpenHandStatusColors.success
                       : colorScheme.error,
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(result.summary, style: theme.textTheme.titleMedium),
-                      const SizedBox(height: 4),
+                      kOpenHandGap4,
                       Text(
                         openHandLocalizedText(
                           context,
@@ -3219,7 +3220,7 @@ class _ConnectivityResultView extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           LayoutBuilder(
             builder: (context, constraints) {
               final columns = constraints.maxWidth < 720 ? 2 : 4;
@@ -3275,7 +3276,7 @@ class _ConnectivityResultView extends StatelessWidget {
               );
             },
           ),
-          const SizedBox(height: 18),
+          kOpenHandGap18,
           _SectionTitle(
             openHandLocalizedText(
               context,
@@ -3309,7 +3310,7 @@ class _ConnectivityResultView extends StatelessWidget {
                 target: result.targets[index],
                 index: index,
               ),
-          const SizedBox(height: 18),
+          kOpenHandGap18,
           _SectionTitle(
             openHandLocalizedText(
               context,
@@ -3389,7 +3390,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
                 size: 20,
                 color: stateColor,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   target.hostPort,
@@ -3406,7 +3407,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           SelectableText(
             target.endpointUrl,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -3414,7 +3415,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -3431,7 +3432,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
             ],
           ),
           if (target.errorMessage.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               target.errorMessage,
               style: theme.textTheme.bodySmall?.copyWith(
@@ -3440,7 +3441,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
             ),
           ],
           if (target.bodyPreview.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             _StructuredResponsePreview(raw: target.bodyPreview),
           ],
         ],
@@ -3496,7 +3497,7 @@ class _StructuredResponsePreview extends StatelessWidget {
                 size: 16,
                 color: colorScheme.primary,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 openHandLocalizedText(
                   context,
@@ -3511,7 +3512,7 @@ class _StructuredResponsePreview extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           if (entries.isNotEmpty)
             Wrap(
               spacing: 8,
@@ -3567,7 +3568,7 @@ class _ResponseFieldChip extends StatelessWidget {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           SelectableText(
             value,
             maxLines: 4,
@@ -3656,7 +3657,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog>
             child: Row(
               children: [
                 const Icon(Icons.terminal_rounded),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Text(
                     openHandLocalizedText(
@@ -4319,7 +4320,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                 ),
                 onClose: () => Navigator.of(context).pop(),
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               Expanded(
                 child: OpenHandSafeScrollbar(
                   controller: _scrollController,
@@ -4332,7 +4333,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         _WebOpsHeroPanel(snapshot: snapshot, config: config),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         _WebOpsMetricGrid(
                           children: [
                             _WebOpsMetricTile(
@@ -4739,7 +4740,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         LayoutBuilder(
                           builder: (context, constraints) {
                             final panels = <Widget>[
@@ -4810,7 +4811,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             );
                           },
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         _NaturalCardGrid(
                           minTileWidth: 300,
                           spacing: _webOpsGridGap,
@@ -4866,7 +4867,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         _WebOpsPanelGrid(
                           children: [
                             _WebOpsEnvironmentPanel(
@@ -4879,7 +4880,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         _SectionTitle(
                           openHandLocalizedText(
                             context,
@@ -5088,11 +5089,11 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             );
                           },
                         ),
-                        const SizedBox(height: 18),
+                        kOpenHandGap18,
                         _OpsHealthCard(snapshot: snapshot),
-                        const SizedBox(height: 18),
+                        kOpenHandGap18,
                         _OpsSummaryCard(snapshot: snapshot),
-                        const SizedBox(height: 18),
+                        kOpenHandGap18,
                         _NaturalCardGrid(
                           minTileWidth: 360,
                           spacing: 12,
@@ -5148,7 +5149,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             ),
                           ],
                         ),
-                        const SizedBox(height: 18),
+                        kOpenHandGap18,
                         _NaturalCardGrid(
                           minTileWidth: 360,
                           spacing: 12,
@@ -5181,7 +5182,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                             _ResourceInventoryCard(snapshot: snapshot),
                           ],
                         ),
-                        const SizedBox(height: 18),
+                        kOpenHandGap18,
                         _SectionTitle(
                           openHandLocalizedText(
                             context,
@@ -5291,7 +5292,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           },
                         ),
                         if (cleanupHistory.isNotEmpty) ...[
-                          const SizedBox(height: 18),
+                          kOpenHandGap18,
                           _SectionTitle(
                             openHandLocalizedText(
                               context,
@@ -5309,7 +5310,7 @@ class _WebGatewayOpsDialogState extends State<_WebGatewayOpsDialog>
                           ),
                         ],
                         if (snapshot.lastError.isNotEmpty) ...[
-                          const SizedBox(height: 18),
+                          kOpenHandGap18,
                           _SectionTitle(
                             openHandLocalizedText(
                               context,
@@ -5693,7 +5694,7 @@ class _WebOpsInsightDialog extends StatelessWidget {
                       color: Theme.of(context).colorScheme.onPrimaryContainer,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -5728,7 +5729,7 @@ class _WebOpsInsightDialog extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               Expanded(
                 child: SingleChildScrollView(
                   physics: openHandDialogAwareScrollPhysics(context),
@@ -5742,7 +5743,7 @@ class _WebOpsInsightDialog extends StatelessWidget {
                         maxColumns: 4,
                         children: _metricTiles(context),
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
                       _detailPanel(context),
                     ],
                   ),
@@ -6158,7 +6159,7 @@ class _WebOpsConsoleHeader extends StatelessWidget {
             onClose: onClose,
           ),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -6230,7 +6231,7 @@ class _WebOpsConsoleHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         AnimatedOpacity(
           duration: openHandMotionDurationMs(context, 180),
           curve: Curves.easeOutCubic,
@@ -6358,7 +6359,7 @@ class _WebOpsHeaderIdentity extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 3),
+              kOpenHandGap3,
               Text(
                 openHandLocalizedText(
                   context,
@@ -6564,11 +6565,11 @@ class _WebOpsHeroPanel extends StatelessWidget {
         children: [
           _WebOpsRuntimeTerminal(snapshot: snapshot, config: config),
           if (snapshot.accessibleUrls.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             _AccessibleUrlsBar(urls: snapshot.accessibleUrls),
           ],
           if (snapshot.lastError.isNotEmpty) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Text(
               snapshot.lastError,
               maxLines: 2,
@@ -6776,7 +6777,7 @@ class _WebOpsMetricTile extends StatelessWidget {
                 ),
                 child: Icon(icon, color: tone, size: 18),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Text(
                   label,
@@ -6790,7 +6791,7 @@ class _WebOpsMetricTile extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Text(
             value,
             maxLines: 1,
@@ -6800,7 +6801,7 @@ class _WebOpsMetricTile extends StatelessWidget {
               fontFeatures: const [FontFeature.tabularFigures()],
             ),
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Text(
             detail,
             maxLines: 1,
@@ -6811,7 +6812,7 @@ class _WebOpsMetricTile extends StatelessWidget {
             ),
           ),
           if (progress != null) ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             ClipRRect(
               borderRadius: kOpenHandPillBorderRadius,
               child: LinearProgressIndicator(
@@ -6949,7 +6950,7 @@ class _WebOpsTrendPanelState extends State<_WebOpsTrendPanel> {
               fontWeight: FontWeight.w700,
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           SizedBox(
             height: 156,
             child: RepaintBoundary(
@@ -6997,7 +6998,7 @@ class _WebOpsTrendPanelState extends State<_WebOpsTrendPanel> {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 12,
             runSpacing: 8,
@@ -7028,7 +7029,7 @@ class _WebOpsLegendPill extends StatelessWidget {
           height: 9,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         Text(
           label,
           style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -7128,7 +7129,7 @@ class _WebOpsDistributionPanel extends StatelessWidget {
                   constraints.maxWidth,
                 )) {
                   return Column(
-                    children: [chart, const SizedBox(height: 12), legend],
+                    children: [chart, kOpenHandGap12, legend],
                   );
                 }
                 return Row(
@@ -7179,7 +7180,7 @@ class _WebOpsDistributionRow extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 64),
                 child: FittedBox(
@@ -7274,7 +7275,7 @@ class _WebOpsPanel extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 17, color: cs.onPrimaryContainer),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Text(
                   title,
@@ -7287,7 +7288,7 @@ class _WebOpsPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           child,
         ],
       ),
@@ -7632,7 +7633,7 @@ class _WebOpsFeatureMatrixPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _WebOpsInfoRow(
             openHandLocalizedText(
               context,
@@ -7795,7 +7796,7 @@ class _WebOpsInfoRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: SelectableText(
               value,
@@ -8053,7 +8054,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
         Row(
           children: [
             Icon(Icons.lan_outlined, size: 16, color: cs.onSurfaceVariant),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Text(
               openHandLocalizedText(
                 context,
@@ -8070,7 +8071,7 @@ class _AccessibleUrlsBar extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -8234,7 +8235,7 @@ class _MetricTile extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Text(
             value,
             maxLines: 1,
@@ -8280,7 +8281,7 @@ class _SectionTitle extends StatelessWidget {
               color: colorScheme.onSurface,
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Divider(
               height: 1,
@@ -8369,7 +8370,7 @@ class _OpsHealthCard extends StatelessWidget {
                         color: theme.colorScheme.onSurfaceVariant,
                       ),
                     ),
-                    const SizedBox(height: 4),
+                    kOpenHandGap4,
                     Row(
                       crossAxisAlignment: CrossAxisAlignment.end,
                       children: [
@@ -8380,7 +8381,7 @@ class _OpsHealthCard extends StatelessWidget {
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         Padding(
                           padding: const EdgeInsets.only(bottom: 7),
                           child: Text(
@@ -8399,7 +8400,7 @@ class _OpsHealthCard extends StatelessWidget {
               const Icon(Icons.health_and_safety_outlined, size: 24),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -8407,7 +8408,7 @@ class _OpsHealthCard extends StatelessWidget {
                 .map((signal) => _OpsPill(signal.label, signal.value))
                 .toList(growable: false),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           ...diagnosis.recommendations.map(
             (item) => _OpsKeyValue(
               openHandLocalizedText(
@@ -8422,7 +8423,7 @@ class _OpsHealthCard extends StatelessWidget {
               item,
             ),
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Text(
             openHandLocalizedText(
               context,
@@ -8437,7 +8438,7 @@ class _OpsHealthCard extends StatelessWidget {
               color: theme.colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           if (diagnosis.alerts.isEmpty)
             Text(
               openHandLocalizedText(
@@ -8831,7 +8832,7 @@ class _OpsSummaryCard extends StatelessWidget {
           Row(
             children: [
               const Icon(Icons.monitor_heart_outlined, size: 18),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -8846,7 +8847,7 @@ class _OpsSummaryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -8927,7 +8928,7 @@ class _OpsSummaryCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _OpsKeyValue(
             openHandLocalizedText(
               context,
@@ -9027,7 +9028,7 @@ class _OpsBreakdownCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: theme.textTheme.titleSmall),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           if (entries.isEmpty)
             Text(
               openHandLocalizedText(
@@ -9054,7 +9055,7 @@ class _OpsBreakdownCard extends StatelessWidget {
                   ),
                 ),
           if (footer != null) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Text(
               footer!,
               style: theme.textTheme.labelSmall?.copyWith(
@@ -9098,11 +9099,11 @@ class _OpsDistributionRow extends StatelessWidget {
                   style: theme.textTheme.labelMedium,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text('$value', style: theme.textTheme.labelMedium),
             ],
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           ClipRRect(
             borderRadius: kOpenHandPillBorderRadius,
             child: LinearProgressIndicator(value: ratio, minHeight: 5),
@@ -9139,7 +9140,7 @@ class _TopRoutesCard extends StatelessWidget {
             ),
             style: theme.textTheme.titleSmall,
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           if (routes.isEmpty)
             Text(
               openHandLocalizedText(
@@ -9204,7 +9205,7 @@ class _RecentErrorsCard extends StatelessWidget {
             ),
             style: theme.textTheme.titleSmall,
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           if (errors.isEmpty)
             Text(
               openHandLocalizedText(
@@ -9260,7 +9261,7 @@ class _ResourceInventoryCard extends StatelessWidget {
             ),
             style: theme.textTheme.titleSmall,
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -9406,7 +9407,7 @@ class _OpsKeyValue extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: SelectableText(
               value,
@@ -9803,7 +9804,7 @@ class _MultiSelectDropdownMenuState<T>
                       color: colorScheme.onPrimaryContainer,
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -9815,7 +9816,7 @@ class _MultiSelectDropdownMenuState<T>
                             fontWeight: FontWeight.w800,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        kOpenHandGap2,
                         Text(
                           _selectionSummaryText(
                             context,
@@ -9832,7 +9833,7 @@ class _MultiSelectDropdownMenuState<T>
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   _GatewayRoundIconActionButton(
                     tooltip: _gatewaySelectAllTooltip(
                       context,
@@ -9843,7 +9844,7 @@ class _MultiSelectDropdownMenuState<T>
                         ? null
                         : () => _selectValues(filteredValues),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   _GatewayRoundIconActionButton(
                     tooltip: _gatewayDeselectAllTooltip(
                       context,
@@ -9888,7 +9889,7 @@ class _MultiSelectDropdownMenuState<T>
                       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
                       itemCount: filtered.length,
                       separatorBuilder: (context, index) =>
-                          const SizedBox(height: 4),
+                          kOpenHandGap4,
                       itemBuilder: (context, index) {
                         final option = filtered[index];
                         final selected = effectiveSelected.contains(
@@ -10379,7 +10380,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                     color: colorScheme.onPrimaryContainer,
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -10396,7 +10397,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                         ),
                         style: theme.textTheme.titleMedium,
                       ),
-                      const SizedBox(height: 3),
+                      kOpenHandGap3,
                       Text(
                         '$scopeText · ${_modelSelectionCountText(context, effectiveSelected.length, totalKeys.length)}',
                         maxLines: 1,
@@ -10408,7 +10409,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 _GatewayRoundIconActionButton(
                   tooltip: _gatewaySelectAllTooltip(
                     context,
@@ -10419,7 +10420,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                       ? null
                       : () => _selectModelKeys(visibleKeys),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 _GatewayRoundIconActionButton(
                   tooltip: _gatewayDeselectAllTooltip(
                     context,
@@ -10430,7 +10431,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                       ? null
                       : () => _deselectModelKeys(visibleKeys),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 IconButton(
                   tooltip: openHandCloseLabel(context),
                   onPressed: () => Navigator.of(context).pop(),
@@ -10508,7 +10509,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
-                              const SizedBox(width: 10),
+                              kOpenHandHGap10,
                               _GatewayRoundIconActionButton(
                                 tooltip: openHandLocalizedText(
                                   context,
@@ -10524,7 +10525,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                                     ? null
                                     : () => _selectGroup(groupKeys),
                               ),
-                              const SizedBox(width: 8),
+                              kOpenHandHGap8,
                               _GatewayRoundIconActionButton(
                                 tooltip: openHandLocalizedText(
                                   context,
@@ -10587,7 +10588,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                     overflow: TextOverflow.ellipsis,
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 OpenHandDialogActionButton.primary(
                   label: _messageGatewayDoneLabel(context),
                   onPressed: () => Navigator.of(context).pop(_selected),
@@ -10782,7 +10783,7 @@ class _CleanupHistoryLine extends StatelessWidget {
       child: Row(
         children: [
           const Icon(Icons.cleaning_services_outlined, size: 18),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Text(
               '${_cleanupTargetLabel(context, entry.target)} · ${entry.expiredOnly ? openHandLocalizedText(context, zh: '保留策略', zhHant: '保留策略', en: 'Retention policy', fr: 'Politique de rétention', de: 'Aufbewahrungsregel', ja: '保持ポリシー') : openHandLocalizedText(context, zh: '手动清理', zhHant: '手動清理', en: 'Manual cleanup', fr: 'Nettoyage manuel', de: 'Manuelle Bereinigung', ja: '手動クリーンアップ')} · ${formatYearMonthDayHms(entry.timestamp.toLocal())}',
@@ -10790,7 +10791,7 @@ class _CleanupHistoryLine extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Text(
             openHandLocalizedText(
               context,
@@ -10905,7 +10906,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             SizedBox(
               height: 112,
               child: TweenAnimationBuilder<double>(
@@ -11724,7 +11725,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                                 ),
                                 style: theme.textTheme.titleLarge,
                               ),
-                              const SizedBox(height: 6),
+                              kOpenHandGap6,
                               Text(
                                 '钉钉消息接入与 OpenHand AI 会话',
                                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -11801,7 +11802,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                     if (constraints.maxWidth < 760) {
                       return Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [title, const SizedBox(height: 14), actions],
+                        children: [title, kOpenHandGap14, actions],
                       );
                     }
                     return Row(
@@ -11819,7 +11820,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                     );
                   },
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -11857,7 +11858,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                   ],
                 ),
                 if (ding.errorMessage != null) ...[
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   Text(
                     ding.errorMessage!,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -11866,7 +11867,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                   ),
                 ],
                 if (ding.isAuthenticating && ding.deviceUrl != null) ...[
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   SelectableText(
                     ding.deviceCode.isEmpty
                         ? '已打开钉钉授权页，请在浏览器完成授权。'
@@ -11881,7 +11882,7 @@ class _DingTalkGatewayCard extends StatelessWidget {
                   ),
                 ],
                 if (!ding.isInstalled) ...[
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   Text(
                     '未检测到 dws，请先在插件板块安装 DingTalk Workspace CLI。',
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -12224,7 +12225,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                 child: Row(
                   children: [
                     const Icon(Icons.forum_rounded),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     Text('钉钉消息', style: Theme.of(context).textTheme.titleLarge),
                     const Spacer(),
                     if (selected != null)
@@ -12262,7 +12263,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                 height: 0,
                               ),
                       ),
-                    if (selected != null) const SizedBox(width: 8),
+                    if (selected != null) kOpenHandHGap8,
                     IconButton.filledTonal(
                       tooltip: _autoFollow ? '关闭自动滚动到底部' : '开启自动滚动到底部',
                       onPressed: _toggleAutoFollow,
@@ -12279,7 +12280,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                         ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     IconButton.filledTonal(
                       tooltip: selected == null
                           ? '请先选择需要刷新的会话'
@@ -12315,13 +12316,13 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                               ),
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     IconButton.filledTonal(
                       tooltip: '新建会话',
                       onPressed: _addConversation,
                       icon: const Icon(Icons.add_rounded),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     IconButton(
                       tooltip: '关闭',
                       onPressed: _close,
@@ -12358,7 +12359,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                 ),
                                 itemCount: conversations.length,
                                 separatorBuilder: (_, index) =>
-                                    const SizedBox(height: 4),
+                                    kOpenHandGap4,
                                 itemBuilder: (context, index) {
                                   final item = conversations[index];
                                   final active = item.id == selected?.id;
@@ -12475,7 +12476,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                         size: 19,
                                         color: colors.primary,
                                       ),
-                                      const SizedBox(width: 8),
+                                      kOpenHandHGap8,
                                       Expanded(
                                         child: Text(
                                           selected.title,
@@ -12491,7 +12492,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                           .isConversationResponding(
                                             selected.id,
                                           )) ...[
-                                        const SizedBox(width: 10),
+                                        kOpenHandHGap10,
                                         Flexible(
                                           child: Align(
                                             alignment: Alignment.centerRight,
@@ -12511,7 +12512,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(width: 8),
+                                        kOpenHandHGap8,
                                         const _DingTalkRespondingIndicator(),
                                       ],
                                     ],
@@ -12993,20 +12994,20 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                       : _sendOrStop(conversation),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         if (responding) ...[
           _buildSendButton(conversation),
         ] else if (_isEditingConversation(conversation)) ...[
           _buildEditCancelButton(),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _buildEditConfirmButton(conversation),
         ] else ...[
           _buildFileButton(conversation),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _buildVoiceButton(conversation),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _buildForceResponseButton(conversation),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           _buildSendButton(conversation),
         ],
       ],
@@ -13323,7 +13324,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                 )
               else
                 const Icon(Icons.check_rounded),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               const Text('确认编辑', maxLines: 1, softWrap: false),
             ],
           ),
@@ -13344,11 +13345,11 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
               maxDuration: _maxVoiceDuration,
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           _buildVoiceCancelButton(),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _buildVoicePauseButton(),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           _buildVoiceSendButton(),
         ],
       ),
@@ -14870,7 +14871,7 @@ class _DingTalkPendingAttachmentChip extends StatelessWidget {
               size: 16,
               color: colors.onSurfaceVariant,
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 260),
               child: Text(
@@ -14882,7 +14883,7 @@ class _DingTalkPendingAttachmentChip extends StatelessWidget {
                 ).textTheme.bodySmall?.copyWith(color: colors.onSurface),
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             InkWell(
               onTap: onRemove,
               borderRadius: _kGatewayRadiusSmall,
@@ -14990,7 +14991,7 @@ class _DingTalkVoiceRecordingPanel extends StatelessWidget {
             size: 22,
             color: colors.error,
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           SizedBox(
             width: 92,
             child: Text(
@@ -15003,7 +15004,7 @@ class _DingTalkVoiceRecordingPanel extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: RepaintBoundary(
               child: CustomPaint(
@@ -15016,7 +15017,7 @@ class _DingTalkVoiceRecordingPanel extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Text(
             '${_formatDingTalkVoiceDuration(visual.elapsed)} / ${_formatDingTalkVoiceDuration(maxDuration)}',
             style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -15136,7 +15137,7 @@ class _DingTalkResponseErrorBanner extends StatelessWidget {
                 size: 18,
                 color: colors.onErrorContainer,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   message,
@@ -15148,7 +15149,7 @@ class _DingTalkResponseErrorBanner extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               IconButton(
                 tooltip: '关闭错误提示',
                 visualDensity: VisualDensity.compact,
@@ -15572,7 +15573,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                               widget.message.media,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          kOpenHandGap4,
                           _buildMessageMetaPill(),
                         ],
                       ),
@@ -15681,7 +15682,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   color: recalled ? foreground : colors.tertiary,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Flexible(
                 child: Text(
                   recalled ? '消息已撤回' : '已忽略，不参与 AI 上下文',
@@ -15690,7 +15691,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   style: stateStyle,
                 ),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               TextButton(
                 onPressed: _toggleExcludedContent,
                 style: TextButton.styleFrom(
@@ -15889,7 +15890,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   TextButton.icon(
                     onPressed: () {
                       _cancelPendingActionToggle();
@@ -16312,7 +16313,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                     ),
                   ),
                   if (_showExcludedContent) ...[
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     TextButton(
                       onPressed: _toggleExcludedContent,
                       style: TextButton.styleFrom(
@@ -16569,7 +16570,7 @@ class _DingTalkMessageAuditDialogState
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -16580,7 +16581,7 @@ class _DingTalkMessageAuditDialogState
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    kOpenHandGap3,
                     Text(
                       '核对网关消息、关联 AI 消息及运行元数据。',
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -16597,7 +16598,7 @@ class _DingTalkMessageAuditDialogState
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           Expanded(
             child: FutureBuilder<DingTalkMessageAuditSnapshot?>(
               future: widget.snapshot,
@@ -16698,7 +16699,7 @@ class _DingTalkMessageAuditDialogState
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         LayoutBuilder(
           builder: (context, constraints) {
             final metrics = <_DingTalkAuditMetricData>[
@@ -16746,7 +16747,7 @@ class _DingTalkMessageAuditDialogState
             );
           },
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         DecoratedBox(
           decoration: BoxDecoration(
             color: colors.surfaceContainerLow,
@@ -16760,7 +16761,7 @@ class _DingTalkMessageAuditDialogState
             child: Row(
               children: [
                 Icon(Icons.code_rounded, color: colors.primary, size: 19),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     '原始审计快照',
@@ -16785,7 +16786,7 @@ class _DingTalkMessageAuditDialogState
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         DecoratedBox(
           decoration: BoxDecoration(
             color: colors.surfaceContainerLowest,
@@ -16875,7 +16876,7 @@ class _DingTalkAuditMetric extends StatelessWidget {
         child: Row(
           children: [
             Icon(data.icon, size: 18, color: colors.primary),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Column(
                 mainAxisSize: MainAxisSize.min,
@@ -16887,7 +16888,7 @@ class _DingTalkAuditMetric extends StatelessWidget {
                       color: colors.onSurfaceVariant,
                     ),
                   ),
-                  const SizedBox(height: 2),
+                  kOpenHandGap2,
                   Text(
                     data.value,
                     maxLines: 1,
@@ -16933,7 +16934,7 @@ class _DingTalkAuditNotice extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 28, color: colors.error),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Text(
               title,
               style: theme.textTheme.titleMedium?.copyWith(
@@ -16999,7 +17000,7 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -17010,7 +17011,7 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    kOpenHandGap3,
                     Text(
                       '共 ${records.length} 次编辑，保留最近版本变化。',
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -17027,7 +17028,7 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           DecoratedBox(
             decoration: BoxDecoration(
               color: colors.surfaceContainerLow,
@@ -17045,7 +17046,7 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
                     size: 18,
                     color: colors.primary,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Text(
                       '每个版本均来自钉钉消息实际编辑成功后的本地记录。',
@@ -17058,12 +17059,12 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           SizedBox(
             height: historyHeight,
             child: ListView.separated(
               itemCount: versions.length,
-              separatorBuilder: (_, index) => const SizedBox(height: 10),
+              separatorBuilder: (_, index) => kOpenHandGap10,
               itemBuilder: (context, index) {
                 final version = versions[index];
                 final current = index == 0;
@@ -17095,7 +17096,7 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
                                 ? colors.primary
                                 : colors.onSurfaceVariant,
                           ),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Expanded(
                             child: Text(
                               version.label,
@@ -17116,7 +17117,7 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                       SelectableText(
                         version.content,
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -17290,7 +17291,7 @@ class _DingTalkMediaTile extends StatelessWidget {
                 size: 22,
                 color: available ? colors.primary : colors.onSurfaceVariant,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               ConstrainedBox(
                 constraints: const BoxConstraints(maxWidth: 260),
                 child: Text(
@@ -17310,7 +17311,7 @@ class _DingTalkMediaTile extends StatelessWidget {
                 ),
               ),
               if (!available) ...[
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 if (loading)
                   const SizedBox(
                     width: 15,
@@ -17522,7 +17523,7 @@ class _DingTalkDetailsViewState extends State<_DingTalkDetailsView> {
               child: sections[index],
             ),
           if (document.members.isNotEmpty) ...[
-            if (sections.isNotEmpty) const SizedBox(height: 12),
+            if (sections.isNotEmpty) kOpenHandGap12,
             _DingTalkDetailCardGroup(
               title: '群成员',
               icon: Icons.people_alt_rounded,
@@ -17600,7 +17601,7 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
                   alignment: Alignment.center,
                   child: Icon(icon, size: 18, color: colors.primary),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Text(
                     _displayDingTalkDetailLabel(context, title),
@@ -17630,7 +17631,7 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             if (maxContentHeight != null)
               ConstrainedBox(
                 constraints: BoxConstraints(maxHeight: maxContentHeight!),
@@ -17701,10 +17702,10 @@ class _DingTalkDetailGrid extends StatelessWidget {
             labelWidth: openHandIsChineseLocale(context) ? 118 : 138,
           ),
         if (compoundEntries.isNotEmpty) ...[
-          if (simpleEntries.isNotEmpty) const SizedBox(height: 8),
+          if (simpleEntries.isNotEmpty) kOpenHandGap8,
           for (final entry in compoundEntries) ...[
             _DingTalkDetailNestedSection(label: entry.key, value: entry.value),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
           ],
         ],
       ],
@@ -17895,7 +17896,7 @@ class _DingTalkMemberCard extends StatelessWidget {
                   backgroundColor: accent.withValues(alpha: 0.18),
                   child: Icon(Icons.person_rounded, size: 16, color: accent),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Text(
                     name.isEmpty
@@ -17938,7 +17939,7 @@ class _DingTalkMemberCard extends StatelessWidget {
               ],
             ),
             if (fields.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               _DingTalkDetailGrid(data: fields),
             ],
           ],
@@ -18061,7 +18062,7 @@ class _DingTalkDetailValue extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           for (var index = 0; index < list.length; index++) ...[
-            if (index > 0) const SizedBox(height: 8),
+            if (index > 0) kOpenHandGap8,
             _DingTalkDetailNestedSection(
               label: _dingtalkDetailIndexLabel(context, index),
               value: list[index],
@@ -18116,7 +18117,7 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
                   color: colors.primary,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   _displayDingTalkDetailLabel(context, label),
@@ -18149,7 +18150,7 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           AnimatedSize(
             duration: openHandMotionDurationMs(context, 220),
             curve: Curves.easeOutCubic,
@@ -19738,11 +19739,11 @@ class _DingTalkAddConversationDialogState
                     : Icons.person_add_alt_1_rounded,
                 color: theme.colorScheme.primary,
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Text('新建钉钉会话', style: theme.textTheme.titleLarge),
             ],
           ),
-          const SizedBox(height: 20),
+          kOpenHandGap20,
           SegmentedButton<DingTalkConversationType>(
             segments: const [
               ButtonSegment(
@@ -19767,7 +19768,7 @@ class _DingTalkAddConversationDialogState
               _scheduleSearch(_queryController.text);
             },
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           TextField(
             controller: _queryController,
             autofocus: true,
@@ -19790,7 +19791,7 @@ class _DingTalkAddConversationDialogState
                   : null,
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           AnimatedSwitcher(
             duration: kOpenHandMotion180,
             child: _targetSearch.results.isEmpty
@@ -19820,7 +19821,7 @@ class _DingTalkAddConversationDialogState
                         padding: const EdgeInsets.all(8),
                         itemCount: _targetSearch.results.length,
                         separatorBuilder: (_, index) =>
-                            const SizedBox(height: 2),
+                            kOpenHandGap2,
                         itemBuilder: (context, index) {
                           final target = _targetSearch.results[index];
                           return ListTile(
@@ -19913,7 +19914,7 @@ class _DingTalkTargetAllowlistField extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(title, style: theme.textTheme.titleSmall),
-                      const SizedBox(height: 3),
+                      kOpenHandGap3,
                       Text(
                         subtitle,
                         maxLines: 2,
@@ -20044,7 +20045,7 @@ class _DingTalkAllowlistPickerDialogState
             Row(
               children: [
                 Icon(widget.icon, color: theme.colorScheme.primary),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Text(widget.title, style: theme.textTheme.titleLarge),
                 ),
@@ -20060,7 +20061,7 @@ class _DingTalkAllowlistPickerDialogState
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             TextField(
               controller: _queryController,
               autofocus: true,
@@ -20089,7 +20090,7 @@ class _DingTalkAllowlistPickerDialogState
                     : null,
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             if (_selected.isNotEmpty)
               ConstrainedBox(
                 constraints: const BoxConstraints(maxHeight: 82),
@@ -20111,7 +20112,7 @@ class _DingTalkAllowlistPickerDialogState
                   ),
                 ),
               ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Expanded(
               child: _targetSearch.results.isEmpty
                   ? Center(
@@ -20136,7 +20137,7 @@ class _DingTalkAllowlistPickerDialogState
                         padding: const EdgeInsets.all(8),
                         itemCount: _targetSearch.results.length,
                         separatorBuilder: (_, index) =>
-                            const SizedBox(height: 2),
+                            kOpenHandGap2,
                         itemBuilder: (context, index) {
                           final target = _targetSearch.results[index];
                           final selected = _selected.containsKey(target.id);
@@ -20175,7 +20176,7 @@ class _DingTalkAllowlistPickerDialogState
                       ),
                     ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             OpenHandDialogSaveActions(
               busy: false,
               cancelLabel: _dingtalkAllowlistText(context, 'cancel'),
@@ -20328,11 +20329,11 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
             Row(
               children: [
                 Icon(Icons.tune_rounded, color: theme.colorScheme.primary),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Text('钉钉网关设置', style: theme.textTheme.titleLarge),
               ],
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.only(right: 4, bottom: 14),
@@ -20346,7 +20347,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       prefixIcon: Icon(Icons.schedule_rounded),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   DropdownButtonFormField<DingTalkReminderMode>(
                     initialValue: _reminderMode,
                     decoration: const InputDecoration(
@@ -20371,7 +20372,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       () => _reminderMode = value ?? DingTalkReminderMode.inApp,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _DingTalkSettingsCard(
                     icon: Icons.reply_all_rounded,
                     title: '响应消息类型',
@@ -20421,7 +20422,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                           .toList(growable: false),
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _DingTalkSettingsCard(
                     icon: Icons.folder_open_rounded,
                     title: '工作目录',
@@ -20437,7 +20438,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         IconButton.filledTonal(
                           tooltip: '选择目录',
                           onPressed: _pickWorkingDirectory,
@@ -20446,7 +20447,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _DingTalkSettingsCard(
                     icon: Icons.admin_panel_settings_rounded,
                     title: '审批模式',
@@ -20472,13 +20473,13 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     ),
                   ),
                   if (_fullAccessPermission) ...[
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     const _DingTalkInfoBanner(
                       icon: Icons.warning_amber_rounded,
                       text: '完全访问仅关闭审批弹窗，工作目录边界仍然有效。',
                     ),
                   ],
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _DingTalkSettingsCard(
                     icon: Icons.mark_chat_read_rounded,
                     title: '响应模式',
@@ -20506,7 +20507,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                                   color: theme.colorScheme.onSurfaceVariant,
                                 ),
                               ),
-                              const SizedBox(height: 2),
+                              kOpenHandGap2,
                               AnimatedSwitcher(
                                 duration: openHandMotionDuration(
                                   context,
@@ -20554,7 +20555,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   AnimatedSize(
                     duration: openHandMotionDuration(
                       context,
@@ -20601,7 +20602,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                                       .toList(growable: true);
                                 }),
                               ),
-                              const SizedBox(height: 12),
+                              kOpenHandGap12,
                               _DingTalkTargetAllowlistField(
                                 icon: Icons.person_rounded,
                                 title: _dingtalkAllowlistText(
@@ -20642,7 +20643,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                           )
                         : const SizedBox.shrink(),
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _DingTalkSettingsCard(
                     icon: Icons.auto_awesome_rounded,
                     title: 'Agent 提示词模板',
@@ -20669,7 +20670,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                           setState(() => _templateId = value ?? 'default'),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _DingTalkResourceField(
                     icon: Icons.hub_rounded,
                     title: '可用的 MCP',
@@ -20713,7 +20714,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       apply: (value) => _mcpServers = value,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   _DingTalkResourceField(
                     icon: Icons.extension_rounded,
                     title: '拓展能力 · 钉钉 DWS',
@@ -20732,13 +20733,13 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                         : _selectDwsCommands,
                   ),
                   if (_dwsCatalogError != null) ...[
-                    const SizedBox(height: 6),
+                    kOpenHandGap6,
                     _DingTalkInfoBanner(
                       icon: Icons.info_outline_rounded,
                       text: _dwsCatalogError!,
                     ),
                   ],
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   _DingTalkResourceField(
                     icon: Icons.auto_awesome_motion_rounded,
                     title: '多模态能力',
@@ -20750,7 +20751,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                     onRefresh: () {},
                     onTap: _selectMultimodalCapabilities,
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   _DingTalkResourceField(
                     icon: Icons.auto_fix_high_rounded,
                     title: '技能',
@@ -20789,7 +20790,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       apply: (value) => _skills = value,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   _DingTalkResourceField(
                     icon: Icons.psychology_alt_rounded,
                     title: '记忆',
@@ -20828,7 +20829,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       apply: (value) => _memories = value,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   _DingTalkResourceField(
                     icon: Icons.rule_rounded,
                     title: '指令',
@@ -20870,7 +20871,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       apply: (value) => _instructions = value,
                     ),
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   _DingTalkResourceField(
                     icon: Icons.menu_book_rounded,
                     title: '知识库',
@@ -20922,7 +20923,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       apply: (value) => _knowledgeSources = value,
                     ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _DingTalkSettingsCard(
                     icon: Icons.auto_awesome_rounded,
                     title: '响应模型',
@@ -21469,7 +21470,7 @@ class _DingTalkMultimodalPickerDialogState
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            kOpenHandGap6,
             Text(
               '默认全不选。勾选后，工具 Schema 会直接注入钉钉会话提示词；生成完成并发送文件后立即结束本轮响应。',
               style: theme.textTheme.bodySmall?.copyWith(
@@ -21477,11 +21478,11 @@ class _DingTalkMultimodalPickerDialogState
                 height: 1.45,
               ),
             ),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             Expanded(
               child: ListView.separated(
                 itemCount: AiDingTalkMultimodalCapability.values.length,
-                separatorBuilder: (_, index) => const SizedBox(height: 8),
+                separatorBuilder: (_, index) => kOpenHandGap8,
                 itemBuilder: (context, index) {
                   final capability =
                       AiDingTalkMultimodalCapability.values[index];
@@ -21527,7 +21528,7 @@ class _DingTalkMultimodalPickerDialogState
                                     fontWeight: FontWeight.w700,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
+                                kOpenHandGap2,
                                 Text(
                                   selected
                                       ? _modelLabel(capability)
@@ -21541,7 +21542,7 @@ class _DingTalkMultimodalPickerDialogState
                               ],
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           OutlinedButton.icon(
                             onPressed: selected
                                 ? () => _selectModel(capability)
@@ -21623,7 +21624,7 @@ class _DingTalkSettingsCard extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: theme.textTheme.titleSmall),
-                    const SizedBox(height: 3),
+                    kOpenHandGap3,
                     Text(
                       subtitle,
                       maxLines: 2,
@@ -21678,7 +21679,7 @@ class _DingTalkInfoBanner extends StatelessWidget {
         child: Row(
           children: [
             Icon(icon, size: 18, color: colors.onTertiaryContainer),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Text(
                 text,
@@ -21740,7 +21741,7 @@ class _DingTalkResourceField extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
                     Text(title, style: theme.textTheme.titleSmall),
-                    const SizedBox(height: 3),
+                    kOpenHandGap3,
                     Text(
                       selectionNote == null
                           ? '已选 $selectedCount/$totalCount（默认全不选）'
@@ -21770,7 +21771,7 @@ class _DingTalkResourceField extends StatelessWidget {
                         )
                       : const Icon(Icons.refresh_rounded),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
               ],
               IconButton.filledTonal(
                 tooltip: '查看 $title详情',
@@ -21878,7 +21879,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                   ),
                   child: Icon(option.icon, color: colors.onPrimaryContainer),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -21891,7 +21892,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                           fontWeight: FontWeight.w800,
                         ),
                       ),
-                      const SizedBox(height: 3),
+                      kOpenHandGap3,
                       Text(
                         typeLabel,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -21916,7 +21917,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Expanded(
               child: ListView(
                 padding: const EdgeInsets.only(right: 4, bottom: 4),
@@ -21928,14 +21929,14 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                     content: description,
                   ),
                   if (fields.isNotEmpty) ...[
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Text(
                       '关键信息',
                       style: theme.textTheme.titleSmall?.copyWith(
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     LayoutBuilder(
                       builder: (context, constraints) {
                         final width = constraints.maxWidth < 520
@@ -21966,7 +21967,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                                                 fontWeight: FontWeight.w700,
                                               ),
                                         ),
-                                        const SizedBox(height: 4),
+                                        kOpenHandGap4,
                                         SelectableText(
                                           entry.value,
                                           style: theme.textTheme.bodyMedium
@@ -21985,7 +21986,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                     ),
                   ],
                   for (final section in sections) ...[
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     _buildDetailSection(
                       context,
                       icon: Icons.layers_rounded,
@@ -21994,11 +21995,11 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                     ),
                   ],
                   if (parameters.isNotEmpty) ...[
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     _buildParameterSection(context, parameters),
                   ],
                   if (examples.isNotEmpty) ...[
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     _buildCodeExampleSection(context, examples),
                   ],
                 ],
@@ -22088,7 +22089,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           LayoutBuilder(
             builder: (context, constraints) {
               final tableWidth = math.max(constraints.maxWidth, 660.0);
@@ -22221,7 +22222,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
                       fontFamily: kOpenHandMonospaceFontFamily,
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   IconButton(
                     tooltip: '复制调用示例',
                     onPressed: () => unawaited(
@@ -22412,7 +22413,7 @@ class _DingTalkResourcePickerDialogState
                 const Spacer(),
               ],
             ),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             TextField(
               controller: _searchController,
               onChanged: (value) => setState(() => _query = value),
@@ -22422,7 +22423,7 @@ class _DingTalkResourcePickerDialogState
               ),
             ),
             if (widget.selectionHint?.trim().isNotEmpty == true) ...[
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 widget.selectionHint!,
                 style: theme.textTheme.bodySmall?.copyWith(
@@ -22430,7 +22431,7 @@ class _DingTalkResourcePickerDialogState
                 ),
               ),
             ],
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Row(
               children: [
                 Text(
@@ -22452,7 +22453,7 @@ class _DingTalkResourcePickerDialogState
                   icon: const Icon(Icons.done_all_rounded),
                   label: const Text('全选'),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 OutlinedButton.icon(
                   onPressed: _selected.isEmpty
                       ? null
@@ -22462,7 +22463,7 @@ class _DingTalkResourcePickerDialogState
                 ),
               ],
             ),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             Expanded(
               child: options.isEmpty
                   ? Center(
@@ -22477,7 +22478,7 @@ class _DingTalkResourcePickerDialogState
                   ? _buildTreeOptions(context, options)
                   : _buildFlatOptions(context, options),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             OpenHandDialogSaveActions(
               busy: false,
               cancelLabel: '取消',
@@ -22496,7 +22497,7 @@ class _DingTalkResourcePickerDialogState
   ) {
     return ListView.separated(
       itemCount: options.length,
-      separatorBuilder: (_, index) => const SizedBox(height: 4),
+      separatorBuilder: (_, index) => kOpenHandGap4,
       itemBuilder: (context, index) =>
           _buildOptionTile(context, options[index]),
     );
@@ -22595,7 +22596,7 @@ class _DingTalkResourcePickerDialogState
     }
     return ListView.separated(
       itemCount: rows.length,
-      separatorBuilder: (_, index) => const SizedBox(height: 4),
+      separatorBuilder: (_, index) => kOpenHandGap4,
       itemBuilder: (context, index) {
         final row = rows[index];
         final option = row.option;
@@ -22717,7 +22718,7 @@ class _DingTalkResourcePickerDialogState
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         level == 0
                             ? '${nodeKey.split('/').first} · ${searching ? '匹配' : ''}${children.length} 项能力 · 已选 $selectedCount'

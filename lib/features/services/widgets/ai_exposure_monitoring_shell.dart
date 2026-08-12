@@ -192,7 +192,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                     color: cs.onPrimaryContainer,
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -260,7 +260,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _OperationsStrip(
             compact: compact,
             spacing: 8,
@@ -297,7 +297,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           _OperationsStrip(
             compact: compact,
             spacing: 8,
@@ -326,7 +326,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Expanded(
             child: AnimatedSwitcher(
               duration: openHandMotionDuration(context, kOpenHandMotion220,

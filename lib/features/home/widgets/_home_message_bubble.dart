@@ -1049,7 +1049,7 @@ class _MessageBubbleState extends State<_MessageBubble>
                     isToolCall ||
                     isToolResult ||
                     showAssistantResponseMetaRow)
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                 if (isContentPreview)
                   _PlainTextMessageBody(
                     data: contentPreviewText.isEmpty ? ' ' : contentPreviewText,
@@ -1260,7 +1260,7 @@ class _MessageBubbleState extends State<_MessageBubble>
                           scrollStateKey: assistantBodyScrollStateKey,
                         ),
                       if (associatedKnowledgeBaseMetadata != null) ...[
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                         _AssistantKnowledgeCitationRail(
                           metadata: associatedKnowledgeBaseMetadata,
                           textColor: textColor,
@@ -1269,12 +1269,12 @@ class _MessageBubbleState extends State<_MessageBubble>
                       if (isStreamingAssistant &&
                           resolvedMessageContentFormat !=
                               AiMessageContentFormat.html) ...[
-                        const SizedBox(height: 6),
+                        kOpenHandGap6,
                         Row(
                           mainAxisSize: MainAxisSize.min,
                           children: [
                             _TypewriterCaret(color: textColor),
-                            const SizedBox(width: 6),
+                            kOpenHandHGap6,
                             Text(
                               openHandLocalizedText(
                                 context,
@@ -1291,7 +1291,7 @@ class _MessageBubbleState extends State<_MessageBubble>
                     ],
                   ),
                 if (isContentPreview) ...[
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   Wrap(
                     spacing: 10,
                     runSpacing: 8,
@@ -1960,7 +1960,7 @@ class _SelectedMessageActionPanel extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           _SelectedMessageContextRow(
             message: message,
             harnessAnnotation: harnessAnnotation,
@@ -2458,7 +2458,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                     _iconForAttachmentKind(widget.kind),
                     color: colorScheme.primary,
                   ),
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   Expanded(
                     child: Text(
                       fileName,
@@ -2480,7 +2480,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                       onPressed: _copying ? null : () => _copyFile(context),
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   MicroPressFeedback(
                     child: IconButton(
                       icon: Icon(
@@ -2491,7 +2491,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                       onPressed: _opening ? null : () => _openFile(context),
                     ),
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   MicroPressFeedback(
                     child: IconButton(
                       icon: Icon(
@@ -2553,14 +2553,14 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                                     fontWeight: FontWeight.w800,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
+                                kOpenHandGap8,
                                 Text(
                                   aiFormatBytes(widget.sizeBytes),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
                                 ),
-                                const SizedBox(height: 8),
+                                kOpenHandGap8,
                                 SelectableText(
                                   widget.filePath,
                                   style: theme.textTheme.bodySmall?.copyWith(
@@ -2573,7 +2573,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 16),
+                    kOpenHandGap16,
                     Wrap(
                       spacing: 10,
                       runSpacing: 10,
@@ -2982,7 +2982,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                                 : () => _openInSystemApp(context),
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        kOpenHandHGap4,
                         MicroPressFeedback(
                           child: IconButton(
                             icon: Icon(
@@ -2999,7 +2999,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                                 : () => _copyImageToClipboard(context),
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        kOpenHandHGap4,
                         MicroPressFeedback(
                           child: IconButton(
                             icon: Icon(
@@ -3012,7 +3012,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                                 : () => _saveImageAs(context),
                           ),
                         ),
-                        const SizedBox(width: 4),
+                        kOpenHandHGap4,
                         MicroPressFeedback(
                           child: IconButton(
                             icon: Icon(
@@ -3245,7 +3245,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                     ),
                   ),
                   if (progress != null) ...[
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Text(
                       '${(progress * 100).toStringAsFixed(0)}%',
                       style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -3282,7 +3282,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
                 size: 48,
                 color: colorScheme.error,
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Text(
                 openHandLocalizedText(
                   context,
@@ -3997,7 +3997,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 2),
+                        kOpenHandGap2,
                         Text(
                           detail,
                           maxLines: 1,
@@ -4475,7 +4475,7 @@ class _GeneratedAudioCardState extends State<_GeneratedAudioCard>
               letterSpacing: 0,
             ),
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Row(
             children: [
               Icon(
@@ -5142,7 +5142,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
                       Icons.videocam_outlined,
                       color: colorScheme.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     Expanded(
                       child: Text(
                         widget.title,
@@ -5162,7 +5162,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
                         onPressed: () => _openInSystemPlayer(context),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                     MicroPressFeedback(
                       child: IconButton(
                         icon: Icon(
@@ -5175,7 +5175,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
                             : () => _copyMediaToClipboard(context),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                     MicroPressFeedback(
                       child: IconButton(
                         icon: Icon(
@@ -5190,7 +5190,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
                         onPressed: () => _enterFullscreen(context),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                     MicroPressFeedback(
                       child: IconButton(
                         icon: Icon(
@@ -5201,7 +5201,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
                         onPressed: () => _saveMediaAs(context),
                       ),
                     ),
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                     MicroPressFeedback(
                       child: IconButton(
                         icon: Icon(
@@ -5312,7 +5312,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
             tooltip: _homeMessageBubOpenWithSystemPlayerLabel(context),
             onPressed: () => _openInSystemPlayer(context),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           _AudioOverlayIconButton(
             icon: Icons.content_copy_outlined,
             tooltip: _homeMessageBubCopyMediaLabel(context),
@@ -5320,13 +5320,13 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
                 ? null
                 : () => _copyMediaToClipboard(context),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           _AudioOverlayIconButton(
             icon: Icons.download_rounded,
             tooltip: _homeMessageBubSaveToDiskLabel(context),
             onPressed: () => _saveMediaAs(context),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           _AudioOverlayIconButton(
             icon: Icons.close_rounded,
             tooltip: openHandCloseLabel(context),
@@ -5641,7 +5641,7 @@ class _MediaLoadFallback extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.error_outline_rounded, color: colorScheme.error),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Text(
               message,
               textAlign: TextAlign.center,
@@ -5649,7 +5649,7 @@ class _MediaLoadFallback extends StatelessWidget {
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             OutlinedButton.icon(
               onPressed: onOpenExternal,
               icon: const Icon(Icons.open_in_new_rounded, size: 18),
@@ -6481,7 +6481,7 @@ class _ExpertRequestStructuredBody extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(icon, size: 18, color: accent),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -6494,7 +6494,7 @@ class _ExpertRequestStructuredBody extends StatelessWidget {
                       letterSpacing: 0,
                     ),
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   Text(
                     description,
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -6508,7 +6508,7 @@ class _ExpertRequestStructuredBody extends StatelessWidget {
           ],
         ),
         if (chips.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -6519,7 +6519,7 @@ class _ExpertRequestStructuredBody extends StatelessWidget {
           ),
         ],
         for (final field in fields) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _GoalMessageField(
             label: field.label,
             value: field.value,
@@ -6527,7 +6527,7 @@ class _ExpertRequestStructuredBody extends StatelessWidget {
           ),
         ],
         if (truncated) ...[
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -6536,7 +6536,7 @@ class _ExpertRequestStructuredBody extends StatelessWidget {
                 size: 15,
                 color: textColor.withValues(alpha: 0.70),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: Text(
                   openHandLocalizedText(
@@ -6640,7 +6640,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             Icon(data.icon, size: 18, color: accent),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Text(
                 title,
@@ -6653,7 +6653,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Text(
           description,
           style: theme.textTheme.bodySmall?.copyWith(
@@ -6662,7 +6662,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
           ),
         ),
         if ((data.objective ?? '').trim().isNotEmpty) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _GoalMessageField(
             label: _homeMessageBubGoalLabel(context),
             value: data.objective!.trim(),
@@ -6670,7 +6670,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
           ),
         ],
         if ((data.summary ?? '').trim().isNotEmpty) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _GoalMessageField(
             label: openHandLocalizedText(
               context,
@@ -6683,7 +6683,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
         ],
         if ((data.followUpPrompt ?? '').trim().isNotEmpty &&
             data.kind != _GoalMessageViewKind.autoFollowUp) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _GoalMessageField(
             label: openHandLocalizedText(context, zh: '下一步', en: 'Next Step'),
             value: data.followUpPrompt!.trim(),
@@ -6691,7 +6691,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
           ),
         ],
         if (data.evidence.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _GoalMessageBulletList(
             label: _homeEvidenceLabel(context),
             values: data.evidence,
@@ -6700,7 +6700,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
           ),
         ],
         if (data.missing.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _GoalMessageBulletList(
             label: _homeMissingLabel(context),
             values: data.missing,
@@ -6709,7 +6709,7 @@ class _GoalMessageStructuredBody extends StatelessWidget {
           ),
         ],
         if (_metricChips(context).isNotEmpty) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(spacing: 6, runSpacing: 6, children: _metricChips(context)),
         ],
       ],
@@ -6795,7 +6795,7 @@ class _GoalMessageField extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 4),
+        kOpenHandGap4,
         Text(
           value,
           style: theme.textTheme.bodyMedium?.copyWith(
@@ -6835,7 +6835,7 @@ class _GoalMessageBulletList extends StatelessWidget {
             fontWeight: FontWeight.w800,
           ),
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Column(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
@@ -6853,7 +6853,7 @@ class _GoalMessageBulletList extends StatelessWidget {
                         fontWeight: FontWeight.w800,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     Expanded(
                       child: Text(
                         value,
@@ -6913,7 +6913,7 @@ class _GoalMessageMetricChip extends StatelessWidget {
               children: [
                 if (icon != null) ...[
                   Icon(icon, size: 13, color: color),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                 ],
                 Flexible(
                   child: Text(
@@ -7142,7 +7142,7 @@ class _KnowledgeCitationChip extends StatelessWidget {
                     color: colorScheme.primary,
                   ),
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Flexible(
                   child: Text(
                     source.label,
@@ -7861,7 +7861,7 @@ class _UserMessageAttachmentTile extends StatelessWidget {
                           color: colorScheme.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       Flexible(
                         child: Text(
                           name,

@@ -7,6 +7,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -296,7 +297,7 @@ class KnowledgeDialogSection extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 17, color: colorScheme.primary),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -309,7 +310,7 @@ class KnowledgeDialogSection extends StatelessWidget {
                       ),
                     ),
                     if (subtitle?.trim().isNotEmpty == true) ...[
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         subtitle!.trim(),
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -323,7 +324,7 @@ class KnowledgeDialogSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           child,
         ],
       ),
@@ -387,7 +388,7 @@ class KnowledgeDialogKeyValueList extends StatelessWidget {
                     ),
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: SelectableText(
                     knowledgeDialogValue(entries[index].value),
@@ -474,7 +475,7 @@ class KnowledgeDialogNotice extends StatelessWidget {
     final content = Row(
       children: [
         Icon(icon, size: 19, color: colors.icon),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Expanded(
           child: Text(
             message,
@@ -507,7 +508,7 @@ class KnowledgeDialogNotice extends StatelessWidget {
               mainAxisSize: MainAxisSize.min,
               children: [
                 content,
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Align(alignment: Alignment.centerRight, child: action),
               ],
             );
@@ -515,7 +516,7 @@ class KnowledgeDialogNotice extends StatelessWidget {
           return Row(
             children: [
               Expanded(child: content),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Align(alignment: Alignment.centerRight, child: action),
             ],
           );
@@ -788,7 +789,7 @@ class KnowledgeCollectionTile extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.dataset_outlined, size: 20, color: colorScheme.primary),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -799,7 +800,7 @@ class KnowledgeCollectionTile extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   jsonEncode(item),
                   maxLines: 1,
@@ -825,7 +826,7 @@ class KnowledgeCollectionTile extends StatelessWidget {
             onPressed: busy ? null : onInfo,
             icon: const Icon(Icons.info_outline_rounded),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           IconButton(
             tooltip: openHandDeleteLabel(context),
             onPressed: busy ? null : onDelete,

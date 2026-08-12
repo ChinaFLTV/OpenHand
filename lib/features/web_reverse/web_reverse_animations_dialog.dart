@@ -24,6 +24,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -405,7 +406,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Container(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,
@@ -550,7 +551,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                     ),
                                   ),
                                 ),
-                                const SizedBox(width: 8),
+                                kOpenHandHGap8,
                                 Expanded(
                                   child: SelectableText(
                                     r.animationName.isNotEmpty
@@ -606,7 +607,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                 ),
                               ],
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                             ClipRRect(
                               borderRadius: BorderRadius.circular(3),
                               child: LinearProgressIndicator(
@@ -615,7 +616,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                 backgroundColor: cs.surfaceContainerHighest,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                             Text(
                               '${r.currentTime.toStringAsFixed(0)} / ${r.duration.toStringAsFixed(0)} ms · rate ${r.playbackRate.toStringAsFixed(2)} · iter ${r.iterations.isInfinite ? '∞' : r.iterations.toStringAsFixed(0)}',
                               style: theme.textTheme.labelSmall?.copyWith(
@@ -623,7 +624,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                               ),
                             ),
                             if (r.targetSelector.isNotEmpty) ...[
-                              const SizedBox(height: 2),
+                              kOpenHandGap2,
                               SelectableText(
                                 r.targetSelector,
                                 maxLines: 1,

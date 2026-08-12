@@ -15,6 +15,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -279,7 +280,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                     minHeight: 8,
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Text(
                   '${(globalRatio * 100).toStringAsFixed(1)}%  '
                   '${_humanBytes(coveredBytes)} / ${_humanBytes(totalBytes)}',
@@ -288,7 +289,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                   ),
                 ),
                 if (_lastTakeAt != null) ...[
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   Text(
                     formatHourMinuteSecond(_lastTakeAt!),
                     style: theme.textTheme.labelSmall?.copyWith(
@@ -299,7 +300,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
               ],
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Expanded(
             child: rows.isEmpty
                 ? OpenHandInlineEmptyState(
@@ -311,7 +312,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                 : ListView.separated(
                     padding: const EdgeInsets.symmetric(horizontal: 16),
                     itemCount: rows.length,
-                    separatorBuilder: (_, _) => const SizedBox(height: 4),
+                    separatorBuilder: (_, _) => kOpenHandGap4,
                     itemBuilder: (_, idx) =>
                         _buildRow(theme, cs, rows[idx], loc),
                   ),
@@ -374,11 +375,11 @@ class _CoverageDialogState extends State<_CoverageDialog> {
               mainAxisSize: MainAxisSize.min,
               children: [
                 actions,
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Row(
                   children: [
                     Expanded(child: filterField()),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     IconButton(
                       tooltip:
                           loc?.webReverseCoverageCopyReport ?? 'Copy report',
@@ -393,9 +394,9 @@ class _CoverageDialogState extends State<_CoverageDialog> {
           return Row(
             children: [
               actions,
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(child: filterField()),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               IconButton(
                 tooltip: loc?.webReverseCoverageCopyReport ?? 'Copy report',
                 onPressed: _rows.isEmpty ? null : _copyReport,
@@ -441,7 +442,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           SizedBox(
             width: 120,
             child: LinearProgressIndicator(
@@ -451,7 +452,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
               minHeight: 6,
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,

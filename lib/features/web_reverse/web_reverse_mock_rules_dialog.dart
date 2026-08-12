@@ -6,6 +6,7 @@
 library;
 
 import 'package:flutter/material.dart';
+
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
@@ -13,6 +14,7 @@ import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -219,7 +221,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                                 ),
                                 itemCount: _draft.length,
                                 separatorBuilder: (_, _) =>
-                                    const SizedBox(height: 4),
+                                    kOpenHandGap4,
                                 itemBuilder: (_, i) {
                                   final r = _draft[i];
                                   final sel = i == _selected;
@@ -325,7 +327,7 @@ class _MockRulesDialogState extends State<_MockRulesDialog> {
                         loc?.webReverseMockRulesHits ?? 'Hits',
                         style: theme.textTheme.labelMedium,
                       ),
-                      const SizedBox(width: 6),
+                      kOpenHandHGap6,
                       Text(
                         '(${hits.length})',
                         style: theme.textTheme.labelSmall,
@@ -474,7 +476,7 @@ class _RuleEditorState extends State<_RuleEditor> {
               isDense: true,
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _pattern,
             maxLength: WebReverseSessionController.maxBreakpointTextChars,
@@ -487,7 +489,7 @@ class _RuleEditorState extends State<_RuleEditor> {
               isDense: true,
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Row(
             children: [
               SizedBox(
@@ -505,7 +507,7 @@ class _RuleEditorState extends State<_RuleEditor> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               SizedBox(
                 width: 110,
                 child: TextField(
@@ -519,7 +521,7 @@ class _RuleEditorState extends State<_RuleEditor> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: TextField(
                   controller: _contentType,
@@ -535,7 +537,7 @@ class _RuleEditorState extends State<_RuleEditor> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _headers,
             maxLength: WebReverseSessionController.maxRuleHeadersChars,
@@ -554,7 +556,7 @@ class _RuleEditorState extends State<_RuleEditor> {
               isDense: true,
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: _body,
             maxLength: WebReverseSessionController.maxMockBodyChars,

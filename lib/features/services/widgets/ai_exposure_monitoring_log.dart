@@ -87,7 +87,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                     color: cs.onPrimaryContainer,
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -165,7 +165,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
               ],
             ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           LayoutBuilder(
             builder: (context, constraints) {
               final search = TextField(
@@ -180,7 +180,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
               return search;
             },
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           SingleChildScrollView(
             scrollDirection: Axis.horizontal,
             child: _AnimatedLogScopeTabs(
@@ -188,7 +188,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
               onChanged: (value) => setState(() => _scope = value),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -211,7 +211,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                 })
                 .toList(growable: false),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Expanded(
             child: Container(
               decoration: BoxDecoration(
@@ -235,7 +235,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                     ),
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Text(
             text(
               zh: '显示 ${logs.length} 条 · 信息 ${logs.where((item) => item.level == 'info').length} · 警告 ${logs.where((item) => item.level == 'warning').length} · 错误 ${logs.where((item) => item.level == 'error').length}',

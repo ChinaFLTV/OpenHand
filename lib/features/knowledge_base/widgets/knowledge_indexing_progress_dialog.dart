@@ -7,6 +7,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../service/knowledge_indexing_control.dart';
@@ -155,7 +156,7 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
                                   fontWeight: FontWeight.w800,
                                 ),
                               ),
-                              const SizedBox(height: 6),
+                              kOpenHandGap6,
                               Text(
                                 progress.sourceTitle.trim().isEmpty
                                     ? subtitle
@@ -171,7 +172,7 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 18),
+                    kOpenHandGap18,
                     ClipRRect(
                       borderRadius: kOpenHandPillBorderRadius,
                       child: _KnowledgeIndexingProgressBar(
@@ -179,7 +180,7 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
                         indeterminate: cancelling,
                       ),
                     ),
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     Row(
                       children: [
                         Expanded(
@@ -202,7 +203,7 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
                       ],
                     ),
                     if (cancelling) ...[
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       DecoratedBox(
                         decoration: BoxDecoration(
                           color: colorScheme.errorContainer.withValues(

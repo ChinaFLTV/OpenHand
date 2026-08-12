@@ -49,7 +49,7 @@ class _ThreadTemplateDialog extends StatelessWidget {
                   color: theme.colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               LayoutBuilder(
                 builder: (context, constraints) {
                   final cardWidth = _resolveCardWidth(constraints.maxWidth);
@@ -151,7 +151,7 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
                     color: colorScheme.onPrimaryContainer,
                   ),
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 Text(widget.template.name, style: theme.textTheme.titleMedium),
                 Expanded(
                   child: OpenHandSafeScrollbar(
@@ -169,7 +169,7 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 14),
+                kOpenHandGap14,
                 Text(
                   widget.template.internalVersionLabel,
                   style: theme.textTheme.labelLarge?.copyWith(
@@ -469,7 +469,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
                   ja: 'いいえ（増分実行）',
                 ),
         ),
-      const SizedBox(height: 12),
+      kOpenHandGap12,
       Text(
         openHandLocalizedText(
           context,
@@ -484,7 +484,7 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
           fontWeight: FontWeight.w800,
         ),
       ),
-      const SizedBox(height: 10),
+      kOpenHandGap10,
       for (final entry in roleConfigs)
         OpenHandMetadataEntryRow(
           label: entry.$1,

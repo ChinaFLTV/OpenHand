@@ -78,11 +78,11 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
-        const SizedBox(height: 24),
+        kOpenHandGap24,
         Divider(color: colorScheme.outlineVariant),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         Text(openHandSandboxLabel(context), style: theme.textTheme.titleMedium),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Text(
           openHandLocalizedText(
             context,
@@ -93,9 +93,9 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             color: colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _buildEnvironmentCard(context),
-        const SizedBox(height: 16),
+        kOpenHandGap16,
         _ResponsiveSettingRow(
           title: openHandLocalizedText(
             context,
@@ -112,7 +112,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             onChanged: (value) => _update(settings.copyWith(enabled: value)),
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _ResponsiveSettingRow(
           title: openHandLocalizedText(
             context,
@@ -130,7 +130,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                 _update(settings.copyWith(failIfUnavailable: value)),
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _ResponsiveSettingRow(
           title: openHandLocalizedText(
             context,
@@ -148,7 +148,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                 _update(settings.copyWith(allowUnsandboxedCommands: value)),
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _ResponsiveSettingRow(
           title: openHandLocalizedText(
             context,
@@ -166,7 +166,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                 _update(settings.copyWith(autoAllowBashIfSandboxed: value)),
           ),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _ResponsiveSettingRow(
           title: openHandLocalizedText(
             context,
@@ -185,13 +185,13 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             ),
           ),
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         _buildToolChips(context, settings),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         _buildProxyPorts(context, settings),
-        const SizedBox(height: 20),
+        kOpenHandGap20,
         _buildFileRules(context, settings),
-        const SizedBox(height: 20),
+        kOpenHandGap20,
         _buildPatternRules(
           context: context,
           title: openHandLocalizedText(
@@ -247,7 +247,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        kOpenHandGap20,
         _buildPatternRules(
           context: context,
           title: openHandLocalizedText(
@@ -303,7 +303,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             ),
           ),
         ),
-        const SizedBox(height: 20),
+        kOpenHandGap20,
         _buildPatternRules(
           context: context,
           title: openHandLocalizedText(
@@ -409,7 +409,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                           ? theme.colorScheme.secondary
                           : theme.colorScheme.error,
                     ),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     Expanded(
                       child: Text(title, style: theme.textTheme.titleSmall),
                     ),
@@ -426,9 +426,9 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Text(body, style: theme.textTheme.bodySmall),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -457,10 +457,10 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                   ],
                 ),
                 if (_actionMessage.isNotEmpty) ...[
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   Text(_actionMessage, style: theme.textTheme.bodySmall),
                   if (_actionCommand.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     SelectableText(
                       _actionCommand,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -489,7 +489,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           ),
           style: Theme.of(context).textTheme.titleSmall,
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -526,7 +526,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           ),
           style: Theme.of(context).textTheme.titleSmall,
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Text(
           openHandLocalizedText(
             context,
@@ -535,7 +535,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           ),
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Wrap(
           spacing: 12,
           runSpacing: 12,
@@ -593,7 +593,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Text(
           openHandLocalizedText(
             context,
@@ -602,7 +602,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
           ),
           style: Theme.of(context).textTheme.bodySmall,
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         if (settings.filesystemRules.isEmpty)
           _SettingsStateBox(
             icon: Icons.folder_off_outlined,
@@ -638,7 +638,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
               ],
             ],
           ),
@@ -671,9 +671,9 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Text(body, style: Theme.of(context).textTheme.bodySmall),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         if (rules.isEmpty)
           _SettingsStateBox(
             icon: icon,
@@ -696,7 +696,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
                   onEdit: () => onEdit(rule),
                   onDelete: () => onDelete(rule),
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
               ],
             ],
           ),
@@ -946,7 +946,7 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
                 )
               : null,
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         AnimatedDropdownButtonFormField<AiSandboxFileAccessMode>(
           initialValue: _accessMode,
           decoration: InputDecoration(
@@ -970,13 +970,13 @@ class _SandboxFileRuleDialogState extends State<_SandboxFileRuleDialog> {
             _accessMode = value ?? AiSandboxFileAccessMode.readOnly;
           }),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _buildSandboxMatchModeField(
           context,
           value: _matchMode,
           onChanged: (value) => setState(() => _matchMode = value),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         TextFormField(
           controller: _noteController,
           decoration: InputDecoration(
@@ -1058,13 +1058,13 @@ class _SandboxPatternRuleDialogState extends State<_SandboxPatternRuleDialog> {
                 )
               : null,
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _buildSandboxMatchModeField(
           context,
           value: _matchMode,
           onChanged: (value) => setState(() => _matchMode = value),
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         TextFormField(
           controller: _noteController,
           decoration: InputDecoration(

@@ -6,7 +6,6 @@ import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
 import '../../../shared/util/async_concurrency.dart';
-
 import '../../ai/index.dart';
 
 const int _resolvedMessagePathCacheLimit = 512;

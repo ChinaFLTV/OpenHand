@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -165,7 +166,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                       ),
                   ],
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: TextField(
                     decoration: InputDecoration(
@@ -234,7 +235,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 10),
+                                    kOpenHandHGap10,
                                     Container(
                                       padding: const EdgeInsets.symmetric(
                                         horizontal: 8,
@@ -254,7 +255,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                         ),
                                       ),
                                     ),
-                                    const SizedBox(width: 10),
+                                    kOpenHandHGap10,
                                     Expanded(
                                       child: Text(
                                         c.firstLine,
@@ -309,7 +310,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                             color: cs.onSurfaceVariant,
                                           ),
                                     ),
-                                    const SizedBox(height: 6),
+                                    kOpenHandGap6,
                                     for (final e in c.entries.take(30))
                                       Container(
                                         margin: const EdgeInsets.only(
@@ -340,7 +341,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                                 color: cs.onSurfaceVariant,
                                               ),
                                             ),
-                                            const SizedBox(height: 2),
+                                            kOpenHandGap2,
                                             SelectableText(
                                               e.text,
                                               style: const TextStyle(

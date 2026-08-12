@@ -24,6 +24,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_tap_region.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/async_concurrency.dart';
@@ -1695,7 +1696,7 @@ class _AndroidReverseDashboardDialogState
           child: Row(
             children: [
               const Icon(Icons.copy_rounded, size: 16),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -1719,7 +1720,7 @@ class _AndroidReverseDashboardDialogState
                 size: 16,
                 color: Theme.of(context).colorScheme.error,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -3278,7 +3279,7 @@ fi
       child: Row(
         children: [
           Icon(Icons.android_rounded, size: 22, color: cs.primary),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -3298,7 +3299,7 @@ fi
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   config.objective,
                   style: Theme.of(
@@ -3330,7 +3331,7 @@ fi
                     color: statusColor,
                   ),
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Text(
                   statusLabel,
                   style: Theme.of(context).textTheme.labelSmall?.copyWith(
@@ -3341,7 +3342,7 @@ fi
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           IconButton(
             icon: const Icon(Icons.refresh_rounded),
             tooltip: openHandRefreshLabel(context),
@@ -3509,7 +3510,7 @@ fi
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               SizedBox(
                 width: _kDeviceTrailingActionWidth,
                 child: _DashboardActionButton(
@@ -3585,7 +3586,7 @@ fi
                       ),
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   _DashboardActionButton(
                     onPressed: _runningShell ? null : _runShell,
                     icon: Icons.play_arrow_rounded,
@@ -3597,11 +3598,11 @@ fi
                 ],
               ),
               if (_shellHistory.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 _buildShellHistoryChips(cs, theme, isZh),
               ],
               if (_shellOutputCtrl.text.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 _buildShellOutputPanel(cs, theme, isZh),
               ],
             ],
@@ -3927,7 +3928,7 @@ fi
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           if (serial == null)
             _InfoCard(
               cs: cs,
@@ -3952,11 +3953,11 @@ fi
                 if (device?.product != null) device!.product!,
               ].join('\n'),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             for (final item in propItems)
               _DeviceInfoRow(label: item.$1, value: item.$2, colorScheme: cs),
             if (snapshot != null && snapshot.isNotEmpty) ...[
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Row(
                 children: [
                   Expanded(
@@ -3992,11 +3993,11 @@ fi
                   ),
                 ],
               ),
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               _monospaceCard(cs, snapshot),
             ],
           ],
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Text(
             openHandLocalizedText(
               context,
@@ -4012,7 +4013,7 @@ fi
               color: cs.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -4034,7 +4035,7 @@ fi
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _DashboardActionButton(
                 onPressed: _runningDeviceAction ? null : _connectWirelessDevice,
                 icon: Icons.link_rounded,
@@ -4050,7 +4051,7 @@ fi
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -4103,7 +4104,7 @@ fi
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Text(
             openHandLocalizedText(
               context,
@@ -4119,7 +4120,7 @@ fi
               color: cs.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Row(
             children: [
               Expanded(
@@ -4149,7 +4150,7 @@ fi
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: SizedBox(
                   height: _kAdbInlineControlHeight,
@@ -4177,7 +4178,7 @@ fi
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: _DashboardActionButton(
@@ -4190,7 +4191,7 @@ fi
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           if (_forwardRows.isEmpty)
             Text(
               openHandLocalizedText(
@@ -4263,7 +4264,7 @@ fi
                 ),
               ],
             ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Text(
             openHandLocalizedText(
               context,
@@ -4279,7 +4280,7 @@ fi
               color: cs.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Row(
             children: [
               Expanded(
@@ -4309,7 +4310,7 @@ fi
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: SizedBox(
                   height: _kAdbInlineControlHeight,
@@ -4337,7 +4338,7 @@ fi
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Padding(
                 padding: const EdgeInsets.only(top: 4),
                 child: _DashboardActionButton(
@@ -4350,7 +4351,7 @@ fi
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           if (_reverseRows.isEmpty)
             Text(
               openHandLocalizedText(
@@ -4423,7 +4424,7 @@ fi
                 ),
               ],
             ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Text(
             openHandLocalizedText(
               context,
@@ -4439,7 +4440,7 @@ fi
               color: cs.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           _buildPathActionRow(
             primaryController: _installApkPathCtrl,
             primaryHint: openHandLocalizedText(
@@ -4457,7 +4458,7 @@ fi
                 ? null
                 : _installApkFromPanel,
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           _buildPathActionRow(
             primaryController: _pushLocalCtrl,
             primaryHint: openHandLocalizedText(
@@ -4485,7 +4486,7 @@ fi
                 ? null
                 : _pushFileFromPanel,
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           _buildPathActionRow(
             primaryController: _pullRemoteCtrl,
             primaryHint: _androidReverseRemotePathLabel(context),
@@ -4513,7 +4514,7 @@ fi
                 ? null
                 : _pullFileFromPanel,
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 8,
             runSpacing: 8,
@@ -4833,7 +4834,7 @@ fi
           ),
           if (_lastDeviceActionOutput != null &&
               _lastDeviceActionOutput!.trim().isNotEmpty) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(10),
@@ -5652,10 +5653,10 @@ fi
             ],
           ),
           if (_evidenceBundleOutput?.trim().isNotEmpty ?? false) ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             _monospaceCard(cs, _evidenceBundleOutput!.trim()),
           ],
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           for (final (label, value) in items)
             Padding(
               padding: const EdgeInsets.symmetric(vertical: 5),
@@ -5672,7 +5673,7 @@ fi
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: OpenHandTapRegion(
                       onTap: () => _copyText(value),
@@ -5904,7 +5905,7 @@ fi
                                     color: ok ? cs.onSurface : statusColor,
                                   ),
                                 ),
-                                const SizedBox(height: 2),
+                                kOpenHandGap2,
                                 Text(
                                   '${openHandLocalizedText(context, zh: "耗时", zhHant: "耗時", en: "Duration", fr: "Durée", de: "Dauer", ja: "所要時間")}: ${row.durationMs}ms',
                                   style: theme.textTheme.labelSmall?.copyWith(
@@ -6040,10 +6041,10 @@ fi
             ],
           ),
           if (_mcpArtifactOutput?.trim().isNotEmpty ?? false) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             _monospaceCard(cs, _mcpArtifactOutput!.trim()),
           ],
-          const SizedBox(height: 18),
+          kOpenHandGap18,
           _sectionTitle(
             theme,
             cs,
@@ -6057,7 +6058,7 @@ fi
               ja: '推奨 MCP 機能',
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           for (final capability in capabilities) ...[
             _buildAndroidMcpCapabilityCard(
               capability,
@@ -6065,9 +6066,9 @@ fi
               cs,
               theme,
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
           ],
-          const SizedBox(height: 18),
+          kOpenHandGap18,
           _sectionTitle(
             theme,
             cs,
@@ -6081,7 +6082,7 @@ fi
               ja: 'Android 関連 MCP',
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           if (mcpController.errorMessage?.trim().isNotEmpty ?? false) ...[
             _InfoCard(
               cs: cs,
@@ -6090,7 +6091,7 @@ fi
               text:
                   '${openHandLocalizedText(context, zh: "MCP 加载异常", zhHant: "MCP 載入異常", en: "MCP load error", fr: "Erreur de chargement MCP", de: "MCP-Ladefehler", ja: "MCP 読み込みエラー")}: ${mcpController.errorMessage}',
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
           ],
           if (serverRows.isEmpty)
             _InfoCard(
@@ -6111,7 +6112,7 @@ fi
           else
             for (final row in serverRows) ...[
               _buildMcpServerCard(row, cs, theme, isZh),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
             ],
         ],
       ),
@@ -6185,7 +6186,7 @@ fi
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           _sectionTitle(
             theme,
             cs,
@@ -6199,7 +6200,7 @@ fi
               ja: '隣接ランタイム前提条件',
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           if (pluginController.errorMessage?.trim().isNotEmpty ?? false) ...[
             _InfoCard(
               cs: cs,
@@ -6208,7 +6209,7 @@ fi
               text:
                   '${openHandLocalizedText(context, zh: "插件扫描异常", zhHant: "外掛掃描異常", en: "Plugin scan error", fr: "Erreur de scan plugin", de: "Plugin-Scanfehler", ja: "プラグインスキャンエラー")}: ${pluginController.errorMessage}',
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
           ],
           if (runtimePlugins.isEmpty)
             _InfoCard(
@@ -6244,9 +6245,9 @@ fi
                 theme,
                 isZh,
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
             ],
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           _sectionTitle(
             theme,
             cs,
@@ -6260,7 +6261,7 @@ fi
               ja: 'CLI ツール設定アクション',
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           OpenHandContentStateSwitcher(
             stateKey: _loadingToolchain && _toolchainRows.isEmpty
                 ? 'loading'
@@ -6272,7 +6273,7 @@ fi
                     children: [
                       for (final row in _toolchainRows) ...[
                         _buildToolchainCommandTile(row, cs, theme, isZh),
-                        const SizedBox(height: 8),
+                        kOpenHandGap8,
                       ],
                     ],
                   ),
@@ -6320,7 +6321,7 @@ fi
                 size: 18,
                 color: server.enabled ? cs.primary : cs.onSurfaceVariant,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -6333,7 +6334,7 @@ fi
                         fontFamily: kOpenHandMonospaceFontFamily,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    kOpenHandGap3,
                     Text(
                       server.summary.isEmpty
                           ? server.type.transportValue
@@ -6348,7 +6349,7 @@ fi
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Wrap(
                 spacing: _kDashboardTrailingActionGap,
                 runSpacing: 6,
@@ -6453,7 +6454,7 @@ fi
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -6480,7 +6481,7 @@ fi
             ],
           ),
           if (health.errorMessage?.trim().isNotEmpty ?? false) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               health.errorMessage!.trim(),
               maxLines: 3,
@@ -6489,7 +6490,7 @@ fi
             ),
           ],
           if (catalog.errorMessage?.trim().isNotEmpty ?? false) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               catalog.errorMessage!.trim(),
               maxLines: 3,
@@ -6498,7 +6499,7 @@ fi
             ),
           ],
           if (tools.isNotEmpty) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             SelectableText(
               tools
                   .map((tool) => _mcpResolvedToolName(server, tool))
@@ -6619,7 +6620,7 @@ fi
             size: 19,
             color: statusColor,
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -6643,7 +6644,7 @@ fi
                       ),
                   ],
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Text(
                   [
                     capabilityDescription,
@@ -6659,7 +6660,7 @@ fi
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Wrap(
             spacing: _kDashboardTrailingActionGap,
             runSpacing: 6,
@@ -7027,7 +7028,7 @@ fi
             size: 17,
             color: color,
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -7040,7 +7041,7 @@ fi
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   [
                     plugin.id,
@@ -7069,7 +7070,7 @@ fi
               ],
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           _StatusPill(
             label: plugin.isInstalled
                 ? plugin.enabled
@@ -7132,7 +7133,7 @@ fi
                       child: Row(
                         children: [
                           Icon(_runtimePluginActionIcon(action), size: 16),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           Text(_runtimePluginActionLabel(action)),
                         ],
                       ),
@@ -7530,7 +7531,7 @@ fi
                 size: 17,
                 color: color,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   row.probe.label,
@@ -7577,7 +7578,7 @@ fi
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           SelectableText(
             ok
                 ? row.displayValue
@@ -7590,7 +7591,7 @@ fi
               height: 1.35,
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           _dashboardActionWrap([
             for (final action in _toolchainVisibleActions(row.probe))
               _SmallActionButton(
@@ -7801,7 +7802,7 @@ fi
                           strokeWidth: 1.5,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       IconButton(
                         icon: const Icon(Icons.refresh_rounded, size: 16),
                         tooltip: openHandLocalizedText(
@@ -7846,7 +7847,7 @@ fi
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Expanded(
                     child: DecoratedBox(
                       decoration: BoxDecoration(
@@ -7923,7 +7924,7 @@ fi
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               _DashboardActionButton(
                 onPressed: _loadingProcesses ? null : _doRefreshProcesses,
                 icon: Icons.refresh_rounded,
@@ -8195,7 +8196,7 @@ fi
                   ),
                 ],
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               _dashboardActionWrap([
                 SizedBox(
                   width: 220,
@@ -8361,7 +8362,7 @@ fi
                 ),
               ]),
               if (_logcatError != null && _logcatLines.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 _InfoCard(
                   cs: cs,
                   theme: theme,
@@ -8370,7 +8371,7 @@ fi
                 ),
               ],
               if (_logcatArtifactOutput?.trim().isNotEmpty ?? false) ...[
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 _monospaceCard(cs, _logcatArtifactOutput!.trim()),
               ],
             ],
@@ -8387,7 +8388,7 @@ fi
                         size: 32,
                         color: cs.onSurfaceVariant,
                       ),
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       Text(
                         _logcatError ??
                             openHandLocalizedText(
@@ -8404,7 +8405,7 @@ fi
                           color: cs.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                       _DashboardActionButton(
                         onPressed: _loadingLogcat ? null : _fetchLogcat,
                         icon: Icons.download_rounded,
@@ -8464,7 +8465,7 @@ fi
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 SizedBox(height: 150, child: snippets),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Expanded(child: editor),
               ],
             );
@@ -8477,7 +8478,7 @@ fi
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     SizedBox(width: 286, child: snippets),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     Expanded(child: editor),
                   ],
                 ),
@@ -8710,7 +8711,7 @@ fi
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         LayoutBuilder(
           builder: (context, constraints) {
             if (constraints.maxWidth < 720) {
@@ -8718,7 +8719,7 @@ fi
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   selectedAssetLabel,
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   _dashboardActionWrap(actions),
                 ],
               );
@@ -8726,14 +8727,14 @@ fi
             return Row(
               children: [
                 Expanded(child: selectedAssetLabel),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(flex: 2, child: _dashboardActionWrap(actions)),
               ],
             );
           },
         ),
         if (_fridaArtifactOutput?.trim().isNotEmpty ?? false) ...[
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           SizedBox(
             height: 160,
             child: OpenHandSafeScrollbar(
@@ -8816,7 +8817,7 @@ fi
                 _copyResultButton(addonOutput),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Row(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -8835,7 +8836,7 @@ fi
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               SizedBox(
                 width: 120,
                 child: _pathTextField(
@@ -8853,7 +8854,7 @@ fi
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _dashboardActionWrap([
             _DashboardActionButton(
               onPressed: _runningNetworkAction || captureRunning
@@ -8956,7 +8957,7 @@ fi
               ),
             ),
           ]),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           if (addonOutput != null && addonOutput.isNotEmpty)
             _monospaceCard(cs, addonOutput),
         ],
@@ -9096,7 +9097,7 @@ fi
             ],
           ),
           if (scanOutput != null && scanOutput.isNotEmpty) ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             _monospaceCard(cs, scanOutput),
           ],
         ],
@@ -9199,7 +9200,7 @@ fi
                 _copyResultButton(artifactOutput),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _pathTextField(
             controller: _mitmCertPathCtrl,
             hintText: openHandLocalizedText(
@@ -9213,7 +9214,7 @@ fi
               ja: 'mitmproxy CA パス、既定は ~/.mitmproxy/mitmproxy-ca-cert.pem',
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           if (artifactOutput != null && artifactOutput.isNotEmpty)
             _monospaceCard(cs, artifactOutput),
         ],
@@ -9248,7 +9249,7 @@ fi
             ),
             onChanged: (_) => setState(() {}),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _dashboardActionWrap(
             [
               _DashboardActionButton(
@@ -9375,7 +9376,7 @@ fi
             alignment: Alignment.centerLeft,
             wrapAlignment: WrapAlignment.start,
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           if (cryptoOutput.isNotEmpty) _monospaceCard(cs, _base64OutCtrl.text),
         ],
       ),
@@ -9421,7 +9422,7 @@ fi
           if (maxWidth < _kDashboardHeaderCompactBreakpoint) {
             return Column(
               crossAxisAlignment: CrossAxisAlignment.stretch,
-              children: [leadingWrap, const SizedBox(height: 8), actionWrap],
+              children: [leadingWrap, kOpenHandGap8, actionWrap],
             );
           }
           final leadingMaxWidth =
@@ -9437,7 +9438,7 @@ fi
                 ),
                 child: leadingWrap,
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(child: actionWrap),
             ],
           );
@@ -9561,7 +9562,7 @@ fi
             child: Row(
               children: [
                 Icon(_toolchainCommandIcon(action), size: 16),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Text(_toolchainCommandLabel(action)),
               ],
             ),
@@ -10085,7 +10086,7 @@ fi
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         _StatusPill(label: label, color: cs.primary),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         content,
       ],
     );
@@ -10152,7 +10153,7 @@ fi
               ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         _resultSection(
           cs,
           theme,
@@ -10168,15 +10169,15 @@ fi
           result.commandLine,
         ),
         if (stdout.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           _resultSection(cs, theme, 'stdout', stdout),
         ],
         if (stderr.isNotEmpty) ...[
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           _resultSection(cs, theme, 'stderr', stderr, isError: !ok),
         ],
         if (stdout.isEmpty && stderr.isEmpty) ...[
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Text(
             _androidReverseNoOutputLabel(context),
             style: theme.textTheme.bodySmall?.copyWith(
@@ -10220,7 +10221,7 @@ fi
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           _formattedTerminalText(text, cs),
         ],
       ),
@@ -10378,7 +10379,7 @@ fi
           ),
         ),
         if (secondaryController != null) ...[
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: _pathTextField(
               controller: secondaryController,
@@ -10386,7 +10387,7 @@ fi
             ),
           ),
         ],
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         SizedBox(
           width: _kDeviceTrailingActionWidth,
           child: Padding(
@@ -10548,7 +10549,7 @@ class _LogcatLineTile extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -10892,7 +10893,7 @@ class _DeviceInfoRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: SelectableText(
               value,
@@ -10945,7 +10946,7 @@ class _ForwardRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           IconButton(
             onPressed: onRemove,
             icon: const Icon(Icons.close_rounded, size: 14),
@@ -11141,7 +11142,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                     ],
                   ),
                   if (result != null) ...[
-                    const SizedBox(height: 14),
+                    kOpenHandGap14,
                     _DashboardDetailSection(
                       title: openHandLocalizedText(
                         context,
@@ -11189,7 +11190,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                       ],
                     ),
                   ],
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _DashboardDetailSection(
                     title: openHandLocalizedText(
                       context,
@@ -11236,7 +11237,7 @@ class _ToolchainInfoDialog extends StatelessWidget {
                     ],
                   ),
                   if (plugin != null) ...[
-                    const SizedBox(height: 14),
+                    kOpenHandGap14,
                     _DashboardDetailSection(
                       title: openHandLocalizedText(
                         context,
@@ -11376,7 +11377,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _DashboardDetailSection(
                     title: openHandLocalizedText(
                       context,
@@ -11442,7 +11443,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _DashboardDetailSection(
                     title: openHandLocalizedText(
                       context,
@@ -11488,7 +11489,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                     ],
                   ),
                   if (specs.isNotEmpty) ...[
-                    const SizedBox(height: 14),
+                    kOpenHandGap14,
                     _DashboardDetailSection(
                       title: openHandLocalizedText(
                         context,
@@ -11529,7 +11530,7 @@ class _RuntimePluginInfoDialog extends StatelessWidget {
                     ),
                   ],
                   if (plugin.errorMessage?.trim().isNotEmpty ?? false) ...[
-                    const SizedBox(height: 14),
+                    kOpenHandGap14,
                     _DashboardDetailSection(
                       title: openHandLocalizedText(
                         context,
@@ -11585,7 +11586,7 @@ class _DashboardDetailSection extends StatelessWidget {
         Row(
           children: [
             Icon(icon, size: 16, color: color),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Text(
               title,
               style: theme.textTheme.titleSmall?.copyWith(
@@ -11595,7 +11596,7 @@ class _DashboardDetailSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(12),
@@ -11650,7 +11651,7 @@ class _DashboardDetailRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: SelectableText(
               display,
@@ -11693,7 +11694,7 @@ class _InfoCard extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Icon(icon, size: 16, color: cs.primary),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: Text(
               text,

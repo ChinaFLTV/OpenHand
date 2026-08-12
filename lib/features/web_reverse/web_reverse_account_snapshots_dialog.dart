@@ -5,6 +5,7 @@
 library;
 
 import 'package:flutter/material.dart';
+
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
@@ -12,6 +13,7 @@ import '../../shared/ui/openhand_clipboard.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -207,7 +209,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                         onSubmitted: (_) => _capture(),
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     FilledButton.icon(
                       onPressed: _busy ? null : _capture,
                       icon: const Icon(Icons.bookmark_add_rounded, size: 18),
@@ -245,7 +247,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                   ],
                 ),
               ),
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Expanded(
                 child: snaps.isEmpty
                     ? _buildEmpty(theme, cs, loc)
@@ -255,7 +257,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                           vertical: 4,
                         ),
                         itemCount: snaps.length,
-                        separatorBuilder: (_, _) => const SizedBox(height: 8),
+                        separatorBuilder: (_, _) => kOpenHandGap8,
                         itemBuilder: (_, idx) =>
                             _buildRow(theme, cs, loc, snaps[idx]),
                       ),
@@ -320,14 +322,14 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   [if (snap.origin.isNotEmpty) snap.origin, stamp].join(' · '),
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Wrap(
                   spacing: 6,
                   children: [

@@ -20,6 +20,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/reorder_proxy_decorator.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../instructions_controller.dart';
@@ -296,7 +297,7 @@ class _InstructionCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 16),
+                    kOpenHandHGap16,
                     Expanded(
                       child: Column(
                         crossAxisAlignment: CrossAxisAlignment.start,
@@ -307,7 +308,7 @@ class _InstructionCard extends StatelessWidget {
                             overflow: TextOverflow.ellipsis,
                             style: theme.textTheme.titleLarge,
                           ),
-                          const SizedBox(height: 6),
+                          kOpenHandGap6,
                           Text(
                             entry.enabled
                                 ? l10n.instructionEnabledStatus
@@ -319,7 +320,7 @@ class _InstructionCard extends StatelessWidget {
                             ),
                           ),
                           if (entry.description.trim().isNotEmpty) ...[
-                            const SizedBox(height: 8),
+                            kOpenHandGap8,
                             Text(
                               entry.description,
                               maxLines: 2,
@@ -332,7 +333,7 @@ class _InstructionCard extends StatelessWidget {
                         ],
                       ),
                     ),
-                    const SizedBox(width: 12),
+                    kOpenHandHGap12,
                     SizedBox(
                       width: 44,
                       height: 44,
@@ -352,7 +353,7 @@ class _InstructionCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 Align(
                   alignment: Alignment.centerLeft,
                   child: Wrap(
@@ -554,7 +555,7 @@ class _InstructionToggleCard extends StatelessWidget {
                     color: value ? colorScheme.onPrimary : colorScheme.outline,
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     mainAxisSize: MainAxisSize.min,
@@ -571,7 +572,7 @@ class _InstructionToggleCard extends StatelessWidget {
                           fontWeight: FontWeight.w700,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         subtitle,
                         maxLines: 2,
@@ -583,7 +584,7 @@ class _InstructionToggleCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 _InstructionEnabledSwitch(value: value, onChanged: onChanged),
               ],
             ),
@@ -721,7 +722,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                           return null;
                         },
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       LayoutBuilder(
                         builder: (context, constraints) {
                           final stacked = constraints.maxWidth < 560;
@@ -744,7 +745,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                             return Column(
                               children: [
                                 description,
-                                const SizedBox(height: 12),
+                                kOpenHandGap12,
                                 version,
                               ],
                             );
@@ -752,13 +753,13 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                           return Row(
                             children: [
                               Expanded(flex: 2, child: description),
-                              const SizedBox(width: 12),
+                              kOpenHandHGap12,
                               Expanded(child: version),
                             ],
                           );
                         },
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       TextFormField(
                         controller: _applyTo,
                         maxLength: UserInstructionEntry.maxApplyToLength,
@@ -767,21 +768,21 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                           counterText: '',
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       TextFormField(
                         controller: _taskTypes,
                         decoration: InputDecoration(
                           labelText: l10n.instructionTaskTypesField,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       TextFormField(
                         controller: _keywords,
                         decoration: InputDecoration(
                           labelText: l10n.instructionKeywordsField,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       TextFormField(
                         controller: _notes,
                         minLines: 2,
@@ -790,7 +791,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                           labelText: l10n.instructionNotesField,
                         ),
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       TextFormField(
                         controller: _body,
                         minLines: 6,
@@ -817,7 +818,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                   ),
                 ),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               Row(
                 mainAxisAlignment: MainAxisAlignment.center,
                 children: <Widget>[
@@ -827,7 +828,7 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
                         : () => Navigator.of(context).pop(),
                     label: l10n.commonCancel,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   OpenHandDialogActionButton.primary(
                     onPressed: _saving ? null : _save,
                     label: isEdit
@@ -867,13 +868,13 @@ class _InstructionEditorDialogState extends State<_InstructionEditorDialog> {
         if (constraints.maxWidth < 620) {
           return Column(
             crossAxisAlignment: CrossAxisAlignment.start,
-            children: [title, const SizedBox(height: 12), toggle],
+            children: [title, kOpenHandGap12, toggle],
           );
         }
         return Row(
           children: [
             Expanded(child: title),
-            const SizedBox(width: 16),
+            kOpenHandHGap16,
             toggle,
           ],
         );

@@ -1609,7 +1609,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
           },
         ),
         _buildAddressBar(theme, cs, ctrl),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Expanded(
           // LayoutBuilder 必须包在 Padding 内部，否则 constraints
           // 是 Padding 外层尺寸（含 12+12 横向、12 纵向留白），而 Listener 实际
@@ -1769,7 +1769,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             icon: Icons.arrow_back_rounded,
             onPressed: alive ? () => ctrl.goBack() : null,
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _NavIconButton(
             tooltip: openHandLocalizedText(
               context,
@@ -1783,13 +1783,13 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             icon: Icons.arrow_forward_rounded,
             onPressed: alive ? () => ctrl.goForward() : null,
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _NavIconButton(
             tooltip: _wrReloadLabel(context),
             icon: Icons.refresh_rounded,
             onPressed: alive ? () => ctrl.reload() : null,
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: SizedBox(
               height: 36,
@@ -1852,7 +1852,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           _NavIconButton(
             tooltip: openHandLocalizedText(
               context,
@@ -1877,7 +1877,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                   }
                 : null,
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _ZoomMenu(
             value: _zoom,
             enabled: alive,
@@ -1886,7 +1886,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
               await ctrl.setZoomFactor(v);
             },
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _ResolutionMenu(
             value: _resolutionOverride,
             enabled: alive,
@@ -1901,7 +1901,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
               });
             },
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _DevicePresetMenu(
             value: _devicePreset,
             enabled: alive,
@@ -1924,7 +1924,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
               }
             },
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _NavIconButton(
             tooltip: _cjkInputEnabled
                 ? openHandLocalizedText(
@@ -1951,7 +1951,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             tinted: _cjkInputEnabled,
             onPressed: _toggleCjkInput,
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _NavIconButton(
             tooltip: openHandLocalizedText(
               context,
@@ -1965,7 +1965,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             icon: Icons.photo_camera_outlined,
             onPressed: alive ? _saveCurrentFrame : null,
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _NavIconButton(
             tooltip: alive
                 ? _webReverseDashRestartBrowserLabel(context)
@@ -1985,7 +1985,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                 ? null
                 : () => _restartBrowserFromUi('toolbar'),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _NavIconButton(
             tooltip: openHandLocalizedText(
               context,
@@ -2026,7 +2026,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(Icons.power_off_rounded, size: 36, color: cs.error),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Text(
                 openHandLocalizedText(
                   context,
@@ -2041,7 +2041,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               Text(
                 err.isEmpty
                     ? openHandLocalizedText(
@@ -2060,7 +2060,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                   height: 1.5,
                 ),
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               FilledButton.icon(
                 onPressed: _restartBrowserInFlight
                     ? null
@@ -2181,7 +2181,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                   ),
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               Text(
                 title,
                 textAlign: TextAlign.center,
@@ -2189,7 +2189,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                   fontWeight: FontWeight.w800,
                 ),
               ),
-              const SizedBox(height: 6),
+              kOpenHandGap6,
               Text(
                 detail,
                 textAlign: TextAlign.center,
@@ -2199,7 +2199,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                 ),
               ),
               if (target.isNotEmpty) ...[
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Text(
                   target,
                   textAlign: TextAlign.center,
@@ -2212,7 +2212,7 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                 ),
               ],
               if (slow || !running) ...[
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 Wrap(
                   alignment: WrapAlignment.center,
                   spacing: 8,
@@ -2444,7 +2444,7 @@ class _ZoomMenu extends StatelessWidget {
                       ? cs.onSurfaceVariant
                       : cs.onSurface.withValues(alpha: 0.35),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 Text(
                   '${(value * 100).round()}%',
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -2723,7 +2723,7 @@ class _TabStripState extends State<_TabStrip> {
                                                         ? cs.onPrimaryContainer
                                                         : cs.onSurfaceVariant,
                                                   ),
-                                                  const SizedBox(width: 6),
+                                                  kOpenHandHGap6,
                                                   AnimatedDefaultTextStyle(
                                                     duration:
                                                         kOpenHandMotion220,
@@ -2817,7 +2817,7 @@ class _TabStripState extends State<_TabStrip> {
                                                     ),
                                                   ),
                                                   if (activeCount > 1) ...[
-                                                    const SizedBox(width: 6),
+                                                    kOpenHandHGap6,
                                                     InkResponse(
                                                       radius: 12,
                                                       onTap: enabled
@@ -2849,7 +2849,7 @@ class _TabStripState extends State<_TabStrip> {
                 },
               ),
             ),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Tooltip(
               message: openHandLocalizedText(
                 context,
@@ -2927,7 +2927,7 @@ class _FindBar extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.search_rounded, size: 14, color: cs.onSurfaceVariant),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             SizedBox(
               width: 200,
               child: TextField(
@@ -2958,7 +2958,7 @@ class _FindBar extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             ConstrainedBox(
               constraints: const BoxConstraints(minWidth: 36),
               child: Text(
@@ -2987,7 +2987,7 @@ class _FindBar extends StatelessWidget {
               onPressed: matchCount > 0 ? () async => onPrev() : null,
               icon: const Icon(Icons.keyboard_arrow_up_rounded),
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             IconButton(
               tooltip: openHandLocalizedText(
                 context,
@@ -3005,7 +3005,7 @@ class _FindBar extends StatelessWidget {
               onPressed: matchCount > 0 ? () async => onNext() : null,
               icon: const Icon(Icons.keyboard_arrow_down_rounded),
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             IconButton(
               tooltip: openHandCloseLabel(context),
               visualDensity: VisualDensity.compact,
@@ -3130,7 +3130,7 @@ class _ResolutionMenu extends StatelessWidget {
                       ? cs.onSurfaceVariant
                       : cs.onSurface.withValues(alpha: 0.35),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 Text(
                   label,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -3281,7 +3281,7 @@ class _DevicePresetMenu extends StatelessWidget {
                       ? cs.onSurfaceVariant
                       : cs.onSurface.withValues(alpha: 0.35),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 Text(
                   label(),
                   style: theme.textTheme.bodySmall?.copyWith(

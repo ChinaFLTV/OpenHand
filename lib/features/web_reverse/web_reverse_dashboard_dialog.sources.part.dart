@@ -444,7 +444,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   ),
                   style: Theme.of(dialogContext).textTheme.bodySmall,
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 ValueListenableBuilder<String?>(
                   valueListenable: preset,
                   builder: (_, sel, _) => Wrap(
@@ -464,7 +464,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     ],
                   ),
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 TextField(
                   controller: cmdCtrl,
                   decoration: InputDecoration(
@@ -485,7 +485,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 TextField(
                   controller: argsCtrl,
                   decoration: InputDecoration(
@@ -506,7 +506,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     fontSize: 12,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Text(
                   openHandLocalizedText(
                     dialogContext,
@@ -1176,7 +1176,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                           onChanged: (v) => setState(() => _filter = v.trim()),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      kOpenHandHGap6,
                       SizedBox(
                         width: 38,
                         height: 38,
@@ -1353,7 +1353,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     size: 14,
                     color: cs.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Flexible(
                     child: Text(
                       sm.resolveSource(i),
@@ -1498,7 +1498,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                                         )
                                       : null,
                                 ),
-                                const SizedBox(width: 6),
+                                kOpenHandHGap6,
                                 Expanded(
                                   child: Text(
                                     '${idx + 1}',
@@ -1668,7 +1668,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                     size: 14,
                     color: cs.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 6),
+                  kOpenHandHGap6,
                   Expanded(
                     child: Text(
                       _sourcesStatusLabel(
@@ -1718,7 +1718,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               // ── Source Map chip：已抓到 N>0 个原始源时启用；正在
               // 抓取显示菊花；命中后点击弹 PopupMenu 选源切换视图。
               if (_sourceMapLoading)
@@ -1733,7 +1733,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
               else if (_sourceMap != null && _sourceMap!.sources.isNotEmpty)
                 SizedBox(height: 32, child: _buildSourceMapChip(theme, cs)),
               if (_viewingOriginal) ...[
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 SizedBox(
                   height: 32,
                   child: OutlinedButton.icon(
@@ -1765,7 +1765,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   ),
                 ),
               ],
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               // “原样” / “LSP” 胶囊外明确限定高 32，与右侧复制源码 /
               // 继续运行等动作胶囊保持同高，避免主侊变得徽高徽矮。
               SizedBox(
@@ -1805,7 +1805,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                         },
                 ),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               SizedBox(
                 height: 32,
                 child: FilterChip(
@@ -1837,7 +1837,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   onSelected: (_) => _toggleLsp(),
                 ),
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               SizedBox(
                 width: 32,
                 height: 32,
@@ -1858,7 +1858,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   icon: const Icon(Icons.tune_rounded),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               SizedBox(
                 height: 32,
                 child: OutlinedButton.icon(
@@ -1892,7 +1892,7 @@ class _SourcesPanelState extends State<_SourcesPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               SizedBox(
                 height: 32,
                 child: OutlinedButton.icon(
@@ -2030,7 +2030,7 @@ class _SourcesGlobalSearchDialogState
             child: Row(
               children: [
                 Icon(Icons.travel_explore_rounded, color: cs.primary),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: TextField(
                     controller: _qCtrl,
@@ -2051,7 +2051,7 @@ class _SourcesGlobalSearchDialogState
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 FilledButton.icon(
                   onPressed: _searching ? null : _run,
                   icon: Icon(
@@ -2310,7 +2310,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                       size: 16,
                       color: cs.onErrorContainer,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Expanded(
                       child: Text(
                         openHandLocalizedText(
@@ -2387,7 +2387,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                 ),
               ),
             if (paused != null) ...[
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               _RailCard(
                 title: openHandLocalizedText(
                   context,
@@ -2425,7 +2425,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                                 size: 12,
                                 color: cs.primary,
                               ),
-                              const SizedBox(width: 6),
+                              kOpenHandHGap6,
                               Expanded(
                                 child: Text(
                                   (frames[i]['functionName']
@@ -2453,7 +2453,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                   ],
                 ),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               _RailCard(
                 title: openHandLocalizedText(
                   context,
@@ -2477,7 +2477,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                 ),
               ),
             ],
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             _RailCard(
               title: openHandLocalizedText(
                 context,
@@ -2531,7 +2531,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                           onSubmitted: (_) => _addWatch(),
                         ),
                       ),
-                      const SizedBox(width: 6),
+                      kOpenHandHGap6,
                       IconButton(
                         onPressed: _addWatch,
                         iconSize: 18,
@@ -2539,7 +2539,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   for (final w in widget.controller.watchExpressions)
                     Padding(
                       padding: const EdgeInsets.symmetric(vertical: 3),
@@ -2551,7 +2551,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                             size: 14,
                             color: cs.primary,
                           ),
-                          const SizedBox(width: 4),
+                          kOpenHandHGap4,
                           Expanded(
                             child: Column(
                               crossAxisAlignment: CrossAxisAlignment.start,
@@ -2591,7 +2591,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                 ],
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Text(
               openHandLocalizedText(
                 context,
@@ -2639,7 +2639,7 @@ class _RailCard extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 14, color: cs.primary),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: Text(
                   title,
@@ -2651,7 +2651,7 @@ class _RailCard extends StatelessWidget {
               if (trailing != null) trailing!,
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Padding(padding: const EdgeInsets.only(right: 4), child: child),
         ],
       ),
@@ -2745,7 +2745,7 @@ class _ScopeSectionState extends State<_ScopeSection> {
                         : Icons.chevron_right_rounded,
                     size: 14,
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   Text(
                     name == null || name.isEmpty ? type : '$type · $name',
                     style: theme.textTheme.labelMedium?.copyWith(
@@ -2848,7 +2848,7 @@ class _SourceHoverBubble extends StatelessWidget {
                           color: cs.primary,
                         ),
                       ),
-                      const SizedBox(width: 8),
+                      kOpenHandHGap8,
                       Text(
                         'LSP…',
                         style: theme.textTheme.labelSmall?.copyWith(
@@ -3120,7 +3120,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                                       ? cs.primary
                                       : cs.onSurfaceVariant,
                                 ),
-                                const SizedBox(width: 8),
+                                kOpenHandHGap8,
                                 Text(
                                   base.isEmpty ? '(anonymous)' : base,
                                   style: theme.textTheme.bodySmall?.copyWith(
@@ -3130,7 +3130,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
                                     color: active ? cs.primary : cs.onSurface,
                                   ),
                                 ),
-                                const SizedBox(width: 10),
+                                kOpenHandHGap10,
                                 Expanded(
                                   child: Text(
                                     dir,

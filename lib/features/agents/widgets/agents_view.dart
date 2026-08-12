@@ -31,6 +31,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_model_selector_field.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/bounded_json_conversion.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -468,7 +469,7 @@ class _AgentsBody extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(0, 2, 0, 12),
         cacheExtent: 700,
         itemCount: snapshot.agents.length,
-        separatorBuilder: (_, _) => const SizedBox(height: 14),
+        separatorBuilder: (_, _) => kOpenHandGap14,
         itemBuilder: (context, index) {
           final agent = snapshot.agents[index];
           return SettingsAwareAppearOnce(
@@ -544,13 +545,13 @@ class _AgentCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 _AgentAvatar(agent: agent),
-                const SizedBox(width: 16),
+                kOpenHandHGap16,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(agent.name, style: theme.textTheme.headlineSmall),
-                      const SizedBox(height: 6),
+                      kOpenHandGap6,
                       Text(
                         [
                           agent.position,
@@ -565,7 +566,7 @@ class _AgentCard extends StatelessWidget {
                         ),
                       ),
                       if (agent.introduction.trim().isNotEmpty) ...[
-                        const SizedBox(height: 8),
+                        kOpenHandGap8,
                         Text(
                           agent.introduction,
                           maxLines: 2,
@@ -576,7 +577,7 @@ class _AgentCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -648,7 +649,7 @@ class _AgentCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -701,7 +702,7 @@ class _AgentCard extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             _AgentCapabilitySummary(agent: agent),
           ],
         ),
@@ -835,7 +836,7 @@ class _AgentCardMenuItem extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 19, color: theme.colorScheme.onSurfaceVariant),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Flexible(child: Text(label)),
       ],
     );
@@ -916,7 +917,7 @@ class _AgentDraftKpiList extends StatelessWidget {
             key: ValueKey<String>('agent-draft-kpi-list-${items.length}'),
             children: [
               for (var index = 0; index < items.length; index++) ...[
-                if (index > 0) const SizedBox(height: 8),
+                if (index > 0) kOpenHandGap8,
                 _AgentDraftKpiTile(
                   key: ValueKey<String>(
                     'agent-draft-kpi-${items[index].id}-${items[index].name}',
@@ -980,7 +981,7 @@ class _AgentDraftKpiTile extends StatelessWidget {
                 color: statusColor,
               ),
             ),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1003,7 +1004,7 @@ class _AgentDraftKpiTile extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text(
                     item.name,
                     maxLines: 1,
@@ -1013,7 +1014,7 @@ class _AgentDraftKpiTile extends StatelessWidget {
                     ),
                   ),
                   if (item.target.trim().isNotEmpty) ...[
-                    const SizedBox(height: 3),
+                    kOpenHandGap3,
                     Text(
                       item.target,
                       maxLines: 2,
@@ -1024,7 +1025,7 @@ class _AgentDraftKpiTile extends StatelessWidget {
                       ),
                     ),
                   ],
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   ClipRRect(
                     borderRadius: kOpenHandPillBorderRadius,
                     child: LinearProgressIndicator(
@@ -1037,7 +1038,7 @@ class _AgentDraftKpiTile extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             IconButton(
               tooltip: openHandLocalizedText(
                 context,
@@ -1230,7 +1231,7 @@ class _AgentActivityBubble extends StatelessWidget {
                           ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     Text(
                       title,
                       style: theme.textTheme.titleSmall?.copyWith(
@@ -1247,7 +1248,7 @@ class _AgentActivityBubble extends StatelessWidget {
                       ),
                     ],
                     if (metadata.isNotEmpty) ...[
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                       Wrap(
                         spacing: 6,
                         runSpacing: 6,
@@ -1389,12 +1390,12 @@ class _AgentCapabilityLogBody extends StatelessWidget {
             _MetricTile(label: 'Token', value: '$tokens'),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         ListView.separated(
           shrinkWrap: true,
           primary: false,
           itemCount: events.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => kOpenHandGap10,
           itemBuilder: (context, index) {
             return _AgentCapabilityLogTile(agent: agent, event: events[index]);
           },
@@ -1457,7 +1458,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
                       size: 19,
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1480,7 +1481,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
                               ),
                           ],
                         ),
-                        const SizedBox(height: 8),
+                        kOpenHandGap8,
                         Text(
                           name,
                           style: theme.textTheme.titleSmall?.copyWith(
@@ -1496,7 +1497,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
                             ),
                           ),
                         ],
-                        const SizedBox(height: 8),
+                        kOpenHandGap8,
                         Wrap(
                           spacing: 6,
                           runSpacing: 6,
@@ -1520,7 +1521,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                   Icon(
                     Icons.chevron_right_rounded,
                     color: cs.onSurfaceVariant,
@@ -2220,7 +2221,7 @@ class _AgentCapabilityLogDetailHero extends StatelessWidget {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Text(
                     nonBlankStringOr(capabilityName, '-'),
                     maxLines: compact ? 3 : 2,
@@ -2231,7 +2232,7 @@ class _AgentCapabilityLogDetailHero extends StatelessWidget {
                     ),
                   ),
                   if (summary.trim().isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     SelectableText(
                       summary,
                       style: theme.textTheme.bodyMedium?.copyWith(height: 1.42),
@@ -2243,7 +2244,7 @@ class _AgentCapabilityLogDetailHero extends StatelessWidget {
             if (compact) {
               return Row(
                 crossAxisAlignment: CrossAxisAlignment.start,
-                children: [leading, const SizedBox(width: 12), content],
+                children: [leading, kOpenHandHGap12, content],
               );
             }
             return Row(
@@ -2278,7 +2279,7 @@ class _AgentLogDetailSection extends StatelessWidget {
         Row(
           children: [
             Icon(icon, size: 18, color: cs.primary),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Text(
                 title,
@@ -2289,7 +2290,7 @@ class _AgentLogDetailSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         child,
       ],
     );
@@ -2387,12 +2388,12 @@ class _AgentApprovalsBody extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         ListView.separated(
           shrinkWrap: true,
           primary: false,
           itemCount: visibleApprovals.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => kOpenHandGap10,
           itemBuilder: (context, index) {
             final approval = visibleApprovals[index];
             return _AgentApprovalRequestCard(
@@ -2452,7 +2453,7 @@ class _AgentApprovalRequestCard extends StatelessWidget {
                 size: 19,
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -2479,7 +2480,7 @@ class _AgentApprovalRequestCard extends StatelessWidget {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Text(
                     approval.title,
                     style: theme.textTheme.titleSmall?.copyWith(
@@ -2487,7 +2488,7 @@ class _AgentApprovalRequestCard extends StatelessWidget {
                     ),
                   ),
                   if (approval.requestedAction.trim().isNotEmpty) ...[
-                    const SizedBox(height: 6),
+                    kOpenHandGap6,
                     SelectableText(
                       approval.requestedAction,
                       style: theme.textTheme.bodyMedium?.copyWith(
@@ -2503,7 +2504,7 @@ class _AgentApprovalRequestCard extends StatelessWidget {
                     ),
                   ],
                   if (metadata.isNotEmpty) ...[
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
@@ -2513,7 +2514,7 @@ class _AgentApprovalRequestCard extends StatelessWidget {
                     ),
                   ],
                   if (approval.status == AgentApprovalStatus.pending) ...[
-                    const SizedBox(height: 10),
+                    kOpenHandGap10,
                     Align(
                       alignment: AlignmentDirectional.centerEnd,
                       child: _AgentApprovalActions(
@@ -2730,7 +2731,7 @@ class _AgentClusterDialogContentState
             ),
           ],
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -2778,7 +2779,7 @@ class _AgentClusterDialogContentState
               ),
           ],
         ),
-        const SizedBox(height: 18),
+        kOpenHandGap18,
         if (currentAgent.workers.isEmpty)
           FeatureStateCard.inline(
             icon: Icons.memory_rounded,
@@ -2834,7 +2835,7 @@ class _AgentWorkerStatusTile extends StatelessWidget {
                     : Icons.check_circle_outline_rounded,
                 color: statusColor,
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2860,7 +2861,7 @@ class _AgentWorkerStatusTile extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 6),
+                    kOpenHandGap6,
                     Wrap(
                       spacing: 6,
                       runSpacing: 6,
@@ -2882,7 +2883,7 @@ class _AgentWorkerStatusTile extends StatelessWidget {
                           _AgentActivityMetadataChip(text: detail),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     LinearProgressIndicator(
                       value: clampUnitInterval(worker.busyScore),
                       minHeight: 5,
@@ -2891,7 +2892,7 @@ class _AgentWorkerStatusTile extends StatelessWidget {
                       backgroundColor: colors.surfaceContainerHighest,
                     ),
                     if (currentTaskProgress != null) ...[
-                      const SizedBox(height: 6),
+                      kOpenHandGap6,
                       Text(
                         openHandLocalizedText(
                           context,
@@ -3160,7 +3161,7 @@ class _AgentClusterSettingsEditorState
                   onSubmitted: (_) => _addClusterTag(),
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               FilledButton.tonalIcon(
                 key: const ValueKey<String>('agent-cluster-tag-add'),
                 onPressed: _addClusterTag,
@@ -3169,7 +3170,7 @@ class _AgentClusterSettingsEditorState
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _AnimatedReorderableChipStrip(
             values: _tags,
             emptyText: _agentsViewNoWorkerTagsYetLabel(context),
@@ -3275,12 +3276,12 @@ class _AgentTasksBody extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         ListView.separated(
           shrinkWrap: true,
           primary: false,
           itemCount: visibleTasks.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => kOpenHandGap10,
           itemBuilder: (context, index) {
             return _AgentTaskCard(agent: agent, task: visibleTasks[index]);
           },
@@ -3339,7 +3340,7 @@ class _AgentTaskCard extends StatelessWidget {
                     size: 19,
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -3364,7 +3365,7 @@ class _AgentTaskCard extends StatelessWidget {
                             ),
                         ],
                       ),
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       Text(
                         task.title,
                         style: theme.textTheme.titleSmall?.copyWith(
@@ -3382,7 +3383,7 @@ class _AgentTaskCard extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                       Row(
                         children: [
                           Expanded(
@@ -3396,7 +3397,7 @@ class _AgentTaskCard extends StatelessWidget {
                               ),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          kOpenHandHGap10,
                           SizedBox(
                             width: 46,
                             child: Text(
@@ -3444,7 +3445,7 @@ class _AgentTaskCard extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 _AgentTaskActions(agent: agent, task: task),
               ],
             ),
@@ -3595,7 +3596,7 @@ class _AgentTaskActions extends StatelessWidget {
           ),
           onPressed: () => _showAgentTaskDetailDialog(context, agent, task),
         ),
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         if (task.status == AgentTaskStatus.paused)
           _AgentSmallIconButton(
             icon: Icons.play_arrow_rounded,
@@ -3631,7 +3632,7 @@ class _AgentTaskActions extends StatelessWidget {
             ),
           ),
         if (canPauseOrComplete) ...[
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _AgentSmallIconButton(
             icon: Icons.done_rounded,
             tooltip: openHandLocalizedText(
@@ -3643,7 +3644,7 @@ class _AgentTaskActions extends StatelessWidget {
           ),
         ],
         if (canStop) ...[
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _AgentSmallIconButton(
             icon: Icons.cancel_outlined,
             tooltip: openHandLocalizedText(
@@ -3664,7 +3665,7 @@ class _AgentTaskActions extends StatelessWidget {
               messageEn: 'Cancel "${task.title}"?',
             ),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           _AgentSmallIconButton(
             icon: Icons.gpp_bad_outlined,
             tooltip: openHandLocalizedText(
@@ -4109,7 +4110,7 @@ Future<void> _showCompleteTaskDialog(
                   style: Theme.of(context).textTheme.titleMedium,
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               TextField(
                 controller: result,
                 minLines: 4,
@@ -4118,7 +4119,7 @@ Future<void> _showCompleteTaskDialog(
                   labelText: _agentsViewTaskResultLabel(context),
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               TextField(
                 controller: note,
                 decoration: InputDecoration(labelText: l10n.agentsNoteLabel),
@@ -4282,12 +4283,12 @@ class _AgentKpiBody extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         ListView.separated(
           shrinkWrap: true,
           primary: false,
           itemCount: visibleKpis.length,
-          separatorBuilder: (_, _) => const SizedBox(height: 10),
+          separatorBuilder: (_, _) => kOpenHandGap10,
           itemBuilder: (context, index) {
             return _AgentKpiCard(agent: agent, item: visibleKpis[index]);
           },
@@ -4338,7 +4339,7 @@ class _AgentKpiCard extends StatelessWidget {
                 size: 19,
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -4361,7 +4362,7 @@ class _AgentKpiCard extends StatelessWidget {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Text(
                     item.name,
                     style: theme.textTheme.titleSmall?.copyWith(
@@ -4389,7 +4390,7 @@ class _AgentKpiCard extends StatelessWidget {
                       style: theme.textTheme.bodyMedium?.copyWith(height: 1.35),
                     ),
                   ],
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Row(
                     children: [
                       Expanded(
@@ -4403,7 +4404,7 @@ class _AgentKpiCard extends StatelessWidget {
                           ),
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       SizedBox(
                         width: 46,
                         child: Text(
@@ -4430,7 +4431,7 @@ class _AgentKpiCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Row(
               mainAxisSize: MainAxisSize.min,
               children: [
@@ -4439,7 +4440,7 @@ class _AgentKpiCard extends StatelessWidget {
                   tooltip: _agentsViewEditKpiLabel(context),
                   onPressed: () => _editAgentKpi(context, agent, item),
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 _AgentSmallIconButton(
                   icon: Icons.delete_outline_rounded,
                   tooltip: _agentsViewDeleteKpiLabel(context),
@@ -4587,7 +4588,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
               onChanged: (_) => setState(() {}),
               decoration: InputDecoration(labelText: l10n.agentsFieldName),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             TextField(
               controller: _target,
               maxLength: _agentStructuredFieldValueMaxChars,
@@ -4595,7 +4596,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
               buildCounter: openHandHiddenTextFieldCounter,
               decoration: InputDecoration(labelText: l10n.agentsFieldTarget),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             TextField(
               controller: _plan,
               maxLength: _agentStructuredFieldValueMaxChars,
@@ -4611,7 +4612,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             AnimatedDropdownButtonFormField<String>(
               initialValue: _status,
               decoration: InputDecoration(
@@ -4628,7 +4629,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
                 if (value != null) setState(() => _status = value);
               },
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             InputDecorator(
               decoration: InputDecoration(
                 labelText: _agentsViewProgressLabel(context),
@@ -4653,7 +4654,7 @@ class _AgentKpiEditorDialogState extends State<_AgentKpiEditorDialog> {
                 ],
               ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             _AgentKeyValueEditor(
               title: openHandLocalizedText(
                 context,
@@ -5060,7 +5061,7 @@ class _AgentResourceLiveSummary extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Text(
           openHandLocalizedText(context, zh: '资源运行态势', en: 'Resource posture'),
           style: theme.textTheme.headlineSmall?.copyWith(
@@ -5166,7 +5167,7 @@ class _AgentResourceLiveSummary extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Center(child: dial),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   details,
                 ],
               );
@@ -5174,7 +5175,7 @@ class _AgentResourceLiveSummary extends StatelessWidget {
             return Row(
               children: [
                 dial,
-                const SizedBox(width: 16),
+                kOpenHandHGap16,
                 Expanded(child: details),
               ],
             );
@@ -5258,7 +5259,7 @@ class _AgentResourceCharts extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           DefaultTextStyle.merge(
             style: theme.textTheme.labelMedium?.copyWith(
               color: cs.onSurfaceVariant,
@@ -5340,7 +5341,7 @@ class _AgentResourceCharts extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 10,
             runSpacing: 8,
@@ -5389,7 +5390,7 @@ class _AgentResourceCharts extends StatelessWidget {
                 );
               },
             ),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             _AgentDialogMetricGrid(
               children: [
                 _AgentDialogMetricTile(
@@ -5515,7 +5516,7 @@ class _AgentResourceChartPanel extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 18, color: cs.primary),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   title,
@@ -5526,10 +5527,10 @@ class _AgentResourceChartPanel extends StatelessWidget {
                   ),
                 ),
               ),
-              if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+              if (trailing != null) ...[kOpenHandHGap8, trailing!],
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           child,
         ],
       ),
@@ -5552,7 +5553,7 @@ class _AgentResourceLegendItem extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(segment.icon, size: 16, color: segment.color),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Expanded(
             child: Text(
               segment.label,
@@ -5564,7 +5565,7 @@ class _AgentResourceLegendItem extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Text(
             _agentResourcePercentLabel(segment.value),
             style: theme.textTheme.labelMedium?.copyWith(
@@ -5670,14 +5671,14 @@ class _AgentResourceBody extends StatelessWidget {
               ),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _AgentResourcePressureCard(
           icon: Icons.memory_rounded,
           label: 'CPU',
           valueLabel: '${(cpu * 100).round()}%',
           pressure: cpu,
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _AgentResourcePressureCard(
           icon: Icons.auto_awesome_rounded,
           label: openHandTokenBudgetLabel(context),
@@ -5690,7 +5691,7 @@ class _AgentResourceBody extends StatelessWidget {
               : '${resource.tokenUsed} / ${resource.tokenBudget}',
           pressure: tokenPressure,
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _AgentResourcePressureCard(
           icon: Icons.inventory_2_rounded,
           label: _agentsViewPersistedStorageLabel(context),
@@ -5698,7 +5699,7 @@ class _AgentResourceBody extends StatelessWidget {
               '${formatByteSize(resource.persistedBytes)} / $persistedCapacityLabel',
           pressure: persistedPressure,
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _AgentResourcePressureCard(
           icon: Icons.hub_outlined,
           label: l10n.agentsMetricHandles,
@@ -5706,7 +5707,7 @@ class _AgentResourceBody extends StatelessWidget {
               '${resource.openHandles} / $agentResourceOpenHandlePressureLimit',
           pressure: handlePressure,
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         Wrap(
           spacing: 10,
           runSpacing: 10,
@@ -5726,7 +5727,7 @@ class _AgentResourceBody extends StatelessWidget {
           ],
         ),
         if (metadata.isNotEmpty) ...[
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Wrap(
             spacing: 6,
             runSpacing: 6,
@@ -5786,7 +5787,7 @@ class _AgentResourcePressureCard extends StatelessWidget {
               alignment: Alignment.center,
               child: Icon(icon, color: color, size: 19),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -5807,7 +5808,7 @@ class _AgentResourcePressureCard extends StatelessWidget {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   LayoutBuilder(
                     builder: (context, constraints) {
                       final availableWidth = constraints.maxWidth.isFinite
@@ -6439,7 +6440,7 @@ class _MetricTile extends StatelessWidget {
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Text(label, style: theme.textTheme.labelMedium),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               AnimatedSwitcher(
                 duration: settings.entranceDuration,
                 reverseDuration: settings.exitDuration,
@@ -6792,7 +6793,7 @@ class _AgentAuditSection extends StatelessWidget {
                 alignment: Alignment.center,
                 child: Icon(icon, size: 18, color: color),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Text(
                   title,
@@ -6805,7 +6806,7 @@ class _AgentAuditSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           if (children.isEmpty)
             Text(
               emptyText,
@@ -6850,7 +6851,7 @@ class _AgentAuditInsightRow extends StatelessWidget {
               borderRadius: kOpenHandPillBorderRadius,
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -6863,7 +6864,7 @@ class _AgentAuditInsightRow extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 3),
+                kOpenHandGap3,
                 Text(
                   subtitle,
                   maxLines: 2,
@@ -6876,7 +6877,7 @@ class _AgentAuditInsightRow extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           DecoratedBox(
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
@@ -6955,7 +6956,7 @@ class _AgentAuditEventRow extends StatelessWidget {
                   size: 20,
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -7080,7 +7081,7 @@ class _AgentAuditPressureRow extends StatelessWidget {
               backgroundColor: cs.surfaceContainerHighest,
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           SizedBox(
             width: 44,
             child: Text(
@@ -7239,7 +7240,7 @@ class _AgentTaskDetailHero extends StatelessWidget {
                               fontWeight: FontWeight.w700,
                             ),
                           ),
-                          const SizedBox(height: 3),
+                          kOpenHandGap3,
                           AnimatedSwitcher(
                             duration: settings.entranceDuration,
                             reverseDuration: settings.exitDuration,
@@ -7288,11 +7289,11 @@ class _AgentTaskDetailHero extends StatelessWidget {
                             crossAxisAlignment: CrossAxisAlignment.start,
                             children: [
                               leading,
-                              const SizedBox(width: 12),
+                              kOpenHandHGap12,
                               Expanded(child: titleBlock),
                             ],
                           ),
-                          const SizedBox(height: 14),
+                          kOpenHandGap14,
                           progressBlock,
                         ],
                       );
@@ -7301,9 +7302,9 @@ class _AgentTaskDetailHero extends StatelessWidget {
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
                         leading,
-                        const SizedBox(width: 12),
+                        kOpenHandHGap12,
                         Expanded(child: titleBlock),
-                        const SizedBox(width: 16),
+                        kOpenHandHGap16,
                         progressBlock,
                       ],
                     );
@@ -7404,7 +7405,7 @@ class _AgentTaskDetailFact extends StatelessWidget {
             alignment: Alignment.center,
             child: Icon(icon, size: 17, color: cs.primary),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -7418,7 +7419,7 @@ class _AgentTaskDetailFact extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 SelectableText(
                   normalizedValue,
                   maxLines: 2,
@@ -7522,7 +7523,7 @@ class _AgentDialogMetricTile extends StatelessWidget {
             Row(
               children: [
                 Icon(icon, size: 18, color: tone),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     label,
@@ -7557,7 +7558,7 @@ class _AgentDialogMetricTile extends StatelessWidget {
               ),
             ),
             if (normalizedProgress != null) ...[
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               LinearProgressIndicator(
                 value: normalizedProgress,
                 minHeight: 7,
@@ -7671,7 +7672,7 @@ class _AgentTaskDetailBlock extends StatelessWidget {
                     alignment: Alignment.center,
                     child: Icon(icon, size: 17, color: tone),
                   ),
-                  const SizedBox(width: 10),
+                  kOpenHandHGap10,
                 ],
                 Expanded(
                   child: Text(
@@ -7717,7 +7718,7 @@ class _AgentApprovalActions extends StatelessWidget {
             icon: const Icon(Icons.check_rounded),
           ),
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Tooltip(
           message: openHandLocalizedText(context, zh: '拒绝', en: 'Reject'),
           child: IconButton.filledTonal(
@@ -7835,7 +7836,7 @@ class _AgentApprovalRequestDialogState
               buildCounter: openHandHiddenTextFieldCounter,
               decoration: InputDecoration(labelText: l10n.agentsFieldName),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             TextField(
               controller: _reason,
               maxLength: _agentStructuredFieldValueMaxChars,
@@ -7851,7 +7852,7 @@ class _AgentApprovalRequestDialogState
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             TextField(
               controller: _requestedAction,
               maxLength: _agentStructuredFieldValueMaxChars,
@@ -7865,7 +7866,7 @@ class _AgentApprovalRequestDialogState
                 ),
               ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             _AgentKeyValueEditor(
               title: openHandLocalizedText(
                 context,
@@ -8181,7 +8182,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
               buildCounter: openHandHiddenTextFieldCounter,
               decoration: InputDecoration(labelText: l10n.agentsTaskTitleLabel),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             TextField(
               controller: _description,
               maxLength: _agentStructuredFieldValueMaxChars,
@@ -8191,7 +8192,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
                 labelText: l10n.agentsDescriptionLabel,
               ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             TextField(
               controller: _content,
               maxLength: _agentStructuredFieldValueMaxChars,
@@ -8201,7 +8202,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
               maxLines: 8,
               decoration: InputDecoration(labelText: l10n.agentsContentLabel),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             TextField(
               controller: _note,
               maxLength: _agentStructuredFieldValueMaxChars,
@@ -8209,9 +8210,9 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
               buildCounter: openHandHiddenTextFieldCounter,
               decoration: InputDecoration(labelText: l10n.agentsNoteLabel),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             _taskLabelEditor(l10n),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             _AgentKeyValueEditor(
               title: openHandLocalizedText(
                 context,
@@ -8265,7 +8266,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
                   onSubmitted: (_) => _addLabel(),
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               IconButton.filledTonal(
                 key: const ValueKey<String>('agent-publish-task-label-add'),
                 tooltip: openHandAddLabel(context),
@@ -8276,7 +8277,7 @@ class _AgentPublishTaskDialogState extends State<_AgentPublishTaskDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _AnimatedReorderableChipStrip(
             values: _labels,
             emptyText: _agentsViewNoTaskLabelsYetLabel(context),
@@ -8885,7 +8886,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                         Icons.smart_toy_rounded,
                         color: Theme.of(context).colorScheme.primary,
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(
                         child: Text(
                           widget.initialAgent == null
@@ -8896,7 +8897,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   TabBar(
                     labelPadding: const EdgeInsets.symmetric(horizontal: 6),
                     tabs: [
@@ -8907,7 +8908,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                       Tab(text: l10n.agentsTabMetadata),
                     ],
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   Expanded(
                     child: TabBarView(
                       children: [
@@ -8983,7 +8984,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   _agentDialogActionsFooter(
                     actions: [
                       OpenHandDialogActionButton.secondary(
@@ -9112,7 +9113,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         LayoutBuilder(
           builder: (context, constraints) {
             final twoColumns = constraints.maxWidth >= 780;
@@ -9251,7 +9252,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           labelZh: l10n.agentsModelLabel,
           labelEn: l10n.agentsModelLabel,
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         SegmentedButton<AgentExecutionMode>(
           segments: [
             for (final mode in AgentExecutionMode.values)
@@ -9265,9 +9266,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             _handleExecutionModeChanged(value.first);
           },
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _executionModePolicyCard(l10n),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         SwitchListTile(
           value: canEnable && _enabled,
           onChanged: canEnable
@@ -9286,14 +9287,14 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           title: Text(l10n.agentsSelfLearningTitle),
           subtitle: Text(l10n.agentsSelfLearningBody),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _directoryPickerField(
           label: l10n.agentsFieldWorkspacePath,
           value: _workspacePath.text,
           onPick: _pickWorkspacePath,
           onClear: () => setState(_workspacePath.clear),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _directoryListPicker(
           label: l10n.agentsFieldWorkspaceScope,
           values: _workspaceScopePaths,
@@ -9357,12 +9358,12 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           onChanged: (v) => setState(() => _cronIds = v),
           keyPrefix: 'agent-cron',
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Text(
           l10n.agentsClusterScaling,
           style: Theme.of(context).textTheme.titleMedium,
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Row(
           children: [
             Expanded(
@@ -9376,7 +9377,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 ),
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: _numberStepper(
                 l10n.agentsMaxWorkersLabel,
@@ -9392,7 +9393,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 }),
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: _numberStepper(
                 l10n.agentsMaxRetriesLabel,
@@ -9405,7 +9406,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Row(
           children: [
             Expanded(
@@ -9415,7 +9416,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 (value) => setState(() => _scaleOutThreshold = value),
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: _ratioSlider(
                 _agentsViewScaleInThresholdLabel(context),
@@ -9425,7 +9426,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Row(
           children: [
             Expanded(
@@ -9436,7 +9437,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 onChanged: (value) => setState(() => _schedulerPolicy = value),
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: _policyDropdown(
                 label: _agentsViewWorkerRemovalPolicyLabel(context),
@@ -9446,7 +9447,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                     setState(() => _workerRemovalPolicy = value),
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: _policyDropdown(
                 label: _agentsViewRetryPolicyLabel(context),
@@ -9457,7 +9458,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _editableStringChips(
           label: _agentsViewWorkerTagsLabel(context),
           inputController: _workerTagInput,
@@ -9471,7 +9472,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           ),
           keyPrefix: 'agent-worker-tag',
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _editableStringChips(
           label: l10n.agentsTaskLabelsLabel,
           inputController: _taskLabelInput,
@@ -9485,9 +9486,9 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           ),
           keyPrefix: 'agent-task-label',
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         Text(l10n.agentsKpi, style: Theme.of(context).textTheme.titleMedium),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Row(
           children: [
             Expanded(
@@ -9499,7 +9500,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 decoration: InputDecoration(labelText: l10n.agentsFieldName),
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             Expanded(
               child: TextField(
                 controller: _kpiTarget,
@@ -9509,7 +9510,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                 decoration: InputDecoration(labelText: l10n.agentsFieldTarget),
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             IconButton.filledTonal(
               onPressed: _kpis.length >= _agentStructuredFieldMaxItems
                   ? null
@@ -9518,7 +9519,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _AgentDraftKpiList(
           items: _kpis,
           onRemove: (item) => setState(() => _kpis.remove(item)),
@@ -9548,7 +9549,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
           onAdd: _addMetadataEntry,
           onRemove: _removeMetadataEntry,
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         FeatureStateCard.inline(
           icon: Icons.schema_rounded,
           title: l10n.agentsMetadataInfoTitle,
@@ -9597,7 +9598,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Text(
               displayText,
@@ -9610,7 +9611,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           IconButton.filledTonal(
             tooltip: openHandLocalizedText(
               context,
@@ -9621,7 +9622,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             icon: const Icon(Icons.image_search_rounded),
           ),
           if (avatar.isNotEmpty) ...[
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             IconButton(
               tooltip: openHandLocalizedText(
                 context,
@@ -9669,7 +9670,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _editableStringChips(
             label: openHandLocalizedText(
               context,
@@ -9692,7 +9693,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             maxItems: agentRouteKeywordMaxItems,
             keyPrefix: 'agent-route-keyword',
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _editableStringChips(
             label: openHandLocalizedText(context, zh: '领域', en: 'Domains'),
             inputController: _routeDomainInput,
@@ -9711,7 +9712,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             maxItems: agentRouteKeywordMaxItems,
             keyPrefix: 'agent-route-domain',
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _editableStringChips(
             label: openHandLocalizedText(context, zh: '意图', en: 'Intents'),
             inputController: _routeIntentInput,
@@ -9730,7 +9731,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             maxItems: agentRouteKeywordMaxItems,
             keyPrefix: 'agent-route-intent',
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _keyValueEditor(
             title: openHandLocalizedText(
               context,
@@ -9771,7 +9772,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             hasValue ? Icons.folder_rounded : Icons.folder_open_rounded,
             color: hasValue ? colors.primary : colors.onSurfaceVariant,
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Text(
               hasValue
@@ -9788,7 +9789,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               ),
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           IconButton.filledTonal(
             tooltip: openHandLocalizedText(
               context,
@@ -9799,7 +9800,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             icon: const Icon(Icons.drive_folder_upload_rounded),
           ),
           if (hasValue) ...[
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             IconButton(
               tooltip: openHandLocalizedText(
                 context,
@@ -9837,7 +9838,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               label: Text(_agentsViewPickDirectoryLabel(context)),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _reorderableChips(
             values: values,
             emptyText: emptyText,
@@ -9883,7 +9884,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
                   onSubmitted: onSubmitted,
                 ),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               IconButton.filledTonal(
                 tooltip: openHandAddLabel(context),
                 onPressed: values.length >= maxItems ? null : onAdd,
@@ -9891,7 +9892,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _reorderableChips(
             values: values,
             emptyText: emptyText,
@@ -10865,7 +10866,7 @@ class _AgentKeyValueEditor extends StatelessWidget {
                               onChanged: (_) => onChanged?.call(),
                             ),
                           ),
-                          const SizedBox(width: 10),
+                          kOpenHandHGap10,
                           Expanded(
                             flex: 7,
                             child: TextField(
@@ -10880,7 +10881,7 @@ class _AgentKeyValueEditor extends StatelessWidget {
                               onChanged: (_) => onChanged?.call(),
                             ),
                           ),
-                          const SizedBox(width: 6),
+                          kOpenHandHGap6,
                           IconButton(
                             tooltip: openHandLocalizedText(
                               context,
@@ -10921,7 +10922,7 @@ class _AgentKeyValueEditor extends StatelessWidget {
             addButton,
           ],
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         content,
       ],
     );
@@ -10960,7 +10961,7 @@ class _AgentEditorPanel extends StatelessWidget {
           Row(
             children: [
               Icon(icon, size: 18, color: colors.primary),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   title,
@@ -10972,7 +10973,7 @@ class _AgentEditorPanel extends StatelessWidget {
               if (trailing != null) trailing!,
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           child,
         ],
       ),
@@ -11467,7 +11468,7 @@ class _AgentDraggableChipBody extends StatelessWidget {
                           size: 18,
                           color: colors.onSurfaceVariant,
                         ),
-                        const SizedBox(width: 6),
+                        kOpenHandHGap6,
                         Flexible(
                           child: Text(
                             label,
@@ -11596,7 +11597,7 @@ class _CapabilityPanel extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 8),
+                    kOpenHandGap8,
                     _AgentCapabilityChipGrid(
                       options: options,
                       selected: selected,
@@ -11677,7 +11678,7 @@ class _AgentToolCapabilityPanel extends StatelessWidget {
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
                     for (var i = 0; i < sections.length; i++) ...[
-                      if (i > 0) const SizedBox(height: 12),
+                      if (i > 0) kOpenHandGap12,
                       sections[i],
                     ],
                   ],
@@ -11764,7 +11765,7 @@ class _AgentToolGroupSection extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             _AgentCapabilityChipGrid(
               options: options,
               selected: selected,
@@ -12889,7 +12890,7 @@ class _AgentRoutePreviewCard extends StatelessWidget {
             isActive ? Icons.route_rounded : Icons.route_outlined,
             color: isActive ? colors.primary : colors.onSurfaceVariant,
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -12901,7 +12902,7 @@ class _AgentRoutePreviewCard extends StatelessWidget {
                     color: isActive ? colors.onPrimaryContainer : null,
                   ),
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Text(
                   subtitle,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -12911,7 +12912,7 @@ class _AgentRoutePreviewCard extends StatelessWidget {
                   ),
                 ),
                 if (keywords.isNotEmpty) ...[
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -13001,7 +13002,7 @@ class _OptionChips extends StatelessWidget {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(title, style: Theme.of(context).textTheme.titleMedium),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           if (options.isEmpty)
             Text(l10n.agentsNoOptionsAvailable)
           else
@@ -13017,12 +13018,12 @@ class _OptionChips extends StatelessWidget {
                 ),
               ),
             ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Text(
             openHandLocalizedText(context, zh: '已选顺序', en: 'Selected order'),
             style: Theme.of(context).textTheme.labelLarge,
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           _AnimatedReorderableChipStrip(
             values: selectedIds,
             emptyText: openHandLocalizedText(

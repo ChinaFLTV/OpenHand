@@ -14,6 +14,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -442,7 +443,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
                 refreshing: _refreshing,
                 l10n: l10n,
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               TabBar(
                 isScrollable: true,
                 tabs: [
@@ -452,7 +453,7 @@ class _QdrantStatusDialogState extends State<QdrantStatusDialog> {
                   Tab(text: l10n.qdrantStatusTabDiagnostics),
                 ],
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Expanded(
                 child: TabBarView(
                   children: [
@@ -558,7 +559,7 @@ class _QdrantOpsHeader extends StatelessWidget {
             ),
             child: Icon(Icons.monitor_heart_outlined, color: statusColor),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -569,7 +570,7 @@ class _QdrantOpsHeader extends StatelessWidget {
                     fontWeight: FontWeight.w800,
                   ),
                 ),
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   '${overview?['rest_endpoint'] ?? '-'} · ${overview?['current_collection'] ?? '-'}',
                   maxLines: 1,
@@ -581,7 +582,7 @@ class _QdrantOpsHeader extends StatelessWidget {
               ],
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           _StatusPill(
             icon: Icons.circle,
             label: '${_localizedMetricValue(l10n, status)}',
@@ -653,7 +654,7 @@ class _OverviewTab extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           KnowledgeDialogSection(
             title: l10n.qdrantStatusSmoothTrend,
             icon: Icons.show_chart_rounded,
@@ -699,7 +700,7 @@ class _CollectionsTab extends StatelessWidget {
     return ListView.separated(
       physics: openHandDialogAwareScrollPhysics(context),
       itemCount: collections.length,
-      separatorBuilder: (_, _) => const SizedBox(height: 8),
+      separatorBuilder: (_, _) => kOpenHandGap8,
       itemBuilder: (context, index) {
         final item = collections[index];
         final name = '${item['name'] ?? ''}';
@@ -785,7 +786,7 @@ class _PointsTab extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 TextField(
                   controller: rawVector,
                   minLines: 3,
@@ -796,7 +797,7 @@ class _PointsTab extends StatelessWidget {
                     alignLabelWithHint: true,
                   ),
                 ),
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Wrap(
                   spacing: 10,
                   runSpacing: 10,
@@ -956,7 +957,7 @@ class _MetricCard extends StatelessWidget {
             ),
             child: Icon(icon, size: 18, color: colorScheme.onPrimaryContainer),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -970,7 +971,7 @@ class _MetricCard extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   value,
                   maxLines: 1,
@@ -1031,7 +1032,7 @@ class _QdrantTrendChart extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(height: 8),
+        kOpenHandGap8,
         Wrap(
           spacing: 10,
           runSpacing: 8,

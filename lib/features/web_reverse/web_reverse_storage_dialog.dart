@@ -11,6 +11,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/ui/resizable_splitter.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -240,7 +241,7 @@ class _StorageDialogState extends State<_StorageDialog>
                     isDense: true,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 TextField(
                   controller: valueCtl,
                   maxLength: WebReverseSessionController.maxCookieValueChars,
@@ -251,7 +252,7 @@ class _StorageDialogState extends State<_StorageDialog>
                     isDense: true,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 TextField(
                   controller: domainCtl,
                   maxLength: WebReverseSessionController.maxCookieDomainChars,
@@ -262,7 +263,7 @@ class _StorageDialogState extends State<_StorageDialog>
                     isDense: true,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 TextField(
                   controller: pathCtl,
                   maxLength: WebReverseSessionController.maxCookiePathChars,
@@ -273,7 +274,7 @@ class _StorageDialogState extends State<_StorageDialog>
                     isDense: true,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Row(
                   children: [
                     Switch(
@@ -281,7 +282,7 @@ class _StorageDialogState extends State<_StorageDialog>
                       onChanged: (v) => setS(() => secure = v),
                     ),
                     const Text('Secure'),
-                    const SizedBox(width: 16),
+                    kOpenHandHGap16,
                     Switch(
                       value: httpOnly,
                       onChanged: (v) => setS(() => httpOnly = v),
@@ -362,7 +363,7 @@ class _StorageDialogState extends State<_StorageDialog>
                   isDense: true,
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               TextField(
                 controller: valueCtl,
                 maxLines: 6,

@@ -18,6 +18,7 @@ import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/text_clip.dart';
@@ -116,7 +117,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   _buildHeader(context),
-                  const SizedBox(height: 18),
+                  kOpenHandGap18,
                   Expanded(
                     child: LayoutBuilder(
                       builder: (context, constraints) {
@@ -131,7 +132,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                                 ),
                                 child: _buildSearchPane(context),
                               ),
-                              const SizedBox(height: 16),
+                              kOpenHandGap16,
                               Expanded(child: _buildDetailPane(context)),
                             ],
                           );
@@ -161,7 +162,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                       },
                     ),
                   ),
-                  const SizedBox(height: 18),
+                  kOpenHandGap18,
                   _buildActions(context),
                 ],
               ),
@@ -221,7 +222,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 openHandSkillMarketLabel(context),
                 style: theme.textTheme.headlineSmall,
               ),
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Text(
                 openHandLocalizedText(
                   context,
@@ -295,10 +296,10 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
           onChanged: _handleSearchChanged,
           onSubmitted: _handleSearchSubmitted,
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         if (_isSearching && result != null)
           const LinearProgressIndicator(minHeight: 2),
-        if (_isSearching && result != null) const SizedBox(height: 10),
+        if (_isSearching && result != null) kOpenHandGap10,
         Expanded(
           child: AnimatedSwitcher(
             duration: openHandMotionDuration(context, kOpenHandMotion180,
@@ -362,7 +363,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                     ),
                     itemCount: skills.length,
                     separatorBuilder: (context, index) =>
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                     itemBuilder: (context, index) {
                       final skill = skills[index];
                       return AppearOnce(
@@ -381,7 +382,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                   ),
           ),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Container(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
@@ -434,7 +435,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                     : () => _goToPage(1),
                 icon: const Icon(Icons.first_page_rounded),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               IconButton.filledTonal(
                 tooltip: openHandLocalizedText(
                   context,
@@ -450,7 +451,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                     : () => _goToPage(_page - 1),
                 icon: const Icon(Icons.chevron_left_rounded),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               IconButton.filledTonal(
                 tooltip: openHandLocalizedText(
                   context,
@@ -467,7 +468,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                     : () => _goToPage(_page + 1),
                 icon: const Icon(Icons.chevron_right_rounded),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               IconButton.filledTonal(
                 tooltip: openHandLocalizedText(
                   context,
@@ -593,7 +594,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
                 ),
               ),
               if (_installError != null) ...[
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Text(
                   _installError!,
                   maxLines: 2,
@@ -606,12 +607,12 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
             ],
           ),
         ),
-        const SizedBox(width: 16),
+        kOpenHandHGap16,
         OpenHandDialogActionButton.secondary(
           onPressed: _isInstalling ? null : () => Navigator.of(context).pop(),
           label: l10n.commonCancel,
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         OpenHandDialogActionButton.primary(
           onPressed:
               selectedSkill == null || selectedSkillInstalled || _isInstalling
@@ -917,7 +918,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                         ),
                         style: theme.textTheme.headlineSmall,
                       ),
-                      const SizedBox(height: 6),
+                      kOpenHandGap6,
                       Text(
                         skill.displayName,
                         maxLines: 1,
@@ -931,7 +932,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -984,7 +985,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             Text(
               openHandLocalizedText(
                 context,
@@ -1007,7 +1008,7 @@ class _SkillMarketInstallConfirmDialog extends StatelessWidget {
                   onPressed: () => Navigator.of(context).pop(false),
                   label: l10n.commonCancel,
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 OpenHandDialogActionButton.primary(
                   onPressed: () => Navigator.of(context).pop(true),
                   icon: Icons.download_rounded,
@@ -1080,7 +1081,7 @@ class _SkillMarketResultTile extends StatelessWidget {
                   imageUrl: skill.iconUrl,
                   size: 44,
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Expanded(
                   child: Column(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1091,7 +1092,7 @@ class _SkillMarketResultTile extends StatelessWidget {
                         overflow: TextOverflow.ellipsis,
                         style: theme.textTheme.titleSmall,
                       ),
-                      const SizedBox(height: 3),
+                      kOpenHandGap3,
                       Text(
                         skill.ownerName.isEmpty
                             ? skill.slug
@@ -1103,7 +1104,7 @@ class _SkillMarketResultTile extends StatelessWidget {
                         ),
                       ),
                       if (summary.isNotEmpty) ...[
-                        const SizedBox(height: 8),
+                        kOpenHandGap8,
                         Text(
                           summary,
                           maxLines: 2,
@@ -1113,7 +1114,7 @@ class _SkillMarketResultTile extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                       Wrap(
                         spacing: 8,
                         runSpacing: 6,
@@ -1205,7 +1206,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(displayName, style: theme.textTheme.headlineSmall),
-                      const SizedBox(height: 6),
+                      kOpenHandGap6,
                       Text(
                         detail.owner.handle.isEmpty
                             ? skill.slug
@@ -1219,7 +1220,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 _TinyTextChip(
                   label: bundle.resolvedVersion.isEmpty
                       ? summary.version
@@ -1228,7 +1229,7 @@ class _SkillMarketDetailView extends StatelessWidget {
               ],
             ),
             if (overview.isNotEmpty) ...[
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               _SectionTitle(
                 text: openHandLocalizedText(
                   context,
@@ -1240,7 +1241,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                   ja: '概要',
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 overview,
                 style: theme.textTheme.bodyMedium?.copyWith(
@@ -1248,7 +1249,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                 ),
               ),
             ],
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -1352,7 +1353,7 @@ class _SkillMarketDetailView extends StatelessWidget {
               ],
             ),
             if (detail.securityReports.isNotEmpty) ...[
-              const SizedBox(height: 20),
+              kOpenHandGap20,
               _SectionTitle(
                 text: openHandLocalizedText(
                   context,
@@ -1364,7 +1365,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                   ja: 'セキュリティレポート',
                 ),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -1377,7 +1378,7 @@ class _SkillMarketDetailView extends StatelessWidget {
               ),
             ],
             if (bundle.versions.isNotEmpty) ...[
-              const SizedBox(height: 20),
+              kOpenHandGap20,
               _SectionTitle(
                 text: openHandLocalizedText(
                   context,
@@ -1389,7 +1390,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                   ja: 'プレビューバージョン',
                 ),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -1417,7 +1418,7 @@ class _SkillMarketDetailView extends StatelessWidget {
               ),
             ],
             if (bundle.files != null && bundle.files!.files.isNotEmpty) ...[
-              const SizedBox(height: 20),
+              kOpenHandGap20,
               _SectionTitle(
                 text: openHandLocalizedText(
                   context,
@@ -1429,7 +1430,7 @@ class _SkillMarketDetailView extends StatelessWidget {
                   ja: 'ファイル',
                 ),
               ),
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Wrap(
                 spacing: 10,
                 runSpacing: 10,
@@ -1443,9 +1444,9 @@ class _SkillMarketDetailView extends StatelessWidget {
                     .toList(growable: false),
               ),
             ],
-            const SizedBox(height: 20),
+            kOpenHandGap20,
             _SectionTitle(text: openHandDetailsLabel(context)),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Container(
               width: double.infinity,
               padding: const EdgeInsets.all(18),
@@ -1568,13 +1569,13 @@ class _MarketStateMessage extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(icon, size: 48, color: colorScheme.primary),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             Text(
               title,
               textAlign: TextAlign.center,
               style: theme.textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               body,
               textAlign: TextAlign.center,
@@ -1583,7 +1584,7 @@ class _MarketStateMessage extends StatelessWidget {
               ),
             ),
             if (actionLabel != null && onAction != null) ...[
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               OpenHandDialogActionButton.primary(
                 onPressed: onAction,
                 icon: Icons.refresh_rounded,
@@ -1634,7 +1635,7 @@ class _InfoChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 18, color: colorScheme.primary),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Text(
             '$label: ',
             style: theme.textTheme.bodySmall?.copyWith(
@@ -1689,7 +1690,7 @@ class _TinyMetric extends StatelessWidget {
       mainAxisSize: MainAxisSize.min,
       children: [
         Icon(icon, size: 16, color: colorScheme.onSurfaceVariant),
-        const SizedBox(width: 4),
+        kOpenHandHGap4,
         Text(
           value,
           style: Theme.of(

@@ -113,7 +113,7 @@ class _HeComposer extends StatelessWidget {
                           Icons.admin_panel_settings_outlined,
                           size: 20,
                         ),
-                        const SizedBox(width: 12),
+                        kOpenHandHGap12,
                         Expanded(child: Text(defaultAccessLabel)),
                         if (!fullAccessPermission)
                           const Icon(Icons.check_rounded, size: 20)
@@ -127,7 +127,7 @@ class _HeComposer extends StatelessWidget {
                     child: Row(
                       children: [
                         const Icon(Icons.gpp_maybe_outlined, size: 20),
-                        const SizedBox(width: 12),
+                        kOpenHandHGap12,
                         Expanded(child: Text(fullAccessLabel)),
                         if (fullAccessPermission)
                           const Icon(Icons.check_rounded, size: 20)
@@ -159,14 +159,14 @@ class _HeComposer extends StatelessWidget {
                   size: 18,
                   color: buttonFg,
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Text(
                   fullAccessPermission ? fullAccessLabel : defaultAccessLabel,
                   style: theme.textTheme.labelLarge?.copyWith(
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 Icon(
                   Icons.keyboard_arrow_down_rounded,
                   size: 18,
@@ -323,7 +323,7 @@ class _HeComposer extends StatelessWidget {
             child: Row(
               children: [
                 disabledOutlinedButton(icon: Icons.hub_outlined, label: '--'),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 disabledOutlinedButton(
                   icon: Icons.attach_file_rounded,
                   label: openHandLocalizedText(
@@ -336,9 +336,9 @@ class _HeComposer extends StatelessWidget {
                     ja: '添付',
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 permissionButton,
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 disabledOutlinedButton(
                   icon: Icons.chat_bubble_outline_rounded,
                   label: openHandLocalizedText(
@@ -351,7 +351,7 @@ class _HeComposer extends StatelessWidget {
                     ja: 'チャットモード',
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
               ],
             ),
           ),
@@ -396,7 +396,7 @@ class _HeComposer extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         SizedBox(
           width: 52,
           height: 52,
@@ -422,7 +422,7 @@ class _HeComposer extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         // When manual review is active for the reviewing phase, show
         // explicit Pass / Fail verdict buttons instead of a single Send.
         if (manualPhaseEnabled && isManualReviewPhase) ...[
@@ -461,7 +461,7 @@ class _HeComposer extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           SizedBox(
             height: 52,
             child: FilledButton.icon(
@@ -587,7 +587,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                 size: 20,
                 color: accent,
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Text(
                   openHandLocalizedText(
@@ -607,7 +607,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Text(
             openHandLocalizedText(
               context,
@@ -623,7 +623,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
             ),
           ),
           if (onManualPhaseToggle != null && manualPhaseEnabled) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
@@ -643,7 +643,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                     padding: const EdgeInsets.only(top: 1),
                     child: Icon(manualPhaseIcon, size: 16, color: accent),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Text(
                       manualPhaseActiveDescription,
@@ -658,7 +658,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
             ),
           ] else if (onManualPhaseToggle != null &&
               hasQueuedManualPhaseInput) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
@@ -681,7 +681,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                     size: 16,
                     color: colorScheme.primary,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Text(
                       manualPhaseQueuedDescription,
@@ -696,7 +696,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
             ),
           ],
           if (approvalIssue != null) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
               decoration: BoxDecoration(
@@ -722,7 +722,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
                       color: _heFailedTone,
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Text(
                       approvalIssue!,
@@ -736,7 +736,7 @@ class _HePhaseApprovalBanner extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             alignment: WrapAlignment.end,
             crossAxisAlignment: WrapCrossAlignment.center,
@@ -869,7 +869,7 @@ class _HePendingPhaseEditor extends StatelessWidget {
               color: colorScheme.primary,
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           // Execution mode toggle row.
           Row(
             children: [
@@ -887,7 +887,7 @@ class _HePendingPhaseEditor extends StatelessWidget {
                 },
                 visualDensity: VisualDensity.compact,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               ChoiceChip(
                 label: Text('URL/API', style: theme.textTheme.bodySmall),
                 selected: roleConfig.isUrlMode,
@@ -908,7 +908,7 @@ class _HePendingPhaseEditor extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           if (roleConfig.isUrlMode)
             _HeUrlModelField(
               settingsModels: settingsModels,
@@ -949,7 +949,7 @@ class _HePendingPhaseEditor extends StatelessWidget {
                     },
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: _HeModelDropdown(
                     roleConfig: roleConfig,

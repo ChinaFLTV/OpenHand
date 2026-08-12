@@ -41,6 +41,7 @@ import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
@@ -526,7 +527,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
                   : null,
             ),
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
         ],
       ],
       emptyChild: FeatureStateCard.inline(
@@ -734,7 +735,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
             children: [
               Text('${l10n.mcpDeleteConfirmBody}\n\n${server.name}'),
               if (isNpxService && npxPackageName != null) ...[
-                const SizedBox(height: 16),
+                kOpenHandGap16,
                 CheckboxListTile(
                   value: shouldCleanupDeps,
                   onChanged: (value) {
@@ -1216,7 +1217,7 @@ class _TemplateMcpCandidateCard extends StatelessWidget {
                 size: 26,
               ),
             ),
-            const SizedBox(width: 16),
+            kOpenHandHGap16,
             Expanded(
               child: Column(
                 crossAxisAlignment: CrossAxisAlignment.start,
@@ -1266,7 +1267,7 @@ class _TemplateMcpCandidateCard extends StatelessWidget {
                         ),
                     ],
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text(
                     [
                       _localizedText(
@@ -1289,7 +1290,7 @@ class _TemplateMcpCandidateCard extends StatelessWidget {
                   ),
                   if (capability.suggestedServerName?.trim().isNotEmpty ??
                       false) ...[
-                    const SizedBox(height: 10),
+                    kOpenHandGap10,
                     _TemplateMcpTinyChip(
                       icon: Icons.hub_rounded,
                       label: capability.suggestedServerName!.trim(),
@@ -1299,7 +1300,7 @@ class _TemplateMcpCandidateCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             FilledButton.tonalIcon(
               onPressed: canRegister ? onRegister : null,
               icon: const Icon(Icons.add_rounded, size: 18),
@@ -1350,7 +1351,7 @@ class _TemplateMcpTinyChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 13, color: cs.onSurfaceVariant),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           Text(
             label,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -1494,7 +1495,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                     : l10n.mcpDialogEditTitle,
                 style: Theme.of(context).textTheme.headlineSmall,
               ),
-              const SizedBox(height: 16),
+              kOpenHandGap16,
               Expanded(
                 child: SingleChildScrollView(
                   child: Form(
@@ -1521,7 +1522,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                             return null;
                           },
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         SizedBox(
                           width: 320,
                           child: AnimatedDropdownButtonFormField<McpServerType>(
@@ -1550,7 +1551,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                                   },
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         SwitchListTile(
                           contentPadding: EdgeInsets.zero,
                           title: Text(l10n.mcpServerEnabledLabel),
@@ -1564,9 +1565,9 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                                   });
                                 },
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         _buildTemplateVisibilityEditor(context),
-                        const SizedBox(height: 20),
+                        kOpenHandGap20,
                         if (useUrlField) ...[
                           TextFormField(
                             controller: _urlController,
@@ -1601,7 +1602,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                               return null;
                             },
                           ),
-                          const SizedBox(height: 16),
+                          kOpenHandGap16,
                           _buildHeaderEditor(context),
                         ] else ...[
                           TextFormField(
@@ -1617,7 +1618,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                               return null;
                             },
                           ),
-                          const SizedBox(height: 16),
+                          kOpenHandGap16,
                           TextField(
                             controller: _argsController,
                             enabled: !_isSaving,
@@ -1812,7 +1813,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
             mainAxisSize: MainAxisSize.min,
             children: [
               Icon(icon, size: 18, color: foregroundColor),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Flexible(
                 child: Text(
                   label,
@@ -1820,7 +1821,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                   overflow: TextOverflow.ellipsis,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               SizedBox(
                 width: 16,
                 child: selected
@@ -1895,7 +1896,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
               size: 20,
               color: colorScheme.primary,
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Text(
                 _localizedText(
@@ -1914,7 +1915,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
             ),
           ],
         ),
-        const SizedBox(height: 4),
+        kOpenHandGap4,
         Text(
           _localizedText(
             context,
@@ -1942,7 +1943,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   sectionHeading,
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   Align(
                     alignment: AlignmentDirectional.centerEnd,
                     child: selectAllButton,
@@ -1954,13 +1955,13 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
                 Expanded(child: sectionHeading),
-                const SizedBox(width: 16),
+                kOpenHandHGap16,
                 selectAllButton,
               ],
             );
           },
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         AnimatedSize(
           duration: openHandMotionDuration(context, kOpenHandMotion220),
           curve: Curves.easeOutCubic,
@@ -2026,7 +2027,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                     ),
                     style: theme.textTheme.titleMedium,
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   Text(
                     _localizedText(
                       context,
@@ -2040,7 +2041,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             FilledButton.tonalIcon(
               key: const ValueKey<String>('mcpHeaderAddButton'),
               onPressed: _isSaving ? null : _addHeaderRow,
@@ -2051,7 +2052,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Column(
           children: _headerRows
               .asMap()
@@ -2086,7 +2087,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                           ),
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      kOpenHandHGap12,
                       Expanded(
                         child: TextField(
                           key: ValueKey<String>('mcpHeaderValueField-$index'),
@@ -2107,7 +2108,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
                           ),
                         ),
                       ),
-                      const SizedBox(width: 4),
+                      kOpenHandHGap4,
                       Padding(
                         padding: const EdgeInsets.only(top: 6),
                         child: IconButton(
@@ -2610,7 +2611,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                     onCleanupData: () => _clearOpsDataWithRange(context),
                     onClose: () => Navigator.of(context).maybePop(),
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   Expanded(
                     child: TabBarView(
                       children: [
@@ -3337,7 +3338,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   ],
                 ),
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               _McpOpsHintText(
                 icon: Icons.info_outline_rounded,
                 text: _localizedText(
@@ -3738,14 +3739,14 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                       ),
                     ),
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _McpOpsExposureSummary(
                     enabledSurfaces: enabledSurfaces,
                     totalSurfaces: sections.length,
                     exposedItems: exposedItems,
                     totalItems: totalItems,
                   ),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   for (final entry in sections.entries)
                     _exposureSection(context, entry.key, entry.value),
                 ],
@@ -3801,7 +3802,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     return ListView.separated(
       physics: openHandDialogAwareScrollPhysics(context),
       itemCount: entries.length + 1,
-      separatorBuilder: (_, _) => const SizedBox(height: 12),
+      separatorBuilder: (_, _) => kOpenHandGap12,
       itemBuilder: (context, index) {
         if (index == 0) {
           return _McpOpsAuditSummaryPanel(entries: entries);
@@ -3867,7 +3868,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                   _surfaceIcon(surface),
                   color: enabled ? cs.primary : cs.onSurfaceVariant,
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Expanded(
                   child: Row(
                     children: [
@@ -3882,13 +3883,13 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                         ),
                       ),
                       if (badge != null && badge.trim().isNotEmpty) ...[
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         _McpOpsCountBadge(text: badge, active: enabled),
                       ],
                     ],
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Switch(value: enabled, onChanged: update),
               ],
             ),
@@ -4026,7 +4027,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                 });
               },
             ),
-            if (entry.$1 != visibleRows.length - 1) const SizedBox(height: 8),
+            if (entry.$1 != visibleRows.length - 1) kOpenHandGap8,
           ],
         ],
       ),
@@ -4617,7 +4618,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
           ),
           actions: _McpOpsHeaderTopActions(onClose: onClose),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         Wrap(
           spacing: 8,
           runSpacing: 8,
@@ -4711,7 +4712,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _McpOpsHeaderControls(
           running: running,
           canStart: canStart,
@@ -4759,7 +4760,7 @@ class _McpOpsHeaderIdentity extends StatelessWidget {
           ),
           child: Icon(Icons.dns_rounded, color: statusColor, size: 28),
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -4776,7 +4777,7 @@ class _McpOpsHeaderIdentity extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 3),
+              kOpenHandGap3,
               Text(
                 _localizedText(
                   context,
@@ -5583,7 +5584,7 @@ class _McpOpsHeroPanel extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _McpOpsRuntimeTerminal(
             snapshot: snapshot,
             endpointUri: endpointUri,
@@ -5592,14 +5593,14 @@ class _McpOpsHeroPanel extends StatelessWidget {
             config: config,
           ),
           if (snapshot.errorMessage?.trim().isNotEmpty ?? false) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             _McpOpsCopyText(
               snapshot.errorMessage!,
               style: theme.textTheme.bodySmall?.copyWith(color: cs.error),
             ),
           ],
           if (snapshot.lastConnectivityAt != null) ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             _McpOpsCopyText(
               '${formatMonthDayHms(snapshot.lastConnectivityAt!.toLocal())} · ${snapshot.lastConnectivityMessage}',
               maxLines: 2,
@@ -5884,7 +5885,7 @@ class _McpOpsMetricTile extends StatelessWidget {
                   ),
                   child: Icon(icon, size: 17, color: tone),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: _McpOpsCopyText(
                     label,
@@ -5904,7 +5905,7 @@ class _McpOpsMetricTile extends StatelessWidget {
                   ),
               ],
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             _McpOpsCopyText(
               value.trim().isEmpty ? '-' : value,
               maxLines: 1,
@@ -5915,7 +5916,7 @@ class _McpOpsMetricTile extends StatelessWidget {
               ),
             ),
             if (helper?.trim().isNotEmpty ?? false) ...[
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               _McpOpsCopyText(
                 helper!.trim(),
                 maxLines: 1,
@@ -6033,7 +6034,7 @@ class _McpOpsTrendPanel extends StatelessWidget {
                 color: cs.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
           ],
           SizedBox(
             height: 156,
@@ -6050,7 +6051,7 @@ class _McpOpsTrendPanel extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 10,
             runSpacing: 8,
@@ -6082,7 +6083,7 @@ class _McpOpsLegendPill extends StatelessWidget {
           height: 9,
           decoration: BoxDecoration(color: color, shape: BoxShape.circle),
         ),
-        const SizedBox(width: 6),
+        kOpenHandHGap6,
         _McpOpsCopyText(
           label,
           maxLines: 1,
@@ -6166,7 +6167,7 @@ class _McpOpsPanel extends StatelessWidget {
                         ),
                       ),
                       if (subtitleText != null && subtitleText.isNotEmpty) ...[
-                        const SizedBox(height: 3),
+                        kOpenHandGap3,
                         _McpOpsCopyText(
                           subtitleText,
                           maxLines: 2,
@@ -6180,9 +6181,9 @@ class _McpOpsPanel extends StatelessWidget {
                     ],
                   ),
                 ),
-                if (trailing != null) ...[const SizedBox(width: 8), trailing!],
+                if (trailing != null) ...[kOpenHandHGap8, trailing!],
                 if (trailing == null && onTap != null) ...[
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Icon(
                     Icons.chevron_right_rounded,
                     size: 20,
@@ -6191,7 +6192,7 @@ class _McpOpsPanel extends StatelessWidget {
                 ],
               ],
             ),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             child,
           ],
         ),
@@ -6244,7 +6245,7 @@ class _McpOpsFieldGroup extends StatelessWidget {
                 letterSpacing: 0.1,
               ),
             ),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Expanded(
               child: Container(
                 height: 1,
@@ -6261,7 +6262,7 @@ class _McpOpsFieldGroup extends StatelessWidget {
           ],
         ),
         if (hintText != null && hintText.isNotEmpty) ...[
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Padding(
             padding: const EdgeInsets.only(left: 23),
             child: _McpOpsCopyText(
@@ -6273,7 +6274,7 @@ class _McpOpsFieldGroup extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         child,
       ],
     );
@@ -6336,7 +6337,7 @@ class _McpOpsExposureQuickActions extends StatelessWidget {
           label: enableLabel,
           onChanged: (_) => onEnableAll(),
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         _McpOpsTogglePill(
           selected: false,
           icon: Icons.remove_done_rounded,
@@ -6386,7 +6387,7 @@ class _McpOpsExposureSummary extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.insights_rounded, size: 18, color: cs.primary),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: _McpOpsCopyText(
                   _localizedText(
@@ -6410,7 +6411,7 @@ class _McpOpsExposureSummary extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           ClipRRect(
             borderRadius: kOpenHandPillBorderRadius,
             child: TweenAnimationBuilder<double>(
@@ -6554,7 +6555,7 @@ class _McpOpsDistributionRow extends StatelessWidget {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
               ],
               _McpOpsCopyText(
                 '$value',
@@ -6673,7 +6674,7 @@ class _McpOpsToggleFormField extends StatelessWidget {
                 ),
                 child: Icon(icon, size: 18, color: tone),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -6687,7 +6688,7 @@ class _McpOpsToggleFormField extends StatelessWidget {
                         fontWeight: FontWeight.w900,
                       ),
                     ),
-                    const SizedBox(height: 3),
+                    kOpenHandGap3,
                     _McpOpsCopyText(
                       description,
                       maxLines: 2,
@@ -6700,7 +6701,7 @@ class _McpOpsToggleFormField extends StatelessWidget {
                   ],
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Switch(value: value, onChanged: onChanged),
             ],
           ),
@@ -6724,7 +6725,7 @@ class _McpOpsHintText extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Icon(icon, size: 16, color: cs.onSurfaceVariant),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Expanded(
           child: _McpOpsCopyText(
             text,
@@ -6902,7 +6903,7 @@ class _McpOpsExposureTile extends StatelessWidget {
               ],
             ),
             if (itemVisible && row.endpoints.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -7081,7 +7082,7 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
         maxWidth: 820,
         children: [
           _buildHero(context, theme, cs),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Expanded(
             child: SingleChildScrollView(
               physics: openHandDialogAwareScrollPhysics(context),
@@ -7137,7 +7138,7 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
           ),
           child: Icon(Icons.data_object_rounded, color: cs.primary, size: 24),
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -7150,7 +7151,7 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 3),
+              kOpenHandGap3,
               Text(
                 _editable
                     ? _localizedText(
@@ -7209,7 +7210,7 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
               () => _sourcePreviewExpanded = !_sourcePreviewExpanded,
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           _McpOpsIconButton(
             icon: Icons.copy_rounded,
             tooltip: _localizedText(context, zh: '复制', en: 'Copy'),
@@ -7607,7 +7608,7 @@ class _McpOpsSchemaFormEditor extends StatelessWidget {
             )
           else
             for (final entry in scope.fields.indexed) ...[
-              if (entry.$1 != 0) const SizedBox(height: 12),
+              if (entry.$1 != 0) kOpenHandGap12,
               _McpOpsSchemaFieldEditorCard(
                 key: ObjectKey(entry.$2),
                 field: entry.$2,
@@ -7620,7 +7621,7 @@ class _McpOpsSchemaFormEditor extends StatelessWidget {
                 },
               ),
             ],
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: OutlinedButton.icon(
@@ -7720,7 +7721,7 @@ class _McpOpsSchemaFieldEditorCard extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: field.descriptionController,
             onChanged: (_) => onChanged(),
@@ -7731,7 +7732,7 @@ class _McpOpsSchemaFieldEditorCard extends StatelessWidget {
               label: _localizedText(context, zh: '说明', en: 'Description'),
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           TextField(
             controller: field.enumController,
             onChanged: (_) => onChanged(),
@@ -7748,7 +7749,7 @@ class _McpOpsSchemaFieldEditorCard extends StatelessWidget {
             ),
           ),
           if (field.type == 'array') ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             SizedBox(
               width: 180,
               child: AnimatedDropdownButtonFormField<String>(
@@ -7774,7 +7775,7 @@ class _McpOpsSchemaFieldEditorCard extends StatelessWidget {
             ),
           ],
           if (childScope != null) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             _McpOpsSchemaNestedEditor(
               scope: childScope,
               depth: depth + 1,
@@ -7834,7 +7835,7 @@ class _McpOpsSchemaNestedEditor extends StatelessWidget {
                 size: 18,
                 color: cs.primary,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   title,
@@ -7846,7 +7847,7 @@ class _McpOpsSchemaNestedEditor extends StatelessWidget {
               _McpOpsCountBadge(text: '${scope.fields.length}', active: true),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           if (scope.fields.isEmpty)
             Text(
               _localizedText(context, zh: '暂无子字段。', en: 'No child fields yet.'),
@@ -7857,7 +7858,7 @@ class _McpOpsSchemaNestedEditor extends StatelessWidget {
             )
           else
             for (final entry in scope.fields.indexed) ...[
-              if (entry.$1 != 0) const SizedBox(height: 10),
+              if (entry.$1 != 0) kOpenHandGap10,
               _McpOpsSchemaFieldEditorCard(
                 key: ObjectKey(entry.$2),
                 field: entry.$2,
@@ -7870,7 +7871,7 @@ class _McpOpsSchemaNestedEditor extends StatelessWidget {
                 },
               ),
             ],
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Align(
             alignment: AlignmentDirectional.centerStart,
             child: TextButton.icon(
@@ -7962,7 +7963,7 @@ class _McpOpsSchemaSourceCollapsedNotice extends StatelessWidget {
             size: 18,
             color: cs.onSurfaceVariant,
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: Text(
               _localizedText(
@@ -8017,7 +8018,7 @@ class _McpOpsSchemaFieldList extends StatelessWidget {
           : Column(
               children: [
                 for (final field in fields.indexed) ...[
-                  if (field.$1 != 0) const SizedBox(height: 10),
+                  if (field.$1 != 0) kOpenHandGap10,
                   _McpOpsSchemaFieldCard(field: field.$2),
                 ],
               ],
@@ -8068,7 +8069,7 @@ class _McpOpsSchemaFieldCard extends StatelessWidget {
             ],
           ),
           if (field.description.trim().isNotEmpty) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               field.description.trim(),
               style: theme.textTheme.bodySmall?.copyWith(
@@ -8150,7 +8151,7 @@ class _McpOpsAuditRow extends StatelessWidget {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             _buildHeader(context, theme, cs, statusColor),
-                            const SizedBox(height: 12),
+                            kOpenHandGap12,
                             _buildMetaStrip(context, cs),
                           ],
                         ),
@@ -8190,7 +8191,7 @@ class _McpOpsAuditRow extends StatelessWidget {
             color: statusColor,
           ),
         ),
-        const SizedBox(width: 10),
+        kOpenHandHGap10,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -8203,7 +8204,7 @@ class _McpOpsAuditRow extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 3),
+              kOpenHandGap3,
               Text(
                 '${_mcpOpsAuditKindLabel(context, entry.kind)} · ${formatMonthDayHms(entry.timestamp.toLocal())}',
                 maxLines: 1,
@@ -8216,7 +8217,7 @@ class _McpOpsAuditRow extends StatelessWidget {
             ],
           ),
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         // Keep the status capsule and the open button on one baseline: the
         // IntrinsicHeight + stretch pins the round button to the capsule's
         // exact height, so their top and bottom edges line up precisely.
@@ -8230,7 +8231,7 @@ class _McpOpsAuditRow extends StatelessWidget {
                 label: _mcpOpsAuditStatusLabel(context, entry.status),
                 color: statusColor,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               AspectRatio(
                 aspectRatio: 1,
                 child: _McpOpsAuditOpenButton(onTap: onDetails),
@@ -8412,7 +8413,7 @@ class _McpOpsAuditSummaryPanel extends StatelessWidget {
             ],
           ),
           if (stages.isNotEmpty) ...[
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             _McpOpsCopyText(
               _localizedText(context, zh: '环节分布', en: 'Stage breakdown'),
               style: Theme.of(context).textTheme.labelMedium?.copyWith(
@@ -8420,7 +8421,7 @@ class _McpOpsAuditSummaryPanel extends StatelessWidget {
                 fontWeight: FontWeight.w800,
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Wrap(
               spacing: 8,
               runSpacing: 8,
@@ -8455,7 +8456,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
       maxHeight: 760,
       children: [
         _buildHero(context, statusColor),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         Expanded(
           child: ListView(
             physics: openHandDialogAwareScrollPhysics(context),
@@ -8587,7 +8588,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
             size: 24,
           ),
         ),
-        const SizedBox(width: 12),
+        kOpenHandHGap12,
         Expanded(
           child: Column(
             mainAxisSize: MainAxisSize.min,
@@ -8601,7 +8602,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
                   fontWeight: FontWeight.w900,
                 ),
               ),
-              const SizedBox(height: 3),
+              kOpenHandGap3,
               _McpOpsCopyText(
                 '${_mcpOpsAuditKindLabel(context, entry.kind)} · ${_mcpOpsAuditStatusLabel(context, entry.status)} · ${formatYearMonthDayHms(entry.timestamp.toLocal())}',
                 maxLines: 1,
@@ -8666,7 +8667,7 @@ class _McpOpsDetailSection extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   Expanded(
                     child: SelectableText(
                       row.$2.value,
@@ -8784,7 +8785,7 @@ class _McpOpsStructuredPayload extends StatelessWidget {
                 crossAxisAlignment: CrossAxisAlignment.stretch,
                 children: [
                   _McpOpsPayloadInspectorHeader(parsed: parsed, accent: accent),
-                  const SizedBox(height: 12),
+                  kOpenHandGap12,
                   _McpOpsStructuredNode(
                     value: parsed.value,
                     raw: parsed.raw,
@@ -8840,7 +8841,7 @@ class _McpOpsPayloadInspectorHeader extends StatelessWidget {
             ),
             child: Icon(Icons.account_tree_rounded, size: 18, color: accent),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -8863,7 +8864,7 @@ class _McpOpsPayloadInspectorHeader extends StatelessWidget {
                     fontWeight: FontWeight.w900,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -9071,7 +9072,7 @@ class _McpOpsStructuredField extends StatelessWidget {
                     value: value,
                     accent: tone,
                   ),
-                  const SizedBox(height: 10),
+                  kOpenHandGap10,
                   child,
                 ],
               ),
@@ -9103,7 +9104,7 @@ class _McpOpsPayloadOverflowNotice extends StatelessWidget {
       child: Row(
         children: [
           Icon(Icons.unfold_more_rounded, size: 16, color: cs.secondary),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Expanded(
             child: Text(
               _localizedText(
@@ -9162,7 +9163,7 @@ class _McpOpsPayloadFieldHeader extends StatelessWidget {
             ),
           ),
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         _McpOpsPayloadPill(
           icon: Icons.category_rounded,
           label: mcpPayloadTypeLabel(context, value),
@@ -9427,7 +9428,7 @@ class _McpOpsStatusChip extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 16, color: color),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           ConstrainedBox(
             constraints: BoxConstraints(maxWidth: maxLabelWidth),
             child: _McpOpsCopyText(
@@ -9964,7 +9965,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                           ),
                         ],
                       ),
-                      const SizedBox(width: 16),
+                      kOpenHandHGap16,
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -9973,14 +9974,14 @@ class _McpServerCardState extends State<_McpServerCard> {
                               server.name,
                               style: theme.textTheme.titleLarge,
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                             Text(
                               server.type.label(l10n),
                               style: theme.textTheme.labelLarge?.copyWith(
                                 color: colorScheme.primary,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                             Text(
                               server.summary,
                               maxLines: 2,
@@ -9992,7 +9993,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                           ],
                         ),
                       ),
-                      const SizedBox(width: 12),
+                      kOpenHandHGap12,
                       Flexible(
                         child: Align(
                           alignment: Alignment.topRight,
@@ -10149,7 +10150,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                       ),
                     ],
                   ),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   _McpHorizontalChipStrip(
                     children: [
                       _McpServerToggleChip(
@@ -10435,7 +10436,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                             key: ValueKey('mcp_tool_search_off'),
                           ),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   _McpToolPreview(
                     server: server,
                     toolCatalog: toolCatalog,
@@ -11007,7 +11008,7 @@ class _McpServerDetailsSheet extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.info_outline_rounded, color: colorScheme.primary),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -11016,7 +11017,7 @@ class _McpServerDetailsSheet extends StatelessWidget {
                       _localizedText(context, zh: '服务详情', en: 'Server details'),
                       style: theme.textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 2),
+                    kOpenHandGap2,
                     Text(
                       server.name,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -11041,7 +11042,7 @@ class _McpServerDetailsSheet extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           _DetailsSection(
             title: _localizedText(context, zh: '配置摘要', en: 'Configuration'),
             children: [
@@ -11071,7 +11072,7 @@ class _McpServerDetailsSheet extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           _DetailsSection(
             title: _localizedText(context, zh: '健康统计', en: 'Health'),
             children: [
@@ -11145,10 +11146,10 @@ class _McpServerDetailsSheet extends StatelessWidget {
             ],
           ),
           if (probes.length >= 2) ...[
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             _ProbeTrendSection(probes: probes),
           ],
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           _DetailsSection(
             title: _localizedText(context, zh: '工具目录', en: 'Tool catalog'),
             children: [
@@ -11173,7 +11174,7 @@ class _McpServerDetailsSheet extends StatelessWidget {
             ],
           ),
           if (toolCatalog.tools.isNotEmpty) ...[
-            const SizedBox(height: 16),
+            kOpenHandGap16,
             _ToolListPreview(tools: toolCatalog.tools),
           ],
         ],
@@ -11215,14 +11216,14 @@ class _ProbeTrendSection extends StatelessWidget {
                 size: 18,
                 color: colorScheme.primary,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 _localizedText(context, zh: '探测趋势', en: 'Probe trend'),
                 style: theme.textTheme.titleSmall?.copyWith(
                   color: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 _localizedText(
                   context,
@@ -11239,7 +11240,7 @@ class _ProbeTrendSection extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           SizedBox(
             height: 72,
             child: CustomPaint(
@@ -11254,20 +11255,20 @@ class _ProbeTrendSection extends StatelessWidget {
               child: const SizedBox.expand(),
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Row(
             children: [
               _LegendDot(color: colorScheme.primary),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Text(
                 _localizedText(context, zh: '健康 (耗时)', en: 'Healthy (latency)'),
                 style: theme.textTheme.labelSmall?.copyWith(
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(width: 12),
+              kOpenHandHGap12,
               _LegendDot(color: colorScheme.error),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Text(
                 _localizedText(context, zh: '失败', en: 'Failed'),
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -11275,7 +11276,7 @@ class _ProbeTrendSection extends StatelessWidget {
                 ),
               ),
               if (!hasAnyLatency) ...[
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Text(
                   _localizedText(
                     context,
@@ -11488,7 +11489,7 @@ class _ToolListPreview extends StatelessWidget {
                   color: colorScheme.primary,
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 _localizedText(
                   context,
@@ -11501,7 +11502,7 @@ class _ToolListPreview extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           ...preview.map((tool) => _ToolPreviewTile(tool: tool)),
           if (overflow > 0)
             Padding(
@@ -11556,7 +11557,7 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
           size: 16,
           color: colorScheme.onSurfaceVariant,
         ),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -11568,7 +11569,7 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
                 ),
               ),
               if (description.isNotEmpty) ...[
-                const SizedBox(height: 2),
+                kOpenHandGap2,
                 Text(
                   description,
                   maxLines: _expanded ? 6 : 2,
@@ -11629,7 +11630,7 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
                                 payload: widget.tool.inputSchema,
                               ),
                             if (_hasOutputSchema) ...[
-                              const SizedBox(height: 8),
+                              kOpenHandGap8,
                               _ToolSchemaBlock(
                                 title: _localizedText(
                                   context,
@@ -11713,7 +11714,7 @@ class _ToolSchemaBlock extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           SelectableText(
             pretty,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -11754,7 +11755,7 @@ class _DetailsSection extends StatelessWidget {
               color: colorScheme.primary,
             ),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           ...children,
         ],
       ),
@@ -11791,7 +11792,7 @@ class _DetailsRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: SelectableText(
               value,
@@ -11829,7 +11830,7 @@ class _McpHealthHistorySheet extends StatelessWidget {
           Row(
             children: [
               Icon(Icons.monitor_heart_outlined, color: colorScheme.primary),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -11842,7 +11843,7 @@ class _McpHealthHistorySheet extends StatelessWidget {
                       ),
                       style: theme.textTheme.titleMedium,
                     ),
-                    const SizedBox(height: 2),
+                    kOpenHandGap2,
                     Text(
                       serverName,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -11897,7 +11898,7 @@ class _McpHealthHistorySheet extends StatelessWidget {
                 ),
             ],
           ),
-          const SizedBox(height: 16),
+          kOpenHandGap16,
           if (probes.isEmpty)
             Container(
               width: double.infinity,
@@ -11920,7 +11921,7 @@ class _McpHealthHistorySheet extends StatelessWidget {
               child: ListView.separated(
                 shrinkWrap: true,
                 itemCount: probes.length,
-                separatorBuilder: (_, _) => const SizedBox(height: 10),
+                separatorBuilder: (_, _) => kOpenHandGap10,
                 itemBuilder: (context, index) {
                   final probe = probes[index];
                   return _McpHealthProbeTile(probe: probe);
@@ -12107,7 +12108,7 @@ class _McpHealthProbeTile extends StatelessWidget {
               color: accentOnSurface,
             ),
           ),
-          const SizedBox(width: 12),
+          kOpenHandHGap12,
           Expanded(
             child: Column(
               crossAxisAlignment: CrossAxisAlignment.start,
@@ -12120,7 +12121,7 @@ class _McpHealthProbeTile extends StatelessWidget {
                         color: accentColor,
                       ),
                     ),
-                    const SizedBox(width: 10),
+                    kOpenHandHGap10,
                     Text(
                       relative,
                       style: theme.textTheme.bodySmall?.copyWith(
@@ -12128,7 +12129,7 @@ class _McpHealthProbeTile extends StatelessWidget {
                       ),
                     ),
                     if (latencyText != null) ...[
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Text(
                         latencyText,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -12140,7 +12141,7 @@ class _McpHealthProbeTile extends StatelessWidget {
                 ),
                 if (probe.errorMessage != null &&
                     probe.errorMessage!.trim().isNotEmpty) ...[
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text(
                     probe.errorMessage!.trim(),
                     maxLines: 3,
@@ -12281,7 +12282,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                             size: 18,
                           ),
                         ),
-                        const SizedBox(width: 12),
+                        kOpenHandHGap12,
                         Expanded(
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -12384,7 +12385,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         // 探测控制
                         _ProbeSection(
                           title: l10n.mcpProbeControlsTitle,
@@ -12438,7 +12439,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                             ),
                           ],
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         // 各服务探测状态
                         _ProbeSection(
                           title: l10n.mcpProbeServerStatusTitle(
@@ -12497,7 +12498,7 @@ class _ProbeSection extends StatelessWidget {
         Row(
           children: [
             Icon(icon, size: 16, color: colorScheme.primary),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Text(
               title,
               style: theme.textTheme.titleSmall?.copyWith(
@@ -12507,7 +12508,7 @@ class _ProbeSection extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Container(
           width: double.infinity,
           padding: const EdgeInsets.all(14),
@@ -12584,7 +12585,7 @@ class _ProbeServerRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           Container(
             width: 8,
             height: 8,
@@ -12595,7 +12596,7 @@ class _ProbeServerRow extends StatelessWidget {
               shape: BoxShape.circle,
             ),
           ),
-          const SizedBox(width: 10),
+          kOpenHandHGap10,
           Expanded(
             child: Text(
               server.name,
@@ -12608,7 +12609,7 @@ class _ProbeServerRow extends StatelessWidget {
               overflow: TextOverflow.ellipsis,
             ),
           ),
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           Text(
             server.probeEnabled ? statusLabel : l10n.mcpProbeNoProbe,
             style: theme.textTheme.labelSmall?.copyWith(
@@ -12619,7 +12620,7 @@ class _ProbeServerRow extends StatelessWidget {
             ),
           ),
           if (catalog.tools.isNotEmpty && server.probeEnabled) ...[
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Text(
               l10n.mcpProbeToolCount(catalog.tools.length),
               style: theme.textTheme.labelSmall?.copyWith(
@@ -12627,7 +12628,7 @@ class _ProbeServerRow extends StatelessWidget {
               ),
             ),
           ],
-          const SizedBox(width: 8),
+          kOpenHandHGap8,
           // 单独触发该服务的探测（禁用态或探测中时不可点击）
           SizedBox(
             width: 28,
@@ -12893,7 +12894,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         ClipRect(
           child: AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -13123,7 +13124,7 @@ class _McpToolDetailsDialog extends StatelessWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       Text(tool.name, style: theme.textTheme.headlineSmall),
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       SelectableText(
                         '${_localizedText(context, zh: 'Tool ID', en: 'Tool ID')}: ${tool.id}',
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -13133,7 +13134,7 @@ class _McpToolDetailsDialog extends StatelessWidget {
                     ],
                   ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 IconButton(
                   key: ValueKey<String>('mcpToolDetailsDebugButton-${tool.id}'),
                   tooltip: _localizedText(
@@ -13150,14 +13151,14 @@ class _McpToolDetailsDialog extends StatelessWidget {
                   ),
                   icon: const Icon(Icons.play_circle_outline_rounded),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 IconButton(
                   onPressed: () => Navigator.of(context).pop(),
                   icon: const Icon(Icons.close_rounded),
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             Expanded(
               child: SingleChildScrollView(
                 child: Column(
@@ -13165,14 +13166,14 @@ class _McpToolDetailsDialog extends StatelessWidget {
                   children: [
                     if (tool.description.trim().isNotEmpty) ...[
                       _ToolDescriptionPanel(description: tool.description),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
                     ],
                     if (tool.hasMetadataWarning) ...[
                       OpenHandInlineNoticeFactory.warning(
                         context,
                         tool.metadataWarning!,
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
                     ],
                     Wrap(
                       spacing: 12,
@@ -13213,7 +13214,7 @@ class _McpToolDetailsDialog extends StatelessWidget {
                         ),
                       ],
                     ),
-                    const SizedBox(height: 20),
+                    kOpenHandGap20,
                     _ToolSchemaSection(
                       title: _localizedText(
                         context,
@@ -13228,7 +13229,7 @@ class _McpToolDetailsDialog extends StatelessWidget {
                         en: 'This tool does not declare structured input fields.',
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    kOpenHandGap20,
                     if (outputDescription.isNotEmpty) ...[
                       _ToolTextSection(
                         title: _localizedText(
@@ -13245,7 +13246,7 @@ class _McpToolDetailsDialog extends StatelessWidget {
                               )
                             : null,
                       ),
-                      const SizedBox(height: 20),
+                      kOpenHandGap20,
                     ],
                     _ToolSchemaSection(
                       title: _localizedText(
@@ -13274,7 +13275,7 @@ class _McpToolDetailsDialog extends StatelessWidget {
                             ),
                     ),
                     if (tool.hasMetadataWarning && tool.hasRawMetadata) ...[
-                      const SizedBox(height: 20),
+                      kOpenHandGap20,
                       Text(
                         _localizedText(
                           context,
@@ -13283,7 +13284,7 @@ class _McpToolDetailsDialog extends StatelessWidget {
                         ),
                         style: theme.textTheme.titleLarge,
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       _ToolSchemaPanel(schema: tool.rawMetadata),
                     ],
                   ],
@@ -13567,7 +13568,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
             Row(
               children: [
                 Icon(Icons.dns_rounded, size: 18, color: colorScheme.primary),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 Expanded(
                   child: Text(
                     _localizedText(
@@ -13600,7 +13601,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                   ),
               ],
             ),
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             Text(
               _localizedText(
                 context,
@@ -13611,7 +13612,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                 color: colorScheme.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Row(
               children: [
                 Expanded(
@@ -13647,7 +13648,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                         crossAxisAlignment: CrossAxisAlignment.start,
                         children: [
                           Divider(height: 1, color: colorScheme.outlineVariant),
-                          const SizedBox(height: 10),
+                          kOpenHandGap10,
                           Row(
                             children: [
                               Expanded(
@@ -13669,7 +13670,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                               ),
                             ],
                           ),
-                          const SizedBox(height: 8),
+                          kOpenHandGap8,
                           Column(
                             children: _headerRows
                                 .asMap()
@@ -13708,7 +13709,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                                             ),
                                           ),
                                         ),
-                                        const SizedBox(width: 10),
+                                        kOpenHandHGap10,
                                         Expanded(
                                           flex: 2,
                                           child: TextField(
@@ -13811,7 +13812,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                         ),
                         style: theme.textTheme.headlineSmall,
                       ),
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       Text(
                         '${widget.server.name} · ${widget.server.type.label(AppLocalizations.of(context)!)}',
                         style: theme.textTheme.bodyMedium?.copyWith(
@@ -13827,7 +13828,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                 ),
               ],
             ),
-            const SizedBox(height: 18),
+            kOpenHandGap18,
             if (tool == null)
               Expanded(
                 child: OpenHandInlineEmptyState(
@@ -13881,7 +13882,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                                       ? colorScheme.error
                                       : colorScheme.onSurfaceVariant,
                                 ),
-                                const SizedBox(width: 10),
+                                kOpenHandHGap10,
                                 Expanded(
                                   child: Text(
                                     tool.name,
@@ -13895,10 +13896,10 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                           ),
                         ),
                       ),
-                      const SizedBox(height: 14),
+                      kOpenHandGap14,
                       if (tool.description.trim().isNotEmpty) ...[
                         _ToolDescriptionPanel(description: tool.description),
-                        const SizedBox(height: 14),
+                        kOpenHandGap14,
                       ],
                       Text(
                         _localizedText(
@@ -13908,7 +13909,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                         ),
                         style: theme.textTheme.titleLarge,
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       TextFormField(
                         key: const ValueKey<String>(
                           'mcpToolDebugArgumentsField',
@@ -13928,11 +13929,11 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                           border: const OutlineInputBorder(borderRadius: _mcpRadiusXXLarge),
                         ),
                       ),
-                      const SizedBox(height: 16),
+                      kOpenHandGap16,
                       if (widget.server.type == McpServerType.streamableHttp ||
                           widget.server.type == McpServerType.sse)
                         _buildHeaderConfigSection(context),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       Wrap(
                         spacing: 10,
                         runSpacing: 10,
@@ -13985,7 +13986,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                               )
                             : null,
                       ),
-                      const SizedBox(height: 20),
+                      kOpenHandGap20,
                       Text(
                         _localizedText(
                           context,
@@ -13994,7 +13995,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                         ),
                         style: theme.textTheme.titleLarge,
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       if (inputFields.isEmpty)
                         Text(
                           _localizedText(
@@ -14015,15 +14016,15 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                               .toList(growable: false),
                         ),
                       if (inputSchemaMetadata != null) ...[
-                        const SizedBox(height: 12),
+                        kOpenHandGap12,
                         _ToolSchemaPanel(schema: inputSchemaMetadata),
                       ],
-                      const SizedBox(height: 20),
+                      kOpenHandGap20,
                       Text(
                         _localizedText(context, zh: '执行结果', en: 'Result'),
                         style: theme.textTheme.titleLarge,
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       if (_result == null &&
                           _errorMessage == null &&
                           !_isRunning)
@@ -14060,7 +14061,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                             ),
                           ],
                         ),
-                        const SizedBox(height: 12),
+                        kOpenHandGap12,
                         _McpFormattedResultPanel(result: _result!),
                       ] else if (_isRunning)
                         _ToolConsolePanel(
@@ -14126,7 +14127,7 @@ class _McpToolDebugMenuItem extends StatelessWidget {
               size: 18,
               color: foregroundColor,
             ),
-            const SizedBox(width: 10),
+            kOpenHandHGap10,
             Text(
               label,
               softWrap: false,
@@ -14167,7 +14168,7 @@ class _ToolMetaTile extends StatelessWidget {
               color: colorScheme.onSurfaceVariant,
             ),
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Text(value, style: Theme.of(context).textTheme.titleLarge),
         ],
       ),
@@ -14247,7 +14248,7 @@ class _ToolTextSection extends StatelessWidget {
       children: [
         Text(title, style: theme.textTheme.titleLarge),
         if (caption?.trim().isNotEmpty ?? false) ...[
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           Text(
             caption!,
             style: theme.textTheme.bodySmall?.copyWith(
@@ -14255,7 +14256,7 @@ class _ToolTextSection extends StatelessWidget {
             ),
           ),
         ],
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _ToolDescriptionPanel(description: body),
       ],
     );
@@ -14282,7 +14283,7 @@ class _ToolSchemaSection extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Text(title, style: theme.textTheme.titleLarge),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         if (fields.isEmpty)
           Text(
             emptyLabel,
@@ -14297,7 +14298,7 @@ class _ToolSchemaSection extends StatelessWidget {
                 .toList(growable: false),
           ),
         if (schema != null) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _ToolSchemaPanel(schema: schema),
         ],
       ],
@@ -14342,7 +14343,7 @@ class _ToolSchemaFieldCard extends StatelessWidget {
             ],
           ),
           if (field.description.trim().isNotEmpty) ...[
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Text(
               field.description,
               style: Theme.of(context).textTheme.bodyMedium?.copyWith(
@@ -17440,7 +17441,7 @@ class _McpOpsInsightDialog extends StatelessWidget {
                 ),
                 child: Icon(icon, color: accent),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               Expanded(
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.start,
@@ -17454,7 +17455,7 @@ class _McpOpsInsightDialog extends StatelessWidget {
                       ),
                     ),
                     if (subtitle.trim().isNotEmpty) ...[
-                      const SizedBox(height: 3),
+                      kOpenHandGap3,
                       _McpOpsCopyText(
                         subtitle,
                         maxLines: 1,
@@ -17474,7 +17475,7 @@ class _McpOpsInsightDialog extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 14),
+          kOpenHandGap14,
           Expanded(
             child: SingleChildScrollView(
               physics: openHandDialogAwareScrollPhysics(context),
@@ -17644,7 +17645,7 @@ class _McpOpsTrendDetailPanel extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Wrap(
             spacing: 10,
             runSpacing: 8,
@@ -17654,7 +17655,7 @@ class _McpOpsTrendDetailPanel extends StatelessWidget {
             ],
           ),
           if (rows.isNotEmpty) ...[
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             Table(
               columnWidths: const <int, TableColumnWidth>{
                 0: FlexColumnWidth(1.2),
@@ -17777,7 +17778,7 @@ class _McpOpsLogRow extends StatelessWidget {
                       ),
                     ),
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   _McpOpsCopyText(
                     formatMonthDayHms(entry.timestamp.toLocal()),
                     style: theme.textTheme.labelSmall?.copyWith(
@@ -17786,7 +17787,7 @@ class _McpOpsLogRow extends StatelessWidget {
                   ),
                 ],
               ),
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               Wrap(
                 spacing: 6,
                 runSpacing: 6,
@@ -17812,7 +17813,7 @@ class _McpOpsLogRow extends StatelessWidget {
                 ],
               ),
               if (showReason && entry.errorMessage.trim().isNotEmpty) ...[
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 _McpOpsCopyText(
                   entry.errorMessage.trim(),
                   maxLines: 2,
@@ -17852,7 +17853,7 @@ class _McpOpsMiniTag extends StatelessWidget {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(icon, size: 12, color: cs.onSurfaceVariant),
-          const SizedBox(width: 4),
+          kOpenHandHGap4,
           Flexible(
             child: _McpOpsCopyText(
               label,
@@ -17922,7 +17923,7 @@ class _McpOpsInsightEmpty extends StatelessWidget {
             Icons.inbox_rounded,
             color: cs.onSurfaceVariant.withValues(alpha: 0.6),
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           _McpOpsCopyText(
             label,
             textAlign: TextAlign.center,
@@ -18862,7 +18863,7 @@ Widget _mcpOpsServerRow(BuildContext context, McpServer server) {
           ],
         ),
       ),
-      const SizedBox(width: 8),
+      kOpenHandHGap8,
       _McpOpsStatusChip(
         icon: server.enabled
             ? Icons.check_circle_rounded

@@ -9,6 +9,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
@@ -192,7 +193,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
             Row(
               children: [
                 Icon(Icons.dynamic_feed_rounded, size: 22, color: cs.primary),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Text(
                   loc?.webReverseHeadlessBatchTitle ?? 'Headless batch capture',
                   style: theme.textTheme.titleLarge?.copyWith(
@@ -209,7 +210,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 6),
+            kOpenHandGap6,
             Text(
               loc?.webReverseHeadlessBatchDesc ??
                   'Open each URL in a background tab, then save network response index, console log and screenshot. Reuses the current browser process (cookies + hooks apply).',
@@ -218,7 +219,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 height: 1.45,
               ),
             ),
-            const SizedBox(height: 14),
+            kOpenHandGap14,
             TextField(
               controller: _urlsCtrl,
               minLines: 6,
@@ -246,7 +247,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 fontSize: 13,
               ),
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Row(
               children: [
                 Expanded(
@@ -269,7 +270,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(width: 8),
+                kOpenHandHGap8,
                 FilledButton.tonalIcon(
                   onPressed: _running ? null : _pickOutDir,
                   icon: const Icon(Icons.folder_open_rounded, size: 18),
@@ -277,7 +278,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Wrap(
               spacing: 8,
               runSpacing: 4,
@@ -307,7 +308,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Wrap(
               spacing: 10,
               runSpacing: 10,
@@ -336,7 +337,7 @@ class _HeadlessBatchDialogState extends State<_HeadlessBatchDialog> {
                 ),
               ],
             ),
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             Expanded(
               child: Container(
                 decoration: webReverseSurfaceCardDecoration(cs, radius: 12),

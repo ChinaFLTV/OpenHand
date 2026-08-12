@@ -831,7 +831,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             ],
           ),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _TokenStatsPanel(
           title: AppLocalizations.of(context)!.tokenPopupOutputHeading,
           icon: Icons.north_east_rounded,
@@ -854,7 +854,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
           ),
         ),
         if (webSearchCalls > 0 || webSearchPages > 0) ...[
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           _TokenStatsPanel(
             title: AppLocalizations.of(context)!.tokenPopupWebSearchHeading,
             icon: Icons.language_rounded,
@@ -882,7 +882,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             ),
           ),
         ],
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _TokenStatsPanel(
           title: AppLocalizations.of(context)!.tokenPopupGrandTotal,
           icon: Icons.donut_large_rounded,
@@ -966,7 +966,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
             ),
           ),
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _TokenStatsPanel(
           title: AppLocalizations.of(context)!.tokenPopupSessionHeading,
           icon: Icons.timeline_rounded,
@@ -1073,7 +1073,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
     final l10n = AppLocalizations.of(context)!;
 
     return <Widget>[
-      const SizedBox(height: 10),
+      kOpenHandGap10,
       _TokenStatsPanel(
         title: l10n.tokenPopupCostHeading,
         icon: Icons.payments_outlined,
@@ -1171,10 +1171,10 @@ class _TokenStatsPanel extends StatelessWidget {
                   ),
                 ),
               ),
-              if (trailing != null) ...[const SizedBox(width: 10), trailing!],
+              if (trailing != null) ...[kOpenHandHGap10, trailing!],
             ],
           ),
-          if (child != null) ...[const SizedBox(height: 8), child!],
+          if (child != null) ...[kOpenHandGap8, child!],
         ],
       ),
     );
@@ -1282,7 +1282,7 @@ class _ContextUsageOverview extends StatelessWidget {
                       ),
                     ),
                     if (hasData) ...[
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         usage!.tokenSource == AiContextTokenSource.provider
                             ? l10n.tokenPopupContextMeasured
@@ -1296,7 +1296,7 @@ class _ContextUsageOverview extends StatelessWidget {
                 ),
               ),
               if (hasData) ...[
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 Text.rich(
                   TextSpan(
                     children: [
@@ -1323,7 +1323,7 @@ class _ContextUsageOverview extends StatelessWidget {
             ],
           ),
           if (hasWindowData) ...[
-            const SizedBox(height: 12),
+            kOpenHandGap12,
             _ContextWindowUsageBar(
               usage: windowUsage,
               motionSettings: motionSettings,
@@ -1354,7 +1354,7 @@ class _ContextUsageOverview extends StatelessWidget {
             ),
           ],
           if (hasData) ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             ClipRRect(
               borderRadius: kOpenHandPillBorderRadius,
               child: SizedBox(
@@ -1379,7 +1379,7 @@ class _ContextUsageOverview extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             LayoutBuilder(
               builder: (context, constraints) {
                 final columns = constraints.maxWidth >= 360 ? 3 : 2;
@@ -1404,7 +1404,7 @@ class _ContextUsageOverview extends StatelessWidget {
               },
             ),
           ] else ...[
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
               decoration: BoxDecoration(
@@ -1423,7 +1423,7 @@ class _ContextUsageOverview extends StatelessWidget {
                     size: 16,
                     color: colorScheme.primary,
                   ),
-                  const SizedBox(width: 8),
+                  kOpenHandHGap8,
                   Expanded(
                     child: Text(
                       l10n.tokenPopupContextEmpty,
@@ -1475,7 +1475,7 @@ class _ContextWindowUsageBar extends StatelessWidget {
                 strokeWidth: 2.6,
                 settings: motionSettings,
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Expanded(
                 child: Text(
                   l10n.tokenPopupContextWindow,
@@ -1567,7 +1567,7 @@ class _ContextUsageTile extends StatelessWidget {
                 height: 6,
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: Text(
                   _contextUsageLabel(
@@ -1601,7 +1601,7 @@ class _ContextUsageTile extends StatelessWidget {
                   ),
                 ),
               ),
-              const SizedBox(width: 4),
+              kOpenHandHGap4,
               Text(
                 _contextUsagePercent(item.tokenCount, totalTokens),
                 style: theme.textTheme.labelSmall?.copyWith(
@@ -1761,7 +1761,7 @@ class _PopupRowState extends State<_PopupRow> {
                 style: widget.keyStyle,
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             if (widget.formattedValue case final formattedValue?)
               Text(formattedValue, style: widget.valueStyle)
             else
@@ -1839,7 +1839,7 @@ class _CompactCacheHitSparkline extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           ClipRRect(
             borderRadius: kOpenHandPillBorderRadius,
             child: ColoredBox(

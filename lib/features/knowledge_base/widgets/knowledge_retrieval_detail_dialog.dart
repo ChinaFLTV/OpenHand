@@ -6,6 +6,7 @@ import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -624,7 +625,7 @@ class _HitTile extends StatelessWidget {
                   ),
                 ),
                 if (path.isNotEmpty) ...[
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text(
                     path,
                     maxLines: 1,
@@ -635,7 +636,7 @@ class _HitTile extends StatelessWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Wrap(
                   spacing: 8,
                   runSpacing: 6,
@@ -665,7 +666,7 @@ class _HitTile extends StatelessWidget {
                   ],
                 ),
                 if (preview.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Text(
                     preview,
                     maxLines: 4,
@@ -851,7 +852,7 @@ class _KnowledgeRetrievalVectorSpaceSectionState
             switchOutCurve: Curves.easeInCubic,
             child: _buildCorpusStatus(context, corpusCount),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           KnowledgeVectorDistributionView(
             distribution: visibleDistribution,
             height: 380,
@@ -1022,7 +1023,7 @@ class _KnowledgeRetrievalHitFallbackDialog extends StatelessWidget {
                 ),
                 tone: KnowledgeDialogNoticeTone.warning,
               ),
-              const SizedBox(height: 12),
+              kOpenHandGap12,
               KnowledgeDialogSection(
                 title: knowledgeOverviewLabel(context),
                 icon: Icons.article_outlined,

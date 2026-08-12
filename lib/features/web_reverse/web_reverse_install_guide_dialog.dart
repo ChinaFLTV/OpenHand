@@ -6,6 +6,7 @@ import '../../app/support/safe_subprocess.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/localized_text.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -85,7 +86,7 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                         'The Web Reverse Expert relies on an external Chromium-based browser (Chrome / Edge / Brave / Chromium) driven via CDP. None was detected.',
                     style: theme.textTheme.bodyMedium?.copyWith(height: 1.55),
                   ),
-                  const SizedBox(height: 14),
+                  kOpenHandGap14,
                   Container(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 12,
@@ -102,7 +103,7 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                           size: 18,
                           color: colorScheme.primary,
                         ),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         Expanded(
                           child: SelectableText(
                             url,
@@ -112,7 +113,7 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 8),
+                        kOpenHandHGap8,
                         TextButton.icon(
                           onPressed: () => _openDownloadUrl(context),
                           icon: const Icon(Icons.open_in_new_rounded, size: 16),
@@ -121,7 +122,7 @@ class _WebReverseInstallGuideDialog extends StatelessWidget {
                       ],
                     ),
                   ),
-                  const SizedBox(height: 16),
+                  kOpenHandGap16,
                   Text(
                     loc?.webReverseInstallHint ??
                         'Install Chrome and retry. If Edge / Brave / Chromium is already installed, click "I have installed, recheck".',

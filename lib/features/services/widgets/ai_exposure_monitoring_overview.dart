@@ -49,7 +49,7 @@ class _OverviewPanel extends StatelessWidget {
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _Console(controller: controller),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _MetricGrid(
           title: '状态总览',
           desktopColumns: 3,
@@ -115,7 +115,7 @@ class _OverviewPanel extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _OpsPanelGrid(
           children: [
             _TrendPanel(
@@ -250,7 +250,7 @@ class _OverviewPanel extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 14),
+        kOpenHandGap14,
         _RecentActivityPanel(
           entries: controller.logs.reversed.take(8).toList(growable: false),
         ),

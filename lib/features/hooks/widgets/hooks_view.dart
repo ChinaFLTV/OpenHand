@@ -14,6 +14,7 @@ import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart'
@@ -114,7 +115,7 @@ class HooksView extends StatelessWidget {
                 builder: (context, removal) => ListView.separated(
                   padding: const EdgeInsets.only(top: 2),
                   itemCount: snapshot.entries.length,
-                  separatorBuilder: (_, _) => const SizedBox(height: 12),
+                  separatorBuilder: (_, _) => kOpenHandGap12,
                   itemBuilder: (context, index) {
                     final entry = snapshot.entries[index];
                     return AppearOnce(
@@ -229,7 +230,7 @@ class _HookEntryCard extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 16),
+            kOpenHandHGap16,
             // Label & script info
             Expanded(
               child: Column(
@@ -246,7 +247,7 @@ class _HookEntryCard extends StatelessWidget {
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis,
                   ),
-                  const SizedBox(height: 4),
+                  kOpenHandGap4,
                   Text(
                     _scriptDescription(l10n),
                     style: theme.textTheme.bodySmall?.copyWith(
@@ -258,23 +259,23 @@ class _HookEntryCard extends StatelessWidget {
                 ],
               ),
             ),
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             // Timeout badge
             OpenHandMetricChip(
               label: '${entry.timeoutSeconds}s',
               tooltip: l10n.hooksTimeoutTooltip,
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             // Toggle switch
             Switch(value: entry.enabled, onChanged: onToggle),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             // Actions
             IconButton(
               icon: const Icon(Icons.edit_outlined, size: 20),
               tooltip: l10n.commonEdit,
               onPressed: onEdit,
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             IconButton(
               icon: Icon(
                 Icons.delete_outline_rounded,
@@ -380,7 +381,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                 context,
                 message: _formError,
               ),
-              if (_formError != null) const SizedBox(height: 12),
+              if (_formError != null) kOpenHandGap12,
               // Label
               TextField(
                 controller: _labelController,
@@ -389,10 +390,10 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                   hintText: l10n.hooksLabelHint,
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               // Event selector
               Text(l10n.hooksTriggerEvent, style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -411,10 +412,10 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                   );
                 }).toList(),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               // Script source toggle
               Text(l10n.hooksScriptSource, style: theme.textTheme.titleSmall),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               SegmentedButton<_HookScriptSource>(
                 segments: [
                   ButtonSegment(
@@ -433,7 +434,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                   setState(() => _scriptSource = selected.first);
                 },
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               // File selector or inline editor
               if (_scriptSource == _HookScriptSource.file) ...[
                 Row(
@@ -448,14 +449,14 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                         readOnly: true,
                       ),
                     ),
-                    const SizedBox(width: 8),
+                    kOpenHandHGap8,
                     FilledButton.tonal(
                       onPressed: _pickScriptFile,
                       child: Text(l10n.hooksBrowse),
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 SelectableText(
                   l10n.hooksScriptContextFileHelp,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -485,7 +486,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                     ),
                   ),
                 ),
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 SelectableText(
                   l10n.hooksScriptContextInlineHelp,
                   style: theme.textTheme.bodySmall?.copyWith(
@@ -493,7 +494,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                   ),
                 ),
               ],
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               // Timeout
               Row(
                 children: [
@@ -501,7 +502,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                     l10n.hooksTimeoutSeconds,
                     style: theme.textTheme.titleSmall,
                   ),
-                  const SizedBox(width: 12),
+                  kOpenHandHGap12,
                   SizedBox(
                     width: 80,
                     child: TextField(
@@ -518,7 +519,7 @@ class _HookEditorDialogState extends State<_HookEditorDialog> {
                   ),
                 ],
               ),
-              const SizedBox(height: 14),
+              kOpenHandGap14,
               // Enabled switch
               Row(
                 children: [

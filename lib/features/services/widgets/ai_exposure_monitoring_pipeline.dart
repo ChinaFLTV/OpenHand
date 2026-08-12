@@ -17,7 +17,7 @@ class _PipelinePanel extends StatelessWidget {
                 : null,
           ),
         ),
-        const SizedBox(height: 12),
+        kOpenHandGap12,
         _OpsPanelGrid(
           children: [
             _DistributionPanel(

@@ -7,6 +7,7 @@ import '../../../app/model/dialog_animation_settings.dart';
 import '../../../shared/ui/animated_appearance.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/knowledge_vector_distribution.dart';
 import 'knowledge_dialog_widgets.dart';
@@ -468,7 +469,7 @@ class _VectorLegendPill extends StatelessWidget {
               height: 8,
               decoration: BoxDecoration(color: color, shape: BoxShape.circle),
             ),
-            const SizedBox(width: 6),
+            kOpenHandHGap6,
             Text(
               label,
               style: theme.textTheme.labelSmall?.copyWith(
@@ -529,7 +530,7 @@ class _VectorViewportControls extends StatelessWidget {
               icon: Icons.remove_rounded,
               onPressed: onZoomOut,
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             Padding(
               padding: const EdgeInsets.symmetric(horizontal: 4),
               child: Text(
@@ -541,7 +542,7 @@ class _VectorViewportControls extends StatelessWidget {
                 ),
               ),
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             _VectorViewportIconButton(
               tooltip: openHandLocalizedText(
                 context,
@@ -555,7 +556,7 @@ class _VectorViewportControls extends StatelessWidget {
               icon: Icons.add_rounded,
               onPressed: onZoomIn,
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             _VectorViewportIconButton(
               tooltip: openHandLocalizedText(
                 context,
@@ -746,7 +747,7 @@ class _VectorPointPopover extends StatelessWidget {
                           ),
                         ],
                       ),
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       _VectorPopoverSection(
                         title: openHandLocalizedText(
                           context,
@@ -786,7 +787,7 @@ class _VectorPointPopover extends StatelessWidget {
                         ),
                       ),
                       if (score != null || rerankScore != null) ...[
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                         _VectorPopoverSection(
                           title: openHandLocalizedText(
                             context,
@@ -838,7 +839,7 @@ class _VectorPointPopover extends StatelessWidget {
                         ),
                       ],
                       if (projection.point.preview.isNotEmpty) ...[
-                        const SizedBox(height: 10),
+                        kOpenHandGap10,
                         _VectorPopoverSection(
                           title: openHandLocalizedText(
                             context,
@@ -860,7 +861,7 @@ class _VectorPointPopover extends StatelessWidget {
                           ),
                         ),
                       ],
-                      const SizedBox(height: 10),
+                      kOpenHandGap10,
                       _VectorPopoverSection(
                         title: openHandLocalizedText(
                           context,
@@ -997,7 +998,7 @@ class _VectorPopoverSection extends StatelessWidget {
                 height: 1,
               ),
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             child,
           ],
         ),

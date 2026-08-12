@@ -14,6 +14,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import 'web_reverse_dialog_utils.dart';
 import 'web_reverse_session_controller.dart';
 
@@ -124,7 +125,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                     loc?.webReverseCpuThrottlePresets ?? 'Presets',
                     style: theme.textTheme.labelLarge,
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Wrap(
                     spacing: 8,
                     runSpacing: 8,
@@ -146,7 +147,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                         'Slider ${_rate.toStringAsFixed(1)}×',
                     style: theme.textTheme.labelLarge,
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Slider(
                     value: _rate,
                     min: 1,
@@ -156,7 +157,7 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
                     onChanged: _busy ? null : (v) => setState(() => _rate = v),
                     onChangeEnd: _busy ? null : (v) => _apply(v),
                   ),
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Container(
                     padding: const EdgeInsets.all(10),
                     decoration: webReverseSurfaceCardDecoration(cs),

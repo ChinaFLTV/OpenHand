@@ -215,7 +215,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
                 roleConfig.modelId.isNotEmpty ||
                 log.exitCode != null ||
                 log.savedLogPath != null) ...[
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               Wrap(
                 spacing: 8,
                 runSpacing: 8,
@@ -288,7 +288,7 @@ class _HePhaseCardState extends State<_HePhaseCard> {
 
             // ── Edit CLI/model for retryable and not-yet-executed phases ───
             if (widget.onRoleConfigChanged != null) ...[
-              const SizedBox(height: 10),
+              kOpenHandGap10,
               _HePendingPhaseEditor(
                 roleConfig: roleConfig,
                 onChanged: widget.onRoleConfigChanged!,
@@ -417,11 +417,11 @@ class _HePhaseExpandedBody extends StatelessWidget {
           filePathRoots: filePathRoots,
         ),
         if (log.changedFiles.isNotEmpty) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           _HeChangedFilesList(files: log.changedFiles, isZh: isZh),
         ],
         if (isFailed) ...[
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Row(
             children: [
               Icon(
@@ -429,7 +429,7 @@ class _HePhaseExpandedBody extends StatelessWidget {
                 size: 14,
                 color: colorScheme.error,
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Expanded(
                 child: Text(
                   openHandLocalizedText(
@@ -606,7 +606,7 @@ class _HePhaseMetaRow extends StatelessWidget {
         children: [
           statusIndicator,
           // Add spacing only when the icon slot is occupied (non-running).
-          if (!_isRunning) const SizedBox(width: 8),
+          if (!_isRunning) kOpenHandHGap8,
           Flexible(
             child: Text(
               '$phaseName · $statusText',
@@ -617,7 +617,7 @@ class _HePhaseMetaRow extends StatelessWidget {
               ),
             ),
           ),
-          const SizedBox(width: 6),
+          kOpenHandHGap6,
           AnimatedRotation(
             turns: expanded ? 0.5 : 0,
             duration: openHandMotionDuration(context, kOpenHandMotion220),

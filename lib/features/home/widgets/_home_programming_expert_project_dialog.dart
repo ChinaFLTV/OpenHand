@@ -948,7 +948,7 @@ class _ProgrammingExpertProjectDialogState
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               OpenHandDirectoryField(
                 controller: _pathController,
                 label: text(
@@ -986,7 +986,7 @@ class _ProgrammingExpertProjectDialogState
                 onBrowse: _pickProjectDirectory,
               ),
               if (normalizedProjectRoot.isNotEmpty && !projectRootExists) ...[
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -995,7 +995,7 @@ class _ProgrammingExpertProjectDialogState
                       size: 16,
                       color: colorScheme.error,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Expanded(
                       child: Text(
                         text(
@@ -1016,7 +1016,7 @@ class _ProgrammingExpertProjectDialogState
                 ),
               ],
               if (currentWorkspacePath.isNotEmpty) ...[
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -1035,7 +1035,7 @@ class _ProgrammingExpertProjectDialogState
                         size: 18,
                         color: colorScheme.tertiary,
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -1054,7 +1054,7 @@ class _ProgrammingExpertProjectDialogState
                                 color: colorScheme.tertiary,
                               ),
                             ),
-                            const SizedBox(height: 4),
+                            kOpenHandGap4,
                             Text(
                               OpenHandPaths.shortenHomePath(
                                 currentWorkspacePath,
@@ -1064,7 +1064,7 @@ class _ProgrammingExpertProjectDialogState
                                 height: 1.4,
                               ),
                             ),
-                            const SizedBox(height: 6),
+                            kOpenHandGap6,
                             Text(
                               currentWorkspaceExists
                                   ? text(
@@ -1091,7 +1091,7 @@ class _ProgrammingExpertProjectDialogState
                           ],
                         ),
                       ),
-                      const SizedBox(width: 10),
+                      kOpenHandHGap10,
                       if (currentWorkspaceMatchesProjectRoot)
                         Chip(
                           label: Text(
@@ -1140,7 +1140,7 @@ class _ProgrammingExpertProjectDialogState
               if (normalizedProjectRoot.isNotEmpty &&
                   (recentProjectConfig != null ||
                       detectedProjectLanguage != 'mixed')) ...[
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Container(
                   width: double.infinity,
                   padding: const EdgeInsets.all(12),
@@ -1195,7 +1195,7 @@ class _ProgrammingExpertProjectDialogState
                           color: colorScheme.primary,
                         ),
                       ),
-                      const SizedBox(height: 6),
+                      kOpenHandGap6,
                       Text(
                         projectLanguageHint,
                         style: theme.textTheme.bodySmall?.copyWith(
@@ -1203,7 +1203,7 @@ class _ProgrammingExpertProjectDialogState
                           height: 1.45,
                         ),
                       ),
-                      const SizedBox(height: 8),
+                      kOpenHandGap8,
                       Wrap(
                         spacing: 8,
                         runSpacing: 8,
@@ -1270,7 +1270,7 @@ class _ProgrammingExpertProjectDialogState
                   ),
                 ),
               ],
-              const SizedBox(height: 18),
+              kOpenHandGap18,
               Text(
                 text(
                   zh: '项目编程语言',
@@ -1285,7 +1285,7 @@ class _ProgrammingExpertProjectDialogState
                   color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Wrap(
                 spacing: 8,
                 runSpacing: 6,
@@ -1324,7 +1324,7 @@ class _ProgrammingExpertProjectDialogState
                     .toList(growable: false),
               ),
               if (_selectedLanguage == 'mixed') ...[
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1333,7 +1333,7 @@ class _ProgrammingExpertProjectDialogState
                       size: 14,
                       color: colorScheme.primary,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Expanded(
                       child: Text(
                         text(
@@ -1356,7 +1356,7 @@ class _ProgrammingExpertProjectDialogState
                   ],
                 ),
               ] else ...[
-                const SizedBox(height: 18),
+                kOpenHandGap18,
                 OpenHandDirectoryField(
                   controller: _sdkController,
                   label: text(
@@ -1394,7 +1394,7 @@ class _ProgrammingExpertProjectDialogState
                   onBrowse: _pickSdkDirectory,
                 ),
                 if (recentSdkPaths.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   _ProgrammingExpertRecentPathChips(
                     title: text(
                       zh: '最近 SDK 路径',
@@ -1410,7 +1410,7 @@ class _ProgrammingExpertProjectDialogState
                     },
                   ),
                 ],
-                const SizedBox(height: 18),
+                kOpenHandGap18,
                 OpenHandDirectoryField(
                   controller: _lspController,
                   label: text(
@@ -1448,7 +1448,7 @@ class _ProgrammingExpertProjectDialogState
                   onBrowse: _pickLspDirectory,
                 ),
                 if (recentLspPaths.isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   _ProgrammingExpertRecentPathChips(
                     title: text(
                       zh: '最近 LSP 路径',
@@ -1464,7 +1464,7 @@ class _ProgrammingExpertProjectDialogState
                     },
                   ),
                 ],
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 Row(
                   crossAxisAlignment: CrossAxisAlignment.start,
                   children: [
@@ -1473,7 +1473,7 @@ class _ProgrammingExpertProjectDialogState
                       size: 14,
                       color: colorScheme.primary,
                     ),
-                    const SizedBox(width: 6),
+                    kOpenHandHGap6,
                     Expanded(
                       child: Text(
                         text(
@@ -1493,7 +1493,7 @@ class _ProgrammingExpertProjectDialogState
                     ),
                   ],
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Wrap(
                   spacing: 8,
                   runSpacing: 8,
@@ -1531,7 +1531,7 @@ class _ProgrammingExpertProjectDialogState
                 ),
               ],
               if (recentProjectRoots.isNotEmpty) ...[
-                const SizedBox(height: 18),
+                kOpenHandGap18,
                 Text(
                   text(
                     zh: '最近项目',
@@ -1546,7 +1546,7 @@ class _ProgrammingExpertProjectDialogState
                     color: colorScheme.onSurfaceVariant,
                   ),
                 ),
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 ConstrainedBox(
                   constraints: const BoxConstraints(maxHeight: 150),
                   child: SingleChildScrollView(
@@ -1582,7 +1582,7 @@ class _ProgrammingExpertProjectDialogState
                                         size: 18,
                                         color: colorScheme.primary,
                                       ),
-                                      const SizedBox(width: 10),
+                                      kOpenHandHGap10,
                                       Expanded(
                                         child: Column(
                                           crossAxisAlignment:
@@ -1684,7 +1684,7 @@ class _ProgrammingExpertRecentPathChips extends StatelessWidget {
             color: colorScheme.onSurfaceVariant,
           ),
         ),
-        const SizedBox(height: 6),
+        kOpenHandGap6,
         Wrap(
           spacing: 8,
           runSpacing: 8,

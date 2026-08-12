@@ -224,7 +224,7 @@ class _AnimationSettingsControl extends StatelessWidget {
             onChanged(current.copyWith(entranceStyle: value));
           },
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         _buildStyleRow(
           label: l10n.settingsAnimationExit,
           value: current.exitStyle,
@@ -234,7 +234,7 @@ class _AnimationSettingsControl extends StatelessWidget {
             onChanged(current.copyWith(exitStyle: value));
           },
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Row(
           children: [
             SizedBox(
@@ -244,7 +244,7 @@ class _AnimationSettingsControl extends StatelessWidget {
                 style: textTheme.labelLarge,
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: Row(
                 children: [
@@ -276,7 +276,7 @@ class _AnimationSettingsControl extends StatelessWidget {
             ),
           ],
         ),
-        const SizedBox(height: 10),
+        kOpenHandGap10,
         Row(
           children: [
             SizedBox(
@@ -286,7 +286,7 @@ class _AnimationSettingsControl extends StatelessWidget {
                 style: textTheme.labelLarge,
               ),
             ),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: AnimatedDropdownButtonFormField<DialogAnimationCurve>(
                 initialValue: current.curve,
@@ -330,7 +330,7 @@ class _AnimationSettingsControl extends StatelessWidget {
     return Row(
       children: [
         SizedBox(width: 80, child: Text(label, style: textTheme.labelLarge)),
-        const SizedBox(width: 8),
+        kOpenHandHGap8,
         Expanded(
           child: AnimatedDropdownButtonFormField<DialogAnimationStyle>(
             initialValue: value,

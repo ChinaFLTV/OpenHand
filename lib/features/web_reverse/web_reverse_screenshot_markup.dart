@@ -11,6 +11,7 @@ import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/oh_pill.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_tap_region.dart';
 import 'web_reverse_dialog_utils.dart';
 
@@ -211,9 +212,9 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
                 active: _tool == t.$1,
                 onTap: () => setState(() => _tool = t.$1),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
             ],
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             // 颜色选择
             for (final c in const [
               Colors.redAccent,
@@ -243,9 +244,9 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
                   ),
                 ),
               ),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
             ],
-            const SizedBox(width: 12),
+            kOpenHandHGap12,
             SizedBox(
               width: 140,
               child: Row(
@@ -255,7 +256,7 @@ class _ScreenshotMarkupDialogState extends State<_ScreenshotMarkupDialog> {
                     size: 16,
                     color: cs.onSurfaceVariant,
                   ),
-                  const SizedBox(width: 4),
+                  kOpenHandHGap4,
                   Expanded(
                     child: Slider(
                       min: 1,

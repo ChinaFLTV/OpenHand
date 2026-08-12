@@ -409,7 +409,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                   ),
                 ],
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               if (_tracing)
                 FilledButton.icon(
                   style: FilledButton.styleFrom(
@@ -451,7 +451,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                     ),
                   ),
                 ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               OutlinedButton.icon(
                 onPressed: (_fpsHistory.isEmpty && _longTasks.isEmpty)
                     ? null
@@ -459,7 +459,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                 icon: const Icon(Icons.table_view_rounded, size: 18),
                 label: Text(_wrExportCsvLabel(context)),
               ),
-              const SizedBox(width: 10),
+              kOpenHandHGap10,
               OutlinedButton.icon(
                 onPressed: _lastTraceJson == null ? null : _showFlameGraph,
                 icon: const Icon(Icons.local_fire_department_rounded, size: 18),
@@ -477,7 +477,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           // 录制完成后直接在面板里画一段 5 lane 的 timeline，免去打开火焰图弹窗
           // 的步骤；交互上支持水平双指 / Ctrl+滚轮缩放 + 拖拽平移 + hover tooltip。
           if (_traceLanes.isNotEmpty)
@@ -507,7 +507,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                           color: cs.onSurfaceVariant,
                         ),
                       ),
-                      const SizedBox(height: 2),
+                      kOpenHandGap2,
                       Text(
                         _fpsHistory.isEmpty
                             ? '—'
@@ -543,7 +543,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
               ],
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Expanded(
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -624,7 +624,7 @@ class _PerformancePanelState extends State<_PerformancePanel> {
                           }).toList(),
                         ),
                 ),
-                const SizedBox(width: 12),
+                kOpenHandHGap12,
                 // Long tasks 侧栏：固定 320 宽，紧凑列表 + 时长高亮。
                 SizedBox(width: 320, child: _LongTasksPane(tasks: _longTasks)),
               ],
@@ -1199,7 +1199,7 @@ class _LongTasksPane extends StatelessWidget {
                   size: 16,
                   color: cs.onSurfaceVariant,
                 ),
-                const SizedBox(width: 6),
+                kOpenHandHGap6,
                 Expanded(
                   child: Text(
                     openHandLocalizedText(
@@ -1726,7 +1726,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
             breached: _heapBreached,
             onThresholdChanged: (v) => setState(() => _heapWarnThresholdMb = v),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           // 「采样开关 + 实时 sparkline」整合卡片：开关切换会
           // 触发 startSampling / stopSampling；采样窗口内 1.5s 拍一根条柱，
           // 高度 = 该 tick 的 used 增量（>=0），自动归一化。停止后冻结便
@@ -1737,7 +1737,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
             onToggle: _toggleSampling,
             reduceMotion: widget.reduceMotion,
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           // ── 采样 / 快照工具栏 ──────────────────────────────────────
           Row(
             children: [
@@ -1786,7 +1786,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                         ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               OutlinedButton.icon(
                 onPressed: (!_capturing && _snapA != null && _snapB != null)
                     ? _compareSnapshots
@@ -1804,7 +1804,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               OutlinedButton.icon(
                 onPressed: _last == null ? null : _save,
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
@@ -1822,7 +1822,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           if (_samplingResult != null)
             Expanded(child: _SamplingTopList(result: _samplingResult!))
           else if (_last != null)
@@ -1846,7 +1846,7 @@ class _MemoryPanelState extends State<_MemoryPanel> {
                       fontWeight: FontWeight.w800,
                     ),
                   ),
-                  const SizedBox(height: 6),
+                  kOpenHandGap6,
                   Text(
                     openHandLocalizedText(
                       context,
@@ -1948,7 +1948,7 @@ class _V8HeapLiveCard extends StatelessWidget {
                       ),
                     ),
                     if (breached) ...[
-                      const SizedBox(width: 6),
+                      kOpenHandHGap6,
                       Icon(
                         Icons.warning_amber_rounded,
                         size: 14,
@@ -1957,7 +1957,7 @@ class _V8HeapLiveCard extends StatelessWidget {
                     ],
                   ],
                 ),
-                const SizedBox(height: 4),
+                kOpenHandGap4,
                 Text(
                   '${openHandLocalizedText(context, zh: "已用", zhHant: "已用", en: "Used", fr: "Utilise", de: "Genutzt", ja: "使用済み")}: ${formatByteSize(lastUsed)}',
                   style: theme.textTheme.titleMedium?.copyWith(
@@ -2001,7 +2001,7 @@ class _V8HeapLiveCard extends StatelessWidget {
                         size: 13,
                         color: cs.onSurfaceVariant,
                       ),
-                      const SizedBox(width: 4),
+                      kOpenHandHGap4,
                       Text(
                         openHandLocalizedText(
                           context,
@@ -2279,7 +2279,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                       size: 14,
                       color: isSampling ? cs.primary : cs.onSurfaceVariant,
                     ),
-                    const SizedBox(width: 4),
+                    kOpenHandHGap4,
                     Text(
                       openHandLocalizedText(
                         context,
@@ -2297,7 +2297,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 6),
+                kOpenHandGap6,
                 Text(
                   isSampling
                       ? openHandLocalizedText(
@@ -2503,7 +2503,7 @@ class _SamplingTopList extends StatelessWidget {
               ),
             ],
           ),
-          const SizedBox(height: 6),
+          kOpenHandGap6,
           Expanded(
             child: ListView.builder(
               itemCount: result.top.length,
@@ -2561,7 +2561,7 @@ class _SamplingTopList extends StatelessWidget {
                             ],
                           ),
                         ),
-                        const SizedBox(width: 10),
+                        kOpenHandHGap10,
                         SizedBox(
                           width: 84,
                           child: Text(
@@ -2885,7 +2885,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
                 ),
             ],
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           Row(
             children: [
               if (_origin != null)
@@ -2905,7 +2905,7 @@ class _ApplicationPanelState extends State<_ApplicationPanel> {
               ),
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           Expanded(
             child: switch (_tab) {
               _AppTab.cookies => _CookiesTable(
@@ -3075,13 +3075,13 @@ class _CookiesTableState extends State<_CookiesTable> {
               icon: const Icon(Icons.add_rounded, size: 16),
               label: Text(_webReverseDashAddCookieLabel(context)),
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             TextButton.icon(
               onPressed: cookies.isEmpty ? null : _exportJson,
               icon: const Icon(Icons.copy_all_rounded, size: 16),
               label: Text(openHandExportJsonLabel(context)),
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: cs.error),
               onPressed: cookies.isEmpty ? null : _clearAll,
@@ -3157,7 +3157,7 @@ class _CookiesTableState extends State<_CookiesTable> {
                                             : () => _editCookie(c),
                                         icon: const Icon(Icons.edit_rounded),
                                       ),
-                                      const SizedBox(width: 4),
+                                      kOpenHandHGap4,
                                       IconButton(
                                         tooltip: openHandDeleteLabel(context),
                                         visualDensity: VisualDensity.compact,
@@ -3255,7 +3255,7 @@ Future<Map<String, Object?>?> _showCookieEditor(
                 counterText: '',
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             TextField(
               controller: value,
               maxLines: 3,
@@ -3265,7 +3265,7 @@ Future<Map<String, Object?>?> _showCookieEditor(
                 counterText: '',
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             TextField(
               controller: domain,
               maxLength: WebReverseSessionController.maxCookieDomainChars,
@@ -3274,7 +3274,7 @@ Future<Map<String, Object?>?> _showCookieEditor(
                 counterText: '',
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             TextField(
               controller: path,
               maxLength: WebReverseSessionController.maxCookiePathChars,
@@ -3453,13 +3453,13 @@ class _StorageTableState extends State<_StorageTable> {
                 ),
               ),
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             TextButton.icon(
               onPressed: rows.isEmpty ? null : _exportJson,
               icon: const Icon(Icons.copy_all_rounded, size: 16),
               label: Text(openHandExportJsonLabel(context)),
             ),
-            const SizedBox(width: 4),
+            kOpenHandHGap4,
             TextButton.icon(
               style: TextButton.styleFrom(foregroundColor: cs.error),
               onPressed: rows.isEmpty || !originOk ? null : _clearAll,
@@ -3521,7 +3521,7 @@ class _StorageTableState extends State<_StorageTable> {
                             onPressed: () => _edit(r),
                             icon: const Icon(Icons.edit_rounded),
                           ),
-                          const SizedBox(width: 4),
+                          kOpenHandHGap4,
                           IconButton(
                             tooltip: openHandDeleteLabel(context),
                             visualDensity: VisualDensity.compact,
@@ -3584,7 +3584,7 @@ Future<({String key, String value})?> _showStorageEditor(
                 counterText: '',
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             TextField(
               controller: valueCtrl,
               maxLines: 6,
@@ -4009,7 +4009,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                             size: 16,
                             color: cs.primary,
                           ),
-                          const SizedBox(width: 6),
+                          kOpenHandHGap6,
                           Expanded(
                             child: SelectableText(
                               name,
@@ -4081,7 +4081,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                                   size: 12,
                                   color: cs.onSurfaceVariant,
                                 ),
-                                const SizedBox(width: 6),
+                                kOpenHandHGap6,
                                 Expanded(
                                   child: Text(
                                     s,
@@ -4140,7 +4140,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                               fontFamily: kOpenHandMonospaceFontFamily,
                             ),
                           ),
-                          const SizedBox(width: 8),
+                          kOpenHandHGap8,
                           if (_hasMore)
                             TextButton.icon(
                               onPressed: _loading ? null : _loadMore,
@@ -4263,7 +4263,7 @@ class _IndexedDbEntryRowState extends State<_IndexedDbEntryRow> {
                   size: 16,
                   color: cs.onSurfaceVariant,
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 SizedBox(
                   width: 200,
                   child: Text(
@@ -4359,7 +4359,7 @@ class _NameListPanel extends StatelessWidget {
         child: Row(
           children: [
             Icon(Icons.folder_zip_rounded, size: 16, color: cs.primary),
-            const SizedBox(width: 8),
+            kOpenHandHGap8,
             Expanded(
               child: SelectableText(
                 names[i],
@@ -4486,7 +4486,7 @@ class _ServiceWorkersTable extends StatelessWidget {
                                   ),
                                 ),
                               ),
-                              const SizedBox(width: 8),
+                              kOpenHandHGap8,
                               Expanded(
                                 child: SelectableText(
                                   url,
@@ -4516,7 +4516,7 @@ class _ServiceWorkersTable extends StatelessWidget {
                                       },
                                 icon: const Icon(Icons.refresh_rounded),
                               ),
-                              const SizedBox(width: 4),
+                              kOpenHandHGap4,
                               IconButton(
                                 tooltip: openHandLocalizedText(
                                   context,
@@ -4549,7 +4549,7 @@ class _ServiceWorkersTable extends StatelessWidget {
                             ],
                           ),
                           if (scope.isNotEmpty) ...[
-                            const SizedBox(height: 4),
+                            kOpenHandGap4,
                             Text(
                               'scope: $scope',
                               style: theme.textTheme.labelSmall?.copyWith(
@@ -4611,7 +4611,7 @@ class _SecurityPanelState extends State<_SecurityPanel> {
                 height: 12,
                 decoration: BoxDecoration(color: color, shape: BoxShape.circle),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               Text(
                 openHandLocalizedText(
                   context,
@@ -4642,7 +4642,7 @@ class _SecurityPanelState extends State<_SecurityPanel> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Expanded(
             child: Container(
               width: double.infinity,
@@ -5056,7 +5056,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                 ),
               ),
               if (kind == 'assertText') ...[
-                const SizedBox(height: 12),
+                kOpenHandGap12,
                 TextField(
                   controller: expectedCtrl,
                   decoration: InputDecoration(
@@ -5136,7 +5136,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                         ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               OutlinedButton.icon(
                 onPressed: (steps.isEmpty || ctrl.isRecording || _replaying)
                     ? null
@@ -5169,13 +5169,13 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                         ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               OutlinedButton.icon(
                 onPressed: steps.isEmpty ? null : _save,
                 icon: const Icon(Icons.save_alt_rounded, size: 18),
                 label: Text(openHandExportJsonLabel(context)),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               AnimatedPopupMenuButton<String>(
                 tooltip: openHandLocalizedText(
                   context,
@@ -5215,7 +5215,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               OutlinedButton.icon(
                 onPressed: ctrl.isRecording ? null : _import,
                 icon: const Icon(Icons.upload_file_rounded, size: 18),
@@ -5231,7 +5231,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               AnimatedPopupMenuButton<String>(
                 tooltip: openHandLocalizedText(
                   context,
@@ -5289,7 +5289,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                   ),
                 ),
               ),
-              const SizedBox(width: 8),
+              kOpenHandHGap8,
               IconButton(
                 tooltip: openHandClearLabel(context),
                 onPressed: (steps.isEmpty || ctrl.isRecording)
@@ -5314,7 +5314,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
               ),
             ],
           ),
-          const SizedBox(height: 12),
+          kOpenHandGap12,
           Expanded(
             child: steps.isEmpty
                 ? Center(
@@ -5673,7 +5673,7 @@ class _FlameGraphDialogState extends State<_FlameGraphDialog> {
                                   fontWeight: FontWeight.w700,
                                 ),
                               ),
-                              const SizedBox(height: 6),
+                              kOpenHandGap6,
                               Expanded(
                                 child: ListView.builder(
                                   itemCount: top.length,
@@ -6190,7 +6190,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                     fontFamily: kOpenHandMonospaceFontFamily,
                   ),
                 ),
-                const SizedBox(height: 10),
+                kOpenHandGap10,
                 _DiffRow(
                   label: openHandLocalizedText(
                     context,
@@ -6255,7 +6255,7 @@ class _SnapshotDiffDialogState extends State<_SnapshotDiffDialog> {
                     fontWeight: FontWeight.w700,
                   ),
                 ),
-                const SizedBox(width: 10),
+                kOpenHandHGap10,
                 Text(
                   openHandLocalizedText(
                     context,
@@ -6719,7 +6719,7 @@ class _RetainerSidePanel extends StatelessWidget {
               fontWeight: FontWeight.w800,
             ),
           ),
-          const SizedBox(height: 4),
+          kOpenHandGap4,
           SelectableText(
             ctorLabel,
             style: const TextStyle(
@@ -6727,7 +6727,7 @@ class _RetainerSidePanel extends StatelessWidget {
               fontSize: 11,
             ),
           ),
-          const SizedBox(height: 10),
+          kOpenHandGap10,
           if (loading)
             const Padding(
               padding: EdgeInsets.symmetric(vertical: 12),
@@ -6791,7 +6791,7 @@ class _RetainerSidePanel extends StatelessWidget {
                 color: cs.onSurfaceVariant,
               ),
             ),
-            const SizedBox(height: 10),
+            kOpenHandGap10,
             Expanded(
               child: ListView.builder(
                 itemCount: result!.chains.length,
@@ -6823,7 +6823,7 @@ class _RetainerSidePanel extends StatelessWidget {
                               color: cs.primary,
                             ),
                           ),
-                          const SizedBox(height: 4),
+                          kOpenHandGap4,
                           for (var i = chain.path.length - 1; i >= 0; i--)
                             Padding(
                               padding: EdgeInsets.only(
@@ -6838,7 +6838,7 @@ class _RetainerSidePanel extends StatelessWidget {
                                     size: 12,
                                     color: cs.onSurfaceVariant,
                                   ),
-                                  const SizedBox(width: 4),
+                                  kOpenHandHGap4,
                                   Expanded(
                                     child: SelectableText(
                                       chain.path[i],
@@ -7042,7 +7042,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
           Row(
             children: [
               Icon(Icons.timeline_rounded, size: 16, color: cs.primary),
-              const SizedBox(width: 6),
+              kOpenHandHGap6,
               Text(
                 openHandLocalizedText(
                   context,
@@ -7060,7 +7060,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
               ),
               const SizedBox(width: 14),
               for (final entry in _kLaneMeta.asMap().entries) ...[
-                if (entry.key != 0) const SizedBox(width: 8),
+                if (entry.key != 0) kOpenHandHGap8,
                 Container(
                   width: 10,
                   height: 10,
@@ -7069,7 +7069,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
                     borderRadius: BorderRadius.circular(2),
                   ),
                 ),
-                const SizedBox(width: 4),
+                kOpenHandHGap4,
                 Text(
                   openHandLocalizedText(
                     context,
@@ -7085,7 +7085,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
               ],
             ],
           ),
-          const SizedBox(height: 8),
+          kOpenHandGap8,
           SizedBox(
             height: totalH,
             child: LayoutBuilder(

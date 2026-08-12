@@ -5,6 +5,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
@@ -310,7 +311,7 @@ class _ChunkTile extends StatelessWidget {
                   ],
                 ),
                 if (heading.trim().isNotEmpty) ...[
-                  const SizedBox(height: 8),
+                  kOpenHandGap8,
                   Text(
                     heading,
                     maxLines: 2,
@@ -321,7 +322,7 @@ class _ChunkTile extends StatelessWidget {
                     ),
                   ),
                 ],
-                const SizedBox(height: 8),
+                kOpenHandGap8,
                 Text(
                   chunk.content,
                   maxLines: 5,

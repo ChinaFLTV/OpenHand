@@ -22,6 +22,7 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_dialog_utils.dart';
@@ -262,7 +263,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        kOpenHandGap8,
                         Wrap(
                           spacing: 12,
                           runSpacing: 8,
@@ -350,9 +351,9 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                             message: _lastError,
                           ),
                         ),
-                        const SizedBox(height: 16),
+                        kOpenHandGap16,
                         Divider(color: cs.outlineVariant),
-                        const SizedBox(height: 8),
+                        kOpenHandGap8,
                         Text(
                           loc?.webReverseWebauthnCreatedCount(_auths.length) ??
                               'Authenticators (${_auths.length})',
@@ -360,7 +361,7 @@ class _WebAuthnDialogState extends State<_WebAuthnDialog> {
                             fontWeight: FontWeight.w700,
                           ),
                         ),
-                        const SizedBox(height: 8),
+                        kOpenHandGap8,
                         if (_auths.isEmpty)
                           Text(
                             loc?.webReverseWebauthnNone ??
@@ -483,7 +484,7 @@ class _AuthCard extends StatelessWidget {
                 ),
               ],
             ),
-            const SizedBox(height: 4),
+            kOpenHandGap4,
             Wrap(
               spacing: 6,
               runSpacing: 4,
@@ -494,7 +495,7 @@ class _AuthCard extends StatelessWidget {
                 if (auth.hasUserVerification) _badge(theme, 'UV'),
               ],
             ),
-            const SizedBox(height: 8),
+            kOpenHandGap8,
             Row(
               children: [
                 Switch(
@@ -508,7 +509,7 @@ class _AuthCard extends StatelessWidget {
               ],
             ),
             if (auth.credentials.isNotEmpty) ...[
-              const SizedBox(height: 8),
+              kOpenHandGap8,
               Text(
                 loc?.webReverseWebauthnCredentialsCount(
                       auth.credentials.length,
@@ -518,7 +519,7 @@ class _AuthCard extends StatelessWidget {
                   fontWeight: FontWeight.w700,
                 ),
               ),
-              const SizedBox(height: 4),
+              kOpenHandGap4,
               for (final c in auth.credentials)
                 Container(
                   margin: const EdgeInsets.only(top: 4),

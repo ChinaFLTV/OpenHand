@@ -5,6 +5,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
+import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../knowledge_base_controller.dart';
@@ -292,7 +293,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                       },
                       labelWidth: isChineseLayout ? 150 : 170,
                     ),
-                    const SizedBox(height: 12),
+                    kOpenHandGap12,
                     FilledButton.tonalIcon(
                       onPressed: operationBusy ? null : _scroll,
                       icon: const Icon(Icons.list_alt_rounded),
@@ -309,7 +310,7 @@ class _QdrantAdminDialogState extends State<QdrantAdminDialog> {
                       ),
                     ),
                     if (_scrollResult case final scrollResult?) ...[
-                      const SizedBox(height: 12),
+                      kOpenHandGap12,
                       KnowledgeDialogJsonBox(value: scrollResult),
                     ],
                   ],
