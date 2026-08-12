@@ -196,7 +196,8 @@ class AiJunglerClient {
     int offset = 0,
   }) => _jsonRequest(
     'GET',
-    '/v1/dependencies/postgresql/${Uri.encodeComponent(table)}?limit=$limit&offset=$offset',
+    '/v1/dependencies/postgresql/${Uri.encodeComponent(table)}'
+    '?limit=${limit.clamp(1, 500)}&offset=${offset.clamp(0, 0x7fffffff)}',
   );
 
   Future<Map<String, Object?>> insertPostgresqlRow(
@@ -242,7 +243,10 @@ class AiJunglerClient {
     int limit = 50,
   }) => _jsonRequest(
     'GET',
-    '/v1/dependencies/redis?cursor=$cursor&limit=$limit&search=${Uri.encodeQueryComponent(search)}',
+    '/v1/dependencies/redis'
+    '?cursor=${cursor.clamp(0, 0x7fffffff)}'
+    '&limit=${limit.clamp(1, 500)}'
+    '&search=${Uri.encodeQueryComponent(search)}',
   );
 
   Future<Map<String, Object?>> putRedisRecord({
