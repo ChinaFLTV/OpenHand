@@ -1022,7 +1022,7 @@ class _ProgrammingExpertProjectDialogState
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: colorScheme.tertiary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: _kHomeRadiusLarge,
                     border: Border.all(
                       color: colorScheme.tertiary.withValues(alpha: 0.16),
                     ),
@@ -1146,7 +1146,7 @@ class _ProgrammingExpertProjectDialogState
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: colorScheme.primary.withValues(alpha: 0.08),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: _kHomeRadiusLarge,
                     border: Border.all(
                       color: colorScheme.primary.withValues(alpha: 0.16),
                     ),
@@ -1308,7 +1308,7 @@ class _ProgrammingExpertProjectDialogState
                               : colorScheme.onSurfaceVariant,
                         ),
                         shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(20),
+                          borderRadius: _kHomeRadiusFull,
                           side: BorderSide(
                             color: selected
                                 ? colorScheme.primary.withValues(alpha: 0.4)
@@ -1558,7 +1558,7 @@ class _ProgrammingExpertProjectDialogState
                             return Material(
                               color: Colors.transparent,
                               child: InkWell(
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: _kHomeRadiusSmall,
                                 onTap: () {
                                   unawaited(_applyProjectRootSelection(path));
                                 },

@@ -878,7 +878,7 @@ class _FileMutationLineDeltaBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: background,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _kHomeRadiusSmall,
       ),
       child: text,
     );
@@ -2673,7 +2673,7 @@ class _FileMutationHistoryInspectorDialogState
       maxWidth: kOpenHandDialogWidthStandard,
       maxHeight: kOpenHandDialogHeightStandard,
       safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: const RoundedRectangleBorder(borderRadius: _kHomeRadiusXXLarge),
       child: Column(
         mainAxisSize: MainAxisSize.min,
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -2709,9 +2709,7 @@ class _FileMutationHistoryInspectorDialogState
                 isDense: true,
                 prefixIcon: const Icon(Icons.search_rounded, size: 18),
                 hintText: l10n.fileMutationHistoryInspectorFilterHint,
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(10),
-                ),
+                border: const OutlineInputBorder(borderRadius: _kHomeRadiusMedium),
               ),
             ),
           ),
@@ -2924,7 +2922,7 @@ class _HistoryInspectorGroup extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: cs.primary.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(10),
+                        borderRadius: _kHomeRadiusMedium,
                       ),
                       child: Text(
                         l10n.fileMutationFilesCount(entries.length),

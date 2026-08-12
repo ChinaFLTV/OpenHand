@@ -834,7 +834,7 @@ class _SessionMetadataDialog extends StatelessWidget {
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.55),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: _kHomeRadiusLarge,
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.4),
           ),
@@ -893,7 +893,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: colorScheme.errorContainer.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: _kHomeRadiusSmall,
                   ),
                   child: Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
@@ -1624,7 +1624,7 @@ Widget _buildMetadataStructuredNode(
       padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _kHomeRadiusXLarge,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.42),
         ),
@@ -1700,7 +1700,7 @@ Widget _buildMetadataStructuredNode(
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.52),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: _kHomeRadiusXLarge,
               border: Border.all(
                 color: colorScheme.outlineVariant.withValues(alpha: 0.42),
               ),
@@ -1799,7 +1799,7 @@ class _MetadataInfoTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: _kHomeRadiusXXLarge,
         border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: Row(
@@ -1809,7 +1809,7 @@ class _MetadataInfoTile extends StatelessWidget {
             height: 34,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.16),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: _kHomeRadiusLarge,
             ),
             child: Icon(icon, size: 18, color: color),
           ),
@@ -2013,7 +2013,7 @@ class _MachineTerminalMetadataCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: _kHomeRadiusXXLarge,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.42),
         ),
@@ -2132,7 +2132,7 @@ class _MetadataPlanRecordCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: _kHomeRadiusXXLarge,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2209,7 +2209,7 @@ class _MetadataErrorCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colorScheme.errorContainer.withValues(alpha: 0.7),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: _kHomeRadiusXXLarge,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -2723,7 +2723,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: _kHomeRadiusLarge,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.4),
         ),
@@ -2759,7 +2759,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
               const SizedBox(width: 8),
               InkWell(
                 onTap: () => setState(() => _overlayOn = !_overlayOn),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: _kHomeRadiusSmall,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 8,

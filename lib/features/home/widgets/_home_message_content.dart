@@ -2506,7 +2506,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
 
   Widget _buildMarkdownImageFrame(BuildContext context, Widget image) {
     return ClipRRect(
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: _kHomeRadiusSmall,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: MediaQuery.sizeOf(context).width * 0.6,

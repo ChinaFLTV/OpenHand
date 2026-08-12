@@ -3478,7 +3478,7 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
       padding: const EdgeInsets.fromLTRB(14, 14, 10, 14),
       decoration: BoxDecoration(
         color: colorScheme.errorContainer.withValues(alpha: 0.78),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: _kHomeRadiusXXLarge,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -4219,7 +4219,7 @@ class _CreationFailureCardState extends State<_CreationFailureCard>
           padding: const EdgeInsets.fromLTRB(16, 14, 10, 14),
           decoration: BoxDecoration(
             color: cs.errorContainer.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: _kHomeRadiusFull,
             border: Border.all(color: cs.error.withValues(alpha: 0.35)),
           ),
           child: Row(

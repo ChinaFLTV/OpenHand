@@ -1511,7 +1511,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
       decoration: InputDecoration(
         labelText: label,
         isDense: true,
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        border: const OutlineInputBorder(borderRadius: _kHomeRadiusLarge),
       ),
     );
   }

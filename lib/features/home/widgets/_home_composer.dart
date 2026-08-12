@@ -1503,7 +1503,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                           .colorScheme
                           .surfaceContainerHighest
                           .withValues(alpha: 0.5),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: _kHomeRadiusSmall,
                       border: Border.all(
                         color: Theme.of(
                           context,
@@ -2304,7 +2304,7 @@ class _ComposerFullAccessModeButtonState
         backgroundColor: backgroundColor,
         foregroundColor: foregroundColor,
         side: BorderSide(color: borderColor),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: const RoundedRectangleBorder(borderRadius: _kHomeRadiusXXLarge),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2431,7 +2431,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
         backgroundColor: backgroundColor,
         foregroundColor: foregroundColor,
         side: BorderSide(color: borderColor),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: const RoundedRectangleBorder(borderRadius: _kHomeRadiusXXLarge),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -2443,7 +2443,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
             height: 28,
             decoration: BoxDecoration(
               color: accentColor.withValues(alpha: 0.10),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: _kHomeRadiusMedium,
             ),
             alignment: Alignment.center,
             // FadeTransition-only: ScaleTransition is unsafe inside
@@ -2924,7 +2924,7 @@ class _ComposerAttachmentChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: _kHomeRadiusXXLarge,
           border: Border.all(color: colorScheme.outlineVariant),
         ),
         child: Row(
@@ -2994,7 +2994,7 @@ class _ComposerImageThumbChip extends StatelessWidget {
                 onTap: onTap,
                 child: Container(
                   decoration: BoxDecoration(
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: _kHomeRadiusLarge,
                     border: Border.all(color: colorScheme.outlineVariant),
                     color: colorScheme.surfaceContainerHighest,
                   ),
@@ -3098,7 +3098,7 @@ class _ProjectReferenceChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 5),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _kHomeRadiusXLarge,
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.35)),
       ),
       child: Row(
@@ -3431,7 +3431,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
                 child: Material(
                   elevation: 8,
                   shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: _kHomeRadiusXXLarge,
                   color: isDark
                       ? colorScheme.surfaceContainerHigh
                       : colorScheme.surface,
@@ -3568,7 +3568,7 @@ class _AtMentionOverlayPanelState extends State<_AtMentionOverlayPanel> {
                                     : Colors.transparent,
                                 child: InkWell(
                                   onTap: () => widget.onSelect(item),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: _kHomeRadiusSmall,
                                   child: Padding(
                                     padding: const EdgeInsets.symmetric(
                                       horizontal: 12,
@@ -3716,10 +3716,10 @@ class _AtMentionBreadcrumbChip extends StatelessWidget {
       color: isLast
           ? colorScheme.primaryContainer.withValues(alpha: 0.5)
           : colorScheme.surfaceContainerHighest.withValues(alpha: 0.6),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: _kHomeRadiusSmall,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _kHomeRadiusSmall,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
           child: Row(
@@ -3816,7 +3816,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
     final panel = Material(
       elevation: 8,
       shadowColor: colorScheme.shadow.withValues(alpha: 0.25),
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: _kHomeRadiusXXLarge,
       color: isDark ? colorScheme.surfaceContainerHigh : colorScheme.surface,
       surfaceTintColor: colorScheme.surfaceTint,
       child: Column(
@@ -3895,7 +3895,7 @@ class _SkillPickerOverlayPanelState extends State<_SkillPickerOverlayPanel> {
                         : Colors.transparent,
                     child: InkWell(
                       onTap: () => widget.onSelect(item),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: _kHomeRadiusSmall,
                       child: Padding(
                         padding: const EdgeInsets.symmetric(
                           horizontal: 12,
@@ -4001,7 +4001,7 @@ class _SkillPickerLeading extends StatelessWidget {
       height: 28,
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.6),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _kHomeRadiusSmall,
       ),
       alignment: Alignment.center,
       child: Text(

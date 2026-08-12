@@ -124,12 +124,6 @@ const int _kSettingsToolResultCompressionWindowMaxChars = 8192;
 const int _kSettingsToolResultCompressionMaxPathHits = 200;
 const int _kSettingsWriteToolSummaryMaxChars = 8192;
 const int _kThrottleConfigImportMaxBytes = 1 * kBytesPerMiB;
-const Duration kOpenHandMotion420 = Duration(milliseconds: 420);
-const Duration kOpenHandMotion260 = Duration(milliseconds: 260);
-const Duration kOpenHandMotion320 = Duration(milliseconds: 320);
-const Duration kOpenHandMotion200 = Duration(
-  milliseconds: 200,
-);
 
 bool _settingsMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);

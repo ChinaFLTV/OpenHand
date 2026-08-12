@@ -319,6 +319,12 @@ String _dingtalkAllowlistText(
 const double _kGatewayDetailDialogWidth = 860;
 const double _kGatewayDetailDialogHeight = 760;
 
+// 通用圆角档位：收敛散落的 BorderRadius.circular 字面量。
+const BorderRadius _kGatewayRadiusSmall = BorderRadius.all(Radius.circular(8));
+const BorderRadius _kGatewayRadiusMedium = BorderRadius.all(Radius.circular(12));
+const BorderRadius _kGatewayRadiusLarge = BorderRadius.all(Radius.circular(14));
+const BorderRadius _kGatewayRadiusXLarge = BorderRadius.all(Radius.circular(16));
+
 class MessageGatewayView extends StatefulWidget {
   const MessageGatewayView({super.key});
 
@@ -2642,7 +2648,7 @@ class _EditorNotice extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: .10),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: _kGatewayRadiusMedium,
         border: Border.all(color: color.withValues(alpha: .28)),
       ),
       child: Row(
@@ -2691,7 +2697,7 @@ class _AgentExposurePanel extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: .46),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: _kGatewayRadiusXLarge,
         border: Border.all(color: colorScheme.primary.withValues(alpha: .24)),
       ),
       child: Column(
@@ -3167,7 +3173,7 @@ class _ConnectivityResultView extends StatelessWidget {
               color:
                   (result.ok ? OpenHandStatusColors.success : colorScheme.error)
                       .withValues(alpha: .10),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: _kGatewayRadiusLarge,
               border: Border.all(
                 color:
                     (result.ok
@@ -3322,7 +3328,7 @@ class _ConnectivityResultView extends StatelessWidget {
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
               color: const Color(0xFF101218),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: _kGatewayRadiusMedium,
               border: Border.all(color: colorScheme.outlineVariant),
             ),
             child: SelectableText(
@@ -3369,7 +3375,7 @@ class _ConnectivityTargetCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: .42),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: _kGatewayRadiusMedium,
         border: Border.all(color: stateColor.withValues(alpha: .32)),
       ),
       child: Column(
@@ -6320,7 +6326,7 @@ class _WebOpsHeaderIdentity extends StatelessWidget {
               alignment: Alignment.center,
               decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: .13),
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: _kGatewayRadiusXLarge,
                 border: Border.all(color: statusColor.withValues(alpha: .34)),
               ),
               child: Icon(Icons.language_rounded, color: statusColor, size: 28),
@@ -6745,7 +6751,7 @@ class _WebOpsMetricTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh.withValues(alpha: .68),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _kGatewayRadiusSmall,
         border: Border.all(color: tone.withValues(alpha: .22)),
         boxShadow: [
           BoxShadow(
@@ -6767,7 +6773,7 @@ class _WebOpsMetricTile extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: tone.withValues(alpha: .12),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: _kGatewayRadiusSmall,
                 ),
                 child: Icon(icon, color: tone, size: 18),
               ),
@@ -6857,7 +6863,7 @@ class _WebOpsTappableCardState extends State<_WebOpsTappableCard> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: _kGatewayRadiusSmall,
             onTap: widget.onTap,
             onFocusChange: _setHighlighted,
             child: widget.child,
@@ -7265,7 +7271,7 @@ class _WebOpsPanel extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: cs.primaryContainer.withValues(alpha: .58),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: _kGatewayRadiusSmall,
                 ),
                 child: Icon(icon, size: 17, color: cs.onPrimaryContainer),
               ),
@@ -8206,7 +8212,7 @@ class _MetricTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _kGatewayRadiusSmall,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.72),
         ),
@@ -9352,7 +9358,7 @@ class _OpsPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 7),
       decoration: BoxDecoration(
         color: tone.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _kGatewayRadiusSmall,
         border: Border.all(color: tone.withValues(alpha: 0.20)),
       ),
       child: RichText(
@@ -9420,7 +9426,7 @@ const EdgeInsets _kOpsCardPadding = EdgeInsets.all(14);
 
 BoxDecoration _opsCardDecoration(ThemeData theme) => BoxDecoration(
   color: theme.colorScheme.surfaceContainerHigh.withValues(alpha: 0.58),
-  borderRadius: BorderRadius.circular(8),
+  borderRadius: _kGatewayRadiusSmall,
   border: Border.all(
     color: theme.colorScheme.outlineVariant.withValues(alpha: 0.72),
   ),
@@ -9469,7 +9475,7 @@ class _SwitchTile extends StatelessWidget {
         color: value
             ? colorScheme.primaryContainer.withValues(alpha: .34)
             : colorScheme.surfaceContainerHighest.withValues(alpha: .42),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: _kGatewayRadiusXLarge,
         border: Border.all(
           color: value
               ? colorScheme.primary.withValues(alpha: .32)
@@ -9488,7 +9494,7 @@ class _SwitchTile extends StatelessWidget {
           ),
         ),
         contentPadding: const EdgeInsetsDirectional.fromSTEB(14, 0, 10, 0),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: const RoundedRectangleBorder(borderRadius: _kGatewayRadiusXLarge),
       ),
     );
   }
@@ -9550,7 +9556,7 @@ class _ResponsiveFields extends StatelessWidget {
 
 InputDecoration _gatewayInputDecoration(BuildContext context, String label) {
   final colorScheme = Theme.of(context).colorScheme;
-  final radius = BorderRadius.circular(16);
+  const radius = _kGatewayRadiusXLarge;
   final border = OutlineInputBorder(
     borderRadius: radius,
     borderSide: BorderSide(
@@ -9629,7 +9635,7 @@ class _MultiSelectDropdownState<T> extends State<_MultiSelectDropdown<T>> {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: _kGatewayRadiusMedium,
         onTap: _showMenu,
         child: InputDecorator(
           decoration:
@@ -9895,12 +9901,10 @@ class _MultiSelectDropdownMenuState<T>
                                   alpha: 0.36,
                                 )
                               : Colors.transparent,
-                          borderRadius: BorderRadius.circular(14),
+                          borderRadius: _kGatewayRadiusLarge,
                           child: CheckboxListTile(
                             dense: true,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(14),
-                            ),
+                            shape: const RoundedRectangleBorder(borderRadius: _kGatewayRadiusLarge),
                             value: selected,
                             onChanged: (_) => _toggle(option.value),
                             controlAffinity: ListTileControlAffinity.leading,
@@ -10088,13 +10092,13 @@ InputDecoration _gatewaySelectionSearchDecoration(
     prefixIcon: Icon(Icons.search_rounded, size: iconSize),
     hintText: hintText,
     border: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: _kGatewayRadiusXLarge,
       borderSide: dense
           ? BorderSide(color: colorScheme.outlineVariant)
           : const BorderSide(),
     ),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: _kGatewayRadiusXLarge,
       borderSide: BorderSide(
         color: colorScheme.outlineVariant.withValues(alpha: 0.72),
       ),
@@ -10227,7 +10231,7 @@ class _ModelMultiSelectField extends StatelessWidget {
     return Padding(
       padding: const EdgeInsets.only(bottom: 12),
       child: InkWell(
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: _kGatewayRadiusMedium,
         onTap: () async {
           final result = await showAnimatedDialog<Set<String>>(
             context: context,
@@ -10545,9 +10549,7 @@ class _ModelMultiSelectDialogState extends State<_ModelMultiSelectDialog> {
                       final selected = effectiveSelected.contains(option.key);
                       return CheckboxListTile(
                         dense: true,
-                        shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(14),
-                        ),
+                        shape: const RoundedRectangleBorder(borderRadius: _kGatewayRadiusLarge),
                         tileColor: selected
                             ? colorScheme.primaryContainer.withValues(
                                 alpha: 0.30,
@@ -10775,7 +10777,7 @@ class _CleanupHistoryLine extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: .52),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _kGatewayRadiusSmall,
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Row(
@@ -10861,7 +10863,7 @@ class _TrendLineChartState extends State<_TrendLineChart> {
         padding: const EdgeInsets.all(12),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHigh.withValues(alpha: .60),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: _kGatewayRadiusSmall,
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: .72),
           ),
@@ -12368,10 +12370,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                               alpha: 0.72,
                                             )
                                           : Colors.transparent,
-                                      borderRadius: BorderRadius.circular(12),
+                                      borderRadius: _kGatewayRadiusMedium,
                                       shadowColor: Colors.transparent,
                                       child: InkWell(
-                                        borderRadius: BorderRadius.circular(12),
+                                        borderRadius: _kGatewayRadiusMedium,
                                         hoverColor: colors
                                             .surfaceContainerHighest
                                             .withValues(alpha: 0.55),
@@ -14820,7 +14822,7 @@ class _DingTalkPendingAttachmentChip extends StatelessWidget {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: colors.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: _kGatewayRadiusMedium,
                       border: Border.all(color: colors.outlineVariant),
                     ),
                     child: ClipRRect(
@@ -14858,7 +14860,7 @@ class _DingTalkPendingAttachmentChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: colors.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: _kGatewayRadiusXLarge,
           border: Border.all(color: colors.outlineVariant),
         ),
         child: Row(
@@ -14884,7 +14886,7 @@ class _DingTalkPendingAttachmentChip extends StatelessWidget {
             const SizedBox(width: 8),
             InkWell(
               onTap: onRemove,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: _kGatewayRadiusSmall,
               child: Icon(
                 Icons.close_rounded,
                 size: 16,
@@ -14979,7 +14981,7 @@ class _DingTalkVoiceRecordingPanel extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14),
       decoration: BoxDecoration(
         color: colors.errorContainer.withValues(alpha: 0.58),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: _kGatewayRadiusXLarge,
         border: Border.all(color: colors.error.withValues(alpha: 0.42)),
       ),
       child: Row(
@@ -15123,7 +15125,7 @@ class _DingTalkResponseErrorBanner extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colors.errorContainer.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: _kGatewayRadiusLarge,
           border: Border.all(color: colors.error.withValues(alpha: 0.32)),
         ),
         child: Padding(
@@ -16923,7 +16925,7 @@ class _DingTalkAuditNotice extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.errorContainer.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: _kGatewayRadiusXLarge,
         border: Border.all(color: colors.error.withValues(alpha: 0.42)),
       ),
       child: Padding(
@@ -16987,7 +16989,7 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: _kGatewayRadiusLarge,
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(10),
@@ -17030,7 +17032,7 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
           DecoratedBox(
             decoration: BoxDecoration(
               color: colors.surfaceContainerLow,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: _kGatewayRadiusLarge,
               border: Border.all(
                 color: colors.outlineVariant.withValues(alpha: 0.72),
               ),
@@ -17073,7 +17075,7 @@ class _DingTalkMessageEditHistoryDialog extends StatelessWidget {
                     color: current
                         ? colors.primaryContainer.withValues(alpha: 0.42)
                         : colors.surface,
-                    borderRadius: BorderRadius.circular(16),
+                    borderRadius: _kGatewayRadiusXLarge,
                     border: Border.all(
                       color: current
                           ? colors.primary.withValues(alpha: 0.58)
@@ -17247,7 +17249,7 @@ class _DingTalkMediaTile extends StatelessWidget {
         message: media.displayName,
         child: Material(
           color: colors.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: _kGatewayRadiusLarge,
           clipBehavior: Clip.antiAlias,
           child: InkWell(
             onTap: () => unawaited(_open(context)),
@@ -17269,10 +17271,10 @@ class _DingTalkMediaTile extends StatelessWidget {
       color: available
           ? colors.surfaceContainerHighest
           : colors.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: _kGatewayRadiusLarge,
       child: InkWell(
         onTap: loading ? null : () => unawaited(_open(context)),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _kGatewayRadiusLarge,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 8, 12, 8),
           child: Row(
@@ -17575,7 +17577,7 @@ class _DingTalkDetailCardGroup extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.surfaceContainer.withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _kGatewayRadiusLarge,
         border: Border.all(
           color: colors.outlineVariant.withValues(alpha: 0.84),
         ),
@@ -17877,7 +17879,7 @@ class _DingTalkMemberCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.64),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: _kGatewayRadiusMedium,
         border: Border.all(
           color: colors.outlineVariant.withValues(alpha: 0.68),
         ),
@@ -17923,7 +17925,7 @@ class _DingTalkMemberCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: accent.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: _kGatewayRadiusSmall,
                     ),
                     child: Text(
                       _dingtalkRoleLabel(context, role),
@@ -17960,7 +17962,7 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.primaryContainer.withValues(alpha: 0.74),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _kGatewayRadiusLarge,
         border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
       ),
       child: Padding(
@@ -17994,7 +17996,7 @@ class _DingTalkDetailIdentityCard extends StatelessWidget {
                       color: colors.surfaceContainerHighest.withValues(
                         alpha: 0.58,
                       ),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: _kGatewayRadiusSmall,
                     ),
                     child: Text(
                       isGroup
@@ -18090,7 +18092,7 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: _kGatewayRadiusMedium,
         border: Border.all(
           color: colors.outlineVariant.withValues(alpha: 0.68),
         ),
@@ -18106,7 +18108,7 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
                 height: 28,
                 decoration: BoxDecoration(
                   color: colors.surfaceContainerHighest.withValues(alpha: 0.76),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: _kGatewayRadiusSmall,
                 ),
                 alignment: Alignment.center,
                 child: Icon(
@@ -18132,7 +18134,7 @@ class _DingTalkDetailNestedSection extends StatelessWidget {
                 ),
                 decoration: BoxDecoration(
                   color: colors.surfaceContainerHighest.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: _kGatewayRadiusMedium,
                 ),
                 child: Text(
                   _dingtalkDetailCountLabel(
@@ -19812,7 +19814,7 @@ class _DingTalkAddConversationDialogState
                     constraints: const BoxConstraints(maxHeight: 280),
                     child: Material(
                       color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: _kGatewayRadiusXLarge,
                       shadowColor: Colors.transparent,
                       child: ListView.separated(
                         shrinkWrap: true,
@@ -19824,9 +19826,7 @@ class _DingTalkAddConversationDialogState
                           final target = _targetSearch.results[index];
                           return ListTile(
                             dense: true,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            shape: const RoundedRectangleBorder(borderRadius: _kGatewayRadiusMedium),
                             leading: Icon(
                               target.type == DingTalkConversationType.group
                                   ? Icons.groups_rounded
@@ -19897,7 +19897,7 @@ class _DingTalkTargetAllowlistField extends StatelessWidget {
                 DecoratedBox(
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: _kGatewayRadiusMedium,
                   ),
                   child: Padding(
                     padding: const EdgeInsets.all(9),
@@ -20131,7 +20131,7 @@ class _DingTalkAllowlistPickerDialogState
                     )
                   : Material(
                       color: theme.colorScheme.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: _kGatewayRadiusXLarge,
                       shadowColor: Colors.transparent,
                       child: ListView.separated(
                         padding: const EdgeInsets.all(8),
@@ -20146,9 +20146,7 @@ class _DingTalkAllowlistPickerDialogState
                             selected: selected,
                             selectedTileColor:
                                 theme.colorScheme.primaryContainer,
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(12),
-                            ),
+                            shape: const RoundedRectangleBorder(borderRadius: _kGatewayRadiusMedium),
                             leading: Icon(widget.icon),
                             title: Text(target.title),
                             subtitle: target.subtitle.trim().isEmpty
@@ -21494,7 +21492,7 @@ class _DingTalkMultimodalPickerDialogState
                     color: selected
                         ? colors.primaryContainer.withValues(alpha: 0.5)
                         : colors.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: _kGatewayRadiusLarge,
                     shadowColor: Colors.transparent,
                     surfaceTintColor: Colors.transparent,
                     child: Padding(
@@ -21609,7 +21607,7 @@ class _DingTalkSettingsCard extends StatelessWidget {
               DecoratedBox(
                 decoration: BoxDecoration(
                   color: theme.colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: _kGatewayRadiusMedium,
                 ),
                 child: Padding(
                   padding: const EdgeInsets.all(9),
@@ -21726,9 +21724,9 @@ class _DingTalkResourceField extends StatelessWidget {
     return Material(
       color: theme.colorScheme.surfaceContainerHighest,
       shadowColor: Colors.transparent,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: _kGatewayRadiusXLarge,
       child: InkWell(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: _kGatewayRadiusXLarge,
         hoverColor: Colors.transparent,
         focusColor: Colors.transparent,
         onTap: onTap,
@@ -22199,7 +22197,7 @@ class _DingTalkResourceDetailsDialog extends StatelessWidget {
         ),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _kGatewayRadiusLarge,
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -22677,7 +22675,7 @@ class _DingTalkResourcePickerDialogState
 
     return Material(
       color: theme.colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: _kGatewayRadiusLarge,
       shadowColor: Colors.transparent,
       surfaceTintColor: Colors.transparent,
       child: Padding(

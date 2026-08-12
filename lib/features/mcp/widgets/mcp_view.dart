@@ -107,6 +107,13 @@ const double _mcpChipStripHeight = 40;
 const double _mcpToolPreviewExpandedHeight = 160;
 const double _mcpToolChipMaxWidth = 360;
 const double _mcpScrollCorrectionEpsilon = 0.5;
+
+// 通用圆角档位：收敛散落的 BorderRadius.circular 字面量。
+const BorderRadius _mcpRadiusSmall = BorderRadius.all(Radius.circular(8));
+const BorderRadius _mcpRadiusMedium = BorderRadius.all(Radius.circular(12));
+const BorderRadius _mcpRadiusLarge = BorderRadius.all(Radius.circular(14));
+const BorderRadius _mcpRadiusXLarge = BorderRadius.all(Radius.circular(16));
+const BorderRadius _mcpRadiusXXLarge = BorderRadius.all(Radius.circular(18));
 const DialogAnimationSettings _mcpChipAnimationSettings =
     DialogAnimationSettings(
       durationMs: 220,
@@ -1196,7 +1203,7 @@ class _TemplateMcpCandidateCard extends StatelessWidget {
               height: 54,
               decoration: BoxDecoration(
                 color: cs.secondaryContainer.withValues(alpha: 0.72),
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: _mcpRadiusXXLarge,
               ),
               alignment: Alignment.center,
               child: Icon(
@@ -4747,7 +4754,7 @@ class _McpOpsHeaderIdentity extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.14),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: _mcpRadiusLarge,
             border: Border.all(color: statusColor.withValues(alpha: 0.34)),
           ),
           child: Icon(Icons.dns_rounded, color: statusColor, size: 28),
@@ -9937,7 +9944,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                             height: 54,
                             decoration: BoxDecoration(
                               color: colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: _mcpRadiusXXLarge,
                             ),
                             alignment: Alignment.center,
                             child: Text(
@@ -10416,9 +10423,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                                         ),
                                       )
                                     : null,
-                                border: OutlineInputBorder(
-                                  borderRadius: BorderRadius.circular(18),
-                                ),
+                                border: const OutlineInputBorder(borderRadius: _mcpRadiusXXLarge),
                                 contentPadding: const EdgeInsets.symmetric(
                                   vertical: 12,
                                   horizontal: 16,
@@ -11196,7 +11201,7 @@ class _ProbeTrendSection extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _mcpRadiusLarge,
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
@@ -11468,7 +11473,7 @@ class _ToolListPreview extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _mcpRadiusLarge,
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 12),
@@ -11597,7 +11602,7 @@ class _ToolPreviewTileState extends State<_ToolPreviewTile> {
       padding: const EdgeInsets.symmetric(vertical: 4),
       child: InkWell(
         onTap: _canExpand ? () => setState(() => _expanded = !_expanded) : null,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _mcpRadiusSmall,
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 4, horizontal: 4),
           child: Column(
@@ -11671,7 +11676,7 @@ class _ToolSchemaBlock extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _mcpRadiusSmall,
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Column(
@@ -11736,7 +11741,7 @@ class _DetailsSection extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _mcpRadiusLarge,
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 8),
@@ -12081,7 +12086,7 @@ class _McpHealthProbeTile extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _mcpRadiusLarge,
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       padding: const EdgeInsets.all(14),
@@ -12264,7 +12269,7 @@ class _McpProbeDetailsDialog extends StatelessWidget {
                             color: hasWork
                                 ? colorScheme.primaryContainer
                                 : colorScheme.surfaceContainerHighest,
-                            borderRadius: BorderRadius.circular(12),
+                            borderRadius: _mcpRadiusMedium,
                           ),
                           child: Icon(
                             hasWork
@@ -12508,7 +12513,7 @@ class _ProbeSection extends StatelessWidget {
           padding: const EdgeInsets.all(14),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.3),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: _mcpRadiusMedium,
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -13553,7 +13558,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
         padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: _mcpRadiusXLarge,
           border: Border.all(color: colorScheme.outlineVariant),
         ),
         child: Column(
@@ -13846,7 +13851,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                             'mcpToolDebugToolField-${tool.id}',
                           ),
                           onTap: _isRunning ? null : _showToolMenu,
-                          borderRadius: BorderRadius.circular(18),
+                          borderRadius: _mcpRadiusXXLarge,
                           child: InputDecorator(
                             key: _toolMenuAnchorKey,
                             isFocused: _toolMenuOpen,
@@ -13857,9 +13862,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                                 zh: '选择 Tool',
                                 en: 'Tool',
                               ),
-                              border: OutlineInputBorder(
-                                borderRadius: BorderRadius.circular(18),
-                              ),
+                              border: const OutlineInputBorder(borderRadius: _mcpRadiusXXLarge),
                               suffixIcon: Icon(
                                 _toolMenuOpen
                                     ? Icons.arrow_drop_up_rounded
@@ -13922,9 +13925,7 @@ class _McpToolDebugDialogState extends State<_McpToolDebugDialog>
                             zh: '请输入 JSON 对象，例如 {"page": 1}',
                             en: 'Enter a JSON object, for example {"page": 1}',
                           ),
-                          border: OutlineInputBorder(
-                            borderRadius: BorderRadius.circular(18),
-                          ),
+                          border: const OutlineInputBorder(borderRadius: _mcpRadiusXXLarge),
                         ),
                       ),
                       const SizedBox(height: 16),
@@ -14155,7 +14156,7 @@ class _ToolMetaTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: _mcpRadiusXXLarge,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -14201,11 +14202,11 @@ class _ToolDescriptionPanel extends StatelessWidget {
       ),
       codeblockDecoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _mcpRadiusLarge,
       ),
       blockquoteDecoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _mcpRadiusLarge,
       ),
     );
 
@@ -14214,7 +14215,7 @@ class _ToolDescriptionPanel extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: _mcpRadiusXXLarge,
       ),
       child: MarkdownBody(
         data: description,
@@ -14318,7 +14319,7 @@ class _ToolSchemaFieldCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: _mcpRadiusXLarge,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -14366,10 +14367,7 @@ class _ToolSchemaPanel extends StatelessWidget {
     final content = prettyPrintJson(_jsonFriendlyValue(schema));
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
-        borderRadius: BorderRadius.circular(18),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFF18181B), borderRadius: _mcpRadiusXXLarge),
       padding: const EdgeInsets.all(14),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,
@@ -14581,10 +14579,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
 
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
-        borderRadius: BorderRadius.circular(18),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFF18181B), borderRadius: _mcpRadiusXXLarge),
       padding: const EdgeInsets.all(14),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -14607,7 +14602,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
                         color: colorScheme.primaryContainer.withValues(
                           alpha: 0.5,
                         ),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: _mcpRadiusSmall,
                       ),
                       child: Text(
                         _formatBadge!,
@@ -14628,7 +14623,7 @@ class _McpFormattedResultPanelState extends State<_McpFormattedResultPanel> {
                         color: colorScheme.tertiaryContainer.withValues(
                           alpha: 0.6,
                         ),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: _mcpRadiusSmall,
                       ),
                       child: Text(
                         _truncationNote!,
@@ -14683,10 +14678,7 @@ class _ToolConsolePanel extends StatelessWidget {
   Widget build(BuildContext context) {
     return Container(
       width: double.infinity,
-      decoration: BoxDecoration(
-        color: const Color(0xFF18181B),
-        borderRadius: BorderRadius.circular(18),
-      ),
+      decoration: const BoxDecoration(color: Color(0xFF18181B), borderRadius: _mcpRadiusXXLarge),
       padding: const EdgeInsets.all(14),
       child: SingleChildScrollView(
         scrollDirection: Axis.horizontal,

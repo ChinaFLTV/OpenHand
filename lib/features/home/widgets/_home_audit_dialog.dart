@@ -214,7 +214,7 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: _kHomeRadiusFull,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
@@ -226,7 +226,7 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
             onTap: widget.collapsible
                 ? () => setState(() => _expanded = !_expanded)
                 : null,
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: _kHomeRadiusLarge,
             child: Row(
               children: [
                 if (widget.icon != null) ...[
@@ -397,7 +397,7 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
       margin: const EdgeInsets.only(top: 6, bottom: 6),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _kHomeRadiusXLarge,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1186,7 +1186,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: colorScheme.surface,
-                          borderRadius: BorderRadius.circular(12),
+                          borderRadius: _kHomeRadiusLarge,
                         ),
                         child:
                             waitingForTelemetry &&
@@ -1805,7 +1805,7 @@ class _AuditMessageRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _kHomeRadiusXLarge,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,
