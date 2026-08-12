@@ -3,6 +3,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import 'package:openhand/shared/util/text_normalization.dart';
+
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/bounded_server_bind.dart';
 import '../../../../shared/net/tcp_port_utils.dart';
@@ -1020,7 +1022,6 @@ class _HttpProxyRequest {
   final bool isChunked;
 
   static final RegExp _headerLineSeparatorPattern = RegExp(r'\r?\n');
-  static final RegExp _requestLineWhitespacePattern = RegExp(r'\s+');
   static final RegExp _methodPattern = RegExp(r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$");
   static final RegExp _headerNamePattern = RegExp(
     r"^[!#$%&'*+.^_`|~0-9A-Za-z-]+$",
@@ -1080,7 +1081,7 @@ class _HttpProxyRequest {
     final lines = rawHeader.split(_headerLineSeparatorPattern);
     if (lines.isEmpty) return null;
     final requestLine = lines.first.trim();
-    final parts = requestLine.split(_requestLineWhitespacePattern);
+    final parts = requestLine.split(kInlineWhitespacePattern);
     if (parts.length != 3) return null;
     final method = parts[0];
     final target = parts[1];

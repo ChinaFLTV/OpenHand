@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
@@ -33,7 +34,6 @@ const int _pluginLifecycleMaxErrorMessageChars = 20000;
 const String _hermesAgentNpmPackage = 'hermes-agent';
 const String _hermesAgentPrimaryCommand = 'hermes-agent';
 const String _hermesAgentFallbackCommand = 'hermes';
-final RegExp _pluginLifecycleWhitespacePattern = RegExp(r'\s+');
 final RegExp _pluginLifecycleNodeVersionPattern = RegExp(
   r'(v\d+\.\d+(?:\.\d+)?)',
 );
@@ -1168,7 +1168,7 @@ fi
         ? versionNameResult.stdout
               .toString()
               .trim()
-              .split(_pluginLifecycleWhitespacePattern)
+              .split(kInlineWhitespacePattern)
               .first
         : null;
     final executable = await _resolvePyenvPythonPath();

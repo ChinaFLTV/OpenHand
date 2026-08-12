@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:path/path.dart' as p;
 
 import 'text_clip.dart';
+import 'text_normalization.dart';
 
 const int kOpenHandMaxAncestorDirectoryDepth = 256;
 const int kPortableFileNameMaxCodeUnits = 255;
@@ -19,7 +20,6 @@ final RegExp _reservedWindowsFileNamePattern = RegExp(
   r'^(?:con|prn|aux|nul|com[1-9¹²³]|lpt[1-9¹²³])(?:\..*)?$',
   caseSensitive: false,
 );
-final RegExp _whitespacePattern = RegExp(r'\s+');
 final RegExp _replacementRunPattern = RegExp(r'_+');
 final RegExp _boundaryReplacementPattern = RegExp(r'^_+|_+$');
 final RegExp _trailingFileNameCharsPattern = RegExp(r'[ .]+$');
@@ -176,7 +176,7 @@ String _sanitizePortableFileNamePart(
     '_',
   );
   if (allowWhitespace) {
-    sanitized = sanitized.replaceAll(_whitespacePattern, ' ').trim();
+    sanitized = sanitized.replaceAll(kInlineWhitespacePattern, ' ').trim();
   }
   if (collapseReplacement) {
     sanitized = sanitized.replaceAll(_replacementRunPattern, '_');

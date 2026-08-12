@@ -2,6 +2,8 @@ library;
 
 import 'dart:async';
 
+import 'package:openhand/shared/util/text_normalization.dart';
+
 import '../../../../app/state/settings_controller.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
@@ -32,7 +34,6 @@ const int _selfLearningMaxTurnCharacters = 64 * kBytesPerKiB;
 const Duration _selfLearningEventDrainTimeout = Duration(milliseconds: 800);
 
 final RegExp _selfLearningModelSeparatorPattern = RegExp(r'[\s_]+');
-final RegExp _selfLearningWhitespacePattern = RegExp(r'\s+');
 final List<RegExp> _unfulfilledIntentNegationPatterns = <RegExp>[
   RegExp(r'无\s*变\s*更'),
   RegExp(r'不\s*需\s*要\s*更新'),
@@ -655,7 +656,7 @@ String _summariseSkillArgs(Map<String, Object?> args) {
 }
 
 String _compactSelfLearningPreview(String value) {
-  final flat = value.replaceAll(_selfLearningWhitespacePattern, ' ').trim();
+  final flat = value.replaceAll(kInlineWhitespacePattern, ' ').trim();
   return clipTextWithEllipsis(flat, _selfLearningSummaryPreviewMaxChars);
 }
 

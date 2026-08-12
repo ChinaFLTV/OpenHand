@@ -5,6 +5,7 @@ import 'dart:io';
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:provider/provider.dart';
 
 import '../../../app/support/silent_log.dart';

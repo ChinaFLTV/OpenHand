@@ -4,6 +4,7 @@ import 'dart:math' as math;
 
 import 'package:flutter/foundation.dart';
 import 'package:image/image.dart' as img;
+import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:path/path.dart' as p;
 import 'package:xml/xml.dart' as xml;
 
@@ -61,7 +62,6 @@ class AiAttachmentService {
   static final RegExp _pdfFallbackUnsupportedCharsPattern = RegExp(
     r'[^\x20-\x7E\u4E00-\u9FFF\r\n\t]+',
   );
-  static final RegExp _pdfFallbackWhitespacePattern = RegExp(r'\s+');
   static final RegExp _spreadsheetColumnRefPattern = RegExp(
     r'([A-Z]+)',
     caseSensitive: false,
@@ -729,7 +729,7 @@ class AiAttachmentService {
     if (buffer.isEmpty) {
       final fallback = latin
           .replaceAll(_pdfFallbackUnsupportedCharsPattern, ' ')
-          .replaceAll(_pdfFallbackWhitespacePattern, ' ')
+          .replaceAll(kInlineWhitespacePattern, ' ')
           .trim();
       if (fallback.isNotEmpty) {
         buffer.write(fallback);

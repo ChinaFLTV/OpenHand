@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:math' as math;
 
+import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:sqflite_common/sqlite_api.dart';
 
 import '../../../../app/support/silent_log.dart';
@@ -893,7 +894,7 @@ String _contentPreview(
   var originalOffset = 0;
   for (final rune in value.runes) {
     final character = String.fromCharCode(rune);
-    if (!_whitespaceRunPattern.hasMatch(character)) {
+    if (!kInlineWhitespacePattern.hasMatch(character)) {
       final normalized = character.toLowerCase();
       text.write(normalized);
       originalOffsets.addAll(
@@ -921,12 +922,11 @@ String _likePattern(String value) {
 }
 
 /// 归一化匹配用的模式常量。提到顶层复用，避免在打分热路径上反复编译。
-final RegExp _whitespaceRunPattern = RegExp(r'\s+');
 final RegExp _queryTokenPattern = RegExp(r'[A-Za-z0-9_]+|[一-鿿]+');
 final RegExp _cjkCharPattern = RegExp(r'[一-鿿]');
 
 String _normalizeForMatch(String value) {
-  return value.toLowerCase().replaceAll(_whitespaceRunPattern, '');
+  return value.toLowerCase().replaceAll(kInlineWhitespacePattern, '');
 }
 
 String _stringValue(Object? value) => stringFromValue(value);

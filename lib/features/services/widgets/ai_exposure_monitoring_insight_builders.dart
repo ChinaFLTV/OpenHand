@@ -981,7 +981,7 @@ Widget _buildLogMetricInsight(
   for (final entry in entries) {
     final key = entry.message
         .replaceAll(RegExp(r'\d+'), '#')
-        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(kInlineWhitespacePattern, ' ')
         .trim();
     clusters.putIfAbsent(key, () => <AiExposureLogEntry>[]).add(entry);
   }

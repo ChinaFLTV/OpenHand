@@ -2,6 +2,7 @@ import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
@@ -176,7 +177,6 @@ class PluginScannerService {
     r'/(python(?:@[\d.]+)?)(?:/|$)',
   );
   static final RegExp _semverSearchPattern = RegExp(r'(\d+\.\d+\.\d+)');
-  static final RegExp _shellWhitespacePattern = RegExp(r'\s+');
   static final RegExp _playwrightVersionPrefixPattern = RegExp(
     r'^Version\s+',
     caseSensitive: false,
@@ -794,7 +794,7 @@ class PluginScannerService {
         ? versionNameResult.stdout
               .toString()
               .trim()
-              .split(_shellWhitespacePattern)
+              .split(kInlineWhitespacePattern)
               .first
         : null;
     for (final command in const ['python3', 'python']) {

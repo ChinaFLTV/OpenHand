@@ -14,6 +14,7 @@ import '../util/async_concurrency.dart';
 import '../util/bounded_file_io.dart';
 import '../util/input_value_parsing.dart';
 import '../util/serial_task_queue.dart';
+import '../util/text_normalization.dart';
 import '../util/timer_safety.dart';
 import 'animated_menu.dart';
 import 'motion_durations.dart';
@@ -2100,7 +2101,7 @@ String normalizeNativeAudioText(String value, {required String fallback}) {
   final trimmed = value.trim();
   if (trimmed.isEmpty) return fallback;
   return trimmed
-      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(kInlineWhitespacePattern, ' ')
       .replaceAll(
         RegExp(r'\.(mp3|wav|m4a|aac|ogg|opus|flac)$', caseSensitive: false),
         '',

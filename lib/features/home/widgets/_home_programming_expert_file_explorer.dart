@@ -4051,7 +4051,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             return '${match.group(1)} ${match.group(2)}';
           })
           .replaceAll(RegExp(r'[-_]+'), ' ')
-          .replaceAll(RegExp(r'\s+'), ' ')
+          .replaceAll(kInlineWhitespacePattern, ' ')
           .trim();
       if (normalized.isEmpty) {
         return raw;

@@ -1,6 +1,8 @@
 // Harness Engineering 提示词构建器：负责压缩工具目录、按阶段过滤工具，
 // 并为不支持原生工具调用的模型补充 XML 调用格式。
 
+import 'package:openhand/shared/util/text_normalization.dart';
+
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../model/harness_phase.dart';
@@ -270,7 +272,7 @@ class HarnessPromptBuilder {
   String _truncateDescription(String description, int maxChars) {
     final normalized = description
         .trim()
-        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(kInlineWhitespacePattern, ' ')
         .replaceAll(RegExp(r'\.\s*\.'), '.');
 
     return clipTextByCodeUnits(normalized, maxChars, suffix: '…').trimRight();

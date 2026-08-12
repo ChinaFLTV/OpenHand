@@ -4,6 +4,7 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:crypto/crypto.dart';
+import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/openhand_paths.dart';
@@ -373,7 +374,7 @@ class DingTalkMessageGatewayService {
   }) async {
     final startedAt = Stopwatch()..start();
     final executable = await _requireExecutable();
-    final processArguments = <String>[...command.cliPath.split(RegExp(r'\s+'))];
+    final processArguments = <String>[...command.cliPath.split(kInlineWhitespacePattern)];
     processArguments.addAll(arguments);
     processArguments.addAll(const <String>['--format', 'json']);
     final result = await runTrackedProcessWithLineLogging(

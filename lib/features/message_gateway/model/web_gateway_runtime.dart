@@ -2,6 +2,8 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:openhand/shared/util/text_normalization.dart';
+
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 
@@ -978,7 +980,7 @@ String webGatewaySummarizeClientUserAgent({
 }
 
 String _webGatewayCompactMetricText(String value, {int maxCharacters = 48}) {
-  final compact = value.trim().replaceAll(_webGatewayWhitespacePattern, ' ');
+  final compact = value.trim().replaceAll(kInlineWhitespacePattern, ' ');
   return clipTextByCodeUnits(compact, maxCharacters, suffix: '');
 }
 
@@ -1011,7 +1013,6 @@ String _webGatewayMatchUaComponent(
   return '';
 }
 
-final RegExp _webGatewayWhitespacePattern = RegExp(r'\s+');
 final List<(String, RegExp)> _webGatewayBrowserUaRules = <(String, RegExp)>[
   ('Edge', RegExp(r'(?:Edg|EdgA|EdgiOS)/([\d.]+)', caseSensitive: false)),
   ('Opera', RegExp(r'(?:OPR|Opera)/([\d.]+)', caseSensitive: false)),
@@ -1127,7 +1128,7 @@ Map<String, int> _webGatewayStringIntMapFromValue(
   final result = <String, int>{};
   var overflow = 0;
   for (final entry in source.entries) {
-    var key = entry.key.trim().replaceAll(_webGatewayWhitespacePattern, ' ');
+    var key = entry.key.trim().replaceAll(kInlineWhitespacePattern, ' ');
     if (key.isEmpty) continue;
     final value = nonNegativeIntFromValue(entry.value, fallback: 0);
     if (key.length > maxKeyCharacters) {

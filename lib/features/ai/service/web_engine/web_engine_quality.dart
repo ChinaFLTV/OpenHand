@@ -160,7 +160,6 @@ const Set<String> _webQualityStopWords = <String>{
 };
 
 final RegExp _webQualitySplitPattern = RegExp(r'[^\w\u4e00-\u9fff]+');
-final RegExp _webQualityWhitespacePattern = RegExp(r'\s+');
 final RegExp _webQualityLineBreakPattern = RegExp(r'\r?\n');
 final RegExp _webQualityAlphaNumericPattern = RegExp(
   r'[A-Za-z0-9\u4e00-\u9fff]',
@@ -177,7 +176,7 @@ List<String> webQualityTerms(
   for (final part
       in input
           .replaceAll(_webQualitySplitPattern, ' ')
-          .split(_webQualityWhitespacePattern)) {
+          .split(kInlineWhitespacePattern)) {
     final normalized = lowercaseStringFromValue(part);
     if (normalized.length < 2 || _webQualityStopWords.contains(normalized)) {
       continue;
@@ -195,7 +194,7 @@ List<String> _webQualityAllTerms(String input, {int limit = 240}) {
   for (final part
       in input
           .replaceAll(_webQualitySplitPattern, ' ')
-          .split(_webQualityWhitespacePattern)) {
+          .split(kInlineWhitespacePattern)) {
     final term = lowercaseStringFromValue(part);
     if (term.length < 2 || _webQualityStopWords.contains(term)) continue;
     terms.add(term);
@@ -239,7 +238,7 @@ String webPromptExcerpt(String input, int maxChars) {
     if (seenLines.add(line.toLowerCase())) lines.add(line);
   }
   final cleaned = lines.isEmpty
-      ? input.trim().replaceAll(_webQualityWhitespacePattern, ' ')
+      ? input.trim().replaceAll(kInlineWhitespacePattern, ' ')
       : lines.join('\n');
   return clipTextByCodeUnits(cleaned, maxChars, suffix: '…');
 }

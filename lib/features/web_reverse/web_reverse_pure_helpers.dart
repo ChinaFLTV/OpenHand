@@ -4,6 +4,8 @@ library;
 import 'dart:collection';
 import 'dart:convert';
 
+import 'package:openhand/shared/util/text_normalization.dart';
+
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
 
@@ -65,7 +67,6 @@ final RegExp _consoleHexPattern = RegExp(r'\b0x[0-9a-fA-F]+\b');
 final RegExp _consoleLongNumberPattern = RegExp(r'\b\d{3,}\b');
 final RegExp _consolePathHashPattern = RegExp(r'/[A-Fa-f0-9]{8,}');
 final RegExp _consoleLocationTailPattern = RegExp(r':\d+:\d+\)');
-final RegExp _consoleWhitespacePattern = RegExp(r'\s+');
 
 typedef WebReversePageTargetData = ({String id, String url, String title});
 typedef WebReverseScriptResource = ({String frameId, String url});
@@ -1220,7 +1221,7 @@ String normalizeConsoleSignature(String text) {
       .replaceAll(_consoleLongNumberPattern, '<num>')
       .replaceAll(_consolePathHashPattern, '/<hash>')
       .replaceAll(_consoleLocationTailPattern, ':L:C)')
-      .replaceAll(_consoleWhitespacePattern, ' ');
+      .replaceAll(kInlineWhitespacePattern, ' ');
 }
 
 Object? cdpResultValue(Object? response) {

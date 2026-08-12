@@ -91,7 +91,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
   }
 
   String _hexDecode(String s) {
-    final t = s.trim().replaceAll(RegExp(r'\s+'), '');
+    final t = s.trim().replaceAll(kInlineWhitespacePattern, '');
     if (t.isEmpty) return '';
     if (t.length.isOdd) return '! odd length';
     try {

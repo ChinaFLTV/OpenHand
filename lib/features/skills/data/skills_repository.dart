@@ -4,6 +4,7 @@ import 'dart:io';
 
 import 'package:characters/characters.dart';
 import 'package:flutter/foundation.dart';
+import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:path/path.dart' as p;
 import 'package:yaml/yaml.dart';
 
@@ -51,7 +52,6 @@ class SkillsRepository {
     maxDepth: _maxSkillScanDepth,
     totalTimeout: Duration(minutes: 1),
   );
-  static final RegExp _whitespacePattern = RegExp(r'\s+');
   static final RegExp _windowsDrivePrefixPattern = RegExp(r'^[a-zA-Z]:');
   static final RegExp _titleSegmentSeparatorPattern = RegExp(r'[-_]+');
   static final RegExp _slugUnsafeCharsPattern = RegExp(r'[^a-z0-9]+');
@@ -913,7 +913,7 @@ class SkillsRepository {
       if (line.isEmpty || line.startsWith('#')) {
         continue;
       }
-      return line.replaceAll(_whitespacePattern, ' ');
+      return line.replaceAll(kInlineWhitespacePattern, ' ');
     }
     return fallback;
   }

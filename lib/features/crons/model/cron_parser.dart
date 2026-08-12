@@ -1,3 +1,5 @@
+import 'package:openhand/shared/util/text_normalization.dart';
+
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/util/input_value_parsing.dart';
 
@@ -9,11 +11,9 @@ import '../../../shared/util/input_value_parsing.dart';
 class CronParser {
   CronParser._();
 
-  static final RegExp _fieldSeparatorPattern = RegExp(r'\s+');
-
   /// 返回 [after] 之后的下一次执行时间；表达式无效或八年内无匹配时返回 null。
   static DateTime? nextRun(String expression, {DateTime? after}) {
-    final fields = expression.trim().split(_fieldSeparatorPattern);
+    final fields = expression.trim().split(kInlineWhitespacePattern);
     final parsed = _parseExpressionFields(fields);
     if (parsed == null) return null;
     final (minutes, hours, daysOfMonth, months, daysOfWeek) = parsed;
@@ -66,7 +66,7 @@ class CronParser {
 
   static bool isValid(String expression) {
     return _parseExpressionFields(
-          expression.trim().split(_fieldSeparatorPattern),
+          expression.trim().split(kInlineWhitespacePattern),
         ) !=
         null;
   }
@@ -91,7 +91,7 @@ class CronParser {
 
   /// 校验五段式表达式；有效时返回 null，否则返回本地化错误。
   static String? validate(String expression, {required AppLocalizations l10n}) {
-    final fields = expression.trim().split(_fieldSeparatorPattern);
+    final fields = expression.trim().split(kInlineWhitespacePattern);
     if (fields.length != 5) {
       return l10n.cronParserFieldCountError;
     }

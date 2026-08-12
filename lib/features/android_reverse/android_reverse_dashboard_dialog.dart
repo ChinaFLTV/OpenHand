@@ -6,6 +6,7 @@ import 'package:crypto/crypto.dart' as crypto;
 import 'package:file_selector/file_selector.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
+import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:provider/provider.dart';
 
 import '../../app/support/silent_log.dart';
@@ -1588,7 +1589,7 @@ class _AndroidReverseDashboardDialogState
   }
 
   bool _hasVisibleLogcatText(String line) {
-    return line.replaceAll(RegExp(r'\s+'), '').isNotEmpty;
+    return line.replaceAll(kInlineWhitespacePattern, '').isNotEmpty;
   }
 
   _ParsedLogcatLine _parseLogcatLine(String raw) {

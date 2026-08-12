@@ -3,9 +3,9 @@ import 'dart:typed_data';
 
 import 'argument_guards.dart';
 import 'byte_size_format.dart';
+import 'text_normalization.dart';
 
 const int _maxIgnoredBase64WhitespaceCharacters = 64 * kBytesPerKiB;
-final RegExp _base64WhitespacePattern = RegExp(r'\s+');
 
 /// 有界 Base64 解码的可识别异常基类。
 sealed class BoundedBase64Exception implements Exception {
@@ -91,7 +91,7 @@ Uint8List decodeFlexibleBase64Bounded(
       maxDecodedBytes: maxDecodedBytes,
     );
   }
-  final compact = encoded.replaceAll(_base64WhitespacePattern, '');
+  final compact = encoded.replaceAll(kInlineWhitespacePattern, '');
   try {
     return decodeBase64Bounded(
       base64.normalize(compact),

@@ -1,6 +1,7 @@
+import 'package:openhand/shared/util/text_normalization.dart';
+
 import '../../../shared/util/text_clip.dart';
 
-final RegExp _memoryWhitespacePattern = RegExp(r'\s+');
 
 class UserMemoryEntry {
   UserMemoryEntry({
@@ -92,7 +93,7 @@ class UserMemoryEntry {
   /// 标题归一化：trim + 折叠所有空白为单空格 + 截断到 [maxTitleLength]。
   /// 长度上限避免 AI 偶尔吐出整段正文当标题。
   static String normalizeTitle(String value) {
-    final flat = value.replaceAll(_memoryWhitespacePattern, ' ').trim();
+    final flat = value.replaceAll(kInlineWhitespacePattern, ' ').trim();
     return clipTextByCodeUnits(flat, maxTitleLength, suffix: '');
   }
 

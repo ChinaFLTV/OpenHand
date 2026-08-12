@@ -4,12 +4,12 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/gestures.dart'
-    show PointerScrollEvent, PointerSignalEvent;
+import 'package:flutter/gestures.dart' show PointerScrollEvent, PointerSignalEvent;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
+import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:path/path.dart' as p;
 import 'package:provider/provider.dart';
 import 'package:record/record.dart';
@@ -22546,7 +22546,7 @@ class _DingTalkResourcePickerDialogState
       for (final option in entry.value) {
         final segments = option.title
             .trim()
-            .split(RegExp(r'\s+'))
+            .split(kInlineWhitespacePattern)
             .where((item) => item.isNotEmpty)
             .toList(growable: false);
         if (segments.length < 3) {

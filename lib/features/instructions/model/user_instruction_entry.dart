@@ -6,9 +6,10 @@
 ///      取消的指令会以独立"用户指令"段落注入提示词。
 library;
 
+import 'package:openhand/shared/util/text_normalization.dart';
+
 import '../../../shared/util/text_clip.dart';
 
-final RegExp _instructionWhitespacePattern = RegExp(r'\s+');
 
 class UserInstructionEntry {
   const UserInstructionEntry({
@@ -118,12 +119,12 @@ class UserInstructionEntry {
   static const int maxBodyLength = 64 * 1024;
 
   static String normalizeName(String value) {
-    final flat = value.replaceAll(_instructionWhitespacePattern, ' ').trim();
+    final flat = value.replaceAll(kInlineWhitespacePattern, ' ').trim();
     return clipTextByCodeUnits(flat, maxNameLength, suffix: '');
   }
 
   static String normalizeOneLine(String value, int max) {
-    final flat = value.replaceAll(_instructionWhitespacePattern, ' ').trim();
+    final flat = value.replaceAll(kInlineWhitespacePattern, ' ').trim();
     return clipTextByCodeUnits(flat, max, suffix: '');
   }
 

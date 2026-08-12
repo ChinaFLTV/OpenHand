@@ -3556,7 +3556,7 @@ String _humanizedDropdownValue(BuildContext context, String value) {
       )
       .replaceAll(RegExp(r'[_-]+'), ' ')
       .replaceAll(RegExp(r'\bbigtts\b', caseSensitive: false), '')
-      .replaceAll(RegExp(r'\s+'), ' ')
+      .replaceAll(kInlineWhitespacePattern, ' ')
       .trim();
   return _localizedVoiceLabel(
     context,

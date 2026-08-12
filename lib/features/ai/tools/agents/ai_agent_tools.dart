@@ -4832,7 +4832,7 @@ String _normalizeRouteText(String value) {
       .toLowerCase()
       .replaceAll(RegExp(r'[\s_\-./,;:|，。；、：/\\()\[\]{}<>「」『』（）【】]+'), ' ')
       .trim()
-      .replaceAll(RegExp(r'\s+'), ' ');
+      .replaceAll(kInlineWhitespacePattern, ' ');
 }
 
 Set<String> _routeTextVariants(String value) {

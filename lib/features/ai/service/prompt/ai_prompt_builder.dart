@@ -2147,7 +2147,7 @@ class AiPromptBuilder {
   }) {
     final normalized = description
         .trim()
-        .replaceAll(RegExp(r'\s+'), ' ')
+        .replaceAll(kInlineWhitespacePattern, ' ')
         .replaceAll(RegExp(r'\.\s*\.'), '.');
     if (normalized.length <= maxCharacters) {
       return normalized;
