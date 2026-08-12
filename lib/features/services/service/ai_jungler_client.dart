@@ -274,7 +274,7 @@ class AiJunglerClient {
       _kAiJunglerRequestTimeout,
       timeoutMessage: '连接扫描引擎实时事件超时。',
     );
-    late final HttpClientResponse response;
+    HttpClientResponse? response;
     try {
       final request = await _open(
         'GET',
@@ -309,6 +309,9 @@ class AiJunglerClient {
       }
     } on TimeoutException {
       throw const AiJunglerApiException('扫描引擎实时事件长时间无响应。');
+    } finally {
+      // 订阅取消、超时或异常退出时，必须清理底层响应流，避免连接池泄漏。
+      await cancelByteStream(response);
     }
   }
 

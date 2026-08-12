@@ -15,8 +15,9 @@ const List<({String host, int port})> _kProxyProbeTargets = [
   (host: 'cp.cloudflare.com', port: 443),
   (host: 'connectivitycheck.gstatic.com', port: 443),
 ];
-const String _kProxyIdentityTarget = 'https://ipwho.is/';
-const String _kSecureProxyIdentityTarget = 'http://ipwho.is/';
+const String _kProxyUserAgent = 'OpenHand-Proxy-Probe';
+const String _kProxyIdentityHttpsUrl = 'https://ipwho.is/';
+const String _kProxyIdentityHttpUrl = 'http://ipwho.is/';
 const List<int> _kHttpLineBreak = <int>[0x0d, 0x0a];
 const List<int> _kHttpHeaderBreak = <int>[0x0d, 0x0a, 0x0d, 0x0a];
 
@@ -150,6 +151,15 @@ class AiExposureProxyProbe {
       throw const FormatException('代理网关未完成身份查询转发，请检查供应商线路或节点状态。');
     }
   }
+}
+
+/// 统一处理代理身份查询的认证状态码，返回对应的错误描述。
+/// 返回 null 表示非认证类状态码，由调用方自行处理。
+String? _proxyIdentityAuthError(int? status) {
+  if (status == 401 || status == 407) {
+    return '代理认证失败，请核对用户名、密码或供应商认证方式。';
+  }
+  return null;
 }
 
 String _proxyProbeFailureStepName(AiExposureProxyProbeFailure failure) =>
@@ -333,7 +343,7 @@ Future<Uint8List> _loadIdentityThroughHttpProxy(Uri proxy) async {
     ..autoUncompress = true
     ..connectionTimeout = _kProxyIdentityTimeout
     ..idleTimeout = _kProxyIdentityTimeout
-    ..userAgent = 'OpenHand Proxy Probe'
+    ..userAgent = _kProxyUserAgent
     ..findProxy = (_) => 'PROXY ${_proxyAuthority(proxy)}';
   final credentials = _proxyCredentials(proxy);
   if (credentials != null) {
@@ -346,7 +356,7 @@ Future<Uint8List> _loadIdentityThroughHttpProxy(Uri proxy) async {
   }
   try {
     final request = await client
-        .getUrl(Uri.parse(_kProxyIdentityTarget))
+        .getUrl(Uri.parse(_kProxyIdentityHttpsUrl))
         .timeout(_remaining(_kProxyIdentityTimeout, stopwatch));
     request
       ..followRedirects = false
@@ -355,9 +365,8 @@ Future<Uint8List> _loadIdentityThroughHttpProxy(Uri proxy) async {
     final response = await request.close().timeout(
       _remaining(_kProxyIdentityTimeout, stopwatch),
     );
-    if (response.statusCode == 401 || response.statusCode == 407) {
-      throw const FormatException('代理认证失败，请核对用户名、密码或供应商认证方式。');
-    }
+    final authError = _proxyIdentityAuthError(response.statusCode);
+    if (authError != null) throw FormatException(authError);
     if (response.statusCode < 200 || response.statusCode >= 300) {
       throw FormatException('出口身份服务返回 HTTP ${response.statusCode}');
     }
@@ -374,9 +383,8 @@ Future<Uint8List> _loadIdentityThroughHttpProxy(Uri proxy) async {
     final status = int.tryParse(
       RegExp(r'tunnel \((\d{3})\b').firstMatch(error.message)?.group(1) ?? '',
     );
-    if (status == 401 || status == 407) {
-      throw const FormatException('代理认证失败，请核对用户名、密码或供应商认证方式。');
-    }
+    final authError = _proxyIdentityAuthError(status);
+    if (authError != null) throw FormatException(authError);
     if (status == 403) {
       throw const FormatException('代理拒绝身份查询，请检查 IP 白名单、套餐状态或目标限制。');
     }
@@ -399,7 +407,7 @@ Future<Uint8List> _loadIdentityThroughSecureProxy(Uri proxy) async {
     );
     socket.setOption(SocketOption.tcpNoDelay, true);
     socket.add(
-      utf8.encode(_getRequest(proxy, Uri.parse(_kSecureProxyIdentityTarget))),
+      utf8.encode(_getRequest(proxy, Uri.parse(_kProxyIdentityHttpUrl))),
     );
     await socket.flush().timeout(_remaining(_kProxyIdentityTimeout, stopwatch));
     final response = await _readRawIdentityResponse(
@@ -415,9 +423,8 @@ Future<Uint8List> _loadIdentityThroughSecureProxy(Uri proxy) async {
       RegExp(r'^HTTP/\d(?:\.\d)?\s+(\d{3})\b').firstMatch(header)?.group(1) ??
           '',
     );
-    if (status == 401 || status == 407) {
-      throw const FormatException('代理认证失败，请核对用户名、密码或供应商认证方式。');
-    }
+    final authError = _proxyIdentityAuthError(status);
+    if (authError != null) throw FormatException(authError);
     if (status == null || status < 200 || status >= 300) {
       throw FormatException('出口身份服务返回 HTTP ${status ?? '--'}');
     }
@@ -471,17 +478,15 @@ Future<Uint8List> _readRawIdentityResponse(Socket socket) async {
         throw const FormatException('代理身份响应过大');
       }
     }
-    final body = Uint8List.sublistView(
-      raw,
-      headerEnd + _kHttpHeaderBreak.length,
-    );
-    if (body.length > _kMaxProxyIdentityResponseBytes) {
+    final bodyStart = headerEnd + _kHttpHeaderBreak.length;
+    final bodyLength = raw.length - bodyStart;
+    if (bodyLength > _kMaxProxyIdentityResponseBytes) {
       throw const FormatException('代理身份响应过大');
     }
-    if (contentLength != null && body.length >= contentLength) return raw;
+    if (contentLength != null && bodyLength >= contentLength) return raw;
     if (chunked) {
       try {
-        _decodeChunkedBody(body);
+        _decodeChunkedBody(Uint8List.sublistView(raw, bodyStart));
         return raw;
       } on FormatException {
         continue;
@@ -567,6 +572,7 @@ String _connectRequest(Uri proxy, ({String host, int port}) target) {
   final authorization = _proxyAuthorization(proxy);
   return 'CONNECT $authority HTTP/1.1\r\n'
       'Host: $authority\r\n'
+      'User-Agent: $_kProxyUserAgent\r\n'
       'Accept: */*\r\n'
       'Connection: keep-alive\r\n'
       'Proxy-Connection: keep-alive\r\n'
@@ -578,6 +584,7 @@ String _getRequest(Uri proxy, Uri target) {
   final authorization = _proxyAuthorization(proxy);
   return 'GET $target HTTP/1.1\r\n'
       'Host: ${target.host}\r\n'
+      'User-Agent: $_kProxyUserAgent\r\n'
       'Accept: application/json\r\n'
       'Accept-Encoding: identity\r\n'
       'Connection: close\r\n'

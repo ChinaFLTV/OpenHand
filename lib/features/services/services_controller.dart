@@ -1792,12 +1792,13 @@ class ServicesController extends ChangeNotifier {
       endpointHeaders: endpoint.headers,
       family: AiApiFamily.chatCompletions,
     );
-    await _requireClient().configureAiExtractor(
+    final client = _requireClient();
+    await client.configureAiExtractor(
       endpoint: url.toString(),
       model: model.resolveOperationModelId(AiApiFamily.chatCompletions),
       headers: headers,
     );
-    _aiExtractorStatus = await _requireClient().aiExtractorStatus();
+    _aiExtractorStatus = await client.aiExtractorStatus();
   }
 
   Future<bool> _persistPreferences() async {
