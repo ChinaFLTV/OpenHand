@@ -2682,7 +2682,7 @@ class _SamplingTopList extends StatelessWidget {
                 Navigator.of(dialogContext).pop();
                 showWebReverseClipboardSuccessSnack(
                   context: context,
-                  base: _wrCopiedLabel(context),
+                  base: openHandCopiedLabel(context),
                   result: copied,
                 );
               },

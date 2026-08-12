@@ -3331,17 +3331,7 @@ String _wrConsoleLabel(BuildContext context) {
   );
 }
 
-String _wrCopiedLabel(BuildContext context) {
-  return openHandLocalizedText(
-    context,
-    zh: '已复制',
-    zhHant: '已複製',
-    en: 'Copied',
-    fr: 'Copie',
-    de: 'Kopiert',
-    ja: 'コピーしました',
-  );
-}
+
 
 String _wrEditLabel(BuildContext context) {
   return openHandLocalizedText(

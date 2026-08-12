@@ -818,11 +818,7 @@ class _InlineCodexDiffHeader extends StatelessWidget {
             ),
             const Spacer(),
             _InlineDiffPill(
-              label: openHandLocalizedText(
-                context,
-                zh: copied ? '已复制' : '复制',
-                en: copied ? 'Copied' : 'Copy',
-              ),
+              label: copied ? openHandCopiedLabel(context) : openHandCopyLabel(context),
               icon: copied ? Icons.check_rounded : Icons.content_copy_rounded,
               backgroundColor: palette.footerBorder,
               foregroundColor: palette.footerForeground,
@@ -1063,11 +1059,7 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       _cachedPaletteSignature = paletteSignature;
     }
     final palette = _cachedPalette!;
-    final copyLabel = openHandLocalizedText(
-      context,
-      zh: _copied ? '已复制' : '复制',
-      en: _copied ? 'Copied' : 'Copy',
-    );
+    final copyLabel = _copied ? openHandCopiedLabel(context) : openHandCopyLabel(context);
     final downloadLabel = openHandLocalizedText(
       context,
       zh: _downloaded ? '已下载' : '下载',

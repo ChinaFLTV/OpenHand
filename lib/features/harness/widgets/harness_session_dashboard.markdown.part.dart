@@ -973,15 +973,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
                             kOpenHandHGap5,
                             Text(
                               _copied
-                                  ? openHandLocalizedText(
-                                      context,
-                                      zh: '已复制',
-                                      zhHant: '已複製',
-                                      en: 'Copied',
-                                      fr: 'Copié',
-                                      de: 'Kopiert',
-                                      ja: 'コピー済み',
-                                    )
+                                  ? openHandCopiedLabel(context)
                                   : openHandCopyLabel(context),
                               style: TextStyle(
                                 fontSize: 12,

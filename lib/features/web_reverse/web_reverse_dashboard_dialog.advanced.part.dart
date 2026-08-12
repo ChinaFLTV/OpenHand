@@ -2711,7 +2711,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                       await copyWebReverseTextToClipboard(
                         context: context,
                         text: prettyPrintJson(_events),
-                        successBase: _wrCopiedLabel(context),
+                        successBase: openHandCopiedLabel(context),
                         logTag: 'web_reverse_webrtc_dialog',
                         logAction: '复制事件',
                         successDuration: const Duration(seconds: 1),
