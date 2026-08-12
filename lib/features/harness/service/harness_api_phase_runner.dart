@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:math' as math;
 
+import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:path/path.dart' as p;
 
 import '../../../app/support/silent_log.dart';
@@ -740,7 +741,7 @@ class HarnessApiPhaseRunner {
     if (!text.contains('<tool_calls>')) return text;
     return text
         .replaceAll(_inlineToolCallsXmlPattern, '')
-        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .replaceAll(kExcessiveNewlinesPattern, '\n\n')
         .trim();
   }
 

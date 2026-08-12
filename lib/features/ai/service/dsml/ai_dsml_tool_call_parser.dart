@@ -1,5 +1,6 @@
 import 'dart:convert';
 
+import 'package:openhand/shared/util/text_normalization.dart';
 import 'package:yaml/yaml.dart';
 
 import '../../../../shared/util/input_value_parsing.dart';
@@ -120,11 +121,10 @@ String sanitizeVisibleDsmlContent(String value) {
   return sanitized
       .replaceAll('\r\n', '\n')
       .replaceAll('\r', '\n')
-      .replaceAll(_excessiveNewlinePattern, '\n\n')
+      .replaceAll(kExcessiveNewlinesPattern, '\n\n')
       .trim();
 }
 
-final RegExp _excessiveNewlinePattern = RegExp(r'\n{3,}');
 
 /// Matches an opening `<DSML:invoke` or `<DSML:function_calls` tag that
 /// appears after the last successfully matched complete invoke block.

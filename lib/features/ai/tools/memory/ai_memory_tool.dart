@@ -7,22 +7,6 @@ import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/text_clip.dart';
 import '../../../../shared/util/text_normalization.dart';
 import '../../../memory/index.dart';
-
-/// Hermes Talker 专用 Memory 工具。
-///
-/// 提供给自我学习子 Agent 使用，将对话中的关键结论沉淀到 [MemoryController]
-/// 管理的用户记忆存储。为了和 `SkillManager` 对齐，本工具名为 `Memory`，
-/// 注册在 [AiBuiltinToolKind.memory] 下。
-///
-/// 支持的 action:
-/// * `list`        — 列出最近的记忆（可按 tag 过滤）。
-/// * `append`      — 追加一条普通记忆条目。
-/// * `upsert_profile` — 更新/创建唯一的 user_profile 条目。
-/// * `update`      — 修改指定 id 的条目。
-/// * `delete`      — 删除指定 id 的条目。
-///
-/// 本工具仅在 Hermes Talker 自我学习场景注册；delete 仍受自我学习策略约束。
-
 import '../../service/bash/ai_bash_tool_service.dart';
 import '../../service/runtime/ai_tool_runtime_service.dart';
 import '../ai_tool.dart';

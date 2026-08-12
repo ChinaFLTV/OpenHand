@@ -2310,7 +2310,7 @@ class AiPromptBuilder {
     if (stripSystemReminders) {
       final cleaned = content
           .replaceAll(_systemReminderPattern, '')
-          .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+          .replaceAll(kExcessiveNewlinesPattern, '\n\n')
           .trim();
       if (cleaned.isEmpty && toolCalls.isEmpty && parts.isEmpty) {
         return const <AiChatTurn>[];
@@ -2393,7 +2393,7 @@ class AiPromptBuilder {
         .toList(growable: false);
     final stripped = content
         .replaceAll(_systemReminderPattern, '')
-        .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+        .replaceAll(kExcessiveNewlinesPattern, '\n\n')
         .trim();
     return _ExtractedReminderContent(content: stripped, reminders: reminders);
   }

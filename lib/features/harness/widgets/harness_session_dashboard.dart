@@ -509,7 +509,7 @@ List<_HeOutputSegment> _heParseOutputSegments(List<String> rawLines) {
       if (joined.contains('<tool_calls>')) {
         final stripped = joined
             .replaceAll(_heInlineToolCallsXmlPattern, '')
-            .replaceAll(RegExp(r'\n{3,}'), '\n\n')
+            .replaceAll(kExcessiveNewlinesPattern, '\n\n')
             .trim();
         if (stripped.isEmpty) {
           segments.removeAt(i);

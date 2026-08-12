@@ -30,7 +30,7 @@ const Duration _knowledgePdfDecodeIdleTimeout = Duration(seconds: 10);
 const Duration _knowledgePdfDecodeTotalTimeout = Duration(seconds: 30);
 
 final RegExp _knowledgeLineBreakPattern = RegExp(r'[\r\n]');
-final RegExp _knowledgeExcessiveBlankLinesPattern = RegExp(r'\n{3,}');
+final RegExp _knowledgeExcessiveBlankLinesPattern = kExcessiveNewlinesPattern;
 final RegExp _xlsxWorksheetFilePattern = RegExp(
   r'^xl/worksheets/sheet\d+\.xml$',
 );

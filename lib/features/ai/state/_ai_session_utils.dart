@@ -320,7 +320,7 @@ String _stripRawToolCallMarkup(String value) {
 
   // Collapse excessive blank lines left behind after stripping.
   stripped = stripped
-      .replaceAll(_excessiveNewlinePatternToolCall, '\n\n')
+      .replaceAll(kExcessiveNewlinesPattern, '\n\n')
       .trim();
   return stripped;
 }
@@ -353,7 +353,6 @@ final RegExp _rawToolCallLooseTagPattern = RegExp(
   r'<\s*/?\s*tool_(?:calls?|result|use)\b[^>]*>',
   caseSensitive: false,
 );
-final RegExp _excessiveNewlinePatternToolCall = RegExp(r'\n{3,}');
 
 /// Pattern to match internal "Tool call: ToolName" label lines.
 /// Matches lines like:

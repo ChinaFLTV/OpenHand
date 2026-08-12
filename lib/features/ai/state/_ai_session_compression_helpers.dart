@@ -72,7 +72,7 @@ String normalizeCompressionCheckpointSummary(String summary) {
       '',
     );
   }
-  normalized = normalized.replaceAll(RegExp(r'\n{3,}'), '\n\n').trim();
+  normalized = normalized.replaceAll(kExcessiveNewlinesPattern, '\n\n').trim();
   return normalized.isEmpty ? raw : normalized;
 }
 

@@ -1,3 +1,5 @@
+import '../../../../shared/util/text_normalization.dart';
+
 /// Parses `<image_summary attachment_id="…">…</image_summary>` directives the
 /// assistant is instructed to emit alongside its visible reply, exposes the
 /// extracted summaries keyed by attachment id, and returns the reply with the
@@ -23,8 +25,7 @@ class AiImageSummaryExtractor {
     r'<image_summary\s+attachment_id\s*=\s*"([^"]+)"\s*>([\s\S]*?)</image_summary>',
     multiLine: true,
   );
-  static final RegExp _collapsedBlankLinesPattern = RegExp(r'\n{3,}');
-
+  
   /// Extracts every `<image_summary>` directive from [content] and returns
   /// both the lookup map and a stripped copy of the content. When no
   /// directive is present the original content is returned unchanged and
@@ -54,7 +55,7 @@ class AiImageSummaryExtractor {
     }
     final stripped = content
         .replaceAll(_pattern, '')
-        .replaceAll(_collapsedBlankLinesPattern, '\n\n');
+        .replaceAll(kExcessiveNewlinesPattern, '\n\n');
     return AiImageSummaryExtractionResult(
       summariesByAttachmentId: summaries,
       strippedContent: stripped.trim(),
