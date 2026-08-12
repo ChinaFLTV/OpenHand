@@ -172,9 +172,6 @@ class _ThreadSessionManagementDialogState
     }
   }
 
-  String _formatDateTime(DateTime dt) {
-    return formatYearMonthDayHm(dt.toLocal());
-  }
 
   /// 根据内存中的会话统计估算磁盘占用，避免大量会话时同步访问文件系统。
   /// 中英文混合内容按每字符约 2 字节估算。
@@ -1192,7 +1189,7 @@ class _ThreadSessionManagementDialogState
         denseMode: _denseMode,
         showDragHandle: canReorder,
         diskBytes: _diskBytes[session.id],
-        formatDateTime: _formatDateTime,
+        formatDateTime: (dt) => formatYearMonthDayHm(dt.toLocal()),
         formatBytes: formatByteSize,
         estimateBytes: _estimateBytes,
         onTap: _isSelectionMode ? null : () => _openPreview(session),

@@ -185,9 +185,6 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
   }
 }
 
-String _formatDateTime(DateTime value) {
-  return formatYearMonthDayHm(value.toLocal());
-}
 
 Widget _buildProgrammingExpertConfigSection(
   BuildContext context,

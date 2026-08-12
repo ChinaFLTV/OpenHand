@@ -10198,11 +10198,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                 sessionTitle: _persistedHarnessSession?.title,
                 updatedAtLabel: _persistedHarnessSession == null
                     ? null
-                    : _formatDateTime(_persistedHarnessSession!.updatedAt),
+                    : formatYearMonthDayHm(_persistedHarnessSession!.updatedAt.toLocal()),
                 sessionId: _persistedHarnessSession?.id,
                 createdAtLabel: _persistedHarnessSession == null
                     ? null
-                    : _formatDateTime(_persistedHarnessSession!.createdAt),
+                    : formatYearMonthDayHm(_persistedHarnessSession!.createdAt.toLocal()),
                 sessionCreatedAt: _persistedHarnessSession?.createdAt,
                 sessionUpdatedAt: _persistedHarnessSession?.updatedAt,
                 fullAccessPermission: _heFullAccessPermission,

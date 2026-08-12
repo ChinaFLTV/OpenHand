@@ -170,11 +170,11 @@ class _SessionMetadataDialog extends StatelessWidget {
                         ),
                         OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(context, 'created_at'),
-                          value: _formatDateTime(session.createdAt),
+                          value: formatYearMonthDayHm(session.createdAt.toLocal()),
                         ),
                         OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(context, 'updated_at'),
-                          value: _formatDateTime(session.updatedAt),
+                          value: formatYearMonthDayHm(session.updatedAt.toLocal()),
                         ),
                         OpenHandMetadataEntryRow(
                           label: _localizedMetadataField(context, 'last_model'),
@@ -215,7 +215,7 @@ class _SessionMetadataDialog extends StatelessWidget {
                           ),
                           value: session.latestCompressionAt == null
                               ? '-'
-                              : _formatDateTime(session.latestCompressionAt!),
+                              : formatYearMonthDayHm(session.latestCompressionAt!.toLocal()),
                         ),
                       ],
                     ),
@@ -2169,7 +2169,7 @@ class _MetadataPlanRecordCard extends StatelessWidget {
           ),
           kOpenHandGap8,
           Text(
-            '${AppLocalizations.of(context)!.sessMetaCreated} ${_formatDateTime(planRecord.createdAt)} · ${AppLocalizations.of(context)!.sessMetaUpdated} ${_formatDateTime(planRecord.updatedAt)}',
+            '${AppLocalizations.of(context)!.sessMetaCreated} ${formatYearMonthDayHm(planRecord.createdAt.toLocal())} · ${AppLocalizations.of(context)!.sessMetaUpdated} ${formatYearMonthDayHm(planRecord.updatedAt.toLocal())}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onSurfaceVariant,
             ),
@@ -2249,7 +2249,7 @@ class _MetadataErrorCard extends StatelessWidget {
           ],
           kOpenHandGap8,
           Text(
-            '${_sessionErrorStageLabel(context, error.stage)} · ${_formatDateTime(error.createdAt)} · ${error.hasBeenPresented ? AppLocalizations.of(context)!.sessMetaPresented : AppLocalizations.of(context)!.sessMetaPending}',
+            '${_sessionErrorStageLabel(context, error.stage)} · ${formatYearMonthDayHm(error.createdAt.toLocal())} · ${error.hasBeenPresented ? AppLocalizations.of(context)!.sessMetaPresented : AppLocalizations.of(context)!.sessMetaPending}',
             style: theme.textTheme.bodySmall?.copyWith(
               color: colorScheme.onErrorContainer.withValues(alpha: 0.84),
             ),

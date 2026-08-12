@@ -7289,7 +7289,7 @@ class _SelectedMessageContextRow extends StatelessWidget {
         ),
       _MessageContextCapsule(
         icon: Icons.schedule_rounded,
-        label: _formatDateTime(message.createdAt),
+        label: formatYearMonthDayHm(message.createdAt.toLocal()),
         textColor: textColor,
       ),
     ];

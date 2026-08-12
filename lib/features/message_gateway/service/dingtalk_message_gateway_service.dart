@@ -11,6 +11,7 @@ import '../../../app/support/safe_subprocess.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_log_buffer.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../ai/index.dart';
 import '../../plugin_service/index.dart';
@@ -1207,8 +1208,8 @@ class DingTalkMessageGatewayService {
     }
     final startText = start.toIso8601String();
     final endText = end.toIso8601String();
-    final allStartText = _formatChatDateTime(start);
-    final allEndText = _formatChatDateTime(end);
+    final allStartText = formatYearMonthDayHms(start.toLocal());
+    final allEndText = formatYearMonthDayHms(end.toLocal());
     final deadline = MonotonicDeadline(
       _messageQueryTotalTimeout,
       timeoutMessage: '钉钉消息轮询超过总时限。',
@@ -1440,7 +1441,7 @@ class DingTalkMessageGatewayService {
         'list',
         ..._targetArguments(conversation),
         '--time',
-        _formatChatDateTime(boundary),
+        formatYearMonthDayHms(boundary.toLocal()),
         '--limit',
         '$normalizedLimit',
         '--direction',
@@ -1572,7 +1573,7 @@ class DingTalkMessageGatewayService {
       'list',
       ..._targetArguments(conversation),
       '--time',
-      _formatChatDateTime(createdAt.subtract(_sentMessageLookupWindow)),
+      formatYearMonthDayHms(createdAt.subtract(_sentMessageLookupWindow).toLocal()),
       '--limit',
       '$_sentMessageLookupLimit',
       '--direction',
@@ -3807,12 +3808,6 @@ class DingTalkMessageGatewayService {
         normalized.contains('(fileid=');
   }
 
-  String _formatChatDateTime(DateTime value) {
-    final local = value.toLocal();
-    String two(int number) => number.toString().padLeft(2, '0');
-    return '${local.year}-${two(local.month)}-${two(local.day)} '
-        '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
-  }
 
   String _first(Map<String, Object?> map, List<String> keys) {
     for (final key in keys) {
