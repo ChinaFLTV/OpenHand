@@ -1661,7 +1661,24 @@ class ServicesController extends ChangeNotifier {
     _eventStreamReconnectAttempts = 0;
     if (_errorMessage == _eventStreamErrorMessage) _errorMessage = null;
     _eventStreamErrorMessage = null;
+    _detectEmptyCompletion();
     await _refreshHistoryAndResultsSafely();
+  }
+
+  /// 扫描任务进入终态但未发现任何候选目标时，给出明确提示。
+  void _detectEmptyCompletion() {
+    final progress = _progress;
+    if (progress == null) return;
+    if (progress.stage == 'completed' &&
+        progress.discovered == 0 &&
+        progress.candidates == 0) {
+      final hasReaderFailure = _logs.any(
+        (entry) => entry.message.contains('Jina Reader') || entry.message.contains('页面读取失败'),
+      );
+      _errorMessage = hasReaderFailure
+          ? '扫描完成但未发现目标，页面抓取失败。请检查系统代理设置后重试。'
+          : '扫描完成但未发现目标，请确认数据源配置与授权范围。';
+    }
   }
 
   Future<void> _handleEventStreamDone(
