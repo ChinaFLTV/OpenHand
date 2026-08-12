@@ -1244,7 +1244,8 @@ class ServicesController extends ChangeNotifier {
     var runtimeChanged = false;
     final changedEndpoints = <AiExposureProxyEndpoint>[];
     final requestHistory = <AiExposureProxyRequestRecord>[];
-    final endpoints = _proxyConfiguration.endpoints
+    final beforeAwait = _proxyConfiguration.endpoints;
+    final endpoints = beforeAwait
         .map((endpoint) {
           final runtime = byId[endpoint.runtimeId];
           if (runtime == null) return endpoint;
@@ -1277,7 +1278,18 @@ class ServicesController extends ChangeNotifier {
       }
     }
     if (changed || runtimeChanged) {
-      _proxyConfiguration = _proxyConfiguration.copyWith(endpoints: endpoints);
+      // await 期间其他操作可能已更新 endpoints（如巡检写入新样本），
+      // 此处基于最新配置做增量合并，避免覆盖其他操作的修改。
+      final latest = _proxyConfiguration.endpoints;
+      final merged = List<AiExposureProxyEndpoint>.of(latest);
+      final updatesByUrl = <String, AiExposureProxyEndpoint>{
+        for (final endpoint in endpoints) endpoint.url: endpoint,
+      };
+      for (var index = 0; index < merged.length; index++) {
+        final updated = updatesByUrl[merged[index].url];
+        if (updated != null) merged[index] = updated;
+      }
+      _proxyConfiguration = _proxyConfiguration.copyWith(endpoints: merged);
     }
     return changed || runtimeChanged;
   }
