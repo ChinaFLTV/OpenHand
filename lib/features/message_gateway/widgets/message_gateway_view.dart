@@ -15393,9 +15393,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         : widget.message.content;
     final contentExpanded =
         !widget.message.isExcludedFromAiContext || _showExcludedContent;
-    final useStableResponseWidth = widget.message.sourceAiMessageId
-        .trim()
-        .isNotEmpty;
     return SizedBox(
       width: double.infinity,
       child: Column(
@@ -15456,30 +15453,17 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                         foreground: foreground,
                       )
                     : showText
-                    ? useStableResponseWidth
-                          ? SizedBox(
-                              key: const ValueKey<String>(
-                                'dingtalk-message-content-ai-response',
-                              ),
-                              width: double.infinity,
-                              child: _buildTextBubble(
-                                context,
-                                bubbleColor: bubbleColor,
-                                foreground: foreground,
-                                effectiveContent: effectiveContent,
-                              ),
-                            )
-                          : IntrinsicWidth(
-                              key: const ValueKey<String>(
-                                'dingtalk-message-content-expanded-text',
-                              ),
-                              child: _buildTextBubble(
-                                context,
-                                bubbleColor: bubbleColor,
-                                foreground: foreground,
-                                effectiveContent: effectiveContent,
-                              ),
-                            )
+                    ? IntrinsicWidth(
+                        key: const ValueKey<String>(
+                          'dingtalk-message-content-expanded-text',
+                        ),
+                        child: _buildTextBubble(
+                          context,
+                          bubbleColor: bubbleColor,
+                          foreground: foreground,
+                          effectiveContent: effectiveContent,
+                        ),
+                      )
                     : Column(
                         key: const ValueKey<String>(
                           'dingtalk-message-content-expanded-media',
