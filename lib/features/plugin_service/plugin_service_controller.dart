@@ -54,7 +54,6 @@ class PluginServiceController extends ManagedChangeNotifier {
   bool _isOperating = false;
   String? _checkingPluginId;
   String? _errorMessage;
-  String? _lastSuccessfulPluginId;
   final OpenHandSingleFlight<void> _refreshAllPluginsFlight =
       OpenHandSingleFlight<void>();
   final BoundedLogBuffer _operationLogs = BoundedLogBuffer();
@@ -75,7 +74,6 @@ class PluginServiceController extends ManagedChangeNotifier {
   int get operationLogRevision => _operationLogs.revision;
   ValueListenable<int> get operationSuccessSignal =>
       _operationSuccessPulse.listenable;
-  String? get lastSuccessfulPluginId => _lastSuccessfulPluginId;
 
   List<String> logsForPlugin(String pluginId) {
     return _pluginLogs[pluginId]?.snapshot() ?? const <String>[];
@@ -612,7 +610,6 @@ class PluginServiceController extends ManagedChangeNotifier {
           _setPluginOperationFailure(pluginId, verificationError);
           return false;
         }
-        _lastSuccessfulPluginId = pluginId;
         _addLog('[SUCCESS] 插件操作完成，运行状态校验通过。');
         _operationSuccessPulse.emit();
         return true;

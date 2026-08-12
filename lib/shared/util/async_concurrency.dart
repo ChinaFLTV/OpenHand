@@ -266,9 +266,6 @@ class OpenHandAsyncSemaphore {
     }
   }
 
-  /// 等待许可并返回是否成功，供所有者主动取消等待队列。
-  Future<bool> acquirePermit() => _acquire();
-
   /// 等待许可；取消信号先完成时从队列移除并返回 `false`。
   Future<bool> acquireUnlessCancelled(Future<void> cancelSignal) {
     return _acquire(cancelSignal: cancelSignal);

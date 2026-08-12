@@ -24,7 +24,7 @@ Future<void> showKnowledgeRetrievalDetailDialog(
 ) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => KnowledgeRetrievalDetailDialog(metadata: metadata),
+    builder: (_) => _KnowledgeRetrievalDetailDialog(metadata: metadata),
   );
 }
 
@@ -38,8 +38,8 @@ Future<void> _showKnowledgeRetrievalHitDetailDialog(
   );
 }
 
-class KnowledgeRetrievalDetailDialog extends StatelessWidget {
-  const KnowledgeRetrievalDetailDialog({super.key, required this.metadata});
+class _KnowledgeRetrievalDetailDialog extends StatelessWidget {
+  const _KnowledgeRetrievalDetailDialog({required this.metadata});
 
   final Map<String, Object?> metadata;
 

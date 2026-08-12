@@ -67,6 +67,7 @@ class DingTalkDwsCommandExecution {
     required this.stderr,
     required this.exitCode,
     required this.timedOut,
+    required this.cancelled,
     required this.durationMs,
   });
 
@@ -76,6 +77,7 @@ class DingTalkDwsCommandExecution {
   final String stderr;
   final int exitCode;
   final bool timedOut;
+  final bool cancelled;
   final int durationMs;
 }
 
@@ -197,7 +199,6 @@ class DingTalkMessageGatewayService {
   static const int _maxConversationQueryFailures = 512;
   static const String _messageSearchFallbackWarning =
       '钉钉消息搜索能力暂不可用，已依赖实时事件和会话对账。';
-  static const int _conversationQueryMaxPages = 20;
   static const int _batchSize = 30;
   static const int _detailConcurrency = 4;
   static const int _maxMediaCacheFiles = 512;
@@ -380,8 +381,8 @@ class DingTalkMessageGatewayService {
       timeout: const Duration(minutes: 2),
       workingDirectory: workingDirectory,
       tag: 'dingtalk_gateway.dws_tool',
+      cancelSignal: cancelSignal,
       maxCapturedLinesPerStream: 4096,
-      onStdoutLine: (_) {},
       onStderrLine: (line) =>
           _logRuntime('WARN', 'DWS 扩展命令：${_safeProcessLogLine(line)}'),
       onTimeout: () => _logRuntime('ERROR', 'DWS 扩展命令执行超时：${command.cliPath}。'),
@@ -393,6 +394,7 @@ class DingTalkMessageGatewayService {
       stderr: result.stderr,
       exitCode: result.exitCode,
       timedOut: result.timedOut,
+      cancelled: result.cancelled,
       durationMs: startedAt.elapsedMilliseconds,
     );
   }
@@ -403,15 +405,6 @@ class DingTalkMessageGatewayService {
     _messageQueryUnavailableUntil.clear();
     _messageQueryWindowPreserved.clear();
     _conversationQueryUnavailableUntil.clear();
-  }
-
-  bool isConversationQueryUnavailable(DingTalkConversation conversation) {
-    final key = _conversationQueryKey(conversation);
-    final until = _conversationQueryUnavailableUntil[key];
-    if (until == null) return false;
-    if (DateTime.now().isBefore(until)) return true;
-    _conversationQueryUnavailableUntil.remove(key);
-    return false;
   }
 
   void _logRuntime(String level, String message) {
@@ -1501,57 +1494,6 @@ class DingTalkMessageGatewayService {
       hasMore: hasMore,
       oldestMessageAt: oldestMessageAt,
     );
-  }
-
-  Future<List<DingTalkGatewayMessage>> queryRecentConversation({
-    required DingTalkConversation conversation,
-    int limit = 50,
-    bool backfillHistory = false,
-    DateTime? before,
-  }) async {
-    final firstPage = await queryConversationPage(
-      conversation: conversation,
-      limit: limit,
-      before: before,
-    );
-    if (!backfillHistory || !firstPage.hasMore || firstPage.messages.isEmpty) {
-      return firstPage.messages;
-    }
-    final knownIds = conversation.messages
-        .map((message) => normalizeDingTalkMessageId(message.id))
-        .where((id) => id.isNotEmpty)
-        .toSet();
-    final seenIds = <String>{
-      for (final message in firstPage.messages)
-        normalizeDingTalkMessageId(message.id),
-    };
-    final messages = <DingTalkGatewayMessage>[...firstPage.messages];
-    var boundary = firstPage.oldestMessageAt;
-    for (
-      var pageIndex = 1;
-      pageIndex < _conversationQueryMaxPages && boundary != null;
-      pageIndex++
-    ) {
-      final page = await queryConversationPage(
-        conversation: conversation,
-        limit: limit,
-        before: boundary,
-      );
-      if (page.messages.isEmpty) break;
-      var reachedKnownMessage = false;
-      for (final message in page.messages) {
-        final id = normalizeDingTalkMessageId(message.id);
-        if (id.isEmpty) continue;
-        if (knownIds.contains(id)) reachedKnownMessage = true;
-        if (seenIds.add(id)) messages.add(message);
-      }
-      if (reachedKnownMessage || !page.hasMore) break;
-      final nextBoundary = page.oldestMessageAt;
-      if (nextBoundary == null || !nextBoundary.isBefore(boundary)) break;
-      boundary = nextBoundary;
-    }
-    messages.sort((left, right) => left.createdAt.compareTo(right.createdAt));
-    return messages.toList(growable: false);
   }
 
   Future<List<DingTalkConversationTarget>> searchTargets({

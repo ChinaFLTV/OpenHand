@@ -2281,12 +2281,8 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
           if (id == null || name == null) {
             return null;
           }
-          // Some OpenAI-compatible providers return `arguments` already as a
-          // Map / List (rather than the spec's JSON-encoded string).  A bare
-          // `'$value'` would yield Dart's `{key: value}` debug form, which
-          // is not valid JSON and breaks downstream `_decodeToolArguments`.
-          // Mirror the Claude/Gemini adapters and JSON-encode whenever we
-          // get a structured value.
+          // 部分兼容服务直接返回 Map/List；统一编码为 JSON，避免 Dart 调试文本
+          // 进入后续工具参数解析。
           final argsValue = functionMap['arguments'];
           final String arguments;
           if (argsValue is String) {

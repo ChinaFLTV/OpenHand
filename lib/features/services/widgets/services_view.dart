@@ -202,25 +202,25 @@ class _AiExposureServiceCard extends StatelessWidget {
                   spacing: 10,
                   runSpacing: 10,
                   children: [
-                    _ServicePill(
+                    OpenHandStatusPill(
                       icon: running
                           ? Icons.check_circle_outline_rounded
                           : Icons.pause_circle_outline_rounded,
                       label: _lifecycleLabel(context, snapshot.lifecycle),
                       color: toneColor,
                     ),
-                    _ServicePill(
+                    OpenHandStatusPill(
                       icon: Icons.workspace_premium_outlined,
                       label: l10n.servicesProprietaryBadge,
                       color: cs.secondary,
                     ),
                     if (snapshot.health != null)
-                      _ServicePill(
+                      OpenHandStatusPill(
                         icon: Icons.memory_rounded,
                         label: 'ai_jungler ${snapshot.health!.version}',
                         color: cs.tertiary,
                       ),
-                    _ServicePill(
+                    OpenHandStatusPill(
                       icon: Icons.travel_explore_rounded,
                       label: openHandLocalizedText(
                         context,
@@ -229,7 +229,7 @@ class _AiExposureServiceCard extends StatelessWidget {
                       ),
                       color: cs.primary,
                     ),
-                    _ServicePill(
+                    OpenHandStatusPill(
                       icon: Icons.rule_rounded,
                       label: openHandLocalizedText(
                         context,
@@ -238,7 +238,7 @@ class _AiExposureServiceCard extends StatelessWidget {
                       ),
                       color: cs.secondary,
                     ),
-                    _ServicePill(
+                    OpenHandStatusPill(
                       icon: Icons.history_rounded,
                       label: openHandLocalizedText(
                         context,
@@ -247,7 +247,7 @@ class _AiExposureServiceCard extends StatelessWidget {
                       ),
                       color: cs.primary,
                     ),
-                    _ServicePill(
+                    OpenHandStatusPill(
                       icon: Icons.fact_check_outlined,
                       label: openHandLocalizedText(
                         context,
@@ -470,52 +470,6 @@ class _ServiceIconAction extends StatelessWidget {
       icon: Icon(icon),
     ),
   );
-}
-
-class _ServicePill extends StatelessWidget {
-  const _ServicePill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 17, color: color),
-            const SizedBox(width: 7),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 280),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
 }
 
 class _CompactProgress extends StatelessWidget {

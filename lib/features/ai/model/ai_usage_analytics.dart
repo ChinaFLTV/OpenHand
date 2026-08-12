@@ -134,15 +134,6 @@ class AiUsageSummary {
   double get averageFirstTokenMs => firstTokenSampleCount == 0
       ? 0
       : firstTokenDurationMs / firstTokenSampleCount;
-  double get latestContextWindowUsageRate {
-    if (latestContextUsedTokens <= 0 || latestContextWindowTokens <= 0) {
-      return 0;
-    }
-    return (latestContextUsedTokens / latestContextWindowTokens)
-        .clamp(0.0, 1.0)
-        .toDouble();
-  }
-
   bool get hasCompletePricing =>
       requestCount > 0 && pricedRequestCount == requestCount;
 }

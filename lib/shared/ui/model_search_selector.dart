@@ -13,9 +13,8 @@ const double _kModelSearchDialogRadius = 16;
 const double _kModelSearchScrollbarThickness = 6;
 const Radius _kModelSearchScrollbarRadius = kOpenHandPillRadius;
 
-/// Entry representing a single selectable model inside a provider group.
-class ModelEntry {
-  const ModelEntry({
+class _ModelEntry {
+  const _ModelEntry({
     required this.configId,
     required this.modelId,
     required this.providerLabel,
@@ -47,8 +46,8 @@ Future<(String, String)?> showModelSearchSelector({
 }) async {
   // Build flat list of entries grouped by provider.
   // Skip providers that have no models at all (empty allModelIds).
-  final entries = <ModelEntry>[];
-  final entriesBySelection = <(String, String), ModelEntry>{};
+  final entries = <_ModelEntry>[];
+  final entriesBySelection = <(String, String), _ModelEntry>{};
   for (final config in models) {
     final configId = config.id.trim();
     if (configId.isEmpty) continue;
@@ -67,7 +66,7 @@ Future<(String, String)?> showModelSearchSelector({
       if (modelFilter != null && !modelFilter(config, normalizedModelId)) {
         continue;
       }
-      final entry = ModelEntry(
+      final entry = _ModelEntry(
         configId: configId,
         modelId: normalizedModelId,
         providerLabel: providerLabel,
@@ -81,7 +80,7 @@ Future<(String, String)?> showModelSearchSelector({
 
   // Build recent entries from persisted selections, validating against current
   // provider configs to prune stale entries.
-  final recentEntries = <ModelEntry>[];
+  final recentEntries = <_ModelEntry>[];
   final seenRecentSelections = <(String, String)>{};
   for (final recent in recentSelections) {
     final selectionKey = (recent.configId.trim(), recent.modelId.trim());
@@ -110,8 +109,8 @@ class _ModelSearchDialog extends StatefulWidget {
     this.selectedModelId,
   });
 
-  final List<ModelEntry> entries;
-  final List<ModelEntry> recentEntries;
+  final List<_ModelEntry> entries;
+  final List<_ModelEntry> recentEntries;
   final String? selectedConfigId;
   final String? selectedModelId;
 
@@ -123,7 +122,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
   final _searchController = TextEditingController();
   final _searchFocusNode = FocusNode();
   final _scrollController = ScrollController();
-  List<ModelEntry> _filtered = const [];
+  List<_ModelEntry> _filtered = const [];
 
   @override
   void initState() {
@@ -168,7 +167,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
     final l10n = AppLocalizations.of(context)!;
 
     // Group filtered entries by provider.
-    final grouped = <String, List<ModelEntry>>{};
+    final grouped = <String, List<_ModelEntry>>{};
     for (final entry in _filtered) {
       final key = '${entry.providerLabel}  (${entry.protocolLabel})';
       (grouped[key] ??= []).add(entry);
@@ -180,7 +179,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
       for (final item in _filtered) '${item.configId}\u0000${item.modelId}',
     };
     final recentFiltered = isSearching
-        ? const <ModelEntry>[]
+        ? const <_ModelEntry>[]
         : widget.recentEntries
               .where(
                 (entry) => filteredKeys.contains(
@@ -344,7 +343,7 @@ class _ModelPickerRow {
       showProviderSubtitle = false;
 
   final String? headerLabel;
-  final ModelEntry? entry;
+  final _ModelEntry? entry;
   final bool showProviderSubtitle;
 }
 
@@ -377,7 +376,7 @@ class _ModelTile extends StatelessWidget {
     this.showProviderSubtitle = false,
   });
 
-  final ModelEntry entry;
+  final _ModelEntry entry;
   final bool isActive;
   final VoidCallback onTap;
 

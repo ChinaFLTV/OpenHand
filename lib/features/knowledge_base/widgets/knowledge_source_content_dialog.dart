@@ -43,22 +43,22 @@ Future<void> showKnowledgeSourceContentDialog(
 ) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => KnowledgeSourceContentDialog(sourceId: sourceId),
+    builder: (_) => _KnowledgeSourceContentDialog(sourceId: sourceId),
   );
 }
 
-class KnowledgeSourceContentDialog extends StatefulWidget {
-  const KnowledgeSourceContentDialog({super.key, required this.sourceId});
+class _KnowledgeSourceContentDialog extends StatefulWidget {
+  const _KnowledgeSourceContentDialog({required this.sourceId});
 
   final String sourceId;
 
   @override
-  State<KnowledgeSourceContentDialog> createState() =>
+  State<_KnowledgeSourceContentDialog> createState() =>
       _KnowledgeSourceContentDialogState();
 }
 
 class _KnowledgeSourceContentDialogState
-    extends State<KnowledgeSourceContentDialog> {
+    extends State<_KnowledgeSourceContentDialog> {
   final TextEditingController _sourceController = TextEditingController();
   final TextEditingController _findController = TextEditingController();
   final TextEditingController _replaceController = TextEditingController();

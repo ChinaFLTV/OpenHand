@@ -199,7 +199,6 @@ class ServicesController extends ChangeNotifier {
   String? get errorMessage => _errorMessage;
   String? get proxyRuntimeSyncError => _proxyRuntimeSyncError;
   bool get busy => _busy;
-  bool get scanBusy => _scanBusy;
   bool get isRunning => _lifecycle == AiExposureServiceLifecycle.running;
   bool get hasActiveScan => _progress?.isRunning ?? false;
   bool get proxyInspectionBusy => _proxyInspectionRunning;

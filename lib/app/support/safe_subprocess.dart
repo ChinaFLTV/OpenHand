@@ -1496,6 +1496,7 @@ class TrackedProcessLineLogResult {
     required this.pid,
     required this.exitCode,
     required this.timedOut,
+    required this.cancelled,
     required this.stdout,
     required this.stderr,
   });
@@ -1503,6 +1504,7 @@ class TrackedProcessLineLogResult {
   final int pid;
   final int exitCode;
   final bool timedOut;
+  final bool cancelled;
   final String stdout;
   final String stderr;
 }
@@ -1610,7 +1612,8 @@ class BoundedProcessLineDecoder {
 /// 用于需要实时日志的安装、更新流程，统一管理输出订阅、超时和清理。流读取异常只
 /// 记录日志，启动和退出异常仍交给调用方。默认使用独立 POSIX 进程组，超时时会
 /// 终止整棵进程树。[onProcessStarted] 在输出订阅完成后调用；
-/// [processStartTimeout] 仅限制启动阶段，[timeout] 限制完整执行时长。
+/// [processStartTimeout] 仅限制启动阶段，[timeout] 限制完整执行时长；
+/// [cancelSignal] 完成时立即终止进程树并返回取消结果。
 Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   String executable,
   List<String> arguments, {
@@ -1621,6 +1624,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   Map<String, String>? environment,
   bool runInShell = false,
   bool includeParentEnvironment = true,
+  Future<void>? cancelSignal,
   ProcessLogLineHandler? onStdoutLine,
   ProcessLogLineHandler? onStderrLine,
   void Function(Process process)? onProcessStarted,
@@ -1647,6 +1651,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
   final effectiveDrainTimeout = nonNegativeDuration(streamDrainTimeout);
   final executionStopwatch = Stopwatch()..start();
   var timedOut = false;
+  var cancelled = false;
   Process? process;
   final stdoutDone = Completer<void>();
   final stderrDone = Completer<void>();
@@ -1669,6 +1674,28 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
 
   void complete(Completer<void> completer) {
     if (!completer.isCompleted) completer.complete();
+  }
+
+  void terminateLateLaunch(Future<Process> launchFuture) {
+    unawaited(
+      launchFuture.then<void>(
+        (lateProcess) async {
+          try {
+            await terminateTrackedProcessTree(
+              lateProcess,
+              gracefulTimeout: gracefulTerminationTimeout,
+            );
+          } catch (error, stack) {
+            silentLog(tag, '终止延迟启动进程 $executable', error, stack);
+          }
+        },
+        onError: (Object error, StackTrace stack) {
+          if (!_isMissingExecutableProcessException(error)) {
+            silentLog(tag, '延迟启动进程 $executable', error, stack);
+          }
+        },
+      ),
+    );
   }
 
   void handleLine(
@@ -1752,33 +1779,31 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
             includeParentEnvironment: includeParentEnvironment,
           );
     try {
-      process = await launchFuture.timeout(effectiveStartTimeout);
+      process = await awaitWithCancelSignal(
+        launchFuture,
+        cancelSignal: cancelSignal,
+      ).timeout(effectiveStartTimeout);
+      if (process == null) {
+        cancelled = true;
+        terminateLateLaunch(launchFuture);
+        return TrackedProcessLineLogResult(
+          pid: -1,
+          exitCode: -1,
+          timedOut: false,
+          cancelled: true,
+          stdout: stdoutCapture.text,
+          stderr: stderrCapture.text,
+        );
+      }
     } on TimeoutException {
       timedOut = true;
       notifyTimeout();
-      unawaited(
-        launchFuture.then<void>(
-          (lateProcess) async {
-            try {
-              await terminateTrackedProcessTree(
-                lateProcess,
-                gracefulTimeout: gracefulTerminationTimeout,
-              );
-            } catch (error, stack) {
-              silentLog(tag, '终止延迟启动进程 $executable', error, stack);
-            }
-          },
-          onError: (Object error, StackTrace stack) {
-            if (!_isMissingExecutableProcessException(error)) {
-              silentLog(tag, '延迟启动进程 $executable', error, stack);
-            }
-          },
-        ),
-      );
+      terminateLateLaunch(launchFuture);
       return TrackedProcessLineLogResult(
         pid: -1,
         exitCode: -1,
         timedOut: true,
+        cancelled: false,
         stdout: stdoutCapture.text,
         stderr: stderrCapture.text,
       );
@@ -1801,26 +1826,34 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
     );
     onProcessStarted?.call(process);
     final remainingTimeout = effectiveTimeout - executionStopwatch.elapsed;
-    final exitCode =
-        await (() async {
-          try {
-            await process!.stdin.close();
-          } catch (error, stack) {
-            silentLog(tag, '关闭 $executable 标准输入', error, stack);
-          }
-          return process!.exitCode;
-        })().timeout(
+    final exitFuture = () async {
+      try {
+        await process!.stdin.close();
+      } catch (error, stack) {
+        silentLog(tag, '关闭 $executable 标准输入', error, stack);
+      }
+      return process!.exitCode;
+    }();
+    final completedExitCode =
+        await awaitWithCancelSignal(
+          exitFuture,
+          cancelSignal: cancelSignal,
+        ).timeout(
           remainingTimeout > Duration.zero ? remainingTimeout : Duration.zero,
-          onTimeout: () async {
+          onTimeout: () {
             timedOut = true;
             notifyTimeout();
-            await terminateTrackedProcessTree(
-              process!,
-              gracefulTimeout: gracefulTerminationTimeout,
-            );
-            return -1;
+            return null;
           },
         );
+    if (completedExitCode == null) {
+      cancelled = !timedOut;
+      await terminateTrackedProcessTree(
+        process,
+        gracefulTimeout: gracefulTerminationTimeout,
+      );
+    }
+    final exitCode = completedExitCode ?? -1;
     final streamsFinished = await waitForStreamDrain();
     if (!streamsFinished) {
       await terminateTrackedProcessTree(
@@ -1832,6 +1865,7 @@ Future<TrackedProcessLineLogResult> runTrackedProcessWithLineLogging(
       pid: process.pid,
       exitCode: exitCode,
       timedOut: timedOut,
+      cancelled: cancelled,
       stdout: stdoutCapture.text,
       stderr: stderrCapture.text,
     );

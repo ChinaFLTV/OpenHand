@@ -9556,7 +9556,9 @@ class AiSessionController extends ChangeNotifier {
   }
 
   String _toolCallCommand(AiToolCall toolCall) {
-    final decodedArguments = _decodeToolArguments(toolCall.arguments);
+    final decodedArguments = stringKeyedMapFromValueOrJsonText(
+      toolCall.arguments,
+    );
     final command =
         '${decodedArguments['cmd'] ?? decodedArguments['command'] ?? ''}'
             .trim();
@@ -9574,12 +9576,16 @@ class AiSessionController extends ChangeNotifier {
   }
 
   bool _toolCallRunInBackground(AiToolCall toolCall) {
-    final decodedArguments = _decodeToolArguments(toolCall.arguments);
+    final decodedArguments = stringKeyedMapFromValueOrJsonText(
+      toolCall.arguments,
+    );
     return _readBool(decodedArguments['run_in_background']) == true;
   }
 
   String _toolCallWorkingDirectory(AiToolCall toolCall) {
-    final decodedArguments = _decodeToolArguments(toolCall.arguments);
+    final decodedArguments = stringKeyedMapFromValueOrJsonText(
+      toolCall.arguments,
+    );
     final workingDirectory =
         '${decodedArguments['working_directory'] ?? decodedArguments['cwd'] ?? ''}'
             .trim();
@@ -13247,26 +13253,6 @@ $tail''';
       ..['context_budget_is_above_auto_compact_threshold'] = isAboveAutoCompact
       ..['context_budget_is_at_blocking_limit'] = isAtBlockingLimit;
     return Map<String, Object?>.unmodifiable(metadata);
-  }
-
-  Map<String, Object?> _decodeToolArguments(String arguments) {
-    final trimmed = arguments.trim();
-    if (trimmed.isEmpty) {
-      return const <String, Object?>{};
-    }
-    try {
-      final decoded = jsonDecode(trimmed);
-      if (decoded is Map<String, Object?>) {
-        return decoded;
-      }
-      if (decoded is Map) {
-        return stringKeyedMapFromValue(decoded);
-      }
-    } catch (error, stack) {
-      silentLog('ai_session_controller', '解析工具调用参数', error, stack);
-      return const <String, Object?>{};
-    }
-    return const <String, Object?>{};
   }
 
   String _resolveToolCallMessageId(AiSession session, AiToolCall toolCall) {

@@ -526,8 +526,6 @@ class DingTalkGatewayMedia {
   final int? durationMs;
   final String localPath;
 
-  bool get isCached => localPath.trim().isNotEmpty;
-
   String get displayName {
     final normalized = _normalizedDingTalkString(name);
     if (normalized.isNotEmpty) return normalized;

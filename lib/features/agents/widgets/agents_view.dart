@@ -647,26 +647,26 @@ class _AgentCard extends StatelessWidget {
               spacing: 10,
               runSpacing: 10,
               children: [
-                _AgentPill(
+                OpenHandStatusPill(
                   icon: agent.isRunning
                       ? Icons.check_circle_outline_rounded
                       : Icons.pause_circle_outline_rounded,
                   label: _agentLifecycleStateLabel(l10n, agent.lifecycleState),
                   color: toneColor,
                 ),
-                _AgentPill(
+                OpenHandStatusPill(
                   icon: Icons.workspace_premium_outlined,
                   label: agent.level.trim().isEmpty ? 'L1' : agent.level,
                   color: cs.secondary,
                 ),
-                _AgentPill(
+                OpenHandStatusPill(
                   icon: Icons.security_rounded,
                   label: _agentExecutionModeLabel(l10n, agent.executionMode),
                   color: agent.executionMode == AgentExecutionMode.fullAccess
                       ? cs.tertiary
                       : cs.primary,
                 ),
-                _AgentPill(
+                OpenHandStatusPill(
                   icon: Icons.task_alt_rounded,
                   label: l10n.agentsTasksCount(
                     agent.runningTaskCount,
@@ -674,12 +674,12 @@ class _AgentCard extends StatelessWidget {
                   ),
                   color: cs.primary,
                 ),
-                _AgentPill(
+                OpenHandStatusPill(
                   icon: Icons.fact_check_rounded,
                   label: l10n.agentsApprovalsCount(agent.pendingApprovalCount),
                   color: cs.error,
                 ),
-                _AgentPill(
+                OpenHandStatusPill(
                   icon: Icons.memory_rounded,
                   label: l10n.agentsWorkersCount(
                     agent.workers.length,
@@ -688,7 +688,7 @@ class _AgentCard extends StatelessWidget {
                   color: cs.secondary,
                 ),
                 if (modelLabel.isNotEmpty)
-                  _AgentPill(
+                  OpenHandStatusPill(
                     icon: Icons.auto_awesome_rounded,
                     label: modelLabel,
                     color: cs.primary,
@@ -832,52 +832,6 @@ class _AgentCardMenuItem extends StatelessWidget {
         const SizedBox(width: 10),
         Flexible(child: Text(label)),
       ],
-    );
-  }
-}
-
-class _AgentPill extends StatelessWidget {
-  const _AgentPill({
-    required this.icon,
-    required this.label,
-    required this.color,
-  });
-
-  final IconData icon;
-  final String label;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    return DecoratedBox(
-      decoration: BoxDecoration(
-        color: color.withValues(alpha: 0.12),
-        borderRadius: kOpenHandPillBorderRadius,
-        border: Border.all(color: color.withValues(alpha: 0.35)),
-      ),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-        child: Row(
-          mainAxisSize: MainAxisSize.min,
-          children: [
-            Icon(icon, size: 17, color: color),
-            const SizedBox(width: 7),
-            ConstrainedBox(
-              constraints: const BoxConstraints(maxWidth: 280),
-              child: Text(
-                label,
-                maxLines: 1,
-                overflow: TextOverflow.ellipsis,
-                style: theme.textTheme.labelLarge?.copyWith(
-                  color: color,
-                  fontWeight: FontWeight.w700,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
     );
   }
 }
@@ -2775,34 +2729,34 @@ class _AgentClusterDialogContentState
           spacing: 10,
           runSpacing: 10,
           children: [
-            _AgentPill(
+            OpenHandStatusPill(
               icon: Icons.compress_rounded,
               label: l10n.agentsMinWorkersCount(settings.minWorkers),
               color: Theme.of(context).colorScheme.primary,
             ),
-            _AgentPill(
+            OpenHandStatusPill(
               icon: Icons.unfold_more_rounded,
               label: l10n.agentsMaxWorkersCount(settings.maxWorkers),
               color: Theme.of(context).colorScheme.secondary,
             ),
-            _AgentPill(
+            OpenHandStatusPill(
               icon: Icons.route_rounded,
               label: _agentPolicyOptionLabel(context, settings.schedulerPolicy),
               color: Theme.of(context).colorScheme.tertiary,
             ),
-            _AgentPill(
+            OpenHandStatusPill(
               icon: Icons.repeat_rounded,
               label:
                   '${_agentPolicyOptionLabel(context, settings.retryPolicy)} · ${settings.maxRetries}',
               color: Theme.of(context).colorScheme.primary,
             ),
-            _AgentPill(
+            OpenHandStatusPill(
               icon: Icons.compare_arrows_rounded,
               label:
                   '${(settings.scaleOutThreshold * 100).round()}% / ${(settings.scaleInThreshold * 100).round()}%',
               color: Theme.of(context).colorScheme.secondary,
             ),
-            _AgentPill(
+            OpenHandStatusPill(
               icon: Icons.low_priority_rounded,
               label: _agentPolicyOptionLabel(
                 context,
@@ -2811,7 +2765,7 @@ class _AgentClusterDialogContentState
               color: Theme.of(context).colorScheme.tertiary,
             ),
             if (settings.tags.isNotEmpty)
-              _AgentPill(
+              OpenHandStatusPill(
                 icon: Icons.label_outline_rounded,
                 label: settings.tags.join(', '),
                 color: Theme.of(context).colorScheme.primary,

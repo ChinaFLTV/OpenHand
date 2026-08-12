@@ -17,9 +17,6 @@ abstract class ManagedChangeNotifier extends ChangeNotifier {
   bool get isDisposed => _isDisposed;
 
   @protected
-  bool get isShuttingDown => _isShuttingDown;
-
-  @protected
   Duration get operationShutdownTimeout => _kManagedControllerShutdownTimeout;
 
   StateError get _unavailableError => StateError('$runtimeType 正在关闭或已释放');

@@ -67,6 +67,54 @@ class OhPill extends StatelessWidget {
   }
 }
 
+/// 带强调色边框的图标状态胶囊。
+class OpenHandStatusPill extends StatelessWidget {
+  const OpenHandStatusPill({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return DecoratedBox(
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.12),
+        borderRadius: kOpenHandPillBorderRadius,
+        border: Border.all(color: color.withValues(alpha: 0.35)),
+      ),
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(icon, size: 17, color: color),
+            const SizedBox(width: 7),
+            ConstrainedBox(
+              constraints: const BoxConstraints(maxWidth: 280),
+              child: Text(
+                label,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+                style: theme.textTheme.labelLarge?.copyWith(
+                  color: color,
+                  fontWeight: FontWeight.w700,
+                ),
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 /// 行内计量胶囊：高对比容器底上的一行次级小字，用于超时、条数这类数值标注。
 class OpenHandMetricChip extends StatelessWidget {
   const OpenHandMetricChip({super.key, required this.label, this.tooltip});

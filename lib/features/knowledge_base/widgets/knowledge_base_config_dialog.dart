@@ -55,21 +55,22 @@ Future<void> showKnowledgeBaseConfigDialog(
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => KnowledgeBaseConfigDialog(onOpenPlugins: onOpenPlugins),
+    builder: (_) => _KnowledgeBaseConfigDialog(onOpenPlugins: onOpenPlugins),
   );
 }
 
-class KnowledgeBaseConfigDialog extends StatefulWidget {
-  const KnowledgeBaseConfigDialog({super.key, this.onOpenPlugins});
+class _KnowledgeBaseConfigDialog extends StatefulWidget {
+  const _KnowledgeBaseConfigDialog({this.onOpenPlugins});
 
   final VoidCallback? onOpenPlugins;
 
   @override
-  State<KnowledgeBaseConfigDialog> createState() =>
+  State<_KnowledgeBaseConfigDialog> createState() =>
       _KnowledgeBaseConfigDialogState();
 }
 
-class _KnowledgeBaseConfigDialogState extends State<KnowledgeBaseConfigDialog> {
+class _KnowledgeBaseConfigDialogState
+    extends State<_KnowledgeBaseConfigDialog> {
   late KnowledgeBaseSettings _settings;
   late final TextEditingController _dimensions;
   late final TextEditingController _maxInputTokens;

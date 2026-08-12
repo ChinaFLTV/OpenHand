@@ -322,6 +322,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       'stderr': result.stderr,
       'exit_code': result.exitCode,
       'timed_out': result.timedOut,
+      'cancelled': result.cancelled,
       'duration_ms': result.durationMs,
     };
   }
@@ -1478,8 +1479,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _notify();
     await _stopEventListening();
   }
-
-  Future<void> pollNow() => _pollOnce();
 
   bool forceRespondToConversation(String conversationId) {
     final conversation = _conversations[conversationId];

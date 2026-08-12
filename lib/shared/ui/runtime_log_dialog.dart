@@ -21,9 +21,8 @@ import 'openhand_snack_bar.dart';
 /// [listenable] 的通知会触发有界刷新，短时间内的连续输出会合并处理；定时器作为
 /// 兜底，每秒检查一次 revision，避免底层进程输出没有主动通知 UI 时日志停留在旧
 /// 快照。列表只保留调用方提供的有界日志，不在弹窗内复制无限增长的数据。
-class OpenHandRuntimeLogDialog extends StatefulWidget {
-  const OpenHandRuntimeLogDialog({
-    super.key,
+class _OpenHandRuntimeLogDialog extends StatefulWidget {
+  const _OpenHandRuntimeLogDialog({
     required this.title,
     required this.listenable,
     required this.logs,
@@ -42,11 +41,11 @@ class OpenHandRuntimeLogDialog extends StatefulWidget {
   final Widget? emptyPlaceholder;
 
   @override
-  State<OpenHandRuntimeLogDialog> createState() =>
+  State<_OpenHandRuntimeLogDialog> createState() =>
       _OpenHandRuntimeLogDialogState();
 }
 
-class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
+class _OpenHandRuntimeLogDialogState extends State<_OpenHandRuntimeLogDialog> {
   static const Duration _refreshInterval = Duration(seconds: 1);
   static const Duration _renderDebounce = Duration(milliseconds: 120);
 
@@ -88,7 +87,7 @@ class _OpenHandRuntimeLogDialogState extends State<OpenHandRuntimeLogDialog> {
   }
 
   @override
-  void didUpdateWidget(covariant OpenHandRuntimeLogDialog oldWidget) {
+  void didUpdateWidget(covariant _OpenHandRuntimeLogDialog oldWidget) {
     super.didUpdateWidget(oldWidget);
     final listenableChanged = !identical(
       oldWidget.listenable,
@@ -400,7 +399,7 @@ Future<void> showOpenHandRuntimeLogDialog({
 }) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => OpenHandRuntimeLogDialog(
+    builder: (_) => _OpenHandRuntimeLogDialog(
       title: title,
       listenable: listenable,
       logs: logs,

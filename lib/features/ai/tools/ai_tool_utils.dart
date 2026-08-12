@@ -542,12 +542,6 @@ class AiToolUtils {
     return out;
   }
 
-  static String? requireAbsoluteFilePath(String rawPath) {
-    final normalizedInput = rawPath.trim();
-    if (normalizedInput.isEmpty || !p.isAbsolute(normalizedInput)) return null;
-    return p.normalize(normalizedInput);
-  }
-
   static int? readInt(Object? value) {
     return optionalIntegralIntFromValue(value);
   }

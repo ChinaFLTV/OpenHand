@@ -120,10 +120,16 @@ class AiDingTalkDwsTool extends AiTool {
           ? Map<String, Object?>.from(raw)
           : <String, Object?>{'stdout': '$raw'};
       final stdout = '${result['stdout'] ?? ''}';
-      final stderr = '${result['stderr'] ?? ''}';
       final timedOut = result['timed_out'] == true;
+      final cancelled = result['cancelled'] == true;
+      final rawStderr = '${result['stderr'] ?? ''}';
+      final stderr = cancelled && rawStderr.trim().isEmpty
+          ? '钉钉 DWS 工具执行已取消。'
+          : rawStderr;
       final exitCode = int.tryParse('${result['exit_code'] ?? 0}');
-      final status = timedOut
+      final status = cancelled
+          ? BashToolExecutionStatus.cancelled
+          : timedOut
           ? BashToolExecutionStatus.timedOut
           : exitCode == 0
           ? BashToolExecutionStatus.success
@@ -139,7 +145,11 @@ class AiDingTalkDwsTool extends AiTool {
             int.tryParse('${result['duration_ms'] ?? ''}') ??
             startedAt.elapsedMilliseconds,
         exitCode: exitCode,
-        resultText: output.isEmpty ? 'DWS 命令未返回内容。' : output,
+        resultText: cancelled
+            ? 'status: cancelled\nerror: 钉钉 DWS 工具执行已取消。'
+            : output.isEmpty
+            ? 'DWS 命令未返回内容。'
+            : output,
         isWriteCommand: command.effect != 'read',
         writeAnalysisReason: command.effect == 'read' ? '' : '钉钉 DWS 命令标记为写操作。',
         metadata: <String, Object?>{
@@ -151,6 +161,7 @@ class AiDingTalkDwsTool extends AiTool {
           'dingtalk_dws_risk': command.risk,
           'dingtalk_dws_confirmation': command.confirmation,
           'dingtalk_dws_status': status.storageValue,
+          if (cancelled) 'execution_cancelled': true,
           'dingtalk_dws_duration_ms': startedAt.elapsedMilliseconds,
         },
       );

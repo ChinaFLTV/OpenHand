@@ -20,12 +20,12 @@ Future<void> showKnowledgeSourceDetailDialog(
 ) {
   return showAnimatedDialog<void>(
     context: context,
-    builder: (_) => KnowledgeSourceDetailDialog(sourceId: sourceId),
+    builder: (_) => _KnowledgeSourceDetailDialog(sourceId: sourceId),
   );
 }
 
-class KnowledgeSourceDetailDialog extends StatelessWidget {
-  const KnowledgeSourceDetailDialog({super.key, required this.sourceId});
+class _KnowledgeSourceDetailDialog extends StatelessWidget {
+  const _KnowledgeSourceDetailDialog({required this.sourceId});
 
   final String sourceId;
 

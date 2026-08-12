@@ -5739,7 +5739,7 @@ $content
     if (normalizedName.isEmpty) {
       return '[tool_call]';
     }
-    final arguments = _decodeToolArgumentsMap(toolCall.arguments);
+    final arguments = stringKeyedMapFromValueOrJsonText(toolCall.arguments);
     final targetPath = _toolCallTargetPath(arguments);
     // Bash 命令体必须保留；仅原生 Write/Edit 系列工具
     // 才标注 "payload omitted"。否则模型会以为自己执行的 shell 命令也被
@@ -6201,7 +6201,7 @@ $content
     required Map<String, Object?> metadata,
   }) {
     final normalizedName = toolCall.name.trim();
-    final arguments = _decodeToolArgumentsMap(toolCall.arguments);
+    final arguments = stringKeyedMapFromValueOrJsonText(toolCall.arguments);
     if (arguments.isEmpty) {
       return toolCall.arguments;
     }
@@ -6330,25 +6330,6 @@ $content
       default:
         return toolCall.arguments;
     }
-  }
-
-  Map<String, Object?> _decodeToolArgumentsMap(String arguments) {
-    final trimmed = arguments.trim();
-    if (trimmed.isEmpty) {
-      return const <String, Object?>{};
-    }
-    try {
-      final decoded = jsonDecode(trimmed);
-      if (decoded is Map<String, Object?>) {
-        return decoded;
-      }
-      if (decoded is Map) {
-        return stringKeyedMapFromValue(decoded);
-      }
-    } catch (_) {
-      return const <String, Object?>{};
-    }
-    return const <String, Object?>{};
   }
 
   String _omittedPayloadSummary(
