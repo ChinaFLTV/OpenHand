@@ -101,7 +101,7 @@ class _OverviewPanel extends StatelessWidget {
               '启用规则',
               '${controller.rules.where((item) => item.enabled).length}',
               '总计 ${controller.rules.length}',
-              color: const Color(0xff0f766e),
+              color: _kAiExposureColorTeal,
             ),
             _Metric(
               _MetricInsightId.overviewProxyAverageLatency,
@@ -190,7 +190,7 @@ class _OverviewPanel extends StatelessWidget {
                             item.category == AiExposureResultCategory.highValue,
                       )
                       .length,
-                  const Color(0xffa855f7),
+                  _kAiExposureColorHighValue,
                 ),
                 _DistributionItem(
                   '可疑',
@@ -272,13 +272,13 @@ class _Console extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
-        color: const Color(0xff0b0e12),
+        color: _kAiExposureDarkSurface,
         borderRadius: BorderRadius.circular(8),
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: DefaultTextStyle(
         style: const TextStyle(
-          color: Color(0xffd5dae3),
+          color: _kAiExposureDarkOnSurface,
           fontFamily: 'monospace',
           fontSize: 13,
           height: 1.55,
@@ -363,7 +363,7 @@ class _Console extends StatelessWidget {
         TextSpan(
           text: value,
           style: TextStyle(
-            color: healthy ? const Color(0xffd5dae3) : const Color(0xffffb14e),
+            color: healthy ? _kAiExposureDarkOnSurface : const Color(0xffffb14e),
           ),
         ),
       ],

@@ -185,7 +185,7 @@ Widget _buildOverviewMetricInsight(
                       ? result.host
                       : '${result.product} · ${result.host}',
                   subtitle: result.url,
-                  color: const Color(0xffa855f7),
+                  color: _kAiExposureColorHighValue,
                   target: _ResultInsightTarget(result),
                   cells: [
                     _InsightMatrixCell(
@@ -220,7 +220,7 @@ Widget _buildOverviewMetricInsight(
               values: chronological
                   .map((entry) => entry.progress.highValue.toDouble())
                   .toList(growable: false),
-              color: const Color(0xffa855f7),
+              color: _kAiExposureColorHighValue,
             ),
             OpenHandChartSeries(
               label: '有效',
@@ -797,7 +797,7 @@ Widget _buildPipelineMetricInsight(
             _InsightFunnelItem(
               label: '高价值结果',
               value: highValue,
-              color: const Color(0xffa855f7),
+              color: _kAiExposureColorHighValue,
             ),
           ],
         ),
@@ -880,7 +880,7 @@ Widget _buildPipelineMetricInsight(
                   subtitle: entry.authorizedScope.isEmpty
                       ? '未记录授权范围'
                       : entry.authorizedScope.join(' · '),
-                  color: const Color(0xff0891b2),
+                  color: _kAiExposureColorCyan,
                   target: _TaskInsightTarget(entry),
                   cells: [
                     _InsightMatrixCell(
@@ -1549,9 +1549,9 @@ Color _distributionColor(int index, ColorScheme colors) => <Color>[
   OpenHandStatusColors.info,
   OpenHandStatusColors.success,
   OpenHandStatusColors.warning,
-  const Color(0xffa855f7),
-  const Color(0xff0f766e),
-  const Color(0xff0891b2),
+  _kAiExposureColorHighValue,
+  _kAiExposureColorTeal,
+  _kAiExposureColorCyan,
 ][index % 8];
 
 enum _TaskRecordLens {
@@ -1698,7 +1698,7 @@ _InsightRecord _resultInsightRecord(
 ]) {
   final tone = switch (entry.category) {
     AiExposureResultCategory.valid => OpenHandStatusColors.success,
-    AiExposureResultCategory.highValue => const Color(0xffa855f7),
+    AiExposureResultCategory.highValue => _kAiExposureColorHighValue,
     AiExposureResultCategory.honeypot => OpenHandStatusColors.error,
     AiExposureResultCategory.suspicious => OpenHandStatusColors.warning,
   };
@@ -3018,7 +3018,7 @@ Widget _pipelineFunnelTrendInsight(
         _InsightFunnelItem(
           label: '高价值',
           value: highValue,
-          color: const Color(0xffa855f7),
+          color: _kAiExposureColorHighValue,
         ),
       ],
     ),
@@ -3089,7 +3089,7 @@ Widget _pipelineFunnelTrendInsight(
                 ),
                 _InsightMatrixCell(
                   label: '高价值 ${task.progress.highValue}',
-                  color: const Color(0xffa855f7),
+                  color: _kAiExposureColorHighValue,
                 ),
               ],
             ),
@@ -3500,7 +3500,7 @@ Widget _resultCategoryDistributionInsight(
     _DistributionItem(
       '高价值',
       count(AiExposureResultCategory.highValue),
-      const Color(0xffa855f7),
+      _kAiExposureColorHighValue,
       key: AiExposureResultCategory.highValue,
     ),
     _DistributionItem(
@@ -3541,7 +3541,7 @@ Widget _resultCategoryDistributionInsight(
           label: '高价值',
           value: '${items[1].value}',
           helper: '优先处置',
-          color: const Color(0xffa855f7),
+          color: _kAiExposureColorHighValue,
         ),
         _InsightKpi(
           icon: Icons.gpp_maybe_outlined,
@@ -3582,7 +3582,7 @@ Widget _resultCategoryDistributionInsight(
             };
             final tone = switch (category) {
               AiExposureResultCategory.valid => OpenHandStatusColors.success,
-              AiExposureResultCategory.highValue => const Color(0xffa855f7),
+              AiExposureResultCategory.highValue => _kAiExposureColorHighValue,
               AiExposureResultCategory.suspicious =>
                 OpenHandStatusColors.warning,
               AiExposureResultCategory.honeypot => OpenHandStatusColors.error,

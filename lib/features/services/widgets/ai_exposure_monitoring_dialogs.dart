@@ -46,6 +46,13 @@ const Duration _kOperationsRefreshInterval = Duration(seconds: 8);
 const Duration _kOperationsMetadataTimeout = Duration(seconds: 2);
 const Duration _kOperationsCardMotionDuration = Duration(milliseconds: 150);
 
+// AI 暴露监控分类语义色板（图表/标签/卡片统一引用）。
+const Color _kAiExposureColorHighValue = Color(0xffa855f7);
+const Color _kAiExposureColorTeal = Color(0xff0f766e);
+const Color _kAiExposureColorCyan = Color(0xff0891b2);
+const Color _kAiExposureDarkSurface = Color(0xff0b0e12);
+const Color _kAiExposureDarkOnSurface = Color(0xffd5dae3);
+
 Future<void> showAiExposureOperationsDialog(BuildContext context) =>
     showAnimatedDialog<void>(
       context: context,

@@ -3793,7 +3793,7 @@ $tail''';
           // Provide a clear note so the AI does not hallucinate about the
           // image and the user can understand why the response is off.
           const modelWarning =
-              '[⚠️ 当前模型不支持直接查看图片内容，无法分析此图片。'
+              '[当前模型不支持直接查看图片内容，无法分析此图片。'
               '请切换到支持多模态/视觉的模型（如含有 vl、vision、omni 等关键字的模型）后重试。]';
           if (detailText.isEmpty) {
             parts.add(

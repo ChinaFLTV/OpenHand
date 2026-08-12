@@ -215,7 +215,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
           Expanded(
             child: Container(
               decoration: BoxDecoration(
-                color: const Color(0xff0b0e12),
+                color: _kAiExposureDarkSurface,
                 borderRadius: BorderRadius.circular(8),
                 border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               ),
@@ -365,7 +365,7 @@ class _LogRow extends StatelessWidget {
             child: SelectableText(
               entry.message,
               style: const TextStyle(
-                color: Color(0xffd5dae3),
+                color: _kAiExposureDarkOnSurface,
                 fontFamily: 'monospace',
                 fontSize: 12.5,
                 height: 1.35,
