@@ -192,9 +192,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                           loc?.webReverseReplayFilterByUrl ?? 'Filter by URL',
                       prefixIcon: const Icon(Icons.search_rounded, size: 18),
                       isDense: true,
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
                     ),
                     onChanged: (v) => setState(() => _filter = v.trim()),
                   ),
@@ -246,13 +244,13 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                           color: picked
                               ? cs.primaryContainer.withValues(alpha: 0.35)
                               : cs.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: kWebReverseRadiusLarge,
                           border: Border.all(
                             color: picked ? cs.primary : cs.outlineVariant,
                           ),
                         ),
                         child: InkWell(
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: kWebReverseRadiusLarge,
                           onTap: _busy
                               ? null
                               : () => setState(() {
@@ -289,7 +287,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: cs.secondaryContainer,
-                                        borderRadius: BorderRadius.circular(4),
+                                        borderRadius: kWebReverseRadiusXS,
                                       ),
                                       child: Text(
                                         e.method,

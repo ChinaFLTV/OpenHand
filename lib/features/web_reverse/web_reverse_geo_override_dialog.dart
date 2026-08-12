@@ -407,7 +407,7 @@ class _GeoOverrideDialogState extends State<_GeoOverrideDialog> {
                     padding: const EdgeInsets.all(10),
                     decoration: BoxDecoration(
                       color: cs.tertiaryContainer.withValues(alpha: 0.35),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: kWebReverseRadiusMedium,
                     ),
                     child: Text(
                       loc?.webReverseGeoTip ??

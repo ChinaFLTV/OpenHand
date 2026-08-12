@@ -509,7 +509,7 @@ class _ProfileDirRowState extends State<_ProfileDirRow>
         color: hasLock
             ? cs.errorContainer.withValues(alpha: 0.4)
             : cs.surfaceContainer,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: kWebReverseRadiusLarge,
         border: Border.all(color: hasLock ? cs.error : cs.outlineVariant),
       ),
       child: Column(

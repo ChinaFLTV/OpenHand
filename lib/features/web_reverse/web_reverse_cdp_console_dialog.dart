@@ -488,7 +488,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
               margin: const EdgeInsets.only(top: 4),
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: kWebReverseRadiusSmall,
               ),
               child: SelectableText(
                 h.paramsJson,
@@ -514,7 +514,7 @@ class _CdpConsoleDialogState extends State<_CdpConsoleDialog> {
                 color: h.error == null
                     ? cs.surfaceContainerHigh
                     : cs.errorContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: kWebReverseRadiusSmall,
               ),
               child: SingleChildScrollView(
                 child: SelectableText(

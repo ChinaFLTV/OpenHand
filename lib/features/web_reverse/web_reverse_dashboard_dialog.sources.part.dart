@@ -2301,7 +2301,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                 ),
                 decoration: BoxDecoration(
                   color: cs.errorContainer,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: kWebReverseRadiusLarge,
                 ),
                 child: Row(
                   children: [
@@ -2403,7 +2403,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                   children: [
                     for (var i = 0; i < frames.length; i++)
                       InkWell(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: kWebReverseRadiusMedium,
                         onTap: () => setState(() => _selectedFrame = i),
                         child: Container(
                           padding: const EdgeInsets.symmetric(
@@ -2414,7 +2414,7 @@ class _DebuggerSideRailState extends State<_DebuggerSideRail> {
                             color: i == _selectedFrame
                                 ? cs.primaryContainer
                                 : Colors.transparent,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: kWebReverseRadiusMedium,
                           ),
                           child: Row(
                             children: [
@@ -2733,7 +2733,7 @@ class _ScopeSectionState extends State<_ScopeSection> {
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           InkWell(
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: kWebReverseRadiusSmall,
             onTap: _toggle,
             child: Padding(
               padding: const EdgeInsets.symmetric(vertical: 3, horizontal: 4),
@@ -2830,7 +2830,7 @@ class _SourceHoverBubble extends StatelessWidget {
       constraints: const BoxConstraints(maxWidth: 480),
       child: Material(
         elevation: 6,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: kWebReverseRadiusLarge,
         color: cs.surfaceContainerHigh,
         child: Padding(
           padding: const EdgeInsets.fromLTRB(10, 6, 10, 8),
@@ -3004,7 +3004,7 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
     final cs = theme.colorScheme;
     return buildOpenHandDialog(
       backgroundColor: cs.surfaceContainerHigh,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+      shape: const RoundedRectangleBorder(borderRadius: kWebReverseRadiusXXLarge),
       width: 640,
       height: 480,
       child: CallbackShortcuts(

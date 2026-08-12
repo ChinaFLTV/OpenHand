@@ -260,9 +260,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                           controller: _w,
                           decoration: InputDecoration(
                             labelText: loc?.webReverseDeviceEmuWidth ?? 'Width',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                            border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
                           ),
                           keyboardType: TextInputType.number,
                         ),
@@ -274,9 +272,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                           decoration: InputDecoration(
                             labelText:
                                 loc?.webReverseDeviceEmuHeight ?? 'Height',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
+                            border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
                           ),
                           keyboardType: TextInputType.number,
                         ),
@@ -285,12 +281,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       Expanded(
                         child: TextField(
                           controller: _dpr,
-                          decoration: InputDecoration(
-                            labelText: 'DPR',
-                            border: OutlineInputBorder(
-                              borderRadius: BorderRadius.circular(10),
-                            ),
-                          ),
+                          decoration: const InputDecoration(labelText: 'DPR', border: OutlineInputBorder(borderRadius: kWebReverseRadiusLarge)),
                           keyboardType: TextInputType.number,
                         ),
                       ),
@@ -314,9 +305,7 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       hintText:
                           loc?.webReverseDeviceEmuUaHint ??
                           'leave empty to keep default',
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(10),
-                      ),
+                      border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
                     ),
                     minLines: 2,
                     maxLines: 4,

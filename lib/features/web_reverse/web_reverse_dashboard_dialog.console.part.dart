@@ -357,7 +357,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
           ),
         ),
       ],
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+      shape: const RoundedRectangleBorder(borderRadius: kWebReverseRadiusXLarge),
     );
     if (!mounted || selected == null) return;
     switch (selected) {
@@ -470,7 +470,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                           ),
                           decoration: BoxDecoration(
                             color: color,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: kWebReverseRadiusMedium,
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -600,7 +600,7 @@ class _ConsoleBodyState extends State<_ConsoleBody> {
                     ),
                     decoration: BoxDecoration(
                       color: cs.errorContainer,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: kWebReverseRadiusMedium,
                     ),
                     child: Row(
                       children: [

@@ -153,9 +153,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
               prefixIcon: const Icon(Icons.search_rounded, size: 18),
               hintText:
                   loc?.webReverseSignatureDiffSearchHint ?? 'Search endpoint',
-              border: OutlineInputBorder(
-                borderRadius: BorderRadius.circular(10),
-              ),
+              border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
             ),
           ),
         ),
@@ -176,9 +174,9 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                     final active = _selected == g;
                     return Material(
                       color: active ? cs.primaryContainer : Colors.transparent,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: kWebReverseRadiusMedium,
                       child: InkWell(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: kWebReverseRadiusMedium,
                         onTap: () => setState(() => _selected = g),
                         child: Padding(
                           padding: const EdgeInsets.symmetric(
@@ -197,7 +195,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                                     ),
                                     decoration: BoxDecoration(
                                       color: cs.surfaceContainerHighest,
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: kWebReverseRadiusXS,
                                     ),
                                     child: Text(
                                       g.method,
@@ -217,7 +215,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                                     ),
                                     decoration: BoxDecoration(
                                       color: cs.tertiaryContainer,
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: kWebReverseRadiusXS,
                                     ),
                                     child: Text(
                                       '×${g.samples.length}',
@@ -237,7 +235,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: cs.errorContainer,
-                                        borderRadius: BorderRadius.circular(4),
+                                        borderRadius: kWebReverseRadiusXS,
                                       ),
                                       child: Text(
                                         '${g.dynamicCount} dyn',
@@ -424,7 +422,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
           Container(
             decoration: BoxDecoration(
               color: cs.surface,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: kWebReverseRadiusMedium,
               border: Border.all(color: cs.outlineVariant),
             ),
             child: Column(
@@ -473,7 +471,7 @@ class _SignatureDiffDialogState extends State<_SignatureDiffDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
             decoration: BoxDecoration(
               color: tagBg,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: kWebReverseRadiusXS,
             ),
             child: Text(
               tagText,

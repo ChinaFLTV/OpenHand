@@ -166,7 +166,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
               decoration: BoxDecoration(
                 color: cs.errorContainer,
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: kWebReverseRadiusSmall,
               ),
               child: Text(
                 loc?.webReverseReqBpInterceptOff ?? 'Intercept OFF',
@@ -215,9 +215,9 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
         final active = _selected?.id == bp.id;
         return Material(
           color: active ? cs.primaryContainer : Colors.transparent,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: kWebReverseRadiusMedium,
           child: InkWell(
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: kWebReverseRadiusMedium,
             onTap: () => setState(() => _selected = bp),
             child: Padding(
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),

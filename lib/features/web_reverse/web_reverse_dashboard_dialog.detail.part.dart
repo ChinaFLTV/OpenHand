@@ -372,7 +372,7 @@ class _DetailTabButton extends StatelessWidget {
     final cs = theme.colorScheme;
     return InkWell(
       onTap: onTap,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: kWebReverseRadiusMedium,
       child: Container(
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
         decoration: BoxDecoration(
@@ -1019,7 +1019,7 @@ class _RedirectStepRow extends StatelessWidget {
             padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1.5),
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.14),
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: kWebReverseRadiusSmall,
               border: Border.all(
                 color: statusColor.withValues(alpha: 0.45),
                 width: 0.8,
@@ -1119,7 +1119,7 @@ class _ClickableSourceRow extends StatelessWidget {
               message: _webReverseDashOpenInSourcesLabel(context),
               child: InkWell(
                 onTap: onTap,
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: kWebReverseRadiusXS,
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     vertical: 1,
@@ -1249,7 +1249,7 @@ class _StackFrame extends StatelessWidget {
       message: _webReverseDashOpenInSourcesLabel(context),
       child: InkWell(
         onTap: () => onJump(url, line, col),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: kWebReverseRadiusSmall,
         child: body,
       ),
     );
@@ -1613,7 +1613,7 @@ class _TimingWaterfall extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: kWebReverseRadiusLarge,
         border: Border.all(color: cs.outlineVariant),
       ),
       child: LayoutBuilder(
@@ -1901,7 +1901,7 @@ class _MessagesTab extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               color: color,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: kWebReverseRadiusMedium,
             ),
             padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
             child: Column(

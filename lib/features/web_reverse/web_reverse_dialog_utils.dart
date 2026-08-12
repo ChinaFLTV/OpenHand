@@ -13,6 +13,14 @@ import '../../shared/util/timer_safety.dart';
 import 'web_reverse_session_config.dart';
 import 'web_reverse_session_controller.dart';
 
+// 通用圆角档位：收敛散落的 BorderRadius.circular 字面量。
+const BorderRadius kWebReverseRadiusXS = BorderRadius.all(Radius.circular(4));
+const BorderRadius kWebReverseRadiusSmall = BorderRadius.all(Radius.circular(6));
+const BorderRadius kWebReverseRadiusMedium = BorderRadius.all(Radius.circular(8));
+const BorderRadius kWebReverseRadiusLarge = BorderRadius.all(Radius.circular(10));
+const BorderRadius kWebReverseRadiusXLarge = BorderRadius.all(Radius.circular(12));
+const BorderRadius kWebReverseRadiusXXLarge = BorderRadius.all(Radius.circular(14));
+
 const EdgeInsets kWebReverseStatusBarPadding = EdgeInsets.fromLTRB(
   16,
   8,
@@ -257,9 +265,9 @@ class WebReverseSelectableListTile extends StatelessWidget {
       color: selected
           ? colorScheme.primaryContainer.withValues(alpha: 0.4)
           : colorScheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: kWebReverseRadiusMedium,
       child: InkWell(
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kWebReverseRadiusMedium,
         onTap: onTap,
         child: Padding(padding: padding, child: child),
       ),

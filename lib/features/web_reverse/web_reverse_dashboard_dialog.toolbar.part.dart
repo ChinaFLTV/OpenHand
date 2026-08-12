@@ -2067,7 +2067,7 @@ class _HarChangedColumn extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: cs.primaryContainer.withValues(alpha: 0.6),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: kWebReverseRadiusSmall,
                 ),
                 child: Text(
                   '${changes.length}',
@@ -2130,7 +2130,7 @@ class _HarChangeRow extends StatelessWidget {
             color: (sizeDelta > 0 ? cs.error : Colors.green).withValues(
               alpha: 0.18,
             ),
-            borderRadius: BorderRadius.circular(6),
+            borderRadius: kWebReverseRadiusSmall,
           ),
           child: Text(
             formatSignedByteSize(sizeDelta),
@@ -2218,7 +2218,7 @@ class _StatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: color.withValues(alpha: emphasised ? 0.28 : 0.16),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: kWebReverseRadiusSmall,
         border: Border.all(
           color: color.withValues(alpha: emphasised ? 0.7 : 0.35),
           width: emphasised ? 1.4 : 1,
@@ -2256,7 +2256,7 @@ class _BodyPreview extends StatelessWidget {
       padding: const EdgeInsets.all(8),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kWebReverseRadiusMedium,
         border: Border.all(
           color: accentChanged ? cs.error : cs.outlineVariant,
           width: accentChanged ? 1.2 : 1,
@@ -2525,7 +2525,7 @@ class _HarUnifiedStat extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 1),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.16),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: kWebReverseRadiusXS,
       ),
       child: Text(
         label,

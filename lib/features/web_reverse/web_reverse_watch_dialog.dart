@@ -617,7 +617,7 @@ class _HistoryPane extends StatelessWidget {
                         color: s.isError
                             ? cs.errorContainer.withValues(alpha: 0.3)
                             : cs.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: kWebReverseRadiusSmall,
                       ),
                       child: Row(
                         crossAxisAlignment: CrossAxisAlignment.start,

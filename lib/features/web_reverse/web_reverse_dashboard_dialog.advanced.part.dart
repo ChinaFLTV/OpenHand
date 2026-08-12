@@ -1374,7 +1374,7 @@ class _AdvancedMenuDialog extends StatelessWidget {
                   color: Colors.transparent,
                   child: InkWell(
                     onTap: e.onTap,
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: kWebReverseRadiusLarge,
                     child: Padding(
                       padding: const EdgeInsets.all(12),
                       child: Row(
@@ -1609,7 +1609,7 @@ Future<void> _showCdpPaletteDialog(
                             color: Theme.of(
                               dialogContext,
                             ).colorScheme.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: kWebReverseRadiusMedium,
                             border: Border.all(
                               color: Theme.of(
                                 dialogContext,
@@ -2622,7 +2622,7 @@ class _WebRtcLiveDialogState extends State<_WebRtcLiveDialog> {
                 padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
                 decoration: BoxDecoration(
                   color: cs.primaryContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: kWebReverseRadiusMedium,
                 ),
                 child: Text(
                   openHandLocalizedText(
@@ -3239,7 +3239,7 @@ class _RtcTab extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return InkWell(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: kWebReverseRadiusLarge,
       onTap: onTap,
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -3249,7 +3249,7 @@ class _RtcTab extends StatelessWidget {
           color: selected
               ? cs.primaryContainer.withValues(alpha: 0.6)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: kWebReverseRadiusLarge,
           border: Border.all(
             color: selected
                 ? cs.primary.withValues(alpha: 0.4)
@@ -3288,7 +3288,7 @@ class _RtcStatChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: kWebReverseRadiusLarge,
         border: Border.all(color: color.withValues(alpha: 0.4)),
       ),
       child: Row(
@@ -3476,7 +3476,7 @@ Future<void> _showWebcrackDialog(BuildContext context) async {
                       color: Theme.of(
                         dialogContext,
                       ).colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: kWebReverseRadiusMedium,
                       border: Border.all(
                         color: Theme.of(
                           dialogContext,
@@ -4275,7 +4275,7 @@ class _SdpDiffColumn extends StatelessWidget {
                 padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
                 decoration: BoxDecoration(
                   color: cs.primaryContainer.withValues(alpha: 0.5),
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: kWebReverseRadiusSmall,
                 ),
                 child: Text(cur.type, style: theme.textTheme.labelSmall),
               ),
@@ -4362,11 +4362,11 @@ class _IceTopologyGraph extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: surfaceContainer.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: kWebReverseRadiusLarge,
         border: Border.all(color: onSurface.withValues(alpha: 0.08)),
       ),
       child: ClipRRect(
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: kWebReverseRadiusLarge,
         child: InteractiveViewer(
           maxScale: 4,
           minScale: 0.5,

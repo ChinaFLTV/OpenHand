@@ -534,9 +534,9 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                 color: selected
                                     ? cs.primaryContainer
                                     : Colors.transparent,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: kWebReverseRadiusMedium,
                                 child: InkWell(
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: kWebReverseRadiusMedium,
                                   onTap: () => setState(() {
                                     _selected = g;
                                     _suspects = const <String>[];
@@ -636,7 +636,7 @@ class _AiCryptoDialogState extends State<_AiCryptoDialog> {
                                   ),
                                   decoration: BoxDecoration(
                                     color: cs.primaryContainer,
-                                    borderRadius: BorderRadius.circular(4),
+                                    borderRadius: kWebReverseRadiusXS,
                                   ),
                                   child: Text(
                                     k,

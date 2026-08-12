@@ -413,7 +413,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                   ),
                   decoration: BoxDecoration(
                     color: cs.primaryContainer,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: kWebReverseRadiusSmall,
                   ),
                   child: Text(
                     '${_playbackRate.toStringAsFixed(2)}x',
@@ -534,7 +534,7 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                                         : r.playState == 'paused'
                                         ? cs.tertiaryContainer
                                         : cs.surfaceContainerHighest,
-                                    borderRadius: BorderRadius.circular(4),
+                                    borderRadius: kWebReverseRadiusXS,
                                   ),
                                   child: Text(
                                     r.playState,

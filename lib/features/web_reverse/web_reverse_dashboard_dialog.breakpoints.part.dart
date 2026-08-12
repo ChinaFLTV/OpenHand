@@ -1355,7 +1355,7 @@ class _BpRow extends StatelessWidget {
     Widget content = onTap == null
         ? row
         : InkWell(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: kWebReverseRadiusLarge,
             onTap: onTap,
             child: row,
           );

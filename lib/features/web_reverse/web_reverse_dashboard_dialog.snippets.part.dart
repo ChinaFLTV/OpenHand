@@ -281,7 +281,7 @@ class _SnippetTileState extends State<_SnippetTile>
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
           decoration: BoxDecoration(
             color: bg,
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: kWebReverseRadiusLarge,
             border: Border.all(color: border),
           ),
           child: Row(

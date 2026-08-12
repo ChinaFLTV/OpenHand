@@ -525,7 +525,7 @@ class _AuthCard extends StatelessWidget {
                   padding: const EdgeInsets.all(8),
                   decoration: BoxDecoration(
                     color: cs.surface,
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: kWebReverseRadiusSmall,
                     border: Border.all(color: cs.outlineVariant),
                   ),
                   child: SelectableText(
@@ -549,7 +549,7 @@ class _AuthCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: cs.primaryContainer.withValues(alpha: 0.4),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: kWebReverseRadiusXS,
       ),
       child: Text(
         text,

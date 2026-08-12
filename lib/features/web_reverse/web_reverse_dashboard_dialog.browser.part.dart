@@ -1625,11 +1625,11 @@ class _BrowserBodyState extends State<_BrowserBody> implements TextInputClient {
                 );
                 _scheduleViewportSync(renderSize, dpr);
                 return ClipRRect(
-                  borderRadius: BorderRadius.circular(14),
+                  borderRadius: kWebReverseRadiusXXLarge,
                   child: Container(
                     decoration: BoxDecoration(
                       color: cs.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: kWebReverseRadiusXXLarge,
                       border: Border.all(color: cs.outlineVariant),
                     ),
                     child: Stack(

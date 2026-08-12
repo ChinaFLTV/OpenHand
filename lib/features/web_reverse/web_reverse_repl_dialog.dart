@@ -273,7 +273,7 @@ class _LogTile extends StatelessWidget {
               ),
               InkWell(
                 onTap: () => onCopy(entry.expr),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: kWebReverseRadiusSmall,
                 child: Padding(
                   padding: const EdgeInsets.all(4),
                   child: Icon(
@@ -309,7 +309,7 @@ class _LogTile extends StatelessWidget {
               ),
               InkWell(
                 onTap: () => onCopy(entry.result),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: kWebReverseRadiusSmall,
                 child: Padding(
                   padding: const EdgeInsets.all(4),
                   child: Icon(

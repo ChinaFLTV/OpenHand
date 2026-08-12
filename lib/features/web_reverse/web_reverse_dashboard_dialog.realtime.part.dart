@@ -300,7 +300,7 @@ class _RealtimeBodyState extends State<_RealtimeBody> {
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           decoration: BoxDecoration(
             color: cs.primary.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: kWebReverseRadiusLarge,
             border: Border.all(color: cs.primary.withValues(alpha: 0.18)),
           ),
           child: Row(
@@ -378,7 +378,7 @@ class _ConnTile extends StatelessWidget {
     final cs = theme.colorScheme;
     final isSse = entry.resourceType.toLowerCase() == 'eventsource';
     return InkWell(
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: kWebReverseRadiusLarge,
       onTap: onTap,
       child: AnimatedContainer(
         duration: openHandMotionDuration(
@@ -392,7 +392,7 @@ class _ConnTile extends StatelessWidget {
           color: selected
               ? cs.primary.withValues(alpha: 0.12)
               : Colors.transparent,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: kWebReverseRadiusLarge,
           border: Border.all(
             color: selected
                 ? cs.primary.withValues(alpha: 0.45)
@@ -407,7 +407,7 @@ class _ConnTile extends StatelessWidget {
                 color: (isSse ? cs.tertiary : cs.primary).withValues(
                   alpha: 0.14,
                 ),
-                borderRadius: BorderRadius.circular(6),
+                borderRadius: kWebReverseRadiusSmall,
               ),
               child: Text(
                 isSse ? 'SSE' : 'WS',
@@ -470,7 +470,7 @@ class _FrameTile extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: cs.surface,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: kWebReverseRadiusLarge,
         border: Border.all(color: cs.outlineVariant),
       ),
       padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),

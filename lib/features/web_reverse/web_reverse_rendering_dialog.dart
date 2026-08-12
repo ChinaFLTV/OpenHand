@@ -409,7 +409,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
                     ),
                     decoration: BoxDecoration(
                       color: cs.errorContainer.withValues(alpha: 0.4),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: kWebReverseRadiusLarge,
                     ),
                     child: Text(
                       _status,
@@ -476,7 +476,7 @@ class _RenderingDialogState extends State<_RenderingDialog> {
         color: value
             ? cs.primaryContainer.withValues(alpha: 0.42)
             : cs.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: kWebReverseRadiusXXLarge,
         border: Border.all(
           color: value ? cs.primary.withValues(alpha: 0.4) : cs.outlineVariant,
         ),
