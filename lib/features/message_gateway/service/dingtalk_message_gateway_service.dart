@@ -2320,26 +2320,20 @@ class DingTalkMessageGatewayService {
     required String onError,
   }) async {
     if (values.isEmpty) return List<R>.empty();
-    final results = List<R?>.filled(values.length, null);
-    var nextIndex = 0;
-    Future<void> worker() async {
-      while (true) {
-        final index = nextIndex++;
-        if (index >= values.length) return;
+    final results = await runOrderedWithConcurrencyLimit<R?>(
+      itemCount: values.length,
+      maxConcurrency: _detailConcurrency,
+      task: (index) async {
         try {
-          results[index] = await action(values[index]);
+          return await action(values[index]);
         } catch (error, stack) {
           if (_isExpectedCommandFailure(error)) {
-            continue;
+            return null;
           }
           silentLog('dingtalk_gateway', onError, error, stack);
+          return null;
         }
-      }
-    }
-
-    final workerCount = math.min(_detailConcurrency, values.length);
-    await Future.wait<void>(
-      List<Future<void>>.generate(workerCount, (_) => worker()),
+      },
     );
     return results
         .where((item) => item != null)

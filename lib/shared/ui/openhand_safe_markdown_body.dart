@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 
+import '../util/timer_safety.dart';
 import 'markdown_ast_sanitizer.dart';
 import 'markdown_math.dart';
 
@@ -85,7 +86,7 @@ class _OpenHandSafeMarkdownBodyState extends State<OpenHandSafeMarkdownBody>
         oldWidget.streaming &&
         oldWidget.data != widget.data &&
         _children.isNotEmpty) {
-      _streamingParseTimer ??= Timer(_streamingParseInterval, () {
+      _streamingParseTimer ??= startSafeTimer(_streamingParseInterval, () {
         _streamingParseTimer = null;
         if (mounted) setState(_rebuildIfNeeded);
       });

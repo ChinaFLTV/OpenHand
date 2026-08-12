@@ -8,6 +8,8 @@ import 'dart:io';
 ///      '@/features/<b>/<sub>/...' 或 '../<b>/<sub>/...'（b != a，sub 非 index*）。
 ///   3. lib/ 业务代码禁止直接调用或构造 Flutter 原生弹窗、菜单、底部面板与
 ///      OverlayEntry；统一通过 shared/ui 的全局动画入口展示。
+///   4. lib/ 业务代码禁止直接构造 Timer；统一通过安全计时工具限制时长并处理
+///      异步回调异常。
 ///
 /// 同 feature 内部 import 不限制；该脚本只约束跨 feature 深路径依赖。
 ///
@@ -27,6 +29,7 @@ Future<void> main(List<String> args) async {
 
   violations += await _scanDart(root);
   violations += await _scanDialogApis(root);
+  violations += await _scanTimerApis(root);
   violations += await _scanWeb(Directory('$root/clients/web/src/features'));
 
   if (violations > 0) {
@@ -135,6 +138,38 @@ Future<int> _scanDialogApis(String root) async {
         );
         violations++;
       }
+    }
+  }
+  return violations;
+}
+
+Future<int> _scanTimerApis(String root) async {
+  final libRoot = Directory('$root/lib');
+  if (!libRoot.existsSync()) return 0;
+  final sharedUtilRoot =
+      '$root${Platform.pathSeparator}lib${Platform.pathSeparator}shared'
+      '${Platform.pathSeparator}util${Platform.pathSeparator}';
+  final allowedPaths = <String>{
+    _normalize('${sharedUtilRoot}timer_safety.dart'),
+    _normalize('${sharedUtilRoot}async_concurrency.dart'),
+  };
+  final forbiddenApi = RegExp(r'\bTimer\s*(?:\.periodic\s*)?\(');
+  var violations = 0;
+
+  await for (final entity in libRoot.list(recursive: true)) {
+    if (entity is! File || !entity.path.endsWith('.dart')) continue;
+    if (allowedPaths.contains(_normalize(entity.path))) continue;
+    var blockCommentDepth = 0;
+    final lines = await entity.readAsLines();
+    for (var i = 0; i < lines.length; i++) {
+      final stripped = _stripDartComments(lines[i], blockCommentDepth);
+      blockCommentDepth = stripped.blockCommentDepth;
+      if (!forbiddenApi.hasMatch(stripped.code)) continue;
+      stderr.writeln(
+        '${entity.path}:${i + 1} 业务代码禁止直接构造 Timer；'
+        '请使用 shared/util/timer_safety.dart 的安全计时工具',
+      );
+      violations++;
     }
   }
   return violations;

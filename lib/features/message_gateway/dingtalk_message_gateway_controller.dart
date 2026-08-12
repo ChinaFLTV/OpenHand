@@ -118,6 +118,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const int _mediaCacheConcurrency = 3;
   static const int _echoRestoreConcurrency = 4;
   static const int _mediaWarmupMessageLimit = 12;
+  static const int _targetSearchCacheMaxEntries = 20;
+  static const int _targetSearchMaxConcurrentRequests = 8;
+  static const Duration _targetSearchCacheTtl = Duration(seconds: 5);
   static const int _maxMediaHydrationFailureIds = 1024;
   static const int _maxSeenIds = 2000;
   static const int _maxPendingRecallIds = 512;
@@ -186,6 +189,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       <String, List<DingTalkGatewayEvent>>{};
   final Map<String, (DateTime, List<DingTalkConversationTarget>)>
   _targetSearchCache = <String, (DateTime, List<DingTalkConversationTarget>)>{};
+  final OpenHandKeyedSingleFlight<String, List<DingTalkConversationTarget>>
+  _targetSearchFlights =
+      OpenHandKeyedSingleFlight<String, List<DingTalkConversationTarget>>(
+        maxConcurrentKeys: _targetSearchMaxConcurrentRequests,
+      );
   final Map<String, Future<DingTalkGatewayMessage>> _mediaHydrationTasks =
       <String, Future<DingTalkGatewayMessage>>{};
   final Set<String> _mediaHydrationFailures = <String>{};
@@ -632,22 +640,34 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     required DingTalkConversationType type,
     required String query,
   }) async {
-    if (!isAuthorized || query.trim().isEmpty) {
+    final keyword = query.trim();
+    if (_disposed || _shutdownRequested || !isAuthorized || keyword.isEmpty) {
       return const <DingTalkConversationTarget>[];
     }
-    final key = '${type.name}:${query.trim().toLowerCase()}';
+    final key = '${type.name}:${keyword.toLowerCase()}';
     final cached = _targetSearchCache[key];
-    if (cached != null &&
-        DateTime.now().difference(cached.$1) < const Duration(seconds: 5)) {
-      return cached.$2;
+    if (cached != null) {
+      final age = DateTime.now().difference(cached.$1);
+      if (!age.isNegative && age < _targetSearchCacheTtl) return cached.$2;
+      _targetSearchCache.remove(key);
     }
     try {
-      final results = await _service.searchTargets(type: type, query: query);
-      _targetSearchCache[key] = (DateTime.now(), results);
-      while (_targetSearchCache.length > 20) {
-        _targetSearchCache.remove(_targetSearchCache.keys.first);
-      }
-      return results;
+      return await _targetSearchFlights.run(key, () async {
+        if (_disposed || _shutdownRequested || !isAuthorized) {
+          return const <DingTalkConversationTarget>[];
+        }
+        final results = List<DingTalkConversationTarget>.unmodifiable(
+          await _service.searchTargets(type: type, query: keyword),
+        );
+        if (_disposed || _shutdownRequested) {
+          return const <DingTalkConversationTarget>[];
+        }
+        _targetSearchCache[key] = (DateTime.now(), results);
+        while (_targetSearchCache.length > _targetSearchCacheMaxEntries) {
+          _targetSearchCache.remove(_targetSearchCache.keys.first);
+        }
+        return results;
+      });
     } catch (error, stack) {
       silentLog('dingtalk_gateway', '搜索钉钉会话', error, stack);
       return const <DingTalkConversationTarget>[];
@@ -1005,29 +1025,24 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         .take(_mediaWarmupMessageLimit)
         .toList(growable: false);
     if (messages.isEmpty) return;
-    var nextIndex = 0;
-    Future<void> worker() async {
-      while (true) {
-        final index = nextIndex++;
-        if (index >= messages.length) return;
-        final message = messages[index];
-        try {
-          await ensureMessageMediaCached(
-            conversationId: conversationId,
-            messageId: message.id,
-          );
-        } catch (error, stack) {
-          silentLog('dingtalk_gateway', '加载钉钉会话媒体', error, stack);
-        }
-      }
-    }
-
-    final workerCount = messages.length < _mediaCacheConcurrency
-        ? messages.length
-        : _mediaCacheConcurrency;
     try {
-      await Future.wait<void>(
-        List<Future<void>>.generate(workerCount, (_) => worker()),
+      await forEachIndexWithConcurrencyLimit(
+        itemCount: messages.length,
+        maxConcurrency: _mediaCacheConcurrency,
+        shouldContinue: () =>
+            !_disposed &&
+            identical(_conversations[conversationId], conversation),
+        task: (index) async {
+          final message = messages[index];
+          try {
+            await ensureMessageMediaCached(
+              conversationId: conversationId,
+              messageId: message.id,
+            );
+          } catch (error, stack) {
+            silentLog('dingtalk_gateway', '加载钉钉会话媒体', error, stack);
+          }
+        },
       ).timeout(_mediaPreparationTimeout);
     } on TimeoutException catch (error, stack) {
       silentLog('dingtalk_gateway', '钉钉会话媒体预热超时', error, stack);
@@ -2066,31 +2081,23 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     _conversationReconcileCursor =
         (start + reconcileCount) % conversations.length;
-
-    var nextIndex = 0;
-    Future<void> worker() async {
-      while (!_disposed && _isPolling) {
-        final index = nextIndex++;
-        if (index >= batch.length) return;
+    await forEachIndexWithConcurrencyLimit(
+      itemCount: batch.length,
+      maxConcurrency: _conversationReconcileConcurrency,
+      shouldContinue: () => !_disposed && _isPolling,
+      task: (index) async {
         final conversation = batch[index];
+        if (!identical(_conversations[conversation.id], conversation)) return;
         if (_conversationRefreshInFlight.contains(conversation.id) ||
             _conversationReconcileTasks.containsKey(conversation.id)) {
-          continue;
+          return;
         }
         final failure = _conversationReconcileFailures[conversation.id];
         if (failure != null && DateTime.now().isBefore(failure.retryAt)) {
-          continue;
+          return;
         }
         await _reconcileConversationNow(conversation);
-      }
-    }
-
-    final workerCount = math.min(
-      batch.length,
-      _conversationReconcileConcurrency,
-    );
-    await Future.wait<void>(
-      List<Future<void>>.generate(workerCount, (_) => worker()),
+      },
     );
   }
 
@@ -3148,26 +3155,23 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (candidates.length >= 6) break;
     }
     if (candidates.isEmpty) return;
-    var nextIndex = 0;
-    Future<void> worker() async {
-      while (true) {
-        final index = nextIndex++;
-        if (index >= candidates.length) return;
-        try {
-          await ensureMessageMediaCached(
-            conversationId: conversation.id,
-            messageId: candidates[index].id,
-          );
-        } catch (error, stack) {
-          silentLog('dingtalk_gateway', '准备钉钉上下文媒体', error, stack);
-        }
-      }
-    }
-
-    final workerCount = math.min(candidates.length, _mediaCacheConcurrency);
     try {
-      await Future.wait<void>(
-        List<Future<void>>.generate(workerCount, (_) => worker()),
+      await forEachIndexWithConcurrencyLimit(
+        itemCount: candidates.length,
+        maxConcurrency: _mediaCacheConcurrency,
+        shouldContinue: () =>
+            !_disposed &&
+            identical(_conversations[conversation.id], conversation),
+        task: (index) async {
+          try {
+            await ensureMessageMediaCached(
+              conversationId: conversation.id,
+              messageId: candidates[index].id,
+            );
+          } catch (error, stack) {
+            silentLog('dingtalk_gateway', '准备钉钉上下文媒体', error, stack);
+          }
+        },
       ).timeout(_mediaPreparationTimeout);
     } on TimeoutException catch (error, stack) {
       // 媒体准备超时后继续使用文本上下文，避免 @ 消息永久卡在准备阶段。
@@ -4968,6 +4972,7 @@ ${_markdownStructuredFields(response)}''';
     _conversationHistoryStates.clear();
     _conversationRefreshInFlight.clear();
     _mediaHydrationFailures.clear();
+    _targetSearchCache.clear();
     await _stopEventListening();
     final eventRestart = _eventRestartFuture;
     if (eventRestart != null) {
@@ -5265,7 +5270,12 @@ class _DingTalkEchoCoordinator {
   }
 
   void _schedule() {
-    if (_disposed || _activeDrain != null || _pending.isEmpty) return;
+    if (_disposed ||
+        _isCancelled() ||
+        _activeDrain != null ||
+        _pending.isEmpty) {
+      return;
+    }
     final earliest = _pending.values
         .map((item) => item.readyAt)
         .reduce((left, right) => left.isBefore(right) ? left : right);
@@ -5275,17 +5285,20 @@ class _DingTalkEchoCoordinator {
         !earliest.isBefore(scheduledAt)) {
       return;
     }
-    _timer?.cancel();
+    _cancelScheduledDrain();
     _scheduledAt = earliest;
     final delay = earliest.difference(DateTime.now());
-    _timer = Timer(delay.isNegative ? Duration.zero : delay, _startDrain);
+    _timer = startSafeTimer(
+      delay,
+      _startDrain,
+      onError: (error, stack) =>
+          _onError('调度钉钉 AI 回显队列', error, stack, notifyUser: false),
+    );
   }
 
   void _startDrain() {
+    _cancelScheduledDrain();
     if (_disposed || _isCancelled() || _activeDrain != null) return;
-    _timer?.cancel();
-    _timer = null;
-    _scheduledAt = null;
     final task = _drainReady();
     _activeDrain = task;
     unawaited(
@@ -5435,12 +5448,11 @@ class _DingTalkEchoCoordinator {
 
   Future<void> flush() async {
     if (_disposed || _isCancelled()) {
+      _cancelScheduledDrain();
       _pending.clear();
       return;
     }
-    _timer?.cancel();
-    _timer = null;
-    _scheduledAt = null;
+    _cancelScheduledDrain();
     while (!_disposed &&
         !_isCancelled() &&
         (_pending.isNotEmpty || _activeDrain != null)) {
@@ -5458,13 +5470,18 @@ class _DingTalkEchoCoordinator {
   void dispose() {
     if (_disposed) return;
     _disposed = true;
-    _timer?.cancel();
-    _timer = null;
+    _cancelScheduledDrain();
     for (final sourceId in _states.keys) {
       _markStreaming(sourceId, false);
     }
     _pending.clear();
     _states.clear();
+  }
+
+  void _cancelScheduledDrain() {
+    _timer?.cancel();
+    _timer = null;
+    _scheduledAt = null;
   }
 }
 

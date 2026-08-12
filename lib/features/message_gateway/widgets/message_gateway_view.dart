@@ -19606,6 +19606,72 @@ String _formatDingTalkDetailValue(
       : text;
 }
 
+const Duration _kDingTalkTargetSearchDebounce = Duration(milliseconds: 260);
+
+class _DingTalkTargetSearchCoordinator {
+  _DingTalkTargetSearchCoordinator({required this.search});
+
+  final Future<List<DingTalkConversationTarget>> Function(String keyword)
+  search;
+  final OpenHandDebouncer _debouncer = OpenHandDebouncer(
+    delay: _kDingTalkTargetSearchDebounce,
+    onError: (error, stack) =>
+        silentLog('dingtalk_gateway', '执行会话搜索防抖任务', error, stack),
+  );
+
+  List<DingTalkConversationTarget> results =
+      const <DingTalkConversationTarget>[];
+  bool searching = false;
+  int _generation = 0;
+  bool _disposed = false;
+
+  void schedule(String value, VoidCallback notify) {
+    if (_disposed) return;
+    final keyword = value.trim();
+    if (keyword.isEmpty) {
+      clear();
+      notify();
+      return;
+    }
+    final generation = ++_generation;
+    _debouncer.schedule(() => _run(keyword, generation, notify));
+  }
+
+  void clear() {
+    _debouncer.cancel();
+    _generation++;
+    results = const <DingTalkConversationTarget>[];
+    searching = false;
+  }
+
+  Future<void> _run(String keyword, int generation, VoidCallback notify) async {
+    if (_disposed || generation != _generation) return;
+    searching = true;
+    notify();
+    try {
+      final nextResults = await search(keyword);
+      if (_disposed || generation != _generation) return;
+      results = nextResults;
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '搜索钉钉会话目标', error, stack);
+      if (_disposed || generation != _generation) return;
+      results = const <DingTalkConversationTarget>[];
+    } finally {
+      if (!_disposed && generation == _generation) {
+        searching = false;
+        notify();
+      }
+    }
+  }
+
+  void dispose() {
+    if (_disposed) return;
+    _disposed = true;
+    _generation++;
+    _debouncer.dispose();
+  }
+}
+
 class _DingTalkAddConversationDialog extends StatefulWidget {
   const _DingTalkAddConversationDialog({required this.controller});
 
@@ -19619,16 +19685,16 @@ class _DingTalkAddConversationDialog extends StatefulWidget {
 class _DingTalkAddConversationDialogState
     extends State<_DingTalkAddConversationDialog> {
   final TextEditingController _queryController = TextEditingController();
-  Timer? _searchDebounce;
+  late final _DingTalkTargetSearchCoordinator _targetSearch =
+      _DingTalkTargetSearchCoordinator(
+        search: (keyword) =>
+            widget.controller.searchTargets(type: _type, query: keyword),
+      );
   DingTalkConversationType _type = DingTalkConversationType.direct;
-  List<DingTalkConversationTarget> _results =
-      const <DingTalkConversationTarget>[];
-  bool _searching = false;
-  int _searchGeneration = 0;
 
   @override
   void dispose() {
-    _searchDebounce?.cancel();
+    _targetSearch.dispose();
     _queryController.dispose();
     super.dispose();
   }
@@ -19672,9 +19738,9 @@ class _DingTalkAddConversationDialogState
             onSelectionChanged: (value) {
               final next = value.firstOrNull;
               if (next == null || next == _type) return;
+              _targetSearch.clear();
               setState(() {
                 _type = next;
-                _results = const <DingTalkConversationTarget>[];
               });
               _scheduleSearch(_queryController.text);
             },
@@ -19690,7 +19756,7 @@ class _DingTalkAddConversationDialogState
                   : '搜索私聊用户姓名',
               hintText: '输入关键词后自动搜索',
               prefixIcon: const Icon(Icons.search_rounded),
-              suffixIcon: _searching
+              suffixIcon: _targetSearch.searching
                   ? const Padding(
                       padding: EdgeInsets.all(14),
                       child: SizedBox(
@@ -19705,7 +19771,7 @@ class _DingTalkAddConversationDialogState
           const SizedBox(height: 8),
           AnimatedSwitcher(
             duration: const Duration(milliseconds: 180),
-            child: _results.isEmpty
+            child: _targetSearch.results.isEmpty
                 ? Padding(
                     key: const ValueKey<String>('dingtalk-search-empty'),
                     padding: const EdgeInsets.symmetric(vertical: 18),
@@ -19730,11 +19796,11 @@ class _DingTalkAddConversationDialogState
                       child: ListView.separated(
                         shrinkWrap: true,
                         padding: const EdgeInsets.all(8),
-                        itemCount: _results.length,
+                        itemCount: _targetSearch.results.length,
                         separatorBuilder: (_, index) =>
                             const SizedBox(height: 2),
                         itemBuilder: (context, index) {
-                          final target = _results[index];
+                          final target = _targetSearch.results[index];
                           return ListTile(
                             dense: true,
                             shape: RoundedRectangleBorder(
@@ -19766,31 +19832,8 @@ class _DingTalkAddConversationDialogState
   }
 
   void _scheduleSearch(String value) {
-    _searchDebounce?.cancel();
-    final keyword = value.trim();
-    if (keyword.isEmpty) {
-      setState(() {
-        _results = const <DingTalkConversationTarget>[];
-        _searching = false;
-      });
-      return;
-    }
-    _searchDebounce = Timer(const Duration(milliseconds: 260), () {
-      unawaited(_search(keyword));
-    });
-  }
-
-  Future<void> _search(String keyword) async {
-    final generation = ++_searchGeneration;
-    setState(() => _searching = true);
-    final results = await widget.controller.searchTargets(
-      type: _type,
-      query: keyword,
-    );
-    if (!mounted || generation != _searchGeneration) return;
-    setState(() {
-      _results = results;
-      _searching = false;
+    _targetSearch.schedule(value, () {
+      if (mounted) setState(() {});
     });
   }
 }
@@ -19954,15 +19997,15 @@ class _DingTalkAllowlistPickerDialogState
   late final Map<String, DingTalkConversationTarget> _selected = {
     for (final target in widget.selected) target.id: target,
   };
-  Timer? _searchDebounce;
-  List<DingTalkConversationTarget> _results =
-      const <DingTalkConversationTarget>[];
-  bool _searching = false;
-  int _searchGeneration = 0;
+  late final _DingTalkTargetSearchCoordinator _targetSearch =
+      _DingTalkTargetSearchCoordinator(
+        search: (keyword) =>
+            widget.controller.searchTargets(type: widget.type, query: keyword),
+      );
 
   @override
   void dispose() {
-    _searchDebounce?.cancel();
+    _targetSearch.dispose();
     _queryController.dispose();
     super.dispose();
   }
@@ -20014,7 +20057,7 @@ class _DingTalkAllowlistPickerDialogState
                   type: widget.type,
                 ),
                 prefixIcon: const Icon(Icons.search_rounded),
-                suffixIcon: _searching
+                suffixIcon: _targetSearch.searching
                     ? const Padding(
                         padding: EdgeInsets.all(14),
                         child: SizedBox(
@@ -20050,7 +20093,7 @@ class _DingTalkAllowlistPickerDialogState
               ),
             const SizedBox(height: 8),
             Expanded(
-              child: _results.isEmpty
+              child: _targetSearch.results.isEmpty
                   ? Center(
                       child: Text(
                         _queryController.text.trim().isEmpty
@@ -20071,11 +20114,11 @@ class _DingTalkAllowlistPickerDialogState
                       shadowColor: Colors.transparent,
                       child: ListView.separated(
                         padding: const EdgeInsets.all(8),
-                        itemCount: _results.length,
+                        itemCount: _targetSearch.results.length,
                         separatorBuilder: (_, index) =>
                             const SizedBox(height: 2),
                         itemBuilder: (context, index) {
-                          final target = _results[index];
+                          final target = _targetSearch.results[index];
                           final selected = _selected.containsKey(target.id);
                           return ListTile(
                             dense: true,
@@ -20130,31 +20173,8 @@ class _DingTalkAllowlistPickerDialogState
   }
 
   void _scheduleSearch(String value) {
-    _searchDebounce?.cancel();
-    final keyword = value.trim();
-    if (keyword.isEmpty) {
-      setState(() {
-        _results = const <DingTalkConversationTarget>[];
-        _searching = false;
-      });
-      return;
-    }
-    _searchDebounce = Timer(const Duration(milliseconds: 260), () {
-      unawaited(_search(keyword));
-    });
-  }
-
-  Future<void> _search(String keyword) async {
-    final generation = ++_searchGeneration;
-    setState(() => _searching = true);
-    final results = await widget.controller.searchTargets(
-      type: widget.type,
-      query: keyword,
-    );
-    if (!mounted || generation != _searchGeneration) return;
-    setState(() {
-      _results = results;
-      _searching = false;
+    _targetSearch.schedule(value, () {
+      if (mounted) setState(() {});
     });
   }
 }
