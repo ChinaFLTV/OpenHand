@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart' show SelectedContent;
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
 import 'package:markdown/markdown.dart' as md;
 
@@ -35,6 +36,48 @@ List<Widget> buildOpenHandMarkdownWidgets({
     fitContent: true,
     listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.baseline,
   ).build(nodes);
+}
+
+class _OpenHandMarkdownSelectionDelegate
+    extends StaticSelectionContainerDelegate {
+  @override
+  SelectedContent? getSelectedContent() {
+    final selections = selectables
+        .map((item) => item.getSelectedContent())
+        .whereType<SelectedContent>()
+        .toList(growable: false);
+    if (selections.isEmpty) return null;
+    return SelectedContent(
+      plainText: selections.map((item) => item.plainText).join('\n'),
+    );
+  }
+}
+
+class _OpenHandMarkdownSelectionContainer extends StatefulWidget {
+  const _OpenHandMarkdownSelectionContainer({required this.child});
+
+  final Widget child;
+
+  @override
+  State<_OpenHandMarkdownSelectionContainer> createState() =>
+      _OpenHandMarkdownSelectionContainerState();
+}
+
+class _OpenHandMarkdownSelectionContainerState
+    extends State<_OpenHandMarkdownSelectionContainer> {
+  late final _OpenHandMarkdownSelectionDelegate _delegate =
+      _OpenHandMarkdownSelectionDelegate();
+
+  @override
+  void dispose() {
+    _delegate.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return SelectionContainer(delegate: _delegate, child: widget.child);
+  }
 }
 
 /// 使用 OpenHand 统一语法解析 Markdown，失败时保留完整原文。
@@ -147,7 +190,7 @@ class _OpenHandSafeMarkdownBodyState extends State<OpenHandSafeMarkdownBody>
       _children = buildOpenHandMarkdownWidgets(
         nodes: nodes,
         delegate: this,
-        selectable: widget.selectable && !widget.streaming,
+        selectable: false,
         styleSheet: styleSheet,
         imageBuilder: widget.imageBuilder,
         builders: widget.builders,
@@ -168,9 +211,7 @@ class _OpenHandSafeMarkdownBodyState extends State<OpenHandSafeMarkdownBody>
   }
 
   Widget _buildFallback(TextStyle? style) {
-    return widget.selectable && !widget.streaming
-        ? SelectableText(widget.data, style: style)
-        : Text(widget.data, style: style);
+    return Text(widget.data, style: style);
   }
 
   static void _disposeRecognizers(List<GestureRecognizer> recognizers) {
@@ -201,10 +242,13 @@ class _OpenHandSafeMarkdownBodyState extends State<OpenHandSafeMarkdownBody>
 
   @override
   Widget build(BuildContext context) {
-    return Column(
+    final body = Column(
       mainAxisSize: MainAxisSize.min,
       crossAxisAlignment: CrossAxisAlignment.start,
       children: _children,
     );
+    return widget.selectable && !widget.streaming
+        ? SelectionArea(child: _OpenHandMarkdownSelectionContainer(child: body))
+        : body;
   }
 }

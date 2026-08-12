@@ -6,10 +6,52 @@ final RegExp _markdownFencePattern = RegExp(r'^\s{0,3}(`{3,}|~{3,})');
 final RegExp _markdownTableDividerCellPattern = RegExp(r'^:?-+:?$');
 final RegExp _markdownBacktickRunPattern = RegExp(r'`+');
 
+/// 用单层 Markdown 斜体标记区分思考消息；已带斜体标记时保持幂等。
+String wrapDingTalkThinkingMarkdown(String source) {
+  final content = source.trim();
+  if (content.isEmpty ||
+      _hasOuterEmphasis(content, '*') ||
+      _hasOuterEmphasis(content, '_')) {
+    return content;
+  }
+  final marker = !content.startsWith('*') && !content.endsWith('*') ? '*' : '_';
+  return '$marker$content$marker';
+}
+
+/// 渲染多段思考内容时移除消息级标记，由卡片统一应用斜体样式。
+String unwrapDingTalkThinkingMarkdown(String source) {
+  final content = source.trim();
+  if (dingTalkMarkdownOuterEmphasisMarker(content) != null) {
+    return content.substring(1, content.length - 1);
+  }
+  return content;
+}
+
+String? dingTalkMarkdownOuterEmphasisMarker(String source) {
+  if (_hasOuterEmphasis(source, '*')) return '*';
+  if (_hasOuterEmphasis(source, '_')) return '_';
+  return null;
+}
+
+bool _hasOuterEmphasis(String source, String marker) {
+  if (source.length < 3 ||
+      !source.startsWith(marker) ||
+      !source.endsWith(marker)) {
+    return false;
+  }
+  return !source.startsWith('$marker$marker') &&
+      !source.endsWith('$marker$marker');
+}
+
 /// 将 GFM 表格转换为钉钉可稳定显示的键值行，其余 Markdown 保持不变。
 String convertDingTalkMarkdownTables(String source) {
   if (!source.contains('|') || !source.contains('-')) return source;
-  final normalized = source.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
+  final trimmed = source.trim();
+  final outerEmphasis = dingTalkMarkdownOuterEmphasisMarker(trimmed);
+  final content = outerEmphasis == null
+      ? source
+      : trimmed.substring(1, trimmed.length - 1);
+  final normalized = content.replaceAll('\r\n', '\n').replaceAll('\r', '\n');
   final lines = normalized.split('\n');
   final output = <String>[];
   String? activeFence;
@@ -66,7 +108,10 @@ String convertDingTalkMarkdownTables(String source) {
     output.addAll(_tablePlainTextLines(table!));
     index = end;
   }
-  return output.join('\n');
+  final converted = output.join('\n');
+  return outerEmphasis == null
+      ? converted
+      : '$outerEmphasis$converted$outerEmphasis';
 }
 
 bool _isTableDivider(String line) {

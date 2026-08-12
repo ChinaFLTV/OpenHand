@@ -1308,13 +1308,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           source,
           candidate.session.messages,
         ).trim();
+        final responseEchoType = source.kind == AiSessionMessageKind.reasoning
+            ? DingTalkResponseEchoType.thinking
+            : candidate.message.responseEchoType;
         if (sourceContent.isEmpty ||
-            sourceContent == candidate.message.content) {
+            sourceContent == candidate.message.content &&
+                responseEchoType == candidate.message.responseEchoType) {
           return false;
         }
         candidate.conversation.messages[candidate.messageIndex] = candidate
             .message
-            .copyWith(content: sourceContent);
+            .copyWith(
+              content: sourceContent,
+              responseEchoType: responseEchoType,
+            );
         return true;
       },
     );
@@ -4098,9 +4105,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final normalized = convertDingTalkMarkdownTables(text).trim();
     if (normalized.length <= _maxDingTalkEchoCharacters) return normalized;
     const notice = '\n\n…完整内容已保留在 OpenHand';
+    final closingEmphasis =
+        dingTalkMarkdownOuterEmphasisMarker(normalized) ?? '';
     var prefix = clipTextByCodeUnits(
       normalized,
-      _maxDingTalkEchoCharacters - notice.length,
+      _maxDingTalkEchoCharacters - notice.length - closingEmphasis.length,
       suffix: '',
     );
     String? activeFence;
@@ -4108,7 +4117,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     // 远端正文截断后补齐未闭合围栏，避免后续提示被错误渲染为代码。
     void scanFences() {
       activeFence = null;
-      for (final line in prefix.split('\n')) {
+      final lines = prefix.split('\n');
+      for (var index = 0; index < lines.length; index++) {
+        final line =
+            index == 0 &&
+                closingEmphasis.isNotEmpty &&
+                lines[index].startsWith(closingEmphasis)
+            ? lines[index].substring(closingEmphasis.length)
+            : lines[index];
         final match = _markdownFenceLinePattern.firstMatch(line);
         final fence = match?.group(1);
         if (fence == null) continue;
@@ -4126,12 +4142,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (activeFence != null) {
       prefix = clipTextByCodeUnits(
         normalized,
-        _maxDingTalkEchoCharacters - notice.length - maxFenceLength - 1,
+        _maxDingTalkEchoCharacters -
+            notice.length -
+            closingEmphasis.length -
+            maxFenceLength -
+            1,
         suffix: '',
       );
       scanFences();
     }
-    return '$prefix${activeFence == null ? '' : '\n$activeFence'}$notice';
+    return '$prefix${activeFence == null ? '' : '\n$activeFence'}$notice$closingEmphasis';
   }
 
   /// 该消息是否处于 AI 流式回显中（内容仍会持续更新）。
@@ -4157,7 +4177,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         message.kind == AiSessionMessageKind.hook) {
       return _formatDingTalkToolEcho(message, sessionMessages);
     }
-    return message.content.trim();
+    final content = message.content.trim();
+    return message.kind == AiSessionMessageKind.reasoning
+        ? wrapDingTalkThinkingMarkdown(content)
+        : content;
   }
 
   String _formatDingTalkToolEcho(

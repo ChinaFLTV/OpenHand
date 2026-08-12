@@ -67,6 +67,7 @@ import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
 import '../../knowledge_base/index.dart';
 import '../../mcp/index.dart';
+import '../dingtalk_markdown_compat.dart';
 import '../dingtalk_message_gateway_controller.dart';
 import '../message_gateway_controller.dart';
 import '../message_gateway_errors.dart';
@@ -13118,7 +13119,9 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     try {
       await _ttsPlaybackService.toggleMessage(
         messageId: message.id,
-        text: message.content,
+        text: message.isThinkingEcho
+            ? unwrapDingTalkThinkingMarkdown(message.content)
+            : message.content,
         settings: settings,
         availableModels: widget.controller.aiModels,
         fallbackModel: fallbackModel,
@@ -15818,13 +15821,18 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     required Color foreground,
   }) {
     final theme = Theme.of(context);
+    final thinking = widget.message.isThinkingEcho;
     final canCollapse =
         _longContentCollapseLatched || _shouldCollapseLongContent(content);
     final collapsed = canCollapse && !_showFullText;
     final bodyStyle = theme.textTheme.bodyMedium?.copyWith(
       color: foreground,
       height: 1.48,
+      fontStyle: thinking && !_showRawContent ? FontStyle.italic : null,
     );
+    final displayContent = thinking && !_showRawContent
+        ? unwrapDingTalkThinkingMarkdown(content)
+        : content;
     // 流式回显期间按字素簇渐显增量内容；生成结束后切回可选择的静态渲染。
     final streaming = widget.streaming && !_showRawContent;
     return AnimatedSwitcher(
@@ -15903,7 +15911,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               children: [
                 if (streaming && !widget.message.isToolCallEcho)
                   StreamingTextRevealText(
-                    text: content,
+                    text: displayContent,
                     streaming: true,
                     // 气泡外层已有 AnimatedSize，关闭内部尺寸动画避免竞争。
                     animateSize: false,
@@ -15921,7 +15929,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
                   _buildMessageBody(
                     context,
                     theme: theme,
-                    text: content,
+                    text: displayContent,
                     bodyStyle: bodyStyle,
                     foreground: foreground,
                     canCollapse: canCollapse,
@@ -15986,12 +15994,16 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               style: style,
             );
     }
+    final thinkingFontStyle = widget.message.isThinkingEcho
+        ? FontStyle.italic
+        : null;
     final codeStyle = theme.textTheme.bodySmall?.copyWith(
       color: foreground,
       fontFamily: kOpenHandMonospaceFontFamily,
       fontWeight: FontWeight.w600,
+      fontStyle: thinkingFontStyle,
     );
-    return OpenHandSafeMarkdownBody(
+    final body = OpenHandSafeMarkdownBody(
       key: streaming
           ? const ValueKey<String>('dingtalk-streaming-markdown')
           : ValueKey<String>('markdown:$text'),
@@ -16015,11 +16027,13 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         h3: theme.textTheme.titleMedium?.copyWith(
           color: foreground,
           fontWeight: FontWeight.w800,
+          fontStyle: thinkingFontStyle,
         ),
         h3Padding: const EdgeInsets.only(bottom: 2),
         h4: theme.textTheme.labelLarge?.copyWith(
           color: foreground.withValues(alpha: 0.86),
           fontWeight: FontWeight.w800,
+          fontStyle: thinkingFontStyle,
         ),
         h4Padding: const EdgeInsets.only(top: 8, bottom: 2),
         blockSpacing: 10,
@@ -16027,6 +16041,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         tableHead: theme.textTheme.labelMedium?.copyWith(
           color: foreground,
           fontWeight: FontWeight.w800,
+          fontStyle: thinkingFontStyle,
         ),
         tableBody: bodyStyle?.copyWith(fontSize: 13, height: 1.42),
         tableBorder: TableBorder.all(
@@ -16065,6 +16080,12 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         ),
       ),
     );
+    return thinkingFontStyle == null
+        ? body
+        : DefaultTextStyle.merge(
+            style: TextStyle(fontStyle: thinkingFontStyle),
+            child: body,
+          );
   }
 
   Future<void> _openMarkdownLink(BuildContext context, String? href) async {
