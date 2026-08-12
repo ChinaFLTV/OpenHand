@@ -34,7 +34,8 @@ const GIT_REPOSITORY_CONCURRENCY: usize = 3;
 const GIT_CONTENT_CONCURRENCY: usize = 4;
 const MAX_FORUM_TOPICS: usize = 5;
 const FORUM_TOPIC_CONCURRENCY: usize = 3;
-const JINA_READER_TIMEOUT: Duration = Duration::from_secs(45);
+const JINA_READER_TIMEOUT: Duration = Duration::from_secs(30);
+const JINA_READER_MAX_ATTEMPTS: u8 = 2;
 const MAX_BROWSER_CONCURRENCY: usize = 2;
 const BROWSER_PROCESS_TIMEOUT: Duration = Duration::from_secs(25);
 const MAX_BROWSER_OUTPUT_BYTES: usize = 2 * 1024 * 1024;
@@ -718,35 +719,47 @@ impl ForumSource {
     async fn fetch_jina(&self, target: &Url) -> Result<String, String> {
         let reader_url = Url::parse(&format!("https://r.jina.ai/{}", target.as_str()))
             .map_err(|_| "请求地址无效".to_owned())?;
-        let response = self
-            .client
-            .get(reader_url)
-            .header("Accept", "text/plain")
-            .header("X-Return-Format", "markdown")
-            .timeout(JINA_READER_TIMEOUT)
-            .send()
-            .await
-            .map_err(|error| {
-                if error.is_timeout() {
-                    "请求超时".to_owned()
-                } else {
-                    "网络请求失败".to_owned()
+        let mut last_error = String::new();
+        for attempt in 1..=JINA_READER_MAX_ATTEMPTS {
+            let response = self
+                .client
+                .get(reader_url.clone())
+                .header("Accept", "text/plain")
+                .header("X-Return-Format", "markdown")
+                .timeout(JINA_READER_TIMEOUT)
+                .send()
+                .await;
+            let response = match response {
+                Ok(response) => response,
+                Err(error) => {
+                    last_error = if error.is_timeout() {
+                        "请求超时".to_owned()
+                    } else {
+                        "网络请求失败".to_owned()
+                    };
+                    if attempt < JINA_READER_MAX_ATTEMPTS {
+                        tokio::time::sleep(Duration::from_millis(800)).await;
+                        continue;
+                    }
+                    return Err(last_error);
                 }
-            })?;
-        if !response.status().is_success() {
-            return Err(format!("返回 HTTP {}", response.status().as_u16()));
+            };
+            if !response.status().is_success() {
+                return Err(format!("返回 HTTP {}", response.status().as_u16()));
+            }
+            let content = parse_text_limited(self.specification.platform, response)
+                .await
+                .map_err(|error| error.to_string())?;
+            let trimmed = content.trim();
+            if trimmed.is_empty() {
+                return Err("返回内容为空".to_owned());
+            }
+            if trimmed.starts_with("{\"data\":null,") {
+                return Err("拒绝读取目标站点".to_owned());
+            }
+            return Ok(content);
         }
-        let content = parse_text_limited(self.specification.platform, response)
-            .await
-            .map_err(|error| error.to_string())?;
-        let trimmed = content.trim();
-        if trimmed.is_empty() {
-            return Err("返回内容为空".to_owned());
-        }
-        if trimmed.starts_with("{\"data\":null,") {
-            return Err("拒绝读取目标站点".to_owned());
-        }
-        Ok(content)
+        Err(last_error)
     }
 }
 

@@ -1370,8 +1370,9 @@ class ServicesController extends ChangeNotifier {
       ];
       final unique = <String, AiExposureLogEntry>{};
       for (final entry in merged) {
-        unique['${entry.jobId}|${entry.at.toIso8601String()}|${entry.level}|${entry.message}'] =
-            entry;
+        unique[
+          '${entry.jobId}\x00${entry.at.toIso8601String()}\x00${entry.level}\x00${entry.message}'
+        ] = entry;
       }
       final sorted = unique.values.toList()
         ..sort((left, right) => left.at.compareTo(right.at));

@@ -3371,9 +3371,7 @@ class _TranscriptHydratingPlaceholder extends StatelessWidget {
     }
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0.0, end: 1.0),
-      duration: openHandMotionDuration(
-        context,
-        const Duration(milliseconds: 220),
+      duration: openHandMotionDuration(context, kOpenHandMotion220,
       ),
       curve: Curves.easeOutCubic,
       builder: (context, value, child) {

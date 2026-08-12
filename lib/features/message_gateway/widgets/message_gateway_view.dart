@@ -19791,7 +19791,7 @@ class _DingTalkAddConversationDialogState
           ),
           const SizedBox(height: 8),
           AnimatedSwitcher(
-            duration: const Duration(milliseconds: 180),
+            duration: kOpenHandMotion180,
             child: _targetSearch.results.isEmpty
                 ? Padding(
                     key: const ValueKey<String>('dingtalk-search-empty'),
@@ -22694,7 +22694,7 @@ class _DingTalkResourcePickerDialogState
               style: _transparentIconButtonStyle(theme),
               icon: AnimatedRotation(
                 turns: expanded ? 0.25 : 0,
-                duration: const Duration(milliseconds: 180),
+                duration: kOpenHandMotion180,
                 curve: Curves.easeOutCubic,
                 child: const Icon(Icons.keyboard_arrow_right_rounded),
               ),

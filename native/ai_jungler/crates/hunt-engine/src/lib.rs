@@ -833,7 +833,7 @@ impl ProxyRuntime {
             endpoints: Vec::new(),
             endpoint_ids: Vec::new(),
             statistics: Vec::new(),
-            system_proxy: SystemProxyRuntime::default(),
+            system_proxy: SystemProxyRuntime::from_environment(),
             cursor: AtomicU64::new(0),
         }
     }
@@ -982,9 +982,18 @@ impl ProxyRoute {
 
 impl SystemProxyRuntime {
     fn parse(input: SystemProxyInput) -> Result<Self, EngineError> {
+        // 前端未显式下发系统代理时，回退到进程环境变量探测，
+        // 确保需要代理才能访问的目标（如 r.jina.ai）在默认配置下也能正常工作。
+        let mut http = parse_system_proxy(input.http)?;
+        let mut https = parse_system_proxy(input.https)?;
+        if http.is_none() || https.is_none() {
+            let env = Self::from_environment();
+            http = http.or(env.http);
+            https = https.or(env.https);
+        }
         Ok(Self {
-            http: parse_system_proxy(input.http)?,
-            https: parse_system_proxy(input.https)?,
+            http,
+            https,
             exceptions: input
                 .exceptions
                 .into_iter()
@@ -992,6 +1001,25 @@ impl SystemProxyRuntime {
                 .take(256)
                 .collect(),
         })
+    }
+
+    /// 读取 HTTP_PROXY / HTTPS_PROXY / ALL_PROXY / NO_PROXY 环境变量，
+    /// 作为未显式配置系统代理时的兜底。
+    fn from_environment() -> Self {
+        let all_proxy = env_proxy_url(&["ALL_PROXY", "all_proxy"]);
+        let http = env_proxy_url(&["HTTP_PROXY", "http_proxy"]).or_else(|| all_proxy.clone());
+        let https = env_proxy_url(&["HTTPS_PROXY", "https_proxy"]).or(all_proxy);
+        let exceptions = std::env::var("NO_PROXY")
+            .or_else(|_| std::env::var("no_proxy"))
+            .map(|value| {
+                value
+                    .split(',')
+                    .filter_map(|item| ProxyException::parse(item.trim()))
+                    .take(256)
+                    .collect()
+            })
+            .unwrap_or_default();
+        Self { http, https, exceptions }
     }
 
     fn enabled(&self) -> bool {
@@ -1082,6 +1110,26 @@ fn parse_system_proxy(value: Option<String>) -> Result<Option<reqwest::Url>, Eng
 
 fn is_system_proxy_local_target(host: &str) -> bool {
     matches!(host, "localhost" | "127.0.0.1" | "::1")
+}
+
+/// 从环境变量中读取代理地址，解析为 reqwest::Url。
+/// 优先返回第一个非空且格式合法的值。
+fn env_proxy_url(keys: &[&str]) -> Option<reqwest::Url> {
+    for key in keys {
+        let raw = std::env::var(key).ok()?;
+        let trimmed = raw.trim();
+        if trimmed.is_empty() {
+            continue;
+        }
+        if let Ok(url) = reqwest::Url::parse(trimmed)
+            && matches!(url.scheme(), "http" | "https" | "socks4" | "socks5")
+            && url.host_str().is_some()
+            && url.port_or_known_default().is_some()
+        {
+            return Some(url);
+        }
+    }
+    None
 }
 
 impl ProxyEndpointTelemetry {

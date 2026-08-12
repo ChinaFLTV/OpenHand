@@ -124,10 +124,10 @@ const int _kSettingsToolResultCompressionWindowMaxChars = 8192;
 const int _kSettingsToolResultCompressionMaxPathHits = 200;
 const int _kSettingsWriteToolSummaryMaxChars = 8192;
 const int _kThrottleConfigImportMaxBytes = 1 * kBytesPerMiB;
-const Duration _settingsRevealSizeDuration = Duration(milliseconds: 420);
-const Duration _settingsRevealSizeReverseDuration = Duration(milliseconds: 260);
-const Duration _settingsRevealSwitcherDuration = Duration(milliseconds: 320);
-const Duration _settingsRevealSwitcherReverseDuration = Duration(
+const Duration kOpenHandMotion420 = Duration(milliseconds: 420);
+const Duration kOpenHandMotion260 = Duration(milliseconds: 260);
+const Duration kOpenHandMotion320 = Duration(milliseconds: 320);
+const Duration kOpenHandMotion200 = Duration(
   milliseconds: 200,
 );
 
@@ -135,9 +135,6 @@ bool _settingsMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);
 }
 
-Duration _settingsMotionDuration(BuildContext context, Duration duration) {
-  return openHandMotionDuration(context, duration);
-}
 
 DialogAnimationSettings _settingsListItemMotionSettings(
   BuildContext context,
@@ -3417,14 +3414,8 @@ class _SettingsViewState extends State<SettingsView> {
               ),
               const SizedBox(height: 16),
               AnimatedSwitcher(
-                duration: _settingsMotionDuration(
-                  context,
-                  const Duration(milliseconds: 260),
-                ),
-                reverseDuration: _settingsMotionDuration(
-                  context,
-                  const Duration(milliseconds: 220),
-                ),
+                duration: openHandMotionDuration(context, kOpenHandMotion260),
+                reverseDuration: openHandMotionDuration(context, kOpenHandMotion220),
                 switchInCurve: Curves.easeOutBack,
                 switchOutCurve: Curves.easeInCubic,
                 transitionBuilder: (child, animation) {

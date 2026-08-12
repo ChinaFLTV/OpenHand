@@ -316,10 +316,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
               ),
               icon: AnimatedRotation(
                 turns: _loading ? 1 : 0,
-                duration: _settingsMotionDuration(
-                  context,
-                  const Duration(milliseconds: 520),
-                ),
+                duration: openHandMotionDuration(context, const Duration(milliseconds: 520)),
                 curve: Curves.easeOutCubic,
                 child: const Icon(Icons.refresh_rounded),
               ),
@@ -1286,10 +1283,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
     final scrollable = contentHeight > _kAiUsageDistributionBodyMaxHeight;
     return AnimatedSize(
       alignment: Alignment.topCenter,
-      duration: _settingsMotionDuration(
-        context,
-        const Duration(milliseconds: 280),
-      ),
+      duration: openHandMotionDuration(context, kOpenHandMotion280),
       curve: Curves.easeOutCubic,
       child: SizedBox(
         height: _kAiUsageDistributionChromeHeight + bodyHeight,
@@ -1435,10 +1429,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
                   begin: 0,
                   end: widget.progressValue(item).clamp(0, 1),
                 ),
-                duration: _settingsMotionDuration(
-                  context,
-                  const Duration(milliseconds: 420),
-                ),
+                duration: openHandMotionDuration(context, kOpenHandMotion420),
                 curve: Curves.easeOutCubic,
                 builder: (context, progress, _) => ClipRRect(
                   borderRadius: kOpenHandPillBorderRadius,
@@ -1663,18 +1654,12 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
         ? width / 2
         : index * width / (widget.buckets.length - 1);
     final left = (center - tooltipWidth / 2).clamp(0.0, width - tooltipWidth);
-    final duration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 220),
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion220);
     return AnimatedPositioned(
       left: left,
       top: 8,
       width: tooltipWidth,
-      duration: _settingsMotionDuration(
-        context,
-        const Duration(milliseconds: 170),
-      ),
+      duration: openHandMotionDuration(context, const Duration(milliseconds: 170)),
       curve: Curves.easeOutCubic,
       child: IgnorePointer(
         child: AnimatedOpacity(
@@ -3573,10 +3558,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
     bool sourceLabels = false,
   }) {
     final theme = Theme.of(context);
-    final selectionDuration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 180),
-    );
+    final selectionDuration = openHandMotionDuration(context, kOpenHandMotion180);
     final options = <({String label, String? value})>[
       (label: openHandAllLabel(context), value: null),
       for (final facet in facets)

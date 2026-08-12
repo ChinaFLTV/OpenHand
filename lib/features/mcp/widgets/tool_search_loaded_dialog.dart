@@ -12,6 +12,7 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
@@ -1290,9 +1291,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   },
                   icon: AnimatedRotation(
                     turns: expanded ? 0.5 : 0,
-                    duration: openHandMotionDuration(
-                      context,
-                      const Duration(milliseconds: 180),
+                    duration: openHandMotionDuration(context, kOpenHandMotion180,
                     ),
                     curve: Curves.easeOutCubic,
                     child: const Icon(Icons.expand_more_rounded, size: 19),

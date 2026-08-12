@@ -240,10 +240,7 @@ class _HeSteeringAssetsDialogState extends State<_HeSteeringAssetsDialog> {
             // ── File list ──
             Expanded(
               child: AnimatedSwitcher(
-                duration: _harnessMotionDuration(
-                  context,
-                  const Duration(milliseconds: 220),
-                ),
+                duration: openHandMotionDuration(context, kOpenHandMotion220),
                 switchInCurve: Curves.easeOutCubic,
                 switchOutCurve: Curves.easeInCubic,
                 child: _loading
@@ -942,10 +939,7 @@ class _HeSteeringFileEditorDialogState
               // ── Body ──
               Expanded(
                 child: AnimatedSwitcher(
-                  duration: _harnessMotionDuration(
-                    context,
-                    const Duration(milliseconds: 220),
-                  ),
+                  duration: openHandMotionDuration(context, kOpenHandMotion220),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   child: _loading

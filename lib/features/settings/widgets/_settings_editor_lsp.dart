@@ -898,10 +898,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                     const SizedBox(width: 12),
                     AnimatedSlide(
                       offset: Offset(_hovered && motionEnabled ? 0.18 : 0, 0),
-                      duration: _settingsMotionDuration(
-                        context,
-                        const Duration(milliseconds: 180),
-                      ),
+                      duration: openHandMotionDuration(context, kOpenHandMotion180),
                       curve: Curves.easeOutCubic,
                       child: Icon(
                         Icons.chevron_right_rounded,

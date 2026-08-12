@@ -17,6 +17,7 @@ import '../../../shared/ui/ansi_text.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/list_removal_transition.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -108,9 +109,7 @@ class CronsView extends StatelessWidget {
         // 三种状态平滑切换，避免列表增删时跳变。
         Expanded(
           child: AnimatedSwitcher(
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 220),
+            duration: openHandMotionDuration(context, kOpenHandMotion220,
             ),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
@@ -1838,9 +1837,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
           borderRadius: BorderRadius.circular(20),
           onTap: () => onChanged(!value),
           child: AnimatedContainer(
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 180),
+            duration: openHandMotionDuration(context, kOpenHandMotion180,
             ),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),

@@ -1729,9 +1729,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
           const SizedBox(height: 12),
         ],
         AnimatedSize(
-          duration: openHandMotionDuration(
-            context,
-            const Duration(milliseconds: 180),
+          duration: openHandMotionDuration(context, kOpenHandMotion180,
           ),
           curve: Curves.easeOutCubic,
           child: SizedBox(
@@ -1854,9 +1852,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
                                 shape: const RoundedRectangleBorder(),
                               ),
                               child: AnimatedSwitcher(
-                                duration: openHandMotionDuration(
-                                  context,
-                                  const Duration(milliseconds: 220),
+                                duration: openHandMotionDuration(context, kOpenHandMotion220,
                                 ),
                                 switchInCurve: Curves.easeOutBack,
                                 switchOutCurve: Curves.easeInCubic,
@@ -2009,9 +2005,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
               ),
               child: AnimatedRotation(
                 turns: widget.isCollapsed ? 0.5 : 0,
-                duration: openHandMotionDuration(
-                  context,
-                  const Duration(milliseconds: 220),
+                duration: openHandMotionDuration(context, kOpenHandMotion220,
                 ),
                 curve: Curves.easeOutCubic,
                 child: const Icon(Icons.keyboard_arrow_down_rounded),
@@ -2075,9 +2069,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
         ),
         // LayoutBuilder 内仅使用绘制层淡入淡出，避免逐帧重建触发布局断言。
         AnimatedSwitcher(
-          duration: openHandMotionDuration(
-            context,
-            const Duration(milliseconds: 240),
+          duration: openHandMotionDuration(context, kOpenHandMotion240,
           ),
           child:
               widget.creationMode != _CreationMode.none &&
@@ -2200,9 +2192,7 @@ class _ComposerPanelState extends State<_ComposerPanel> {
     return Card(
       color: colorScheme.surfaceContainerHigh,
       child: AnimatedContainer(
-        duration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 260),
+        duration: openHandMotionDuration(context, kOpenHandMotion260,
         ),
         curve: Curves.easeInOutCubicEmphasized,
         padding: EdgeInsets.fromLTRB(18, 14, 18, widget.isCollapsed ? 10 : 18),
@@ -2459,9 +2449,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
             // FadeTransition-only: ScaleTransition is unsafe inside
             // LayoutBuilder (see note in _ComposerPanelState.build).
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(
-                context,
-                const Duration(milliseconds: 180),
+              duration: openHandMotionDuration(context, kOpenHandMotion180,
               ),
               child: Icon(
                 modeIcon,
@@ -2475,9 +2463,7 @@ class _ComposerModeButtonState extends State<_ComposerModeButton> {
           // FadeTransition-only: SlideTransition is unsafe inside
           // LayoutBuilder (see note in _ComposerPanelState.build).
           AnimatedSwitcher(
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 180),
+            duration: openHandMotionDuration(context, kOpenHandMotion180,
             ),
             child: Text(
               modeLabel,
@@ -2603,9 +2589,7 @@ class _ComposerCreationModeButtonState
             // handleBeginFrame trigger scheduleLayoutCallback assertions.
             // FadeTransition (SingleChildRenderObjectWidget) is safe.
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(
-                context,
-                const Duration(milliseconds: 220),
+              duration: openHandMotionDuration(context, kOpenHandMotion220,
               ),
               child: Icon(
                 _iconForMode(widget.creationMode),
@@ -4237,9 +4221,7 @@ class _ComposerCreationOptionsChip extends StatelessWidget {
             ),
             // LayoutBuilder 内仅使用默认淡入淡出，避免动画逐帧重建触发布局断言。
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(
-                context,
-                const Duration(milliseconds: 200),
+              duration: openHandMotionDuration(context, kOpenHandMotion200,
               ),
               child: Text(
                 label,

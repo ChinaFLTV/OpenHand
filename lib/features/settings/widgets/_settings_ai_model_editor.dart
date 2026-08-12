@@ -686,10 +686,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   Widget _buildAutoCompleteBaseUrlControl() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final duration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 180),
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion180);
     final preview = _previewChatEndpoints();
     final usesResponsesRouting = _apiDialect == AiApiDialect.openAiCompat;
     return Padding(
@@ -937,10 +934,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
   }) {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final duration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 180),
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion180);
     final child = !_showsExplicitPromptCacheControl
         ? const SizedBox.shrink(key: ValueKey<String>('cacheControlHidden'))
         : Padding(
@@ -3929,10 +3923,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   Widget _buildOneMillionContextControl() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final duration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 180),
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion180);
     final helperText = _oneMillionContextEnabled
         ? openHandLocalizedText(
             context,
@@ -4003,10 +3994,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   Widget _buildThinkingEnabledControl() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final duration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 180),
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion180);
     final helperText = _thinkingEnabled
         ? openHandLocalizedText(
             context,
@@ -4082,10 +4070,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   Widget _buildReasoningEffortControl() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final duration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 180),
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion180);
     final helperText = !_thinkingEnabled
         ? openHandLocalizedText(
             context,
@@ -4203,10 +4188,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
   Widget _buildReasoningEffortFields() {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
-    final duration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 180),
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion180);
     final options = _currentReasoningEffortOptions();
     final localeName = Localizations.localeOf(context).toLanguageTag();
     final selectedValue = options.any((item) => item.value == _reasoningEffort)
@@ -4609,10 +4591,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                           ),
                     icon: AnimatedRotation(
                       turns: draft.expanded ? 0.5 : 0,
-                      duration: _settingsMotionDuration(
-                        context,
-                        const Duration(milliseconds: 220),
-                      ),
+                      duration: openHandMotionDuration(context, kOpenHandMotion220),
                       curve: Curves.easeOutCubic,
                       child: const Icon(Icons.keyboard_arrow_down_rounded),
                     ),

@@ -197,10 +197,7 @@ class _HeStreamingSubConversationState
                     children: [
                       AnimatedRotation(
                         turns: _showEarlierSegments ? 0.5 : 0,
-                        duration: _harnessMotionDuration(
-                          context,
-                          const Duration(milliseconds: 220),
-                        ),
+                        duration: openHandMotionDuration(context, kOpenHandMotion220),
                         curve: Curves.easeOutCubic,
                         child: Icon(
                           Icons.keyboard_arrow_down_rounded,
@@ -606,10 +603,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                         const SizedBox(width: 6),
                         AnimatedRotation(
                           turns: _expanded ? 0.5 : 0,
-                          duration: _harnessMotionDuration(
-                            context,
-                            const Duration(milliseconds: 220),
-                          ),
+                          duration: openHandMotionDuration(context, kOpenHandMotion220),
                           curve: Curves.easeOutCubic,
                           child: Icon(
                             Icons.keyboard_arrow_down_rounded,
@@ -653,10 +647,7 @@ class _HeSegmentMiniCardState extends State<_HeSegmentMiniCard> {
                         const SizedBox(width: 4),
                         AnimatedRotation(
                           turns: _expanded ? 0.5 : 0,
-                          duration: _harnessMotionDuration(
-                            context,
-                            const Duration(milliseconds: 220),
-                          ),
+                          duration: openHandMotionDuration(context, kOpenHandMotion220),
                           curve: Curves.easeOutCubic,
                           child: Icon(
                             Icons.keyboard_arrow_down_rounded,

@@ -1,4 +1,5 @@
 import 'dart:async';
+
 import 'package:flutter/material.dart';
 
 import '../../../app/support/safe_subprocess.dart';
@@ -8,6 +9,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/auto_follow_scroll_guard.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_console_log_panel.dart';
@@ -207,9 +209,7 @@ class _StdioLogDialogState extends State<_StdioLogDialog> {
         _scrollGuard.followToBottom(
           _scrollController,
           animated: true,
-          animationDuration: openHandMotionDuration(
-            context,
-            const Duration(milliseconds: 220),
+          animationDuration: openHandMotionDuration(context, kOpenHandMotion220,
           ),
         );
       }

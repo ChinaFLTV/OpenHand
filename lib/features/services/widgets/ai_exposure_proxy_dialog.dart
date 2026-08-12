@@ -13,6 +13,7 @@ import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/list_removal_transition.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
@@ -776,9 +777,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
             ],
           ),
           AnimatedOpacity(
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 240),
+            duration: openHandMotionDuration(context, kOpenHandMotion240,
             ),
             curve: Curves.easeOutCubic,
             opacity: _enabled ? 1 : .46,
@@ -867,9 +866,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
             ),
           ),
           AnimatedSwitcher(
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 220),
+            duration: openHandMotionDuration(context, kOpenHandMotion220,
             ),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
@@ -5127,9 +5124,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                       tooltip: text(zh: '解析并填充表单', en: 'Parse and fill form'),
                       onPressed: () => _applyProxyAddress(reportInvalid: true),
                       icon: AnimatedSwitcher(
-                        duration: openHandMotionDuration(
-                          context,
-                          const Duration(milliseconds: 220),
+                        duration: openHandMotionDuration(context, kOpenHandMotion220,
                         ),
                         child: Icon(
                           proxyAddressParsed
@@ -5458,9 +5453,7 @@ class _ProxyEndpointCard extends StatelessWidget {
               : null,
         ),
         AnimatedContainer(
-          duration: openHandMotionDuration(
-            context,
-            const Duration(milliseconds: 260),
+          duration: openHandMotionDuration(context, kOpenHandMotion260,
           ),
           curve: Curves.easeOutBack,
           width: 34,
@@ -5471,9 +5464,7 @@ class _ProxyEndpointCard extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: AnimatedSwitcher(
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 220),
+            duration: openHandMotionDuration(context, kOpenHandMotion220,
             ),
             child: testing
                 ? SizedBox.square(
@@ -5659,9 +5650,7 @@ class _ProxyEndpointCard extends StatelessWidget {
     ];
     final actions = ServiceDialogIconActions(children: actionChildren);
     return AnimatedContainer(
-      duration: openHandMotionDuration(
-        context,
-        const Duration(milliseconds: 260),
+      duration: openHandMotionDuration(context, kOpenHandMotion260,
       ),
       curve: Curves.easeOutCubic,
       padding: EdgeInsetsDirectional.fromSTEB(
@@ -5925,9 +5914,7 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
                           ),
                         ),
                       AnimatedPositioned(
-                        duration: openHandMotionDuration(
-                          context,
-                          const Duration(milliseconds: 180),
+                        duration: openHandMotionDuration(context, kOpenHandMotion180,
                         ),
                         curve: Curves.easeOutCubic,
                         left: tooltipLeft,
@@ -5935,9 +5922,7 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
                         width: _tooltipWidth,
                         child: IgnorePointer(
                           child: AnimatedSwitcher(
-                            duration: openHandMotionDuration(
-                              context,
-                              const Duration(milliseconds: 220),
+                            duration: openHandMotionDuration(context, kOpenHandMotion220,
                             ),
                             switchInCurve: Curves.easeOutCubic,
                             switchOutCurve: Curves.easeInCubic,

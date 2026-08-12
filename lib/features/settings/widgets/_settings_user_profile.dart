@@ -128,10 +128,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
                         openHandHovered && motionEnabled ? 0.18 : 0,
                         0,
                       ),
-                      duration: _settingsMotionDuration(
-                        context,
-                        const Duration(milliseconds: 180),
-                      ),
+                      duration: openHandMotionDuration(context, kOpenHandMotion180),
                       curve: Curves.easeOutCubic,
                       child: Icon(
                         Icons.chevron_right_rounded,

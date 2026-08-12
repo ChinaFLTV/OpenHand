@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_approval_chip.dart';
@@ -413,9 +414,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
     final parsed = _parseApprovalPayload(text);
     final accent = cs.primary;
     return AnimatedContainer(
-      duration: openHandMotionDuration(
-        context,
-        const Duration(milliseconds: 180),
+      duration: openHandMotionDuration(context, kOpenHandMotion180,
       ),
       curve: Curves.easeOutCubic,
       padding: const EdgeInsets.all(14),
@@ -507,9 +506,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
           ),
           const SizedBox(height: 12),
           AnimatedSize(
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 180),
+            duration: openHandMotionDuration(context, kOpenHandMotion180,
             ),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topCenter,

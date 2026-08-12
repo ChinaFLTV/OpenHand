@@ -3185,9 +3185,7 @@ class _HoverElevateBoxState extends State<_HoverElevateBox>
     with OpenHandHoverState {
   @override
   Widget build(BuildContext context) {
-    final dur = openHandMotionDuration(
-      context,
-      const Duration(milliseconds: 200),
+    final dur = openHandMotionDuration(context, kOpenHandMotion200,
     );
     return MouseRegion(
       onEnter: (_) => setOpenHandHovered(true),

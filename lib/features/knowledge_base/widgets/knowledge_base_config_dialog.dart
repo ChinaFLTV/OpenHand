@@ -4059,16 +4059,12 @@ class _KnowledgeBaseConfigDialogState
   Widget _animatedFullRow(Widget child) {
     return _fullRow(
       AnimatedSize(
-        duration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 260),
+        duration: openHandMotionDuration(context, kOpenHandMotion260,
         ),
         curve: Curves.easeOutBack,
         alignment: Alignment.topCenter,
         child: AnimatedSwitcher(
-          duration: openHandMotionDuration(
-            context,
-            const Duration(milliseconds: 220),
+          duration: openHandMotionDuration(context, kOpenHandMotion220,
           ),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,

@@ -678,10 +678,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     final hMax = mediaSize.height - 32;
     final dialog = TweenAnimationBuilder<double>(
       tween: Tween<double>(end: _maximized ? 1.0 : 0.0),
-      duration: _settingsMotionDuration(
-        context,
-        const Duration(milliseconds: 380),
-      ),
+      duration: openHandMotionDuration(context, const Duration(milliseconds: 380)),
       curve: Curves.easeOutBack,
       builder: (context, t, _) {
         // easeOutBack 会短暂越界；保留少量弹性，最终仍由外层约束兜底。
@@ -1015,7 +1012,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     return TweenAnimationBuilder<double>(
       key: ValueKey<int>(identityHashCode(entry)),
       tween: Tween<double>(begin: 0, end: 1),
-      duration: _settingsMotionDuration(context, kOpenHandMotion200),
+      duration: openHandMotionDuration(context, kOpenHandMotion200),
       curve: Curves.easeOutCubic,
       builder: (_, t, child) {
         return Opacity(
@@ -1148,10 +1145,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       },
       borderRadius: BorderRadius.circular(10),
       child: AnimatedContainer(
-        duration: _settingsMotionDuration(
-          context,
-          const Duration(milliseconds: 120),
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion120),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: visible
@@ -1281,10 +1275,7 @@ class _ProxyHoverableRowState extends State<_ProxyHoverableRow>
         behavior: HitTestBehavior.opaque,
         onDoubleTap: widget.onDoubleTap,
         child: AnimatedContainer(
-          duration: _settingsMotionDuration(
-            context,
-            const Duration(milliseconds: 120),
-          ),
+          duration: openHandMotionDuration(context, kOpenHandMotion120),
           decoration: BoxDecoration(
             color: openHandHovered
                 ? Color.alphaBlend(widget.hoverColor, widget.baseColor)

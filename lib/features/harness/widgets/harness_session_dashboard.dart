@@ -79,9 +79,6 @@ part 'harness_session_dashboard.streaming_smart.part.dart';
 part 'harness_session_dashboard.file_hover.part.dart';
 part 'harness_session_dashboard.steering.part.dart';
 
-Duration _harnessMotionDuration(BuildContext context, Duration duration) {
-  return openHandMotionDuration(context, duration);
-}
 
 // 预编译日志级别前缀正则，避免重复创建。
 final RegExp _logLevelPattern = RegExp(

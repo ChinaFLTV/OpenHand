@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../shared/ui/animated_menu.dart';
+import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/motion_preference.dart';
 import '../../shared/ui/oh_pill.dart';
 
@@ -76,9 +77,7 @@ class WebReverseSelectButton<T> extends StatelessWidget {
           ),
       ],
       child: AnimatedContainer(
-        duration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 180),
+        duration: openHandMotionDuration(context, kOpenHandMotion180,
         ),
         curve: Curves.easeOutCubic,
         height: height,

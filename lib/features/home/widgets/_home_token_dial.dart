@@ -1734,9 +1734,7 @@ class _PopupRowState extends State<_PopupRow> {
         setState(() => _hovered = false);
       },
       child: AnimatedContainer(
-        duration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 180),
+        duration: openHandMotionDuration(context, kOpenHandMotion180,
         ),
         curve: Curves.easeOutBack,
         padding: const EdgeInsets.symmetric(vertical: 6, horizontal: 8),

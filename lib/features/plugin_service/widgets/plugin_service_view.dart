@@ -901,9 +901,7 @@ class _PluginOperationProgressDialogState
       _scrollGuard.followToBottom(
         _scrollController,
         animated: true,
-        animationDuration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 200),
+        animationDuration: openHandMotionDuration(context, kOpenHandMotion200,
         ),
       );
     });
@@ -1439,9 +1437,7 @@ class _PluginDetailDialogState extends State<_PluginDetailDialog> {
           // 内容
           Flexible(
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(
-                context,
-                const Duration(milliseconds: 220),
+              duration: openHandMotionDuration(context, kOpenHandMotion220,
               ),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,

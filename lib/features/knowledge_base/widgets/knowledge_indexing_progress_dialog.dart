@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -131,9 +132,7 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
               final progress = controller.progress;
               final cancelling = controller.cancelToken.isCancelled;
               return AnimatedSize(
-                duration: openHandMotionDuration(
-                  context,
-                  const Duration(milliseconds: 220),
+                duration: openHandMotionDuration(context, kOpenHandMotion220,
                 ),
                 curve: Curves.easeOutCubic,
                 alignment: Alignment.topCenter,

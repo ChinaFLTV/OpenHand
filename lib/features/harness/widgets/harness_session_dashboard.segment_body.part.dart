@@ -326,10 +326,7 @@ class _HeThinkingSegmentBody extends StatelessWidget {
 
     return ClipRect(
       child: AnimatedSize(
-        duration: _harnessMotionDuration(
-          context,
-          const Duration(milliseconds: 220),
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion220),
         curve: Curves.easeInOutCubic,
         alignment: Alignment.topLeft,
         child: expanded
@@ -387,10 +384,7 @@ class _HeStreamingThinkingBody extends StatelessWidget {
   Widget build(BuildContext context) {
     return ClipRect(
       child: AnimatedSize(
-        duration: _harnessMotionDuration(
-          context,
-          const Duration(milliseconds: 180),
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion180),
         curve: Curves.easeOutCubic,
         alignment: Alignment.topLeft,
         child: expanded
@@ -639,10 +633,7 @@ class _HeCommandStripState extends State<_HeCommandStrip>
     return OpenHandTapRegion(
       onTap: _toggle,
       child: AnimatedContainer(
-        duration: _harnessMotionDuration(
-          context,
-          const Duration(milliseconds: 220),
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion220),
         curve: Curves.easeOutCubic,
         width: double.infinity,
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),

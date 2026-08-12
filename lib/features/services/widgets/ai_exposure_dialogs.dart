@@ -8,6 +8,7 @@ import 'package:provider/provider.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_busy_indicators.dart';
@@ -763,9 +764,7 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
           ),
           scrollable: false,
           footer: AnimatedSwitcher(
-            duration: openHandMotionDuration(
-              context,
-              const Duration(milliseconds: 220),
+            duration: openHandMotionDuration(context, kOpenHandMotion220,
             ),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
@@ -815,9 +814,7 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
               const SizedBox(height: _kSectionGap),
               Expanded(
                 child: AnimatedSwitcher(
-                  duration: openHandMotionDuration(
-                    context,
-                    const Duration(milliseconds: 240),
+                  duration: openHandMotionDuration(context, kOpenHandMotion240,
                   ),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,

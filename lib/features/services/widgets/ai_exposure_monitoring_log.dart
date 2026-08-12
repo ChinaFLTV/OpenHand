@@ -48,9 +48,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
       if (!mounted || !_scroll.hasClients) return;
       _scroll.animateTo(
         _scroll.position.maxScrollExtent,
-        duration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 220),
+        duration: openHandMotionDuration(context, kOpenHandMotion220,
         ),
         curve: Curves.easeOutCubic,
       );
@@ -429,9 +427,7 @@ class _AnimatedLogScopeTabs extends StatelessWidget {
       showSelectedIcon: false,
       style: ButtonStyle(
         minimumSize: const WidgetStatePropertyAll(Size(104, 40)),
-        animationDuration: openHandMotionDuration(
-          context,
-          const Duration(milliseconds: 280),
+        animationDuration: openHandMotionDuration(context, kOpenHandMotion280,
         ),
       ),
     );

@@ -55,6 +55,8 @@ impl AuthorizedScope {
                 scope.networks.push(network);
             } else if let Ok(address) = value.parse::<IpAddr>() {
                 scope.addresses.push(address);
+            } else if let Some(domain) = wildcard_domain(&value) {
+                scope.domains.push(domain);
             } else if is_valid_domain(&value) {
                 scope.domains.push(value);
             } else {
@@ -82,6 +84,20 @@ impl AuthorizedScope {
         self.domains
             .iter()
             .any(|domain| normalized == *domain || normalized.ends_with(&format!(".{domain}")))
+    }
+}
+
+/// 解析 `*.example.com` 形式的通配符域名，返回裸域名 `example.com`。
+/// 仅当首段为 `*` 且其余部分为合法域名时生效。
+fn wildcard_domain(value: &str) -> Option<String> {
+    let (first, rest) = value.split_once('.')?;
+    if first != "*" || rest.is_empty() {
+        return None;
+    }
+    if is_valid_domain(rest) {
+        Some(rest.to_owned())
+    } else {
+        None
     }
 }
 

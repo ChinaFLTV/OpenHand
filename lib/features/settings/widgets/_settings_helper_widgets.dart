@@ -9,8 +9,8 @@ const double _aiProviderInfoChipHorizontalPadding = 12;
 const double _aiProviderInfoChipLabelPadding = 8;
 const double _aiProviderInfoChipVerticalPadding = 10;
 const double _aiProviderInfoChipLineHeight = 1.2;
-const Duration _aiTtsDragHoverDuration = Duration(milliseconds: 220);
-const Duration _aiTtsDragOpacityDuration = Duration(milliseconds: 180);
+const Duration kOpenHandMotion220 = Duration(milliseconds: 220);
+const Duration kOpenHandMotion180 = Duration(milliseconds: 180);
 const double _aiTtsDragHandleSize = 34;
 const double _aiTtsCardActionSize = 40;
 const double _aiCardActionEnabledAlpha = 0.74;
@@ -182,10 +182,7 @@ class _AiModelSearchToggleButton extends StatelessWidget {
                 ja: 'モデルを検索',
               ),
         icon: AnimatedSwitcher(
-          duration: _settingsMotionDuration(
-            context,
-            const Duration(milliseconds: 180),
-          ),
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
           transitionBuilder: (child, animation) => FadeTransition(
             opacity: animation,
             child: ScaleTransition(scale: animation, child: child),
@@ -257,14 +254,8 @@ class _SettingsSubsectionCard extends StatelessWidget {
     final theme = Theme.of(context);
     final colorScheme = theme.colorScheme;
     final motionEnabled = _settingsMotionEnabled(context);
-    final revealDuration = _settingsMotionDuration(
-      context,
-      _settingsRevealSizeDuration,
-    );
-    final revealReverseDuration = _settingsMotionDuration(
-      context,
-      _settingsRevealSizeReverseDuration,
-    );
+    final revealDuration = openHandMotionDuration(context, kOpenHandMotion420);
+    final revealReverseDuration = openHandMotionDuration(context, kOpenHandMotion260);
     final body = Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1045,7 +1036,7 @@ class _AiTranslationProviderCardState
       ),
     );
     return AnimatedOpacity(
-      duration: _settingsMotionDuration(context, _aiTtsDragOpacityDuration),
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
       opacity: widget.dragging ? 0.58 : 1,
       child: card,
     );
@@ -1888,7 +1879,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
       ),
     );
     return AnimatedOpacity(
-      duration: _settingsMotionDuration(context, _aiTtsDragOpacityDuration),
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
       opacity: widget.dragging ? 0.58 : 1,
       child: card,
     );
@@ -1985,10 +1976,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
                       ? null
                       : () => _loadMiniMaxVoices(model),
                   icon: AnimatedSwitcher(
-                    duration: _settingsMotionDuration(
-                      context,
-                      const Duration(milliseconds: 220),
-                    ),
+                    duration: openHandMotionDuration(context, kOpenHandMotion220),
                     child: _loadingMiniMaxVoices
                         ? const SizedBox.square(
                             key: ValueKey<String>('loading'),
@@ -2857,13 +2845,13 @@ class _AiProviderInsertionGuide extends StatelessWidget {
     final color = theme.colorScheme.primary.withValues(alpha: 0.82);
     return ClipRect(
       child: AnimatedSize(
-        duration: motionEnabled ? _aiTtsDragHoverDuration : Duration.zero,
+        duration: motionEnabled ? kOpenHandMotion220 : Duration.zero,
         reverseDuration: motionEnabled
-            ? _aiTtsDragOpacityDuration
+            ? kOpenHandMotion180
             : Duration.zero,
         curve: Curves.easeOutBack,
         child: AnimatedOpacity(
-          duration: motionEnabled ? _aiTtsDragOpacityDuration : Duration.zero,
+          duration: motionEnabled ? kOpenHandMotion180 : Duration.zero,
           opacity: visible ? 1 : 0,
           child: SizedBox(
             height: visible ? 12 : 0,
@@ -2907,7 +2895,7 @@ class _AiProviderDragHandleFrame extends StatelessWidget {
       child: MouseRegion(
         cursor: SystemMouseCursors.grab,
         child: AnimatedOpacity(
-          duration: _settingsMotionDuration(context, _aiTtsDragOpacityDuration),
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
           opacity: opacity,
           child: Container(
             width: _aiTtsDragHandleSize,
@@ -3023,10 +3011,7 @@ class _AiProviderCardExpandButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
-    final duration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 260),
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion260);
     return Tooltip(
       message: !enabled
           ? openHandLocalizedText(context, zh: '启用后可展开', en: 'Enable to expand')
@@ -4845,14 +4830,8 @@ class _SettingsElasticExpansion extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 280),
-    );
-    final reverseDuration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 190),
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion280);
+    final reverseDuration = openHandMotionDuration(context, const Duration(milliseconds: 190));
 
     return AnimatedSize(
       duration: duration,
@@ -4920,10 +4899,7 @@ class _SettingsExpandIcon extends StatelessWidget {
   Widget build(BuildContext context) {
     return AnimatedRotation(
       turns: expanded ? 0.5 : 0,
-      duration: _settingsMotionDuration(
-        context,
-        const Duration(milliseconds: 220),
-      ),
+      duration: openHandMotionDuration(context, kOpenHandMotion220),
       curve: Curves.easeOutBack,
       child: const Icon(Icons.expand_more_rounded),
     );
@@ -5513,10 +5489,7 @@ class _AiModelTileState extends State<_AiModelTile> {
     final matchedModels = _filterAiModelIds(allModels, modelSearchQuery);
     final matchedModelIds = matchedModels.toSet();
     final matchedModelCount = matchedModels.length;
-    final animationDuration = _settingsMotionDuration(
-      context,
-      const Duration(milliseconds: 260),
-    );
+    final animationDuration = openHandMotionDuration(context, kOpenHandMotion260);
 
     return MicroPressFeedback(
       child: InkWell(
@@ -5605,10 +5578,7 @@ class _AiModelTileState extends State<_AiModelTile> {
                                     en: 'Show all models',
                                   ),
                             icon: AnimatedSwitcher(
-                              duration: _settingsMotionDuration(
-                                context,
-                                const Duration(milliseconds: 220),
-                              ),
+                              duration: openHandMotionDuration(context, kOpenHandMotion220),
                               switchInCurve: Curves.easeOutBack,
                               switchOutCurve: Curves.easeInCubic,
                               transitionBuilder: (child, animation) =>
@@ -5790,20 +5760,11 @@ class _AiModelTileState extends State<_AiModelTile> {
                         final hiddenCount = ordered.length - visible.length;
                         return AnimatedSize(
                           alignment: Alignment.topLeft,
-                          duration: _settingsMotionDuration(
-                            context,
-                            const Duration(milliseconds: 420),
-                          ),
-                          reverseDuration: _settingsMotionDuration(
-                            context,
-                            const Duration(milliseconds: 260),
-                          ),
+                          duration: openHandMotionDuration(context, kOpenHandMotion420),
+                          reverseDuration: openHandMotionDuration(context, kOpenHandMotion260),
                           curve: Curves.easeOutBack,
                           child: AnimatedSwitcher(
-                            duration: _settingsMotionDuration(
-                              context,
-                              const Duration(milliseconds: 260),
-                            ),
+                            duration: openHandMotionDuration(context, kOpenHandMotion260),
                             switchInCurve: Curves.easeOutBack,
                             switchOutCurve: Curves.easeInCubic,
                             layoutBuilder: (currentChild, previousChildren) {
@@ -6043,22 +6004,10 @@ class _AnimatedSettingReveal extends StatelessWidget {
     if (!_settingsMotionEnabled(context)) {
       return visible ? child : const SizedBox.shrink();
     }
-    final sizeDuration = _settingsMotionDuration(
-      context,
-      _settingsRevealSizeDuration,
-    );
-    final sizeReverseDuration = _settingsMotionDuration(
-      context,
-      _settingsRevealSizeReverseDuration,
-    );
-    final switcherDuration = _settingsMotionDuration(
-      context,
-      _settingsRevealSwitcherDuration,
-    );
-    final switcherReverseDuration = _settingsMotionDuration(
-      context,
-      _settingsRevealSwitcherReverseDuration,
-    );
+    final sizeDuration = openHandMotionDuration(context, kOpenHandMotion420);
+    final sizeReverseDuration = openHandMotionDuration(context, kOpenHandMotion260);
+    final switcherDuration = openHandMotionDuration(context, kOpenHandMotion320);
+    final switcherReverseDuration = openHandMotionDuration(context, kOpenHandMotion200);
     return ClipRect(
       child: AnimatedSize(
         duration: sizeDuration,

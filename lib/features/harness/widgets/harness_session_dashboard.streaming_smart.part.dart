@@ -197,10 +197,7 @@ class _HeStreamingSmartViewState extends State<_HeStreamingSmartView>
               Widget animatedLast(Widget w) => TweenAnimationBuilder<double>(
                 key: ValueKey<int>(_contentRevision),
                 tween: Tween<double>(begin: 0.0, end: 1.0),
-                duration: _harnessMotionDuration(
-                  context,
-                  _kStreamingBlockRevealDuration,
-                ),
+                duration: openHandMotionDuration(context, _kStreamingBlockRevealDuration),
                 curve: Curves.easeOutCubic,
                 builder: (_, v, child) => Opacity(
                   opacity: clampUnitInterval(v),

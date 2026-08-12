@@ -329,9 +329,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
           const SizedBox(height: 14),
           Expanded(
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(
-                context,
-                const Duration(milliseconds: 220),
+              duration: openHandMotionDuration(context, kOpenHandMotion220,
               ),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,

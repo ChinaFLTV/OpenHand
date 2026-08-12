@@ -7,6 +7,7 @@ import 'package:provider/provider.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
@@ -274,9 +275,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
           const SizedBox(height: 14),
           Expanded(
             child: AnimatedSwitcher(
-              duration: openHandMotionDuration(
-                context,
-                const Duration(milliseconds: 220),
+              duration: openHandMotionDuration(context, kOpenHandMotion220,
               ),
               switchInCurve: Curves.easeOutCubic,
               switchOutCurve: Curves.easeInCubic,
@@ -433,9 +432,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
               crossAxisAlignment: CrossAxisAlignment.stretch,
               children: [
                 AnimatedSize(
-                  duration: openHandMotionDuration(
-                    context,
-                    const Duration(milliseconds: 220),
+                  duration: openHandMotionDuration(context, kOpenHandMotion220,
                   ),
                   curve: Curves.easeOutCubic,
                   child: !_queryVisible
@@ -983,9 +980,7 @@ class _TelemetryTileState extends State<_TelemetryTile> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
-    final duration = openHandMotionDuration(
-      context,
-      const Duration(milliseconds: 140),
+    final duration = openHandMotionDuration(context, kOpenHandMotion140,
     );
     final highlighted = _hovered || _focused;
     return Semantics(

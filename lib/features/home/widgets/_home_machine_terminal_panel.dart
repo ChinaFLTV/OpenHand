@@ -1428,9 +1428,7 @@ class _MachineTerminalHistoryDetailDialogState
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(18, 0, 18, 18),
                 child: AnimatedSwitcher(
-                  duration: openHandMotionDuration(
-                    context,
-                    const Duration(milliseconds: 180),
+                  duration: openHandMotionDuration(context, kOpenHandMotion180,
                   ),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
@@ -1927,9 +1925,7 @@ class _MachineTerminalMiniActionButton extends StatelessWidget {
         borderRadius: BorderRadius.circular(9),
         onTap: onPressed,
         child: AnimatedOpacity(
-          duration: openHandMotionDuration(
-            context,
-            const Duration(milliseconds: 140),
+          duration: openHandMotionDuration(context, kOpenHandMotion140,
           ),
           opacity: enabled ? 1 : 0.45,
           child: Container(
@@ -2208,9 +2204,7 @@ class _MachineTerminalIconButton extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
-    final duration = openHandMotionDuration(
-      context,
-      const Duration(milliseconds: 140),
+    final duration = openHandMotionDuration(context, kOpenHandMotion140,
     );
     return Tooltip(
       message: tooltip,

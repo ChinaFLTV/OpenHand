@@ -1644,9 +1644,7 @@ class _FileTreeTile extends StatelessWidget {
                 if (node.isDirectory)
                   AnimatedRotation(
                     turns: node.isExpanded ? 0.25 : 0,
-                    duration: openHandMotionDuration(
-                      context,
-                      const Duration(milliseconds: 200),
+                    duration: openHandMotionDuration(context, kOpenHandMotion200,
                     ),
                     curve: Curves.easeOutCubic,
                     child: Icon(
@@ -11223,9 +11221,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     // ── Find / Replace bar ──
                     ClipRect(
                       child: AnimatedSize(
-                        duration: openHandMotionDuration(
-                          context,
-                          const Duration(milliseconds: 220),
+                        duration: openHandMotionDuration(context, kOpenHandMotion220,
                         ),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.bottomCenter,
@@ -11235,9 +11231,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     // ── Go-to-Line bar ──
                     ClipRect(
                       child: AnimatedSize(
-                        duration: openHandMotionDuration(
-                          context,
-                          const Duration(milliseconds: 220),
+                        duration: openHandMotionDuration(context, kOpenHandMotion220,
                         ),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.bottomCenter,
@@ -11247,9 +11241,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     // ── Symbol navigation bar ──
                     ClipRect(
                       child: AnimatedSize(
-                        duration: openHandMotionDuration(
-                          context,
-                          const Duration(milliseconds: 220),
+                        duration: openHandMotionDuration(context, kOpenHandMotion220,
                         ),
                         curve: Curves.easeOutCubic,
                         alignment: Alignment.bottomCenter,
@@ -15591,9 +15583,7 @@ class _EditorTab extends StatelessWidget {
                 colorScheme.primary.withValues(alpha: 0.08),
               ),
               child: AnimatedContainer(
-                duration: openHandMotionDuration(
-                  context,
-                  const Duration(milliseconds: 200),
+                duration: openHandMotionDuration(context, kOpenHandMotion200,
                 ),
                 curve: Curves.easeOutCubic,
                 height: 34,

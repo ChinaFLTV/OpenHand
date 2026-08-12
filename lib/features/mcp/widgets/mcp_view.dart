@@ -107,7 +107,6 @@ const double _mcpChipStripHeight = 40;
 const double _mcpToolPreviewExpandedHeight = 160;
 const double _mcpToolChipMaxWidth = 360;
 const double _mcpScrollCorrectionEpsilon = 0.5;
-const Duration _mcpChipTransitionDuration = Duration(milliseconds: 220);
 const DialogAnimationSettings _mcpChipAnimationSettings =
     DialogAnimationSettings(
       durationMs: 220,
@@ -119,7 +118,6 @@ const EdgeInsets _mcpServerCardMotionPadding = EdgeInsets.only(
   top: _mcpServerCardHoverClearance,
   bottom: _mcpServerCardSpacing - _mcpServerCardHoverClearance,
 );
-const Duration _mcpToolPreviewExpandDuration = Duration(milliseconds: 220);
 const int _mcpNpxCacheCleanupMaxEntries = 20000;
 const BoundedDeletePolicy _mcpNpxCacheDeletePolicy = BoundedDeletePolicy(
   maxEntries: _mcpNpxCacheCleanupMaxEntries,
@@ -135,9 +133,6 @@ final Set<String> _mcpThreadTemplateIds = Set<String>.unmodifiable(
   _mcpThreadTemplateInfos.map((template) => template.id),
 );
 
-Duration _mcpMotionDuration(BuildContext context, Duration duration) {
-  return openHandMotionDuration(context, duration);
-}
 
 typedef _McpServerItemBuilder =
     Widget Function(
@@ -1960,10 +1955,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
         ),
         const SizedBox(height: 12),
         AnimatedSize(
-          duration: _mcpMotionDuration(
-            context,
-            const Duration(milliseconds: 220),
-          ),
+          duration: openHandMotionDuration(context, kOpenHandMotion220),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topLeft,
           child: Wrap(
@@ -1987,10 +1979,7 @@ class _McpServerEditorDialogState extends State<_McpServerEditorDialog>
           ),
         ),
         AnimatedSwitcher(
-          duration: _mcpMotionDuration(
-            context,
-            const Duration(milliseconds: 180),
-          ),
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
           child: _visibilityErrorMessage == null
               ? const SizedBox.shrink()
               : Padding(
@@ -3298,10 +3287,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                       ],
                     ),
                     AnimatedSwitcher(
-                      duration: _mcpMotionDuration(
-                        context,
-                        const Duration(milliseconds: 220),
-                      ),
+                      duration: openHandMotionDuration(context, kOpenHandMotion220),
                       switchInCurve: Curves.easeOutCubic,
                       switchOutCurve: Curves.easeInCubic,
                       transitionBuilder: (child, animation) => FadeTransition(
@@ -3777,10 +3763,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       children: [
         _surfaceSwitch(context, surface, badge: '$visibleCount/${rows.length}'),
         AnimatedSize(
-          duration: _mcpMotionDuration(
-            context,
-            const Duration(milliseconds: 240),
-          ),
+          duration: openHandMotionDuration(context, kOpenHandMotion240),
           curve: Curves.easeOutCubic,
           alignment: Alignment.topCenter,
           child: enabled
@@ -3857,10 +3840,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
           splashColor: cs.primary.withValues(alpha: 0.08),
           highlightColor: cs.primary.withValues(alpha: 0.05),
           child: AnimatedContainer(
-            duration: _mcpMotionDuration(
-              context,
-              const Duration(milliseconds: 160),
-            ),
+            duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
             curve: Curves.easeOutCubic,
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
@@ -4542,7 +4522,7 @@ class _McpOpsConsoleShell extends StatelessWidget {
   Widget build(BuildContext context) {
     final cs = Theme.of(context).colorScheme;
     return AnimatedContainer(
-      duration: _mcpMotionDuration(context, const Duration(milliseconds: 180)),
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.46),
@@ -4699,10 +4679,7 @@ class _McpOpsConsoleHeader extends StatelessWidget {
               color: cs.secondary,
             ),
             AnimatedSwitcher(
-              duration: _mcpMotionDuration(
-                context,
-                const Duration(milliseconds: 180),
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
               switchInCurve: Curves.easeOutBack,
               switchOutCurve: Curves.easeInCubic,
               transitionBuilder: (child, animation) {
@@ -4878,10 +4855,7 @@ class _McpOpsHeaderTabButtons extends StatelessWidget {
                     ? null
                     : () => tabController.animateTo(
                         tab.index,
-                        duration: _mcpMotionDuration(
-                          context,
-                          const Duration(milliseconds: 220),
-                        ),
+                        duration: openHandMotionDuration(context, kOpenHandMotion220),
                         curve: Curves.easeOutCubic,
                       ),
               ),
@@ -4924,10 +4898,7 @@ class _McpOpsHeaderTabButton extends StatelessWidget {
           highlightColor: cs.primary.withValues(alpha: 0.05),
           onTap: onPressed,
           child: AnimatedContainer(
-            duration: _mcpMotionDuration(
-              context,
-              const Duration(milliseconds: 160),
-            ),
+            duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
             curve: Curves.easeOutCubic,
             height: 44,
             constraints: const BoxConstraints(minWidth: 104, maxWidth: 132),
@@ -5065,10 +5036,7 @@ class _McpOpsHeaderControls extends StatelessWidget {
               onPressed: busy ? null : onCleanupData,
             ),
             AnimatedSwitcher(
-              duration: _mcpMotionDuration(
-                context,
-                const Duration(milliseconds: 180),
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion180),
               switchInCurve: Curves.easeOutBack,
               switchOutCurve: Curves.easeInCubic,
               transitionBuilder: (child, animation) {
@@ -5183,10 +5151,7 @@ class _McpOpsHeaderActionButton extends StatelessWidget {
           ),
           onTap: onPressed,
           child: AnimatedContainer(
-            duration: _mcpMotionDuration(
-              context,
-              const Duration(milliseconds: 160),
-            ),
+            duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
             curve: Curves.easeOutCubic,
             height: 44,
             constraints: const BoxConstraints(minWidth: 88, maxWidth: 124),
@@ -5329,10 +5294,7 @@ class _McpOpsIconButton extends StatelessWidget {
           highlightColor: cs.primary.withValues(alpha: 0.06),
           onTap: onPressed,
           child: AnimatedContainer(
-            duration: _mcpMotionDuration(
-              context,
-              const Duration(milliseconds: 160),
-            ),
+            duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
             curve: Curves.easeOutCubic,
             width: 44,
             height: 44,
@@ -5989,10 +5951,7 @@ class _McpOpsTappableCardState extends State<_McpOpsTappableCard> {
   @override
   Widget build(BuildContext context) {
     if (widget.onTap == null) return widget.child;
-    final duration = _mcpMotionDuration(
-      context,
-      const Duration(milliseconds: 120),
-    );
+    final duration = openHandMotionDuration(context, kOpenHandMotion120);
     return MouseRegion(
       cursor: SystemMouseCursors.click,
       child: GestureDetector(
@@ -6154,7 +6113,7 @@ class _McpOpsPanel extends StatelessWidget {
     final cs = theme.colorScheme;
     final subtitleText = subtitle?.trim();
     final panel = AnimatedContainer(
-      duration: _mcpMotionDuration(context, const Duration(milliseconds: 180)),
+      duration: openHandMotionDuration(context, kOpenHandMotion180),
       curve: Curves.easeOutCubic,
       decoration: _mcpOpsCardDecoration(cs),
       child: Padding(
@@ -6449,10 +6408,7 @@ class _McpOpsExposureSummary extends StatelessWidget {
             borderRadius: kOpenHandPillBorderRadius,
             child: TweenAnimationBuilder<double>(
               tween: Tween<double>(begin: 0, end: ratio.clamp(0, 1).toDouble()),
-              duration: _mcpMotionDuration(
-                context,
-                const Duration(milliseconds: 420),
-              ),
+              duration: openHandMotionDuration(context, kOpenHandMotion420),
               curve: Curves.easeOutCubic,
               builder: (context, value, _) => LinearProgressIndicator(
                 value: value,
@@ -6683,10 +6639,7 @@ class _McpOpsToggleFormField extends StatelessWidget {
         borderRadius: BorderRadius.circular(_mcpOpsControlRadius),
         onTap: () => onChanged(!value),
         child: AnimatedContainer(
-          duration: _mcpMotionDuration(
-            context,
-            const Duration(milliseconds: 180),
-          ),
+          duration: openHandMotionDuration(context, kOpenHandMotion180),
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
           decoration: BoxDecoration(
@@ -6806,10 +6759,7 @@ class _McpOpsTogglePill extends StatelessWidget {
         highlightColor: tone.withValues(alpha: 0.05),
         onTap: () => onChanged(!selected),
         child: AnimatedContainer(
-          duration: _mcpMotionDuration(
-            context,
-            const Duration(milliseconds: 160),
-          ),
+          duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(
@@ -7016,10 +6966,7 @@ class _McpOpsSchemaPill extends StatelessWidget {
         highlightColor: cs.primary.withValues(alpha: 0.05),
         onTap: onTap,
         child: AnimatedContainer(
-          duration: _mcpMotionDuration(
-            context,
-            const Duration(milliseconds: 160),
-          ),
+          duration: openHandMotionDuration(context, const Duration(milliseconds: 160)),
           curve: Curves.easeOutCubic,
           padding: const EdgeInsets.symmetric(horizontal: 11, vertical: 7),
           decoration: BoxDecoration(
@@ -7274,10 +7221,7 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
         ],
       ),
       child: AnimatedSwitcher(
-        duration: _mcpMotionDuration(
-          context,
-          const Duration(milliseconds: 180),
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion180),
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
         child: _sourcePreviewExpanded
@@ -8182,10 +8126,7 @@ class _McpOpsAuditRow extends StatelessWidget {
           splashColor: cs.primary.withValues(alpha: 0.07),
           highlightColor: cs.primary.withValues(alpha: 0.04),
           child: AnimatedContainer(
-            duration: _mcpMotionDuration(
-              context,
-              const Duration(milliseconds: 180),
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
             curve: Curves.easeOutCubic,
             decoration: _mcpOpsCardDecoration(cs),
             child: ClipRRect(
@@ -8801,10 +8742,7 @@ class _McpOpsStructuredPayload extends StatelessWidget {
           ? _localizedText(context, zh: '暂无可展示内容', en: 'No captured payload')
           : _mcpOpsPayloadSubtitle(context, parsed),
       child: AnimatedSwitcher(
-        duration: _mcpMotionDuration(
-          context,
-          const Duration(milliseconds: 180),
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion180),
         switchInCurve: Curves.easeOutCubic,
         switchOutCurve: Curves.easeInCubic,
         child: parsed.isEmpty
@@ -9075,7 +9013,7 @@ class _McpOpsStructuredField extends StatelessWidget {
       semanticKey: label,
     );
     return AnimatedContainer(
-      duration: _mcpMotionDuration(context, const Duration(milliseconds: 170)),
+      duration: openHandMotionDuration(context, const Duration(milliseconds: 170)),
       curve: Curves.easeOutCubic,
       decoration: BoxDecoration(
         color: depth == 0
@@ -10428,10 +10366,7 @@ class _McpServerCardState extends State<_McpServerCard> {
                         : null,
                   ),
                   AnimatedSwitcher(
-                    duration: _mcpMotionDuration(
-                      context,
-                      const Duration(milliseconds: 400),
-                    ),
+                    duration: openHandMotionDuration(context, const Duration(milliseconds: 400)),
                     switchInCurve: Curves.easeOutBack,
                     switchOutCurve: Curves.easeInBack,
                     transitionBuilder: (child, animation) {
@@ -10626,7 +10561,7 @@ class _McpStdioProcessChip extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = _mcpMotionDuration(context, _mcpChipTransitionDuration);
+    final duration = openHandMotionDuration(context, kOpenHandMotion220);
     return AnimatedBuilder(
       animation: McpStdioProcessManager.instance,
       builder: (context, _) {
@@ -10811,7 +10746,7 @@ class _McpHorizontalChipStripState extends State<_McpHorizontalChipStrip> {
       if ((target - position.pixels).abs() < _mcpScrollCorrectionEpsilon) {
         return;
       }
-      final duration = _mcpMotionDuration(context, _mcpChipTransitionDuration);
+      final duration = openHandMotionDuration(context, kOpenHandMotion220);
       if (duration == Duration.zero) {
         _scrollController.jumpTo(target);
       } else {
@@ -10923,7 +10858,7 @@ class _McpAnimatedChipContent extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final duration = _mcpMotionDuration(context, _mcpChipTransitionDuration);
+    final duration = openHandMotionDuration(context, kOpenHandMotion220);
     return AnimatedSwitcher(
       duration: duration,
       layoutBuilder: (currentChild, previousChildren) => Stack(
@@ -12233,7 +12168,7 @@ class _McpAnimatedProgressBar extends StatelessWidget {
   Widget build(BuildContext context) {
     return TweenAnimationBuilder<double>(
       tween: Tween<double>(begin: 0, end: value),
-      duration: _mcpMotionDuration(context, const Duration(milliseconds: 520)),
+      duration: openHandMotionDuration(context, const Duration(milliseconds: 520)),
       curve: Curves.easeOutBack,
       builder: (context, animatedProgress, _) {
         return ClipRRect(
@@ -12741,10 +12676,7 @@ class _McpServerToggleChip extends StatelessWidget {
           : _localizedText(context, zh: '点击启用', en: 'Click to Enable'),
       child: TweenAnimationBuilder<double>(
         tween: Tween<double>(begin: 0.0, end: enabled ? 1.0 : 0.0),
-        duration: _mcpMotionDuration(
-          context,
-          const Duration(milliseconds: 220),
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion220),
         curve: Curves.easeOutCubic,
         builder: (context, t, _) {
           final backgroundColor = Color.lerp(disabledBg, enabledBg, t)!;
@@ -12798,10 +12730,7 @@ class _McpHealthStatusDot extends StatelessWidget {
     return Tooltip(
       message: _healthStatusDotTooltip(context, server, healthStatus),
       child: AnimatedContainer(
-        duration: _mcpMotionDuration(
-          context,
-          const Duration(milliseconds: 180),
-        ),
+        duration: openHandMotionDuration(context, kOpenHandMotion180),
         width: 16,
         height: 16,
         decoration: BoxDecoration(
@@ -12906,10 +12835,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
             en: 'This service is disabled. Refresh manually to inspect its tools.',
           );
     final toolVisualKey = _mcpToolVisualKey(filteredTools);
-    final animationDuration = _mcpMotionDuration(
-      context,
-      _mcpChipTransitionDuration,
-    );
+    final animationDuration = openHandMotionDuration(context, kOpenHandMotion220);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -12949,10 +12875,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
                   },
                   icon: AnimatedRotation(
                     turns: _expanded ? 0.5 : 0.0,
-                    duration: _mcpMotionDuration(
-                      context,
-                      _mcpToolPreviewExpandDuration,
-                    ),
+                    duration: openHandMotionDuration(context, kOpenHandMotion220),
                     curve: Curves.easeOutCubic,
                     child: const Icon(Icons.expand_more_rounded),
                   ),
@@ -12968,10 +12891,7 @@ class _McpToolPreviewState extends State<_McpToolPreview> {
         const SizedBox(height: 10),
         ClipRect(
           child: AnimatedContainer(
-            duration: _mcpMotionDuration(
-              context,
-              _mcpToolPreviewExpandDuration,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
             curve: Curves.easeOutCubic,
             alignment: Alignment.topLeft,
             height: _expanded
