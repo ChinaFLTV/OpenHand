@@ -93,6 +93,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_metadata_tiles.dart';
 import '../../shared/ui/openhand_model_selector_field.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
+import '../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../shared/ui/openhand_scroll_behaviors.dart';
 import '../../shared/ui/openhand_snack_bar.dart';

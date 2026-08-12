@@ -34,6 +34,7 @@ import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/feature_state_card.dart';
 import '../../../shared/ui/frame_coalesced_rebuild.dart';
 import '../../../shared/ui/image_editor_dialog.dart';
+import '../../../shared/ui/markdown_inline_code.dart';
 import '../../../shared/ui/media_preview_dialog.dart';
 import '../../../shared/ui/model_search_selector.dart';
 import '../../../shared/ui/motion_durations.dart';
@@ -45,6 +46,7 @@ import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_inline_empty_state.dart';
 import '../../../shared/ui/openhand_inline_notice.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
+import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
@@ -15232,10 +15234,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const Duration _actionToggleDelay = Duration(milliseconds: 80);
   static const int _maxClipboardImageBytes = 64 * kBytesPerMiB;
   static const Duration _mediaClipboardTimeout = Duration(seconds: 15);
-  static final RegExp _markdownSyntax = RegExp(
-    r'(^|\n)\s{0,3}(#{1,6}\s|[-*+]\s|\d+\.\s|>\s|```|~~~)|\[[^\]]+\]\([^)]*\)|(?:\*\*|__|`)',
-    multiLine: true,
-  );
   Offset? _pointerDownPosition;
   DateTime? _pointerDownAt;
   Timer? _pendingActionToggleTimer;
@@ -15981,9 +15979,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     required bool streaming,
   }) {
     final renderMarkdown =
+        widget.mine &&
+        widget.message.isAssistant &&
         !_showRawContent &&
-        (_showFullText || !canCollapse) &&
-        _markdownSyntax.hasMatch(text);
+        (_showFullText || !canCollapse);
     if (!renderMarkdown) {
       final style = _showRawContent
           ? bodyStyle?.copyWith(fontFamily: 'monospace', fontSize: 12.5)
@@ -16003,18 +16002,30 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
               style: style,
             );
     }
-    return MarkdownBody(
+    final codeStyle = theme.textTheme.bodySmall?.copyWith(
+      color: foreground,
+      fontFamily: kOpenHandMonospaceFontFamily,
+      fontWeight: FontWeight.w600,
+    );
+    return OpenHandSafeMarkdownBody(
       key: streaming
           ? const ValueKey<String>('dingtalk-streaming-markdown')
           : ValueKey<String>('markdown:$text'),
       data: text,
       selectable: !streaming,
+      streaming: streaming,
       onTapLink: (text, href, title) =>
           unawaited(_openMarkdownLink(context, href ?? text)),
       imageBuilder: (uri, title, alt) => Text(
         alt?.trim().isNotEmpty == true ? '[${alt!.trim()}]' : '[图片]',
         style: bodyStyle?.copyWith(fontStyle: FontStyle.italic),
       ),
+      builders: <String, MarkdownElementBuilder>{
+        'code': OpenHandMarkdownInlineCodeBuilder(
+          textStyle: codeStyle ?? const TextStyle(),
+          backgroundColor: theme.colorScheme.surface.withValues(alpha: 0.58),
+        ),
+      },
       styleSheet: MarkdownStyleSheet.fromTheme(theme).copyWith(
         p: bodyStyle,
         h3: theme.textTheme.titleMedium?.copyWith(
@@ -16028,11 +16039,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
         ),
         h4Padding: const EdgeInsets.only(top: 8, bottom: 2),
         blockSpacing: 10,
-        code: theme.textTheme.bodySmall?.copyWith(
-          color: foreground,
-          fontFamily: kOpenHandMonospaceFontFamily,
-          fontWeight: FontWeight.w600,
-        ),
+        code: codeStyle,
         tableHead: theme.textTheme.labelMedium?.copyWith(
           color: foreground,
           fontWeight: FontWeight.w800,

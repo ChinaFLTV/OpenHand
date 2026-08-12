@@ -2237,24 +2237,14 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
           _markdownAstCache.put(astCacheKey, astNodes, normalizedSource.length);
         }
       }
-      final builder = MarkdownBuilder(
+      _children = buildOpenHandMarkdownWidgets(
+        nodes: astNodes,
         delegate: this,
         selectable: widget.selectable,
         styleSheet: effectiveStyleSheet,
-        imageDirectory: null,
         imageBuilder: _buildMarkdownImage,
-        checkboxBuilder: null,
-        bulletBuilder: null,
-        builders: withOpenHandMarkdownMathBuilders(
-          widget.builders,
-          fallbackTextStyle: effectiveStyleSheet.p,
-          textColor: effectiveStyleSheet.p?.color,
-        ),
-        paddingBuilders: const <String, MarkdownPaddingBuilder>{},
-        fitContent: true,
-        listItemCrossAxisAlignment: MarkdownListItemCrossAxisAlignment.baseline,
+        builders: widget.builders,
       );
-      _children = builder.build(astNodes);
     } catch (_) {
       if (widget.streaming) {
         if (_children != null && _children!.isNotEmpty) {

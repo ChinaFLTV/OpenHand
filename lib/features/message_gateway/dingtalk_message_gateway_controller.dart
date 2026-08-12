@@ -26,6 +26,7 @@ import '../mcp/index.dart';
 import '../memory/index.dart';
 import '../skills/index.dart';
 import 'data/dingtalk_message_gateway_store.dart';
+import 'dingtalk_markdown_compat.dart';
 import 'message_gateway_dependencies.dart';
 import 'model/dingtalk_message_gateway.dart';
 import 'service/dingtalk_message_gateway_service.dart';
@@ -115,6 +116,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   static const Uuid _uuid = Uuid();
   static const int _mediaCacheConcurrency = 3;
+  static const int _echoRestoreConcurrency = 4;
   static const int _mediaWarmupMessageLimit = 12;
   static const int _maxMediaHydrationFailureIds = 1024;
   static const int _maxSeenIds = 2000;
@@ -1211,6 +1213,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       for (final message in persistedMessages.skip(firstSeenIndex)) {
         _remember(message.id);
       }
+      final repairedEchoContent = await _restorePersistedAiEchoContent();
       await refreshAuthStatus();
       var repairedOutgoingEchoes = false;
       for (final conversation in _conversations.values) {
@@ -1218,13 +1221,88 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             _collapseOutgoingEchoDuplicates(conversation) > 0 ||
             repairedOutgoingEchoes;
       }
-      if (repairedOutgoingEchoes) _queuePersist();
+      if (repairedEchoContent || repairedOutgoingEchoes) _queuePersist();
     } catch (error, stack) {
       _setError('初始化钉钉消息网关', error, stack);
     } finally {
       _initialized = true;
       _notify();
     }
+  }
+
+  Future<bool> _restorePersistedAiEchoContent() async {
+    final candidates =
+        <
+          ({
+            DingTalkConversation conversation,
+            AiSession session,
+            int messageIndex,
+            DingTalkGatewayMessage message,
+            AiSessionMessage? source,
+          })
+        >[];
+    for (final conversation in _conversations.values) {
+      final session = _aiSessionForConversation(conversation);
+      if (session == null) continue;
+      for (var index = 0; index < conversation.messages.length; index++) {
+        final message = conversation.messages[index];
+        final sourceId = message.sourceAiMessageId.trim();
+        if (sourceId.isEmpty || !message.isAssistant) continue;
+        AiSessionMessage? source;
+        for (final candidate in session.messages) {
+          if (candidate.id == sourceId) {
+            source = candidate;
+            break;
+          }
+        }
+        if (source?.kind == AiSessionMessageKind.toolCall ||
+            source?.kind == AiSessionMessageKind.hook) {
+          continue;
+        }
+        candidates.add((
+          conversation: conversation,
+          session: session,
+          messageIndex: index,
+          message: message,
+          source: source,
+        ));
+      }
+    }
+    final results = await runOrderedWithConcurrencyLimit<bool>(
+      itemCount: candidates.length,
+      maxConcurrency: _echoRestoreConcurrency,
+      task: (index) async {
+        final candidate = candidates[index];
+        var source = candidate.source;
+        try {
+          source ??= await _sessionController.store.loadMessage(
+            candidate.session.id,
+            candidate.message.sourceAiMessageId,
+          );
+        } catch (error, stack) {
+          silentLog('dingtalk_gateway', '恢复钉钉 AI 回显正文', error, stack);
+          return false;
+        }
+        if (source == null ||
+            source.kind == AiSessionMessageKind.toolCall ||
+            source.kind == AiSessionMessageKind.hook) {
+          return false;
+        }
+        final sourceContent = _echoTextForMessage(
+          source,
+          candidate.session.messages,
+        ).trim();
+        if (sourceContent.isEmpty ||
+            sourceContent == candidate.message.content) {
+          return false;
+        }
+        candidate.conversation.messages[candidate.messageIndex] = candidate
+            .message
+            .copyWith(content: sourceContent);
+        return true;
+      },
+    );
+    return results.any((changed) => changed);
   }
 
   Future<void> refreshAuthStatus() async {
@@ -1785,7 +1863,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   ) {
     // 流式回显期间本地内容领先于远端（编辑节流 + 同步延迟），
     // 保留本地权威文本避免回退闪烁；远端稍后会被编辑追平。
-    final keepLocalContent = remote.content.isEmpty || isEchoStreaming(local);
+    final keepLocalContent =
+        remote.content.isEmpty ||
+        isEchoStreaming(local) ||
+        local.sourceAiMessageId.trim().isNotEmpty;
     return local.copyWith(
       id: remoteId,
       content: keepLocalContent ? null : remote.content,
@@ -2138,8 +2219,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       if (age > _outgoingEchoWindow) continue;
       final sameContent =
           incomingContentComparison.isNotEmpty &&
-          normalizeDingTalkMessageContentForComparison(local.content) ==
-              incomingContentComparison;
+          (normalizeDingTalkMessageContentForComparison(local.content) ==
+                  incomingContentComparison ||
+              local.sourceAiMessageId.trim().isNotEmpty &&
+                  normalizeDingTalkMessageContentForComparison(
+                        _dingTalkRemoteEchoText(local.content),
+                      ) ==
+                      incomingContentComparison);
       final sameMedia = _outgoingMediaMatches(
         local.media,
         incoming.media,
@@ -2441,6 +2527,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final contentChanged =
         remote.content.isNotEmpty &&
         !isEchoStreaming(current) &&
+        current.sourceAiMessageId.trim().isEmpty &&
         normalizeDingTalkMessageContentForComparison(remote.content) !=
             normalizeDingTalkMessageContentForComparison(current.content);
     final recalledChanged = remote.recalled && !current.recalled;
@@ -3996,7 +4083,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }
 
   String _dingTalkRemoteEchoText(String text) {
-    final normalized = text.trim();
+    final normalized = convertDingTalkMarkdownTables(text).trim();
     if (normalized.length <= _maxDingTalkEchoCharacters) return normalized;
     const notice = '\n\n…完整内容已保留在 OpenHand';
     var prefix = clipTextByCodeUnits(
