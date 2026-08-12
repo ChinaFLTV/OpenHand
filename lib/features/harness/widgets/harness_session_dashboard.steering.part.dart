@@ -370,10 +370,10 @@ class _HeBreadcrumb extends StatelessWidget {
       color: isLast
           ? colorScheme.primaryContainer
           : colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: _br8,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _br8,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 5),
           child: Row(
@@ -449,7 +449,7 @@ class _HeSteeringEntryTile extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onTap,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: _br10,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           child: Row(
@@ -1076,7 +1076,7 @@ class _HeSteeringFileEditorDialogState
       height: 38,
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _br8,
       ),
       padding: const EdgeInsets.symmetric(horizontal: 4),
       child: SingleChildScrollView(
@@ -1246,7 +1246,7 @@ class _HeSteeringFileEditorDialogState
       clipBehavior: Clip.antiAliasWithSaveLayer,
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: _br10,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
@@ -1293,7 +1293,7 @@ class _HeSteeringFileEditorDialogState
       clipBehavior: Clip.antiAliasWithSaveLayer,
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: _br10,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
@@ -1357,7 +1357,7 @@ class _MdToolbarBtn extends StatelessWidget {
         color: Colors.transparent,
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: _br6,
           child: SizedBox(
             width: 30,
             height: 30,

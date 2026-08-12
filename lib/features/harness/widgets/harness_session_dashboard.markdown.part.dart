@@ -1005,7 +1005,7 @@ class _HeHighlightedCodePanelState extends State<_HeHighlightedCodePanel> {
               padding: const EdgeInsets.all(12),
               decoration: BoxDecoration(
                 color: bodyColor,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: _br12,
                 border: Border.all(
                   color: isDark
                       ? Colors.white.withValues(alpha: 0.08)

@@ -27,7 +27,7 @@ class _HeModelDropdown extends StatelessWidget {
             horizontal: 12,
             vertical: 10,
           ),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          border: const OutlineInputBorder(borderRadius: _br12),
         ),
         style: theme.textTheme.bodySmall,
         onChanged: (value) =>
@@ -63,7 +63,7 @@ class _HeModelDropdown extends StatelessWidget {
           horizontal: 12,
           vertical: 10,
         ),
-        border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+        border: const OutlineInputBorder(borderRadius: _br12),
       ),
       items: [
         ...items,
@@ -180,7 +180,7 @@ class _HeUrlModelField extends StatelessWidget {
             horizontal: 12,
             vertical: 10,
           ),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+          border: const OutlineInputBorder(borderRadius: _br12),
           suffixIcon: Icon(
             Icons.arrow_drop_down_rounded,
             size: 20,

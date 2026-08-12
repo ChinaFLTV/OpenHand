@@ -31,6 +31,13 @@ import '../model/cron_parser.dart';
 
 const int _cronTagPreviewLimit = 6;
 
+// 通用圆角档位。
+const BorderRadius _kCronRadiusSmall = BorderRadius.all(Radius.circular(6));
+const BorderRadius _kCronRadiusMedium = BorderRadius.all(Radius.circular(8));
+const BorderRadius _kCronRadiusLarge = BorderRadius.all(Radius.circular(10));
+const BorderRadius _kCronRadiusXLarge = BorderRadius.all(Radius.circular(12));
+const BorderRadius _kCronRadiusXXLarge = BorderRadius.all(Radius.circular(14));
+
 class CronsView extends StatelessWidget {
   const CronsView({super.key});
 
@@ -310,7 +317,7 @@ class _CronEntryCard extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: colorScheme.tertiaryContainer,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: _kCronRadiusXLarge,
                     ),
                     child: Text(
                       entry.cronExpression,
@@ -338,7 +345,7 @@ class _CronEntryCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: _kCronRadiusXLarge,
                       ),
                       child: Row(
                         mainAxisSize: MainAxisSize.min,
@@ -434,7 +441,7 @@ class _CronEntryCard extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: colorScheme.secondaryContainer,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: _kCronRadiusLarge,
                               ),
                               child: Text(
                                 tag,
@@ -452,7 +459,7 @@ class _CronEntryCard extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: colorScheme.surfaceContainerHigh,
-                                borderRadius: BorderRadius.circular(10),
+                                borderRadius: _kCronRadiusLarge,
                               ),
                               child: Text(
                                 '+$hiddenTagCount',
@@ -545,7 +552,7 @@ class _CronStatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: bgColor,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: _kCronRadiusLarge,
       ),
       child: Text(
         statusLabel,
@@ -1859,7 +1866,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                     color: value
                         ? colorScheme.primaryContainer
                         : colorScheme.surfaceContainerHigh,
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: _kCronRadiusXLarge,
                   ),
                   alignment: Alignment.center,
                   child: Icon(
@@ -2261,7 +2268,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
                         color: record.triggerType == 'manual'
                             ? colorScheme.tertiaryContainer
                             : colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: _kCronRadiusMedium,
                       ),
                       child: Text(
                         record.triggerType == 'manual'
@@ -2356,7 +2363,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
             colorScheme.surfaceContainerLow.withValues(alpha: 0.66),
           ],
         ),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: _kCronRadiusXXLarge,
         border: Border.all(color: accentColor.withValues(alpha: 0.18)),
       ),
       child: Column(
@@ -2468,7 +2475,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: colorScheme.surface.withValues(alpha: 0.58),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: _kCronRadiusLarge,
                 border: Border.all(
                   color: colorScheme.outlineVariant.withValues(alpha: 0.35),
                 ),
@@ -2502,7 +2509,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
               padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: colorScheme.errorContainer.withValues(alpha: 0.22),
-                borderRadius: BorderRadius.circular(10),
+                borderRadius: _kCronRadiusLarge,
                 border: Border.all(
                   color: colorScheme.error.withValues(alpha: 0.32),
                 ),
@@ -2612,7 +2619,7 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
           padding: const EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: colorScheme.surface.withValues(alpha: 0.55),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: _kCronRadiusLarge,
             border: Border.all(
               color: colorScheme.outlineVariant.withValues(alpha: 0.35),
             ),
@@ -2748,7 +2755,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: colorScheme.primaryContainer,
-                  borderRadius: BorderRadius.circular(10),
+                  borderRadius: _kCronRadiusLarge,
                 ),
                 child: Icon(
                   Icons.auto_awesome,
@@ -3012,14 +3019,14 @@ class _HermesTalkerSessionCard extends StatelessWidget {
     final hasExpandableBody = children.isNotEmpty;
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: _kCronRadiusXXLarge,
       child: Theme(
         // ExpansionTile 默认会插入 Divider，关闭它以贴合 Material You 视感。
         data: theme.copyWith(dividerColor: Colors.transparent),
         child: Container(
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerLow.withValues(alpha: 0.85),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: _kCronRadiusXXLarge,
             border: Border.all(color: accent.withValues(alpha: 0.22)),
           ),
           child: ExpansionTile(
@@ -3142,7 +3149,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainer.withValues(alpha: 0.5),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: _kCronRadiusXXLarge,
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.32),
           ),
@@ -3157,7 +3164,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
                   height: 24,
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: _kCronRadiusMedium,
                   ),
                   child: Icon(
                     icon,
@@ -3217,7 +3224,7 @@ class _HermesTalkerSessionCard extends StatelessWidget {
         padding: const EdgeInsets.all(10),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.62),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: _kCronRadiusXLarge,
         ),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.start,
@@ -3462,7 +3469,7 @@ class _CollapsibleLongTextState extends State<_CollapsibleLongText> {
           color: widget.subdued
               ? colorScheme.surfaceContainer.withValues(alpha: 0.55)
               : colorScheme.surfaceContainerHigh.withValues(alpha: 0.65),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: _kCronRadiusXLarge,
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.35),
           ),
@@ -3537,14 +3544,14 @@ MarkdownStyleSheet _buildCollapsibleMarkdownStyleSheet({
     codeblockPadding: const EdgeInsets.all(8),
     codeblockDecoration: BoxDecoration(
       color: codeBg,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: _kCronRadiusMedium,
       border: Border.all(
         color: colorScheme.outlineVariant.withValues(alpha: 0.35),
       ),
     ),
     blockquoteDecoration: BoxDecoration(
       color: colorScheme.surfaceContainer.withValues(alpha: 0.45),
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: _kCronRadiusSmall,
       border: Border(
         left: BorderSide(
           color: colorScheme.primary.withValues(alpha: 0.55),
@@ -3647,11 +3654,11 @@ MarkdownStyleSheet _buildHermesInlineMarkdownStyleSheet({
     codeblockPadding: const EdgeInsets.all(6),
     codeblockDecoration: BoxDecoration(
       color: codeBg,
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: _kCronRadiusSmall,
     ),
     blockquoteDecoration: BoxDecoration(
       color: colorScheme.surfaceContainer.withValues(alpha: 0.45),
-      borderRadius: BorderRadius.circular(6),
+      borderRadius: _kCronRadiusSmall,
       border: Border(
         left: BorderSide(
           color: colorScheme.primary.withValues(alpha: 0.55),

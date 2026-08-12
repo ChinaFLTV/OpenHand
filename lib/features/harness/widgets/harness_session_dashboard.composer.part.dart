@@ -80,9 +80,7 @@ class _HeComposer extends StatelessWidget {
             side: BorderSide(color: disabledBorder),
             padding: const EdgeInsets.symmetric(horizontal: 14),
             backgroundColor: disabledBg,
-            shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
-            ),
+            shape: const RoundedRectangleBorder(borderRadius: _br16),
           ),
         ),
       );
@@ -149,9 +147,7 @@ class _HeComposer extends StatelessWidget {
               backgroundColor: buttonBg,
               foregroundColor: buttonFg,
               side: BorderSide(color: buttonBorderColor),
-              shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(16),
-              ),
+              shape: const RoundedRectangleBorder(borderRadius: _br16),
             ),
             child: Row(
               mainAxisSize: MainAxisSize.min,
@@ -461,9 +457,7 @@ class _HeComposer extends StatelessWidget {
                   color: colorScheme.error.withValues(alpha: 0.5),
                 ),
                 padding: const EdgeInsets.symmetric(horizontal: 14),
-                shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(16),
-                ),
+                shape: const RoundedRectangleBorder(borderRadius: _br16),
               ),
             ),
           ),
@@ -932,17 +926,7 @@ class _HePendingPhaseEditor extends StatelessWidget {
                         cliNames.any((c) => c.name == roleConfig.cliName)
                         ? roleConfig.cliName
                         : null,
-                    decoration: InputDecoration(
-                      labelText: 'CLI',
-                      isDense: true,
-                      contentPadding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      border: OutlineInputBorder(
-                        borderRadius: BorderRadius.circular(12),
-                      ),
-                    ),
+                    decoration: const InputDecoration(labelText: 'CLI', isDense: true, contentPadding: EdgeInsets.symmetric(horizontal: 12, vertical: 10), border: OutlineInputBorder(borderRadius: _br12)),
                     items: cliNames.map((cli) {
                       return DropdownMenuItem(
                         value: cli.name,

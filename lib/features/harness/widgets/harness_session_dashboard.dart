@@ -597,7 +597,7 @@ MarkdownStyleSheet _heBuildMarkdownStyleSheet(
     codeblockPadding: const EdgeInsets.all(12),
     codeblockDecoration: BoxDecoration(
       color: codeBlockBg,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: _br12,
       border: Border.all(color: borderColor),
     ),
     blockquotePadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
@@ -634,6 +634,9 @@ const _br26 = BorderRadius.all(Radius.circular(26));
 const _br18 = BorderRadius.all(Radius.circular(18));
 const _br16 = BorderRadius.all(Radius.circular(16));
 const _br12 = BorderRadius.all(Radius.circular(12));
+const _br10 = BorderRadius.all(Radius.circular(10));
+const _br8 = BorderRadius.all(Radius.circular(8));
+const _br6 = BorderRadius.all(Radius.circular(6));
 
 /// 根据卡片实际背景构建 Markdown 配色，保证跨明暗主题的可读性。
 MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
@@ -704,7 +707,7 @@ MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(
       color: bubbleIsDark
           ? Colors.white.withValues(alpha: 0.08)
           : subtleSurface,
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: _br12,
       border: Border.all(color: borderColor),
     ),
     blockquotePadding: const EdgeInsets.fromLTRB(14, 10, 14, 10),
