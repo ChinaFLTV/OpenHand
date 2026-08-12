@@ -1659,6 +1659,8 @@ class AiExposureDependencyStatus {
   final AiExposureDependencyComponentStatus playwright;
 }
 
+const String kAiExposureDefaultExternalAddress = 'http://127.0.0.1:37821';
+
 class AiExposurePreferences {
   const AiExposurePreferences({
     required this.enabledSources,
@@ -1683,7 +1685,7 @@ class AiExposurePreferences {
     forumFetchMode: AiExposureForumFetchMode.jinaFallback,
     defaultGptAssisted: false,
     useBundledEngine: true,
-    externalAddress: 'http://127.0.0.1:37821',
+    externalAddress: kAiExposureDefaultExternalAddress,
     proxyConfiguration: AiExposureProxyConfiguration(
       enabled: false,
       strategy: AiExposureProxyStrategy.roundRobin,
@@ -1717,7 +1719,7 @@ class AiExposurePreferences {
       defaultGptAssisted: _boolValue(json['defaultGptAssisted']),
       useBundledEngine: _boolValue(json['useBundledEngine'], fallback: true),
       externalAddress:
-          _optionalString(json['externalAddress']) ?? 'http://127.0.0.1:37821',
+          _optionalString(json['externalAddress']) ?? kAiExposureDefaultExternalAddress,
       postgresqlEnabled: _boolValue(json['postgresqlEnabled']),
       redisEnabled: _boolValue(json['redisEnabled']),
       proxyConfiguration: AiExposureProxyConfiguration.fromJson(json['proxy']),

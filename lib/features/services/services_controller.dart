@@ -1080,11 +1080,14 @@ class ServicesController extends ChangeNotifier {
       _proxyConfiguration = current.copyWith(endpoints: updatedEndpoints);
       final saving = _persistProxySamples(changedEndpoints);
       persistence = saving;
-      final saved = await saving;
-      if (identical(persistence, saving)) persistence = null;
-      if (!saved) persistenceFailed = true;
-      if (!_disposed && generation == _proxyInspectionGeneration) _notify();
-      return saved;
+      try {
+        final saved = await saving;
+        if (!saved) persistenceFailed = true;
+        if (!_disposed && generation == _proxyInspectionGeneration) _notify();
+        return saved;
+      } finally {
+        if (identical(persistence, saving)) persistence = null;
+      }
     }
 
     Future<void> worker() async {
@@ -1372,9 +1375,8 @@ class ServicesController extends ChangeNotifier {
       ];
       final unique = <String, AiExposureLogEntry>{};
       for (final entry in merged) {
-        unique[
-          '${entry.jobId}\x00${entry.at.toIso8601String()}\x00${entry.level}\x00${entry.message}'
-        ] = entry;
+        final key = entry.id ?? '${entry.jobId}\x00${entry.at.millisecondsSinceEpoch}\x00${entry.level}\x00${entry.message}';
+        unique[key] = entry;
       }
       final sorted = unique.values.toList()
         ..sort((left, right) => left.at.compareTo(right.at));

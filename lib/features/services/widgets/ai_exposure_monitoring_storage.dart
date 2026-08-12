@@ -28,12 +28,14 @@ class _StoragePanel extends StatelessWidget {
         .toList()
         .reversed
         .toList();
+    final resultsByJobId = <String, int>{};
+    for (final result in results) {
+      resultsByJobId.update(result.jobId, (v) => v + 1, ifAbsent: () => 1);
+    }
     var cumulativeResults = 0;
     final cumulativeResultValues = <double>[];
     for (final entry in chronological) {
-      cumulativeResults += results
-          .where((result) => result.jobId == entry.id)
-          .length;
+      cumulativeResults += resultsByJobId[entry.id] ?? 0;
       cumulativeResultValues.add(cumulativeResults.toDouble());
     }
     final credentialCounts = <String, int>{};
@@ -235,9 +237,7 @@ class _StoragePanel extends StatelessWidget {
               : _InsightListViewport(
                   child: Column(
                     children: history.take(12).map((entry) {
-                      final resultCount = results
-                          .where((result) => result.jobId == entry.id)
-                          .length;
+                      final resultCount = resultsByJobId[entry.id] ?? 0;
                       return ListTile(
                         contentPadding: EdgeInsets.zero,
                         onTap: () => _showTaskEntityInsight(context, entry),

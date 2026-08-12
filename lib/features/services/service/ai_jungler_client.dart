@@ -288,10 +288,15 @@ class AiJunglerClient {
       request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
       response = await _closeWithinDeadline(request, handshakeDeadline);
       if (response.statusCode < 200 || response.statusCode >= 300) {
-        throw await _responseError(
-          response,
-          totalTimeout: handshakeDeadline.remaining(),
-        );
+        try {
+          throw await _responseError(
+            response,
+            totalTimeout: handshakeDeadline.remaining(),
+          );
+        } finally {
+          await cancelByteStream(response);
+          response = null;
+        }
       }
     } finally {
       handshakeDeadline.stop();
@@ -314,7 +319,6 @@ class AiJunglerClient {
     } on TimeoutException {
       throw const AiJunglerApiException('扫描引擎实时事件长时间无响应。');
     } finally {
-      // 订阅取消、超时或异常退出时，必须清理底层响应流，避免连接池泄漏。
       await cancelByteStream(response);
     }
   }

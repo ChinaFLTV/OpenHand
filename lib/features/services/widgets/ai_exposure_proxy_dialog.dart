@@ -4372,7 +4372,7 @@ class _ProxyEndpointDetailsDialogState
               )
             : LayoutBuilder(
                 builder: (context, constraints) {
-                  final uri = Uri.parse(_endpoint.url);
+                  final uri = Uri.tryParse(_endpoint.url);
                   final classificationKnown =
                       identity.networkType != 'unknown' &&
                       identity.cleanliness != 'unknown';
@@ -4457,15 +4457,16 @@ class _ProxyEndpointDetailsDialogState
                     ),
                     (
                       label: text(zh: '代理协议', en: 'Proxy protocol'),
-                      value:
-                          '${uri.scheme.toUpperCase()} · ${uri.host}:${uri.port}',
+                      value: uri == null
+                          ? _endpoint.url
+                          : '${uri.scheme.toUpperCase()} · ${uri.host}:${uri.port}',
                       icon: Icons.lock_outline_rounded,
                     ),
                     (
                       label: text(zh: '认证状态', en: 'Authentication'),
-                      value: uri.userInfo.isEmpty
-                          ? text(zh: '无认证', en: 'No authentication')
-                          : text(zh: '用户名与密码', en: 'Username and password'),
+                      value: uri != null && uri.userInfo.isNotEmpty
+                          ? text(zh: '用户名与密码', en: 'Username and password')
+                          : text(zh: '无认证', en: 'No authentication'),
                       icon: Icons.key_outlined,
                     ),
                   ];
@@ -5043,7 +5044,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
   void initState() {
     super.initState();
     final initial = widget.initial;
-    final uri = initial == null ? null : Uri.parse(initial.url);
+    final uri = initial == null ? null : Uri.tryParse(initial.url);
     _name = TextEditingController(text: initial?.name ?? '');
     _host = TextEditingController(text: uri?.host ?? '');
     _port = TextEditingController(text: uri?.port.toString() ?? '8080');
