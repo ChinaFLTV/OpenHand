@@ -2400,7 +2400,7 @@ class _KnowledgeBaseConfigDialogState
                 colorScheme.primary.withValues(alpha: 0.045),
                 colorScheme.surfaceContainerHighest.withValues(alpha: 0.68),
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: kKnowledgeRadiusXXLarge,
               border: Border.all(
                 color:
                     (profile == null
@@ -2495,7 +2495,7 @@ class _KnowledgeBaseConfigDialogState
                     ? colorScheme.primaryContainer
                     : colorScheme.surfaceContainerHigh)
                 .withValues(alpha: ready ? 0.26 : 0.62),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: kKnowledgeRadiusXLarge,
         border: Border.all(color: foreground.withValues(alpha: 0.20)),
       ),
       child: Column(
@@ -2855,7 +2855,7 @@ class _KnowledgeBaseConfigDialogState
               color: colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.34,
               ),
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: kKnowledgeRadiusXXLarge,
               border: Border.all(
                 color: colorScheme.outlineVariant.withValues(alpha: 0.62),
               ),
@@ -2873,7 +2873,7 @@ class _KnowledgeBaseConfigDialogState
                         color: colorScheme.primaryContainer.withValues(
                           alpha: 0.50,
                         ),
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: kKnowledgeRadiusLarge,
                       ),
                       child: Icon(
                         Icons.analytics_outlined,
@@ -3005,7 +3005,7 @@ class _KnowledgeBaseConfigDialogState
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.74),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: kKnowledgeRadiusLarge,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.46),
         ),
@@ -3017,7 +3017,7 @@ class _KnowledgeBaseConfigDialogState
             height: 30,
             decoration: BoxDecoration(
               color: colorScheme.secondaryContainer.withValues(alpha: 0.48),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: kKnowledgeRadiusMedium,
             ),
             child: Icon(
               metric.icon,
@@ -3103,7 +3103,7 @@ class _KnowledgeBaseConfigDialogState
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 9),
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.54),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: kKnowledgeRadiusLarge,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.34),
         ),
@@ -3464,7 +3464,7 @@ class _KnowledgeBaseConfigDialogState
         padding: const EdgeInsets.all(13),
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.30),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: kKnowledgeRadiusXXLarge,
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.54),
           ),
@@ -3482,7 +3482,7 @@ class _KnowledgeBaseConfigDialogState
                     color: colorScheme.surfaceContainerHighest.withValues(
                       alpha: 0.80,
                     ),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: kKnowledgeRadiusMedium,
                   ),
                   child: Icon(icon, size: 18, color: colorScheme.primary),
                 ),
@@ -3595,7 +3595,7 @@ class _KnowledgeBaseConfigDialogState
                     ? colorScheme.primaryContainer
                     : colorScheme.surfaceContainerHigh)
                 .withValues(alpha: value ? 0.24 : 0.58),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: kKnowledgeRadiusLarge,
         border: Border.all(
           color: (value ? colorScheme.primary : colorScheme.outlineVariant)
               .withValues(alpha: value ? 0.24 : 0.58),
@@ -3670,7 +3670,7 @@ class _KnowledgeBaseConfigDialogState
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.34),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: kKnowledgeRadiusXLarge,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.72),
         ),
@@ -3784,7 +3784,7 @@ class _KnowledgeBaseConfigDialogState
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.surface.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: kKnowledgeRadiusLarge,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.6),
         ),
@@ -4137,7 +4137,7 @@ class _KnowledgeBaseConfigDialogState
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: kKnowledgeRadiusLarge,
             border: Border.all(
               color: colorScheme.outlineVariant.withValues(alpha: 0.72),
             ),

@@ -189,7 +189,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                               height: 42,
                               decoration: BoxDecoration(
                                 color: colors.primaryContainer,
-                                borderRadius: BorderRadius.circular(8),
+                                borderRadius: kServiceInteractiveBorderRadius,
                               ),
                               alignment: Alignment.center,
                               child: Icon(
@@ -284,7 +284,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                           children: [
                             Expanded(
                               child: ClipRRect(
-                                borderRadius: BorderRadius.circular(99),
+                                borderRadius: kServiceRadiusPill,
                                 child: ServiceAnimatedProgressBar(
                                   value: _inspectionTotal == 0
                                       ? null
@@ -735,7 +735,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.32),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
@@ -1916,7 +1916,7 @@ class _ProxyAverageResponseDialogState
                   height: 46,
                   decoration: BoxDecoration(
                     color: colors.tertiary.withValues(alpha: 0.16),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: kServiceRadiusMedium,
                     border: Border.all(
                       color: colors.tertiary.withValues(alpha: 0.3),
                     ),
@@ -2234,7 +2234,7 @@ class _ProxyPoolOverview extends StatelessWidget {
               height: 34,
               decoration: BoxDecoration(
                 color: colors.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: kServiceInteractiveBorderRadius,
                 border: Border.all(
                   color: colors.primary.withValues(alpha: 0.28),
                 ),
@@ -2865,7 +2865,7 @@ class _ProxyTelemetrySection extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: kServiceRadiusMedium,
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
@@ -2878,7 +2878,7 @@ class _ProxyTelemetrySection extends StatelessWidget {
                 height: 30,
                 decoration: BoxDecoration(
                   color: colors.primary.withValues(alpha: 0.11),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: kServiceInteractiveBorderRadius,
                 ),
                 alignment: Alignment.center,
                 child: Icon(icon, size: 17, color: colors.primary),
@@ -2915,7 +2915,7 @@ class _ProxyTelemetryNotice extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     decoration: BoxDecoration(
       color: OpenHandStatusColors.error.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: kServiceInteractiveBorderRadius,
       border: Border.all(
         color: OpenHandStatusColors.error.withValues(alpha: 0.28),
       ),
@@ -3060,7 +3060,7 @@ class _ProxyOutcomeCard extends StatelessWidget {
             height: 34,
             decoration: BoxDecoration(
               color: color,
-              borderRadius: BorderRadius.circular(99),
+              borderRadius: kServiceRadiusPill,
             ),
           ),
           const SizedBox(width: 9),
@@ -3347,7 +3347,7 @@ class _ProxyPoolChartPanel extends StatelessWidget {
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
@@ -3710,7 +3710,7 @@ class _ProxyDetailTrendTooltip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: colors.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: kServiceInteractiveBorderRadius,
           border: Border.all(color: point.color.withValues(alpha: .38)),
           boxShadow: <BoxShadow>[
             BoxShadow(
@@ -3954,7 +3954,7 @@ class _ProxyEndpointDetailsDialogState
                   height: 46,
                   decoration: BoxDecoration(
                     color: tone.color.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: kServiceInteractiveBorderRadius,
                     border: Border.all(
                       color: tone.color.withValues(alpha: 0.32),
                     ),
@@ -4713,7 +4713,7 @@ class _ProxyEndpointDetailsDialogState
                     ),
                     Expanded(
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(99),
+                        borderRadius: kServiceRadiusPill,
                         child: ServiceAnimatedProgressBar(
                           value: item.value / maxValue,
                           minHeight: 8,
@@ -4850,7 +4850,7 @@ class _ProxyDetailSection extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
@@ -4863,7 +4863,7 @@ class _ProxyDetailSection extends StatelessWidget {
                 height: 32,
                 decoration: BoxDecoration(
                   color: colors.primary.withValues(alpha: 0.11),
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: kServiceInteractiveBorderRadius,
                 ),
                 child: Icon(icon, size: 18, color: colors.primary),
               ),
@@ -5460,7 +5460,7 @@ class _ProxyEndpointCard extends StatelessWidget {
           height: 34,
           decoration: BoxDecoration(
             color: tone.color.withValues(alpha: 0.13),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: kServiceInteractiveBorderRadius,
           ),
           alignment: Alignment.center,
           child: AnimatedSwitcher(
@@ -5665,7 +5665,7 @@ class _ProxyEndpointCard extends StatelessWidget {
             : endpoint.enabled
             ? colors.surfaceContainerHighest.withValues(alpha: 0.26)
             : colors.surfaceContainerLow.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(
           color: selected
               ? colors.primary.withValues(alpha: 0.58)
@@ -5989,7 +5989,7 @@ class _ProxyLatencyTooltip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 7),
         decoration: BoxDecoration(
           color: colors.surfaceContainerHighest,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: kServiceInteractiveBorderRadius,
           border: Border.all(color: colors.primary.withValues(alpha: .32)),
           boxShadow: <BoxShadow>[
             BoxShadow(

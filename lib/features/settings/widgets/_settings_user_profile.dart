@@ -40,7 +40,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
         child: MicroPressFeedback(
           child: Material(
             color: colorScheme.surfaceContainerHighest,
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: _kSettingsRadiusXLarge,
             clipBehavior: Clip.antiAlias,
             child: InkWell(
               onTap: () => _showUserProfileDialog(context),
@@ -56,7 +56,7 @@ class _UserProfileSettingsButtonState extends State<_UserProfileSettingsButton>
                       height: 40,
                       decoration: BoxDecoration(
                         color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(12),
+                        borderRadius: _kSettingsRadiusLarge,
                       ),
                       alignment: Alignment.center,
                       child: Icon(

@@ -639,7 +639,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                             height: 54,
                             decoration: BoxDecoration(
                               color: colorScheme.primaryContainer,
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: kKnowledgeRadiusXXXLarge,
                             ),
                             child: Icon(
                               knowledgeSourceKindIcon(source.kind),

@@ -507,7 +507,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer.withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: kKnowledgeRadiusXLarge,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.84),
         ),
@@ -755,7 +755,7 @@ class _MarkdownToolbar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 7),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: kKnowledgeRadiusLarge,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.72),
         ),
@@ -1046,7 +1046,7 @@ class _MarkdownPreview extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: kKnowledgeRadiusLarge,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.84),
         ),

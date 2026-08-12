@@ -544,7 +544,7 @@ class _QdrantOpsHeader extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 13, vertical: 11),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.70),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: kKnowledgeRadiusXLarge,
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(
@@ -942,7 +942,7 @@ class _MetricCard extends StatelessWidget {
       padding: const EdgeInsets.all(13),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: kKnowledgeRadiusXLarge,
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(
@@ -952,7 +952,7 @@ class _MetricCard extends StatelessWidget {
             height: 34,
             decoration: BoxDecoration(
               color: colorScheme.primaryContainer.withValues(alpha: 0.62),
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: kKnowledgeRadiusMedium,
             ),
             child: Icon(icon, size: 18, color: colorScheme.onPrimaryContainer),
           ),

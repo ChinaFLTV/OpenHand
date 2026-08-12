@@ -70,7 +70,31 @@ class AiExposureProxyProbe {
       endpoint.runtimeId,
       '${startedAt.microsecondsSinceEpoch}',
     ].join(':');
-    final proxy = Uri.parse(endpoint.url);
+    final proxy = Uri.tryParse(endpoint.url);
+    if (proxy == null ||
+        (proxy.scheme != 'http' && proxy.scheme != 'https') ||
+        proxy.host.isEmpty) {
+      final finishedAt = DateTime.now();
+      return AiExposureProxyProbeSample(
+        id: sampleId,
+        inspectionRunId: inspectionRunId,
+        scheduledAt: scheduledAt,
+        startedAt: startedAt,
+        finishedAt: finishedAt,
+        checkedAt: startedAt,
+        error: '代理地址格式无效，请检查协议与主机。',
+        stepResults: [
+          AiExposureProxyProbeStepResult(
+            step: '代理网关连接',
+            succeeded: false,
+            startedAt: startedAt,
+            finishedAt: finishedAt,
+            durationMs: finishedAt.difference(startedAt).inMilliseconds,
+            message: '代理地址格式无效，请检查协议与主机。',
+          ),
+        ],
+      );
+    }
     _ProxyProbeAttempt? failure;
     for (final target in _kProxyProbeTargets) {
       final attempt = await _probeTunnel(
@@ -137,7 +161,12 @@ class AiExposureProxyProbe {
   Future<AiExposureProxyIdentity> inspectIdentity(
     AiExposureProxyEndpoint endpoint,
   ) async {
-    final proxy = Uri.parse(endpoint.url);
+    final proxy = Uri.tryParse(endpoint.url);
+    if (proxy == null ||
+        (proxy.scheme != 'http' && proxy.scheme != 'https') ||
+        proxy.host.isEmpty) {
+      throw const FormatException('代理地址格式无效，请检查协议与主机。');
+    }
     try {
       final body = proxy.scheme == 'https'
           ? await _loadIdentityThroughSecureProxy(proxy)

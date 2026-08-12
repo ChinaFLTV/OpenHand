@@ -199,7 +199,7 @@ class _DependencyDataDialogState extends State<_DependencyDataDialog> {
                   height: 46,
                   decoration: BoxDecoration(
                     color: colors.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: kServiceInteractiveBorderRadius,
                     border: Border.all(
                       color: colors.primary.withValues(alpha: 0.3),
                     ),
@@ -998,7 +998,7 @@ class _TelemetryTileState extends State<_TelemetryTile> {
             constraints: const BoxConstraints(minHeight: 112),
             decoration: BoxDecoration(
               color: widget.color.withValues(alpha: highlighted ? 0.12 : 0.08),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: kServiceInteractiveBorderRadius,
               border: Border.all(
                 color: widget.color.withValues(
                   alpha: highlighted ? 0.62 : 0.28,
@@ -1017,14 +1017,14 @@ class _TelemetryTileState extends State<_TelemetryTile> {
             ),
             child: Material(
               color: Colors.transparent,
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: kServiceInteractiveBorderRadius,
               clipBehavior: Clip.antiAlias,
               child: InkWell(
                 onTap: widget.onTap,
                 onHover: (value) => setState(() => _hovered = value),
                 onFocusChange: (value) => setState(() => _focused = value),
                 onHighlightChanged: (value) => setState(() => _pressed = value),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: kServiceInteractiveBorderRadius,
                 overlayColor: WidgetStatePropertyAll(
                   widget.color.withValues(alpha: 0.08),
                 ),
@@ -1106,7 +1106,7 @@ class _DependencyNotice extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(color: color.withValues(alpha: 0.3)),
       ),
       child: Row(
@@ -1148,7 +1148,7 @@ class _SurfaceSection extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
@@ -1234,7 +1234,7 @@ class _MiniMetric extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 9),
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: kServiceInteractiveBorderRadius,
     ),
     child: Column(
       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1316,7 +1316,7 @@ class _DataRecordTile extends StatelessWidget {
       height: 36,
       decoration: BoxDecoration(
         color: colors.primary.withValues(alpha: 0.1),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
       ),
       child: Icon(Icons.data_object_rounded, size: 19, color: colors.primary),
     );
@@ -1402,7 +1402,7 @@ class _DataRecordTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(color: colors.outlineVariant),
       ),
       child: LayoutBuilder(
@@ -1503,7 +1503,7 @@ class _QueryConsole extends StatelessWidget {
     padding: const EdgeInsets.all(12),
     decoration: BoxDecoration(
       color: const Color(0xff0b0e12),
-      borderRadius: BorderRadius.circular(8),
+      borderRadius: kServiceInteractiveBorderRadius,
       border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
     ),
     child: Column(

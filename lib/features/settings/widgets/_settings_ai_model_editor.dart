@@ -773,7 +773,7 @@ class _AiModelEditorDialogState extends State<_AiModelEditorDialog> {
                         color: colorScheme.primaryContainer.withValues(
                           alpha: 0.22,
                         ),
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: _kSettingsRadiusXLarge,
                         border: Border.all(
                           color: colorScheme.primary.withValues(alpha: 0.2),
                         ),
@@ -4205,9 +4205,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
               padding: const WidgetStatePropertyAll(
                 EdgeInsets.symmetric(horizontal: 12),
               ),
-              shape: WidgetStatePropertyAll(
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-              ),
+              shape: const WidgetStatePropertyAll(RoundedRectangleBorder(borderRadius: _kSettingsRadiusSmall)),
               textStyle: WidgetStatePropertyAll(
                 theme.textTheme.labelLarge?.copyWith(
                   fontWeight: FontWeight.w600,
@@ -4418,7 +4416,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerLowest.withValues(alpha: 0.72),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: _kSettingsRadiusSmall,
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.58),
           ),
@@ -4437,7 +4435,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                 dense: true,
               )
             : ClipRRect(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: _kSettingsRadiusSmall,
                 child: OpenHandSafeScrollbar(
                   controller: _reasoningEffortOptionsScrollController,
                   child: PrimaryScrollController(
@@ -4500,7 +4498,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
           colorScheme.primary.withValues(alpha: draft.enabled ? 0.035 : 0),
           colorScheme.surfaceContainer,
         ),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _kSettingsRadiusSmall,
         border: Border.all(
           color: draft.enabled
               ? colorScheme.primary.withValues(alpha: 0.28)
@@ -6042,7 +6040,7 @@ class _ModelProfileEditorDialogState extends State<_ModelProfileEditorDialog> {
                       padding: const EdgeInsets.all(12),
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(16),
+                        borderRadius: _kSettingsRadiusXXLarge,
                       ),
                       child: Text(
                         _buildReadonlyOpenRouterMetadata(

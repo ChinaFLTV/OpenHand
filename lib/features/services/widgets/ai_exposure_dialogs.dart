@@ -2065,7 +2065,7 @@ class _PlaywrightDependencyTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(color: colors.outlineVariant.withValues(alpha: .65)),
       ),
       child: Row(
@@ -2076,7 +2076,7 @@ class _PlaywrightDependencyTile extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: tone.withValues(alpha: .12),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: kServiceInteractiveBorderRadius,
             ),
             child: Icon(Icons.language_rounded, color: tone, size: 20),
           ),
@@ -2193,7 +2193,7 @@ class _ManagedDependencyTile extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(color: colors.outlineVariant.withValues(alpha: .65)),
       ),
       child: Column(
@@ -2207,7 +2207,7 @@ class _ManagedDependencyTile extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: kServiceInteractiveBorderRadius,
                 ),
                 child: Icon(icon, color: colors.onPrimaryContainer, size: 20),
               ),
@@ -2333,7 +2333,7 @@ class _DialogFrame extends StatelessWidget {
                 height: 44,
                 decoration: BoxDecoration(
                   color: cs.primaryContainer,
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: kServiceInteractiveBorderRadius,
                   border: Border.all(color: cs.primary.withValues(alpha: 0.3)),
                 ),
                 child: Icon(icon, color: cs.onPrimaryContainer),
@@ -2476,7 +2476,7 @@ class _MetricTile extends StatelessWidget {
               height: 34,
               decoration: BoxDecoration(
                 color: tone.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: kServiceInteractiveBorderRadius,
               ),
               child: Icon(data.icon, size: 19, color: tone),
             ),
@@ -2527,7 +2527,7 @@ class _SectionTitle extends StatelessWidget {
           height: 32,
           decoration: BoxDecoration(
             color: cs.primary.withValues(alpha: 0.11),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: kServiceInteractiveBorderRadius,
             border: Border.all(color: cs.primary.withValues(alpha: 0.24)),
           ),
           child: Icon(icon, size: 18, color: cs.primary),
@@ -2781,7 +2781,7 @@ class _LogList extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.32),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(color: cs.outlineVariant),
       ),
       child: ListView.builder(
@@ -2924,7 +2924,7 @@ class _ResultTile extends StatelessWidget {
             height: 38,
             decoration: BoxDecoration(
               color: color.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: kServiceInteractiveBorderRadius,
             ),
             alignment: Alignment.center,
             child: Icon(_categoryIcon(result.category), size: 20, color: color),
@@ -3094,7 +3094,7 @@ class _HistoryTile extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(color: cs.outlineVariant),
       ),
       child: Row(
@@ -3334,7 +3334,7 @@ class _RuleTile extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 8, 6, 8),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: kServiceInteractiveBorderRadius,
         border: Border.all(color: cs.outlineVariant),
       ),
       child: Row(

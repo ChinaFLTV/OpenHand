@@ -18,6 +18,11 @@ const BorderRadius kServiceInteractiveBorderRadius = BorderRadius.all(
   Radius.circular(8),
 );
 
+const BorderRadius kServiceRadiusMedium = BorderRadius.all(Radius.circular(12));
+const BorderRadius kServiceRadiusLarge = BorderRadius.all(Radius.circular(14));
+const BorderRadius kServiceRadiusXLarge = BorderRadius.all(Radius.circular(16));
+const BorderRadius kServiceRadiusPill = BorderRadius.all(Radius.circular(999));
+
 enum ServiceDialogHeaderActionTone { neutral, primary }
 
 double serviceProgressRatio({
@@ -673,7 +678,7 @@ class _ServiceInteractiveSurfaceState extends State<ServiceInteractiveSurface> {
                       color: detailsColor.withValues(
                         alpha: emphasized ? 0.16 : 0.08,
                       ),
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: kServiceInteractiveBorderRadius,
                       border: Border.all(
                         color: detailsColor.withValues(
                           alpha: emphasized ? 0.3 : 0.16,
@@ -1298,7 +1303,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: BorderRadius.circular(99),
+                borderRadius: kServiceRadiusPill,
                 child: ServiceAnimatedProgressBar(
                   minHeight: 10,
                   value: ratio,
@@ -1553,7 +1558,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                   ),
                   const SizedBox(height: 6),
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(99),
+                    borderRadius: kServiceRadiusPill,
                     child: ServiceAnimatedProgressBar(
                       minHeight: item.highlighted ? 11 : 8,
                       value: ratio,

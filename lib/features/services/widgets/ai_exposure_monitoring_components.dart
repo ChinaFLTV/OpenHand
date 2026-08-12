@@ -160,7 +160,7 @@ class _DependencyServiceCard extends StatelessWidget {
       return _TappableOpsCard(
         onTap: onTap,
         color: color,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: _kAiExposureRadiusMedium,
         child: Container(
           constraints: const BoxConstraints(minHeight: 104),
           padding: const EdgeInsets.all(16),
@@ -169,7 +169,7 @@ class _DependencyServiceCard extends StatelessWidget {
               color.withValues(alpha: connected ? 0.1 : 0.045),
               colors.surfaceContainerHighest.withValues(alpha: 0.28),
             ),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: _kAiExposureRadiusMedium,
             border: Border.all(color: color.withValues(alpha: 0.26)),
           ),
           child: compact
@@ -289,7 +289,7 @@ class _MetricTile extends StatelessWidget {
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.07),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: _kAiExposureRadiusSmall,
           border: Border.all(color: color.withValues(alpha: 0.28)),
         ),
         child: Row(
@@ -299,7 +299,7 @@ class _MetricTile extends StatelessWidget {
               height: 36,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: _kAiExposureRadiusSmall,
               ),
               child: Icon(metric.icon, size: 20, color: color),
             ),
@@ -370,7 +370,7 @@ class _Section extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.24),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _kAiExposureRadiusSmall,
         border: Border.all(color: cs.outlineVariant),
       ),
       child: Column(
@@ -685,7 +685,7 @@ class _TrendPanelState extends State<_TrendPanel> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: _kAiExposureRadiusSmall,
           border: Border.all(color: colors.outlineVariant),
         ),
         child: Column(
@@ -837,7 +837,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
         padding: const EdgeInsets.all(16),
         decoration: BoxDecoration(
           color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: _kAiExposureRadiusSmall,
           border: Border.all(color: colors.outlineVariant),
         ),
         child: Column(
@@ -921,7 +921,7 @@ class _DistributionPanelState extends State<_DistributionPanel> {
                                 ),
                                 Expanded(
                                   child: ClipRRect(
-                                    borderRadius: BorderRadius.circular(99),
+                                    borderRadius: _kAiExposureRadiusPill,
                                     child: ServiceAnimatedProgressBar(
                                       value: item.value / maxValue,
                                       minHeight: 7,
@@ -1094,7 +1094,7 @@ class _RecentActivityPanel extends StatelessWidget {
                           height: 34,
                           decoration: BoxDecoration(
                             color: color,
-                            borderRadius: BorderRadius.circular(99),
+                            borderRadius: _kAiExposureRadiusPill,
                           ),
                         ),
                         const SizedBox(width: 10),
@@ -1131,7 +1131,7 @@ class _OpsSectionIcon extends StatelessWidget {
       height: 34,
       decoration: BoxDecoration(
         color: colors.primary.withValues(alpha: 0.11),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: _kAiExposureRadiusSmall,
         border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
       ),
       child: Icon(icon, size: 19, color: colors.primary),
@@ -1188,7 +1188,7 @@ class _StatusPill extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.11),
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: _kAiExposureRadiusPill,
       border: Border.all(color: color.withValues(alpha: 0.35)),
     ),
     child: Row(

@@ -588,7 +588,7 @@ class _HitTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.76),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: kKnowledgeRadiusLarge,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () => _showKnowledgeRetrievalHitDetailDialog(context, hit),
@@ -596,7 +596,7 @@ class _HitTile extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: kKnowledgeRadiusLarge,
               border: Border.all(
                 color: colorScheme.outlineVariant.withValues(alpha: 0.48),
               ),

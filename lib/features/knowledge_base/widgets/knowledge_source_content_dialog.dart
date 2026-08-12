@@ -996,15 +996,15 @@ class _KnowledgeFindTextField extends StatelessWidget {
             horizontal: 14,
             vertical: 10,
           ),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(10)),
+          border: const OutlineInputBorder(borderRadius: kKnowledgeRadiusMedium),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: kKnowledgeRadiusMedium,
             borderSide: BorderSide(
               color: colorScheme.outlineVariant.withValues(alpha: 0.84),
             ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: kKnowledgeRadiusMedium,
             borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
           ),
         ),
@@ -1114,7 +1114,7 @@ class _KnowledgeSourceContentBody extends StatelessWidget {
                     height: 40,
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(12),
+                      borderRadius: kKnowledgeRadiusLarge,
                     ),
                     child: Icon(
                       knowledgeSourceKindIcon(source.kind),
@@ -1354,7 +1354,7 @@ BoxDecoration _knowledgeViewerPanelDecoration(BuildContext context) {
   final colorScheme = Theme.of(context).colorScheme;
   return BoxDecoration(
     color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
-    borderRadius: BorderRadius.circular(14),
+    borderRadius: kKnowledgeRadiusXLarge,
     border: Border.all(
       color: colorScheme.outlineVariant.withValues(alpha: 0.72),
     ),
