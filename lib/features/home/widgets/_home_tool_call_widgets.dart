@@ -40,6 +40,10 @@ class _ToolCallBodyState extends State<_ToolCallBody>
 
   late final AnimationController _completionGlowCtrl;
   late final AnimationController _settleBounceCtrl;
+  late final Listenable _mergedAnimations = Listenable.merge(<Listenable>[
+    _completionGlowCtrl,
+    _settleBounceCtrl,
+  ]);
   String? _lastTerminalStatus; // success / error / failure once it lands
   bool? _wasPreExecution;
 
@@ -186,10 +190,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
         curve: _kToolCardMotionCurve,
         alignment: Alignment.topLeft,
         child: AnimatedBuilder(
-          animation: Listenable.merge(<Listenable>[
-            _completionGlowCtrl,
-            _settleBounceCtrl,
-          ]),
+          animation: _mergedAnimations,
           builder: (context, child) {
             // Compose completion glow on top of the steady-state tint.
             // Curve: ease-out from 1 → 0 (alpha decays). The glow fully
