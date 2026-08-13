@@ -211,7 +211,7 @@ pub struct ProxyConfigurationInput {
     #[serde(default)]
     pub endpoints: Vec<ProxyEndpointInput>,
     #[serde(default)]
-    pub system_proxy: SystemProxyInput,
+    pub system_proxy: Option<SystemProxyInput>,
 }
 
 #[derive(Clone, Debug, Default, Deserialize)]
@@ -983,19 +983,14 @@ impl ProxyRoute {
 }
 
 impl SystemProxyRuntime {
-    fn parse(input: SystemProxyInput) -> Result<Self, EngineError> {
-        // 前端未显式下发系统代理时，回退到进程环境变量探测，
-        // 确保需要代理才能访问的目标（如 r.jina.ai）在默认配置下也能正常工作。
-        let mut http = parse_system_proxy(input.http)?;
-        let mut https = parse_system_proxy(input.https)?;
-        if http.is_none() || https.is_none() {
-            let env = Self::from_environment();
-            http = http.or(env.http);
-            https = https.or(env.https);
-        }
+    fn parse(input: Option<SystemProxyInput>) -> Result<Self, EngineError> {
+        // 字段缺失时兼容旧客户端并读取环境变量；显式空对象表示调用方要求直连。
+        let Some(input) = input else {
+            return Ok(Self::from_environment());
+        };
         Ok(Self {
-            http,
-            https,
+            http: parse_system_proxy(input.http)?,
+            https: parse_system_proxy(input.https)?,
             exceptions: input
                 .exceptions
                 .into_iter()
@@ -3550,7 +3545,7 @@ mod tests {
                     ProxyEndpointInput::Url("user:secret@127.0.0.1:8080".to_owned()),
                     ProxyEndpointInput::Url("http://127.0.0.2:8081".to_owned()),
                 ],
-                system_proxy: SystemProxyInput::default(),
+                system_proxy: Some(SystemProxyInput::default()),
             })
             .unwrap();
         let target = reqwest::Url::parse("https://example.com").unwrap();
@@ -3589,6 +3584,7 @@ mod tests {
         selector
             .update(ProxyConfigurationInput {
                 enabled: true,
+                system_proxy: Some(SystemProxyInput::default()),
                 ..ProxyConfigurationInput::default()
             })
             .unwrap();
@@ -3596,6 +3592,20 @@ mod tests {
         let route = selector.begin_external(&target).unwrap();
         assert!(route.proxy.is_none());
         assert_eq!(selector.status().total_selections, 0);
+    }
+
+    #[test]
+    fn distinguishes_omitted_and_explicit_empty_system_proxy() {
+        let omitted: ProxyConfigurationInput =
+            serde_json::from_value(serde_json::json!({"enabled": false})).unwrap();
+        let explicit: ProxyConfigurationInput =
+            serde_json::from_value(serde_json::json!({
+                "enabled": false,
+                "systemProxy": {}
+            }))
+            .unwrap();
+        assert!(omitted.system_proxy.is_none());
+        assert!(explicit.system_proxy.is_some());
     }
 
     #[test]
@@ -3608,11 +3618,11 @@ mod tests {
                 rotation_every: 1,
                 bypass_local: true,
                 endpoints: vec![ProxyEndpointInput::Url("http://127.0.0.1:8080".to_owned())],
-                system_proxy: SystemProxyInput {
+                system_proxy: Some(SystemProxyInput {
                     http: Some("http://127.0.0.1:9080".to_owned()),
                     https: Some("socks5://127.0.0.1:9081".to_owned()),
                     exceptions: Vec::new(),
-                },
+                }),
             })
             .unwrap();
 
@@ -3648,10 +3658,10 @@ mod tests {
                 .update(ProxyConfigurationInput {
                     enabled,
                     endpoints,
-                    system_proxy: SystemProxyInput {
+                    system_proxy: Some(SystemProxyInput {
                         https: Some("http://127.0.0.1:9080".to_owned()),
                         ..SystemProxyInput::default()
-                    },
+                    }),
                     ..ProxyConfigurationInput::default()
                 })
                 .unwrap();
@@ -3667,7 +3677,7 @@ mod tests {
 
     #[test]
     fn system_proxy_honors_supported_exception_rules() {
-        let runtime = SystemProxyRuntime::parse(SystemProxyInput {
+        let runtime = SystemProxyRuntime::parse(Some(SystemProxyInput {
             http: Some("http://127.0.0.1:9080".to_owned()),
             https: Some("http://127.0.0.1:9080".to_owned()),
             exceptions: vec![
@@ -3675,7 +3685,7 @@ mod tests {
                 "*.example.com".to_owned(),
                 "/^api\\d+\\.service\\.test$/i".to_owned(),
             ],
-        })
+        }))
         .unwrap();
         for target in [
             "http://192.168.2.3",
@@ -3703,7 +3713,7 @@ mod tests {
                 endpoints: vec![ProxyEndpointInput::Url(
                     "http://user:secret@127.0.0.1:8080".to_owned(),
                 )],
-                system_proxy: SystemProxyInput::default(),
+                system_proxy: Some(SystemProxyInput::default()),
             })
             .unwrap();
         let target = reqwest::Url::parse("https://www.v2ex.com/t/1231619").unwrap();
@@ -3746,7 +3756,7 @@ mod tests {
                         ..ProxyEndpointStatisticsInput::default()
                     },
                 }],
-                system_proxy: SystemProxyInput::default(),
+                system_proxy: Some(SystemProxyInput::default()),
             })
             .unwrap();
         let target = reqwest::Url::parse("https://example.com").unwrap();
@@ -3775,7 +3785,7 @@ mod tests {
             rotation_every: 1,
             bypass_local: true,
             endpoints: vec![ProxyEndpointInput::Url("http://127.0.0.1:8080".to_owned())],
-            system_proxy: SystemProxyInput::default(),
+            system_proxy: Some(SystemProxyInput::default()),
         };
         selector.update(configuration()).unwrap();
         let target = reqwest::Url::parse("https://example.com").unwrap();
@@ -3803,7 +3813,7 @@ mod tests {
                 rotation_every: 1,
                 bypass_local: true,
                 endpoints: vec![ProxyEndpointInput::Url("http://127.0.0.1:1".to_owned())],
-                system_proxy: SystemProxyInput::default(),
+                system_proxy: Some(SystemProxyInput::default()),
             })
             .unwrap();
         let raw_client = build_http_client(None).unwrap();
