@@ -14,6 +14,12 @@ import '../model/app_proxy_settings.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
 
+/// 本机回环地址集合：代理例外判定中始终直连。
+const Set<String> kLoopbackHosts = <String>{'localhost', '127.0.0.1', '::1'};
+
+/// 判断 host 是否为本机回环地址。
+bool isLoopbackHost(String host) => kLoopbackHosts.contains(host.toLowerCase());
+
 /// 解析系统 HTTP/HTTPS 代理，供内部网络客户端透明复用。
 ///
 /// 优先读取进程环境变量，再用 macOS `scutil --proxy` 补全缺失协议。
@@ -246,11 +252,8 @@ class SystemProxyResolver {
   }
 
   bool _isExempt(String host) {
-    if (host.isEmpty) return true;
+    if (host.isEmpty || isLoopbackHost(host)) return true;
     final lower = host.toLowerCase();
-    if (lower == 'localhost' || lower == '127.0.0.1' || lower == '::1') {
-      return true;
-    }
     for (final pattern in _noProxyHosts) {
       if (_matchesExceptionPattern(lower, pattern)) return true;
     }
@@ -258,11 +261,8 @@ class SystemProxyResolver {
   }
 
   bool _isExemptManual(String host) {
-    if (host.isEmpty) return true;
+    if (host.isEmpty || isLoopbackHost(host)) return true;
     final lower = host.toLowerCase();
-    if (lower == 'localhost' || lower == '127.0.0.1' || lower == '::1') {
-      return true;
-    }
     for (final pattern in _settings.exceptions) {
       if (_matchesExceptionPattern(lower, pattern.toLowerCase())) {
         return true;
@@ -377,7 +377,7 @@ class SystemProxyResolver {
         compatibleHosts.add(pattern);
       }
       // 加上常见本机 host 让 CLI 默认绕开。
-      compatibleHosts.addAll(const <String>['localhost', '127.0.0.1', '::1']);
+      compatibleHosts.addAll(kLoopbackHosts);
       final dedup = LinkedHashSet<String>.from(compatibleHosts);
       final joined = dedup.join(',');
       result['NO_PROXY'] = joined;
