@@ -505,7 +505,7 @@ class YamlKnowledgeDocumentParser extends KnowledgeDocumentParser {
       return KnowledgeDocumentParseResult(
         text: raw,
         kind: 'structured',
-        mimeType: 'application/yaml',
+        mimeType: kApplicationYamlMimeType,
         parserId: 'yaml_text_fallback',
         title: p.basename(request.file.path),
         metadata: _strategyMetadata(request.settings),
@@ -527,7 +527,7 @@ class YamlKnowledgeDocumentParser extends KnowledgeDocumentParser {
     return KnowledgeDocumentParseResult(
       text: text,
       kind: 'structured',
-      mimeType: 'application/yaml',
+      mimeType: kApplicationYamlMimeType,
       parserId: id,
       title: title,
       metadata: <String, Object?>{
