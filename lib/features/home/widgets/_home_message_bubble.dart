@@ -491,18 +491,21 @@ class _MessageBubbleState extends State<_MessageBubble>
   @override
   Widget build(BuildContext context) {
     super.build(context);
-    developer.Timeline.startSync(
-      'openhand.bubble.build',
-      arguments: <String, Object?>{
-        'kind': widget.message.kind.storageValue,
-        'chars': widget.message.content.length,
-      },
-    );
-    try {
-      return _buildInner(context);
-    } finally {
-      developer.Timeline.finishSync();
+    if (kDebugMode) {
+      developer.Timeline.startSync(
+        'openhand.bubble.build',
+        arguments: <String, Object?>{
+          'kind': widget.message.kind.storageValue,
+          'chars': widget.message.content.length,
+        },
+      );
+      try {
+        return _buildInner(context);
+      } finally {
+        developer.Timeline.finishSync();
+      }
     }
+    return _buildInner(context);
   }
 
   Widget _buildInner(BuildContext context) {

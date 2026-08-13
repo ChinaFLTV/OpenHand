@@ -3423,10 +3423,12 @@ class _RoundFileMutationSummaryCardState
   }
 
   Future<List<_RoundSummaryRow>> _load(BuildContext ctx) async {
-    developer.Timeline.startSync(
-      'openhand.round_summary.load',
-      arguments: <String, Object?>{'tool_calls': _toolCallIds.length},
-    );
+    if (kDebugMode) {
+      developer.Timeline.startSync(
+        'openhand.round_summary.load',
+        arguments: <String, Object?>{'tool_calls': _toolCallIds.length},
+      );
+    }
     try {
       final ctrl = ctx.read<AiSessionController>();
       final sessionId = ctrl.currentSession?.id ?? '';
@@ -3485,7 +3487,7 @@ class _RoundFileMutationSummaryCardState
       );
       return rows;
     } finally {
-      developer.Timeline.finishSync();
+      if (kDebugMode) developer.Timeline.finishSync();
     }
   }
 

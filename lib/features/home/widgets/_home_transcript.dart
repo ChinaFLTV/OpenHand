@@ -3,9 +3,10 @@ part of '../openhand_home_page.dart';
 const Duration _kTranscriptCardEntranceDuration = Duration(milliseconds: 360);
 const Duration _kCreationPlaceholderExitDuration = Duration(milliseconds: 260);
 const Duration _kCreationFailureExitDuration = Duration(milliseconds: 240);
-// Smaller cache extent keeps off-screen markdown/HTML cards from mounting
-// during open and fling on large threads.
-const double _kTranscriptListCacheExtent = 560;
+// 视口外预物化范围。含 HTML WebView 卡片的会话对 cacheExtent 极敏感——
+// 过大时滚动会在视口外同步挂载多个平台视图，直接拖垮帧率。
+// 280 约等于 2~3 条富文本气泡高度，兼顾预渲染与帧预算。
+const double _kTranscriptListCacheExtent = 280;
 const double _kTranscriptScrollbarThickness = 6;
 const Radius _kTranscriptScrollbarRadius = kOpenHandPillRadius;
 const double _kTranscriptEstimatedMessageSpacing = 14;
@@ -28,6 +29,12 @@ const String _kTranscriptErrorBannerKey = 'transcript-error-banner';
 /// 让每条消息只算一次，并随对象回收自动释放。
 final Expando<bool> _transcriptMultimediaContentCache = Expando<bool>(
   'transcriptMultimediaContent',
+);
+
+/// 消息是否走 HTML WebView 渲染器的判定缓存。结果只取决于消息内容
+///（不可变），按对象缓存避免每帧对每条可见消息重复正则扫描。
+final Expando<bool> _transcriptHtmlRendererCache = Expando<bool>(
+  'transcriptHtmlRenderer',
 );
 
 /// keepAlive 开关由参数驱动而非「换一个 widget 类型」。按类型切换会让
@@ -819,25 +826,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     List<AiSessionMessage> visibleMessages, {
     bool animate = true,
   }) {
-    developer.Timeline.startSync(
-      'openhand.session.materialize',
-      arguments: <String, Object?>{'count': visibleMessages.length},
-    );
-    try {
-      _scheduleWarmRichRenderEntries(visibleMessages);
-      if (!animate) {
-        _animatedMessageIds.addAll(
-          visibleMessages.map((message) => message.id),
-        );
-      }
-      _renderEntries = <_TranscriptRenderEntry>[
-        for (final message in visibleMessages)
-          _TranscriptRenderEntry(message: message),
-      ];
-      _syncRenderEntryIndex();
-    } finally {
-      developer.Timeline.finishSync();
+    _scheduleWarmRichRenderEntries(visibleMessages);
+    if (!animate) {
+      _animatedMessageIds.addAll(
+        visibleMessages.map((message) => message.id),
+      );
     }
+    _renderEntries = <_TranscriptRenderEntry>[
+      for (final message in visibleMessages)
+        _TranscriptRenderEntry(message: message),
+    ];
+    _syncRenderEntryIndex();
   }
 
   void _syncRenderEntriesAfterHistoryPrepend() {
@@ -2077,6 +2076,24 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     if (message.kind != AiSessionMessageKind.assistant) {
       return false;
     }
+    // 仅当消息自身存储了格式标记时缓存才安全，否则结果依赖全局设置。
+    final hasStoredFormat = message.metadata[aiSessionMessageContentFormatKey]
+        is String;
+    if (hasStoredFormat) {
+      final cached = _transcriptHtmlRendererCache[message];
+      if (cached != null) return cached;
+    }
+    final result = _computeMessageUsesHtmlRenderer(message, settings);
+    if (hasStoredFormat) {
+      _transcriptHtmlRendererCache[message] = result;
+    }
+    return result;
+  }
+
+  bool _computeMessageUsesHtmlRenderer(
+    AiSessionMessage message,
+    SettingsController settings,
+  ) {
     final format = _messageContentFormat(message, settings);
     if (format == AiMessageContentFormat.plainText) {
       return false;

@@ -1485,13 +1485,17 @@ int _markdownAstCacheKeyForInputs({
   required String parseKey,
   required List<md.InlineSyntax> inlineSyntaxes,
 }) {
-  return Object.hashAll(<Object?>[
-    normalizedSource,
+  // 用 boundedTextFingerprint 代替完整字符串 hash，避免对长消息
+  // 做 O(n) 遍历。fingerprint 只取首尾各 128 字符，碰撞率足够低。
+  return Object.hash(
+    boundedTextFingerprint(normalizedSource),
     parseKey,
     openHandMarkdownMathSyntaxVersion,
     inlineSyntaxes.length,
-    for (final syn in inlineSyntaxes) syn.runtimeType,
-  ]);
+    Object.hashAll(
+      inlineSyntaxes.map((syn) => syn.runtimeType),
+    ),
+  );
 }
 
 int _markdownAstCacheKeyFor(String normalizedSource, _SafeMarkdownBody widget) {
@@ -2148,16 +2152,21 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
   }
 
   void _parseMarkdown() {
-    developer.Timeline.startSync(
-      'openhand.markdown.parse',
-      arguments: <String, Object?>{'chars': widget.data.length},
-    );
-    try {
-      _parseMarkdownInner();
-    } finally {
-      _lastMarkdownParseAtMs = _markdownParseStopwatch.elapsedMilliseconds;
-      developer.Timeline.finishSync();
+    if (kDebugMode) {
+      developer.Timeline.startSync(
+        'openhand.markdown.parse',
+        arguments: <String, Object?>{'chars': widget.data.length},
+      );
+      try {
+        _parseMarkdownInner();
+      } finally {
+        _lastMarkdownParseAtMs = _markdownParseStopwatch.elapsedMilliseconds;
+        developer.Timeline.finishSync();
+      }
+      return;
     }
+    _parseMarkdownInner();
+    _lastMarkdownParseAtMs = _markdownParseStopwatch.elapsedMilliseconds;
   }
 
   /// 解析入口：负责手势识别器的所有权交接。
@@ -3570,7 +3579,9 @@ final LifecycleLruCache<_PreparedHtmlRenderData> _preparedHtmlRenderCache =
     );
 
 String _preparedHtmlCacheKey(String value, int fingerprint) {
-  return '${value.length}:$fingerprint:${value.hashCode}';
+  // fingerprint 已含首尾采样 + 长度，再拼 value.hashCode 对长 HTML 是 O(n)
+  // 且无额外区分力；用 length + fingerprint 即可。
+  return '${value.length}:$fingerprint';
 }
 
 _PreparedHtmlRenderData _preparedHtmlRenderDataFor(String value) {

@@ -154,13 +154,22 @@ TextSpan _computeHighlightedCodeSpan({
   final timelineLabel = effectiveLanguage == null || effectiveLanguage.isEmpty
       ? '代码高亮（纯文本，${content.length} 字符）'
       : '代码高亮（$effectiveLanguage，${content.length} 字符）';
-  final span = developer.Timeline.timeSync<TextSpan>(timelineLabel, () {
+  TextSpan span;
+  if (kDebugMode) {
+    span = developer.Timeline.timeSync<TextSpan>(timelineLabel, () {
+      final highlighter = _CodeSyntaxHighlighter(
+        baseStyle: baseStyle,
+        darkSurface: useDarkPalette,
+      );
+      return highlighter.build(content, language: effectiveLanguage);
+    });
+  } else {
     final highlighter = _CodeSyntaxHighlighter(
       baseStyle: baseStyle,
       darkSurface: useDarkPalette,
     );
-    return highlighter.build(content, language: effectiveLanguage);
-  });
+    span = highlighter.build(content, language: effectiveLanguage);
+  }
   _highlightSpanCache.put(signature, span, content.length);
   return span;
 }
