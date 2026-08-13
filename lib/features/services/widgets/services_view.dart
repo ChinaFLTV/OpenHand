@@ -4,6 +4,8 @@ import 'package:provider/provider.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
+import '../../../shared/ui/motion_durations.dart';
+import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
@@ -170,13 +172,7 @@ class _AiExposureServiceCard extends StatelessWidget {
               busy: snapshot.busy,
               onToggle: running
                   ? controller.stopService
-                  : () async {
-                      if (controller.useBundledEngine) {
-                        await controller.startService();
-                      } else {
-                        await showAiExposureSettingsDialog(context);
-                      }
-                    },
+                  : () => startOrConfigureAiExposureService(context, controller),
               onAction: (action) => _handleAction(context, action),
             );
             return Column(
@@ -272,10 +268,29 @@ class _AiExposureServiceCard extends StatelessWidget {
                     color: cs.onSurfaceVariant,
                   ),
                 ),
-                if (snapshot.error?.trim().isNotEmpty ?? false) ...[
-                  kOpenHandGap12,
-                  _ServiceError(message: snapshot.error!),
-                ],
+                AnimatedSwitcher(
+                  duration: openHandMotionDuration(context, kOpenHandMotion220),
+                  switchInCurve: Curves.easeOutCubic,
+                  switchOutCurve: Curves.easeInCubic,
+                  transitionBuilder: (child, animation) => FadeTransition(
+                    opacity: animation,
+                    child: SizeTransition(
+                      sizeFactor: animation,
+                      axisAlignment: -1,
+                      child: child,
+                    ),
+                  ),
+                  child: (snapshot.error?.trim().isNotEmpty ?? false)
+                      ? Padding(
+                          key: const ValueKey<String>('service-error'),
+                          padding: const EdgeInsets.only(top: 12),
+                          child: _ServiceError(message: snapshot.error!),
+                        )
+                      : const SizedBox(
+                          key: ValueKey<String>('service-error-empty'),
+                          width: double.infinity,
+                        ),
+                ),
               ],
             );
           },

@@ -400,6 +400,62 @@ impl HuntStore {
         }).await
     }
 
+    /// 精确按 id 读取单个任务进度，替代对最近若干条的线性扫描，
+    /// 避免历史超过上限后旧任务查进度返回 JobNotFound。
+    pub async fn job_progress(&self, id: Uuid) -> Result<Option<ScanProgress>, StoreError> {
+        self.with_connection(move |connection| {
+            let progress_json: Option<String> = connection
+                .query_row(
+                    "SELECT progress_json FROM jobs WHERE id = ?1",
+                    [id.to_string()],
+                    |row| row.get(0),
+                )
+                .optional()?;
+            progress_json
+                .map(|json| Ok(serde_json::from_str(&json)?))
+                .transpose()
+        })
+        .await
+    }
+
+    /// 引擎启动时把上次异常退出遗留的非终态任务标记为中断（Failed），
+    /// 同时改写 progress_json 使前端不再显示"运行中"、可正常新建扫描。
+    /// 返回被清理的任务数量。
+    pub async fn mark_interrupted_jobs(&self) -> Result<usize, StoreError> {
+        const INTERRUPT_MESSAGE: &str = "扫描引擎已重启，未完成的任务已标记为中断。";
+        let finished_at = Utc::now().to_rfc3339();
+        self.with_connection(move |connection| {
+            let mut statement = connection.prepare(
+                "SELECT id, progress_json FROM jobs
+                 WHERE stage NOT IN ('completed', 'cancelled', 'failed')",
+            )?;
+            let rows = statement
+                .query_map([], |row| {
+                    Ok((row.get::<_, String>(0)?, row.get::<_, String>(1)?))
+                })?
+                .collect::<Result<Vec<_>, _>>()?;
+            let mut interrupted = 0;
+            for (id, progress_json) in rows {
+                let mut progress: ScanProgress = serde_json::from_str(&progress_json)?;
+                if progress.failure_stage.is_none() {
+                    progress.failure_stage = Some(progress.stage);
+                }
+                progress.transition_to(ScanStage::Failed, INTERRUPT_MESSAGE);
+                let updated_json = serde_json::to_string(&progress)?;
+                connection.execute(
+                    "UPDATE jobs SET stage = 'failed', progress_json = ?2,
+                       error_message = COALESCE(error_message, ?3),
+                       finished_at = COALESCE(finished_at, ?4)
+                     WHERE id = ?1",
+                    params![id, updated_json, INTERRUPT_MESSAGE, finished_at],
+                )?;
+                interrupted += 1;
+            }
+            Ok(interrupted)
+        })
+        .await
+    }
+
     pub async fn load_request(
         &self,
         id: Uuid,

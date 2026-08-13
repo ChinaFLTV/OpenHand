@@ -116,7 +116,8 @@ struct RedisCoordinator {
 struct RedisLease {
     coordinator: RedisCoordinator,
     key: String,
-    token: String,
+    // 显式 release 后置空以解除 Drop 兜底，避免重复释放。
+    token: Option<String>,
 }
 
 #[derive(Clone)]
@@ -1688,7 +1689,7 @@ impl RedisCoordinator {
         Ok(acquired.map(|_| RedisLease {
             coordinator: self.clone(),
             key,
-            token,
+            token: Some(token),
         }))
     }
 }
@@ -1723,16 +1724,43 @@ fn redis_json_text(value: &Value) -> String {
 }
 
 impl RedisLease {
-    async fn release(self) -> anyhow::Result<()> {
+    async fn release(mut self) -> anyhow::Result<()> {
+        let Some(token) = self.token.take() else {
+            return Ok(());
+        };
         let mut connection = self.coordinator.connection.clone();
         let _: i64 = redis::cmd("EVAL")
             .arg(REDIS_RELEASE_SCRIPT)
             .arg(1)
-            .arg(self.key)
-            .arg(self.token)
+            .arg(self.key.as_str())
+            .arg(token)
             .query_async(&mut connection)
             .await?;
         Ok(())
+    }
+}
+
+impl Drop for RedisLease {
+    fn drop(&mut self) {
+        // 任务在探测中途被取消/丢弃时，显式 release 不会执行；这里兜底异步释放租约，
+        // 避免占用到 TTL 过期。仅在 Tokio 运行时内生效，且 token 已置空则跳过。
+        let Some(token) = self.token.take() else {
+            return;
+        };
+        let Ok(handle) = tokio::runtime::Handle::try_current() else {
+            return;
+        };
+        let mut connection = self.coordinator.connection.clone();
+        let key = std::mem::take(&mut self.key);
+        handle.spawn(async move {
+            let _: Result<i64, _> = redis::cmd("EVAL")
+                .arg(REDIS_RELEASE_SCRIPT)
+                .arg(1)
+                .arg(key)
+                .arg(token)
+                .query_async(&mut connection)
+                .await;
+        });
     }
 }
 
@@ -1757,6 +1785,12 @@ fn build_http_client(proxy: Option<&reqwest::Url>) -> reqwest::Result<Client> {
 
 impl HuntEngine {
     pub async fn new(store: HuntStore) -> Result<Self, EngineError> {
+        // 上次进程异常退出遗留的非终态任务在此收敛为中断态，
+        // 避免崩溃重启后任务永久卡在"运行中"、stop 报 JobNotFound。
+        store
+            .mark_interrupted_jobs()
+            .await
+            .map_err(anyhow::Error::from)?;
         let proxy_selector = DynamicProxySelector::new();
         let raw_client = build_http_client(None).context("初始化扫描 HTTP 客户端失败")?;
         let client = ObservedHttpClient::new(raw_client, Arc::new(proxy_selector.clone()));
@@ -1873,12 +1907,9 @@ impl HuntEngine {
             return Ok(runtime.progress.read().await.clone());
         }
         self.store
-            .list_jobs(500)
+            .job_progress(id)
             .await
             .map_err(anyhow::Error::from)?
-            .into_iter()
-            .find(|job| job.id == id)
-            .map(|job| job.progress)
             .ok_or(EngineError::JobNotFound)
     }
 

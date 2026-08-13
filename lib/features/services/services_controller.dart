@@ -436,19 +436,29 @@ class ServicesController extends ChangeNotifier {
       await refreshData();
       _scheduleProxyStatisticsSync();
     } catch (error, stack) {
-      _lifecycle = _runtime.client == null
-          ? AiExposureServiceLifecycle.error
-          : AiExposureServiceLifecycle.running;
       _errorMessage = _reportServicesFailure(
         '启动扫描服务',
         error,
         stack,
         fallback: '启动扫描服务失败，请检查运行环境后重试。',
       );
+      if (_runtime.client == null) {
+        _lifecycle = AiExposureServiceLifecycle.error;
+      } else {
+        _lifecycle = AiExposureServiceLifecycle.running;
+        _completeRunningActivation();
+      }
     } finally {
       _busy = false;
       _notify();
     }
+  }
+
+  /// 引擎已就绪但启动/连接期间部分初始化失败时，仍进入运行态并补齐数据加载与
+  /// 代理统计轮询，避免"运行中却空白、统计定时器缺失"的半初始化状态。
+  void _completeRunningActivation() {
+    _scheduleProxyStatisticsSync();
+    unawaited(refreshData());
   }
 
   Future<bool> connectExternal({
@@ -476,15 +486,18 @@ class ServicesController extends ChangeNotifier {
       _scheduleProxyStatisticsSync();
       return true;
     } catch (error, stack) {
-      _lifecycle = _runtime.client == null
-          ? AiExposureServiceLifecycle.error
-          : AiExposureServiceLifecycle.running;
       _errorMessage = _reportServicesFailure(
         '连接外部扫描服务',
         error,
         stack,
         fallback: '连接外部扫描服务失败，请检查地址、令牌和网络后重试。',
       );
+      if (_runtime.client == null) {
+        _lifecycle = AiExposureServiceLifecycle.error;
+      } else {
+        _lifecycle = AiExposureServiceLifecycle.running;
+        _completeRunningActivation();
+      }
       return false;
     } finally {
       _busy = false;

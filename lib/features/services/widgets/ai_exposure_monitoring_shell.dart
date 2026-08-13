@@ -246,7 +246,10 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                       ? null
                       : running
                       ? controller.stopService
-                      : controller.startService,
+                      : () => startOrConfigureAiExposureService(
+                          context,
+                          controller,
+                        ),
                   icon: Icon(
                     running ? Icons.stop_rounded : Icons.play_arrow_rounded,
                   ),
