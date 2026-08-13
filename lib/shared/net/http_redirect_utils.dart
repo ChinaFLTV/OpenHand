@@ -197,6 +197,9 @@ const String kApplicationJsonMimeType = 'application/json';
 /// 二进制流 MIME 类型常量。
 const String kApplicationOctetStreamMimeType = 'application/octet-stream';
 
+/// SSE (Server-Sent Events) MIME 类型常量。
+const String kTextEventStreamMimeType = 'text/event-stream';
+
 /// 带 UTF-8 charset 的 JSON `Content-Type` 取值，供发送 JSON 请求体时复用。
 const String kApplicationJsonUtf8ContentType =
     '$kApplicationJsonMimeType; charset=utf-8';

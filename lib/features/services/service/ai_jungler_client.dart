@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../model/ai_exposure_models.dart';
@@ -285,7 +286,7 @@ class AiJunglerClient {
         _jobPath(jobId, suffix: '/events'),
         deadline: handshakeDeadline,
       );
-      request.headers.set(HttpHeaders.acceptHeader, 'text/event-stream');
+      request.headers.set(HttpHeaders.acceptHeader, kTextEventStreamMimeType);
       response = await _closeWithinDeadline(request, handshakeDeadline);
       if (response.statusCode < 200 || response.statusCode >= 300) {
         final error = await _responseError(

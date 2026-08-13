@@ -19,6 +19,7 @@ import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
+import '../../../shared/util/message_frame_scan.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../ai/index.dart';
@@ -1266,7 +1267,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       response,
       timeout: effectiveRequestTimeout,
     );
-    if (contentType.contains('text/event-stream')) {
+    if (contentType.contains(kTextEventStreamMimeType)) {
       final message = _firstSseJsonRpcMessage(body, payload['id']);
       if (message == null) {
         throw McpToolDiscoveryException(
@@ -1998,7 +1999,7 @@ class _LegacySseSession {
       uri: sseUri,
       headers: _mergeRequestHeaders(
         baseHeaders: const <String, String>{
-          'accept': 'text/event-stream',
+          'accept': kTextEventStreamMimeType,
           ..._mcpFreshRequestHeaders,
         },
         extraHeaders: headers,
@@ -2028,7 +2029,7 @@ class _LegacySseSession {
       response.headers,
       kContentTypeHeaderName,
     );
-    if (!contentType.toLowerCase().contains('text/event-stream')) {
+    if (!contentType.toLowerCase().contains(kTextEventStreamMimeType)) {
       final body = await _readMcpHttpErrorBodyBestEffort(
         response,
         timeout: requestTimeout,
@@ -2604,8 +2605,8 @@ class _StdioSession {
   }
 
   String? _tryTakeFramedMessage() {
-    final headerEnd = _findHeaderEnd(_stdoutBuffer);
-    if (headerEnd == -1) {
+    final frame = findMessageFrameHeaderEnd(_stdoutBuffer);
+    if (frame == null) {
       if (_stdoutBuffer.length >
               DefaultMcpToolDiscoveryService._maxStdioHeaderBytes &&
           _looksLikeFramedMessagePrefix()) {
@@ -2613,14 +2614,14 @@ class _StdioSession {
       }
       return null;
     }
-    final separatorLength = _headerSeparatorLength(_stdoutBuffer, headerEnd);
+    final headerEnd = frame.headerEnd;
     final headerText = ascii.decode(
       _stdoutBuffer.sublist(0, headerEnd),
       allowInvalid: true,
     );
     final parsedContentLength = _parseContentLength(headerText);
     if (!parsedContentLength.found) {
-      _stdoutBuffer.removeRange(0, headerEnd + separatorLength);
+      _stdoutBuffer.removeRange(0, frame.bodyStart);
       return '';
     }
     final contentLength = parsedContentLength.value;
@@ -2633,12 +2634,11 @@ class _StdioSession {
         '工具扫描失败：stdio MCP Content-Length 消息头无效。',
       );
     }
-    final bodyStart = headerEnd + separatorLength;
-    final bodyEnd = bodyStart + contentLength;
+    final bodyEnd = frame.bodyStart + contentLength;
     if (_stdoutBuffer.length < bodyEnd) {
       return null;
     }
-    final bodyBytes = _stdoutBuffer.sublist(bodyStart, bodyEnd);
+    final bodyBytes = _stdoutBuffer.sublist(frame.bodyStart, bodyEnd);
     _stdoutBuffer.removeRange(0, bodyEnd);
     return utf8.decode(bodyBytes);
   }
@@ -2776,33 +2776,6 @@ class _StdioSession {
       contentLength = int.tryParse(value);
     }
     return (found: found, value: contentLength);
-  }
-
-  int _findHeaderEnd(List<int> buffer) {
-    for (var index = 0; index < buffer.length - 1; index++) {
-      if (buffer[index] == 13 &&
-          buffer[index + 1] == 10 &&
-          index + 3 < buffer.length &&
-          buffer[index + 2] == 13 &&
-          buffer[index + 3] == 10) {
-        return index;
-      }
-      if (buffer[index] == 10 && buffer[index + 1] == 10) {
-        return index;
-      }
-    }
-    return -1;
-  }
-
-  int _headerSeparatorLength(List<int> buffer, int headerEnd) {
-    if (headerEnd + 3 < buffer.length &&
-        buffer[headerEnd] == 13 &&
-        buffer[headerEnd + 1] == 10 &&
-        buffer[headerEnd + 2] == 13 &&
-        buffer[headerEnd + 3] == 10) {
-      return 4;
-    }
-    return 2;
   }
 
   Future<void> _write(Map<String, Object?> payload) async {
