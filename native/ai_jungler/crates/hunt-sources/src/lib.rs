@@ -34,6 +34,8 @@ const MAX_ARTIFACT_CONTEXT_BYTES: usize = 16 * 1024;
 const GITHUB_CONTENT_CONCURRENCY: usize = 6;
 // 分页累积的 GitHub 公开检索项上限，约束后续逐项内容拉取对 GitHub API 的用量。
 const MAX_GITHUB_SEARCH_RESULTS: usize = 300;
+// 单个数据源解析的最大凭证数量，封顶多 key 轮询/故障转移的每页请求次数，防资源滥用。
+const MAX_CREDENTIAL_KEYS: usize = 32;
 const MAX_GIT_REPOSITORIES: usize = 5;
 const MAX_GIT_FILES_PER_REPOSITORY: usize = 8;
 const GIT_REPOSITORY_CONCURRENCY: usize = 3;
@@ -2559,12 +2561,14 @@ fn ensure_success(source: &'static str, status: StatusCode) -> Result<(), Source
 
 /// 将单个凭证字符串解析为多凭证列表：按逗号/空白切分、去空白、去重且保序。
 /// 允许在同一输入框填入多把 key，配合轮询与限速故障转移提升稳健性。
+/// 数量以 MAX_CREDENTIAL_KEYS 封顶，避免误粘贴海量 key 引发单页大量故障转移请求。
 fn parse_credential_list(secret: &str) -> Vec<String> {
     let mut seen = BTreeSet::new();
     secret
         .split(|character: char| character == ',' || character.is_whitespace())
         .map(str::trim)
         .filter(|value| !value.is_empty() && seen.insert(value.to_owned()))
+        .take(MAX_CREDENTIAL_KEYS)
         .map(ToOwned::to_owned)
         .collect()
 }
