@@ -893,7 +893,7 @@ class _WsDialogState extends State<_WsDialog> {
                             final c = conns[i];
                             final picked = c.requestId == _selectedId;
                             return InkWell(
-                              borderRadius: kWebReverseRadiusLarge,
+                              borderRadius: kOpenHandBorderRadius10,
                               onTap: () =>
                                   setState(() => _selectedId = c.requestId),
                               child: Container(
@@ -905,7 +905,7 @@ class _WsDialogState extends State<_WsDialog> {
                                           alpha: 0.4,
                                         )
                                       : cs.surfaceContainerHigh,
-                                  borderRadius: kWebReverseRadiusLarge,
+                                  borderRadius: kOpenHandBorderRadius10,
                                   border: Border.all(
                                     color: picked
                                         ? cs.primary
@@ -1235,7 +1235,7 @@ class _MiniFrameAction extends StatelessWidget {
       message: tooltip,
       child: InkWell(
         onTap: onTap,
-        borderRadius: kWebReverseRadiusSmall,
+        borderRadius: kOpenHandBorderRadius6,
         child: Padding(
           padding: const EdgeInsets.all(4),
           child: Icon(

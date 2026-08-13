@@ -452,7 +452,7 @@ class _PmDialogState extends State<_PmDialog> {
                                     ),
                                     decoration: BoxDecoration(
                                       color: accent.withValues(alpha: 0.15),
-                                      borderRadius: kWebReverseRadiusXS,
+                                      borderRadius: kOpenHandBorderRadius4,
                                     ),
                                     child: Text(
                                       isSend

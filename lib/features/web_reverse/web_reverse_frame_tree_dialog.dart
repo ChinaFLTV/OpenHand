@@ -296,7 +296,7 @@ class _FrameTile extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: cs.secondaryContainer,
-                      borderRadius: kWebReverseRadiusXS,
+                      borderRadius: kOpenHandBorderRadius4,
                     ),
                     child: Text(
                       row.name,
@@ -317,7 +317,7 @@ class _FrameTile extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: cs.tertiaryContainer,
-                      borderRadius: kWebReverseRadiusXS,
+                      borderRadius: kOpenHandBorderRadius4,
                     ),
                     child: Text(
                       row.mimeType,
@@ -354,7 +354,7 @@ class _FrameTile extends StatelessWidget {
               if (row.url.isNotEmpty)
                 InkWell(
                   onTap: () => onCopy(row.url),
-                  borderRadius: kWebReverseRadiusSmall,
+                  borderRadius: kOpenHandBorderRadius6,
                   child: Padding(
                     padding: const EdgeInsets.all(4),
                     child: Icon(

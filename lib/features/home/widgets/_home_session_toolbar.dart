@@ -747,7 +747,7 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
       width: double.infinity,
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
-        borderRadius: _borderRadius18,
+        borderRadius: kOpenHandBorderRadius18,
         gradient: LinearGradient(
           begin: Alignment.topLeft,
           end: Alignment.bottomRight,
@@ -768,7 +768,7 @@ class _SessionPlanTimelineBarState extends State<_SessionPlanTimelineBar> {
                 height: 30,
                 decoration: BoxDecoration(
                   color: statusColor.withValues(alpha: 0.14),
-                  borderRadius: _kHomeRadiusMedium,
+                  borderRadius: kOpenHandBorderRadius10,
                 ),
                 alignment: Alignment.center,
                 child: Icon(
@@ -1002,7 +1002,7 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
     );
     final chipDecoration = BoxDecoration(
       color: backgroundColor,
-      borderRadius: _kHomeRadiusXXLarge,
+      borderRadius: kOpenHandBorderRadius16,
       border: Border.all(color: accentColor.withValues(alpha: 0.22)),
       boxShadow: state == _PlanTimelineStepState.current
           ? <BoxShadow>[
@@ -1017,7 +1017,7 @@ class _SessionPlanTimelineStepChip extends StatelessWidget {
     final chip = state == _PlanTimelineStepState.current
         ? DecoratedBox(
             decoration: BoxDecoration(
-              borderRadius: _kHomeRadiusXXLarge,
+              borderRadius: kOpenHandBorderRadius16,
               boxShadow: chipDecoration.boxShadow,
             ),
             child: _SweepBadge(
@@ -1874,7 +1874,7 @@ class _GoalEvaluationRow extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surface,
-        borderRadius: _kHomeRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
@@ -3211,7 +3211,7 @@ class _StreamThrottleSessionDialogState
                 color: theme.colorScheme.surfaceContainerHighest.withValues(
                   alpha: 0.55,
                 ),
-                borderRadius: _kHomeRadiusMedium,
+                borderRadius: kOpenHandBorderRadius10,
               ),
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               child: Row(
@@ -3817,7 +3817,7 @@ class _StreamThroughputMiniGaugeState extends State<_StreamThroughputMiniGauge>
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: _kHomeRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius14,
         border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
@@ -4494,7 +4494,7 @@ class _ThroughputTooltip extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: bg.withValues(alpha: 0.96),
-                        borderRadius: _kHomeRadiusSmall,
+                        borderRadius: kOpenHandBorderRadius8,
                         border: Border.all(
                           color: color.withValues(alpha: 0.46),
                         ),

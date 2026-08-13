@@ -392,7 +392,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: cs.errorContainer.withValues(alpha: 0.4),
-                              borderRadius: kWebReverseRadiusMedium,
+                              borderRadius: kOpenHandBorderRadius8,
                             ),
                             child: Text(
                               _error!,
@@ -415,7 +415,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                             padding: const EdgeInsets.all(10),
                             decoration: BoxDecoration(
                               color: cs.errorContainer.withValues(alpha: 0.4),
-                              borderRadius: kWebReverseRadiusMedium,
+                              borderRadius: kOpenHandBorderRadius8,
                             ),
                             child: Text(
                               '${res['error'] ?? 'failed'}',
@@ -464,7 +464,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: cs.surfaceContainerHigh,
-                          borderRadius: kWebReverseRadiusMedium,
+                          borderRadius: kOpenHandBorderRadius8,
                           border: Border.all(
                             color: d.pass
                                 ? cs.primary.withValues(alpha: 0.5)
@@ -524,7 +524,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: cs.surfaceContainerHigh,
-                        borderRadius: kWebReverseRadiusMedium,
+                        borderRadius: kOpenHandBorderRadius8,
                       ),
                       child: SelectableText(
                         ((res['respHeaders'] as Map?) ?? {}).entries

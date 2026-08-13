@@ -85,11 +85,6 @@ enum _AgentCardAction {
 
 const double _agentCardRadius = 22;
 
-// 通用圆角档位：收敛散落的 BorderRadius.circular 字面量。
-const BorderRadius _agentRadiusSmall = BorderRadius.all(Radius.circular(kOpenHandRadius8));
-const BorderRadius _agentRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius10));
-const BorderRadius _agentRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius12));
-const BorderRadius _agentRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius18));
 const double _agentListCardSurfaceAlpha = 0.42;
 
 /// 数字员工列表项 / 卡片的统一底色与描边；圆角由调用方按层级给定。
@@ -729,7 +724,7 @@ class _AgentAvatar extends StatelessWidget {
           height: 64,
           decoration: BoxDecoration(
             color: cs.primaryContainer,
-            borderRadius: _agentRadiusXLarge,
+            borderRadius: kOpenHandBorderRadius18,
           ),
           alignment: Alignment.center,
           clipBehavior: Clip.antiAlias,
@@ -960,7 +955,7 @@ class _AgentDraftKpiTile extends StatelessWidget {
     return DecoratedBox(
       decoration: _agentListCardDecoration(
         cs,
-        borderRadius: _agentRadiusSmall,
+        borderRadius: kOpenHandBorderRadius8,
       ),
       child: Padding(
         padding: const EdgeInsets.all(10),
@@ -972,7 +967,7 @@ class _AgentDraftKpiTile extends StatelessWidget {
               height: 34,
               decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.12),
-                borderRadius: _agentRadiusSmall,
+                borderRadius: kOpenHandBorderRadius8,
               ),
               alignment: Alignment.center,
               child: Icon(
@@ -1311,7 +1306,7 @@ class _AgentActivityMetadataChip extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.7),
-        borderRadius: _agentRadiusSmall,
+        borderRadius: kOpenHandBorderRadius8,
         border: Border.all(color: cs.outlineVariant),
       ),
       child: Padding(
@@ -1422,7 +1417,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
         ? ''
         : formatMonthDayHm(event.createdAt!.toLocal());
     final metadata = _agentAuditMetadataChips(context, event);
-    const radius = _agentRadiusLarge;
+    const radius = kOpenHandBorderRadius12;
 
     return Semantics(
       button: true,
@@ -1449,7 +1444,7 @@ class _AgentCapabilityLogTile extends StatelessWidget {
                     height: 36,
                     decoration: BoxDecoration(
                       color: color.withValues(alpha: 0.12),
-                      borderRadius: _agentRadiusMedium,
+                      borderRadius: kOpenHandBorderRadius10,
                     ),
                     alignment: Alignment.center,
                     child: Icon(
@@ -2432,7 +2427,7 @@ class _AgentApprovalRequestCard extends StatelessWidget {
     return DecoratedBox(
       decoration: _agentListCardDecoration(
         cs,
-        borderRadius: _agentRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -2444,7 +2439,7 @@ class _AgentApprovalRequestCard extends StatelessWidget {
               height: 36,
               decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.12),
-                borderRadius: _agentRadiusMedium,
+                borderRadius: kOpenHandBorderRadius10,
               ),
               alignment: Alignment.center,
               child: Icon(
@@ -2822,7 +2817,7 @@ class _AgentWorkerStatusTile extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colors.surfaceContainerHighest.withValues(alpha: 0.42),
-          borderRadius: _agentRadiusSmall,
+          borderRadius: kOpenHandBorderRadius8,
           border: Border.all(color: colors.outlineVariant),
         ),
         child: Padding(
@@ -3314,12 +3309,12 @@ class _AgentTaskCard extends StatelessWidget {
     return Material(
       color: Colors.transparent,
       child: InkWell(
-        borderRadius: _agentRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
         onTap: () => _showAgentTaskDetailDialog(context, agent, task),
         child: DecoratedBox(
           decoration: _agentListCardDecoration(
             cs,
-            borderRadius: _agentRadiusLarge,
+            borderRadius: kOpenHandBorderRadius12,
           ),
           child: Padding(
             padding: const EdgeInsets.all(12),
@@ -3331,7 +3326,7 @@ class _AgentTaskCard extends StatelessWidget {
                   height: 36,
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: _agentRadiusMedium,
+                    borderRadius: kOpenHandBorderRadius10,
                   ),
                   alignment: Alignment.center,
                   child: Icon(
@@ -4318,7 +4313,7 @@ class _AgentKpiCard extends StatelessWidget {
     return DecoratedBox(
       decoration: _agentListCardDecoration(
         cs,
-        borderRadius: _agentRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
       ),
       child: Padding(
         padding: const EdgeInsets.all(12),
@@ -4330,7 +4325,7 @@ class _AgentKpiCard extends StatelessWidget {
               height: 36,
               decoration: BoxDecoration(
                 color: statusColor.withValues(alpha: 0.12),
-                borderRadius: _agentRadiusMedium,
+                borderRadius: kOpenHandBorderRadius10,
               ),
               alignment: Alignment.center,
               child: Icon(
@@ -5770,7 +5765,7 @@ class _AgentResourcePressureCard extends StatelessWidget {
           color.withValues(alpha: 0.045),
           cs.surfaceContainerHighest.withValues(alpha: 0.42),
         ),
-        borderRadius: _agentRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: color.withValues(alpha: 0.20)),
       ),
       child: Padding(
@@ -5782,7 +5777,7 @@ class _AgentResourcePressureCard extends StatelessWidget {
               height: 36,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.12),
-                borderRadius: _agentRadiusMedium,
+                borderRadius: kOpenHandBorderRadius10,
               ),
               alignment: Alignment.center,
               child: Icon(icon, color: color, size: 19),
@@ -6431,7 +6426,7 @@ class _MetricTile extends StatelessWidget {
         curve: settings.curve.curve,
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest.withValues(alpha: 0.65),
-          borderRadius: _agentRadiusSmall,
+          borderRadius: kOpenHandBorderRadius8,
           border: Border.all(color: cs.outlineVariant),
         ),
         child: Padding(
@@ -6947,7 +6942,7 @@ class _AgentAuditEventRow extends StatelessWidget {
                 height: _agentAuditEventIconExtent,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.13),
-                  borderRadius: _agentRadiusLarge,
+                  borderRadius: kOpenHandBorderRadius12,
                 ),
                 alignment: Alignment.center,
                 child: Icon(
@@ -10952,7 +10947,7 @@ class _AgentEditorPanel extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.34),
-        borderRadius: _agentRadiusSmall,
+        borderRadius: kOpenHandBorderRadius8,
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
@@ -11721,7 +11716,7 @@ class _AgentToolGroupSection extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.surface.withValues(alpha: 0.46),
-        borderRadius: _agentRadiusSmall,
+        borderRadius: kOpenHandBorderRadius8,
         border: Border.all(
           color: colors.outlineVariant.withValues(alpha: 0.72),
         ),
@@ -12876,7 +12871,7 @@ class _AgentRoutePreviewCard extends StatelessWidget {
         color: isActive
             ? colors.primaryContainer.withValues(alpha: 0.34)
             : colors.surfaceContainerHighest.withValues(alpha: 0.66),
-        borderRadius: _agentRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius18,
         border: Border.all(
           color: isActive
               ? colors.primary.withValues(alpha: 0.28)

@@ -347,7 +347,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                   ),
                   decoration: BoxDecoration(
                     color: cs.primaryContainer,
-                    borderRadius: kWebReverseRadiusSmall,
+                    borderRadius: kOpenHandBorderRadius6,
                   ),
                   child: Text(
                     loc?.webReverseWsInjectProxyOn ?? 'PROXY ON',
@@ -368,7 +368,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                 padding: const EdgeInsets.all(8),
                 decoration: BoxDecoration(
                   color: cs.errorContainer,
-                  borderRadius: kWebReverseRadiusSmall,
+                  borderRadius: kOpenHandBorderRadius6,
                 ),
                 child: Text(
                   '${loc?.webReverseWsInjectInstallFailed ?? 'Install failed'}: $_installError',
@@ -414,9 +414,9 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                         color: selected
                             ? cs.primaryContainer.withValues(alpha: 0.4)
                             : cs.surfaceContainerHigh,
-                        borderRadius: kWebReverseRadiusMedium,
+                        borderRadius: kOpenHandBorderRadius8,
                         child: InkWell(
-                          borderRadius: kWebReverseRadiusMedium,
+                          borderRadius: kOpenHandBorderRadius8,
                           onTap: () => setState(() => _selectedId = row.id),
                           child: Padding(
                             padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
@@ -537,7 +537,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
               margin: const EdgeInsets.symmetric(horizontal: 16),
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHighest,
-                borderRadius: kWebReverseRadiusMedium,
+                borderRadius: kOpenHandBorderRadius8,
                 border: Border.all(color: cs.outlineVariant),
               ),
               child: _log.isEmpty
@@ -559,7 +559,7 @@ class _WsInjectDialogState extends State<_WsInjectDialog> {
                             color: e.ok
                                 ? cs.primaryContainer.withValues(alpha: 0.2)
                                 : cs.errorContainer.withValues(alpha: 0.3),
-                            borderRadius: kWebReverseRadiusSmall,
+                            borderRadius: kOpenHandBorderRadius6,
                           ),
                           child: Row(
                             crossAxisAlignment: CrossAxisAlignment.start,

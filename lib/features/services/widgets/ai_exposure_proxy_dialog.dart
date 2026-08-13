@@ -286,7 +286,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                           children: [
                             Expanded(
                               child: ClipRRect(
-                                borderRadius: kServiceRadiusPill,
+                                borderRadius: kOpenHandPillBorderRadius,
                                 child: ServiceAnimatedProgressBar(
                                   value: _inspectionTotal == 0
                                       ? null
@@ -1918,7 +1918,7 @@ class _ProxyAverageResponseDialogState
                   height: 46,
                   decoration: BoxDecoration(
                     color: colors.tertiary.withValues(alpha: 0.16),
-                    borderRadius: kServiceRadiusMedium,
+                    borderRadius: kOpenHandBorderRadius12,
                     border: Border.all(
                       color: colors.tertiary.withValues(alpha: 0.3),
                     ),
@@ -2867,7 +2867,7 @@ class _ProxyTelemetrySection extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.24),
-        borderRadius: kServiceRadiusMedium,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
@@ -3062,7 +3062,7 @@ class _ProxyOutcomeCard extends StatelessWidget {
             height: 34,
             decoration: BoxDecoration(
               color: color,
-              borderRadius: kServiceRadiusPill,
+              borderRadius: kOpenHandPillBorderRadius,
             ),
           ),
           kOpenHandHGap9,
@@ -4716,7 +4716,7 @@ class _ProxyEndpointDetailsDialogState
                     ),
                     Expanded(
                       child: ClipRRect(
-                        borderRadius: kServiceRadiusPill,
+                        borderRadius: kOpenHandPillBorderRadius,
                         child: ServiceAnimatedProgressBar(
                           value: item.value / maxValue,
                           minHeight: 8,

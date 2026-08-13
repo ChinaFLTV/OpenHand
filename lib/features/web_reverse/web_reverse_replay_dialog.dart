@@ -193,7 +193,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                           loc?.webReverseReplayFilterByUrl ?? 'Filter by URL',
                       prefixIcon: const Icon(Icons.search_rounded, size: 18),
                       isDense: true,
-                      border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
+                      border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
                     ),
                     onChanged: (v) => setState(() => _filter = v.trim()),
                   ),
@@ -245,13 +245,13 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                           color: picked
                               ? cs.primaryContainer.withValues(alpha: 0.35)
                               : cs.surfaceContainerHigh,
-                          borderRadius: kWebReverseRadiusLarge,
+                          borderRadius: kOpenHandBorderRadius10,
                           border: Border.all(
                             color: picked ? cs.primary : cs.outlineVariant,
                           ),
                         ),
                         child: InkWell(
-                          borderRadius: kWebReverseRadiusLarge,
+                          borderRadius: kOpenHandBorderRadius10,
                           onTap: _busy
                               ? null
                               : () => setState(() {
@@ -288,7 +288,7 @@ class _ReplayDialogState extends State<_ReplayDialog> {
                                       ),
                                       decoration: BoxDecoration(
                                         color: cs.secondaryContainer,
-                                        borderRadius: kWebReverseRadiusXS,
+                                        borderRadius: kOpenHandBorderRadius4,
                                       ),
                                       child: Text(
                                         e.method,

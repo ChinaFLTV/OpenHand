@@ -2223,7 +2223,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
         height: dialogHeight,
         decoration: BoxDecoration(
           color: widget.theme.colorScheme.surface,
-          borderRadius: _kHomeRadiusFull,
+          borderRadius: kOpenHandBorderRadius20,
           boxShadow: [
             BoxShadow(
               color: widget.theme.colorScheme.shadow.withValues(alpha: 0.2),
@@ -3466,7 +3466,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         ConstrainedBox(
           constraints: const BoxConstraints(minHeight: 220, maxHeight: 560),
           child: ClipRRect(
-            borderRadius: _kHomeRadiusMedium,
+            borderRadius: kOpenHandBorderRadius10,
             child: body,
           ),
         ),

@@ -1550,7 +1550,7 @@ class _ToolContentDialogLeadingIcon extends StatelessWidget {
           color.withValues(alpha: 0.10),
           colorScheme.surfaceContainerHigh,
         ),
-        borderRadius: _kHomeRadiusXXLarge,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(color: color.withValues(alpha: 0.22)),
       ),
       child: SizedBox.square(
@@ -1610,7 +1610,7 @@ class _ToolContentDialogIconButton extends StatelessWidget {
           disabledBackgroundColor: colorScheme.surfaceContainer.withValues(
             alpha: 0.58,
           ),
-          shape: const RoundedRectangleBorder(borderRadius: _kHomeRadiusXLarge),
+          shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius14),
         ),
       ),
     );
@@ -1753,7 +1753,7 @@ class _ToolContentDialogStatePane extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerLow,
-          borderRadius: _kHomeRadiusFull,
+          borderRadius: kOpenHandBorderRadius20,
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.45),
           ),
@@ -3846,7 +3846,7 @@ class _SelfLearningCardState extends State<_SelfLearningCard> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHighest,
-              borderRadius: _kHomeRadiusMedium,
+              borderRadius: kOpenHandBorderRadius10,
             ),
             child: Row(
               crossAxisAlignment: CrossAxisAlignment.start,

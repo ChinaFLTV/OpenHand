@@ -260,7 +260,7 @@ class _SmDialogState extends State<_SmDialog> {
                   decoration: InputDecoration(
                     labelText: loc?.webReverseSmUrlLabel ?? 'Minified file URL',
                     hintText: 'https://.../app.min.js',
-                    border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
+                    border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
                   ),
                 ),
                 kOpenHandGap10,
@@ -272,7 +272,7 @@ class _SmDialogState extends State<_SmDialog> {
                         decoration: InputDecoration(
                           labelText:
                               loc?.webReverseSmLineLabel ?? 'Line (1-based)',
-                          border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
+                          border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
                         ),
                         keyboardType: TextInputType.number,
                       ),
@@ -284,7 +284,7 @@ class _SmDialogState extends State<_SmDialog> {
                         decoration: InputDecoration(
                           labelText:
                               loc?.webReverseSmColLabel ?? 'Column (0-based)',
-                          border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
+                          border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
                         ),
                         keyboardType: TextInputType.number,
                       ),

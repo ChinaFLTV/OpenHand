@@ -6,6 +6,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/hover_lift.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
@@ -20,10 +21,6 @@ const BorderRadius kServiceInteractiveBorderRadius = BorderRadius.all(
   Radius.circular(kOpenHandRadius8),
 );
 
-const BorderRadius kServiceRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius12));
-const BorderRadius kServiceRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius14));
-const BorderRadius kServiceRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius16));
-const BorderRadius kServiceRadiusPill = BorderRadius.all(Radius.circular(999));
 
 enum ServiceDialogHeaderActionTone { neutral, primary }
 
@@ -1337,7 +1334,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
           children: [
             Expanded(
               child: ClipRRect(
-                borderRadius: kServiceRadiusPill,
+                borderRadius: kOpenHandPillBorderRadius,
                 child: ServiceAnimatedProgressBar(
                   minHeight: 10,
                   value: ratio,
@@ -1592,7 +1589,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
                   ),
                   kOpenHandGap6,
                   ClipRRect(
-                    borderRadius: kServiceRadiusPill,
+                    borderRadius: kOpenHandPillBorderRadius,
                     child: ServiceAnimatedProgressBar(
                       minHeight: item.highlighted ? 11 : 8,
                       value: ratio,

@@ -214,7 +214,7 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh,
-        borderRadius: _kHomeRadiusFull,
+        borderRadius: kOpenHandBorderRadius20,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.5),
         ),
@@ -226,7 +226,7 @@ class _AuditSectionCardState extends State<_AuditSectionCard> {
             onTap: widget.collapsible
                 ? () => setState(() => _expanded = !_expanded)
                 : null,
-            borderRadius: _kHomeRadiusLarge,
+            borderRadius: kOpenHandBorderRadius12,
             child: Row(
               children: [
                 if (widget.icon != null) ...[
@@ -397,7 +397,7 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
       margin: const EdgeInsets.only(top: 6, bottom: 6),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest,
-        borderRadius: _kHomeRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius14,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -1186,7 +1186,7 @@ class _MessageAuditDialogState extends State<_MessageAuditDialog> {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: colorScheme.surface,
-                          borderRadius: _kHomeRadiusLarge,
+                          borderRadius: kOpenHandBorderRadius12,
                         ),
                         child:
                             waitingForTelemetry &&
@@ -1805,7 +1805,7 @@ class _AuditMessageRow extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(12, 10, 8, 10),
       decoration: BoxDecoration(
         color: colorScheme.surface,
-        borderRadius: _kHomeRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius14,
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

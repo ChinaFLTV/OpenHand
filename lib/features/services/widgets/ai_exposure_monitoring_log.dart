@@ -80,7 +80,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
                   height: 42,
                   decoration: BoxDecoration(
                     color: cs.primaryContainer,
-                    borderRadius: _kAiExposureRadiusSmall,
+                    borderRadius: kOpenHandBorderRadius8,
                   ),
                   child: Icon(
                     Icons.manage_search_rounded,
@@ -216,7 +216,7 @@ class _LogMonitorDialogState extends State<_LogMonitorDialog> {
             child: Container(
               decoration: BoxDecoration(
                 color: _kAiExposureDarkSurface,
-                borderRadius: _kAiExposureRadiusSmall,
+                borderRadius: kOpenHandBorderRadius8,
                 border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
               ),
               child: logs.isEmpty

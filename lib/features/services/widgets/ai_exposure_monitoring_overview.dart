@@ -273,7 +273,7 @@ class _Console extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: _kAiExposureDarkSurface,
-        borderRadius: _kAiExposureRadiusSmall,
+        borderRadius: kOpenHandBorderRadius8,
         border: Border.all(color: Colors.white.withValues(alpha: 0.12)),
       ),
       child: DefaultTextStyle(

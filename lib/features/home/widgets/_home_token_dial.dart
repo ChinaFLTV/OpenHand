@@ -1010,7 +1010,7 @@ class _TokenDialPopupState extends State<_TokenDialPopup> {
       child: Container(
         decoration: BoxDecoration(
           color: colorScheme.surface,
-          borderRadius: _kHomeRadiusXLarge,
+          borderRadius: kOpenHandBorderRadius14,
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.6),
           ),
@@ -1157,7 +1157,7 @@ class _TokenStatsPanel extends StatelessWidget {
                 height: 26,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: emphasized ? 0.15 : 0.10),
-                  borderRadius: _kHomeRadiusSmall,
+                  borderRadius: kOpenHandBorderRadius8,
                 ),
                 child: Icon(icon, size: 15, color: accent),
               ),
@@ -1411,7 +1411,7 @@ class _ContextUsageOverview extends StatelessWidget {
                 color: colorScheme.surfaceContainerHighest.withValues(
                   alpha: 0.46,
                 ),
-                borderRadius: _kHomeRadiusMedium,
+                borderRadius: kOpenHandBorderRadius10,
                 border: Border.all(
                   color: colorScheme.outlineVariant.withValues(alpha: 0.46),
                 ),
@@ -1551,7 +1551,7 @@ class _ContextUsageTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 8),
       decoration: BoxDecoration(
         color: color.withValues(alpha: active ? 0.09 : 0.035),
-        borderRadius: _kHomeRadiusMedium,
+        borderRadius: kOpenHandBorderRadius10,
         border: Border.all(
           color: color.withValues(alpha: active ? 0.24 : 0.10),
         ),

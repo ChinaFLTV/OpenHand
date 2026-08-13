@@ -283,7 +283,7 @@ class _DomSearchDialogState extends State<_DomSearchDialog> {
                           loc?.webReverseDomSearchHint ??
                           'selector / text / XPath, Enter to run',
                       prefixIcon: const Icon(Icons.search_rounded),
-                      border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
+                      border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
                     ),
                     onSubmitted: _busy ? null : (_) => _runSearch(),
                   ),

@@ -143,7 +143,7 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
                   height: 52,
                   decoration: BoxDecoration(
                     color: colorScheme.primaryContainer,
-                    borderRadius: _borderRadius18,
+                    borderRadius: kOpenHandBorderRadius18,
                   ),
                   alignment: Alignment.center,
                   child: Icon(

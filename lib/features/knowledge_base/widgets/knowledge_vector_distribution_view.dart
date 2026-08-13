@@ -273,7 +273,7 @@ class _KnowledgeVectorDistributionViewState
     final colorScheme = Theme.of(context).colorScheme;
     return BoxDecoration(
       color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.48),
-      borderRadius: kKnowledgeRadiusXXXLarge,
+      borderRadius: kOpenHandBorderRadius18,
       border: Border.all(
         color: colorScheme.outlineVariant.withValues(alpha: 0.70),
       ),
@@ -644,7 +644,7 @@ class _VectorPointPopover extends StatelessWidget {
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: colorScheme.surface.withValues(alpha: 0.96),
-              borderRadius: kKnowledgeRadiusXXLarge,
+              borderRadius: kOpenHandBorderRadius16,
               border: Border.all(
                 color: projection.color.withValues(alpha: 0.44),
               ),
@@ -980,7 +980,7 @@ class _VectorPopoverSection extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.42),
-        borderRadius: kKnowledgeRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.42),
         ),
@@ -1024,7 +1024,7 @@ class _VectorMetricTile extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: kKnowledgeRadiusMedium,
+        borderRadius: kOpenHandBorderRadius10,
         border: Border.all(color: color.withValues(alpha: 0.28)),
       ),
       child: Padding(

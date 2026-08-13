@@ -341,7 +341,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                             context,
                           )?.webReverseIssuesFilterHint ??
                           'Filter by code / URL / description…',
-                      border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
+                      border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
                     ),
                     onChanged: (v) => setState(() => _filter = v),
                   ),
@@ -412,7 +412,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                         padding: const EdgeInsets.all(10),
                         decoration: BoxDecoration(
                           color: cs.surfaceContainerHigh,
-                          borderRadius: kWebReverseRadiusXLarge,
+                          borderRadius: kOpenHandBorderRadius12,
                           border: Border(
                             left: BorderSide(color: color, width: 3),
                           ),
@@ -490,7 +490,7 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                                 padding: const EdgeInsets.all(8),
                                 decoration: BoxDecoration(
                                   color: cs.surfaceContainerLowest,
-                                  borderRadius: kWebReverseRadiusMedium,
+                                  borderRadius: kOpenHandBorderRadius8,
                                 ),
                                 child: SelectableText(
                                   e.rawJson,

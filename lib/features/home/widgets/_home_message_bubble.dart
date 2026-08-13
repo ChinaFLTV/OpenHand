@@ -2516,7 +2516,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
         horizontalMargin: 48,
         safeAreaMinimum: const EdgeInsets.all(24),
         backgroundColor: colorScheme.surface,
-        shape: const RoundedRectangleBorder(borderRadius: _kHomeRadiusXXLarge),
+        shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2588,7 +2588,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                         color: colorScheme.surfaceContainerHighest.withValues(
                           alpha: 0.52,
                         ),
-                        borderRadius: _kHomeRadiusXLarge,
+                        borderRadius: kOpenHandBorderRadius14,
                         border: Border.all(
                           color: colorScheme.outlineVariant.withValues(
                             alpha: 0.52,
@@ -2603,7 +2603,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                             height: 54,
                             decoration: BoxDecoration(
                               color: colorScheme.primaryContainer,
-                              borderRadius: _kHomeRadiusXLarge,
+                              borderRadius: kOpenHandBorderRadius14,
                             ),
                             child: Icon(
                               _iconForAttachmentKind(widget.kind),
@@ -3009,7 +3009,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
         width: metrics.dialogWidth,
         maxHeight: metrics.maxDialogHeight,
         backgroundColor: colorScheme.surface,
-        shape: const RoundedRectangleBorder(borderRadius: _kHomeRadiusXXLarge),
+        shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
         child: maybeAnimatedSize(
           duration: motionSettings.entranceDuration,
           curve: motionSettings.curve.curve,
@@ -3299,7 +3299,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
               color: isDark
                   ? colorScheme.surfaceContainer
                   : colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-              borderRadius: _kHomeRadiusLarge,
+              borderRadius: kOpenHandBorderRadius12,
             ),
             child: Center(
               child: Column(
@@ -3341,7 +3341,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.errorContainer.withValues(alpha: 0.3),
-          borderRadius: _kHomeRadiusLarge,
+          borderRadius: kOpenHandBorderRadius12,
         ),
         child: Center(
           child: Column(
@@ -3921,13 +3921,13 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: _kHomeRadiusXLarge,
+            borderRadius: kOpenHandBorderRadius14,
             onTap: _openPreview,
             child: Container(
               constraints: const BoxConstraints(maxWidth: 420, minWidth: 240),
               decoration: BoxDecoration(
                 color: cardColor,
-                borderRadius: _kHomeRadiusXLarge,
+                borderRadius: kOpenHandBorderRadius14,
                 border: Border.all(color: textColor.withValues(alpha: 0.16)),
               ),
               clipBehavior: Clip.antiAlias,
@@ -5288,7 +5288,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
               Padding(
                 padding: const EdgeInsets.all(_kContentPadding),
                 child: ClipRRect(
-                  borderRadius: _kHomeRadiusLarge,
+                  borderRadius: kOpenHandBorderRadius12,
                   child: SizedBox(
                     width: metrics.contentWidth,
                     height: metrics.contentHeight,
@@ -5703,7 +5703,7 @@ class _MediaLoadFallback extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.96),
-        borderRadius: _kHomeRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
       ),
       child: Padding(
         padding: const EdgeInsets.all(18),
@@ -7944,7 +7944,7 @@ class _UserMessageAttachmentTile extends StatelessWidget {
                         height: 26,
                         decoration: BoxDecoration(
                           color: colorScheme.onSurface.withValues(alpha: 0.08),
-                          borderRadius: _kHomeRadiusSmall,
+                          borderRadius: kOpenHandBorderRadius8,
                         ),
                         alignment: Alignment.center,
                         child: Icon(
@@ -8929,7 +8929,7 @@ class _FullscreenChromeButtonState extends State<_FullscreenChromeButton>
             height: 38,
             decoration: BoxDecoration(
               color: bg,
-              borderRadius: _kHomeRadiusLarge,
+              borderRadius: kOpenHandBorderRadius12,
               border: Border.all(
                 color: Colors.white.withValues(alpha: 0.28),
                 width: 0.8,

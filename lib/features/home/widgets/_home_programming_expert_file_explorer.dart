@@ -1156,10 +1156,10 @@ class _FileExplorerPanelState extends State<_FileExplorerPanel> {
                   fillColor: colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.5,
                   ),
-                  border: const OutlineInputBorder(borderRadius: _kHomeRadiusLarge, borderSide: BorderSide.none),
-                  enabledBorder: const OutlineInputBorder(borderRadius: _kHomeRadiusLarge, borderSide: BorderSide.none),
+                  border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius12, borderSide: BorderSide.none),
+                  enabledBorder: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius12, borderSide: BorderSide.none),
                   focusedBorder: OutlineInputBorder(
-                    borderRadius: _kHomeRadiusLarge,
+                    borderRadius: kOpenHandBorderRadius12,
                     borderSide: BorderSide(
                       color: colorScheme.primary.withValues(alpha: 0.5),
                     ),
@@ -3127,7 +3127,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                               decoration: BoxDecoration(
                                 color: colorScheme.surfaceContainerLowest
                                     .withValues(alpha: 0.94),
-                                borderRadius: _kHomeRadiusXLarge,
+                                borderRadius: kOpenHandBorderRadius14,
                                 border: Border.all(
                                   color: colorScheme.outlineVariant.withValues(
                                     alpha: 0.22,
@@ -3241,7 +3241,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                       ),
                                       decoration: BoxDecoration(
                                         color: colorScheme.surface,
-                                        borderRadius: _kHomeRadiusMedium,
+                                        borderRadius: kOpenHandBorderRadius10,
                                         border: Border.all(
                                           color: colorScheme.outlineVariant
                                               .withValues(alpha: 0.2),
@@ -3412,9 +3412,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       ),
       decoration: InputDecoration(
         labelText: _homeProgramminNewNameLabel(context),
-        border: const OutlineInputBorder(borderRadius: _kHomeRadiusSmall),
+        border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius8),
         focusedBorder: OutlineInputBorder(
-          borderRadius: _kHomeRadiusSmall,
+          borderRadius: kOpenHandBorderRadius8,
           borderSide: BorderSide(color: Theme.of(context).colorScheme.primary),
         ),
       ),
@@ -6205,7 +6205,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           padding: const EdgeInsets.fromLTRB(10, 9, 10, 9),
           decoration: BoxDecoration(
             color: accentColor.withValues(alpha: backgroundOpacity),
-            borderRadius: _kHomeRadiusMedium,
+            borderRadius: kOpenHandBorderRadius10,
             border: Border.all(
               color: accentColor.withValues(alpha: 0.18),
               width: 0.5,
@@ -6584,7 +6584,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                     color: colorScheme.surfaceContainerLowest.withValues(
                       alpha: 0.92,
                     ),
-                    borderRadius: _kHomeRadiusMedium,
+                    borderRadius: kOpenHandBorderRadius10,
                     border: Border.all(
                       color: colorScheme.outlineVariant.withValues(alpha: 0.22),
                     ),
@@ -8510,7 +8510,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           padding: const EdgeInsets.all(10),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerLowest.withValues(alpha: 0.9),
-            borderRadius: _kHomeRadiusMedium,
+            borderRadius: kOpenHandBorderRadius10,
             border: Border.all(
               color: colorScheme.outlineVariant.withValues(alpha: 0.2),
               width: 0.5,
@@ -8681,7 +8681,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                             decoration: BoxDecoration(
                               color: colorScheme.surfaceContainerLowest
                                   .withValues(alpha: 0.9),
-                              borderRadius: _kHomeRadiusSmall,
+                              borderRadius: kOpenHandBorderRadius8,
                               border: Border.all(
                                 color: colorScheme.outlineVariant.withValues(
                                   alpha: 0.18,
@@ -8794,7 +8794,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       codeblockPadding: const EdgeInsets.all(10),
       codeblockDecoration: BoxDecoration(
         color: surface,
-        borderRadius: _kHomeRadiusMedium,
+        borderRadius: kOpenHandBorderRadius10,
         border: Border.all(color: border),
       ),
       blockquotePadding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
@@ -8803,7 +8803,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
           colorScheme.primary.withValues(alpha: 0.08),
           surface,
         ),
-        borderRadius: _kHomeRadiusMedium,
+        borderRadius: kOpenHandBorderRadius10,
         border: Border.all(color: border),
       ),
     );
@@ -9084,9 +9084,9 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       color: active
           ? colorScheme.primaryContainer.withValues(alpha: 0.6)
           : Colors.transparent,
-      borderRadius: _kHomeRadiusSmall,
+      borderRadius: kOpenHandBorderRadius8,
       child: InkWell(
-        borderRadius: _kHomeRadiusSmall,
+        borderRadius: kOpenHandBorderRadius8,
         onTap: onTap,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -11651,7 +11651,7 @@ class _CompletionOverlay extends StatelessWidget {
     return Material(
       elevation: 8,
       shadowColor: colorScheme.shadow.withValues(alpha: 0.3),
-      borderRadius: _kHomeRadiusMedium,
+      borderRadius: kOpenHandBorderRadius10,
       color: colorScheme.surfaceContainerHighest,
       child: Container(
         constraints: const BoxConstraints(
@@ -11660,14 +11660,14 @@ class _CompletionOverlay extends StatelessWidget {
           maxHeight: 320,
         ),
         decoration: BoxDecoration(
-          borderRadius: _kHomeRadiusMedium,
+          borderRadius: kOpenHandBorderRadius10,
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.35),
             width: 0.5,
           ),
         ),
         child: ClipRRect(
-          borderRadius: _kHomeRadiusMedium,
+          borderRadius: kOpenHandBorderRadius10,
           child: ListView.builder(
             padding: const EdgeInsets.symmetric(vertical: 4),
             shrinkWrap: true,
@@ -11788,7 +11788,7 @@ class _SignatureHelpOverlay extends StatelessWidget {
     return Material(
       elevation: 10,
       shadowColor: colorScheme.shadow.withValues(alpha: 0.28),
-      borderRadius: _kHomeRadiusLarge,
+      borderRadius: kOpenHandBorderRadius12,
       color: colorScheme.surfaceContainerHighest,
       child: Container(
         constraints: const BoxConstraints(
@@ -11797,14 +11797,14 @@ class _SignatureHelpOverlay extends StatelessWidget {
           maxHeight: 280,
         ),
         decoration: BoxDecoration(
-          borderRadius: _kHomeRadiusLarge,
+          borderRadius: kOpenHandBorderRadius12,
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.34),
             width: 0.5,
           ),
         ),
         child: ClipRRect(
-          borderRadius: _kHomeRadiusLarge,
+          borderRadius: kOpenHandBorderRadius12,
           child: SingleChildScrollView(
             padding: const EdgeInsets.fromLTRB(12, 10, 12, 12),
             child: Column(
@@ -14647,7 +14647,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
                 color: colorScheme.surfaceContainerHighest.withValues(
                   alpha: 0.98,
                 ),
-                borderRadius: _kHomeRadiusLarge,
+                borderRadius: kOpenHandBorderRadius12,
                 border: Border.all(
                   color: colorScheme.outlineVariant.withValues(alpha: 0.3),
                   width: 0.5,

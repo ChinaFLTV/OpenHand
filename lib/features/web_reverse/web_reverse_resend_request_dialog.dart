@@ -1123,7 +1123,7 @@ print(resp.text[:2000])''';
         key: const ValueKey('err'),
         decoration: BoxDecoration(
           color: cs.errorContainer.withValues(alpha: 0.4),
-          borderRadius: kWebReverseRadiusXLarge,
+          borderRadius: kOpenHandBorderRadius12,
           border: Border.all(color: cs.error.withValues(alpha: 0.5)),
         ),
         padding: const EdgeInsets.all(12),
@@ -1163,7 +1163,7 @@ print(resp.text[:2000])''';
       key: ValueKey('resp_${r.status}_${r.byteSize}'),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
-        borderRadius: kWebReverseRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: color.withValues(alpha: 0.45)),
       ),
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
@@ -1264,7 +1264,7 @@ print(resp.text[:2000])''';
             padding: const EdgeInsets.all(8),
             decoration: BoxDecoration(
               color: cs.surface,
-              borderRadius: kWebReverseRadiusMedium,
+              borderRadius: kOpenHandBorderRadius8,
               border: Border.all(color: cs.outlineVariant),
             ),
             child: SingleChildScrollView(

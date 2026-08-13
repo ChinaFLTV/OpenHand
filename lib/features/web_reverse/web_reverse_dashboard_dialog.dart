@@ -218,7 +218,7 @@ class _DashboardScriptCodeEditor extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
         decoration: BoxDecoration(
           color: cs.surface,
-          borderRadius: kWebReverseRadiusXLarge,
+          borderRadius: kOpenHandBorderRadius12,
           border: Border.all(color: cs.outlineVariant),
         ),
         child: TextField(
@@ -424,7 +424,7 @@ class _DashboardScriptResultPreview extends StatelessWidget {
                 padding: const EdgeInsets.all(10),
                 decoration: BoxDecoration(
                   color: cs.primary.withValues(alpha: 0.06),
-                  borderRadius: kWebReverseRadiusLarge,
+                  borderRadius: kOpenHandBorderRadius10,
                   border: Border.all(color: cs.primary.withValues(alpha: 0.25)),
                 ),
                 child: Row(
@@ -616,7 +616,7 @@ class _DashboardToggleTileState extends State<_DashboardToggleTile>
           padding: const EdgeInsets.fromLTRB(10, 6, 6, 6),
           decoration: BoxDecoration(
             color: background,
-            borderRadius: kWebReverseRadiusLarge,
+            borderRadius: kOpenHandBorderRadius10,
             border: Border.all(color: border),
           ),
           child: Row(
@@ -1658,7 +1658,7 @@ class _WebReverseDashboardDialogState
             height: 36,
             decoration: BoxDecoration(
               color: cs.primaryContainer,
-              borderRadius: kWebReverseRadiusLarge,
+              borderRadius: kOpenHandBorderRadius10,
             ),
             alignment: Alignment.center,
             child: Icon(
@@ -2452,7 +2452,7 @@ class _OverviewBodyState extends State<_OverviewBody> {
             padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
             decoration: BoxDecoration(
               color: cs.tertiaryContainer.withValues(alpha: 0.8),
-              borderRadius: kWebReverseRadiusXLarge,
+              borderRadius: kOpenHandBorderRadius12,
               border: Border.all(color: cs.tertiary.withValues(alpha: 0.6)),
             ),
             child: Row(
@@ -2784,7 +2784,7 @@ class _DiagnosisBannerState extends State<_DiagnosisBanner>
         padding: const EdgeInsets.fromLTRB(14, 10, 8, 12),
         decoration: BoxDecoration(
           color: cs.errorContainer.withValues(alpha: 0.45),
-          borderRadius: kWebReverseRadiusXLarge,
+          borderRadius: kOpenHandBorderRadius12,
           border: Border.all(color: cs.error.withValues(alpha: 0.65)),
         ),
         child: Column(
@@ -2960,7 +2960,7 @@ class _CauseEntry extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: cs.surface.withValues(alpha: 0.7),
-        borderRadius: kWebReverseRadiusMedium,
+        borderRadius: kOpenHandBorderRadius8,
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
@@ -3278,7 +3278,7 @@ class _ShortcutsHelpDialog extends StatelessWidget {
                               ),
                               decoration: BoxDecoration(
                                 color: cs.surfaceContainerHighest,
-                                borderRadius: kWebReverseRadiusSmall,
+                                borderRadius: kOpenHandBorderRadius6,
                                 border: Border.all(color: cs.outlineVariant),
                               ),
                               child: Text(

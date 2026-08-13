@@ -640,7 +640,7 @@ class _KnowledgeSourceCard extends StatelessWidget {
                             height: 54,
                             decoration: BoxDecoration(
                               color: colorScheme.primaryContainer,
-                              borderRadius: kKnowledgeRadiusXXXLarge,
+                              borderRadius: kOpenHandBorderRadius18,
                             ),
                             child: Icon(
                               knowledgeSourceKindIcon(source.kind),

@@ -126,14 +126,6 @@ const int _kSettingsToolResultCompressionMaxPathHits = 200;
 const int _kSettingsWriteToolSummaryMaxChars = 8192;
 const int _kThrottleConfigImportMaxBytes = 1 * kBytesPerMiB;
 
-// 通用圆角档位：收敛散落的 BorderRadius.circular 字面量。
-const BorderRadius _kSettingsRadiusXS = BorderRadius.all(Radius.circular(kOpenHandRadius4));
-const BorderRadius _kSettingsRadiusSmall = BorderRadius.all(Radius.circular(kOpenHandRadius8));
-const BorderRadius _kSettingsRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius10));
-const BorderRadius _kSettingsRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius12));
-const BorderRadius _kSettingsRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius14));
-const BorderRadius _kSettingsRadiusXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius16));
-const BorderRadius _kSettingsRadiusXXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius18));
 
 bool _settingsMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);
@@ -625,7 +617,7 @@ Widget _buildToolEngineStatRow<T extends WebEngineSampleBase>({
                     height: 8,
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHighest,
-                      borderRadius: _kSettingsRadiusXS,
+                      borderRadius: kOpenHandBorderRadius4,
                     ),
                   ),
                   FractionallySizedBox(
@@ -634,7 +626,7 @@ Widget _buildToolEngineStatRow<T extends WebEngineSampleBase>({
                       height: 8,
                       decoration: BoxDecoration(
                         color: percentageColor,
-                        borderRadius: _kSettingsRadiusXS,
+                        borderRadius: kOpenHandBorderRadius4,
                       ),
                     ),
                   ),
@@ -840,7 +832,7 @@ Widget _buildToolCallLogRow({
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
             color: chipBackground,
-            borderRadius: _kSettingsRadiusXS,
+            borderRadius: kOpenHandBorderRadius4,
           ),
           child: Text(
             chipLabel,
@@ -7451,7 +7443,7 @@ class _ThrottleDisabledBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
       decoration: BoxDecoration(
         color: scheme.errorContainer.withValues(alpha: 0.55),
-        borderRadius: _kSettingsRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: scheme.error.withValues(alpha: 0.45)),
       ),
       child: Row(
@@ -7674,7 +7666,7 @@ class _ThrottleImportDiffContent extends StatelessWidget {
           child: Container(
             decoration: BoxDecoration(
               border: Border.all(color: scheme.outlineVariant),
-              borderRadius: _kSettingsRadiusLarge,
+              borderRadius: kOpenHandBorderRadius12,
             ),
             child: ListView.separated(
               shrinkWrap: true,
@@ -8056,7 +8048,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: scheme.surfaceContainerHighest.withValues(alpha: 0.6),
-        borderRadius: _kSettingsRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius14,
         border: Border.all(color: scheme.outlineVariant),
       ),
       child: Column(
@@ -8107,7 +8099,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: scheme.tertiaryContainer.withValues(alpha: 0.5),
-                borderRadius: _kSettingsRadiusMedium,
+                borderRadius: kOpenHandBorderRadius10,
               ),
               child: Text(
                 _providerHintMessage(context, providerEnum),
@@ -8121,7 +8113,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: scheme.tertiaryContainer.withValues(alpha: 0.5),
-                borderRadius: _kSettingsRadiusMedium,
+                borderRadius: kOpenHandBorderRadius10,
               ),
               child: Text(
                 _providerHintMessage(context, providerEnum),
@@ -8253,7 +8245,7 @@ class _ThrottleCloudSyncEditorState extends State<_ThrottleCloudSyncEditor> {
                             ? scheme.errorContainer
                             : scheme.primaryContainer)
                         .withValues(alpha: 0.6),
-                borderRadius: _kSettingsRadiusMedium,
+                borderRadius: kOpenHandBorderRadius10,
               ),
               child: Text(
                 _status,

@@ -387,7 +387,7 @@ class _CookieEditorDialogState extends State<_CookieEditorDialog> {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.15),
-        borderRadius: kWebReverseRadiusXS,
+        borderRadius: kOpenHandBorderRadius4,
       ),
       child: Text(
         text,

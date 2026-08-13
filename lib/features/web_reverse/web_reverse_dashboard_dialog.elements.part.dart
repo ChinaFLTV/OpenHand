@@ -694,7 +694,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
                     ),
                     decoration: BoxDecoration(
                       color: cs.primary.withValues(alpha: 0.15),
-                      borderRadius: kWebReverseRadiusSmall,
+                      borderRadius: kOpenHandBorderRadius6,
                     ),
                     child: Text(
                       type,
@@ -745,7 +745,7 @@ class _ElementsBodyState extends State<_ElementsBody> {
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 1),
       decoration: BoxDecoration(
         color: cs.tertiary.withValues(alpha: 0.12),
-        borderRadius: kWebReverseRadiusXS,
+        borderRadius: kOpenHandBorderRadius4,
       ),
       child: Text(
         text,

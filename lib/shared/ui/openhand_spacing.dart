@@ -70,3 +70,36 @@ const double kOpenHandRadius20 = 20;
 const double kOpenHandRadius22 = 22;
 const double kOpenHandRadius24 = 24;
 
+/// 全局 [BorderRadius] token —— 与上面的标量一一对应。
+///
+/// 此前各功能模块各自声明 `BorderRadius.all(Radius.circular(kOpenHandRadiusN))`，
+/// 且尺寸命名互相矛盾（同一个 12 在一处叫 Medium、另一处叫 XLarge），改一次
+/// 圆角要跨七八个文件对照。统一按数值命名后，一个值只有一个名字。
+const BorderRadius kOpenHandBorderRadius4 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius4),
+);
+const BorderRadius kOpenHandBorderRadius6 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius6),
+);
+const BorderRadius kOpenHandBorderRadius8 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius8),
+);
+const BorderRadius kOpenHandBorderRadius10 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius10),
+);
+const BorderRadius kOpenHandBorderRadius12 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius12),
+);
+const BorderRadius kOpenHandBorderRadius14 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius14),
+);
+const BorderRadius kOpenHandBorderRadius16 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius16),
+);
+const BorderRadius kOpenHandBorderRadius18 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius18),
+);
+const BorderRadius kOpenHandBorderRadius20 = BorderRadius.all(
+  Radius.circular(kOpenHandRadius20),
+);
+

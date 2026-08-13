@@ -257,7 +257,7 @@ class _WriteCommandConfirmationDialogState
                               color: Theme.of(
                                 context,
                               ).colorScheme.surfaceContainerHighest,
-                              borderRadius: _kHomeRadiusXXLarge,
+                              borderRadius: kOpenHandBorderRadius16,
                             ),
                             child: SingleChildScrollView(
                               scrollDirection: Axis.horizontal,
@@ -279,7 +279,7 @@ class _WriteCommandConfirmationDialogState
                               color: Theme.of(
                                 context,
                               ).colorScheme.surfaceContainerHighest,
-                              borderRadius: _kHomeRadiusXXLarge,
+                              borderRadius: kOpenHandBorderRadius16,
                               border: Border.all(
                                 color: Theme.of(
                                   context,
@@ -401,7 +401,7 @@ class _WriteCommandDirectoryPanel extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow.withValues(alpha: 0.82),
-        borderRadius: _kHomeRadiusXXLarge,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.42)),
       ),
       child: Row(

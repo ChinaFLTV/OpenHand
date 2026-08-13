@@ -6,6 +6,7 @@ import 'package:provider/provider.dart';
 
 import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/byte_size_format.dart';
@@ -2047,7 +2048,7 @@ class _MetricDialogHeader extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: tone.withValues(alpha: 0.14),
-                  borderRadius: kServiceRadiusLarge,
+                  borderRadius: kOpenHandBorderRadius14,
                   border: Border.all(color: tone.withValues(alpha: 0.28)),
                 ),
                 child: Icon(kind.icon, color: tone, size: 24),
@@ -2281,7 +2282,7 @@ class _MetricSection extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow.withValues(alpha: 0.78),
-        borderRadius: kServiceRadiusLarge,
+        borderRadius: kOpenHandBorderRadius14,
         border: Border.all(
           color: colors.outlineVariant.withValues(alpha: 0.42),
         ),
@@ -2426,7 +2427,7 @@ class _KpiStrip extends StatelessWidget {
         return DecoratedBox(
           decoration: BoxDecoration(
             color: colors.surfaceContainerHighest.withValues(alpha: 0.34),
-            borderRadius: kServiceRadiusLarge,
+            borderRadius: kOpenHandBorderRadius14,
             border: Border.all(
               color: colors.outlineVariant.withValues(alpha: 0.5),
             ),
@@ -2592,7 +2593,7 @@ class _StatusTag extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.1),
-      borderRadius: kServiceRadiusPill,
+      borderRadius: kOpenHandPillBorderRadius,
       border: Border.all(color: color.withValues(alpha: 0.25)),
     ),
     child: Row(
@@ -2656,7 +2657,7 @@ class _ConnectionCapacityHero extends StatelessWidget {
           riskColor.withValues(alpha: 0.08),
           colors.surfaceContainerHigh,
         ),
-        borderRadius: kServiceRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(color: riskColor.withValues(alpha: 0.28)),
       ),
       child: Padding(
@@ -2718,7 +2719,7 @@ class _ConnectionCapacityHero extends StatelessWidget {
                 ),
                 kOpenHandGap12,
                 ClipRRect(
-                  borderRadius: kServiceRadiusPill,
+                  borderRadius: kOpenHandPillBorderRadius,
                   child: ServiceAnimatedProgressBar(
                     minHeight: 8,
                     value: ratio.clamp(0.0, 1.0),
@@ -2818,7 +2819,7 @@ class _MemoryRiskHero extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
-        borderRadius: kServiceRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(color: riskColor.withValues(alpha: 0.28)),
         color: Color.alphaBlend(
           riskColor.withValues(alpha: 0.07),
@@ -2916,7 +2917,7 @@ class _ThroughputHero extends StatelessWidget {
           tone.withValues(alpha: 0.1),
           colors.surfaceContainerHigh,
         ),
-        borderRadius: kServiceRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(color: tone.withValues(alpha: 0.28)),
       ),
       child: Column(
@@ -2941,7 +2942,7 @@ class _ThroughputHero extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHigh,
-        borderRadius: kServiceRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(
           color: colors.outlineVariant.withValues(alpha: 0.55),
         ),
@@ -3102,7 +3103,7 @@ class _DirectionMetric extends StatelessWidget {
           color.withValues(alpha: 0.08),
           Theme.of(context).colorScheme.surfaceContainerHigh,
         ),
-        borderRadius: kServiceRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(color: color.withValues(alpha: 0.26)),
       ),
       child: Row(
@@ -3448,7 +3449,7 @@ class _UsageRail extends StatelessWidget {
         ),
         kOpenHandGap8,
         ClipRRect(
-          borderRadius: kServiceRadiusPill,
+          borderRadius: kOpenHandPillBorderRadius,
           child: ServiceAnimatedProgressBar(
             minHeight: 11,
             value: value.clamp(0.0, 1.0),

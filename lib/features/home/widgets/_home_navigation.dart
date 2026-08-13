@@ -526,7 +526,7 @@ class _NavigationPaneState extends State<_NavigationPane> {
                                 decoration: BoxDecoration(
                                   color: colorScheme.surfaceContainerLowest
                                       .withValues(alpha: 0.55),
-                                  borderRadius: _borderRadius18,
+                                  borderRadius: kOpenHandBorderRadius18,
                                   border: Border.all(
                                     color: colorScheme.outlineVariant
                                         .withValues(alpha: 0.45),

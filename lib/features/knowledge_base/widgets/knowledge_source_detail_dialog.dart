@@ -260,7 +260,7 @@ class _ChunkTile extends StatelessWidget {
       padding: const EdgeInsets.only(bottom: 8),
       child: Material(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.76),
-        borderRadius: kKnowledgeRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
         clipBehavior: Clip.antiAlias,
         child: InkWell(
           onTap: () => showKnowledgeChunkDetailDialog(
@@ -272,7 +272,7 @@ class _ChunkTile extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              borderRadius: kKnowledgeRadiusLarge,
+              borderRadius: kOpenHandBorderRadius12,
               border: Border.all(
                 color: colorScheme.outlineVariant.withValues(alpha: 0.48),
               ),

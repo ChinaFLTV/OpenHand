@@ -210,7 +210,7 @@ class _HooksBodyState extends State<_HooksBody>
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: cs.primary.withValues(alpha: 0.04),
-                    borderRadius: kWebReverseRadiusLarge,
+                    borderRadius: kOpenHandBorderRadius10,
                     border: Border.all(
                       color: cs.primary.withValues(alpha: 0.18),
                     ),

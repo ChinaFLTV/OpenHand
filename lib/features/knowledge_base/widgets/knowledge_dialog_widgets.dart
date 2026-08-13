@@ -13,11 +13,6 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 
 // 知识库对话框统一圆角档位。
-const BorderRadius kKnowledgeRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius10));
-const BorderRadius kKnowledgeRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius12));
-const BorderRadius kKnowledgeRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius14));
-const BorderRadius kKnowledgeRadiusXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius16));
-const BorderRadius kKnowledgeRadiusXXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius18));
 
 IconData knowledgeSourceKindIcon(String kind) {
   return switch (kind.trim().toLowerCase()) {

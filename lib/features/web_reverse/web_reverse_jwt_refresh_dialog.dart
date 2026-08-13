@@ -536,7 +536,7 @@ class _JwtRefreshDialogState extends State<_JwtRefreshDialog> {
                           color: l.ok
                               ? cs.surfaceContainerHigh
                               : cs.errorContainer,
-                          borderRadius: kWebReverseRadiusSmall,
+                          borderRadius: kOpenHandBorderRadius6,
                         ),
                         child: Row(
                           crossAxisAlignment: CrossAxisAlignment.start,
@@ -632,7 +632,7 @@ class _SampleCard extends StatelessWidget {
                   ),
                   decoration: BoxDecoration(
                     color: cs.primaryContainer.withValues(alpha: 0.5),
-                    borderRadius: kWebReverseRadiusXS,
+                    borderRadius: kOpenHandBorderRadius4,
                   ),
                   child: Text(
                     sample.source,

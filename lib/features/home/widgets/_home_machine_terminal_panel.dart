@@ -206,7 +206,7 @@ class _MachineExpertTerminalPanelState
             child: DecoratedBox(
               decoration: _machineTerminalSurfaceDecoration(cs, radius: 8),
               child: ClipRRect(
-                borderRadius: _kHomeRadiusSmall,
+                borderRadius: kOpenHandBorderRadius8,
                 child: _MachineTerminalViewport(
                   key: ValueKey<String>(
                     'machine-terminal-view-${activeSession.id}',
@@ -383,7 +383,7 @@ class _MachineTerminalHeader extends StatelessWidget {
                   cs,
                   snapshot.status,
                 ).withValues(alpha: 0.14),
-                borderRadius: _kHomeRadiusLarge,
+                borderRadius: kOpenHandBorderRadius12,
                 border: Border.all(
                   color: _terminalStatusColor(
                     cs,
@@ -587,7 +587,7 @@ class _MachineTerminalHistoryDialogState
         height: dialogHeight,
         decoration: BoxDecoration(
           color: cs.surface,
-          borderRadius: _kHomeRadiusFull,
+          borderRadius: kOpenHandBorderRadius20,
           border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
           boxShadow: <BoxShadow>[
             BoxShadow(
@@ -650,11 +650,11 @@ class _MachineTerminalHistoryDialogState
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.34),
-        borderRadius: _kHomeRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius14,
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.54)),
       ),
       child: ClipRRect(
-        borderRadius: _kHomeRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius14,
         child: LayoutBuilder(
           builder: (context, constraints) {
             final columns = _MachineTerminalHistoryColumnLayout.fromWidth(
@@ -1324,7 +1324,7 @@ class _MachineTerminalHistoryDetailDialogState
         height: dialogHeight,
         decoration: BoxDecoration(
           color: cs.surface,
-          borderRadius: _kHomeRadiusFull,
+          borderRadius: kOpenHandBorderRadius20,
           border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
           boxShadow: <BoxShadow>[
             BoxShadow(
@@ -1516,7 +1516,7 @@ class _MachineTerminalReplayViewState
     return DecoratedBox(
       decoration: _machineTerminalSurfaceDecoration(cs, radius: 14),
       child: ClipRRect(
-        borderRadius: _kHomeRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius14,
         child: RepaintBoundary(
           child: TerminalView(
             _terminal,
@@ -1577,7 +1577,7 @@ class _MachineTerminalCommandHistoryList extends StatelessWidget {
       return DecoratedBox(
         decoration: BoxDecoration(
           color: cs.surfaceContainerHighest.withValues(alpha: 0.34),
-          borderRadius: _kHomeRadiusXLarge,
+          borderRadius: kOpenHandBorderRadius14,
           border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.48)),
         ),
         child: OpenHandInlineEmptyState(
@@ -1593,11 +1593,11 @@ class _MachineTerminalCommandHistoryList extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.30),
-        borderRadius: _kHomeRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius14,
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.48)),
       ),
       child: ClipRRect(
-        borderRadius: _kHomeRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius14,
         child: ListView.separated(
           physics: kOpenHandDialogScrollPhysics,
           padding: const EdgeInsets.all(12),
@@ -1637,7 +1637,7 @@ class _MachineTerminalCommandHistoryTile extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surface.withValues(alpha: 0.72),
-        borderRadius: _kHomeRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.42)),
       ),
       child: OpenHandExpansionTile(
@@ -1742,7 +1742,7 @@ class _MachineTerminalDialogHeader extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: cs.primary.withValues(alpha: 0.13),
-              borderRadius: _kHomeRadiusXLarge,
+              borderRadius: kOpenHandBorderRadius14,
               border: Border.all(color: cs.primary.withValues(alpha: 0.26)),
             ),
             child: Icon(icon, color: cs.primary, size: 22),
@@ -1807,7 +1807,7 @@ class _MachineTerminalHistoryMetric extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.52),
-        borderRadius: _kHomeRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.44)),
       ),
       child: Padding(
@@ -1976,7 +1976,7 @@ class _MachineTerminalTabs extends StatelessWidget {
           final terminal = terminals[index];
           final selected = terminal.terminalId == workspace.activeTerminalId;
           return InkWell(
-            borderRadius: _kHomeRadiusSmall,
+            borderRadius: kOpenHandBorderRadius8,
             onTap: selected ? null : () => onSelected(terminal.terminalId),
             child: AnimatedContainer(
               duration: duration,
@@ -1987,7 +1987,7 @@ class _MachineTerminalTabs extends StatelessWidget {
                 color: selected
                     ? cs.primary.withValues(alpha: 0.15)
                     : cs.surface.withValues(alpha: 0.54),
-                borderRadius: _kHomeRadiusSmall,
+                borderRadius: kOpenHandBorderRadius8,
                 border: Border.all(
                   color: selected
                       ? cs.primary.withValues(alpha: 0.42)
@@ -2075,7 +2075,7 @@ class _MachineTerminalMetadataBar extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surface.withValues(alpha: 0.64),
-        borderRadius: _kHomeRadiusSmall,
+        borderRadius: kOpenHandBorderRadius8,
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.50)),
       ),
       child: Padding(
@@ -2163,7 +2163,7 @@ class _MachineTerminalChip extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: color.withValues(alpha: 0.12),
-          borderRadius: _kHomeRadiusSmall,
+          borderRadius: kOpenHandBorderRadius8,
           border: Border.all(color: color.withValues(alpha: 0.24)),
         ),
         child: Padding(
@@ -2212,7 +2212,7 @@ class _MachineTerminalIconButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        borderRadius: _kHomeRadiusSmall,
+        borderRadius: kOpenHandBorderRadius8,
         onTap: onPressed,
         child: AnimatedOpacity(
           duration: duration,
@@ -2223,7 +2223,7 @@ class _MachineTerminalIconButton extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: cs.surface.withValues(alpha: 0.72),
-              borderRadius: _kHomeRadiusSmall,
+              borderRadius: kOpenHandBorderRadius8,
               border: Border.all(
                 color: cs.outlineVariant.withValues(alpha: 0.55),
               ),

@@ -158,7 +158,7 @@ extension on _SettingsViewState {
             control: AnimatedDropdownButton<int>(
               value: settingsController.editorIndentSpaces,
               underline: const SizedBox.shrink(),
-              borderRadius: _kSettingsRadiusLarge,
+              borderRadius: kOpenHandBorderRadius12,
               items: editorIndentSpaceOptions
                   .map(
                     (spaces) => DropdownMenuItem<int>(
@@ -197,7 +197,7 @@ extension on _SettingsViewState {
             control: AnimatedDropdownButton<EditorCodeTheme>(
               value: settingsController.editorCodeTheme,
               underline: const SizedBox.shrink(),
-              borderRadius: _kSettingsRadiusLarge,
+              borderRadius: kOpenHandBorderRadius12,
               items: EditorCodeTheme.values
                   .map((theme) {
                     final darkSurface =
@@ -796,12 +796,12 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
         child: Material(
           color: Colors.transparent,
           child: InkWell(
-            borderRadius: _kSettingsRadiusXXXLarge,
+            borderRadius: kOpenHandBorderRadius18,
             onTap: widget.onTap,
             child: Ink(
               decoration: BoxDecoration(
                 color: colorScheme.surface,
-                borderRadius: _kSettingsRadiusXXXLarge,
+                borderRadius: kOpenHandBorderRadius18,
                 border: Border.all(
                   color: colorScheme.outlineVariant.withValues(alpha: 0.35),
                 ),
@@ -818,7 +818,7 @@ class _EditorLspLanguageRowState extends State<_EditorLspLanguageRow> {
                       height: 38,
                       decoration: BoxDecoration(
                         color: colorScheme.primaryContainer,
-                        borderRadius: _kSettingsRadiusLarge,
+                        borderRadius: kOpenHandBorderRadius12,
                       ),
                       alignment: Alignment.center,
                       child: Icon(
@@ -934,7 +934,7 @@ class _EditorLspInlineNotice extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.08),
-        borderRadius: _kSettingsRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: color.withValues(alpha: 0.18)),
       ),
       child: Row(
@@ -2066,7 +2066,7 @@ class _EditorLspConfigDialogState extends State<_EditorLspConfigDialog> {
                   padding: const EdgeInsets.all(12),
                   decoration: BoxDecoration(
                     color: colorScheme.primary.withValues(alpha: 0.08),
-                    borderRadius: _kSettingsRadiusLarge,
+                    borderRadius: kOpenHandBorderRadius12,
                     border: Border.all(
                       color: colorScheme.primary.withValues(alpha: 0.16),
                     ),
@@ -2425,7 +2425,7 @@ class _EditorLspInstallRunnerDialogState
               child: DecoratedBox(
                 decoration: BoxDecoration(
                   color: terminalBackground,
-                  borderRadius: _kSettingsRadiusLarge,
+                  borderRadius: kOpenHandBorderRadius12,
                   border: Border.all(color: terminalBorder),
                   boxShadow: const [
                     BoxShadow(

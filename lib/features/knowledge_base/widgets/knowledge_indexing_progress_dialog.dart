@@ -209,7 +209,7 @@ class _KnowledgeIndexingProgressDialog extends StatelessWidget {
                           color: colorScheme.errorContainer.withValues(
                             alpha: 0.42,
                           ),
-                          borderRadius: kKnowledgeRadiusLarge,
+                          borderRadius: kOpenHandBorderRadius12,
                           border: Border.all(
                             color: colorScheme.error.withValues(alpha: 0.22),
                           ),
@@ -356,7 +356,7 @@ class _KnowledgeIndexingPulseIcon extends StatelessWidget {
               color: cancelling
                   ? colorScheme.errorContainer
                   : colorScheme.primaryContainer,
-              borderRadius: kKnowledgeRadiusXXXLarge,
+              borderRadius: kOpenHandBorderRadius18,
             ),
             child: Icon(
               cancelling ? Icons.stop_circle_outlined : Icons.hub_outlined,

@@ -256,7 +256,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
               Expanded(
                 child: TextField(
                   controller: _mouseX,
-                  decoration: const InputDecoration(labelText: 'X', border: OutlineInputBorder(borderRadius: kWebReverseRadiusLarge)),
+                  decoration: const InputDecoration(labelText: 'X', border: OutlineInputBorder(borderRadius: kOpenHandBorderRadius10)),
                   keyboardType: TextInputType.number,
                 ),
               ),
@@ -264,7 +264,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
               Expanded(
                 child: TextField(
                   controller: _mouseY,
-                  decoration: const InputDecoration(labelText: 'Y', border: OutlineInputBorder(borderRadius: kWebReverseRadiusLarge)),
+                  decoration: const InputDecoration(labelText: 'Y', border: OutlineInputBorder(borderRadius: kOpenHandBorderRadius10)),
                   keyboardType: TextInputType.number,
                 ),
               ),
@@ -350,12 +350,12 @@ class _InputSimDialogState extends State<_InputSimDialog>
         children: [
           TextField(
             controller: _keyKey,
-            decoration: const InputDecoration(labelText: 'key', hintText: 'Enter / ArrowDown / a', border: OutlineInputBorder(borderRadius: kWebReverseRadiusLarge)),
+            decoration: const InputDecoration(labelText: 'key', hintText: 'Enter / ArrowDown / a', border: OutlineInputBorder(borderRadius: kOpenHandBorderRadius10)),
           ),
           kOpenHandGap10,
           TextField(
             controller: _keyCode,
-            decoration: const InputDecoration(labelText: 'code', hintText: 'KeyA / Enter / ArrowDown', border: OutlineInputBorder(borderRadius: kWebReverseRadiusLarge)),
+            decoration: const InputDecoration(labelText: 'code', hintText: 'KeyA / Enter / ArrowDown', border: OutlineInputBorder(borderRadius: kOpenHandBorderRadius10)),
           ),
           kOpenHandGap10,
           TextField(
@@ -364,7 +364,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
               labelText:
                   loc?.webReverseInputSimKeyTextLabel ??
                   'text (printable char)',
-              border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
+              border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
             ),
           ),
           kOpenHandGap12,
@@ -399,7 +399,7 @@ class _InputSimDialogState extends State<_InputSimDialog>
             controller: _insertCtrl,
             decoration: InputDecoration(
               labelText: loc?.webReverseInputSimInsertTextLabel ?? 'insertText',
-              border: const OutlineInputBorder(borderRadius: kWebReverseRadiusLarge),
+              border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
             ),
             minLines: 4,
             maxLines: 8,

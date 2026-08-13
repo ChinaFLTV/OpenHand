@@ -441,7 +441,7 @@ class _AiTtsSettingsPanel extends StatelessWidget {
           color: theme.colorScheme.surfaceContainerLowest.withValues(
             alpha: 0.72,
           ),
-          borderRadius: _kSettingsRadiusXXLarge,
+          borderRadius: kOpenHandBorderRadius16,
           border: Border.all(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.52),
           ),
@@ -536,7 +536,7 @@ class _AiTranslationSettingsPanel extends StatelessWidget {
           color: theme.colorScheme.surfaceContainerLowest.withValues(
             alpha: 0.72,
           ),
-          borderRadius: _kSettingsRadiusXXLarge,
+          borderRadius: kOpenHandBorderRadius16,
           border: Border.all(
             color: theme.colorScheme.outlineVariant.withValues(alpha: 0.52),
           ),
@@ -920,7 +920,7 @@ class _AiTranslationProviderCardState
     final card = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        borderRadius: _kSettingsRadiusXXLarge,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(
           color: providerSettings.enabled
               ? theme.colorScheme.primary.withValues(alpha: 0.28)
@@ -1437,7 +1437,7 @@ class _AiTranslationProviderDragFeedbackCard extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: theme.colorScheme.surfaceContainerHighest,
-          borderRadius: _kSettingsRadiusXXLarge,
+          borderRadius: kOpenHandBorderRadius16,
           border: Border.all(
             color: theme.colorScheme.primary.withValues(alpha: 0.28),
           ),
@@ -1775,7 +1775,7 @@ class _AiTtsProviderCardState extends State<_AiTtsProviderCard> {
     final card = Container(
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
-        borderRadius: _kSettingsRadiusXXLarge,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(
           color: providerSettings.enabled
               ? theme.colorScheme.primary.withValues(alpha: 0.28)
@@ -2749,7 +2749,7 @@ class _AiTtsProviderDragFeedbackCard extends StatelessWidget {
       ),
       child: DecoratedBox(
         decoration: BoxDecoration(
-          borderRadius: _kSettingsRadiusXXXLarge,
+          borderRadius: kOpenHandBorderRadius18,
           color: Color.alphaBlend(
             colorScheme.primary.withValues(alpha: enabled ? 0.055 : 0),
             colorScheme.surfaceContainerHigh,
@@ -2779,7 +2779,7 @@ class _AiTtsProviderDragFeedbackCard extends StatelessWidget {
                     width: _aiTtsDragHandleSize,
                     height: _aiTtsDragHandleSize,
                     decoration: BoxDecoration(
-                      borderRadius: _kSettingsRadiusLarge,
+                      borderRadius: kOpenHandBorderRadius12,
                       color: colorScheme.primaryContainer.withValues(
                         alpha: 0.68,
                       ),
@@ -2900,7 +2900,7 @@ class _AiProviderDragHandleFrame extends StatelessWidget {
             height: _aiTtsDragHandleSize,
             margin: const EdgeInsets.only(right: 10, top: 1),
             decoration: BoxDecoration(
-              borderRadius: _kSettingsRadiusLarge,
+              borderRadius: kOpenHandBorderRadius12,
               color: theme.colorScheme.surfaceContainerHigh,
               border: Border.all(
                 color: theme.colorScheme.outlineVariant.withValues(alpha: 0.74),
@@ -3085,7 +3085,7 @@ class _AiTtsProviderSection extends StatelessWidget {
       width: double.infinity,
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
-        borderRadius: _kSettingsRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius14,
         border: Border.all(
           color: theme.colorScheme.outlineVariant.withValues(alpha: 0.58),
         ),
@@ -3155,7 +3155,7 @@ class _AiTtsToggleField extends StatelessWidget {
       constraints: const BoxConstraints(minHeight: 56),
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 7),
       decoration: BoxDecoration(
-        borderRadius: _kSettingsRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
         color: theme.colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
         border: Border.all(
           color: value
@@ -4673,7 +4673,7 @@ class _SettingsStatusChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: backgroundColor,
-        borderRadius: _kSettingsRadiusXS,
+        borderRadius: kOpenHandBorderRadius4,
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -4789,7 +4789,7 @@ class _SettingsStateBox extends StatelessWidget {
               height: 52,
               decoration: BoxDecoration(
                 color: colorScheme.primaryContainer,
-                borderRadius: _kSettingsRadiusXXXLarge,
+                borderRadius: kOpenHandBorderRadius18,
               ),
               alignment: Alignment.center,
               child: Icon(icon, color: colorScheme.onPrimaryContainer),
@@ -6411,7 +6411,7 @@ class _ToolEngineCardShell extends StatelessWidget {
           color: enabled
               ? colorScheme.surfaceContainerLow
               : colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
-          borderRadius: _kSettingsRadiusLarge,
+          borderRadius: kOpenHandBorderRadius12,
           border: Border.all(
             color: enabled
                 ? colorScheme.primary.withValues(alpha: 0.4)

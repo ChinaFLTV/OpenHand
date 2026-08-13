@@ -255,7 +255,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                   ),
                   decoration: BoxDecoration(
                     color: cs.primaryContainer,
-                    borderRadius: kWebReverseRadiusSmall,
+                    borderRadius: kOpenHandBorderRadius6,
                   ),
                   child: Text(
                     loc?.webReverseCoverageRecording ?? 'RECORDING',

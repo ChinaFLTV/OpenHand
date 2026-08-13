@@ -58,10 +58,6 @@ const Color _kAiExposureDarkSurface = Color(0xff0b0e12);
 const Color _kAiExposureColorSlate500 = Color(0xff64748b);
 const Color _kAiExposureDarkOnSurface = Color(0xffd5dae3);
 
-// 通用圆角档位。
-const BorderRadius _kAiExposureRadiusSmall = BorderRadius.all(Radius.circular(kOpenHandRadius8));
-const BorderRadius _kAiExposureRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius12));
-const BorderRadius _kAiExposureRadiusPill = BorderRadius.all(Radius.circular(999));
 
 Future<void> showAiExposureOperationsDialog(BuildContext context) =>
     showAnimatedDialog<void>(

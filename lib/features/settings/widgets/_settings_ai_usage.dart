@@ -546,7 +546,7 @@ class _AiUsageHeroPill extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 15, vertical: 12),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: _kSettingsRadiusXXLarge,
+        borderRadius: kOpenHandBorderRadius16,
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Row(
@@ -779,7 +779,7 @@ class _AiUsageMetricCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: _kSettingsRadiusXXXLarge,
+        borderRadius: kOpenHandBorderRadius18,
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
@@ -1076,7 +1076,7 @@ class _AiUsageOverviewMetricCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLowest,
-        borderRadius: _kSettingsRadiusXXXLarge,
+        borderRadius: kOpenHandBorderRadius18,
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
@@ -1290,7 +1290,7 @@ class _AiUsageDistributionCardState extends State<_AiUsageDistributionCard> {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: theme.colorScheme.surfaceContainerLowest,
-            borderRadius: _kSettingsRadiusXXXLarge,
+            borderRadius: kOpenHandBorderRadius18,
             border: Border.all(color: theme.colorScheme.outlineVariant),
           ),
           child: Padding(
@@ -1678,7 +1678,7 @@ class _AiUsageTrendChartState extends State<_AiUsageTrendChart> {
               child: Material(
                 elevation: 8,
                 color: theme.colorScheme.inverseSurface,
-                borderRadius: _kSettingsRadiusXLarge,
+                borderRadius: kOpenHandBorderRadius14,
                 child: Padding(
                   padding: const EdgeInsets.all(12),
                   child: DefaultTextStyle(
@@ -2329,12 +2329,12 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
           _kAiUsageBreakdownTableMinWidth,
         );
         return ClipRRect(
-          borderRadius: _kSettingsRadiusXXLarge,
+          borderRadius: kOpenHandBorderRadius16,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerLowest,
               border: Border.all(color: colorScheme.outlineVariant),
-              borderRadius: _kSettingsRadiusXXLarge,
+              borderRadius: kOpenHandBorderRadius16,
             ),
             child: OpenHandSafeScrollbar(
               controller: _horizontalController,
@@ -2602,12 +2602,12 @@ class _AiUsageRequestTableState extends State<_AiUsageRequestTable> {
           _kAiUsageRequestTableMinWidth,
         );
         return ClipRRect(
-          borderRadius: _kSettingsRadiusXXLarge,
+          borderRadius: kOpenHandBorderRadius16,
           child: DecoratedBox(
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerLowest,
               border: Border.all(color: colorScheme.outlineVariant),
-              borderRadius: _kSettingsRadiusXXLarge,
+              borderRadius: kOpenHandBorderRadius16,
             ),
             child: OpenHandSafeScrollbar(
               controller: _horizontalController,
@@ -3017,7 +3017,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                   height: 42,
                   decoration: BoxDecoration(
                     color: statusColor.withValues(alpha: 0.12),
-                    borderRadius: _kSettingsRadiusLarge,
+                    borderRadius: kOpenHandBorderRadius12,
                   ),
                   child: Icon(
                     _usageRequestStatusIcon(record.status),
@@ -3122,7 +3122,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
                       padding: const EdgeInsets.all(16),
                       decoration: BoxDecoration(
                         color: statusColor.withValues(alpha: 0.08),
-                        borderRadius: _kSettingsRadiusLarge,
+                        borderRadius: kOpenHandBorderRadius12,
                         border: Border.all(
                           color: statusColor.withValues(alpha: 0.24),
                         ),
@@ -3259,7 +3259,7 @@ class _AiUsageDetailMetric extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 13),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: _kSettingsRadiusMedium,
+        borderRadius: kOpenHandBorderRadius10,
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Row(
@@ -3308,7 +3308,7 @@ class _AiUsageDetailSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(16, 14, 16, 4),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: _kSettingsRadiusLarge,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
@@ -3764,7 +3764,7 @@ class _AiUsageLoadingState extends StatelessWidget {
                   height: 112,
                   decoration: BoxDecoration(
                     color: color,
-                    borderRadius: _kSettingsRadiusXXXLarge,
+                    borderRadius: kOpenHandBorderRadius18,
                   ),
                 ),
               ),

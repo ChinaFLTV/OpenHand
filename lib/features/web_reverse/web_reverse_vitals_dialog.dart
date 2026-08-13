@@ -296,7 +296,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
                   padding: const EdgeInsets.all(10),
                   decoration: BoxDecoration(
                     color: cs.surfaceContainerHigh,
-                    borderRadius: kWebReverseRadiusLarge,
+                    borderRadius: kOpenHandBorderRadius10,
                   ),
                   child: Text(
                     loc?.webReverseVitalsThresholdsHint ??
@@ -342,7 +342,7 @@ class _VitalsDialogState extends State<_VitalsDialog> {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
-        borderRadius: kWebReverseRadiusXXLarge,
+        borderRadius: kOpenHandBorderRadius14,
         border: Border(left: BorderSide(color: color, width: 3)),
       ),
       child: Column(

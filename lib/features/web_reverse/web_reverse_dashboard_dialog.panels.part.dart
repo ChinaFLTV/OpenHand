@@ -1917,7 +1917,7 @@ class _V8HeapLiveCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHigh,
-        borderRadius: kWebReverseRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(
           color: breached ? cs.error : cs.outlineVariant,
           width: breached ? 1.4 : 1,
@@ -2259,7 +2259,7 @@ class _HeapSamplingSwitchCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
       decoration: BoxDecoration(
         color: activeBg,
-        borderRadius: kWebReverseRadiusXLarge,
+        borderRadius: kOpenHandBorderRadius12,
         border: Border.all(color: activeBorder, width: isSampling ? 1.4 : 1),
       ),
       child: Row(
@@ -4058,7 +4058,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                       for (final s in info.stores)
                         InkWell(
                           onTap: () => _expand(name, s),
-                          borderRadius: kWebReverseRadiusSmall,
+                          borderRadius: kOpenHandBorderRadius6,
                           child: Container(
                             margin: const EdgeInsets.only(left: 22, top: 2),
                             padding: const EdgeInsets.symmetric(
@@ -4072,7 +4072,7 @@ class _IndexedDbTableState extends State<_IndexedDbTable> {
                                       selected.store == s
                                   ? cs.primaryContainer
                                   : Colors.transparent,
-                              borderRadius: kWebReverseRadiusSmall,
+                              borderRadius: kOpenHandBorderRadius6,
                             ),
                             child: Row(
                               children: [
@@ -5347,7 +5347,7 @@ class _RecorderPanelState extends State<_RecorderPanel> {
                           ),
                           decoration: BoxDecoration(
                             color: cs.surfaceContainerHigh,
-                            borderRadius: kWebReverseRadiusMedium,
+                            borderRadius: kOpenHandBorderRadius8,
                           ),
                           child: Row(
                             children: [
@@ -7132,7 +7132,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
                               ),
                               decoration: BoxDecoration(
                                 color: cs.inverseSurface,
-                                borderRadius: kWebReverseRadiusSmall,
+                                borderRadius: kOpenHandBorderRadius6,
                               ),
                               child: Text(
                                 '${_hoverEvent!.name}\n'

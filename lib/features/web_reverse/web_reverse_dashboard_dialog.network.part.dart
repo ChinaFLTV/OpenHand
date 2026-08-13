@@ -436,12 +436,12 @@ class _NetworkRow extends StatelessWidget {
     final blocked = controller.blockedUrls.contains(entry.url);
     return Material(
       color: color,
-      borderRadius: kWebReverseRadiusMedium,
+      borderRadius: kOpenHandBorderRadius8,
       child: InkWell(
         onTap: onTap,
         onLongPress: onCopyUrl,
         onSecondaryTapUp: (d) => _showRowMenu(context, d.globalPosition),
-        borderRadius: kWebReverseRadiusMedium,
+        borderRadius: kOpenHandBorderRadius8,
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
           child: Row(

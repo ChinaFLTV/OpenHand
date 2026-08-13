@@ -172,7 +172,6 @@ final RegExp _tomlKeyValuePattern = RegExp(r'^[A-Za-z0-9_.-]+\s*=');
 final RegExp _tomlBareKeyPattern = RegExp(r'^[A-Za-z0-9_.-]+$');
 
 // 共用圆角常量，避免每次构建重复分配对象。
-const BorderRadius _borderRadius18 = BorderRadius.all(Radius.circular(kOpenHandRadius18));
 const BorderRadius _markdownCodeBlockRadius = BorderRadius.all(
   Radius.circular(kOpenHandRadius14),
 );

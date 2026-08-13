@@ -515,7 +515,7 @@ class _HarPersistenceDialogState extends State<_HarPersistenceDialog> {
                       padding: const EdgeInsets.all(10),
                       decoration: BoxDecoration(
                         color: cs.primaryContainer.withValues(alpha: 0.35),
-                        borderRadius: kWebReverseRadiusMedium,
+                        borderRadius: kOpenHandBorderRadius8,
                         border: Border.all(color: cs.outlineVariant),
                       ),
                       child: Column(

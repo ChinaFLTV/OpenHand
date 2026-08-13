@@ -360,7 +360,7 @@ class _AccountSnapshotsDialogState extends State<_AccountSnapshotsDialog> {
     padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
     decoration: BoxDecoration(
       color: cs.secondaryContainer,
-      borderRadius: kWebReverseRadiusXS,
+      borderRadius: kOpenHandBorderRadius4,
     ),
     child: Text(
       text,

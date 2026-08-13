@@ -202,7 +202,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
                             InkWell(
-                              borderRadius: kWebReverseRadiusLarge,
+                              borderRadius: kOpenHandBorderRadius10,
                               onTap: () => setState(() {
                                 if (open) {
                                   _expanded.remove(c.signature);
@@ -224,7 +224,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                           c.level,
                                           cs,
                                         ).withValues(alpha: 0.15),
-                                        borderRadius: kWebReverseRadiusLarge,
+                                        borderRadius: kOpenHandBorderRadius10,
                                       ),
                                       child: Text(
                                         c.level,
@@ -245,7 +245,7 @@ class _ConsoleClusterDialogState extends State<_ConsoleClusterDialog> {
                                         color: cs.primaryContainer.withValues(
                                           alpha: 0.5,
                                         ),
-                                        borderRadius: kWebReverseRadiusLarge,
+                                        borderRadius: kOpenHandBorderRadius10,
                                       ),
                                       child: Text(
                                         '× ${c.entries.length}',

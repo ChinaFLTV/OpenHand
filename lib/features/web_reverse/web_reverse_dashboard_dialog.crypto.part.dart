@@ -420,7 +420,7 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
         for (final s in samples)
           InkWell(
             onTap: () => _copy(s, 'UUID'),
-            borderRadius: kWebReverseRadiusMedium,
+            borderRadius: kOpenHandBorderRadius8,
             child: Container(
               margin: const EdgeInsets.only(bottom: 4),
               padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
