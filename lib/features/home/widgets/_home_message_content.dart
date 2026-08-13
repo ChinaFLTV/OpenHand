@@ -750,7 +750,7 @@ class _PlainTextPreviewBodyState extends State<_PlainTextPreviewBody>
 /// 纯文本预览未显式给键时的默认滚动状态键。
 String _plainPreviewScrollKey(_PlainTextPreviewBody widget) =>
     'plain-preview|${widget.maxHeight}|${widget.data.length}|'
-    '${widget.data.hashCode}';
+    '${boundedTextFingerprint(widget.data)}';
 
 class _CollapsibleMessageMarkdownBody extends StatefulWidget {
   const _CollapsibleMessageMarkdownBody({
@@ -3288,7 +3288,7 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
 
   String get _scrollStateKey =>
       widget.scrollStateKey ??
-      'plain-message|${widget.data.length}|${widget.data.hashCode}';
+      'plain-message|${widget.data.length}|${boundedTextFingerprint(widget.data)}';
 
   @override
   void didUpdateWidget(covariant _PlainTextMessageBody oldWidget) {
@@ -3301,7 +3301,7 @@ class _PlainTextMessageBodyState extends State<_PlainTextMessageBody> {
     }
     final oldScrollStateKey =
         oldWidget.scrollStateKey ??
-        'plain-message|${oldWidget.data.length}|${oldWidget.data.hashCode}';
+        'plain-message|${oldWidget.data.length}|${boundedTextFingerprint(oldWidget.data)}';
     if (oldScrollStateKey != _scrollStateKey) {
       _CollapsedBodyScrollOffsetCache.reset(_scrollStateKey);
     }

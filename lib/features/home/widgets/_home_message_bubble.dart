@@ -942,7 +942,7 @@ class _MessageBubbleState extends State<_MessageBubble>
             message.id,
             message.responseVariantIndex,
             effectiveContent.length,
-            effectiveContent.hashCode,
+            boundedTextFingerprint(effectiveContent),
           )
         : null;
     final isScrollHighlighted = widget.isScrollHighlighted;
