@@ -74,7 +74,8 @@ part 'web_message_platform_service_telemetry.part.dart';
 /// 会话不存在或已被删除的错误码，与 Web 端 `api/session_events.ts` 的判定一致。
 const String _kWebGatewayErrorSessionMissing = 'session_deleted_or_not_found';
 const String _modelSelectionLockedMessage = '已锁定服务商与模型以保证缓存命中。';
-const String _webShellAssetPath = 'assets/web/index.html';
+const String _webShellAssetPath = '$_kWebAssetRoot/index.html';
+const String _kWebAssetRoot = 'assets/web';
 const String _kJavaScriptContentType = 'application/javascript; charset=utf-8';
 const String _kCssContentType = 'text/css; charset=utf-8';
 const String _kManifestContentType = 'application/manifest+json; charset=utf-8';
@@ -2182,49 +2183,49 @@ class WebMessagePlatformService {
     router.get(
       '/app.js',
       (shelf.Request _) => _serveBundleAsset(
-        'assets/web/app.js',
+        '$_kWebAssetRoot/app.js',
         _kJavaScriptContentType,
       ),
     );
     router.get(
       '/app.css',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/app.css', _kCssContentType),
+          _serveBundleAsset('$_kWebAssetRoot/app.css', _kCssContentType),
     );
     // 兼容旧缓存 shell: 旧 index.html 使用 ./app.css / ./app.js，用户在
     // /threads/<id> 原地刷新时浏览器会解析到 /threads/app.css。
     router.get(
       '/threads/app.js',
       (shelf.Request _) => _serveBundleAsset(
-        'assets/web/app.js',
+        '$_kWebAssetRoot/app.js',
         _kJavaScriptContentType,
       ),
     );
     router.get(
       '/threads/app.css',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/app.css', _kCssContentType),
+          _serveBundleAsset('$_kWebAssetRoot/app.css', _kCssContentType),
     );
     // 通配子路径覆盖 chunks/*.js 与 assets/*.{png,svg,woff2,...}。
     router.get(
       '/chunks/<path|.+>',
       (shelf.Request _, String path) =>
-          _serveBundleAsset('assets/web/chunks/$path', _guessContentType(path)),
+          _serveBundleAsset('$_kWebAssetRoot/chunks/$path', _guessContentType(path)),
     );
     router.get(
       '/threads/chunks/<path|.+>',
       (shelf.Request _, String path) =>
-          _serveBundleAsset('assets/web/chunks/$path', _guessContentType(path)),
+          _serveBundleAsset('$_kWebAssetRoot/chunks/$path', _guessContentType(path)),
     );
     router.get(
       '/assets/<path|.+>',
       (shelf.Request _, String path) =>
-          _serveBundleAsset('assets/web/assets/$path', _guessContentType(path)),
+          _serveBundleAsset('$_kWebAssetRoot/assets/$path', _guessContentType(path)),
     );
     router.get(
       '/threads/assets/<path|.+>',
       (shelf.Request _, String path) =>
-          _serveBundleAsset('assets/web/assets/$path', _guessContentType(path)),
+          _serveBundleAsset('$_kWebAssetRoot/assets/$path', _guessContentType(path)),
     );
     // public/ 拷贝到 assets/web/ 根的静态资源（logo、favicon 等）。Vite build
     // 把 clients/web/public/* 平铺至产物根目录，Flutter pubspec 把整个目录纳入
@@ -2232,50 +2233,50 @@ class WebMessagePlatformService {
     router.get(
       '/openhand_logo.png',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/openhand_logo.png', _kPngContentType),
+          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', _kPngContentType),
     );
     router.get(
       '/threads/openhand_logo.png',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/openhand_logo.png', _kPngContentType),
+          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', _kPngContentType),
     );
     router.get(
       '/favicon.ico',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/openhand_logo.png', _kPngContentType),
+          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', _kPngContentType),
     );
     router.get(
       '/threads/favicon.ico',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/openhand_logo.png', _kPngContentType),
+          _serveBundleAsset('$_kWebAssetRoot/openhand_logo.png', _kPngContentType),
     );
     // PWA: Service Worker 必须挂在站点根 scope, manifest.webmanifest 给浏览器
     // 装机使用. 两者通过 vite public/ 目录被 Flutter rootBundle 一并打包。
     router.get(
       '/sw.js',
       (shelf.Request _) => _serveBundleAsset(
-        'assets/web/sw.js',
+        '$_kWebAssetRoot/sw.js',
         _kJavaScriptContentType,
       ),
     );
     router.get(
       '/threads/sw.js',
       (shelf.Request _) => _serveBundleAsset(
-        'assets/web/sw.js',
+        '$_kWebAssetRoot/sw.js',
         _kJavaScriptContentType,
       ),
     );
     router.get(
       '/manifest.webmanifest',
       (shelf.Request _) => _serveBundleAsset(
-        'assets/web/manifest.webmanifest',
+        '$_kWebAssetRoot/manifest.webmanifest',
         _kManifestContentType,
       ),
     );
     router.get(
       '/threads/manifest.webmanifest',
       (shelf.Request _) => _serveBundleAsset(
-        'assets/web/manifest.webmanifest',
+        '$_kWebAssetRoot/manifest.webmanifest',
         _kManifestContentType,
       ),
     );
@@ -9026,8 +9027,8 @@ class WebMessagePlatformService {
   }
 
   bool _isContentHashedBundleAsset(String key) {
-    if (!key.startsWith('assets/web/chunks/') &&
-        !key.startsWith('assets/web/assets/')) {
+    if (!key.startsWith('$_kWebAssetRoot/chunks/') &&
+        !key.startsWith('$_kWebAssetRoot/assets/')) {
       return false;
     }
     return RegExp(r'-[A-Za-z0-9_-]{8,}\.[^.]+$').hasMatch(p.basename(key));
