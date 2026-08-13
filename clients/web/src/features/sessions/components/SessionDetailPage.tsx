@@ -1196,14 +1196,47 @@ function knowledgeReadRowToMessageHit(row: Record<string, unknown>): Record<stri
   };
 }
 
+interface AssociatedKnowledgeBaseBuildCache {
+  messages: SessionMessage[];
+  result: Map<string, Record<string, unknown>>;
+}
+
+/// 按 identity 公共前缀增量重放：SSE 每 chunk 都会产出新消息数组（未变
+/// 前缀由 mergeStream 保留同一实例），KB 会话下逐 chunk 对全部已加载消息
+/// 重跑全文引用匹配是 O(窗口×内容) 的稳定税。这里从「首个非同一实例」
+/// 之前最近的 user 回合边界重放，其余直接复用上次结果；回合状态在 user
+/// 边界天然重置，语义与全量重放完全一致。
 function buildAssociatedKnowledgeBaseMetadataByMessageId(
   messages: SessionMessage[],
+  buildCache?: { current: AssociatedKnowledgeBaseBuildCache | null },
 ): Map<string, Record<string, unknown>> {
+  const previous = buildCache?.current;
   const result = new Map<string, Record<string, unknown>>();
+  let startIndex = 0;
+  if (previous && previous.messages.length > 0 && messages.length > 0) {
+    const shared = Math.min(previous.messages.length, messages.length);
+    let prefix = 0;
+    while (prefix < shared && previous.messages[prefix] === messages[prefix]) {
+      prefix += 1;
+    }
+    // 回退到 prefix 内最近的 user 边界（replayFrom 指向该 user 本身或 0），
+    // 保证重放起点的回合状态从空开始。
+    let replayFrom = Math.min(prefix, messages.length);
+    while (replayFrom > 0 && messages[replayFrom]?.kind !== 'user') {
+      replayFrom -= 1;
+    }
+    for (let index = 0; index < replayFrom; index += 1) {
+      const cachedValue = previous.result.get(messages[index]!.id);
+      if (cachedValue) result.set(messages[index]!.id, cachedValue);
+    }
+    startIndex = replayFrom;
+  }
+
   let roundCandidates: SessionMessage[] = [];
   let pendingUserMetadata: Record<string, unknown> | null = null;
 
-  for (const message of messages) {
+  for (let index = startIndex; index < messages.length; index += 1) {
+    const message = messages[index]!;
     if (message.kind === 'user') {
       const metadata = messageKnowledgeBaseMetadata(message);
       pendingUserMetadata = messageKnowledgeBaseHasReferences(metadata) ? metadata : null;
@@ -1216,17 +1249,21 @@ function buildAssociatedKnowledgeBaseMetadataByMessageId(
       continue;
     }
 
-    const directMetadata = messageKnowledgeBaseMetadata(message);
-    const usedDirectMetadata = knowledgeBaseMetadataUsedByAnswer(directMetadata, message.content);
-    const usedUserMetadata = usedDirectMetadata
-      ? null
-      : knowledgeBaseMetadataUsedByAnswer(pendingUserMetadata, message.content);
-    const usedToolMetadata = usedDirectMetadata || usedUserMetadata
-      ? null
-      : knowledgeBaseMetadataFromRoundToolMessages(roundCandidates, message.content);
-    const metadata = usedDirectMetadata ?? usedUserMetadata ?? usedToolMetadata;
-    if (metadata) {
-      result.set(message.id, metadata);
+    // 与 APP 端一致：流式中的助手消息不展示知识库引用，内容每 chunk 都在
+    // 变化，对半成品做全文匹配是纯浪费；流结束后的稳定实例会重新计算。
+    if (!messageMetadataStreaming(message)) {
+      const directMetadata = messageKnowledgeBaseMetadata(message);
+      const usedDirectMetadata = knowledgeBaseMetadataUsedByAnswer(directMetadata, message.content);
+      const usedUserMetadata = usedDirectMetadata
+        ? null
+        : knowledgeBaseMetadataUsedByAnswer(pendingUserMetadata, message.content);
+      const usedToolMetadata = usedDirectMetadata || usedUserMetadata
+        ? null
+        : knowledgeBaseMetadataFromRoundToolMessages(roundCandidates, message.content);
+      const metadata = usedDirectMetadata ?? usedUserMetadata ?? usedToolMetadata;
+      if (metadata) {
+        result.set(message.id, metadata);
+      }
     }
 
     if (message.content.trim().length > 0) {
@@ -1235,6 +1272,9 @@ function buildAssociatedKnowledgeBaseMetadataByMessageId(
     }
   }
 
+  if (buildCache) {
+    buildCache.current = { messages, result };
+  }
   return result;
 }
 
@@ -1258,8 +1298,14 @@ function stabilizeAssociatedKnowledgeBaseMetadataByMessageId(
   const stable = new Map<string, Record<string, unknown>>();
   const nextCache = new Map<string, AssociatedKnowledgeBaseCacheEntry>();
   for (const [messageId, metadata] of next) {
-    const signature = associatedKnowledgeBaseMetadataSignature(metadata);
     const cached = cache.get(messageId);
+    // 同引用快速路径：增量重放复用的条目无需再做整段 JSON 序列化签名。
+    if (cached && cached.value === metadata) {
+      stable.set(messageId, metadata);
+      nextCache.set(messageId, cached);
+      continue;
+    }
+    const signature = associatedKnowledgeBaseMetadataSignature(metadata);
     const value = cached?.signature === signature ? cached.value : metadata;
     stable.set(messageId, value);
     nextCache.set(messageId, { signature, value });
@@ -3540,6 +3586,7 @@ export function SessionDetailPage() {
   const composerSectionRef = useRef<HTMLElement | null>(null);
   const messagesRef = useRef<SessionMessage[]>([]);
   const associatedKnowledgeBaseCacheRef = useRef(new Map<string, AssociatedKnowledgeBaseCacheEntry>());
+  const associatedKnowledgeBaseBuildCacheRef = useRef<AssociatedKnowledgeBaseBuildCache | null>(null);
   const windowOffsetRef = useRef(0);
   const totalKnownRef = useRef(0);
 
@@ -7488,7 +7535,10 @@ export function SessionDetailPage() {
   const visibleSortedMessages = sortedMessages;
   const associatedKnowledgeBaseByMessageId = useMemo(
     () => stabilizeAssociatedKnowledgeBaseMetadataByMessageId(
-      buildAssociatedKnowledgeBaseMetadataByMessageId(visibleSortedMessages),
+      buildAssociatedKnowledgeBaseMetadataByMessageId(
+        visibleSortedMessages,
+        associatedKnowledgeBaseBuildCacheRef,
+      ),
       associatedKnowledgeBaseCacheRef.current,
     ),
     [visibleSortedMessages],
