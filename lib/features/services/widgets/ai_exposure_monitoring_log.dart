@@ -306,7 +306,7 @@ class _LogRow extends StatelessWidget {
     final color = _logColor(entry.level);
     final local = entry.at.toLocal();
     final time = entry.atReported
-        ? '${local.month.toString().padLeft(2, '0')}-${local.day.toString().padLeft(2, '0')} ${local.hour.toString().padLeft(2, '0')}:${local.minute.toString().padLeft(2, '0')}:${local.second.toString().padLeft(2, '0')}'
+        ? formatMonthDayHms(local)
         : '时间未上报';
     return ServiceInteractiveSurface(
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 5),

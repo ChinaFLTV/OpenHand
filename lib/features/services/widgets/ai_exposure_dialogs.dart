@@ -17,6 +17,7 @@ import '../../../shared/ui/openhand_form_fields.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../plugin_service/index.dart';
 import '../model/ai_exposure_models.dart';
@@ -3997,8 +3998,6 @@ IconData _categoryIcon(AiExposureResultCategory category) => switch (category) {
   AiExposureResultCategory.honeypot => Icons.warning_amber_rounded,
 };
 
-String _time(DateTime value) =>
-    '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}:${value.second.toString().padLeft(2, '0')}';
+String _time(DateTime value) => formatHourMinuteSecond(value);
 
-String _dateTime(DateTime value) =>
-    '${value.year}-${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')} ${_time(value)}';
+String _dateTime(DateTime value) => formatYearMonthDayHms(value);

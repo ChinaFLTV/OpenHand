@@ -12,6 +12,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../util/async_concurrency.dart';
 import '../util/bounded_file_io.dart';
+import '../util/date_time_format.dart';
 import '../util/input_value_parsing.dart';
 import '../util/serial_task_queue.dart';
 import '../util/text_normalization.dart';
@@ -2168,10 +2169,9 @@ String _formatNativeAudioTime(Duration value) {
   final hours = total ~/ 3600;
   final minutes = (total % 3600) ~/ 60;
   final seconds = total % 60;
-  String two(int n) => n.toString().padLeft(2, '0');
   return hours > 0
-      ? '$hours:${two(minutes)}:${two(seconds)}'
-      : '${two(minutes)}:${two(seconds)}';
+      ? '$hours:${twoDigit(minutes)}:${twoDigit(seconds)}'
+      : '${twoDigit(minutes)}:${twoDigit(seconds)}';
 }
 
 Future<Duration?> estimateNativeAudioFileDuration(

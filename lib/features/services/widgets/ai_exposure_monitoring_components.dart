@@ -1339,9 +1339,7 @@ String _duration(int seconds) {
   return hours > 0 ? '${hours}h ${minutes}m' : '${minutes}m';
 }
 
-String _shortDateTime(DateTime value) =>
-    '${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')} '
-    '${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+String _shortDateTime(DateTime value) => formatMonthDayHm(value);
 
 String _reportedShortDateTime(
   DateTime value,

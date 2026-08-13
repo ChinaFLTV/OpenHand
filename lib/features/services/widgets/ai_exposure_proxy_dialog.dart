@@ -25,6 +25,7 @@ import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_tooltip_dismissal.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../model/ai_exposure_models.dart';
@@ -3306,9 +3307,7 @@ String _durationLabel(
 }
 
 String _chartTimeLabel(DateTime value) {
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${two(local.month)}-${two(local.day)} ${two(local.hour)}:${two(local.minute)}';
+  return formatMonthDayHm(value.toLocal());
 }
 
 String _proxyRequestResultLabel(
@@ -6272,15 +6271,10 @@ String _intervalLabel(
     : text(zh: '${minutes ~/ 60} 小时', en: '${minutes ~/ 60} hr');
 
 String _timeLabel(DateTime value) {
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
+  return formatHourMinuteSecond(value.toLocal());
 }
 
 String _dateTimeLabel(DateTime value) {
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${local.year}-${two(local.month)}-${two(local.day)} '
-      '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
+  return formatYearMonthDayHms(value.toLocal());
 }
 

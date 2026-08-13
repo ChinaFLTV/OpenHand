@@ -10,6 +10,7 @@ import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../model/dependency_telemetry.dart';
 import '../services_controller.dart';
@@ -4116,14 +4117,9 @@ String _dateTimeText(Object? value) {
   return parsed == null ? '--' : _dateTime(parsed);
 }
 
-String _dateTime(DateTime value) =>
-    '${value.month.toString().padLeft(2, '0')}-${value.day.toString().padLeft(2, '0')} '
-    '${_clockText(value)}';
+String _dateTime(DateTime value) => formatMonthDayHms(value);
 
-String _clockText(DateTime value) =>
-    '${value.hour.toString().padLeft(2, '0')}:'
-    '${value.minute.toString().padLeft(2, '0')}:'
-    '${value.second.toString().padLeft(2, '0')}';
+String _clockText(DateTime value) => formatHourMinuteSecond(value);
 
 String _percent(double value) {
   final safe = value.isFinite ? value.clamp(0.0, 1.0) : 0;

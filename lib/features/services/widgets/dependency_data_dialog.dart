@@ -15,6 +15,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
@@ -1599,7 +1600,7 @@ String _capturedAt(Map<String, Object?> overview) {
     '${overview['capturedAt'] ?? ''}',
   )?.toLocal();
   if (parsed == null) return '等待遥测';
-  return '${parsed.hour.toString().padLeft(2, '0')}:${parsed.minute.toString().padLeft(2, '0')}:${parsed.second.toString().padLeft(2, '0')}';
+  return formatHourMinuteSecond(parsed);
 }
 
 String _postgresRowTitle(Map<String, Object?> row, List<String> primaryKeys) =>
