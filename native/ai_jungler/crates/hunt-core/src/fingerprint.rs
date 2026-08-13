@@ -38,6 +38,16 @@ pub fn identify_product(evidence: FingerprintEvidence<'_>) -> (String, Vec<Strin
         ("LongCat", &["longcat"]),
         ("Grok", &["api.x.ai", "x.ai", "grok"]),
         ("Mistral", &["mistral"]),
+        ("OpenRouter", &["openrouter", "openrouter.ai"]),
+        ("Cohere", &["cohere.ai", "cohere.com"]),
+        ("Together", &["together.ai", "together.xyz", "togethercomputer"]),
+        ("Replicate", &["replicate.com", "api.replicate"]),
+        ("Fireworks", &["fireworks.ai"]),
+        ("Groq", &["groq.com", "api.groq"]),
+        ("SiliconFlow", &["siliconflow"]),
+        ("NVIDIA", &["integrate.api.nvidia.com", "nvcf.nvidia"]),
+        ("Windsurf", &["windsurf", "codeium"]),
+        ("AWS Bedrock", &["bedrock-runtime", "bedrock.amazonaws"]),
         ("Ollama", &["ollama", "/api/tags", "library/"]),
         ("vLLM", &["vllm", "served-model-name"]),
         (
@@ -109,6 +119,16 @@ mod tests {
             body: "DeepSeek OpenAI compatible /v1/models",
         });
         assert_eq!(product, "DeepSeek");
+    }
+
+    #[test]
+    fn identifies_extended_provider_fingerprints() {
+        let headers = BTreeMap::new();
+        let (product, _, _) = identify_product(FingerprintEvidence {
+            headers: &headers,
+            body: "https://openrouter.ai/api/v1/models",
+        });
+        assert_eq!(product, "OpenRouter");
     }
 
     #[test]
