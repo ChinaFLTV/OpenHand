@@ -11,6 +11,7 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/duration_bounds.dart';
@@ -235,7 +236,7 @@ class WebFetchScraplingBridge {
         title: '${response['title'] ?? ''}',
         content: '${response['content'] ?? ''}',
         contentType:
-            '${response['content_type'] ?? headers['content-type'] ?? 'text/html'}',
+            '${response['content_type'] ?? headers['content-type'] ?? kTextHtmlMimeType}',
         statusCode: webEngineHttpStatusFromValue(response['status_code']),
         responseHeaders: headers,
       );

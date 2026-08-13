@@ -388,7 +388,7 @@ class HtmlKnowledgeDocumentParser extends KnowledgeDocumentParser {
     return KnowledgeDocumentParseResult(
       text: text,
       kind: 'html',
-      mimeType: 'text/html',
+      mimeType: kTextHtmlMimeType,
       parserId: id,
       title: title,
       metadata: <String, Object?>{
