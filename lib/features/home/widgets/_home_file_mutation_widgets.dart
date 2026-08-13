@@ -1445,7 +1445,7 @@ class _CodexDiffPalette {
   final Color footerBorder;
   final Color footerForeground;
 
-  int get signature => Object.hashAll([
+  int get signature => Object.hash(
     surface,
     border,
     separator,
@@ -1464,7 +1464,7 @@ class _CodexDiffPalette {
     deletionAccent,
     footerSurface,
     footerForeground,
-  ]);
+  );
 
   static _CodexDiffPalette resolve(ThemeData theme) {
     final cs = theme.colorScheme;

@@ -96,7 +96,7 @@ int _highlightSignatureForInputs({
   required bool useDarkPalette,
   required ThemeData theme,
 }) {
-  return Object.hashAll(<Object?>[
+  return Object.hash(
     content,
     effectiveLanguage,
     baseColor.toARGB32(),
@@ -104,7 +104,7 @@ int _highlightSignatureForInputs({
     theme.textTheme.bodyMedium?.fontSize,
     theme.textTheme.bodyMedium?.fontFamily,
     theme.textTheme.bodyMedium?.height,
-  ]);
+  );
 }
 
 TextStyle _baseCodeStyleForTheme({
@@ -1033,12 +1033,12 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
         : effectiveLanguage;
     final useDarkPalette =
         widget.forceDarkSurface || widget.theme.brightness == Brightness.dark;
-    final paletteSignature = Object.hashAll(<Object?>[
+    final paletteSignature = Object.hash(
       widget.theme.colorScheme.primary.toARGB32(),
       widget.theme.brightness.index,
       useDarkPalette,
       widget.accentColor?.toARGB32(),
-    ]);
+    );
     if (_cachedPalette == null || _cachedPaletteSignature != paletteSignature) {
       _cachedPalette = _CodeBlockPalette.fromTheme(
         widget.theme,

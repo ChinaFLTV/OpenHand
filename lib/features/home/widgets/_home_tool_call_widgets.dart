@@ -581,7 +581,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
     required bool argumentsExpanded,
     required bool resultExpanded,
   }) {
-    final signature = Object.hashAll(<Object?>[
+    final signature = Object.hash(
       Localizations.localeOf(context).toLanguageTag(),
       message.id,
       '${message.metadata['tool_name'] ?? ''}',
@@ -604,7 +604,7 @@ class _ToolCallBodyState extends State<_ToolCallBody>
           : '',
       argumentsExpanded,
       resultExpanded,
-    ]);
+    );
     if (_cachedViewData != null && _cachedViewDataSignature == signature) {
       return _cachedViewData!;
     }

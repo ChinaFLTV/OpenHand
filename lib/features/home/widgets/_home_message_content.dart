@@ -296,7 +296,7 @@ class _CompressionCheckpointBody extends StatelessWidget {
       color: Colors.transparent,
       child: InkWell(
         onTap: onToggle,
-        borderRadius: _borderRadius18,
+        borderRadius: kOpenHandBorderRadius18,
         overlayColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
         child: Padding(
           padding: const EdgeInsets.symmetric(vertical: 2),
@@ -1205,7 +1205,7 @@ class _MessageMarkdownThemeData {
     // N 次。按 (theme palette + bubble bg + text color + dark surface)
     // 签名命中率极高（同 role/状态的 bubble 共享同一份 stylesheet），
     // 命中后跳过整个工厂方法的重建工作。
-    final cacheKey = Object.hashAll(<Object?>[
+    final cacheKey = Object.hash(
       theme.brightness.index,
       theme.colorScheme.primary.toARGB32(),
       theme.colorScheme.primaryContainer.toARGB32(),
@@ -1214,7 +1214,7 @@ class _MessageMarkdownThemeData {
       backgroundColor.toARGB32(),
       textColor.toARGB32(),
       useDarkCodeSurface,
-    ]);
+    );
     final cached = _markdownThemeDataCache[cacheKey];
     if (cached != null) {
       _markdownThemeDataCache.remove(cacheKey);
@@ -1875,7 +1875,7 @@ class _MarkdownStabilizingPlaceholder extends StatelessWidget {
         en: 'Rendering message content',
       ),
       child: ClipRRect(
-        borderRadius: _borderRadius18,
+        borderRadius: kOpenHandBorderRadius18,
         child: OpenHandSweepShimmer(
           sweepColor: color.withValues(alpha: 0.10),
           maskToChildAlpha: true,
@@ -2515,7 +2515,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
 
   Widget _buildMarkdownImageFrame(BuildContext context, Widget image) {
     return ClipRRect(
-      borderRadius: _kHomeRadiusSmall,
+      borderRadius: kOpenHandBorderRadius8,
       child: ConstrainedBox(
         constraints: BoxConstraints(
           maxWidth: MediaQuery.sizeOf(context).width * 0.6,
