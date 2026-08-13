@@ -1,6 +1,9 @@
 part of '../openhand_home_page.dart';
 
 const Color _kFileExplorerWarningColor = Color(0xFFB7791F);
+const Color _kFileExplorerSuccessColor = Color(0xFF2E7D32);
+const Color _kFileExplorerDarkSurfaceText = Color(0xFFE5EDF5);
+const Color _kFileExplorerLightSurfaceText = Color(0xFF111827);
 
 // 文件浏览器面板。
 
@@ -3196,7 +3199,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                                                 de: '+${file.additionCount}',
                                                 ja: '+${file.additionCount}',
                                               ),
-                                              color: const Color(0xFF2E7D32),
+                                              color: _kFileExplorerSuccessColor,
                                             ),
                                           if (file.deletionCount > 0)
                                             _WorkspaceEditStatChip(
@@ -5591,7 +5594,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
       _ProjectToolchainTreeNodeTone.info => colorScheme.tertiary,
       _ProjectToolchainTreeNodeTone.muted => colorScheme.onSurfaceVariant,
       _ProjectToolchainTreeNodeTone.warning => colorScheme.error,
-      _ProjectToolchainTreeNodeTone.success => const Color(0xFF2E7D32),
+      _ProjectToolchainTreeNodeTone.success => _kFileExplorerSuccessColor,
     };
   }
 
@@ -12822,7 +12825,7 @@ static const _addedBg = Color(0xFFE6F4E6);
       fontWeight = FontWeight.w700;
     } else if (line.startsWith('+')) {
       background = isDark ? _addedBgDark.withValues(alpha: 0.55) : _addedBg;
-      foreground = isDark ? const Color(0xFF81C784) : const Color(0xFF2E7D32);
+      foreground = isDark ? const Color(0xFF81C784) : _kFileExplorerSuccessColor;
     } else if (line.startsWith('-')) {
       background = isDark ? _removedBgDark.withValues(alpha: 0.55) : _removedBg;
       foreground = isDark ? const Color(0xFFE57373) : colorScheme.error;
@@ -14020,7 +14023,7 @@ class _SyntaxHighlightEditorState extends State<_SyntaxHighlightEditor> {
 
   TextStyle _resolvedEditorStyle() {
     return _editorBaseStyleForSize(widget.fontSize).copyWith(
-      color: _darkSurface ? const Color(0xFFE5EDF5) : const Color(0xFF111827),
+      color: _darkSurface ? _kFileExplorerDarkSurfaceText : _kFileExplorerLightSurfaceText,
     );
   }
 
@@ -15254,7 +15257,7 @@ class _LargeFileCodeViewState extends State<_LargeFileCodeView> {
 
   TextStyle _resolvedEditorStyle() {
     return _editorBaseStyleForSize(widget.fontSize).copyWith(
-      color: _darkSurface ? const Color(0xFFE5EDF5) : const Color(0xFF111827),
+      color: _darkSurface ? _kFileExplorerDarkSurfaceText : _kFileExplorerLightSurfaceText,
     );
   }
 

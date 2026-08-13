@@ -1,5 +1,7 @@
 part of '../openhand_home_page.dart';
 
+const Color _kHomeSidebarAmber = Color(0xFFE6A817);
+
 const Duration _kHomeSidebarTileMotionDuration = Duration(milliseconds: 220);
 const Duration _kHomeSidebarPulseDuration = Duration(milliseconds: 1200);
 const Curve _kHomeSidebarTileMotionCurve = Curves.easeOutCubic;
@@ -440,12 +442,12 @@ class _ActiveThreadBadge extends StatelessWidget {
     // Use an amber/warning palette for the approval state so it stands out
     // from the regular "active" badge and draws the user's attention.
     final foregroundColor = isApprovalPhase
-        ? const Color(0xFFE6A817)
+        ? _kHomeSidebarAmber
         : isSelected
         ? colorScheme.onPrimaryContainer
         : colorScheme.primary;
     final backgroundColor = isApprovalPhase
-        ? const Color(0xFFE6A817).withValues(alpha: 0.14)
+        ? _kHomeSidebarAmber.withValues(alpha: 0.14)
         : isSelected
         ? colorScheme.onPrimaryContainer.withValues(alpha: 0.14)
         : colorScheme.primary.withValues(alpha: 0.12);

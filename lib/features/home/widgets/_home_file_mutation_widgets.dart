@@ -10,6 +10,8 @@ String _fileMutationKind(AiSessionMessage message) =>
 const int _kFileMutationUndoConcurrency = 4;
 const int _kFileMutationDiffReadMaxBytes = 16 * kBytesPerMiB;
 const Color _kFileMutationAddedColor = Color(0xFF2E7D32);
+const Color _kFileMutationAdditionAccent = Color(0xFF35D782);
+const Color _kFileMutationDeletionAccent = Color(0xFFFF5C5C);
 const double _kFileMutationLineDeltaGap = 4;
 const Duration _kFileMutationOverlaySwitchDuration = Duration(
   milliseconds: 220,
@@ -1477,13 +1479,13 @@ class _CodexDiffPalette {
         additionBackground: Color(0xFF183622),
         deletionBackground: Color(0xFF461D1D),
         foldedBackground: Color(0xFF202020),
-        additionLineNumber: Color(0xFF35D782),
-        deletionLineNumber: Color(0xFFFF5C5C),
+        additionLineNumber: _kFileMutationAdditionAccent,
+        deletionLineNumber: _kFileMutationDeletionAccent,
         foldedLineNumber: Color(0xFF9EA0A6),
         additionFallbackText: Color(0xFFE9F8ED),
         deletionFallbackText: Color(0xFFFFDEDE),
-        additionAccent: Color(0xFF35D782),
-        deletionAccent: Color(0xFFFF5C5C),
+        additionAccent: _kFileMutationAdditionAccent,
+        deletionAccent: _kFileMutationDeletionAccent,
         footerSurface: Color(0xFF1B1B1B),
         footerBorder: Color(0x12FFFFFF),
         footerForeground: Color(0xFFD7D7D7),

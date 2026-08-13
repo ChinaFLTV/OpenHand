@@ -9,6 +9,18 @@ class _ProxyTestOutcome {
   final String summary;
 }
 
+// 代理诊断控制台固定色板：绿/红/琥珀/天蓝/灰，与主题主色解耦，
+// 保证成功/失败/运行中的辨识度不受预设主色干扰。
+const Color _kProxyTestAmber = Color(0xFFFCD34D);
+const Color _kProxyTestAmberDark = Color(0xFFFACC15);
+const Color _kProxyTestRed300 = Color(0xFFFCA5A5);
+const Color _kProxyTestSky300 = Color(0xFF7DD3FC);
+const Color _kProxyTestGreen = Color(0xFF8AE234);
+const Color _kProxyTestGray = Color(0xFF6B7280);
+const Color _kProxyTestLightGray = Color(0xFFE5E7EB);
+const Color _kProxyTestLightGreen = Color(0xFF86EFAC);
+const Color _kProxyTestNeutralGray = Color(0xFF9CA3AF);
+
 enum _ProxyTestLogLevel { head, info, ok, warn, err, debug }
 
 class _ProxyTestLogEntry {
@@ -738,7 +750,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     // 状态色固定为绿/红/琥珀，避免主题主色削弱成功/失败辨识度。
     const successColor = OpenHandStatusColors.success; // 绿色
     const errorColor = OpenHandStatusColors.error; // 红色
-    const runningColor = Color(0xFFFACC15); // 琥珀色
+    const runningColor = _kProxyTestAmberDark;
     final IconData statusIcon;
     final Color statusColor;
     final String statusText;
@@ -915,8 +927,8 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
 
   Widget _buildCursor({required double t}) {
     final color = Color.lerp(
-      const Color(0xFF8AE234), // 绿色
-      const Color(0xFFFCD34D), // 琥珀色
+      _kProxyTestGreen, // 绿色
+      _kProxyTestAmber, // 琥珀色
       t,
     )!;
     // 纯色块的透明度直接折进颜色：Opacity 会为每个色块开一层 saveLayer，
@@ -949,13 +961,9 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     // 左侧色条使用边框实现，避免 IntrinsicHeight 在 SliverList 中引发尺寸抖动。
     final isHead = entry.level == _ProxyTestLogLevel.head;
     final levelBg = switch (entry.level) {
-      _ProxyTestLogLevel.head => const Color(
-        0xFF7DD3FC,
-      ).withValues(alpha: 0.12),
-      _ProxyTestLogLevel.err => const Color(0xFFFCA5A5).withValues(alpha: 0.08),
-      _ProxyTestLogLevel.warn => const Color(
-        0xFFFCD34D,
-      ).withValues(alpha: 0.06),
+      _ProxyTestLogLevel.head => _kProxyTestSky300.withValues(alpha: 0.12),
+      _ProxyTestLogLevel.err => _kProxyTestRed300.withValues(alpha: 0.08),
+      _ProxyTestLogLevel.warn => _kProxyTestAmber.withValues(alpha: 0.06),
       _ => Colors.transparent,
     };
     final headSlowMs = isHead ? (_sectionDurations[entry.tag] ?? 0) : 0;
@@ -970,7 +978,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           children: <InlineSpan>[
             TextSpan(
               text: '+${ts}s ',
-              style: textStyle.copyWith(color: const Color(0xFF6B7280)),
+              style: textStyle.copyWith(color: _kProxyTestGray),
             ),
             TextSpan(
               text: '${entry.tag.padRight(7)} │ ',
@@ -989,7 +997,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
               TextSpan(
                 text: headSlowMark,
                 style: textStyle.copyWith(
-                  color: const Color(0xFFFCD34D),
+                  color: _kProxyTestAmber,
                   fontWeight: FontWeight.w700,
                 ),
               ),
@@ -1001,7 +1009,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       baseColor: levelBg,
       hoverColor: Colors.white.withValues(alpha: 0.06),
       isHead: isHead,
-      headBorderColor: const Color(0xFF7DD3FC).withValues(alpha: 0.30),
+      headBorderColor: _kProxyTestSky300.withValues(alpha: 0.30),
       leftBarColor: levelColor.withValues(alpha: 0.85),
       onDoubleTap: () => _copyEntryLine(entry),
       child: rowText,
@@ -1043,17 +1051,17 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
   Color _colorFor(_ProxyTestLogLevel level) {
     switch (level) {
       case _ProxyTestLogLevel.head:
-        return const Color(0xFF7DD3FC); // sky-300
+        return _kProxyTestSky300; // sky-300
       case _ProxyTestLogLevel.info:
-        return const Color(0xFFE5E7EB); // 浅灰色
+        return _kProxyTestLightGray; // 浅灰色
       case _ProxyTestLogLevel.ok:
-        return const Color(0xFF86EFAC); // 浅绿色
+        return _kProxyTestLightGreen; // 浅绿色
       case _ProxyTestLogLevel.warn:
-        return const Color(0xFFFCD34D); // 琥珀色
+        return _kProxyTestAmber; // 琥珀色
       case _ProxyTestLogLevel.err:
-        return const Color(0xFFFCA5A5); // red-300
+        return _kProxyTestRed300; // red-300
       case _ProxyTestLogLevel.debug:
-        return const Color(0xFF9CA3AF); // 灰色
+        return _kProxyTestNeutralGray; // 灰色
     }
   }
 

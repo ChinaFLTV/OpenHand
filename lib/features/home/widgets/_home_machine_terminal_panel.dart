@@ -2,6 +2,9 @@ part of '../openhand_home_page.dart';
 
 /// 终端画布底色：不随主题变化，始终保持深色以贴合终端配色。
 const Color _machineTerminalBackground = Color(0xFF0B0D10);
+const Color _machineTerminalGreen = Color(0xFF5FE3A1);
+const Color _machineTerminalYellow = Color(0xFFE8D66B);
+const Color _machineTerminalRunningColor = Color(0xFF4C9A2A);
 
 /// 终端画布表面：深色底 + 细描边 + 一层托起阴影，圆角由调用方决定。
 BoxDecoration _machineTerminalSurfaceDecoration(
@@ -2241,8 +2244,8 @@ TerminalTheme _machineTerminalTheme() {
     background: _machineTerminalBackground,
     black: Color(0xFF101217),
     red: Color(0xFFFF6B6B),
-    green: Color(0xFF5FE3A1),
-    yellow: Color(0xFFE8D66B),
+    green: _machineTerminalGreen,
+    yellow: _machineTerminalYellow,
     blue: Color(0xFF75A7FF),
     magenta: Color(0xFFD98CFF),
     cyan: Color(0xFF62DCE8),
@@ -2255,15 +2258,15 @@ TerminalTheme _machineTerminalTheme() {
     brightMagenta: Color(0xFFE7A8FF),
     brightCyan: Color(0xFF8FEAF2),
     brightWhite: Color(0xFFFFFFFF),
-    searchHitBackground: Color(0xFFE8D66B),
-    searchHitBackgroundCurrent: Color(0xFF5FE3A1),
+    searchHitBackground: _machineTerminalYellow,
+    searchHitBackgroundCurrent: _machineTerminalGreen,
     searchHitForeground: _machineTerminalBackground,
   );
 }
 
 Color _terminalStatusColor(ColorScheme cs, MachineTerminalStatus status) {
   return switch (status) {
-    MachineTerminalStatus.running => const Color(0xFF4C9A2A),
+    MachineTerminalStatus.running => _machineTerminalRunningColor,
     MachineTerminalStatus.starting => cs.tertiary,
     MachineTerminalStatus.failed => cs.error,
     MachineTerminalStatus.stopped => cs.onSurfaceVariant,
@@ -2320,7 +2323,7 @@ Future<void> _copyCommandRecord(
 Color _commandRecordColor(ColorScheme cs, MachineTerminalCommandRecord record) {
   if (record.timedOut) return cs.tertiary;
   if (record.error != null && record.error!.trim().isNotEmpty) return cs.error;
-  return record.exitCode == 0 ? const Color(0xFF4C9A2A) : cs.error;
+  return record.exitCode == 0 ? _machineTerminalRunningColor : cs.error;
 }
 
 IconData _commandRecordIcon(MachineTerminalCommandRecord record) {

@@ -3327,7 +3327,7 @@ class _ConnectivityResultView extends StatelessWidget {
             width: double.infinity,
             padding: const EdgeInsets.all(12),
             decoration: BoxDecoration(
-              color: const Color(0xFF101218),
+              color: _webGatewayDarkSurface,
               borderRadius: _kGatewayRadiusMedium,
               border: Border.all(color: colorScheme.outlineVariant),
             ),
@@ -3347,7 +3347,7 @@ class _ConnectivityResultView extends StatelessWidget {
                 fontFamily: kOpenHandMonospaceFontFamily,
                 fontSize: 12,
                 height: 1.45,
-                color: Color(0xFFE5E7EB),
+                color: _webGatewayLightGray,
               ),
             ),
           ),
@@ -3818,7 +3818,7 @@ class _WebGatewayLogDialogState extends State<_WebGatewayLogDialog>
           const Divider(height: 1),
           Expanded(
             child: Container(
-              color: const Color(0xFF101218),
+              color: _webGatewayDarkSurface,
               child: NotificationListener<ScrollNotification>(
                 onNotification: _scrollGuard.handleNotification,
                 child: OpenHandSafeScrollbar(
@@ -5933,6 +5933,8 @@ const double _webOpsHeaderCompactBreakpoint = 980;
 const double _webOpsMetricWideBreakpoint = 860;
 const double _webOpsMetricMediumBreakpoint = 560;
 const Color _webOpsTerminalBackground = Color(0xFF10131A);
+const Color _webGatewayDarkSurface = Color(0xFF101218);
+const Color _webGatewayLightGray = Color(0xFFE5E7EB);
 const double _kWebOpsTerminalRadius = 8;
 
 class _WebOpsDashboardStats {
@@ -10732,7 +10734,7 @@ class _LogLine extends StatelessWidget {
       WebGatewayLogLevel.error => const Color(0xFFFCA5A5),
       WebGatewayLogLevel.debug => const Color(0xFF9CA3AF),
       WebGatewayLogLevel.telemetry => const Color(0xFF7DD3FC),
-      WebGatewayLogLevel.info => const Color(0xFFE5E7EB),
+      WebGatewayLogLevel.info => _webGatewayLightGray,
     };
     final ts = formatHourMinuteSecondMillis(entry.timestamp.toLocal());
     return Padding(
