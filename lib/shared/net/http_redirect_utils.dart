@@ -215,6 +215,9 @@ const String kTextHtmlMimeType = 'text/html';
 /// PDF MIME 类型常量。
 const String kApplicationPdfMimeType = 'application/pdf';
 
+/// 带 UTF-8 charset 的纯文本 Content-Type。
+const String kTextPlainUtf8ContentType = 'text/plain; charset=utf-8';
+
 /// 带 UTF-8 charset 的 JSON `Content-Type` 取值，供发送 JSON 请求体时复用。
 const String kApplicationJsonUtf8ContentType =
     '$kApplicationJsonMimeType; charset=utf-8';

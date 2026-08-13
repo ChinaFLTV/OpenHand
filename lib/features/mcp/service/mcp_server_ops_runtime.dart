@@ -235,7 +235,7 @@ class McpServerOpsRuntime {
   /// 纯文本响应头：错误与状态回执统一走这一份，避免 charset 在各分支漂移。
   static const Map<String, String> _plainTextResponseHeaders = <String, String>{
     ..._responseHeaders,
-    kContentTypeHeaderName: 'text/plain; charset=utf-8',
+    kContentTypeHeaderName: kTextPlainUtf8ContentType,
   };
 
   final McpOpsToolListProvider _toolListProvider;
@@ -724,7 +724,7 @@ class McpServerOpsRuntime {
           headers: const <String, String>{
             ..._responseHeaders,
             'allow': 'GET, POST, DELETE, OPTIONS, HEAD',
-            kContentTypeHeaderName: 'text/plain; charset=utf-8',
+            kContentTypeHeaderName: kTextPlainUtf8ContentType,
           },
         );
     }
