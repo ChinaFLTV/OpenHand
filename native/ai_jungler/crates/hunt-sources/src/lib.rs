@@ -1334,8 +1334,12 @@ impl AssetSource for GithubSource {
         .buffer_unordered(GITHUB_CONTENT_CONCURRENCY);
         futures::pin_mut!(batches);
         let mut candidates = Vec::new();
-        'collect: while let Some(batch) = batches.next().await {
-            for candidate in batch.into_iter().flatten() {
+        let mut fetch_failures = 0_usize;
+        'collect: while let Some((batch, fetch_failed)) = batches.next().await {
+            if fetch_failed {
+                fetch_failures += 1;
+            }
+            for candidate in batch {
                 candidates.push(candidate);
                 if candidates.len() >= MAX_SOURCE_RESULTS {
                     break 'collect;
@@ -1346,6 +1350,11 @@ impl AssetSource for GithubSource {
         if skipped_private > 0 {
             discovery.warnings.push(format!(
                 "已按 fail-closed 安全策略跳过 {skipped_private} 个非公开仓库的检索结果。"
+            ));
+        }
+        if fetch_failures > 0 {
+            discovery.warnings.push(format!(
+                "有 {fetch_failures} 个 GitHub 检索结果的内容拉取失败，已跳过。"
             ));
         }
         Ok(discovery)
@@ -1997,53 +2006,59 @@ async fn github_item_candidates(
     kind: SourceKind,
     token: String,
     item: GithubCodeItem,
-) -> Option<Vec<Candidate>> {
-    let response = client
+) -> (Vec<Candidate>, bool) {
+    // 返回 (候选, 是否拉取失败)：区分“内容拉取失败”与“拉取成功但无命中”，
+    // 使上层可对失败计数并告警，避免扫描无结果时无从诊断。
+    let Ok(response) = client
         .get(&item.url)
         .header("Accept", "application/vnd.github+json")
         .header("X-GitHub-Api-Version", "2022-11-28")
         .bearer_auth(token)
         .send()
         .await
-        .ok()?;
+    else {
+        return (Vec::new(), true);
+    };
     if !response.status().is_success() {
-        return None;
+        return (Vec::new(), true);
     }
-    let content = parse_json_limited::<GithubContentResponse>("GitHub", response)
-        .await
-        .ok()?;
+    let Ok(content) = parse_json_limited::<GithubContentResponse>("GitHub", response).await else {
+        return (Vec::new(), true);
+    };
     let decoded = match (content.encoding.as_deref(), content.content.as_deref()) {
-        (Some("base64"), Some(value)) => STANDARD.decode(value.replace('\n', "")).ok()?,
-        _ => return None,
+        (Some("base64"), Some(value)) => match STANDARD.decode(value.replace('\n', "")) {
+            Ok(bytes) => bytes,
+            Err(_) => return (Vec::new(), true),
+        },
+        _ => return (Vec::new(), false),
     };
     if decoded.len() > MAX_GITHUB_FILE_BYTES {
-        return None;
+        return (Vec::new(), false);
     }
     let text = String::from_utf8_lossy(&decoded);
-    Some(
-        URL_PATTERN
-            .find_iter(&text)
-            .take(50)
-            .map(|url| {
-                let mut metadata = BTreeMap::from([(
-                    CANDIDATE_ARTIFACT_URL_KEY.to_owned(),
-                    item.html_url.clone(),
-                )]);
-                if kind == SourceKind::GithubArtifact {
-                    metadata.insert(
-                        CANDIDATE_ARTIFACT_TEXT_KEY.to_owned(),
-                        surrounding_text(&text, url.start(), url.end(), MAX_ARTIFACT_CONTEXT_BYTES),
-                    );
-                }
-                Candidate {
-                    source: kind,
-                    target: trim_url_punctuation(url.as_str()),
-                    discovered_at: Utc::now(),
-                    metadata,
-                }
-            })
-            .collect(),
-    )
+    let candidates = URL_PATTERN
+        .find_iter(&text)
+        .take(50)
+        .map(|url| {
+            let mut metadata = BTreeMap::from([(
+                CANDIDATE_ARTIFACT_URL_KEY.to_owned(),
+                item.html_url.clone(),
+            )]);
+            if kind == SourceKind::GithubArtifact {
+                metadata.insert(
+                    CANDIDATE_ARTIFACT_TEXT_KEY.to_owned(),
+                    surrounding_text(&text, url.start(), url.end(), MAX_ARTIFACT_CONTEXT_BYTES),
+                );
+            }
+            Candidate {
+                source: kind,
+                target: trim_url_punctuation(url.as_str()),
+                discovered_at: Utc::now(),
+                metadata,
+            }
+        })
+        .collect();
+    (candidates, false)
 }
 
 async fn parse_json_limited<T: DeserializeOwned>(
