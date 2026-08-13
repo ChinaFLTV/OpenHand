@@ -279,6 +279,9 @@ const DEFAULT_ATTACHMENT_MAX_TOTAL_BYTES = 16 * 1024 * 1024;
 const DEFAULT_ATTACHMENT_MAX_COUNT = 20;
 const COMPOSER_QUEUE_MAX_MESSAGES = 32;
 const COMPOSER_QUEUE_MAX_ATTACHMENT_BYTES = 64 * 1024 * 1024;
+/// 键入后 composerText state 的去抖同步窗口：字符计数等低频 UI 允许
+/// 滞后一拍，换取每个 keystroke 不再整页重渲染。
+const COMPOSER_TEXT_STATE_SYNC_MS = 150;
 const ATTACHMENT_READ_TIMEOUT_MS = 30_000;
 const COMPOSER_ITEM_EXIT_MS = 190;
 const QUEUE_SEND_SETTLE_MS = 600;
@@ -720,8 +723,56 @@ function messageRenderSignature(message: SessionMessage): string {
   return signature;
 }
 
+/// 渲染等价比较（与 messageRenderSignature 同一组判据，但分层短路）：
+/// - SSE 每 chunk 都会 JSON.parse 出全新对象，签名 WeakMap 必然 miss；
+///   整签名重建要对 attachments/response_variants 等对象值做完整 JSON
+///   序列化，窗口 × 12.5次/秒 是稳定的主线程税。
+/// - 流式尾消息在 content 长度处即返回 false，完全跳过 metadata 指纹；
+/// - 未变前缀逐键比较：原始值 === 快速通过（字符串比较是原生 memcmp），
+///   仅对象值才回退指纹比较，且首个差异即止。
 function messagesEquivalentForRender(a: SessionMessage, b: SessionMessage): boolean {
-  return messageRenderSignature(a) === messageRenderSignature(b);
+  if (a === b) return true;
+  const contentA = a.content ?? '';
+  const contentB = b.content ?? '';
+  if (
+    a.id !== b.id
+    || a.role !== b.role
+    || a.kind !== b.kind
+    || contentA.length !== contentB.length
+    || (a.character_count ?? 0) !== (b.character_count ?? 0)
+    || a.created_at !== b.created_at
+    || (a.model_id ?? '') !== (b.model_id ?? '')
+    || (a.model_label ?? '') !== (b.model_label ?? '')
+    || (a.feedback ?? '') !== (b.feedback ?? '')
+  ) {
+    return false;
+  }
+  if (
+    contentA.slice(0, 64) !== contentB.slice(0, 64)
+    || contentA.slice(-32) !== contentB.slice(-32)
+  ) {
+    return false;
+  }
+  if (usageRenderFingerprint(a) !== usageRenderFingerprint(b)) return false;
+  return metadataEquivalentForRender(a.metadata, b.metadata);
+}
+
+function metadataEquivalentForRender(rawA: unknown, rawB: unknown): boolean {
+  if (rawA === rawB) return true;
+  const a = recordOrNullFromUnknown(rawA);
+  const b = recordOrNullFromUnknown(rawB);
+  if (!a || !b) {
+    return metadataRenderFingerprint(rawA) === metadataRenderFingerprint(rawB);
+  }
+  for (const key of MESSAGE_RENDER_METADATA_KEYS) {
+    const valueA = a[key];
+    const valueB = b[key];
+    if (valueA === valueB) continue;
+    if (metadataValueFingerprint(valueA) !== metadataValueFingerprint(valueB)) {
+      return false;
+    }
+  }
+  return true;
 }
 
 function messageFollowSignature(message: SessionMessage): string {
@@ -3513,8 +3564,9 @@ export function SessionDetailPage() {
   // 服务端返回会话被删 (404 + body.error === 'session_deleted_or_not_found') 时拍起弹窗
   const [sessionGone, setSessionGone] = useState(false);
 
-  // 输入区状态。
-  const [composerText, setComposerText] = useState<string>('');
+  // 输入区状态。composerText 仅供渲染读取（字符计数等低频 UI）；
+  // 键入路径不直接写它，见下方 setComposerText/handleComposerTextInput。
+  const [composerText, setComposerTextState] = useState<string>('');
   const [composerMode, setComposerMode] = useState<string>('normal');
   const [composerModelKey, setComposerModelKey] = useState<string>('');
   const [composerAttachments, setComposerAttachments] = useState<SendMessageAttachment[]>([]);
@@ -3597,6 +3649,38 @@ export function SessionDetailPage() {
   const olderMessagesAbortRef = useRef<AbortController | null>(null);
   const sseCloseRef = useRef<(() => void) | null>(null);
   const composerTextareaRef = useRef<HTMLTextAreaElement | null>(null);
+  // composerText 的即时镜像。textarea 改为非受控：受控绑定会让每个
+  // keystroke 重执行整个页面组件（11k 行 JSX diff），长会话下输入可感延迟。
+  // 键入只写 ref（事件处理一律读 ref，去抖窗口内的输入不丢失），state 去抖
+  // 同步用于字符计数等低频渲染；程序化写入（清空/编辑回填/插入技能）立即
+  // 同步 DOM + state。
+  const composerTextRef = useRef('');
+  const composerTextSyncTimerRef = useRef<number | null>(null);
+  const setComposerText = useCallback((next: string) => {
+    composerTextRef.current = next;
+    if (composerTextSyncTimerRef.current != null) {
+      window.clearTimeout(composerTextSyncTimerRef.current);
+      composerTextSyncTimerRef.current = null;
+    }
+    const node = composerTextareaRef.current;
+    if (node && node.value !== next) node.value = next;
+    setComposerTextState(next);
+  }, []);
+  const handleComposerTextInput = useCallback((next: string) => {
+    composerTextRef.current = next;
+    if (composerTextSyncTimerRef.current != null) {
+      window.clearTimeout(composerTextSyncTimerRef.current);
+    }
+    composerTextSyncTimerRef.current = window.setTimeout(() => {
+      composerTextSyncTimerRef.current = null;
+      setComposerTextState(composerTextRef.current);
+    }, COMPOSER_TEXT_STATE_SYNC_MS);
+  }, []);
+  useEffect(() => () => {
+    if (composerTextSyncTimerRef.current != null) {
+      window.clearTimeout(composerTextSyncTimerRef.current);
+    }
+  }, []);
   const composerFileInputRef = useRef<HTMLInputElement | null>(null);
   const slashDismissalRef = useRef<ComposerTriggerDismissal | null>(null);
   const skillPickerOverlayRef = useRef<HTMLDivElement | null>(null);
@@ -5723,7 +5807,8 @@ export function SessionDetailPage() {
       setComposerError(t('composer.queue.editingBusy', '当前正在回复，不能排队编辑历史消息'));
       return false;
     }
-    const text = composerText.trim();
+    // 读 ref 而非 state：去抖窗口内的最新输入不能丢。
+    const text = composerTextRef.current.trim();
     const attachments = copyQueuedAttachments();
     const validation = validateComposerPayload(text, attachments, composerModelKey, composerMode, selectedModel);
     if (validation) {
@@ -6316,7 +6401,7 @@ export function SessionDetailPage() {
 
   function removeAtMentionTriggerText(): void {
     const textarea = composerTextareaRef.current;
-    const text = textarea?.value ?? composerText;
+    const text = textarea?.value ?? composerTextRef.current;
     const cursor = textarea?.selectionStart ?? text.length;
     const trigger =
       computeAtMentionTrigger(text, cursor) ??
@@ -6433,7 +6518,7 @@ export function SessionDetailPage() {
 
   function selectSkillForComposer(skill: SkillSummary): void {
     const textarea = composerTextareaRef.current;
-    const text = textarea?.value ?? composerText;
+    const text = textarea?.value ?? composerTextRef.current;
     const cursor = textarea?.selectionStart ?? 0;
     const trigger = computeSlashTrigger(text, cursor);
     const remainderStart = trigger ? (trigger.tokenEnd < text.length && /[ \t]/.test(text.charAt(trigger.tokenEnd)) ? trigger.tokenEnd + 1 : trigger.tokenEnd) : 0;
@@ -6451,7 +6536,7 @@ export function SessionDetailPage() {
 
   function dismissSkillPicker(remember = false): void {
     const textarea = composerTextareaRef.current;
-    const text = textarea?.value ?? composerText;
+    const text = textarea?.value ?? composerTextRef.current;
     const cursor = textarea?.selectionStart ?? 0;
     const trigger = computeSlashTrigger(text, cursor);
     if (remember && trigger) {
@@ -6467,7 +6552,7 @@ export function SessionDetailPage() {
 
   function dismissAtMentionFilePicker(remember = false): void {
     const textarea = composerTextareaRef.current;
-    const text = textarea?.value ?? composerText;
+    const text = textarea?.value ?? composerTextRef.current;
     const cursor = textarea?.selectionStart ?? text.length;
     const trigger = computeAtMentionTrigger(text, cursor);
     if (remember && trigger) {
@@ -6852,7 +6937,7 @@ export function SessionDetailPage() {
       enqueueCurrentComposerMessage();
       return;
     }
-    const text = composerText.trim();
+    const text = composerTextRef.current.trim();
     const validation = validateComposerPayload(text, composerAttachments, composerModelKey, composerMode, selectedModel);
     if (validation) {
       setComposerError(validation);
@@ -8143,7 +8228,7 @@ export function SessionDetailPage() {
                 ) : null}
                 <textarea
                   ref={composerTextareaRef}
-                  value={composerText}
+                  defaultValue={composerTextRef.current}
                   onBlur={(e) => {
                     const nextFocusTarget = e.relatedTarget;
                     const skillOverlay = skillPickerOverlayRef.current;
@@ -8159,7 +8244,7 @@ export function SessionDetailPage() {
                   }}
                   onInput={(e) => {
                     const target = e.currentTarget as HTMLTextAreaElement;
-                    setComposerText(target.value);
+                    handleComposerTextInput(target.value);
                     updateSkillPickerForText(target.value, target.selectionStart ?? target.value.length);
                     updateAtMentionFilePickerForText(target.value, target.selectionStart ?? target.value.length);
                   }}

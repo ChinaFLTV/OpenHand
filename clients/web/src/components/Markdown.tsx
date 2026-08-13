@@ -1542,6 +1542,24 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
     [],
   );
 
+  // 稳定 vnode：流式逐字揭示会让本组件以 ~60fps 重渲染，而 react-markdown
+  // 在渲染期同步执行整条 remark→rehype 管线且无内部缓存。renderedContent
+  // 与插件未变时复用同一元素引用，Preact 直接跳过该子树 diff——全量重解析
+  // 从每帧一次降到每次 flush（约 12.5 次/秒）一次。vnode 创建本身极廉价，
+  // 未走 markdown 分支时不会触发解析。
+  const markdownTree = useMemo(
+    () => (
+      <ReactMarkdown
+        remarkPlugins={remarkPlugins}
+        rehypePlugins={rehypePlugins}
+        components={components}
+      >
+        {renderedContent}
+      </ReactMarkdown>
+    ),
+    [components, rehypePlugins, remarkPlugins, renderedContent],
+  );
+
   if (raw) {
     return (
       <pre
@@ -1625,13 +1643,7 @@ export const Markdown = memo(function Markdown({ source, raw = false, mono = fal
 
   return (
     <div class="oh-markdown text-sm" style={{ fontFamily }}>
-      <ReactMarkdown
-        remarkPlugins={remarkPlugins}
-        rehypePlugins={rehypePlugins}
-        components={components}
-      >
-        {renderedContent}
-      </ReactMarkdown>
+      {markdownTree}
     </div>
   );
 });

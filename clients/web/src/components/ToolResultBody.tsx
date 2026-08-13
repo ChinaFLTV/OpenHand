@@ -19,6 +19,25 @@ import { svgIconProps } from '../shared/ui/svg_icon';
 
 const AUTO_COLLAPSE_CHARS = 600;
 const ERROR_LINE_PATTERN = /\b(error|exception|traceback|fail(?:ed|ure)?|panic|fatal)\b/i;
+/// 展开时的分片行数：数万行的命令输出一次性建满 vnode/DOM 会造成数百 ms
+/// 长任务，按片渐进展开，剩余部分由「继续展开」驱动。
+const EXPAND_CHUNK_LINES = 400;
+
+/// 取前 [maxLines] 行（按第 maxLines 个换行截断），不对全文 split 分配行数组。
+function sliceLeadingLines(
+  text: string,
+  maxLines: number,
+): { slice: string; hasMore: boolean } {
+  let cursor = -1;
+  let lines = 0;
+  while (lines < maxLines) {
+    const next = text.indexOf('\n', cursor + 1);
+    if (next === -1) return { slice: text, hasMore: false };
+    cursor = next;
+    lines += 1;
+  }
+  return { slice: text.slice(0, cursor), hasMore: cursor < text.length - 1 };
+}
 
 interface ToolResultBodyProps {
   content: string;
@@ -54,12 +73,24 @@ function classifyLines(text: string): RenderedLine[] {
 }
 
 export function ToolResultBody({ content, autoFollow = false }: ToolResultBodyProps) {
-  const [expanded, setExpanded] = useState(false);
+  // 0 = 折叠（600 字符预览）；>0 = 已展开的分片数，每片 EXPAND_CHUNK_LINES 行。
+  const [expandedChunks, setExpandedChunks] = useState(0);
+  const expanded = expandedChunks > 0;
   const { active: copied, trigger: showCopied } = useTransientFlag();
 
   const collapsedContent = truncateEndText(content, AUTO_COLLAPSE_CHARS);
   const overflow = collapsedContent !== content;
-  const shown = expanded ? content : collapsedContent;
+  const view = useMemo(() => {
+    if (expandedChunks <= 0) {
+      return { text: collapsedContent, hasMoreLines: false };
+    }
+    const { slice, hasMore } = sliceLeadingLines(
+      content,
+      expandedChunks * EXPAND_CHUNK_LINES,
+    );
+    return { text: slice, hasMoreLines: hasMore };
+  }, [collapsedContent, content, expandedChunks]);
+  const shown = view.text;
   const lines = useMemo(() => classifyLines(shown), [shown]);
   const preRef = useStickyBottom<HTMLPreElement>(shown, autoFollow);
 
@@ -111,7 +142,7 @@ export function ToolResultBody({ content, autoFollow = false }: ToolResultBodyPr
         {overflow ? (
           <button
             type="button"
-            onClick={() => setExpanded((v) => !v)}
+            onClick={() => setExpandedChunks((v) => (v > 0 ? 0 : 1))}
             class="oh-tap-press oh-message-action-button oh-tool-toggle-button is-compact"
             style={{
               background: 'var(--m3-surface-container)',
@@ -123,6 +154,21 @@ export function ToolResultBody({ content, autoFollow = false }: ToolResultBodyPr
             {expanded
               ? t('detail.tool.body.collapse', '折叠')
               : t('detail.tool.body.expand', '展开全部 ') + `(${content.length} ${t('detail.tool.body.chars', '字符')})`}
+          </button>
+        ) : null}
+        {expanded && view.hasMoreLines ? (
+          <button
+            type="button"
+            onClick={() => setExpandedChunks((v) => v + 1)}
+            class="oh-tap-press oh-message-action-button oh-tool-toggle-button is-compact"
+            style={{
+              background: 'var(--m3-surface-container)',
+              color: 'var(--m3-on-surface-variant)',
+              border: '1px solid var(--m3-outline)',
+            }}
+          >
+            <ToolBodyIcon name="chevronDown" />
+            {`${t('detail.tool.body.expandMore', '继续展开 ')}(${t('detail.tool.body.remaining', '剩余')} ${(content.length - shown.length).toLocaleString()} ${t('detail.tool.body.chars', '字符')})`}
           </button>
         ) : null}
         <button

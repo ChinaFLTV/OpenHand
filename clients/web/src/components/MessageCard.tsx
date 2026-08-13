@@ -146,6 +146,27 @@ function useToolLiveElapsedMs(
   return null;
 }
 
+/// 活跃工具的耗时 chip 独立成组件：1s tick 的 setState 只重渲染这个小
+/// chip，不再拖着整张工具卡（含入参 pretty-print、输出分行判定）每秒
+/// 全量重渲染。
+function ToolLiveElapsedChip({
+  metadata,
+  status,
+  messageCreatedAt,
+}: {
+  metadata: Record<string, unknown>;
+  status: string;
+  messageCreatedAt: string;
+}) {
+  const elapsedMs = useToolLiveElapsedMs(metadata, status, messageCreatedAt);
+  if (elapsedMs == null) return null;
+  return (
+    <MetaChip
+      label={`${t('detail.tool.elapsed', '耗时')}: ${formatCompactDurationMs(elapsedMs)}`}
+    />
+  );
+}
+
 async function copyPathWithFeedback(path: string): Promise<void> {
   const ok = await copyTextToClipboard(path);
   showSnackbar(ok
@@ -4741,7 +4762,6 @@ function ToolExecutionCard({
       metadata['tool_status'] ??
       metadata['status'],
   );
-  const elapsedMs = useToolLiveElapsedMs(metadata, status, message.created_at);
   const exitCode = finiteNumberOrNullFromUnknown(metadata['tool_execution_exit_code'] ?? metadata['exit_code']);
   const sandboxApplied = booleanFromUnknown(metadata['sandbox_applied']);
   const sandboxBlocked = booleanFromUnknown(metadata['sandbox_blocked']);
@@ -4762,7 +4782,7 @@ function ToolExecutionCard({
   return (
     <div class="oh-tool-execution-card flex flex-col gap-2">
       <div class="oh-tool-execution-chip-row flex flex-wrap gap-1.5 text-[11px]">
-        {elapsedMs != null ? <MetaChip label={`${t('detail.tool.elapsed', '耗时')}: ${formatCompactDurationMs(elapsedMs)}`} /> : null}
+        <ToolLiveElapsedChip metadata={metadata} status={status} messageCreatedAt={message.created_at} />
         {exitCode != null ? <MetaChip label={`exit ${exitCode}`} tone={exitCode === 0 ? 'ok' : 'danger'} /> : null}
         {(sandboxApplied || sandboxBlocked || sandboxReason) ? (
           <MetaChip
@@ -4900,8 +4920,14 @@ function ToolSection({
     () => formatToolSectionContent(content),
     [content],
   );
-  const long =
-    formattedContent.length > 640 || formattedContent.split('\n').length > 10;
+  // 有界行数判定 + memo：多 KB 的 stdout/stderr 每次重渲染整段 split
+  // 会白白分配整行数组，流式期间尤甚。
+  const long = useMemo(
+    () =>
+      formattedContent.length > 640
+      || newlineCountAtLeast(formattedContent, 10),
+    [formattedContent],
+  );
   const [expanded, setExpanded] = useState(defaultExpanded || !long);
   const preRef = useStickyBottom<HTMLPreElement>(formattedContent, autoFollow);
   return (
@@ -4959,6 +4985,20 @@ function looksLikeJsonText(text: string): boolean {
     (text.startsWith('{') && text.endsWith('}')) ||
     (text.startsWith('[') && text.endsWith(']'))
   );
+}
+
+/// 有界换行计数：只需知道换行数是否达到 [limit]，数够即停，
+/// 避免对大段工具输出整段 split 分配行数组。
+function newlineCountAtLeast(text: string, limit: number): boolean {
+  if (limit <= 0) return true;
+  let count = 0;
+  let cursor = text.indexOf('\n');
+  while (cursor !== -1) {
+    count += 1;
+    if (count >= limit) return true;
+    cursor = text.indexOf('\n', cursor + 1);
+  }
+  return false;
 }
 
 function formatLegacyToolSearchContent(content: string): string | null {
@@ -5083,20 +5123,27 @@ function ToolArgumentsBlock({
   autoFollow?: boolean;
 }) {
   const raw = metadata?.['tool_arguments'];
-  if (raw == null) return null;
-  let pretty: string;
-  if (typeof raw === 'string') {
-    const trimmed = raw.trim();
-    if (trimmed === '') return null;
-    const parsed = parseJsonSafely(trimmed);
-    pretty = parsed == null ? trimmed : stringifyJsonSafely(parsed, 2) ?? trimmed;
-  } else {
-    pretty = stringifyJsonSafely(raw, 2) ?? String(raw);
-  }
+  // pretty 结果按 raw 缓存：卡片任何无关重渲染（每秒耗时 tick、流式
+  // chunk）不再重复对整段入参做 JSON.parse + pretty-print。
+  // hooks 全部提前到早退之前，顺便修正了原实现「条件早退后再调 hook」
+  // 在 raw 空/非空切换时的 hooks 顺序隐患。
+  const pretty = useMemo(() => {
+    if (raw == null) return null;
+    if (typeof raw === 'string') {
+      const trimmed = raw.trim();
+      if (trimmed === '') return null;
+      const parsed = parseJsonSafely(trimmed);
+      return parsed == null ? trimmed : stringifyJsonSafely(parsed, 2) ?? trimmed;
+    }
+    return stringifyJsonSafely(raw, 2) ?? String(raw);
+  }, [raw]);
   const [expanded, setExpanded] = useState(false);
-  const lineCount = pretty.split('\n').length;
-  const overflow = lineCount > 4 || pretty.length > 200;
-  const preRef = useStickyBottom<HTMLPreElement>(pretty, autoFollow);
+  const overflow = useMemo(
+    () => pretty != null && (pretty.length > 200 || newlineCountAtLeast(pretty, 4)),
+    [pretty],
+  );
+  const preRef = useStickyBottom<HTMLPreElement>(pretty ?? '', autoFollow);
+  if (pretty == null) return null;
   return (
     <div class="mb-2">
       <div
