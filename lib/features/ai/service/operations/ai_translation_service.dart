@@ -368,7 +368,7 @@ class AiTranslationService {
       uri: Uri.parse(_endpointOrDefault(providerSettings)),
       method: 'POST',
       headers: const <String, String>{
-        'content-type': 'application/x-www-form-urlencoded',
+        'content-type': kFormUrlEncodedMimeType,
       },
       body: <String, String>{
         'q': text,
@@ -555,7 +555,7 @@ class AiTranslationService {
       uri: Uri.parse(_endpointOrDefault(providerSettings)),
       method: 'POST',
       headers: const <String, String>{
-        'content-type': 'application/x-www-form-urlencoded',
+        'content-type': kFormUrlEncodedMimeType,
       },
       body: <String, String>{
         'q': text,

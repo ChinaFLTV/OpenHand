@@ -29,6 +29,7 @@ import '../model/mcp_http_headers.dart';
 import '../model/mcp_server.dart';
 import '../model/mcp_server_health.dart';
 import '../model/mcp_tool.dart';
+import 'mcp_ops_endpoint.dart';
 import 'mcp_stdio_cache.dart';
 import 'mcp_stdio_io_utils.dart';
 import 'mcp_stdio_launch_resolver.dart';
@@ -223,7 +224,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   static const int _maxStdioContentLengthDigits = 7;
   static const int _maxRedirects = 4;
   static const int _maxToolPages = 8;
-  static const String _streamableHttpProtocolVersion = '2025-11-25';
+  static const String _streamableHttpProtocolVersion = kMcpProtocolVersion;
   static const String _legacySseProtocolVersion = '2024-11-05';
   static final RegExp _outputDescriptionLineSeparatorPattern = RegExp(
     r'[\r\n]+',
@@ -890,11 +891,11 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
         'accept',
         'cache-control',
         'pragma',
-        'mcp-protocol-version',
+        kMcpProtocolVersionHeader,
         'mcp-session-id',
       },
     );
-    headers['mcp-protocol-version'] = session.protocolVersion;
+    headers[kMcpProtocolVersionHeader] = session.protocolVersion;
     headers['mcp-session-id'] = sessionId;
     try {
       final response = await _sendRequestWithRedirects(
@@ -1208,7 +1209,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       protectedHeaderNames: const <String>{
         kContentTypeHeaderName,
         'accept',
-        'mcp-protocol-version',
+        kMcpProtocolVersionHeader,
         'mcp-session-id',
         'cache-control',
         'pragma',
@@ -1216,7 +1217,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     );
     final normalizedProtocolVersion = nullIfBlank(protocolVersion);
     if (normalizedProtocolVersion != null) {
-      headers['mcp-protocol-version'] = normalizedProtocolVersion;
+      headers[kMcpProtocolVersionHeader] = normalizedProtocolVersion;
     }
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId != null) {

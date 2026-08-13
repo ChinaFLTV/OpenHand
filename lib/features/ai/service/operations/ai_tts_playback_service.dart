@@ -1410,7 +1410,7 @@ class AiTtsPlaybackService {
       method: 'POST',
       headers: const <String, String>{
         HttpHeaders.contentTypeHeader:
-            'application/x-www-form-urlencoded; charset=utf-8',
+            '$kFormUrlEncodedMimeType; charset=utf-8',
       },
       body: <String, String>{
         'q': text,

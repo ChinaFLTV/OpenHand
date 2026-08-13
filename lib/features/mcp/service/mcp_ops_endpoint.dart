@@ -14,6 +14,12 @@ const String mcpOpsWildcardIpv6Host = '::';
 const Duration mcpOpsInterfaceDiscoveryTimeout = Duration(seconds: 3);
 const int mcpOpsMaxDiscoveredHosts = 64;
 
+/// MCP 协议版本 HTTP 头名。
+const String kMcpProtocolVersionHeader = 'mcp-protocol-version';
+
+/// 当前支持的 MCP 协议版本。
+const String kMcpProtocolVersion = '2025-11-25';
+
 /// 运维入口实际生效的端口：优先取已绑定端口，未启动时回落到配置端口。
 int mcpOpsEffectivePort(McpOpsRuntimeSnapshot snapshot, McpOpsConfig config) {
   return snapshot.boundPort ?? config.listenPort;

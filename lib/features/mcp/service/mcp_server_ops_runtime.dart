@@ -206,7 +206,7 @@ class McpServerOpsRuntime {
     requirePositiveInt(maxBatchItems, 'maxBatchItems');
   }
 
-  static const String _protocolVersion = '2025-11-25';
+  static const String _protocolVersion = kMcpProtocolVersion;
   static const String _serverName = 'OpenHand MCP Server';
   static const String _serverVersion = '1.0.0';
   static const Duration _startupTimeout = Duration(seconds: 10);
@@ -541,7 +541,7 @@ class McpServerOpsRuntime {
       request.headers
         ..set(HttpHeaders.contentTypeHeader, kApplicationJsonMimeType)
         ..set(HttpHeaders.acceptHeader, '$kApplicationJsonMimeType, $kTextEventStreamMimeType')
-        ..set('mcp-protocol-version', _protocolVersion)
+        ..set(kMcpProtocolVersionHeader, _protocolVersion)
         ..set('x-openhand-client', 'OpenHand Self-Test');
       final token = nullIfBlank(_config.authToken);
       if (_config.requireAuthToken && token != null) {
@@ -766,7 +766,7 @@ class McpServerOpsRuntime {
       HttpStatus.noContent,
       headers: <String, String>{
         ..._responseHeaders,
-        'mcp-protocol-version': _protocolVersion,
+        kMcpProtocolVersionHeader: _protocolVersion,
         if (validSessionId != null) 'mcp-session-id': validSessionId,
       },
     );
@@ -1752,7 +1752,7 @@ class McpServerOpsRuntime {
             request.requestedUri.queryParameters,
           ),
           'user_agent': request.headers['user-agent'],
-          'mcp_protocol_version': request.headers['mcp-protocol-version'],
+          'mcp_protocol_version': request.headers[kMcpProtocolVersionHeader],
           'origin': redactSensitiveUriForLogging(request.headers['origin']),
           'referer': redactSensitiveUriForLogging(request.headers['referer']),
           'peer_ip': peer.ipAddress,
@@ -1908,7 +1908,7 @@ class McpServerOpsRuntime {
 
   Map<String, String> _sessionHeaders(shelf.Request request) {
     return <String, String>{
-      'mcp-protocol-version': _protocolVersion,
+      kMcpProtocolVersionHeader: _protocolVersion,
       'mcp-session-id': _sessionIdForRequest(request),
     };
   }
@@ -1967,7 +1967,7 @@ class McpServerOpsRuntime {
   }
 
   String _protocol(shelf.Request request) {
-    return nullIfBlank(request.headers['mcp-protocol-version']) ??
+    return nullIfBlank(request.headers[kMcpProtocolVersionHeader]) ??
         _protocolVersion;
   }
 
