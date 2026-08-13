@@ -1200,7 +1200,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     final headers = _mergeRequestHeaders(
       baseHeaders: const <String, String>{
         kContentTypeHeaderName: kApplicationJsonMimeType,
-        'accept': 'application/json, text/event-stream',
+        'accept': '$kApplicationJsonMimeType, $kTextEventStreamMimeType',
         ..._mcpFreshRequestHeaders,
       },
       extraHeaders: customHeaders ?? server.headers,
