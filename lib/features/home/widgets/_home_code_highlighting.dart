@@ -3180,7 +3180,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
         themeColors.border,
         mermaidJs,
       );
-      if (Platform.isMacOS || Platform.isLinux || Platform.isWindows) {
+      if (isDesktopPlatform()) {
         final tempFile = await writeNewTemporaryFileTextBounded(
           directoryPrefix: 'openhand_mermaid_',
           fileName: 'index.html',

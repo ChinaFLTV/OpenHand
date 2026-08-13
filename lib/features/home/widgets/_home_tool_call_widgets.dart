@@ -3343,7 +3343,7 @@ Future<void> _openResolvedMessagePath(
       return;
     }
     throw FileSystemException(
-      Platform.isMacOS || Platform.isWindows || Platform.isLinux
+      isDesktopPlatform()
           ? 'Unable to open file location.'
           : 'Unsupported platform.',
     );

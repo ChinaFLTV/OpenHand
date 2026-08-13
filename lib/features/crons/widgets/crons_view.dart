@@ -25,6 +25,7 @@ import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../../ai/index.dart';
@@ -1772,7 +1773,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
 
     if (support) {
       final detail =
-          (Platform.isMacOS || Platform.isLinux || Platform.isWindows)
+          isDesktopPlatform()
           ? l10n.cronsSupportBestEffortSystemSound
           : l10n.cronsSupportSupported;
       return _capabilityTooltip(

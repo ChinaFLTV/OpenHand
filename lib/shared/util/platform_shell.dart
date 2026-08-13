@@ -49,3 +49,7 @@ String preferredPosixShellExecutable({
       ? defaultBashExecutable
       : defaultPosixShellExecutable;
 }
+
+/// 当前进程是否运行在桌面平台（macOS / Windows / Linux）。
+bool isDesktopPlatform() =>
+    Platform.isMacOS || Platform.isWindows || Platform.isLinux;

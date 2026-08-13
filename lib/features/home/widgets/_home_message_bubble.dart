@@ -2429,7 +2429,7 @@ Future<void> _openLocalPathWithSystemApp(
       return;
     }
     throw FileSystemException(
-      Platform.isMacOS || Platform.isWindows || Platform.isLinux
+      isDesktopPlatform()
           ? 'Failed to open file.'
           : 'Unsupported platform.',
       normalizedPath,
