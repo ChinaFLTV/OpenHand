@@ -871,6 +871,16 @@ class ServicesController extends ChangeNotifier {
     _notify();
     try {
       final client = _requireClient();
+      // 若被恢复的任务原先启用 GPT 辅助提取，需在恢复前重新下发模型配置，
+      // 否则服务重启后引擎的 AiExtractor 为空会直接拒绝该任务。
+      var resumedGptAssisted = false;
+      for (final entry in _history) {
+        if (entry.id == jobId) {
+          resumedGptAssisted = entry.gptAssisted ?? false;
+          break;
+        }
+      }
+      await _configureAiExtractor(resumedGptAssisted);
       final resumedId = await client.resumeJob(jobId);
       _progress = await client.progress(resumedId);
       _logs.clear();
