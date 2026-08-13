@@ -180,6 +180,10 @@ class _TranscriptViewportAnchor {
   final double viewportOffset;
 }
 
+/// 锚点恢复的三态结果：区分「已修正」「实测稳定」与「暂不可测量」，
+/// 稳定循环只把前两者计入提前退出判定。
+enum _AnchorRestoreOutcome { corrected, stable, unmeasurable }
+
 /// 跨 widget 的「按 messageId 平滑滚动」分发器。
 /// `_SessionTranscriptState` 在 init/dispose 时按 sessionId 注册自身；
 /// 任意位置（汇总卡、跳转链接等）可调 `scrollToMessage(sessionId, msgId)`。
@@ -2349,14 +2353,23 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   bool _restorePrependAnchor(_TranscriptViewportAnchor anchor) {
+    return _restorePrependAnchorOutcome(anchor) ==
+        _AnchorRestoreOutcome.corrected;
+  }
+
+  _AnchorRestoreOutcome _restorePrependAnchorOutcome(
+    _TranscriptViewportAnchor anchor,
+  ) {
     if (!widget.controller.hasClients || _isTranscriptScrollActive(context)) {
-      return false;
+      return _AnchorRestoreOutcome.unmeasurable;
     }
     final currentOffset = _viewportOffsetForMessage(anchor.messageId);
-    if (currentOffset == null) return false;
+    if (currentOffset == null) {
+      return _AnchorRestoreOutcome.unmeasurable;
+    }
     final delta = currentOffset - anchor.viewportOffset;
     if (delta.abs() < _transcriptPrependAnchorMinCorrection) {
-      return false;
+      return _AnchorRestoreOutcome.stable;
     }
     widget.onProgrammaticScrollCorrection(() {
       if (!mounted || !widget.controller.hasClients) return;
@@ -2371,7 +2384,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       }
       position.jumpTo(target);
     });
-    return true;
+    return _AnchorRestoreOutcome.corrected;
   }
 
   void _startPrependAnchorStabilization(
@@ -2402,19 +2415,23 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         _cancelPendingViewportRestore();
         return;
       }
-      final corrected = _restorePrependAnchor(anchor);
-      // 静默提前退出：连续多帧无需修正说明内容高度已收敛，剩余帧预算
-      // 不必再逐帧做 localToGlobal + 潜在 jumpTo（每次 jumpTo 都会触发
-      // 整个视口 sliver 重排与滚动通知级联）。
-      if (corrected) {
-        _pendingPrependAnchorStableFrames = 0;
-      } else {
-        _pendingPrependAnchorStableFrames += 1;
-        if (_pendingPrependAnchorStableFrames >=
-            _transcriptPrependAnchorStableFrameLimit) {
-          _cancelPendingViewportRestore();
-          return;
-        }
+      // 静默提前退出：连续多帧「实测且无需修正」说明内容高度已收敛，
+      // 剩余帧预算不必再逐帧做 localToGlobal + 潜在 jumpTo。锚点暂不可
+      // 测量（变体切换换体 / 气泡尚未布局 / 注册表迟到）既不算稳定也不
+      // 算修正——那正是 18 帧结算窗要等待的 WebView 测高 / 图片解码
+      // 场景，误计稳定会把窗口在开局两帧就掐灭。
+      switch (_restorePrependAnchorOutcome(anchor)) {
+        case _AnchorRestoreOutcome.corrected:
+          _pendingPrependAnchorStableFrames = 0;
+        case _AnchorRestoreOutcome.stable:
+          _pendingPrependAnchorStableFrames += 1;
+          if (_pendingPrependAnchorStableFrames >=
+              _transcriptPrependAnchorStableFrameLimit) {
+            _cancelPendingViewportRestore();
+            return;
+          }
+        case _AnchorRestoreOutcome.unmeasurable:
+          break;
       }
       _pendingPrependAnchorFrames -= 1;
       if (_pendingPrependAnchorFrames > 0) {

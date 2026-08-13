@@ -7467,9 +7467,10 @@ class _ThrottleDisabledBadge extends StatelessWidget {
 
 /// 自动模式开启时显示的"实时 FPS"小指示器。
 ///
-/// 直接读 [OpenHandFpsMonitor.recentFps]，1s 一次刷新。
-/// FPS < 55 时染红并附「已降速」提示，方便用户判断当前是否处于卡顿
-/// 自适应区间。
+/// 直接读 [OpenHandFpsMonitor]，1s 一次刷新。
+/// 被动采样下空闲期不产帧：无新鲜数据时显示「空闲」而非陈旧值；
+/// 卡顿判定跟随 [OpenHandFpsMonitor.isStrugglingRecently]（超预算帧
+/// 占比），与自动模式的实际降速决策一致。
 class _AutoModeFpsIndicator extends StatefulWidget {
   const _AutoModeFpsIndicator();
 
@@ -7480,6 +7481,7 @@ class _AutoModeFpsIndicator extends StatefulWidget {
 class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
   Timer? _timer;
   double _fps = 0;
+  bool _struggling = false;
 
   @override
   void initState() {
@@ -7488,7 +7490,10 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
       const Duration(seconds: 1),
       (_) {
         if (!mounted) return;
-        setState(() => _fps = OpenHandFpsMonitor.instance.recentFps);
+        setState(() {
+          _fps = OpenHandFpsMonitor.instance.recentFps;
+          _struggling = OpenHandFpsMonitor.instance.isStrugglingRecently;
+        });
       },
       onError: (error, stack) =>
           silentLog('settings', '刷新自动模式帧率', error, stack),
@@ -7505,8 +7510,14 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final scheme = theme.colorScheme;
-    final low = _fps > 0 && _fps < 55;
-    final color = low ? scheme.error : scheme.primary;
+    final idle = _fps <= 0;
+    final low = !idle && _struggling;
+    final color = low
+        ? scheme.error
+        : idle
+        ? scheme.onSurfaceVariant
+        : scheme.primary;
+    final fpsLabel = _fps.toStringAsFixed(1);
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(
@@ -7518,21 +7529,35 @@ class _AutoModeFpsIndicatorState extends State<_AutoModeFpsIndicator> {
         mainAxisSize: MainAxisSize.min,
         children: [
           Icon(
-            low ? Icons.south_rounded : Icons.bolt_rounded,
+            low
+                ? Icons.south_rounded
+                : idle
+                ? Icons.pause_circle_outline_rounded
+                : Icons.bolt_rounded,
             size: 14,
             color: color,
           ),
           kOpenHandHGap6,
           Text(
-            openHandLocalizedText(
-              context,
-              zh: '实时 FPS：${_fps.toStringAsFixed(1)}${low ? ' · 已降速' : ''}',
-              zhHant: '即時 FPS：${_fps.toStringAsFixed(1)}${low ? ' · 已降速' : ''}',
-              en: 'FPS: ${_fps.toStringAsFixed(1)}${low ? ' · slowed' : ''}',
-              fr: 'FPS : ${_fps.toStringAsFixed(1)}${low ? ' · ralenti' : ''}',
-              de: 'FPS: ${_fps.toStringAsFixed(1)}${low ? ' · verlangsamt' : ''}',
-              ja: 'FPS: ${_fps.toStringAsFixed(1)}${low ? ' · 低速化' : ''}',
-            ),
+            idle
+                ? openHandLocalizedText(
+                    context,
+                    zh: '实时 FPS：空闲',
+                    zhHant: '即時 FPS：空閒',
+                    en: 'FPS: idle',
+                    fr: 'FPS : inactif',
+                    de: 'FPS: inaktiv',
+                    ja: 'FPS: アイドル',
+                  )
+                : openHandLocalizedText(
+                    context,
+                    zh: '实时 FPS：$fpsLabel${low ? ' · 已降速' : ''}',
+                    zhHant: '即時 FPS：$fpsLabel${low ? ' · 已降速' : ''}',
+                    en: 'FPS: $fpsLabel${low ? ' · slowed' : ''}',
+                    fr: 'FPS : $fpsLabel${low ? ' · ralenti' : ''}',
+                    de: 'FPS: $fpsLabel${low ? ' · verlangsamt' : ''}',
+                    ja: 'FPS: $fpsLabel${low ? ' · 低速化' : ''}',
+                  ),
             style: theme.textTheme.labelSmall?.copyWith(
               color: color,
               fontFeatures: const [FontFeature.tabularFigures()],

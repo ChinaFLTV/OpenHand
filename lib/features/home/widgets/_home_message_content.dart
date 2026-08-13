@@ -3592,6 +3592,27 @@ final LifecycleLruCache<_PreparedHtmlRenderData> _preparedHtmlRenderCache =
       costOf: (value) => value.cacheCost,
     );
 
+/// 流式期间 markdown 格式消息的 HTML 嗅探粘滞判定（key 为消息级
+/// scrollStateKey，流式期间稳定）。内容只会追加，「像 HTML 文档」的判定
+/// 命中后不会随追加翻转为否；未命中时每次 flush 只做轻量正则判定，
+/// 不进 prepared 管线、不污染 LRU。
+final LifecycleLruCache<bool> _streamingHtmlSniffCache =
+    LifecycleLruCache<bool>(maxEntries: 64, maxCost: 64, costOf: (_) => 1);
+
+bool _streamingMarkdownLooksLikeHtml(String data, String? stickyKey) {
+  if (data.isEmpty) return false;
+  if (stickyKey != null && _streamingHtmlSniffCache.get(stickyKey) == true) {
+    return true;
+  }
+  // fenced code block 一律坚持 Markdown：代码块正文可合法包含 HTML 字样。
+  if (_containsMarkdownCodeFence(data)) return false;
+  final looksHtml = _looksLikeHtml(data) || _hasHtmlTagStructure(data);
+  if (looksHtml && stickyKey != null) {
+    _streamingHtmlSniffCache.put(stickyKey, true);
+  }
+  return looksHtml;
+}
+
 String _preparedHtmlCacheKey(String value, int fingerprint) {
   // fingerprint 已含首尾采样 + 长度，再拼 value.hashCode 对长 HTML 是 O(n)
   // 且无额外区分力；用 length + fingerprint 即可。
@@ -4521,6 +4542,9 @@ class _DeferredHtmlBubbleWebViewState
 
   bool _mountWebView = false;
   bool _useFlutterFallback = false;
+  // 压力型回退（许可等待超时/排队溢出）可在限流器出现空位后重试；
+  // WebView 真实失败的回退保持永久，避免坏内容反复重载循环。
+  bool _canRetryFallbackOnCapacity = false;
   int _generation = 0;
   int? _mountedWebViewGeneration;
   TranscriptScrollActivity? _scrollActivity;
@@ -4613,6 +4637,18 @@ class _DeferredHtmlBubbleWebViewState
     if (activity == null || !mounted || activity.value) {
       return;
     }
+    // 压力型回退的自愈时机：滚动停止且限流器有空位时重试一次。
+    // 以滚动事件为节拍天然有界；keepAlive 的离屏卡释放许可后，
+    // 曾被饿死的卡不再永久停留在静态形态。
+    if (_useFlutterFallback &&
+        _canRetryFallbackOnCapacity &&
+        _htmlWebViewActiveLimiter.hasCapacity) {
+      _canRetryFallbackOnCapacity = false;
+      _permitWaitTimeoutCount = 0;
+      setState(() => _useFlutterFallback = false);
+      _scheduleMount();
+      return;
+    }
     if (!_pendingMountAfterScroll || _mountWebView) {
       return;
     }
@@ -4657,7 +4693,7 @@ class _DeferredHtmlBubbleWebViewState
       priority: true,
       isValid: () => mounted && generation == _generation && !_mountWebView,
     );
-    if (!scheduled) _handleWebViewFallback();
+    if (!scheduled) _handleWebViewFallback(retryOnCapacity: true);
   }
 
   void _tryMountWebView(int generation) {
@@ -4693,7 +4729,7 @@ class _DeferredHtmlBubbleWebViewState
     }, priority: warmMetrics);
     _activePermit = permit;
     if (permit.released) {
-      _handleWebViewFallback();
+      _handleWebViewFallback(retryOnCapacity: true);
       return;
     }
     if (permit.granted) {
@@ -4728,7 +4764,7 @@ class _DeferredHtmlBubbleWebViewState
     }, priority: _hasWarmWebViewMetrics());
     _bootstrapPermit = permit;
     if (permit.released) {
-      _handleWebViewFallback();
+      _handleWebViewFallback(retryOnCapacity: true);
       return;
     }
     if (permit.granted) _mountGrantedWebView(generation);
@@ -4764,11 +4800,12 @@ class _DeferredHtmlBubbleWebViewState
     _releaseBootstrapPermit();
   }
 
-  void _handleWebViewFallback() {
+  void _handleWebViewFallback({bool retryOnCapacity = false}) {
     _bootstrapTimer?.cancel();
     _bootstrapTimer = null;
     _releaseHtmlWebViewPermits();
     _mountedWebViewGeneration = null;
+    _canRetryFallbackOnCapacity = retryOnCapacity;
     if (mounted) {
       setState(() {
         _mountWebView = false;
@@ -4785,9 +4822,8 @@ class _DeferredHtmlBubbleWebViewState
   }
 
   void _releaseHtmlWebViewPermits() {
-    // 等待计时器必须无条件取消：permit 可能已被 `onRevoked` 置空，
-    // 此时若跟着 `_activePermit == null` 提前返回，计时器会越过 dispose
-    // 继续持有已销毁的 State 直到超时。
+    // 等待计时器必须无条件取消：若跟着 `_activePermit == null` 提前返回，
+    // 计时器会越过 dispose 继续持有已销毁的 State 直到超时。
     _cancelPermitWaitTimer();
     _releaseBootstrapPermit();
     final permit = _activePermit;
@@ -4832,7 +4868,7 @@ class _DeferredHtmlBubbleWebViewState
       // 直接回退 Flutter 静态渲染，内容依旧完整可见。
       _permitWaitTimeoutCount += 1;
       if (_permitWaitTimeoutCount >= _kPermitWaitMaxTimeouts) {
-        _handleWebViewFallback();
+        _handleWebViewFallback(retryOnCapacity: true);
         return;
       }
       if (_scrollActivity?.value ?? false) {
@@ -5028,8 +5064,9 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         if (!style) continue;
         // 写前比较：无条件 setProperty 会触发 attributes MutationObserver →
         // schedule → measure → 再写，形成 60Hz 永续的全量 DOM 扫描死循环。
-        if (style.getPropertyValue('min-height') !== 'auto') style.setProperty('min-height', 'auto', 'important');
-        if (style.getPropertyValue('height') !== 'auto') style.setProperty('height', 'auto', 'important');
+        // 值与 !important 优先级都一致才跳过，首写后即收敛、不再自激。
+        if (style.getPropertyValue('min-height') !== 'auto' || style.getPropertyPriority('min-height') !== 'important') style.setProperty('min-height', 'auto', 'important');
+        if (style.getPropertyValue('height') !== 'auto' || style.getPropertyPriority('height') !== 'important') style.setProperty('height', 'auto', 'important');
       }
     } catch (_) {}
   }
@@ -6305,11 +6342,18 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   }
 
   Widget _buildMarkdownOrFallback() {
-    // 流式阶段直接走 Markdown：对半成品缓冲做 HTML 嗅探每个 delta 都会
+    // 流式阶段不走 prepared 管线：对半成品缓冲做完整嗅探每个 delta 都会
     // 缓存 miss 并全量重算（O(N²) 累积），还会把中间版本挤进 prepared LRU
-    // 污染真正需要的条目；流式结束后本组件以 isStreaming=false 重建，届时
-    // 再做一次性嗅探。
+    // 污染真正需要的条目。轻量粘滞嗅探保住可见行为：整体像 HTML 文档的
+    // 内容显示骨架占位（与 html 格式流式一致）而非原始标签文本，流结束
+    // 后由稳定实例做一次性完整嗅探并落到 HTML 卡。
     if (isStreaming) {
+      if (_streamingMarkdownLooksLikeHtml(data, scrollStateKey)) {
+        return _StreamingHtmlPlaceholder(
+          textColor: textColor,
+          contentLength: data.length,
+        );
+      }
       return _buildMarkdown();
     }
     // Markdown 格式智能回退：仅当内容整体看起来像 HTML 文档时，才优先尝试

@@ -520,9 +520,11 @@ class SettingsController extends ChangeNotifier {
 
   /// 自动模式按平台返回字符速率：桌面端较快，移动端 / Web 端略保守。
   ///
-  /// 接入 [OpenHandFpsMonitor]：当最近一秒平均 FPS 低于
-  /// 55 时再砍 50%，让卡顿设备自动降速，避免雪上加霜；FPS 60 附近
-  /// 维持平台预设，保留头部体验。
+  /// 接入 [OpenHandFpsMonitor]：最近活跃渲染期卡顿帧占比过高
+  /// （[OpenHandFpsMonitor.isStrugglingRecently]）时再砍 50%，让卡顿设备
+  /// 自动降速，避免雪上加霜。被动采样下帧产出率不等于设备能力——节流
+  /// 流式本身就以十几帧每秒的节奏产帧，用「FPS < 55」判定会把健康设备
+  /// 系统性误降速并自锁。
   int _autoStreamMaxCharsPerSecond() {
     final platform = defaultTargetPlatform;
     final isMobileOrWeb =
@@ -532,8 +534,7 @@ class SettingsController extends ChangeNotifier {
     final base = isMobileOrWeb
         ? AppSettingsSnapshot.autoStreamMaxCharsPerSecondMobile
         : AppSettingsSnapshot.autoStreamMaxCharsPerSecondDesktop;
-    final fps = OpenHandFpsMonitor.instance.recentFps;
-    if (fps > 0 && fps < 55) {
+    if (OpenHandFpsMonitor.instance.isStrugglingRecently) {
       final scaled = (base / 2).round();
       return scaled.clamp(
         AppSettingsSnapshot.minAiStreamMaxCharsPerSecond + 1,

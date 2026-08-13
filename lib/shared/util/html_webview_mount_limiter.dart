@@ -27,6 +27,10 @@ class HtmlWebViewMountLimiter {
       Queue<HtmlWebViewMountPermit>();
   int _nextId = 0;
 
+  /// 当前是否还有空闲挂载额度（且无人排队）。压力型回退的调用方据此
+  /// 决定是否值得重试，避免注定失败的排队churn。
+  bool get hasCapacity => _active.length < maxMounted && _waiting.isEmpty;
+
   HtmlWebViewMountPermit request(
     void Function() onGranted, {
     bool priority = false,
