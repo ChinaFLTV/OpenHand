@@ -1226,6 +1226,30 @@ struct GithubSearchResponse {
 struct GithubCodeItem {
     url: String,
     html_url: String,
+    #[serde(default)]
+    repository: Option<GithubRepositoryRef>,
+}
+
+#[derive(Deserialize)]
+struct GithubRepositoryRef {
+    #[serde(default)]
+    private: Option<bool>,
+    #[serde(default)]
+    visibility: Option<String>,
+}
+
+impl GithubCodeItem {
+    /// fail-closed：仅在仓库明确公开时才纳入检索结果；字段缺失一律按私有跳过，
+    /// 避免凭证具备私库权限时把私有仓库内容拉入扫描。
+    fn is_public(&self) -> bool {
+        match &self.repository {
+            Some(repository) => {
+                repository.private == Some(false)
+                    || repository.visibility.as_deref() == Some("public")
+            }
+            None => false,
+        }
+    }
 }
 
 #[derive(Deserialize)]
@@ -1287,32 +1311,44 @@ impl AssetSource for GithubSource {
         let http_status = response.status();
         ensure_success("GitHub", http_status)?;
         let search = parse_json_limited::<GithubSearchResponse>("GitHub", response).await?;
+        // fail-closed 过滤非公开仓库，仅保留明确公开的检索结果，并限制单页数量。
+        let mut public_items = Vec::new();
+        let mut skipped_private = 0_usize;
+        for item in search.items {
+            if item.is_public() {
+                if public_items.len() < DEFAULT_PAGE_SIZE {
+                    public_items.push(item);
+                }
+            } else {
+                skipped_private += 1;
+            }
+        }
         let client = self.client.clone();
         let kind = self.kind;
         let token = token.expose_secret().to_owned();
-        let batches = stream::iter(
-            search
-                .items
-                .into_iter()
-                .take(DEFAULT_PAGE_SIZE)
-                .map(|item| {
-                    let client = client.clone();
-                    let token = token.clone();
-                    async move { github_item_candidates(client, kind, token, item).await }
-                }),
-        )
+        let batches = stream::iter(public_items.into_iter().map(|item| {
+            let client = client.clone();
+            let token = token.clone();
+            async move { github_item_candidates(client, kind, token, item).await }
+        }))
         .buffer_unordered(GITHUB_CONTENT_CONCURRENCY);
         futures::pin_mut!(batches);
         let mut candidates = Vec::new();
-        while let Some(batch) = batches.next().await {
+        'collect: while let Some(batch) = batches.next().await {
             for candidate in batch.into_iter().flatten() {
                 candidates.push(candidate);
                 if candidates.len() >= MAX_SOURCE_RESULTS {
-                    return Ok(SourceDiscovery::new(candidates));
+                    break 'collect;
                 }
             }
         }
-        Ok(SourceDiscovery::new(candidates))
+        let mut discovery = SourceDiscovery::new(candidates);
+        if skipped_private > 0 {
+            discovery.warnings.push(format!(
+                "已按 fail-closed 安全策略跳过 {skipped_private} 个非公开仓库的检索结果。"
+            ));
+        }
+        Ok(discovery)
     }
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
