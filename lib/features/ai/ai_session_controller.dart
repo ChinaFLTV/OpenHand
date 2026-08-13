@@ -2524,8 +2524,11 @@ class AiSessionController extends ChangeNotifier {
 
   Future<AiSession?> _hydrateSessionMessages(String sessionId) async {
     try {
+      // 遥测大字段（request_payload / response_raw 等）在 SQL 侧裁剪：
+      // 构建提示词、编辑、变体切换都不需要它们，千条大会话可少解码数十 MB
+      // JSON。审计弹窗按需单条补齐，save() 落库时自动补回，功能无损。
       final loaded = await _runSessionHydrationRead(
-        () => _store.loadSession(sessionId),
+        () => _store.loadSession(sessionId, deferTelemetry: true),
       );
       if (loaded == null ||
           _isDisposed ||
@@ -7504,6 +7507,14 @@ class AiSessionController extends ChangeNotifier {
       final partialDsmlPreviewMessageIds = <String, String>{};
       final assistantRawBuffer = StringBuffer();
       final reasoningRawBuffer = StringBuffer();
+      final assistantSanitizedMemo = _StreamSanitizedBufferMemo();
+      final reasoningSanitizedMemo = _StreamSanitizedBufferMemo();
+      final dsmlMarkerProbe = DsmlStreamMarkerProbe();
+      // 渲染下沉标记：delta 到达时只置位，真正的全量 sanitize 由
+      // 16ms 节流 tick 或 72ms 预览 flush 统一执行，消除每 delta 重复
+      // 清洗累积出的 O(N²) 主线程成本。
+      var assistantRenderPending = false;
+      var reasoningRenderPending = false;
       Timer? previewTimer;
       String? pendingReasoningContent;
       var hasPendingReasoningPreview = false;
@@ -7718,9 +7729,7 @@ class AiSessionController extends ChangeNotifier {
         if (messageId == null || messageId.isEmpty) {
           return session;
         }
-        final index = session.messages.indexWhere(
-          (message) => message.id == messageId,
-        );
+        final index = session.messageIndexOf(messageId);
         if (index == -1) {
           return session;
         }
@@ -7731,22 +7740,45 @@ class AiSessionController extends ChangeNotifier {
         } else {
           nextMetadata.remove(aiSessionMessageUsageEstimatedMetadataKey);
         }
-        final updatedMessages = List<AiSessionMessage>.from(session.messages);
-        updatedMessages[index] = currentMessage.copyWith(
+        final updatedMessage = currentMessage.copyWith(
           usage: usage,
           metadata: nextMetadata,
           modelId: currentMessage.modelId ?? model.id,
           modelLabel: currentMessage.modelLabel ?? model.displayName,
         );
+        // 流式 usage 事件几乎总是命中尾部 assistant 消息：走尾消息 COW
+        // 快速路径，避免每次全列表拷贝。
+        if (index == session.messages.length - 1) {
+          return session.copyWithTailMessage(
+            updatedMessage,
+            append: false,
+            updatedAt: _clock().toUtc(),
+          );
+        }
+        final updatedMessages = List<AiSessionMessage>.from(session.messages);
+        updatedMessages[index] = updatedMessage;
         return session.copyWith(
           messages: updatedMessages,
           updatedAt: _clock().toUtc(),
         );
       }
 
+      // 前向声明：flushPreview 需要先把待渲染缓冲物化，而渲染函数又要
+      // 通过 schedulePreview 触发 flush，构成合法的延迟循环引用。
+      late final void Function({bool schedulePreviewAfterRender})
+      renderAssistantBuffered;
+      late final void Function({bool schedulePreviewAfterRender})
+      renderReasoningBuffered;
+
       void flushPreview() {
         previewTimer?.cancel();
         previewTimer = null;
+        if (reasoningRenderPending) {
+          renderReasoningBuffered(schedulePreviewAfterRender: false);
+        }
+        if (assistantRenderPending) {
+          renderAssistantBuffered(schedulePreviewAfterRender: false);
+        }
         materializePendingReasoningPreview();
         _previewSession(streamedSession);
         hasPreviewedStreamDelta = true;
@@ -7793,7 +7825,7 @@ class AiSessionController extends ChangeNotifier {
         return !reasoningCharThrottle.hasPending;
       }
 
-      void renderAssistantBuffered() {
+      renderAssistantBuffered = ({bool schedulePreviewAfterRender = true}) {
         if (assistantRawBuffer.isEmpty && assistantMessageId == null) {
           return;
         }
@@ -7802,18 +7834,25 @@ class AiSessionController extends ChangeNotifier {
           // 渲染节奏 / drain 完成时会回调本函数把缓冲清空。
           return;
         }
-        final fullSanitized = _sanitizeVisibleModelContent(
-          assistantRawBuffer.toString(),
+        assistantRenderPending = false;
+        final fullSanitized = assistantSanitizedMemo.sanitizedFor(
+          assistantRawBuffer,
         );
-        // 节流按 grapheme 计算，避免中文 / emoji 被切在 cluster 中间。
-        final fullChars = fullSanitized.characters;
-        final visibleGraphemes = fullChars.length;
+        // 节流按 grapheme 计算，避免中文 / emoji 被切在 cluster 中间；
+        // 节流关闭时无需切片，跳过 O(N) 的 grapheme 统计（吞吐采样按码元
+        // 近似即可）。
+        final visibleGraphemes = charThrottle.isEnabled
+            ? assistantSanitizedMemo.graphemeCountFor(assistantRawBuffer)
+            : fullSanitized.length;
         final visibleLen = charThrottle.renderableGraphemeCount(
           visibleGraphemes,
         );
         final sanitizedContent = visibleLen >= visibleGraphemes
             ? fullSanitized
-            : fullChars.take(visibleLen).toString();
+            : assistantSanitizedMemo
+                  .charactersFor(assistantRawBuffer)
+                  .take(visibleLen)
+                  .toString();
         if (sanitizedContent.isEmpty && assistantMessageId == null) {
           return;
         }
@@ -7854,36 +7893,48 @@ class AiSessionController extends ChangeNotifier {
             },
           ),
         );
-        schedulePreview('charThrottle');
-      }
+        if (schedulePreviewAfterRender) {
+          schedulePreview('charThrottle');
+        }
+      };
 
-      void renderReasoningBuffered() {
-        final fullSanitized = _sanitizeVisibleModelContent(
-          reasoningRawBuffer.toString(),
+      renderReasoningBuffered = ({bool schedulePreviewAfterRender = true}) {
+        reasoningRenderPending = false;
+        final fullSanitized = reasoningSanitizedMemo.sanitizedFor(
+          reasoningRawBuffer,
         );
-        // reasoning 路径与 assistant 一样按 grapheme 边界切片。
-        final fullChars = fullSanitized.characters;
-        final visibleGraphemes = fullChars.length;
+        // reasoning 路径与 assistant 一样按 grapheme 边界切片；节流关闭时
+        // 同样跳过 grapheme 统计。
+        final visibleGraphemes = reasoningCharThrottle.isEnabled
+            ? reasoningSanitizedMemo.graphemeCountFor(reasoningRawBuffer)
+            : fullSanitized.length;
         final visibleLen = reasoningCharThrottle.renderableGraphemeCount(
           visibleGraphemes,
         );
         final sanitizedContent = visibleLen >= visibleGraphemes
             ? fullSanitized
-            : fullChars.take(visibleLen).toString();
+            : reasoningSanitizedMemo
+                  .charactersFor(reasoningRawBuffer)
+                  .take(visibleLen)
+                  .toString();
         if (sanitizedContent.isEmpty && reasoningMessageId == null) {
           return;
         }
         pendingReasoningContent = sanitizedContent;
         reasoningMessageId ??= _idGenerator();
         hasPendingReasoningPreview = true;
-        schedulePreview('reasoningDelta');
+        if (schedulePreviewAfterRender) {
+          schedulePreview('reasoningDelta');
+        }
         // 思考刚完成排空，立刻看看是否有 assistant 字符
         // 在等队，有则启动它的均匀放出节奏。
         if (reasoningDrained() &&
             (assistantRawBuffer.isNotEmpty || assistantMessageId != null)) {
-          renderAssistantBuffered();
+          renderAssistantBuffered(
+            schedulePreviewAfterRender: schedulePreviewAfterRender,
+          );
         }
-      }
+      };
 
       // 会话级流式节流设置优先于全局设置。
       final sessionThrottleOverride =
@@ -7975,6 +8026,9 @@ class AiSessionController extends ChangeNotifier {
             }
             aiThroughputSampler.recordText(delta);
             assistantRawBuffer.write(delta);
+            // 增量探测必须先于任何 early-return，保证跨 delta 拆开的标记
+            // 不丢失（探测器一旦命中即粘滞）。
+            final mayContainDsmlInvoke = dsmlMarkerProbe.ingest(delta);
             // 顺序保护：思考还没排空时不创建 assistant 卡片，
             // raw 缓冲已记下来；reasoning 完成后会回放 renderAssistantBuffered。
             if (!reasoningDrained()) {
@@ -7991,12 +8045,19 @@ class AiSessionController extends ChangeNotifier {
             if (firstCardPending) {
               return;
             }
-            renderAssistantBuffered();
+            // 首张卡片与「节流预算充足」时立即渲染保证即时反馈；其余情况
+            // 下沉到节流 tick / 预览 flush，避免每 delta 全量清洗缓冲。
+            if (assistantMessageId == null ||
+                (charThrottle.isEnabled && !charThrottle.hasPending)) {
+              renderAssistantBuffered();
+            } else {
+              assistantRenderPending = true;
+            }
             sessionChanged = true;
             // 扫描流式 DSML 片段并创建构造中卡片，流结束后按 tool_call_id 合并。
-            final partialInvokes = scanPartialDsmlInvokes(
-              assistantRawBuffer.toString(),
-            );
+            final partialInvokes = mayContainDsmlInvoke
+                ? scanPartialDsmlInvokes(assistantRawBuffer.toString())
+                : const <PartialDsmlInvoke>[];
             if (partialInvokes.isNotEmpty) {
               for (final invoke in partialInvokes) {
                 final isNewCard = !partialDsmlPreviewMessageIds.containsKey(
@@ -8086,7 +8147,15 @@ class AiSessionController extends ChangeNotifier {
             if (firstReasoningCardPending) {
               return;
             }
-            renderReasoningBuffered();
+            // 与 assistant 同策略：首卡与预算充足时立即渲染，其余下沉到
+            // 节流 tick / 预览 flush 统一清洗。
+            if (reasoningMessageId == null ||
+                (reasoningCharThrottle.isEnabled &&
+                    !reasoningCharThrottle.hasPending)) {
+              renderReasoningBuffered();
+            } else {
+              reasoningRenderPending = true;
+            }
             sessionChanged = true;
           case AiChatStreamEventType.toolCallDelta:
             materializePendingReasoningPreview();
@@ -8331,27 +8400,26 @@ class AiSessionController extends ChangeNotifier {
       didCancelStreamEarly =
           didCancelStreamEarly || _isStopRequestedForSession(workingSession.id);
       if (!didCancelStreamEarly) {
-        // assistant 与 reasoning 共享会话级字符预算，等待时长按二者
-        // grapheme 总量估算。
-        final assistantPendingGraphemes = _sanitizeVisibleModelContent(
-          assistantRawBuffer.toString(),
-        ).characters.length;
-        final reasoningPendingGraphemes = _sanitizeVisibleModelContent(
-          reasoningRawBuffer.toString(),
-        ).characters.length;
-        final pendingChars =
-            assistantPendingGraphemes + reasoningPendingGraphemes;
         // 读实时速率而非流式开始时捕获的 effChars：用户可以在流式过程中通过
         // setSessionStreamCharsOverride 改档，用陈旧速率估算会让 maxWait 过短。
         final effectiveCharsPerSec = math.max(
           charThrottle.maxCharsPerSecond,
           reasoningCharThrottle.maxCharsPerSecond,
         );
+        // assistant 与 reasoning 共享会话级字符预算，等待时长按二者
+        // grapheme 总量估算；节流关闭时无需统计，直接跳过 O(N) 清洗。
         // throttleDuration 只影响 UI 提示；正常完成路径仍等积压内容按
         // `pending / rate * 1.2 + 1s` 铺完后再 release。
         final maxWaitMs = effectiveCharsPerSec <= 0
             ? 0
-            : ((pendingChars * 1200) / effectiveCharsPerSec).ceil() + 1000;
+            : (((assistantSanitizedMemo.graphemeCountFor(assistantRawBuffer) +
+                              reasoningSanitizedMemo.graphemeCountFor(
+                                reasoningRawBuffer,
+                              )) *
+                          1200) /
+                      effectiveCharsPerSec)
+                  .ceil() +
+              1000;
         if (maxWaitMs > 0) {
           await waitForDrainOrStop(
             Future.wait(<Future<void>>[
@@ -10359,7 +10427,7 @@ class AiSessionController extends ChangeNotifier {
             !_canRestoreInterruptedResponseRegeneration(sessionId)) {
           return;
         }
-        final loaded = await _store.loadSession(sessionId);
+        final loaded = await _store.loadSession(sessionId, deferTelemetry: true);
         if (loaded == null ||
             !_canRestoreInterruptedResponseRegeneration(sessionId) ||
             !_hasRestorableResponseRegenerationState(loaded)) {
@@ -11775,17 +11843,31 @@ $tail''';
     final effectiveSession = _mergeLiveSessionState(session, liveSession);
     if (existingIndex == -1) {
       _setSessions(<AiSession>[effectiveSession, ..._sessions]);
-    } else {
+    } else if (sortSessions) {
       final updatedSessions = List<AiSession>.from(_sessions);
       updatedSessions[existingIndex] = effectiveSession;
-      if (sortSessions) {
-        updatedSessions.sort(
-          (left, right) => right.updatedAt.compareTo(left.updatedAt),
-        );
-      }
+      updatedSessions.sort(
+        (left, right) => right.updatedAt.compareTo(left.updatedAt),
+      );
       _setSessions(updatedSessions);
+    } else {
+      // 流式 preview 每次 flush 都走这里：仅 normalize 目标会话并原地替换，
+      // 避免 O(会话数 × 模板数) 的全量重归一化与整表映射重建。
+      _replaceSessionAtIndex(existingIndex, effectiveSession);
     }
     return true;
+  }
+
+  void _replaceSessionAtIndex(int index, AiSession session) {
+    final normalized = _normalizeTemplateSnapshot(
+      session,
+      normalizedAt: session.updatedAt,
+    );
+    final updatedSessions = List<AiSession>.from(_sessions);
+    updatedSessions[index] = normalized;
+    _sessions = updatedSessions;
+    _sessionsView = List<AiSession>.unmodifiable(updatedSessions);
+    _sessionsById[normalized.id] = normalized;
   }
 
   AiSession? _replaceSessionHeaderInMemory(
@@ -13395,12 +13477,10 @@ $tail''';
   }
 
   AiSessionMessage? _messageById(AiSession session, String messageId) {
-    for (final message in session.messages) {
-      if (message.id == messageId) {
-        return message;
-      }
-    }
-    return null;
+    // messageIndexOf 底层是会话级缓存的 id → index 映射；工具执行心跳每秒
+    // 都要查一次，千条会话下线性扫描会稳定吃掉主线程时间片。
+    final index = session.messageIndexOf(messageId);
+    return index < 0 ? null : session.messages[index];
   }
 
   Future<AiSession?> _commitCancelledPendingToolCalls(AiSession session) async {

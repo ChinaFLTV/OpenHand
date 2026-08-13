@@ -151,6 +151,16 @@ class AiSessionStore {
   final Map<String, int> _sessionDeletionGuardCounts = <String, int>{};
   Future<void>? _pendingSessionCleanupRetry;
 
+  /// 最近一次成功落库的完整消息列表影子（按会话，LRU 有界）。
+  ///
+  /// 消息对象不可变：`identical` 即该行内容未变。发送/流式周期内的高频
+  /// 提交只改尾部或追加，可据此把「DELETE + 全量重插」降级为 O(变更行数)
+  /// 的增量 upsert，避免千条会话每轮提交重复 jsonEncode + 重写全部行。
+  /// 影子缺失、消息被删除或重排时回退全量重写，保证行为与旧路径一致。
+  final Map<String, List<AiSessionMessage>> _savedMessagesShadowBySessionId =
+      <String, List<AiSessionMessage>>{};
+  static const int _kSavedMessagesShadowMaxSessions = 8;
+
   String get sessionsDirectoryPath => _sessionsDirectoryPath;
 
   String get attachmentsDirectoryPath =>
@@ -450,6 +460,22 @@ class AiSessionStore {
         'model_label',
         'usage_json',
       ];
+  /// 全量正文 + 遥测裁剪投影用的基础列（不含 metadata_json，由
+  /// [_queryMessageRows] 按需拼接投影）。
+  static const List<String> _kFullMessageRowColumnsWithoutMetadata = <String>[
+    'id',
+    'session_id',
+    'sort_order',
+    'kind',
+    'role',
+    'content',
+    'created_at',
+    'character_count',
+    'is_deleted',
+    'model_id',
+    'model_label',
+    'usage_json',
+  ];
   static final String _kDeferredTelemetryMetadataProjection =
       'json_remove(metadata_json, '
       '${aiSessionMessageDeferredTelemetryMetadataKeys.map((key) => "'\$.$key'").join(', ')}) '
@@ -759,7 +785,17 @@ class AiSessionStore {
   }
 
   /// 加载单个会话及其全部消息。
-  Future<AiSession?> loadSession(String sessionId) async {
+  ///
+  /// [deferTelemetry] 为 true 时用 json_remove 在 SQL 侧裁掉
+  /// request_payload / response_raw / composed_prompt_* / prompt_metadata
+  /// 等遥测大字段（可达数十 MB），消息带上遥测裁剪标记。构建提示词、
+  /// 编辑、切换变体等常规全量水合都不需要这些字段；审计弹窗按需
+  /// loadMessage 单条补齐，save() 回写时自动从库内补回，功能无损。
+  /// 导出等需要全保真 metadata 的调用方保持默认 false。
+  Future<AiSession?> loadSession(
+    String sessionId, {
+    bool deferTelemetry = false,
+  }) async {
     final normalizedId = sessionId.trim();
     if (!isSafeStorageIdentifier(normalizedId)) return null;
     final rows = await _db.query(
@@ -769,12 +805,20 @@ class AiSessionStore {
       limit: 1,
     );
     if (rows.isEmpty) return null;
-    final messageRows = await _db.query(
-      'messages',
-      where: 'session_id = ?',
-      whereArgs: <Object?>[normalizedId],
-      orderBy: 'sort_order ASC',
-    );
+    final messageRows = deferTelemetry
+        ? await _queryMessageRows(
+            columnsWithoutMetadata: _kFullMessageRowColumnsWithoutMetadata,
+            where: 'session_id = ?',
+            whereArgs: <Object?>[normalizedId],
+            orderBy: 'sort_order ASC',
+            deferTelemetryMetadata: true,
+          )
+        : await _db.query(
+            'messages',
+            where: 'session_id = ?',
+            whereArgs: <Object?>[normalizedId],
+            orderBy: 'sort_order ASC',
+          );
     final session = await _sessionFromRowCooperatively(rows.first, messageRows);
     return restoreCompressionCheckpointFromSidecar(session);
   }
@@ -1335,6 +1379,10 @@ class AiSessionStore {
     _validateSessionForStorage(session);
     if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
     final replaceMessages = !_isMetadataOnlySessionSnapshot(session);
+    final previousMessages = replaceMessages
+        ? _savedMessagesShadowBySessionId[session.id]
+        : null;
+    var messagesPersisted = false;
 
     await _db.transaction((txn) async {
       if (_sessionDeletionGuardCounts.containsKey(session.id)) return;
@@ -1355,52 +1403,150 @@ class AiSessionStore {
         return;
       }
 
-      // 完整会话回写走 delete + 批量重插。带遥测裁剪标记的消息在内存里是有损
-      // 副本（尾窗加载时遥测被 json_remove 裁过），先把库内完整遥测读出来，
-      // 重插时补回，避免整轮覆盖永久清空 request_payload / response_raw 等大字段。
-      final deferredIds = <String>[
-        for (final message in session.messages)
-          if (message.metadata[aiSessionMessageDeferredTelemetryMetadataKey] ==
-              true)
-            message.id,
-      ];
-      final storedTelemetry = <String, Map<String, Object?>>{};
-      if (deferredIds.isNotEmpty) {
-        final placeholders = List.filled(deferredIds.length, '?').join(', ');
-        final rows = await txn.query(
-          'messages',
-          columns: const <String>['id', 'metadata_json'],
-          where: 'session_id = ? AND id IN ($placeholders)',
-          whereArgs: <Object?>[session.id, ...deferredIds],
+      final changedIndices = _incrementalMessageSavePlan(
+        previousMessages,
+        session.messages,
+      );
+      if (changedIndices != null) {
+        // 增量快速路径：只 upsert 变化的行（典型为流式尾消息 + 追加），
+        // 未变化的行连同其库内完整遥测原样保留。
+        final storedTelemetry = await _loadStoredTelemetry(
+          txn,
+          session,
+          changedIndices,
         );
-        for (final row in rows) {
-          final id = row['id'] as String?;
-          if (id != null) {
-            storedTelemetry[id] = _decodeJsonMap(row['metadata_json']);
-          }
-        }
+        await _writeMessageRows(txn, session, changedIndices, storedTelemetry);
+        messagesPersisted = true;
+        return;
       }
 
-      // 删除旧消息后批量写入当前完整消息列表。
+      // 全量回写：删除旧消息后按当前列表重插。带遥测裁剪标记的消息在内存里
+      // 是有损副本（加载时遥测被 json_remove 裁过），删除前先把库内完整遥测
+      // 读出来补回，避免整轮覆盖永久清空 request_payload / response_raw 等大字段。
+      final allIndices = List<int>.generate(
+        session.messages.length,
+        (index) => index,
+      );
+      final storedTelemetry = await _loadStoredTelemetry(
+        txn,
+        session,
+        allIndices,
+      );
       await txn.delete(
         'messages',
         where: 'session_id = ?',
         whereArgs: <Object?>[session.id],
       );
-      final batch = txn.batch();
-      for (var i = 0; i < session.messages.length; i++) {
-        batch.insert(
-          'messages',
-          _messageToRow(
-            session.messages[i],
-            session.id,
-            i,
-            storedTelemetry: storedTelemetry,
-          ),
-        );
-      }
-      await batch.commit(noResult: true);
+      await _writeMessageRows(txn, session, allIndices, storedTelemetry);
+      messagesPersisted = true;
     });
+    if (messagesPersisted) {
+      _rememberSavedMessages(session.id, session.messages);
+    }
+  }
+
+  /// 计算增量落库计划：返回需要 upsert 的消息下标（下标即 sort_order）。
+  /// 影子缺失、消息被删除或顺序变化时返回 null，走全量重写。
+  List<int>? _incrementalMessageSavePlan(
+    List<AiSessionMessage>? previous,
+    List<AiSessionMessage> next,
+  ) {
+    if (previous == null || previous.isEmpty || next.length < previous.length) {
+      return null;
+    }
+    final changedIndices = <int>[];
+    for (var index = 0; index < previous.length; index += 1) {
+      final before = previous[index];
+      final after = next[index];
+      if (identical(before, after)) continue;
+      if (before.id != after.id) return null;
+      changedIndices.add(index);
+    }
+    for (var index = previous.length; index < next.length; index += 1) {
+      changedIndices.add(index);
+    }
+    return changedIndices;
+  }
+
+  /// 批量 upsert [indices] 指定的消息行（下标即 sort_order）。
+  Future<void> _writeMessageRows(
+    Transaction txn,
+    AiSession session,
+    List<int> indices,
+    Map<String, Map<String, Object?>> storedTelemetry,
+  ) async {
+    if (indices.isEmpty) return;
+    final batch = txn.batch();
+    for (final index in indices) {
+      batch.insert(
+        'messages',
+        _messageToRow(
+          session.messages[index],
+          session.id,
+          index,
+          storedTelemetry: storedTelemetry,
+        ),
+        conflictAlgorithm: ConflictAlgorithm.replace,
+      );
+    }
+    await batch.commit(noResult: true);
+  }
+
+  /// 读回 [indices] 中带遥测裁剪标记的消息在库内的完整 metadata，
+  /// 供 [_messageToRow] 落库时补回被裁剪的遥测大字段。
+  Future<Map<String, Map<String, Object?>>> _loadStoredTelemetry(
+    Transaction txn,
+    AiSession session,
+    List<int> indices,
+  ) async {
+    final deferredIds = <String>[
+      for (final index in indices)
+        if (session.messages[index]
+                .metadata[aiSessionMessageDeferredTelemetryMetadataKey] ==
+            true)
+          session.messages[index].id,
+    ];
+    if (deferredIds.isEmpty) {
+      return const <String, Map<String, Object?>>{};
+    }
+    final storedTelemetry = <String, Map<String, Object?>>{};
+    for (
+      var start = 0;
+      start < deferredIds.length;
+      start += _kMessageBatchSize
+    ) {
+      final end = math.min(start + _kMessageBatchSize, deferredIds.length);
+      final batchIds = deferredIds.sublist(start, end);
+      final placeholders = List.filled(batchIds.length, '?').join(', ');
+      final rows = await txn.query(
+        'messages',
+        columns: const <String>['id', 'metadata_json'],
+        where: 'session_id = ? AND id IN ($placeholders)',
+        whereArgs: <Object?>[session.id, ...batchIds],
+      );
+      for (final row in rows) {
+        final id = row['id'] as String?;
+        if (id != null) {
+          storedTelemetry[id] = _decodeJsonMap(row['metadata_json']);
+        }
+      }
+    }
+    return storedTelemetry;
+  }
+
+  void _rememberSavedMessages(
+    String sessionId,
+    List<AiSessionMessage> messages,
+  ) {
+    // 重插保证 LRU 顺序：最近保存的会话最后被淘汰。
+    _savedMessagesShadowBySessionId.remove(sessionId);
+    _savedMessagesShadowBySessionId[sessionId] = messages;
+    while (_savedMessagesShadowBySessionId.length >
+        _kSavedMessagesShadowMaxSessions) {
+      _savedMessagesShadowBySessionId.remove(
+        _savedMessagesShadowBySessionId.keys.first,
+      );
+    }
   }
 
   /// 仅保存会话头，避免标题、权限等轻量变更重写完整长会话。
@@ -1474,6 +1620,7 @@ class AiSessionStore {
       sessionId,
       label: '会话标识符',
     );
+    _savedMessagesShadowBySessionId.remove(normalizedSessionId);
     beginSessionDeletion(normalizedSessionId);
     await _sessionCleanupQueue
         .enqueue(() async {
@@ -1703,6 +1850,7 @@ class AiSessionStore {
   ///
   /// 调用前应确保控制器没有活动流；完成后由调用方刷新内存状态。
   Future<void> clearAll() async {
+    _savedMessagesShadowBySessionId.clear();
     await _db.delete('sessions');
     final root = Directory(_sessionsDirectoryPath);
     await deletePathBounded(

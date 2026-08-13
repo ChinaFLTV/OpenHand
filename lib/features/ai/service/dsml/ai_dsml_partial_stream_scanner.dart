@@ -162,6 +162,44 @@ List<PartialDsmlInvoke> scanPartialDsmlInvokes(String buffer) {
   return invokes;
 }
 
+/// 跨 delta 的增量工具调用标记探测器。
+///
+/// 纯文本流式路径此前每个 delta 都要对**累积缓冲**做一次 `toString()`
+/// 拷贝再全量扫描标记，长回复上叠成 O(N²) 的拷贝与扫描。本探测器只检查
+/// 「上次尾部重叠窗口 + 新 delta」，把纯文本 delta 的探测成本降为
+/// O(delta)；一旦发现候选标记即永久置位，此后交给完整扫描器处理。
+class DsmlStreamMarkerProbe {
+  /// 重叠窗口取最长标记长度减一，保证跨 delta 拆开的标记不会漏检。
+  static final int _overlapLength = _longestMarkerNeedleLength - 1;
+
+  bool _markerSeen = false;
+  String _tail = '';
+
+  /// 吞入写进累积缓冲的新 [delta]，返回缓冲当前是否可能包含工具调用标记。
+  bool ingest(String delta) {
+    if (_markerSeen) return true;
+    if (delta.isEmpty) return false;
+    final probe = _tail.isEmpty ? delta : '$_tail$delta';
+    if (_mayContainToolCallMarker(probe)) {
+      _markerSeen = true;
+      _tail = '';
+      return true;
+    }
+    _tail = probe.length <= _overlapLength
+        ? probe
+        : probe.substring(probe.length - _overlapLength);
+    return false;
+  }
+}
+
+final int _longestMarkerNeedleLength = _markerNeedlesByLeadChar.values.fold(
+  1,
+  (longest, needles) => needles.fold(
+    longest,
+    (current, needle) => needle.length > current ? needle.length : current,
+  ),
+);
+
 /// Cheap pre-filter to skip canonicalization on pure-text deltas.
 ///
 /// Returns true if [buffer] *might* contain something the full

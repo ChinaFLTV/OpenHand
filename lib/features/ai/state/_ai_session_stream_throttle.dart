@@ -556,3 +556,41 @@ class _StreamCardThrottle {
     _pending.clear();
   }
 }
+
+/// 流式缓冲的 sanitize / grapheme 结果备忘录。
+///
+/// raw buffer 只会追加，长度即内容版本：长度未变时 16ms 节流 tick 与
+/// 72ms 预览 flush 直接复用上次结果，把重复的 O(N) 全量清洗降为 O(1)；
+/// 长度变化才重新 sanitize。grapheme 统计与 [Characters] 视图按需惰性
+/// 计算，并随内容版本一起失效。
+class _StreamSanitizedBufferMemo {
+  int _rawLength = -1;
+  String _sanitized = '';
+  Characters? _characters;
+  int _graphemeCount = -1;
+
+  String sanitizedFor(StringBuffer buffer) {
+    if (buffer.length != _rawLength) {
+      _rawLength = buffer.length;
+      _sanitized = _sanitizeVisibleModelContent(buffer.toString());
+      _characters = null;
+      _graphemeCount = -1;
+    }
+    return _sanitized;
+  }
+
+  int graphemeCountFor(StringBuffer buffer) {
+    final sanitized = sanitizedFor(buffer);
+    if (_graphemeCount < 0) {
+      final characters = sanitized.characters;
+      _characters = characters;
+      _graphemeCount = characters.length;
+    }
+    return _graphemeCount;
+  }
+
+  Characters charactersFor(StringBuffer buffer) {
+    graphemeCountFor(buffer);
+    return _characters!;
+  }
+}
