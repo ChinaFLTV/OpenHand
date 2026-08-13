@@ -23,9 +23,15 @@ const Duration _kFileMutationRowChevronDuration = Duration(milliseconds: 180);
 /// 需要用户读完再消失的提示（跳转降级、保存失败），比默认信息提示久一点。
 const Duration _kFileMutationNoticeSnackDuration = Duration(milliseconds: 2800);
 
+/// 按消息对象缓存的文件变动路径列表。消息不可变，一次解析终身有效。
+final Expando<List<String>> _fileMutationPathsCache =
+    Expando<List<String>>('_fileMutationPaths');
+
 /// 聚合「单文件 (`file_mutation_path`)」与「多文件
 /// (`file_mutation_paths`)」两路 metadata，去重后按出现顺序返回。
 List<String> _fileMutationPaths(AiSessionMessage message) {
+  final cached = _fileMutationPathsCache[message];
+  if (cached != null) return cached;
   final out = <String>[];
   final seen = <String>{};
   void add(String? raw) {
@@ -42,6 +48,7 @@ List<String> _fileMutationPaths(AiSessionMessage message) {
       if (p is String) add(p);
     }
   }
+  _fileMutationPathsCache[message] = out;
   return out;
 }
 
