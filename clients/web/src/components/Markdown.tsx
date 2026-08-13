@@ -20,7 +20,7 @@ import { memo } from 'preact/compat';
 import { useEffect, useLayoutEffect, useMemo, useRef, useState } from 'preact/hooks';
 import ReactMarkdown from 'react-markdown';
 import remarkGfm from 'remark-gfm';
-import { boundedFnv1aHashBase36, fnv1aHashBase36 } from '../shared/util/hash';
+import { boundedFnv1aHashBase36 } from '../shared/util/hash';
 import { normalizeMarkdownDestination } from '../shared/util/markdown';
 import { truncateEndText } from '../shared/util/text';
 import {
@@ -155,7 +155,7 @@ const HTML_COMPLEX_PREVIEW_SCAN_CHARS = 12 * 1024;
 const HTML_LIKE_DETECT_CACHE_LIMIT = 512;
 
 function contentCacheKey(prefix: string, content: string): string {
-  return `${prefix}:${content.length}:${fnv1aHashBase36(content)}`;
+  return `${prefix}:${content.length}:${boundedFnv1aHashBase36(content)}`;
 }
 
 function profileCacheKey(prefix: string, content: string): string {

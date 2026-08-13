@@ -2674,22 +2674,28 @@ function MessageCardImpl({
     }
   }, [showRawContent, supportsRenderedSourceToggle]);
   const ttsPlaying = readAloudPlaying;
-  const hasMultimediaContent = messageHasMultimedia(message);
+  const hasMultimediaContent = useMemo(() => messageHasMultimedia(message), [message]);
   const isFormalAssistantResponse = isFormalAssistantResponseMessage(message);
-  const directKbReferenceMetadata =
-    !isUserBubble &&
-    isFormalAssistantResponse &&
-    !activelyStreaming &&
-    knowledgeBaseMetadataHasReferences(kbMetadata)
-      ? knowledgeBaseMetadataUsedByAnswer(kbMetadata, content)
-      : null;
-  const associatedKbFallbackMetadata =
-    !isUserBubble &&
-    isFormalAssistantResponse &&
-    !activelyStreaming &&
-    knowledgeBaseMetadataHasReferences(associatedKnowledgeBaseMetadata)
-      ? knowledgeBaseMetadataUsedByAnswer(associatedKnowledgeBaseMetadata, content)
-      : null;
+  const directKbReferenceMetadata = useMemo(
+    () =>
+      !isUserBubble &&
+      isFormalAssistantResponse &&
+      !activelyStreaming &&
+      knowledgeBaseMetadataHasReferences(kbMetadata)
+        ? knowledgeBaseMetadataUsedByAnswer(kbMetadata, content)
+        : null,
+    [isUserBubble, isFormalAssistantResponse, activelyStreaming, kbMetadata, content],
+  );
+  const associatedKbFallbackMetadata = useMemo(
+    () =>
+      !isUserBubble &&
+      isFormalAssistantResponse &&
+      !activelyStreaming &&
+      knowledgeBaseMetadataHasReferences(associatedKnowledgeBaseMetadata)
+        ? knowledgeBaseMetadataUsedByAnswer(associatedKnowledgeBaseMetadata, content)
+        : null,
+    [isUserBubble, isFormalAssistantResponse, activelyStreaming, associatedKnowledgeBaseMetadata, content],
+  );
   const associatedKbReferenceMetadata =
     directKbReferenceMetadata ?? associatedKbFallbackMetadata;
   const knowledgeBaseDialogMetadata = isUserBubble
