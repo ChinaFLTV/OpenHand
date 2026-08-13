@@ -776,7 +776,7 @@ class _MessageBubbleState extends State<_MessageBubble>
         isAssistantResponse &&
         (streamingAssistantShouldCollapse || canCollapseAssistantResponse);
     final bodyContentSignature =
-        '${effectiveContent.length}:${effectiveContent.hashCode}';
+        '${effectiveContent.length}:${boundedTextFingerprint(effectiveContent)}';
     final assistantBodyContentScrollKey = isStreamingAssistant
         ? 'streaming'
         : 'content:$bodyContentSignature';
@@ -788,7 +788,7 @@ class _MessageBubbleState extends State<_MessageBubble>
     final reasoningBodyScrollStateKey =
         '${message.id}|reasoning|raw:${_showRawContent ? 1 : 0}|stream:${isStreamingReasoning ? 1 : 0}|$reasoningBodyContentScrollKey';
     final compressionBodyScrollStateKey =
-        '${message.id}|compression|content:${message.content.length}:${message.content.hashCode}';
+        '${message.id}|compression|content:${message.content.length}:${boundedTextFingerprint(message.content)}';
     final userBodyScrollStateKey =
         '${message.id}|user|translated:${showingTranslation ? 1 : 0}|content:$bodyContentSignature';
     void warmAssistantResponseMarkdownRenderPath() {
@@ -2559,7 +2559,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
                                 ),
                                 kOpenHandGap8,
                                 Text(
-                                  aiFormatBytes(widget.sizeBytes),
+                                  formatByteSize(widget.sizeBytes),
                                   style: theme.textTheme.bodySmall?.copyWith(
                                     color: colorScheme.onSurfaceVariant,
                                   ),
@@ -7796,7 +7796,7 @@ class _UserMessageAttachmentTile extends StatelessWidget {
     final name = rawName.isEmpty
         ? openHandLocalizedText(context, zh: '附件', en: 'Attachment')
         : rawName;
-    final tooltip = '$name · ${aiFormatBytes(attachment.sizeBytes)}';
+    final tooltip = '$name · ${formatByteSize(attachment.sizeBytes)}';
     final borderRadius = BorderRadius.circular(attachment.isImage ? 16 : 999);
 
     final child = attachment.isImage
