@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/abortable_http_request.dart';
+import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/async_concurrency.dart';
@@ -432,7 +433,7 @@ class SkillMarketClient {
   Future<Map<String, Object?>> _getJson(Uri uri) async {
     return _runAbortableRequest((cancelSignal) async {
       final request = http.Request('GET', uri)
-        ..headers[HttpHeaders.acceptHeader] = 'application/json';
+        ..headers[HttpHeaders.acceptHeader] = kApplicationJsonMimeType;
       final response = await sendAbortableHttpRequest(
         client: _client,
         request: request,

@@ -15,6 +15,7 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/net/http_error_message.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_base64.dart';
@@ -893,7 +894,7 @@ class AiTtsPlaybackService {
       method: 'POST',
       headers: <String, String>{
         HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
-        HttpHeaders.acceptHeader: 'application/json',
+        HttpHeaders.acceptHeader: kApplicationJsonMimeType,
         'api-key': settings.apiKey,
       },
       body: <String, Object?>{
@@ -1021,7 +1022,7 @@ class AiTtsPlaybackService {
       method: 'POST',
       headers: <String, String>{
         HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
-        HttpHeaders.acceptHeader: 'application/json',
+        HttpHeaders.acceptHeader: kApplicationJsonMimeType,
         'X-Api-Key': settings.apiKey,
         'X-Api-Resource-Id': resourceId,
         'X-Api-Request-Id': requestId,
@@ -1295,7 +1296,7 @@ class AiTtsPlaybackService {
       method: 'POST',
       headers: const <String, String>{
         HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
-        HttpHeaders.acceptHeader: 'application/json',
+        HttpHeaders.acceptHeader: kApplicationJsonMimeType,
       },
       body: <String, Object?>{
         'input': <String, Object?>{'text': text},

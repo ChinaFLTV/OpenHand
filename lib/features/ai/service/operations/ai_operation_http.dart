@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'package:http/http.dart' as http;
 
 import '../../../../shared/net/http_error_message.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_api_family.dart';
@@ -17,7 +18,7 @@ final class AiOperationHttp {
   static const String _acceptHeader = 'accept';
   static const String _authorizationHeader = 'authorization';
   static const String _contentTypeHeader = 'content-type';
-  static const String _jsonMimeType = 'application/json';
+  static const String _jsonMimeType = kApplicationJsonMimeType;
   static const String _xApiKeyHeader = 'x-api-key';
   static const String _apiKeyHeader = 'api-key';
   static const String _xGoogApiKeyHeader = 'x-goog-api-key';

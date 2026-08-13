@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_search_settings.dart';
 import '../web_engine/kimi_web_search_utils.dart';
@@ -25,7 +26,7 @@ class WebSearchTavilyEngine extends WebSearchEngine {
     final response = await sendWebEngineHttpRequest(
       'POST',
       Uri.parse('https://api.tavily.com/search'),
-      headers: const {'content-type': 'application/json'},
+      headers: const {'content-type': kApplicationJsonMimeType},
       body: jsonEncode({
         'api_key': config.apiKey,
         'query': req.query,
@@ -69,7 +70,7 @@ class WebSearchExaEngine extends WebSearchEngine {
       'POST',
       Uri.parse('https://api.exa.ai/search'),
       headers: {
-        'content-type': 'application/json',
+        'content-type': kApplicationJsonMimeType,
         'x-api-key': config.apiKey ?? '',
       },
       body: jsonEncode({
@@ -118,7 +119,7 @@ class WebSearchLinkupEngine extends WebSearchEngine {
       Uri.parse('https://api.linkup.so/v1/search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
-        'content-type': 'application/json',
+        'content-type': kApplicationJsonMimeType,
       },
       body: jsonEncode({
         'q': req.query,
@@ -161,7 +162,7 @@ class WebSearchBochaEngine extends WebSearchEngine {
       Uri.parse('https://api.bochaai.com/v1/web-search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
-        'content-type': 'application/json',
+        'content-type': kApplicationJsonMimeType,
       },
       body: jsonEncode({
         'query': req.query,
@@ -207,7 +208,7 @@ class WebSearchBaiduEngine extends WebSearchEngine {
       Uri.parse('https://qianfan.baidubce.com/v2/ai_search'),
       headers: {
         'authorization': 'Bearer ${config.apiKey}',
-        'content-type': 'application/json',
+        'content-type': kApplicationJsonMimeType,
       },
       body: jsonEncode({
         'messages': [
@@ -255,7 +256,7 @@ class WebSearchKimiEngine extends WebSearchProviderKeyEngine {
       Uri.parse(kimiWebSearchEndpoint),
       headers: {
         'authorization': 'Bearer $effectiveApiKey',
-        'content-type': 'application/json',
+        'content-type': kApplicationJsonMimeType,
       },
       body: buildKimiWebSearchRequestBody(req.query),
       cancelSignal: req.cancelSignal,

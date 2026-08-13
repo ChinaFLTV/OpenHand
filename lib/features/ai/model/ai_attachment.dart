@@ -1,5 +1,6 @@
 import 'package:path/path.dart' as p;
 
+import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
@@ -289,7 +290,7 @@ String aiMimeTypeForPath(String path) {
     '.ogg' => 'audio/ogg',
     '.md' || '.markdown' => 'text/markdown',
     '.txt' => 'text/plain',
-    '.json' => 'application/json',
+    '.json' => kApplicationJsonMimeType,
     '.yaml' || '.yml' => 'application/yaml',
     '.toml' => 'application/toml',
     '.xml' => 'application/xml',

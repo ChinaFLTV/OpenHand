@@ -3,6 +3,7 @@ import 'dart:convert';
 
 import 'package:http/http.dart' as http;
 
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../model/ai_web_fetch_settings.dart';
 import '../web_engine/web_engine_http_utils.dart';
@@ -32,7 +33,7 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
     final request = http.Request('POST', Uri.parse(endpoint))
       ..headers.addAll({
         'authorization': 'Bearer ${config.apiKey}',
-        'content-type': 'application/json',
+        'content-type': kApplicationJsonMimeType,
       })
       ..body = jsonEncode({
         'url': req.url,
@@ -208,7 +209,7 @@ class WebFetchTavilyEngine extends WebFetchEngine {
   Future<List<WebFetchEngineContent>> fetch(WebFetchEngineRequest req) async {
     final request =
         http.Request('POST', Uri.parse('https://api.tavily.com/extract'))
-          ..headers['content-type'] = 'application/json'
+          ..headers['content-type'] = kApplicationJsonMimeType
           ..body = jsonEncode({
             'api_key': config.apiKey,
             'urls': [req.url],
@@ -254,7 +255,7 @@ class WebFetchExaEngine extends WebFetchEngine {
     final request =
         http.Request('POST', Uri.parse('https://api.exa.ai/contents'))
           ..headers.addAll({
-            'content-type': 'application/json',
+            'content-type': kApplicationJsonMimeType,
             'x-api-key': config.apiKey ?? '',
           })
           ..body = jsonEncode({

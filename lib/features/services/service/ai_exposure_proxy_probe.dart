@@ -3,6 +3,7 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
+import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../model/ai_exposure_models.dart';
 
@@ -394,7 +395,7 @@ Future<Uint8List> _loadIdentityThroughHttpProxy(Uri proxy) async {
         .timeout(_remaining(_kProxyIdentityTimeout, stopwatch));
     request
       ..followRedirects = false
-      ..headers.set(HttpHeaders.acceptHeader, 'application/json')
+      ..headers.set(HttpHeaders.acceptHeader, kApplicationJsonMimeType)
       ..headers.set(HttpHeaders.connectionHeader, 'close');
     final response = await request.close().timeout(
       _remaining(_kProxyIdentityTimeout, stopwatch),

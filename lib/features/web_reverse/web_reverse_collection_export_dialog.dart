@@ -9,6 +9,7 @@ import 'package:flutter/material.dart';
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
@@ -156,7 +157,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           if (e.requestPostData != null)
             'body': <String, Object?>{
               'mimeType':
-                  e.requestHeaders['content-type'] ?? 'application/json',
+                  e.requestHeaders['content-type'] ?? kApplicationJsonMimeType,
               'text': e.requestPostData,
             },
         };
@@ -242,7 +243,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
           if (e.requestPostData != null)
             'postData': <String, Object?>{
               'mimeType':
-                  e.requestHeaders['content-type'] ?? 'application/json',
+                  e.requestHeaders['content-type'] ?? kApplicationJsonMimeType,
               'text': e.requestPostData,
             },
           'headersSize': -1,

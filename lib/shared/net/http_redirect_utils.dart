@@ -191,6 +191,9 @@ String? readResponseHeaderOrNull(Map<String, String> headers, String name) {
 /// `Content-Type` 头名，避免各处重复书写字面量后大小写不一致。
 const String kContentTypeHeaderName = 'content-type';
 
+/// JSON MIME 类型常量，避免全库重复书写字面量。
+const String kApplicationJsonMimeType = 'application/json';
+
 /// 取 `Content-Type` 的 MIME 部分（丢掉 `; charset=...` 参数），统一转小写；
 /// 缺失时返回空字符串。
 String responseMimeType(Map<String, String> headers) {

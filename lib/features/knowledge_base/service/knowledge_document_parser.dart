@@ -9,6 +9,7 @@ import 'package:xml/xml.dart' as xml;
 import 'package:yaml/yaml.dart';
 
 import '../../../app/support/silent_log.dart';
+import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/bounded_zip_archive.dart';
@@ -454,7 +455,7 @@ class JsonKnowledgeDocumentParser extends KnowledgeDocumentParser {
       return KnowledgeDocumentParseResult(
         text: raw,
         kind: 'structured',
-        mimeType: 'application/json',
+        mimeType: kApplicationJsonMimeType,
         parserId: 'json_text_fallback',
         title: p.basename(request.file.path),
         metadata: _strategyMetadata(request.settings),
@@ -471,7 +472,7 @@ class JsonKnowledgeDocumentParser extends KnowledgeDocumentParser {
     return KnowledgeDocumentParseResult(
       text: text,
       kind: 'structured',
-      mimeType: 'application/json',
+      mimeType: kApplicationJsonMimeType,
       parserId: id,
       title: title,
       metadata: <String, Object?>{

@@ -10,6 +10,7 @@ import '../../../app/state/settings_controller.dart'
 import '../../../app/support/silent_log.dart';
 import '../../../shared/net/abortable_http_request.dart';
 import '../../../shared/net/http_error_message.dart';
+import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
 import '../../../shared/util/argument_guards.dart';
@@ -301,7 +302,7 @@ class ThrottleCloudSyncService {
         method: 'GET',
         uri: target.uri!,
         headers: <String, String>{
-          HttpHeaders.acceptHeader: 'application/json',
+          HttpHeaders.acceptHeader: kApplicationJsonMimeType,
           if (target.bearerToken != null)
             HttpHeaders.authorizationHeader: 'Bearer ${target.bearerToken}',
           'X-OpenHand-Client': _customClientHeader,
