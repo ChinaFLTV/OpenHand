@@ -66,7 +66,7 @@ class WebFetchFirecrawlEngine extends WebFetchEngine {
         url: source.isNotEmpty ? source : req.url,
         title: title.isEmpty ? req.url : title,
         content: markdown,
-        contentType: 'text/markdown',
+        contentType: kTextMarkdownMimeType,
         statusCode: 200,
       ),
     ];
@@ -156,7 +156,7 @@ class WebFetchJinaReaderEngine extends WebFetchEngine {
         url: req.url,
         title: _extractReaderTitle(content) ?? targetUri.toString(),
         content: content,
-        contentType: response.headers['content-type'] ?? 'text/markdown',
+        contentType: response.headers['content-type'] ?? kTextMarkdownMimeType,
         statusCode: status,
         responseHeaders: Map<String, String>.from(response.headers),
       ),

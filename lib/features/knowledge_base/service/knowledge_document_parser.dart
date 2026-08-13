@@ -291,7 +291,7 @@ class MarkdownKnowledgeDocumentParser extends KnowledgeDocumentParser {
     return KnowledgeDocumentParseResult(
       text: text,
       kind: 'markdown',
-      mimeType: 'text/markdown',
+      mimeType: kTextMarkdownMimeType,
       parserId: id,
       title: p.basename(request.file.path),
       metadata: _strategyMetadata(request.settings),

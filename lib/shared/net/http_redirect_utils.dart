@@ -203,6 +203,9 @@ const String kTextEventStreamMimeType = 'text/event-stream';
 /// 表单提交 MIME 类型常量。
 const String kFormUrlEncodedMimeType = 'application/x-www-form-urlencoded';
 
+/// Markdown MIME 类型常量。
+const String kTextMarkdownMimeType = 'text/markdown';
+
 /// 带 UTF-8 charset 的 JSON `Content-Type` 取值，供发送 JSON 请求体时复用。
 const String kApplicationJsonUtf8ContentType =
     '$kApplicationJsonMimeType; charset=utf-8';
