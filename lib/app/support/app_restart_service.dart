@@ -195,11 +195,11 @@ class AppRestartService {
   }) {
     final delaySeconds = (_kRelaunchDelay.inMilliseconds / 1000)
         .toStringAsFixed(3);
-    final quotedFlag = _shellQuote(pendingFlagPath);
-    final quotedExecutable = _shellQuote(executablePath);
+    final quotedFlag = posixShellQuote(pendingFlagPath);
+    final quotedExecutable = posixShellQuote(executablePath);
     final quotedBundle = appBundlePath == null
         ? null
-        : _shellQuote(appBundlePath);
+        : posixShellQuote(appBundlePath);
     final launch = useMacOpen && quotedBundle != null
         ? '/usr/bin/open -n -F -- $quotedBundle >/dev/null 2>&1\n'
         : 'rm -f -- "\$0"\nexec $quotedExecutable >/dev/null 2>&1\n';
@@ -255,8 +255,6 @@ class AppRestartService {
     final bundle = normalized.substring(0, markerIndex);
     return p.extension(bundle).toLowerCase() == '.app' ? bundle : null;
   }
-
-  static String _shellQuote(String value) => posixShellQuote(value);
 
   static String _escapeWindowsPath(String value) {
     return value.replaceAll('"', r'\"');

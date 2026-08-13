@@ -533,8 +533,6 @@ class PluginScannerService {
     return match?.group(1);
   }
 
-  static String _shellQuote(String value) => posixShellQuote(value);
-
   Future<_ContainerImageUpdateState> _scanContainerImageUpdate({
     required Map<String, Object?> metadata,
     String? versionEnvironmentKey,
@@ -556,7 +554,7 @@ class PluginScannerService {
 
     Map<String, Object?> localImage = const <String, Object?>{};
     final localResult = await _shellRun(
-      'docker image inspect ${_shellQuote(image)}',
+      'docker image inspect ${posixShellQuote(image)}',
     );
     if (localResult.exitCode == 0) {
       final decoded = _decodeOptionalJson(localResult.stdout.toString());
@@ -601,8 +599,8 @@ class PluginScannerService {
           '{"digest":{{json .Manifest.Digest}},'
           '"config":{{json (index .Image "$platform").Config}}}';
       final remoteResult = await _shellRun(
-        'docker buildx imagetools inspect ${_shellQuote(image)} '
-        '--format ${_shellQuote(format)}',
+        'docker buildx imagetools inspect ${posixShellQuote(image)} '
+        '--format ${posixShellQuote(format)}',
       );
       if (remoteResult.exitCode == 0) {
         final decoded = _decodeOptionalJson(remoteResult.stdout.toString());
@@ -619,7 +617,7 @@ class PluginScannerService {
 
     if ((remoteDigest == null || localDigest == null) && platform != null) {
       final manifestResult = await _shellRun(
-        'docker manifest inspect ${_shellQuote(image)}',
+        'docker manifest inspect ${posixShellQuote(image)}',
       );
       final decoded = manifestResult.exitCode == 0
           ? _decodeOptionalJson(manifestResult.stdout.toString())
@@ -727,7 +725,7 @@ class PluginScannerService {
       );
       if (installPath == null || installPath.isEmpty) continue;
       final versionResult = await _shellRun(
-        [_shellQuote(installPath), ...versionArgs.map(_shellQuote)].join(' '),
+        [posixShellQuote(installPath), ...versionArgs.map(posixShellQuote)].join(' '),
       );
       final output = '${versionResult.stdout}\n${versionResult.stderr}'.trim();
       final version = versionResult.exitCode == 0
@@ -1027,8 +1025,8 @@ class PluginScannerService {
       final installation = await _resolveGlobalNpmPackage('playwright');
       if (installation == null) return _playwrightNotInstalled;
       final versionResult = await _shellRun(
-        '${_shellQuote('node')} '
-        '${_shellQuote(installation.executablePath)} --version',
+        '${posixShellQuote('node')} '
+        '${posixShellQuote(installation.executablePath)} --version',
       );
       if (versionResult.exitCode != 0) return _playwrightNotInstalled;
       final version = versionResult.stdout
@@ -1102,7 +1100,7 @@ class PluginScannerService {
             environment: pluginProxyEnvironment(),
           )
         : await _runShellScript(
-            '${pluginToolchainShellPrefix()}curl -fsSL ${_shellQuote(url)}',
+            '${pluginToolchainShellPrefix()}curl -fsSL ${posixShellQuote(url)}',
             tag: 'plugin_scanner.dingtalk_workspace_cli_release',
             timeout: const Duration(seconds: 8),
           );
@@ -1461,7 +1459,7 @@ class PluginScannerService {
       }
 
       final inspectResult = await _shellRun(
-        'docker inspect ${_shellQuote(qdrantContainerName)}',
+        'docker inspect ${posixShellQuote(qdrantContainerName)}',
       );
       if (inspectResult.exitCode != 0) {
         return _qdrantNotInstalled;

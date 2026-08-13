@@ -172,7 +172,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog>
     if (Platform.isWindows) {
       return (executable: cmd[0], arguments: cmd.sublist(1), runInShell: true);
     }
-    final cmdStr = cmd.map(_shellQuote).join(' ');
+    final cmdStr = cmd.map(posixShellQuote).join(' ');
     return (
       executable: resolveHarnessCliShellExecutable(),
       arguments: buildHarnessCliShellArgs(cmdStr),
@@ -267,7 +267,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog>
     String installerPath = cmd[0];
     try {
       final r = await runHarnessCliShellCommand(
-        'command -v ${_shellQuote(cmd[0])}',
+        'command -v ${posixShellQuote(cmd[0])}',
         timeout: const Duration(seconds: 5),
       );
       if (r.exitCode == 0) {
@@ -288,7 +288,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog>
     final shellCmdStr = [
       installerPath,
       ...cmd.sublist(1),
-    ].map(_shellQuote).join(' ');
+    ].map(posixShellQuote).join(' ');
     _appendLine(_l10n.harnessCliInstallAdminCommand(shellCmdStr));
     _appendLine('');
 
@@ -442,9 +442,6 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog>
       }
     }
   }
-
-  /// 使用单引号安全包裹 Shell 参数。
-  String _shellQuote(String value) => posixShellQuote(value);
 
   @override
   Widget build(BuildContext context) {

@@ -1973,9 +1973,9 @@ class _AndroidReverseDashboardDialogState
       final addonPath = await _ctrl.ensureMitmproxyJsonlAddon();
       if (!mounted) return;
       final command =
-          'OPENHAND_NETWORK_JSONL=${_shellQuote(_ctrl.networkJsonlPath)} '
-          'mitmdump -p 8080 -s ${_shellQuote(addonPath)} '
-          '-w ${_shellQuote('${_ctrl.networkDir}/flows.mitm')}';
+          'OPENHAND_NETWORK_JSONL=${posixShellQuoteIfNeeded(_ctrl.networkJsonlPath)} '
+          'mitmdump -p 8080 -s ${posixShellQuoteIfNeeded(addonPath)} '
+          '-w ${posixShellQuoteIfNeeded('${_ctrl.networkDir}/flows.mitm')}';
       setState(() {
         _networkAddonOutput = [
           openHandLocalizedText(
@@ -2261,7 +2261,7 @@ class _AndroidReverseDashboardDialogState
         ],
         timeout: _kFridaDoctorTimeout,
         displayCommand:
-            'bash ${_shellQuote(_ctrl.fridaDoctorScriptPath)} --timeout 6${pkg == null ? "" : " --package ${_shellQuote(pkg)}"}${serial == null || serial.isEmpty ? "" : " -s ${_shellQuote(serial)}"}',
+            'bash ${posixShellQuoteIfNeeded(_ctrl.fridaDoctorScriptPath)} --timeout 6${pkg == null ? "" : " --package ${posixShellQuoteIfNeeded(pkg)}"}${serial == null || serial.isEmpty ? "" : " -s ${posixShellQuoteIfNeeded(serial)}"}',
         tag: 'android_reverse.frida_doctor',
       );
       if (!mounted || !_isCurrentAndroidTargetContext(target)) return;
@@ -2378,7 +2378,7 @@ class _AndroidReverseDashboardDialogState
         ],
         timeout: _kFridaCaptureTimeout,
         displayCommand:
-            'bash ${_shellQuote(_ctrl.fridaCaptureScriptPath)} --package ${_shellQuote(pkg)} --script ${_shellQuote(scriptPath)} ${spawn ? "--spawn" : "--attach"}${serial == null || serial.isEmpty ? "" : " -s ${_shellQuote(serial)}"}',
+            'bash ${posixShellQuoteIfNeeded(_ctrl.fridaCaptureScriptPath)} --package ${posixShellQuoteIfNeeded(pkg)} --script ${posixShellQuoteIfNeeded(scriptPath)} ${spawn ? "--spawn" : "--attach"}${serial == null || serial.isEmpty ? "" : " -s ${posixShellQuoteIfNeeded(serial)}"}',
         tag: spawn
             ? 'android_reverse.frida_spawn_capture'
             : 'android_reverse.frida_attach_capture',
@@ -2550,7 +2550,7 @@ fi
         },
         timeout: _kNetworkProxyProbeTimeout,
         displayCommand:
-            'bash ${_shellQuote(_ctrl.networkProxyProbeScriptPath)} --timeout 6',
+            'bash ${posixShellQuoteIfNeeded(_ctrl.networkProxyProbeScriptPath)} --timeout 6',
         tag: 'android_reverse.network_proxy_probe',
       );
       if (!mounted || !_isCurrentAndroidTargetContext(target)) return;
@@ -2659,7 +2659,7 @@ fi
     final target = _captureAndroidTargetContext();
     await _runNetworkAction(
       () => _ctrl.shellDetailed(
-        'settings put global http_proxy ${_shellQuote('$host:$port')}; settings get global http_proxy',
+        'settings put global http_proxy ${posixShellQuoteIfNeeded('$host:$port')}; settings get global http_proxy',
         serial: target.serial,
         timeout: _kInteractiveShellTimeout,
       ),
@@ -2849,7 +2849,7 @@ fi
       scriptPath: _ctrl.generateDebugKeystoreScriptPath,
       args: const <String>[],
       displayCommand:
-          'bash ${_shellQuote(_ctrl.generateDebugKeystoreScriptPath)}',
+          'bash ${posixShellQuoteIfNeeded(_ctrl.generateDebugKeystoreScriptPath)}',
     );
   }
 
@@ -2873,7 +2873,7 @@ fi
       scriptPath: _ctrl.verifyApkSignatureScriptPath,
       args: <String>[apkPath],
       displayCommand:
-          'bash ${_shellQuote(_ctrl.verifyApkSignatureScriptPath)} ${_shellQuote(apkPath)}',
+          'bash ${posixShellQuoteIfNeeded(_ctrl.verifyApkSignatureScriptPath)} ${posixShellQuoteIfNeeded(apkPath)}',
     );
   }
 
@@ -10449,8 +10449,6 @@ fi
     if (configured != null && configured.isNotEmpty) return configured;
     return null;
   }
-
-  String _shellQuote(String value) => posixShellQuoteIfNeeded(value);
 }
 
 class _AndroidMcpServerView {

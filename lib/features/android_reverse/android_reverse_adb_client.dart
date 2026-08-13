@@ -824,9 +824,9 @@ class AndroidReverseAdbClient {
         ),
       );
     }
-    final quoted = _quoteShell(path);
+    final quoted = posixShellQuoteIfNeeded(path);
     return shellDetailed(
-      'mkdir -p ${_quoteShell(_remoteParent(path))}; '
+      'mkdir -p ${posixShellQuoteIfNeeded(_remoteParent(path))}; '
       'screencap -p $quoted; '
       'ls -l $quoted',
       timeout: _kAdbScreencapTimeout,
@@ -848,9 +848,9 @@ class AndroidReverseAdbClient {
         ),
       );
     }
-    final quoted = _quoteShell(path);
+    final quoted = posixShellQuoteIfNeeded(path);
     return shellDetailed(
-      'mkdir -p ${_quoteShell(_remoteParent(path))}; '
+      'mkdir -p ${posixShellQuoteIfNeeded(_remoteParent(path))}; '
       'screenrecord --time-limit $seconds $quoted; '
       'ls -l $quoted',
       timeout: Duration(seconds: seconds + 12),
@@ -1047,6 +1047,4 @@ class AndroidReverseAdbClient {
     if (slash <= 0) return '/sdcard';
     return normalized.substring(0, slash);
   }
-
-  String _quoteShell(String value) => posixShellQuoteIfNeeded(value);
 }

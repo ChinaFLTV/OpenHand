@@ -590,7 +590,7 @@ class AiSandboxService {
       Platform.isWindows ? 'where' : '/usr/bin/env',
       Platform.isWindows
           ? <String>[command]
-          : <String>['sh', '-lc', 'command -v ${_quoteShell(command)}'],
+          : <String>['sh', '-lc', 'command -v ${posixShellQuote(command)}'],
       timeout: const Duration(seconds: 2),
       tag: 'ai_sandbox_service',
     );
@@ -808,6 +808,4 @@ class AiSandboxService {
   String _escapeProfileString(String value) {
     return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
   }
-
-  String _quoteShell(String value) => posixShellQuote(value);
 }

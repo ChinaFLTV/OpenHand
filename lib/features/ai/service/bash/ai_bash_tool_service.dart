@@ -1748,16 +1748,16 @@ class AiBashToolService {
         workingDirectory: workingDirectory,
       );
     }
-    final startMarker = _quoteShellString('__OPENHAND_CMD_START__$markerToken');
-    final exitMarker = _quoteShellString('__OPENHAND_EXIT__$markerToken');
-    final pwdEndMarker = _quoteShellString('__OPENHAND_PWD_END__$markerToken');
+    final startMarker = posixShellQuote('__OPENHAND_CMD_START__$markerToken');
+    final exitMarker = posixShellQuote('__OPENHAND_EXIT__$markerToken');
+    final pwdEndMarker = posixShellQuote('__OPENHAND_PWD_END__$markerToken');
     // 多行、复杂引号或 AppleScript 命令改用临时脚本，避免 Shell 误解析。
     final needsSafeWrap = _commandNeedsSafeWrap(command);
     final buffer = StringBuffer()
       ..writeln("printf '%s\\n' $startMarker")
       ..writeln('__OPENHAND_EXIT_CODE=0');
     if (workingDirectory.trim().isNotEmpty) {
-      buffer.writeln('if cd ${_quoteShellString(workingDirectory)}; then');
+      buffer.writeln('if cd ${posixShellQuote(workingDirectory)}; then');
       if (needsSafeWrap) {
         _writeSafeWrappedCommand(buffer, command, markerToken);
       } else {
@@ -1859,7 +1859,7 @@ class AiBashToolService {
         '$dirVar=\$(mktemp -d 2>/dev/null) || '
         '$dirVar=\$(mktemp -d -t openhand_cmd)',
       )
-      ..writeln('cat > $scriptPath << ${_quoteShellString(heredocTag)}')
+      ..writeln('cat > $scriptPath << ${posixShellQuote(heredocTag)}')
       ..writeln(command)
       ..writeln(heredocTag)
       ..writeln('chmod +x $scriptPath')
@@ -1873,8 +1873,6 @@ class AiBashToolService {
       // 透传原始退出码。
       ..writeln(r'(exit $__OPENHAND_WRAP_RC)');
   }
-
-  String _quoteShellString(String value) => posixShellQuote(value);
 
   void _releasePersistentSession(
     String sessionId,
