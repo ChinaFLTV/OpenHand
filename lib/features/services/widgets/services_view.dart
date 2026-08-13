@@ -119,37 +119,73 @@ class _AiExposureServiceCard extends StatelessWidget {
     final controller = context.read<ServicesController>();
     final running = snapshot.lifecycle == AiExposureServiceLifecycle.running;
     final toneColor = running ? cs.primary : cs.outline;
-    final capabilitySummary = <String>[
-      text(
-        zh: '启用来源 ${snapshot.enabledSourceCount}',
-        en: 'Sources ${snapshot.enabledSourceCount}',
+    final activeValidation =
+        snapshot.defaultValidationMode ==
+        AiExposureValidationMode.authorizedActive;
+    final capabilityFacts = <({IconData icon, String label, Color color})>[
+      (
+        icon: Icons.travel_explore_rounded,
+        label: text(
+          zh: '启用来源 ${snapshot.enabledSourceCount}',
+          en: 'Sources ${snapshot.enabledSourceCount}',
+        ),
+        color: cs.primary,
       ),
-      snapshot.defaultValidationMode ==
-              AiExposureValidationMode.authorizedActive
-          ? text(zh: '授权主动验证', en: 'Authorized active validation')
-          : text(zh: '被动验证', en: 'Passive validation'),
-      text(
-        zh: '默认并发 ${snapshot.defaultConcurrency}',
-        en: 'Concurrency ${snapshot.defaultConcurrency}',
+      (
+        icon: activeValidation
+            ? Icons.verified_user_rounded
+            : Icons.shield_outlined,
+        label: activeValidation
+            ? text(zh: '授权主动验证', en: 'Authorized active validation')
+            : text(zh: '被动验证', en: 'Passive validation'),
+        color: activeValidation ? OpenHandStatusColors.warning : cs.secondary,
+      ),
+      (
+        icon: Icons.bolt_rounded,
+        label: text(
+          zh: '默认并发 ${snapshot.defaultConcurrency}',
+          en: 'Concurrency ${snapshot.defaultConcurrency}',
+        ),
+        color: cs.tertiary,
       ),
       switch (snapshot.proxyRoute) {
-        AiExposureProxyRoute.pool => text(
-          zh: '代理节点 ${snapshot.activeProxyCount}',
-          en: 'Proxies ${snapshot.activeProxyCount}',
+        AiExposureProxyRoute.pool => (
+          icon: Icons.lan_rounded,
+          label: text(
+            zh: '代理节点 ${snapshot.activeProxyCount}',
+            en: 'Proxies ${snapshot.activeProxyCount}',
+          ),
+          color: cs.tertiary,
         ),
-        AiExposureProxyRoute.system => text(zh: '系统代理', en: 'System proxy'),
-        AiExposureProxyRoute.direct => text(
-          zh: '网络直连',
-          en: 'Direct connection',
+        AiExposureProxyRoute.system => (
+          icon: Icons.public_rounded,
+          label: text(zh: '系统代理', en: 'System proxy'),
+          color: cs.secondary,
+        ),
+        AiExposureProxyRoute.direct => (
+          icon: Icons.link_rounded,
+          label: text(zh: '网络直连', en: 'Direct connection'),
+          color: cs.onSurfaceVariant,
         ),
       },
-      snapshot.forumFetchMode == AiExposureForumFetchMode.jinaFallback
-          ? text(zh: '论坛智能降级', en: 'Forum fallback')
-          : text(zh: '论坛浏览器直读', en: 'Forum browser'),
-      if (snapshot.defaultGptAssisted) text(zh: 'GPT 辅助', en: 'GPT assisted'),
-      if (snapshot.postgresqlEnabled) 'PostgreSQL',
-      if (snapshot.redisEnabled) 'Redis',
-    ].join(' · ');
+      (
+        icon: Icons.forum_rounded,
+        label: snapshot.forumFetchMode == AiExposureForumFetchMode.jinaFallback
+            ? text(zh: '论坛智能降级', en: 'Forum fallback')
+            : text(zh: '论坛浏览器直读', en: 'Forum browser'),
+        color: cs.primary,
+      ),
+      if (snapshot.defaultGptAssisted)
+        (
+          icon: Icons.auto_awesome_rounded,
+          label: text(zh: 'GPT 辅助', en: 'GPT assisted'),
+          color: OpenHandStatusColors.info,
+        ),
+      if (snapshot.postgresqlEnabled)
+        (icon: Icons.storage_rounded, label: 'PostgreSQL', color: cs.tertiary),
+      if (snapshot.redisEnabled)
+        (icon: Icons.memory_rounded, label: 'Redis', color: cs.secondary),
+    ];
 
     return Card(
       key: const ValueKey<String>('ai-infrastructure-exposure-service-card'),
@@ -261,13 +297,17 @@ class _AiExposureServiceCard extends StatelessWidget {
                   _CompactProgress(progress: snapshot.progress!),
                 ],
                 kOpenHandGap14,
-                Text(
-                  capabilitySummary,
-                  maxLines: 2,
-                  overflow: TextOverflow.ellipsis,
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
+                Wrap(
+                  spacing: 8,
+                  runSpacing: 8,
+                  children: [
+                    for (final fact in capabilityFacts)
+                      _CapabilityChip(
+                        icon: fact.icon,
+                        label: fact.label,
+                        color: fact.color,
+                      ),
+                  ],
                 ),
                 AnimatedSwitcher(
                   duration: openHandMotionDuration(context, kOpenHandMotion220),
@@ -518,6 +558,47 @@ class _CompactProgress extends StatelessWidget {
           ),
         ),
       ],
+    );
+  }
+}
+
+/// 服务卡片的配置事实芯片：以图标 + 主题微色调呈现次级配置信息，
+/// 与上方状态度量胶囊形成清晰的层次，避免把配置折叠进省略号文本。
+class _CapabilityChip extends StatelessWidget {
+  const _CapabilityChip({
+    required this.icon,
+    required this.label,
+    required this.color,
+  });
+
+  final IconData icon;
+  final String label;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      decoration: BoxDecoration(
+        color: color.withValues(alpha: 0.10),
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
+        border: Border.all(color: color.withValues(alpha: 0.26)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          Icon(icon, size: 14, color: color),
+          kOpenHandHGap6,
+          Text(
+            label,
+            style: theme.textTheme.labelMedium?.copyWith(
+              color: color,
+              fontWeight: FontWeight.w600,
+            ),
+          ),
+        ],
+      ),
     );
   }
 }
