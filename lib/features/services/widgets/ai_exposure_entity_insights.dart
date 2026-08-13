@@ -3205,7 +3205,7 @@ Widget _entityProbeWaterfall(
                         ),
                         kOpenHandGap6,
                         ClipRRect(
-                          borderRadius: BorderRadius.circular(kOpenHandRadiusPill),
+                          borderRadius: kOpenHandPillBorderRadius,
                           child: ServiceAnimatedProgressBar(
                             value: maximum <= 0
                                 ? 0

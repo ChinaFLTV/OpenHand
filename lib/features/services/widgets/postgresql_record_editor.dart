@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import '../../../shared/ui/animated_dialog.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
@@ -782,7 +783,7 @@ class _TypeBadge extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(kOpenHandRadiusPill),
+      borderRadius: kOpenHandPillBorderRadius,
     ),
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -1186,11 +1187,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
             final controls = constraints.maxWidth < 560
                 ? Column(
                     crossAxisAlignment: CrossAxisAlignment.stretch,
-                    children: [
-                      typeField,
-                      kOpenHandGap8,
-                      valueField,
-                    ],
+                    children: [typeField, kOpenHandGap8, valueField],
                   )
                 : Row(
                     crossAxisAlignment: CrossAxisAlignment.start,
