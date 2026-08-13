@@ -2266,7 +2266,7 @@ Future<void> _downloadRemoteUriToFile({
         contentType != null &&
         contentType.primaryType != expectedPrimaryType &&
         (!allowOctetStream ||
-            contentType.mimeType != 'application/octet-stream')) {
+            contentType.mimeType != kApplicationOctetStreamMimeType)) {
       throw HttpException('媒体响应类型不符合预期：${contentType.mimeType}', uri: uri);
     }
     if (response.contentLength > maxBytes) {
@@ -5926,7 +5926,7 @@ String _mimeTypeForExtension(String extension) {
     '.aac' => 'audio/aac',
     '.ogg' || '.opus' => 'audio/ogg',
     '.flac' => 'audio/flac',
-    _ => 'application/octet-stream',
+    _ => kApplicationOctetStreamMimeType,
   };
 }
 

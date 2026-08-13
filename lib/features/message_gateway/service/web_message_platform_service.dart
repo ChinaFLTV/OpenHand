@@ -6612,7 +6612,7 @@ class WebMessagePlatformService {
     return shelf.Response.ok(
       body,
       headers: const <String, String>{
-        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.contentTypeHeader: kApplicationJsonUtf8ContentType,
         HttpHeaders.cacheControlHeader: 'no-store',
         'content-disposition':
             'attachment; filename="openhand-web-gateway-logs.json"',
@@ -8941,7 +8941,7 @@ class WebMessagePlatformService {
       statusCode,
       body: body,
       headers: <String, String>{
-        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.contentTypeHeader: kApplicationJsonUtf8ContentType,
         HttpHeaders.cacheControlHeader: 'no-store',
         ...headers,
       },
@@ -9036,7 +9036,7 @@ class WebMessagePlatformService {
       return 'application/javascript; charset=utf-8';
     }
     if (lower.endsWith('.css')) return 'text/css; charset=utf-8';
-    if (lower.endsWith('.json')) return 'application/json; charset=utf-8';
+    if (lower.endsWith('.json')) return kApplicationJsonUtf8ContentType;
     if (lower.endsWith('.svg')) return 'image/svg+xml';
     if (lower.endsWith('.png')) return 'image/png';
     if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
@@ -9056,8 +9056,8 @@ class WebMessagePlatformService {
     if (lower.endsWith('.woff2')) return 'font/woff2';
     if (lower.endsWith('.woff')) return 'font/woff';
     if (lower.endsWith('.ttf')) return 'font/ttf';
-    if (lower.endsWith('.map')) return 'application/json; charset=utf-8';
-    return 'application/octet-stream';
+    if (lower.endsWith('.map')) return kApplicationJsonUtf8ContentType;
+    return kApplicationOctetStreamMimeType;
   }
 
   String _attachmentContentDisposition(String filename) {

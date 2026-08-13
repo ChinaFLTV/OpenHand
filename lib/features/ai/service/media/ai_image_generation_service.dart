@@ -851,7 +851,7 @@ class AiImageGenerationService {
 
   String _acceptHeaderFor(_GeneratedMediaKind kind) {
     return switch (kind) {
-      _GeneratedMediaKind.image => 'application/json',
+      _GeneratedMediaKind.image => kApplicationJsonMimeType,
       _GeneratedMediaKind.video => 'application/json, video/*;q=0.9',
       _GeneratedMediaKind.audio => 'application/json, audio/*;q=0.9',
     };
@@ -1885,7 +1885,7 @@ class AiImageGenerationService {
       }
       final contentType = responseMimeType(response.headers);
       if (contentType.isNotEmpty &&
-          contentType != 'application/octet-stream' &&
+          contentType != kApplicationOctetStreamMimeType &&
           !(kind.isVideo && contentType.startsWith('video/')) &&
           !(kind.isAudio && contentType.startsWith('audio/'))) {
         await _deleteFileIfPresent(destination);
@@ -2157,7 +2157,7 @@ class AiImageGenerationService {
             ? requestRemaining
             : _pollRequestTimeoutCap;
         final pollingHeaders = Map<String, String>.from(requestHeaders)
-          ..['accept'] = 'application/json';
+          ..['accept'] = kApplicationJsonMimeType;
         final response = await _transport.get(
           uri: Uri.parse(operationUrl),
           headers: pollingHeaders,
@@ -2381,7 +2381,7 @@ class AiImageGenerationService {
       queryParameters: <String, String>{'file_id': fileId},
     );
     final pollingHeaders = Map<String, String>.from(requestHeaders)
-      ..['accept'] = 'application/json';
+      ..['accept'] = kApplicationJsonMimeType;
     final deadline = MonotonicDeadline(
       effectiveTimeout,
       timeoutMessage: 'MiniMax 视频文件查询超时。',

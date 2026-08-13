@@ -194,6 +194,13 @@ const String kContentTypeHeaderName = 'content-type';
 /// JSON MIME 类型常量，避免全库重复书写字面量。
 const String kApplicationJsonMimeType = 'application/json';
 
+/// 二进制流 MIME 类型常量。
+const String kApplicationOctetStreamMimeType = 'application/octet-stream';
+
+/// 带 UTF-8 charset 的 JSON `Content-Type` 取值，供发送 JSON 请求体时复用。
+const String kApplicationJsonUtf8ContentType =
+    '$kApplicationJsonMimeType; charset=utf-8';
+
 /// 取 `Content-Type` 的 MIME 部分（丢掉 `; charset=...` 参数），统一转小写；
 /// 缺失时返回空字符串。
 String responseMimeType(Map<String, String> headers) {
@@ -219,7 +226,7 @@ bool isJsonMimeType(String? contentType) {
 }
 
 const Set<String> _jsonMimeTypes = <String>{
-  'application/json',
+  kApplicationJsonMimeType,
   'application/x-json',
   'text/json',
 };

@@ -312,7 +312,7 @@ String aiMimeTypeForPath(String path) {
       'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet',
     '.xls' => 'application/vnd.ms-excel',
     '.pdf' => 'application/pdf',
-    _ => 'application/octet-stream',
+    _ => kApplicationOctetStreamMimeType,
   };
 }
 

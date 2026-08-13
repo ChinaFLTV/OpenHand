@@ -4,6 +4,7 @@ import 'dart:io';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/byte_size_format.dart';
@@ -308,7 +309,7 @@ class WebReverseSessionArtifacts {
           'queryString': const <Object?>[],
           if (draft.postData != null && draft.postData!.isNotEmpty)
             'postData': <String, Object?>{
-              'mimeType': 'application/octet-stream',
+              'mimeType': kApplicationOctetStreamMimeType,
               'text': draft.postData,
             },
           'headersSize': -1,

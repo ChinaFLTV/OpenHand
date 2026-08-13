@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../../app/support/silent_log.dart';
 import '../../shared/net/bounded_server_bind.dart';
+import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/text_clip.dart';
@@ -118,7 +119,7 @@ class WebReverseHarReplayServer {
           bodyBytes: body.bytes,
           mime: stringFromValue(
             content['mimeType'],
-            fallback: 'application/octet-stream',
+            fallback: kApplicationOctetStreamMimeType,
           ),
           truncated: body.truncated,
         );

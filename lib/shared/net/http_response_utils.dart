@@ -6,6 +6,7 @@ import 'dart:typed_data';
 import '../util/argument_guards.dart';
 import '../util/async_concurrency.dart';
 import '../util/timer_safety.dart';
+import 'http_redirect_utils.dart';
 import 'http_status_utils.dart';
 
 const Duration _byteStreamCancelTimeout = Duration(milliseconds: 500);
@@ -71,7 +72,7 @@ Future<Uint8List> fetchBoundedHttpBytes({
           contentType != null &&
           contentType.primaryType != expectedPrimaryType &&
           (!allowOctetStream ||
-              contentType.mimeType != 'application/octet-stream')) {
+              contentType.mimeType != kApplicationOctetStreamMimeType)) {
         throw HttpException('响应内容类型不符合预期：${contentType.mimeType}', uri: uri);
       }
       final remainingTotal = totalTimeout == null

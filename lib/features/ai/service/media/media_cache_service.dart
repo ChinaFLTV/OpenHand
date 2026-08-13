@@ -15,6 +15,7 @@ import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
@@ -1076,7 +1077,7 @@ class MediaCacheService {
     if (primary == 'image') return kind == null || kind == MediaCacheKind.image;
     if (primary == 'video') return kind == null || kind == MediaCacheKind.video;
     if (primary == 'audio') return kind == null || kind == MediaCacheKind.audio;
-    return contentType.mimeType == 'application/octet-stream';
+    return contentType.mimeType == kApplicationOctetStreamMimeType;
   }
 
   static int _maxBytesForKind(MediaCacheKind? kind) {
