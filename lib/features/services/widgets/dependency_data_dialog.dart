@@ -15,6 +15,7 @@ import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../services_controller.dart';
@@ -1589,17 +1590,9 @@ List<Map<String, Object?>> _maps(Object? value) =>
 List<String> _strings(Object? value) =>
     _list(value).map((item) => '$item').toList(growable: false);
 
-int _integer(Object? value) {
-  if (value is int) return value;
-  if (value is num && value.isFinite) return value.toInt();
-  return int.tryParse('$value') ?? 0;
-}
+int _integer(Object? value) => optionalIntFromValue(value) ?? 0;
 
-double _number(Object? value) {
-  if (value is num && value.isFinite) return value.toDouble();
-  final parsed = double.tryParse('$value');
-  return parsed != null && parsed.isFinite ? parsed : 0;
-}
+double _number(Object? value) => optionalDoubleFromValue(value) ?? 0;
 
 String _capturedAt(Map<String, Object?> overview) {
   final parsed = DateTime.tryParse(

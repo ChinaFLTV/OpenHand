@@ -199,11 +199,7 @@ String _dependencyUnavailableMessage(String? message) {
   return normalized == null || normalized.isEmpty ? '未启用' : normalized;
 }
 
-int _metricInt(Object? value) {
-  if (value is int) return value;
-  if (value is num && value.isFinite) return value.toInt();
-  return int.tryParse('${value ?? ''}') ?? 0;
-}
+int _metricInt(Object? value) => optionalIntFromValue(value) ?? 0;
 
 class _Metric {
   const _Metric(
