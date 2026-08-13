@@ -412,6 +412,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   List<AiSessionMessage>? _cachedIndexMapSource;
   int _cachedIndexMapWindowStart = -1;
   Map<String, int>? _cachedVisibleIndexMap;
+  List<AiSessionMessage>? _cachedVisibleMessages;
+  int? _cachedVisibleMessagesWindowStart;
   // build 路径上的 _resolvePendingCreationPlaceholder 与 _resolveUserVisibleError
   // 在长会话下分别会反向遍历 visibleMessages 与 recentErrors，O(N) per build。
   // 父级 watch 流式 token 触发的 rebuild
@@ -703,6 +705,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _cachedIndexMapSource = null;
     _cachedIndexMapWindowStart = -1;
     _cachedVisibleIndexMap = null;
+    _cachedVisibleMessages = null;
+    _cachedVisibleMessagesWindowStart = null;
     _cachedCreationRequestDisplaySource = null;
     _cachedCreationRequestWindowStart = null;
     _cachedCreationRequestSendPhase = null;
@@ -3011,6 +3015,26 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return null;
   }
 
+  List<AiSessionMessage> _resolveVisibleMessages(
+    List<AiSessionMessage> displayMessages,
+    int rangeStart,
+    int rangeEnd,
+  ) {
+    if (rangeStart == 0 && rangeEnd == displayMessages.length) {
+      return displayMessages;
+    }
+    if (identical(_cachedIndexMapSource, displayMessages) &&
+        _cachedVisibleMessagesWindowStart == rangeStart &&
+        _cachedVisibleMessages != null &&
+        _cachedVisibleMessages!.length == rangeEnd - rangeStart) {
+      return _cachedVisibleMessages!;
+    }
+    final sublist = displayMessages.sublist(rangeStart, rangeEnd);
+    _cachedVisibleMessages = sublist;
+    _cachedVisibleMessagesWindowStart = rangeStart;
+    return sublist;
+  }
+
   @override
   Widget build(BuildContext context) {
     final session = widget.session;
@@ -3042,10 +3066,11 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     final clampedWindowStartIndex = range.start;
     final hiddenMessageCount =
         session.hiddenHistoricalMessageCount + clampedWindowStartIndex;
-    final visibleMessages =
-        (range.start == 0 && range.end == displayMessages.length)
-        ? displayMessages
-        : displayMessages.sublist(range.start, range.end);
+    final visibleMessages = _resolveVisibleMessages(
+      displayMessages,
+      range.start,
+      range.end,
+    );
     // build-stage 同步首屏 fallback：
     // 当 didUpdateWidget 把 `_renderEntries` 重置为空、且 post-frame
     // callback 因 mount 抖动尚未触发时，直接同步物化首屏，避免
