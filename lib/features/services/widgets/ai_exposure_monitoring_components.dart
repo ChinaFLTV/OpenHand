@@ -1163,14 +1163,14 @@ Color _sourceColor(AiExposureSource source, ColorScheme colors) =>
     switch (source) {
       AiExposureSource.manual => colors.primary,
       AiExposureSource.github => const Color(0xff475569),
-      AiExposureSource.githubArtifact => const Color(0xff64748b),
+      AiExposureSource.githubArtifact => _kAiExposureColorSlate500,
       AiExposureSource.gitee => OpenHandStatusColors.error,
       AiExposureSource.gitcode => const Color(0xff2563eb),
       AiExposureSource.fofa => _kAiExposureColorCyan,
       AiExposureSource.shodan => OpenHandStatusColors.warning,
       AiExposureSource.nodeseek => const Color(0xff7c3aed),
       AiExposureSource.linuxDo => const Color(0xff16a34a),
-      AiExposureSource.v2ex => const Color(0xff64748b),
+      AiExposureSource.v2ex => _kAiExposureColorSlate500,
     };
 
 class _StatusPill extends StatelessWidget {

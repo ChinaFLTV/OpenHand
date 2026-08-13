@@ -53,6 +53,7 @@ const Color _kAiExposureColorHighValue = Color(0xffa855f7);
 const Color _kAiExposureColorTeal = Color(0xff0f766e);
 const Color _kAiExposureColorCyan = Color(0xff0891b2);
 const Color _kAiExposureDarkSurface = Color(0xff0b0e12);
+const Color _kAiExposureColorSlate500 = Color(0xff64748b);
 const Color _kAiExposureDarkOnSurface = Color(0xffd5dae3);
 
 // 通用圆角档位。

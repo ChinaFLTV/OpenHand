@@ -206,7 +206,7 @@ class _HarnessStatusCapsule extends StatelessWidget {
     final colorScheme = theme.colorScheme;
 
     if (awaitingApproval) {
-      const foregroundColor = Color(0xFFE6A817);
+      const foregroundColor = _kHomeSidebarAmber;
       final backgroundColor = foregroundColor.withValues(alpha: 0.14);
       final borderColor = foregroundColor.withValues(alpha: 0.22);
       return _SweepBadge(
