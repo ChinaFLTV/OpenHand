@@ -118,6 +118,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
        _appInfo = dependencies.appInfo,
        _store = store ?? DingTalkMessageGatewayStore(),
        _service = service ?? DingTalkMessageGatewayService(),
+       _gitSnapshotService = AiGitSnapshotService(),
+       _workspaceInstructionService = AiWorkspaceInstructionService(),
        _mediaGenerationService = AiImageGenerationService() {
     _runtimeLogSubscription = _service.runtimeLogStream.listen((_) {
       _runtimeLogRevision.value = _service.runtimeLogRevision;
@@ -159,6 +161,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   // 媒体只影响附件上下文，不能阻塞文本消息进入 AI 响应链路。
   static const Duration _mediaPreparationTimeout = Duration(seconds: 12);
   static const Duration _stopResponseTimeout = Duration(seconds: 10);
+  static const String _automaticResponseReminder =
+      '钉钉网关规则：仅回复本轮最后一条触发消息；此前消息仅作上下文，不逐条回复。直接输出适合发送给对方的回复。';
+  static const String _forcedResponseReminder =
+      '钉钉网关规则：结合提供的会话历史，直接输出一条连贯、适合发送给对方的回复。';
   static const int _maxConversationReconcileCount = 12;
   static const int _conversationReconcileConcurrency = 4;
   static const int _maxConversationReconcileFailureCount = 6;
@@ -172,6 +178,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final AppInfo _appInfo;
   final DingTalkMessageGatewayStore _store;
   final DingTalkMessageGatewayService _service;
+  final AiGitSnapshotService _gitSnapshotService;
+  final AiWorkspaceInstructionService _workspaceInstructionService;
   final AiImageGenerationService _mediaGenerationService;
   final ValueNotifier<int> _runtimeLogRevision = ValueNotifier<int>(0);
   StreamSubscription<String>? _runtimeLogSubscription;
@@ -3425,6 +3433,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         _setResponseError(conversation.id, '没有可用的线程模板，暂时无法响应钉钉消息。');
         return;
       }
+      final resolvedTemplateId = _sessionController.templateRepository
+          .resolveTemplate(_settings.templateId)
+          .id;
+      final templateId =
+          templates.any((template) => template.id == resolvedTemplateId)
+          ? resolvedTemplateId
+          : templates.any((template) => template.id == 'default')
+          ? 'default'
+          : templates.first.id;
       final aiContent = _buildAiConversationTurn(
         conversation,
         sourceMessageId,
@@ -3446,18 +3463,35 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         );
         if (responseCancelled()) return;
       }
-      await _mcpController.ensureRuntimeToolCatalogs(
-        maxWait: const Duration(seconds: 6),
-      );
+      final selectedMemoryIds = _settings.allowedMemoryIds.toSet();
+      _workspaceInstructionService.maxDocumentCharacters =
+          _settingsController.aiMaxWorkspaceDocumentCharacters;
+      final preparedResources = await Future.wait<Object?>(<Future<Object?>>[
+        _mcpController
+            .ensureRuntimeToolCatalogs(maxWait: const Duration(seconds: 6))
+            .then<Object?>((_) => null),
+        if (_settingsController.memoryEnabled && selectedMemoryIds.isNotEmpty)
+          _memoryController
+              .trustedEntriesSnapshot()
+              .timeout(const Duration(seconds: 5), onTimeout: () => null)
+              .then<Object?>((value) => value)
+        else
+          Future<Object?>.value(const <UserMemoryEntry>[]),
+        if (_settings.allowedDingTalkDwsCommandIds.isEmpty)
+          Future<Object?>.value(const <AiDingTalkDwsCommand>[])
+        else
+          _service.loadDwsCommandCatalog().then<Object?>((value) => value),
+        _gitSnapshotService
+            .loadSnapshot(workingDirectory: _settings.workingDirectory)
+            .then<Object?>((value) => value),
+        _workspaceInstructionService
+            .loadDocuments(
+              startDirectory: _settings.workingDirectory,
+              homeDirectory: OpenHandPaths.homeDirectoryPath(),
+            )
+            .then<Object?>((value) => value),
+      ]);
       if (responseCancelled()) return;
-      final selectedTemplate = templates.where(
-        (item) => item.id == _settings.templateId,
-      );
-      final templateId = selectedTemplate.isNotEmpty
-          ? selectedTemplate.first.id
-          : templates.any((item) => item.id == 'default')
-          ? 'default'
-          : templates.first.id;
       final selectedMcp = _mcpController.runtimeServers
           .where(
             (server) => _settings.allowedMcpServerNames.contains(server.name),
@@ -3466,17 +3500,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final selectedSkills = _skillsController.skills
           .where((skill) => _settings.allowedSkillNames.contains(skill.name))
           .toList(growable: false);
-      final selectedMemoryIds = _settings.allowedMemoryIds.toSet();
-      final selectedMemory = _settingsController.memoryEnabled
-          ? (await _memoryController.trustedEntriesSnapshot().timeout(
-                      const Duration(seconds: 5),
-                      onTimeout: () => null,
-                    ) ??
-                    const <UserMemoryEntry>[])
-                .where((entry) => selectedMemoryIds.contains(entry.id))
-                .toList(growable: false)
-          : const <UserMemoryEntry>[];
-      if (responseCancelled()) return;
+      final selectedMemory =
+          (preparedResources[1] as List<UserMemoryEntry>? ??
+                  const <UserMemoryEntry>[])
+              .where((entry) => selectedMemoryIds.contains(entry.id))
+              .toList(growable: false);
       final selectedInstructions = _instructionsController.entries
           .where((entry) => _settings.allowedInstructionIds.contains(entry.id))
           .toList(growable: false);
@@ -3490,19 +3518,19 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                   ),
                 )
                 .toList(growable: false);
-      final builtinToolConfigs = selectedKnowledgeSourceIds.isEmpty
-          ? const <AiBuiltinToolConfig>[]
-          : _knowledgeBuiltinToolConfigs();
-      final dwsCatalog = _settings.allowedDingTalkDwsCommandIds.isEmpty
-          ? const <AiDingTalkDwsCommand>[]
-          : (await _service.loadDwsCommandCatalog())
-                .where(
-                  (command) => _settings.allowedDingTalkDwsCommandIds.contains(
-                    command.cliPath,
-                  ),
-                )
-                .toList(growable: false);
-      if (responseCancelled()) return;
+      final builtinToolConfigs = _dingtalkBuiltinToolConfigs(
+        knowledgeBaseEnabled: selectedKnowledgeSourceIds.isNotEmpty,
+      );
+      final dwsCatalog = (preparedResources[2] as List<AiDingTalkDwsCommand>)
+          .where(
+            (command) => _settings.allowedDingTalkDwsCommandIds.contains(
+              command.cliPath,
+            ),
+          )
+          .toList(growable: false);
+      final repositorySnapshot = preparedResources[3] as AiRepositorySnapshot;
+      final workspaceInstructionDocuments =
+          preparedResources[4] as List<AiWorkspaceInstructionDocument>;
       final runtimeContext = buildAiSessionRuntimeContext(
         settingsController: _settingsController,
         appInfo: _appInfo,
@@ -3519,6 +3547,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
             server.name: _mcpController.toolCatalogFor(server.name),
         },
         builtinToolConfigs: builtinToolConfigs,
+        repositorySnapshot: repositorySnapshot,
+        workspaceInstructionDocuments: workspaceInstructionDocuments,
         userInstructions: selectedInstructions,
         templateId: templateId,
         toolExecutionMetadata: <String, Object?>{
@@ -3539,6 +3569,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         },
       );
       var sessionId = conversation.aiSessionId;
+      final existingSession = sessionId == null
+          ? null
+          : _sessionController.sessionById(sessionId);
+      if (existingSession == null || existingSession.templateId != templateId) {
+        sessionId = null;
+        conversation.aiSessionId = null;
+        conversation.aiContextCheckpointMessageId = null;
+      }
       if (sessionId == null) {
         final created = await _sessionController.createSession(
           templateId: templateId,
@@ -3562,6 +3600,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         }
         for (final candidate in _sessionController.sessions.reversed) {
           if (candidate.isDingTalkGatewaySession &&
+              candidate.templateId == templateId &&
               candidate.metadata['dingtalk_conversation_id'] ==
                   conversation.id) {
             sessionId = candidate.id;
@@ -3681,6 +3720,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
                   return handler(sessionId!, request);
                 }
               : null,
+          additionalSystemReminders: <String>[
+            forceResponse
+                ? _forcedResponseReminder
+                : _automaticResponseReminder,
+          ],
           userMessageMetadata: <String, Object?>{
             'sent_via': 'dingtalk_gateway',
             _dingTalkResponseRoundIdMetadataKey: responseRoundId,
@@ -3800,15 +3844,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     final ordered = retained.reversed.toList(growable: false);
     final omitted = entries.length - ordered.length;
-    final buffer = StringBuffer()
-      ..writeln(
-        forceResponse
-            ? '以下是当前钉钉会话中可用的历史消息。'
-            : '以下是本轮触发前尚未交给 Agent 的钉钉消息，仅用于上下文。',
-      )
-      ..writeln(
-        forceResponse ? '请综合分析这些消息，给出连贯、明确的回复。' : '请只处理最后一条消息，其他消息不要单独回复。',
-      );
+    final buffer = StringBuffer()..writeln('钉钉会话消息（按时间顺序）：');
     if (omitted > 0) {
       buffer.writeln('较早的 $omitted 条消息因上下文窗口限制已省略。');
     }
@@ -4940,18 +4976,21 @@ ${_markdownStructuredFields(response)}''';
     );
   }
 
-  List<AiBuiltinToolConfig> _knowledgeBuiltinToolConfigs() {
+  List<AiBuiltinToolConfig> _dingtalkBuiltinToolConfigs({
+    required bool knowledgeBaseEnabled,
+  }) {
     final configured = _settingsController.builtinToolConfigs;
     final source = configured.isEmpty
         ? AiBuiltinToolConfig.defaults()
         : configured;
     return source
-        .where(
+        .map(
           (config) =>
               config.kind == AiBuiltinToolKind.knowledgeSearch ||
-              config.kind == AiBuiltinToolKind.knowledgeRead,
+                  config.kind == AiBuiltinToolKind.knowledgeRead
+              ? config.copyWith(enabled: knowledgeBaseEnabled)
+              : config,
         )
-        .map((config) => config.copyWith(enabled: true))
         .toList(growable: false);
   }
 
