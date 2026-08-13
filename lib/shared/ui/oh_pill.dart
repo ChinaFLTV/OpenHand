@@ -1,7 +1,8 @@
 import 'package:flutter/material.dart';
-import 'package:openhand/shared/ui/openhand_spacing.dart';
 
+import 'micro_press_feedback.dart';
 import 'motion_preference.dart';
+import 'openhand_spacing.dart';
 
 const Radius kOpenHandPillRadius = Radius.circular(999);
 const BorderRadius kOpenHandPillBorderRadius = BorderRadius.all(
@@ -53,16 +54,18 @@ class OhPill extends StatelessWidget {
       ),
     );
     if (onTap == null) return child;
-    return Material(
-      color: Colors.transparent,
-      borderRadius: kOpenHandPillBorderRadius,
-      child: InkWell(
-        onTap: onTap,
+    return MicroPressFeedback(
+      child: Material(
+        color: Colors.transparent,
         borderRadius: kOpenHandPillBorderRadius,
-        overlayColor: WidgetStatePropertyAll<Color>(
-          theme.colorScheme.primary.withValues(alpha: 0.08),
+        child: InkWell(
+          onTap: onTap,
+          borderRadius: kOpenHandPillBorderRadius,
+          overlayColor: WidgetStatePropertyAll<Color>(
+            theme.colorScheme.primary.withValues(alpha: 0.08),
+          ),
+          child: child,
         ),
-        child: child,
       ),
     );
   }

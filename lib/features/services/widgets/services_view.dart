@@ -6,8 +6,8 @@ import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
 import '../../../shared/ui/motion_durations.dart';
-import '../../../shared/ui/motion_preference.dart';
 import '../../../shared/ui/oh_pill.dart';
+import '../../../shared/ui/openhand_reveal_switcher.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
@@ -309,28 +309,15 @@ class _AiExposureServiceCard extends StatelessWidget {
                       ),
                   ],
                 ),
-                AnimatedSwitcher(
-                  duration: openHandMotionDuration(context, kOpenHandMotion220),
-                  switchInCurve: Curves.easeOutCubic,
-                  switchOutCurve: Curves.easeInCubic,
-                  transitionBuilder: (child, animation) => FadeTransition(
-                    opacity: animation,
-                    child: SizeTransition(
-                      sizeFactor: animation,
-                      axisAlignment: -1,
-                      child: child,
-                    ),
-                  ),
+                OpenHandVerticalRevealSwitcher(
+                  duration: kOpenHandMotion220,
                   child: (snapshot.error?.trim().isNotEmpty ?? false)
                       ? Padding(
                           key: const ValueKey<String>('service-error'),
                           padding: const EdgeInsets.only(top: 12),
                           child: _ServiceError(message: snapshot.error!),
                         )
-                      : const SizedBox(
-                          key: ValueKey<String>('service-error-empty'),
-                          width: double.infinity,
-                        ),
+                      : null,
                 ),
               ],
             );

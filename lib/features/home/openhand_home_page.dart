@@ -6092,7 +6092,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (sessionController.currentSessionId != currentSession.id) {
         return;
       }
-      pendingGoalStartOptions = result.toStartOptions();
+      pendingGoalStartOptions = result;
     }
     final updated = await sessionController.updateSessionMode(
       currentSession.id,
@@ -6487,7 +6487,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
         if (!mounted || result == null) {
           return;
         }
-        goalStartOptions = result.toStartOptions();
+        goalStartOptions = result;
         _pendingGoalStartOptionsBySessionId[targetSessionId] = goalStartOptions;
       }
     }
@@ -6606,12 +6606,12 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
   }
 
-  Future<_GoalStartDialogResult?> _showGoalStartOptionsDialog({
+  Future<AiSessionGoalStartOptions?> _showGoalStartOptionsDialog({
     required AiModelConfig selectedModel,
   }) {
     final settingsController = context.read<SettingsController>();
     final colorScheme = Theme.of(context).colorScheme;
-    return showAnimatedDialog<_GoalStartDialogResult>(
+    return showAnimatedDialog<AiSessionGoalStartOptions>(
       context: context,
       barrierColor: colorScheme.scrim.withValues(alpha: 0.38),
       builder: (dialogContext) => _GoalStartOptionsDialog(

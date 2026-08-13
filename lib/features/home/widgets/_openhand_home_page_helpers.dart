@@ -42,32 +42,6 @@ const Duration _kGoalStartEnabledFieldMotionDuration = Duration(
 );
 const Curve _kGoalStartEnabledFieldMotionCurve = Curves.easeOutCubic;
 
-class _GoalStartDialogResult {
-  const _GoalStartDialogResult({
-    required this.evaluatorProviderConfigId,
-    required this.evaluatorModelId,
-    required this.evaluatorModelLabel,
-    this.maxTurns,
-    this.tokenBudget,
-  });
-
-  final String evaluatorProviderConfigId;
-  final String evaluatorModelId;
-  final String evaluatorModelLabel;
-  final int? maxTurns;
-  final int? tokenBudget;
-
-  AiSessionGoalStartOptions toStartOptions() {
-    return AiSessionGoalStartOptions(
-      evaluatorProviderConfigId: evaluatorProviderConfigId,
-      evaluatorModelId: evaluatorModelId,
-      evaluatorModelLabel: evaluatorModelLabel,
-      maxTurns: maxTurns,
-      tokenBudget: tokenBudget,
-    );
-  }
-}
-
 class _GoalStartOptionsDialog extends StatefulWidget {
   const _GoalStartOptionsDialog({
     required this.availableModels,
@@ -136,7 +110,7 @@ class _GoalStartOptionsDialogState extends State<_GoalStartOptionsDialog> {
       return;
     }
     Navigator.of(context).pop(
-      _GoalStartDialogResult(
+      AiSessionGoalStartOptions(
         evaluatorProviderConfigId: config.id,
         evaluatorModelId: _selectedModelId.trim(),
         evaluatorModelLabel: _selectedModelId.trim(),

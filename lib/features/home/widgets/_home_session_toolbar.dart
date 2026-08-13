@@ -119,19 +119,19 @@ class _SessionToolbar extends StatelessWidget {
     final toolbarItems = <Widget>[
       if (runtimeStatus.notices.isNotEmpty) ...[
         ..._buildMcpLazyLoadingPills(context, runtimeStatus.notices),
-        _ToolbarPill(
+        OhPill(
           icon: Icons.info_outline_rounded,
           label: AppLocalizations.of(
             context,
           )!.toolbarRuntimeNotices(runtimeStatus.notices.length),
         ),
       ],
-      _ToolbarPill(
+      OhPill(
         icon: Icons.layers_rounded,
         label: '${session.templateName} · v${session.templateInternalVersion}',
       ),
       if (goalRecord != null)
-        _ToolbarPill(
+        OhPill(
           icon: Icons.flag_outlined,
           label: _goalToolbarLabel(context, goalRecord),
           onTap: () => _showGoalDetailsDialog(context, session),
@@ -142,7 +142,7 @@ class _SessionToolbar extends StatelessWidget {
         _WebReverseDebugPill(sessionId: session.id),
       if (session.templateId == 'android_reverse_expert')
         _AndroidReverseDebugPill(session: session),
-      _ToolbarPill(
+      OhPill(
         icon: Icons.data_object_rounded,
         label: AppLocalizations.of(context)!.toolbarSessionMetadata,
         onTap: () {
@@ -164,7 +164,7 @@ class _SessionToolbar extends StatelessWidget {
           ),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
-          child: _ToolbarPill(
+          child: OhPill(
             key: ValueKey<bool>(planTimelineCollapsed),
             icon: Icons.unfold_more_rounded,
             label: AppLocalizations.of(context)!.toolbarShowPlan,
@@ -172,7 +172,7 @@ class _SessionToolbar extends StatelessWidget {
           ),
         ),
       if (onFileExplorerToggled != null)
-        _ToolbarPill(
+        OhPill(
           icon: fileExplorerVisible
               ? Icons.folder_open_rounded
               : Icons.folder_outlined,
@@ -187,7 +187,7 @@ class _SessionToolbar extends StatelessWidget {
           ),
           switchInCurve: Curves.easeOutCubic,
           switchOutCurve: Curves.easeInCubic,
-          child: _ToolbarPill(
+          child: OhPill(
             key: ValueKey<bool>(machineTerminalPanelVisible),
             icon: machineTerminalPanelVisible
                 ? Icons.terminal_rounded
@@ -282,71 +282,6 @@ class _SessionToolbar extends StatelessWidget {
                       : null,
                 ),
               ),
-      ),
-    );
-  }
-}
-
-class _ToolbarPill extends StatelessWidget {
-  const _ToolbarPill({
-    super.key,
-    required this.icon,
-    required this.label,
-    this.onTap,
-  });
-
-  final IconData icon;
-  final String label;
-  final VoidCallback? onTap;
-
-  @override
-  Widget build(BuildContext context) {
-    final theme = Theme.of(context);
-    final child = Container(
-      height: _kSessionToolbarPillHeight,
-      padding: const EdgeInsets.symmetric(
-        horizontal: _kSessionToolbarPillHorizontalPadding,
-      ),
-      decoration: BoxDecoration(
-        color: theme.colorScheme.surfaceContainerHighest,
-        borderRadius: kOpenHandPillBorderRadius,
-      ),
-      child: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Icon(
-            icon,
-            size: _kSessionToolbarPillIconSize,
-            color: theme.colorScheme.primary,
-          ),
-          kOpenHandHGap6,
-          Text(
-            label,
-            maxLines: 1,
-            overflow: TextOverflow.fade,
-            softWrap: false,
-            style: theme.textTheme.labelMedium?.copyWith(
-              fontWeight: FontWeight.w600,
-            ),
-          ),
-        ],
-      ),
-    );
-    if (onTap == null) {
-      return child;
-    }
-    return MicroPressFeedback(
-      child: Material(
-        color: Colors.transparent,
-        borderRadius: kOpenHandPillBorderRadius,
-        child: InkWell(
-          onTap: onTap,
-          borderRadius: kOpenHandPillBorderRadius,
-          overlayColor: WidgetStatePropertyAll<Color>(
-            theme.colorScheme.primary.withValues(alpha: 0.08),
-          ),
-          child: child,
-        ),
       ),
     );
   }
@@ -2432,7 +2367,7 @@ List<Widget> _buildMcpLazyLoadingPills(
     return <Widget>[
       Tooltip(
         message: notice,
-        child: _ToolbarPill(
+        child: OhPill(
           icon: Icons.search_rounded,
           label: AppLocalizations.of(
             context,

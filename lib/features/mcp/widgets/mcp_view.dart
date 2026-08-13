@@ -3276,18 +3276,8 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                         ),
                       ],
                     ),
-                    AnimatedSwitcher(
-                      duration: openHandMotionDuration(context, kOpenHandMotion220),
-                      switchInCurve: Curves.easeOutCubic,
-                      switchOutCurve: Curves.easeInCubic,
-                      transitionBuilder: (child, animation) => FadeTransition(
-                        opacity: animation,
-                        child: SizeTransition(
-                          sizeFactor: animation,
-                          axisAlignment: -1,
-                          child: child,
-                        ),
-                      ),
+                    OpenHandVerticalRevealSwitcher(
+                      duration: kOpenHandMotion220,
                       child: _requireAuthToken
                           ? Padding(
                               key: const ValueKey('mcp-ops-auth-token-field'),
@@ -3312,10 +3302,7 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
                                 ),
                               ),
                             )
-                          : const SizedBox(
-                              key: ValueKey('mcp-ops-auth-token-empty'),
-                              width: double.infinity,
-                            ),
+                          : null,
                     ),
                   ],
                 ),
