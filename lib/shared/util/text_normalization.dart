@@ -81,3 +81,36 @@ String normalizeSnakeStorageKey(String value) {
     '_',
   );
 }
+
+/// 连续的点号（含中间的空白），用于折叠 ". . ." 为 "."。
+final RegExp _consecutiveDotsPattern = RegExp(r'\.\s*\.');
+
+/// 归一化描述文本：折叠空白 → 折叠连续点号 → 去首尾空白。
+String normalizeDescriptionText(String value) {
+  return value
+      .replaceAll(kInlineWhitespacePattern, ' ')
+      .replaceAll(_consecutiveDotsPattern, '.')
+      .trim();
+}
+
+/// 返回最后一行非空行（从尾部逆向扫描，O(1) 额外空间）。
+String lastNonEmptyLine(String value) {
+  var lineEnd = value.length;
+  while (lineEnd > 0) {
+    var lineStart = lineEnd;
+    while (lineStart > 0) {
+      final unit = value.codeUnitAt(lineStart - 1);
+      if (unit == 0x0A || unit == 0x0D) break;
+      lineStart -= 1;
+    }
+    final line = value.substring(lineStart, lineEnd).trim();
+    if (line.isNotEmpty) return line;
+    while (lineStart > 0) {
+      final unit = value.codeUnitAt(lineStart - 1);
+      if (unit != 0x0A && unit != 0x0D) break;
+      lineStart -= 1;
+    }
+    lineEnd = lineStart;
+  }
+  return '';
+}

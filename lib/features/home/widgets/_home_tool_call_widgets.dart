@@ -3250,15 +3250,15 @@ String _toolExecutionPreviewText(
   required String stderr,
   required String resultText,
 }) {
-  final stderrLine = _lastNonEmptyToolOutputLine(stderr);
+  final stderrLine = lastNonEmptyLine(stderr);
   if (stderrLine.isNotEmpty) {
     return 'stderr · $stderrLine';
   }
-  final stdoutLine = _lastNonEmptyToolOutputLine(stdout);
+  final stdoutLine = lastNonEmptyLine(stdout);
   if (stdoutLine.isNotEmpty) {
     return 'stdout · $stdoutLine';
   }
-  final resultLine = _lastNonEmptyToolOutputLine(resultText);
+  final resultLine = lastNonEmptyLine(resultText);
   if (resultLine.isNotEmpty) {
     return 'result · $resultLine';
   }
@@ -3268,7 +3268,7 @@ String _toolExecutionPreviewText(
   return AppLocalizations.of(context)!.tlCallExpandToInspectToolOutput;
 }
 
-String _lastNonEmptyToolOutputLine(String content) {
+String lastNonEmptyLine(String content) {
   var lineEnd = content.length;
   while (lineEnd > 0) {
     var lineStart = lineEnd;

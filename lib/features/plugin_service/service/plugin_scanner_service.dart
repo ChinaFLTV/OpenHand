@@ -169,7 +169,6 @@ class PluginScannerService {
     r'^v?\d+\.\d+\.\d+$',
   );
   static final RegExp _nodeVersionOutputPattern = RegExp(r'v(\d+\.\d+\.\d+)');
-  static final RegExp _nodeMajorVersionPattern = RegExp(r'v?(\d+)');
   static final RegExp _strictNodeVersionPattern = RegExp(r'^v\d+\.\d+\.\d+$');
   static final RegExp _pyenvVersionPathPattern = RegExp(
     r'/.pyenv/versions/([^/]+)/',
@@ -401,8 +400,7 @@ class PluginScannerService {
   }
 
   static int? _extractNodeMajor(String version) {
-    final match = _nodeMajorVersionPattern.firstMatch(version);
-    return optionalNonNegativeIntFromValue(match?.group(1));
+    return versionMajorFromText(version);
   }
 
   static bool _isNodeVersion(String value) {

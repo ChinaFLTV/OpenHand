@@ -16,10 +16,11 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/path_safety.dart';
 import '../../../shared/util/platform_shell.dart';
+import '../../../shared/util/text_normalization.dart';
+import '../../../shared/util/version_compare.dart';
 
 enum HarnessCliAuthProbeMode { commandExitCode, localStateFile }
 
-final RegExp _nodeMajorVersionPattern = RegExp(r'^v?(\d+)');
 const int _localAuthStateMaxBytes = 2 * 1024 * 1024;
 const BoundedDeletePolicy _localAuthStateDeletePolicy = BoundedDeletePolicy(
   maxEntries: 1,
@@ -883,7 +884,7 @@ Future<String?> _tryLoginShellWhich(String executable) async {
     final quoted = _q(executable);
     final r = await runHarnessCliShellCommand('command -v $quoted');
     if (r.exitCode == 0) {
-      final p = _lastNonEmptyLine('${r.stdout}');
+      final p = lastNonEmptyLine('${r.stdout}');
       return p.isNotEmpty ? p : null;
     }
   } catch (error, stack) {
@@ -970,21 +971,7 @@ Map<String, String> _extractHarnessCliDiagnostics(String stdout) {
 
 int? _tryParseNodeMajorVersion(String version) {
   final normalized = nullIfBlank(version);
-  if (normalized == null) return null;
-  final match = _nodeMajorVersionPattern.firstMatch(normalized);
-  if (match == null) {
-    return null;
-  }
-  return int.tryParse(match.group(1)!);
-}
-
-String _lastNonEmptyLine(String value) {
-  final lines = value
-      .split('\n')
-      .map((line) => line.trim())
-      .where((line) => line.isNotEmpty)
-      .toList(growable: false);
-  return lines.isEmpty ? '' : lines.last;
+  return normalized == null ? null : versionMajorFromText(normalized);
 }
 
 String? _resolveHomeRelativePath(String homeDirectory, String relativePath) {
