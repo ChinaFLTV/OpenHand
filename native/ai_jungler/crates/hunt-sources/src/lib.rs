@@ -1515,15 +1515,26 @@ impl AssetSource for GitPlatformSource {
         .buffer_unordered(GIT_REPOSITORY_CONCURRENCY);
         futures::pin_mut!(batches);
         let mut candidates = Vec::new();
-        while let Some(batch) = batches.next().await {
-            for candidate in batch.into_iter().flatten() {
+        let mut repository_failures = 0_usize;
+        'collect: while let Some((batch, fetch_failed)) = batches.next().await {
+            if fetch_failed {
+                repository_failures += 1;
+            }
+            for candidate in batch {
                 candidates.push(candidate);
                 if candidates.len() >= MAX_SOURCE_RESULTS {
-                    return Ok(SourceDiscovery::new(candidates));
+                    break 'collect;
                 }
             }
         }
-        Ok(SourceDiscovery::new(candidates))
+        let mut discovery = SourceDiscovery::new(candidates);
+        if repository_failures > 0 {
+            discovery.warnings.push(format!(
+                "有 {repository_failures} 个 {} 仓库的内容拉取失败，已跳过。",
+                self.platform
+            ));
+        }
+        Ok(discovery)
     }
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
@@ -1627,14 +1638,24 @@ impl GitPlatformSource {
         &self,
         token: &str,
         repository: GitPlatformRepository,
-    ) -> Option<Vec<Candidate>> {
-        let full_name = repository.full_name?.trim().to_owned();
-        let branch = repository.default_branch?.trim().to_owned();
-        let (owner, name) = full_name.rsplit_once('/')?;
-        if owner.is_empty() || name.is_empty() || branch.is_empty() {
-            return None;
+    ) -> (Vec<Candidate>, bool) {
+        // 返回 (候选, 是否仓库拉取失败)：树结构拉取的传输/非 2xx/解析失败计为失败并上报，
+        // 仓库元数据缺失只作跳过、不计失败。
+        let full_name = match repository.full_name {
+            Some(value) if !value.trim().is_empty() => value.trim().to_owned(),
+            _ => return (Vec::new(), false),
+        };
+        let branch = match repository.default_branch {
+            Some(value) if !value.trim().is_empty() => value.trim().to_owned(),
+            _ => return (Vec::new(), false),
+        };
+        let Some((owner, name)) = full_name.rsplit_once('/') else {
+            return (Vec::new(), false);
+        };
+        if owner.is_empty() || name.is_empty() {
+            return (Vec::new(), false);
         }
-        let response = self
+        let Ok(response) = self
             .authorized_get(
                 format!(
                     "{}/repos/{}/{}/git/trees/{}",
@@ -1648,13 +1669,16 @@ impl GitPlatformSource {
             .query(&[("recursive", "1")])
             .send()
             .await
-            .ok()?;
+        else {
+            return (Vec::new(), true);
+        };
         if !response.status().is_success() {
-            return None;
+            return (Vec::new(), true);
         }
-        let mut files = parse_json_limited::<GitTreeResponse>(self.platform, response)
-            .await
-            .ok()?
+        let Ok(tree) = parse_json_limited::<GitTreeResponse>(self.platform, response).await else {
+            return (Vec::new(), true);
+        };
+        let mut files = tree
             .tree
             .into_iter()
             .filter(|entry| {
@@ -1697,7 +1721,7 @@ impl GitPlatformSource {
                 break;
             }
         }
-        Some(candidates)
+        (candidates, false)
     }
 
     #[allow(clippy::too_many_arguments)]

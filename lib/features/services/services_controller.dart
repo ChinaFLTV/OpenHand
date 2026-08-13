@@ -870,8 +870,9 @@ class ServicesController extends ChangeNotifier {
     _errorMessage = null;
     _notify();
     try {
-      final resumedId = await _requireClient().resumeJob(jobId);
-      _progress = await _requireClient().progress(resumedId);
+      final client = _requireClient();
+      final resumedId = await client.resumeJob(jobId);
+      _progress = await client.progress(resumedId);
       _logs.clear();
       await _watchJob(resumedId);
       unawaited(_refreshHistoryAndResultsSafely());

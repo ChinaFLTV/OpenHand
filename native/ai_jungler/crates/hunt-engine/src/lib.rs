@@ -50,6 +50,7 @@ const MAX_AI_EXTRACTOR_HEADERS: usize = 32;
 const MAX_AI_EXTRACTION_BYTES: usize = 64 * 1024;
 const MAX_AI_EXTRACTION_RESPONSE_BYTES: usize = 128 * 1024;
 const MAX_AI_EXTRACTION_CONCURRENCY: usize = 4;
+const AI_EXTRACTION_MAX_OUTPUT_TOKENS: u32 = 1024;
 const DEPENDENCY_TIMEOUT: Duration = Duration::from_secs(5);
 const REDIS_LEASE_SECONDS: usize = 15 * 60;
 const REDIS_LEASE_PREFIX: &str = "openhand:ai_exposure:target:";
@@ -2928,19 +2929,31 @@ impl HuntEngine {
             .clone()
             .context("GPT 辅助提取配置不存在")?;
         let input = truncate_utf8(text, MAX_AI_EXTRACTION_BYTES);
-        let mut request =
-            self.client
-                .post(configuration.endpoint.clone())
-                .json(&serde_json::json!({
-                    "model": configuration.model.clone(),
-                    "temperature": 0,
-                    "stream": false,
-                    "max_tokens": 1024,
-                    "messages": [
-                        {"role": "system", "content": AI_EXTRACTION_SYSTEM_PROMPT},
-                        {"role": "user", "content": input},
-                    ],
-                }));
+        let mut payload = serde_json::json!({
+            "model": configuration.model.clone(),
+            "stream": false,
+            "messages": [
+                {"role": "system", "content": AI_EXTRACTION_SYSTEM_PROMPT},
+                {"role": "user", "content": input},
+            ],
+        });
+        if let Some(object) = payload.as_object_mut() {
+            // gpt-5 系列推理模型仅支持默认温度，且改用 max_completion_tokens；
+            // 其余模型沿用 temperature=0 + max_tokens，避免新模型返回 400。
+            if configuration.model.to_ascii_lowercase().starts_with("gpt-5") {
+                object.insert(
+                    "max_completion_tokens".to_owned(),
+                    json!(AI_EXTRACTION_MAX_OUTPUT_TOKENS),
+                );
+            } else {
+                object.insert("temperature".to_owned(), json!(0));
+                object.insert("max_tokens".to_owned(), json!(AI_EXTRACTION_MAX_OUTPUT_TOKENS));
+            }
+        }
+        let mut request = self
+            .client
+            .post(configuration.endpoint.clone())
+            .json(&payload);
         for (name, value) in &configuration.headers {
             request = request.header(name.as_str(), value.expose_secret());
         }
@@ -3405,7 +3418,15 @@ mod tests {
 
     #[test]
     fn accepts_only_structured_model_lists() {
-        assert_eq!(count_models(&serde_json::json!({"data": []})), Some(0));
+        // 仅统计含 id/name/model/modelId 的真实模型条目；空数组、非模型数组、
+        // 缺少 data/models 键均视为无有效模型（fail-closed），避免误判凭证有效。
+        assert_eq!(
+            count_models(&serde_json::json!({"data": [{"id": "gpt-4"}, {"name": "claude"}]})),
+            Some(2)
+        );
+        assert_eq!(count_models(&serde_json::json!({"models": [{"modelId": "m"}]})), Some(1));
+        assert_eq!(count_models(&serde_json::json!({"data": []})), None);
+        assert_eq!(count_models(&serde_json::json!({"data": [1, 2, 3]})), None);
         assert_eq!(count_models(&serde_json::json!({"status": "ok"})), None);
     }
 
