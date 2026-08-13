@@ -70,7 +70,7 @@ class _HarnessPendingReplayBadgeState extends State<HarnessPendingReplayBadge> {
           }
           setState(() {});
         },
-        min: const Duration(milliseconds: 16),
+        min: kOpenHandFramePeriodicTimerInterval,
         max: const Duration(minutes: 1),
       );
     }

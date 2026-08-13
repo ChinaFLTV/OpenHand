@@ -5224,7 +5224,7 @@ class WebMessagePlatformService {
         silentLog('web_message_platform_service', '切换消息朗读', error, stack);
       }
     }());
-    await Future<void>.delayed(const Duration(milliseconds: 16));
+    await Future<void>.delayed(kOpenHandFramePeriodicTimerInterval);
     if (!_isRuntimeRequestCurrent(runtimeGeneration)) {
       return _runtimeUnavailableResponse();
     }

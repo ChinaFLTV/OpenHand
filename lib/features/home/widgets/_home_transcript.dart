@@ -2209,7 +2209,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     revealStarted = true;
 
     try {
-      await Future<void>.delayed(const Duration(milliseconds: 16));
+      await Future<void>.delayed(kOpenHandFramePeriodicTimerInterval);
       if (!mounted) {
         return;
       }
