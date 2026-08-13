@@ -121,6 +121,19 @@ Future<void> showAiExposureSettingsDialog(BuildContext context) =>
       ),
     );
 
+/// 顶层卡片与运维弹窗统一的"启动/配置"分流：内嵌引擎模式直接启动进程；
+/// 外部服务模式需要访问令牌，改为打开服务设置弹窗以填写地址与令牌后连接。
+Future<void> startOrConfigureAiExposureService(
+  BuildContext context,
+  ServicesController controller,
+) async {
+  if (controller.useBundledEngine) {
+    await controller.startService();
+  } else {
+    await showAiExposureSettingsDialog(context);
+  }
+}
+
 class _NewHuntDialog extends StatefulWidget {
   const _NewHuntDialog();
 
@@ -264,7 +277,7 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                       source == AiExposureSource.manual;
                   return ServiceFilterChip(
                     selected: _sources.contains(source),
-                    icon: Icon(_sourceIcon(source), size: 17),
+                    icon: Icon(aiExposureSourceIcon(source), size: 17),
                     label: Text(_sourceLabel(context, source)),
                     onSelected: disabled
                         ? null
@@ -1764,6 +1777,20 @@ class _SettingsDialogState extends State<_SettingsDialog> {
             controller.ownsProcess ||
             !controller.isConnectedToExternalAddress(_address.text) ||
             _token.text.trim().isNotEmpty;
+        if (reconnect && _token.text.trim().isEmpty) {
+          // 外部模式访问令牌仅在会话内使用、不落盘；重启或重连必须重新填写，
+          // 直接给出可操作提示，避免运行时抛出"访问令牌不能为空"的原始异常。
+          if (mounted) {
+            showOpenHandErrorSnack(
+              context,
+              text(
+                zh: '外部服务模式需先填写访问令牌才能连接（令牌仅本次会话有效，不会保存）。',
+                en: 'External mode needs an access token to connect (session-only, never stored).',
+              ),
+            );
+          }
+          return;
+        }
         if (reconnect) {
           final connected = await controller.connectExternal(
             address: _address.text,
@@ -3258,7 +3285,7 @@ class _SourceSwitch extends StatelessWidget {
     final cs = theme.colorScheme;
     return Row(
       children: [
-        Icon(_sourceIcon(source), color: cs.primary),
+        Icon(aiExposureSourceIcon(source), color: cs.primary),
         kOpenHandHGap12,
         Expanded(
           child: Column(
@@ -3885,35 +3912,10 @@ List<String> _lines(String value) => value
     .toList(growable: false);
 
 String _sourceLabel(BuildContext context, AiExposureSource source) =>
-    switch (source) {
-      AiExposureSource.manual => openHandLocalizedText(
-        context,
-        zh: '手工目标',
-        en: 'Manual',
-      ),
-      AiExposureSource.github => 'GitHub',
-      AiExposureSource.githubArtifact => 'GitHub Artifact',
-      AiExposureSource.gitee => 'Gitee',
-      AiExposureSource.gitcode => 'GitCode',
-      AiExposureSource.fofa => 'FOFA',
-      AiExposureSource.shodan => 'Shodan',
-      AiExposureSource.nodeseek => 'NodeSeek',
-      AiExposureSource.linuxDo => 'LINUX DO',
-      AiExposureSource.v2ex => 'V2EX',
-    };
-
-IconData _sourceIcon(AiExposureSource source) => switch (source) {
-  AiExposureSource.manual => Icons.edit_location_alt_outlined,
-  AiExposureSource.github => Icons.code_rounded,
-  AiExposureSource.githubArtifact => Icons.inventory_2_outlined,
-  AiExposureSource.gitee => Icons.code_rounded,
-  AiExposureSource.gitcode => Icons.account_tree_outlined,
-  AiExposureSource.fofa => Icons.public_rounded,
-  AiExposureSource.shodan => Icons.radar_rounded,
-  AiExposureSource.nodeseek => Icons.forum_outlined,
-  AiExposureSource.linuxDo => Icons.terminal_rounded,
-  AiExposureSource.v2ex => Icons.explore_outlined,
-};
+    aiExposureSourceDisplayName(
+      source,
+      manualLabel: openHandLocalizedText(context, zh: '手工目标', en: 'Manual'),
+    );
 
 String _sourceStatusKey(AiExposureSource source) => switch (source) {
   AiExposureSource.github || AiExposureSource.githubArtifact => 'github',

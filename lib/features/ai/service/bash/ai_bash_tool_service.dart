@@ -1874,9 +1874,7 @@ class AiBashToolService {
       ..writeln(r'(exit $__OPENHAND_WRAP_RC)');
   }
 
-  String _quoteShellString(String value) {
-    return "'${value.replaceAll("'", r"'\''")}'";
-  }
+  String _quoteShellString(String value) => posixShellQuote(value);
 
   void _releasePersistentSession(
     String sessionId,

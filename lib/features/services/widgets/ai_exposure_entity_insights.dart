@@ -45,8 +45,8 @@ void _showSourceEntityInsight(BuildContext context, AiExposureSource source) {
   showAnimatedDialog<void>(
     context: context,
     builder: (_) => _OperationsInsightDialog(
-      icon: _sourceIcon(source),
-      title: _sourceName(source),
+      icon: aiExposureSourceIcon(source),
+      title: aiExposureSourceDisplayName(source),
       subtitle: '来源配置、配额与真实产出',
       entity: true,
       child: _SourceEntityInsightBody(source: source),
@@ -285,7 +285,7 @@ class _TaskEntityInsightBody extends StatelessWidget {
               label: '数据来源',
               value: task.sources.isEmpty
                   ? '历史记录缺少来源'
-                  : task.sources.map(_sourceName).join(' / '),
+                  : task.sources.map(aiExposureSourceDisplayName).join(' / '),
             ),
             _OpsKeyValue(
               label: '授权范围',
@@ -690,7 +690,7 @@ class _SourceEntityInsightBody extends StatelessWidget {
     return _metricInsightPage([
       _InsightKpiBand(
         title: '来源执行概览',
-        icon: _sourceIcon(source),
+        icon: aiExposureSourceIcon(source),
         items: [
           _InsightKpi(
             icon: Icons.settings_outlined,
@@ -1548,7 +1548,7 @@ class _ResultEntityInsightBody extends StatelessWidget {
               unavailable: '创建时间未上报',
             ),
           ),
-          ('来源', _sourceName(result.source)),
+          ('来源', aiExposureSourceDisplayName(result.source)),
           ('URL', _entitySafeUrl(result.url)),
           ('主机', _entitySafeText(result.host, unavailable: '记录字段缺失')),
           ('产品', _entitySafeText(result.product, unavailable: '未识别产品')),

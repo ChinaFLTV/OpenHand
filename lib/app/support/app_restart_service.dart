@@ -7,6 +7,7 @@ import 'package:path/path.dart' as p;
 
 import '../../shared/util/bounded_file_io.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/platform_shell.dart';
 import 'app_runtime_cleanup_registry.dart';
 import 'safe_subprocess.dart';
 import 'silent_log.dart';
@@ -255,9 +256,7 @@ class AppRestartService {
     return p.extension(bundle).toLowerCase() == '.app' ? bundle : null;
   }
 
-  static String _shellQuote(String value) {
-    return "'${value.replaceAll("'", "'\"'\"'")}'";
-  }
+  static String _shellQuote(String value) => posixShellQuote(value);
 
   static String _escapeWindowsPath(String value) {
     return value.replaceAll('"', r'\"');

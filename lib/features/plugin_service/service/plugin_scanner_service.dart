@@ -12,6 +12,7 @@ import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/version_compare.dart';
 import '../model/plugin_info.dart';
 import 'managed_service_defaults.dart';
@@ -532,9 +533,7 @@ class PluginScannerService {
     return match?.group(1);
   }
 
-  static String _shellQuote(String value) {
-    return pluginToolchainShellQuote(value);
-  }
+  static String _shellQuote(String value) => posixShellQuote(value);
 
   Future<_ContainerImageUpdateState> _scanContainerImageUpdate({
     required Map<String, Object?> metadata,
@@ -1601,7 +1600,7 @@ class PluginScannerService {
         dockerDaemonRunning = dockerInfo.exitCode == 0;
         if (dockerDaemonRunning) {
           final inspect = await _shellRun(
-            'docker inspect ${pluginToolchainShellQuote(containerName)}',
+            'docker inspect ${posixShellQuote(containerName)}',
           );
           if (inspect.exitCode == 0) {
             final metadata = _managedDatabaseMetadataFromDecoded(

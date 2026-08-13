@@ -156,7 +156,7 @@ Widget _buildOverviewMetricInsight(
           items: sourceCounts.entries
               .map(
                 (entry) => _InsightRankItem(
-                  label: _sourceName(entry.key),
+                  label: aiExposureSourceDisplayName(entry.key),
                   value: entry.value.toDouble(),
                   valueLabel: '${entry.value} 条',
                   color: _sourceColor(entry.key, colors),
@@ -189,7 +189,7 @@ Widget _buildOverviewMetricInsight(
                   target: _ResultInsightTarget(result),
                   cells: [
                     _InsightMatrixCell(
-                      label: _sourceName(result.source),
+                      label: aiExposureSourceDisplayName(result.source),
                       color: _sourceColor(result.source, colors),
                     ),
                     _InsightMatrixCell(
@@ -1244,8 +1244,8 @@ Widget _buildSourceConfigurationInsight(
       rows: states
           .map(
             (state) => _InsightMatrixRow(
-              icon: _sourceIcon(state.source),
-              title: _sourceName(state.source),
+              icon: aiExposureSourceIcon(state.source),
+              title: aiExposureSourceDisplayName(state.source),
               subtitle: state.requiresCredential
                   ? '使用服务访问凭证进行发现'
                   : '公开来源，无需 API 凭证',
@@ -1289,7 +1289,7 @@ Widget _buildSourceConfigurationInsight(
           .map(
             (state) => _InsightMatrixRow(
               icon: Icons.key_off_outlined,
-              title: _sourceName(state.source),
+              title: aiExposureSourceDisplayName(state.source),
               subtitle: '在服务设置中配置访问凭证后，重新刷新服务状态与配额。',
               color: OpenHandStatusColors.warning,
               target: _SourceInsightTarget(state.source),
@@ -1649,7 +1649,7 @@ _InsightRecord _taskInsightRecord(
       if (duration != null)
         '耗时 ${_duration(duration.inSeconds.clamp(0, 86400))}',
       if (entry.sources.isNotEmpty)
-        entry.sources.map(_sourceName).take(3).join(' / '),
+        entry.sources.map(aiExposureSourceDisplayName).take(3).join(' / '),
       finishedAt == null
           ? _reportedShortDateTime(entry.createdAt, entry.createdAtReported)
           : _shortDateTime(finishedAt),
@@ -1663,7 +1663,7 @@ _InsightRecord _taskInsightRecord(
           ? entry.errorMessage!.trim()
           : progress.message,
     _TaskRecordLens.archive =>
-      '扫描来源：${entry.sources.map(_sourceName).join(' / ')}',
+      '扫描来源：${entry.sources.map(aiExposureSourceDisplayName).join(' / ')}',
     _ =>
       entry.errorMessage?.trim().isNotEmpty == true
           ? entry.errorMessage!.trim()
@@ -1727,7 +1727,7 @@ _InsightRecord _resultInsightRecord(
       _reportedShortDateTime(entry.createdAt, entry.createdAtReported),
     ],
     _ResultRecordLens.source => [
-      _sourceName(entry.source),
+      aiExposureSourceDisplayName(entry.source),
       '任务 ${entry.jobId}',
       category,
       _reportedShortDateTime(entry.createdAt, entry.createdAtReported),
@@ -1741,7 +1741,7 @@ _InsightRecord _resultInsightRecord(
     ],
     _ResultRecordLens.overview => [
       category,
-      _sourceName(entry.source),
+      aiExposureSourceDisplayName(entry.source),
       '凭证 ${aiExposureCredentialStateName(entry.credentialState)}',
       '模型 ${entry.modelCount}',
       if (entry.duplicateResponseHosts > 0)
@@ -2458,7 +2458,7 @@ Widget _persistenceWriteEventPanel(
       _InsightRecord(
         icon: Icons.note_add_outlined,
         title: '创建任务 · ${job.name.trim().isEmpty ? job.id : job.name.trim()}',
-        subtitle: '任务 ${job.id} · ${job.sources.map(_sourceName).join(' / ')}',
+        subtitle: '任务 ${job.id} · ${job.sources.map(aiExposureSourceDisplayName).join(' / ')}',
         tags: [
           _reportedShortDateTime(job.createdAt, job.createdAtReported),
           job.mode == AiExposureScanMode.full ? '全量扫描' : '增量扫描',
@@ -2506,7 +2506,7 @@ Widget _persistenceWriteEventPanel(
         subtitle: '结果 ${result.id} · 关联任务 ${result.jobId}',
         tags: [
           _reportedShortDateTime(result.createdAt, result.createdAtReported),
-          _sourceName(result.source),
+          aiExposureSourceDisplayName(result.source),
           '证据 ${result.evidence.length}',
           '凭证 ${aiExposureCredentialStateName(result.credentialState)}',
         ],
@@ -2787,7 +2787,7 @@ Widget _taskThroughputTrendInsight(
       items: sourceCounts.entries
           .map(
             (entry) => _InsightRankItem(
-              label: _sourceName(entry.key),
+              label: aiExposureSourceDisplayName(entry.key),
               value: entry.value.toDouble(),
               valueLabel: '${entry.value} 条',
               helper:
@@ -2935,7 +2935,7 @@ Widget _taskDurationTrendInsight(
               value: _taskMeasuredDurationMs(task)!.toDouble(),
               valueLabel: '${_taskMeasuredDurationMs(task)} ms',
               helper:
-                  '${_stageName(task.stage)} · 处理 ${task.progress.processed} · ${task.sources.map(_sourceName).join(' / ')}',
+                  '${_stageName(task.stage)} · 处理 ${task.progress.processed} · ${task.sources.map(aiExposureSourceDisplayName).join(' / ')}',
               color: _taskMeasuredDurationMs(task)! >= p95 && p95 > 0
                   ? OpenHandStatusColors.warning
                   : colors.primary,
@@ -3875,7 +3875,7 @@ Widget _resultSourceDistributionInsight(
   final items = AiExposureSource.values
       .map(
         (source) => _DistributionItem(
-          _sourceName(source),
+          aiExposureSourceDisplayName(source),
           counts[source] ?? 0,
           _distributionColor(source.index, colors),
           key: source,
@@ -3912,7 +3912,7 @@ Widget _resultSourceDistributionInsight(
             )
             .length;
         return _InsightRankItem(
-          label: _sourceName(source),
+          label: aiExposureSourceDisplayName(source),
           value: sourceResults.length.toDouble(),
           valueLabel: '${sourceResults.length} 条',
           helper:
@@ -3931,8 +3931,8 @@ Widget _resultSourceDistributionInsight(
         final quota = state.quota;
         final ready = state.ready;
         return _InsightMatrixRow(
-          icon: _sourceIcon(source),
-          title: _sourceName(source),
+          icon: aiExposureSourceIcon(source),
+          title: aiExposureSourceDisplayName(source),
           subtitle: '结果 ${counts[source] ?? 0}',
           color: ready ? OpenHandStatusColors.success : colors.outline,
           target: _SourceInsightTarget(source),
@@ -3996,7 +3996,7 @@ Widget _taskSourceDistributionInsight(
       items: AiExposureSource.values
           .map(
             (source) => _DistributionItem(
-              _sourceName(source),
+              aiExposureSourceDisplayName(source),
               taskCounts[source] ?? 0,
               _distributionColor(source.index, colors),
               key: source,
@@ -4056,8 +4056,8 @@ Widget _taskSourceDistributionInsight(
       rows: AiExposureSource.values
           .map(
             (source) => _InsightMatrixRow(
-              icon: _sourceIcon(source),
-              title: _sourceName(source),
+              icon: aiExposureSourceIcon(source),
+              title: aiExposureSourceDisplayName(source),
               subtitle: sourceStates[source]!.ready ? '来源已就绪' : '来源未就绪',
               color: _distributionColor(source.index, colors),
               target: _SourceInsightTarget(source),
@@ -4741,7 +4741,7 @@ Widget _credentialDistributionInsight(
       items: sourceCounts.entries
           .map(
             (entry) => _InsightRankItem(
-              label: _sourceName(entry.key),
+              label: aiExposureSourceDisplayName(entry.key),
               value: entry.value.toDouble(),
               valueLabel: '${entry.value} 条',
               helper:

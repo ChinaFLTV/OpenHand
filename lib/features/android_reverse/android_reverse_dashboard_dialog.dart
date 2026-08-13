@@ -33,6 +33,7 @@ import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import '../../shared/util/localized_text.dart';
+import '../../shared/util/platform_shell.dart';
 import '../../shared/util/structured_text_format.dart';
 import '../../shared/util/timer_safety.dart';
 import '../../shared/util/tool_name_normalization.dart';
@@ -10449,12 +10450,7 @@ fi
     return null;
   }
 
-  String _shellQuote(String value) {
-    if (RegExp(r'^[A-Za-z0-9_./:@%+=,-]+$').hasMatch(value)) {
-      return value;
-    }
-    return "'${value.replaceAll("'", "'\"'\"'")}'";
-  }
+  String _shellQuote(String value) => posixShellQuoteIfNeeded(value);
 }
 
 class _AndroidMcpServerView {

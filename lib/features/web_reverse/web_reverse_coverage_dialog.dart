@@ -17,6 +17,7 @@ import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
+import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/date_time_format.dart';
 import '../../shared/util/input_value_parsing.dart';
 import 'web_reverse_clipboard.dart';
@@ -283,7 +284,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                 kOpenHandHGap10,
                 Text(
                   '${(globalRatio * 100).toStringAsFixed(1)}%  '
-                  '${_humanBytes(coveredBytes)} / ${_humanBytes(totalBytes)}',
+                  '${formatByteSize(coveredBytes)} / ${formatByteSize(totalBytes)}',
                   style: theme.textTheme.labelSmall?.copyWith(
                     fontFamily: kOpenHandMonospaceFontFamily,
                   ),
@@ -466,7 +467,7 @@ class _CoverageDialogState extends State<_CoverageDialog> {
                   ),
                 ),
                 Text(
-                  '${_humanBytes(row.covered)} / ${_humanBytes(row.total)}  ·  '
+                  '${formatByteSize(row.covered)} / ${formatByteSize(row.total)}  ·  '
                   '${row.coveredFunctions}/${row.functions} fn',
                   style: theme.textTheme.labelSmall?.copyWith(
                     color: cs.onSurfaceVariant,
@@ -493,9 +494,4 @@ class _CoverageDialogState extends State<_CoverageDialog> {
     );
   }
 
-  String _humanBytes(int b) {
-    if (b < 1024) return '${b}B';
-    if (b < 1024 * 1024) return '${(b / 1024).toStringAsFixed(1)}K';
-    return '${(b / 1024 / 1024).toStringAsFixed(2)}M';
-  }
 }

@@ -1359,32 +1359,6 @@ String _reportedIsoDateTime(
   String unavailable = '时间未上报',
 }) => reported ? value.toLocal().toIso8601String() : unavailable;
 
-String _sourceName(AiExposureSource source) => switch (source) {
-  AiExposureSource.manual => '手工目标',
-  AiExposureSource.github => 'GitHub',
-  AiExposureSource.githubArtifact => 'GitHub Artifact',
-  AiExposureSource.gitee => 'Gitee',
-  AiExposureSource.gitcode => 'GitCode',
-  AiExposureSource.fofa => 'FOFA',
-  AiExposureSource.shodan => 'Shodan',
-  AiExposureSource.nodeseek => 'NodeSeek',
-  AiExposureSource.linuxDo => 'LINUX DO',
-  AiExposureSource.v2ex => 'V2EX',
-};
-
-IconData _sourceIcon(AiExposureSource source) => switch (source) {
-  AiExposureSource.manual => Icons.edit_location_alt_outlined,
-  AiExposureSource.github => Icons.code_rounded,
-  AiExposureSource.githubArtifact => Icons.inventory_2_outlined,
-  AiExposureSource.gitee => Icons.code_rounded,
-  AiExposureSource.gitcode => Icons.account_tree_outlined,
-  AiExposureSource.fofa => Icons.public_rounded,
-  AiExposureSource.shodan => Icons.radar_rounded,
-  AiExposureSource.nodeseek => Icons.forum_outlined,
-  AiExposureSource.linuxDo => Icons.terminal_rounded,
-  AiExposureSource.v2ex => Icons.explore_outlined,
-};
-
 String _stageName(String stage) => switch (stage) {
   'queued' => '排队',
   'discovering' => '资产发现',

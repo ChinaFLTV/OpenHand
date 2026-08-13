@@ -15,6 +15,7 @@ import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../../../shared/util/physical_path_safety.dart';
+import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/version_compare.dart';
 import 'managed_service_defaults.dart';
@@ -4118,9 +4119,7 @@ echo "已保留 $label 数据目录：${_pluginShellQuote(dataDir)}"
   }
 }
 
-String _pluginShellQuote(String value) {
-  return pluginToolchainShellQuote(value);
-}
+String _pluginShellQuote(String value) => posixShellQuote(value);
 
 String _timeoutMessage(Duration timeout) {
   final seconds = timeout.inSeconds;

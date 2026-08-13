@@ -1140,7 +1140,7 @@ class _TaskLedgerSourceFilter extends StatelessWidget {
             (source) => CheckedPopupMenuItem<AiExposureSource>(
               value: source,
               checked: selected.contains(source),
-              child: Text(_sourceName(source)),
+              child: Text(aiExposureSourceDisplayName(source)),
             ),
           )
           .toList(growable: false),
@@ -1781,7 +1781,7 @@ String _taskLedgerDurationText(AiExposureHistoryEntry task) {
 
 String _taskLedgerSources(List<AiExposureSource> sources) {
   if (sources.isEmpty) return '历史记录缺少来源';
-  final visible = sources.take(2).map(_sourceName).join(' / ');
+  final visible = sources.take(2).map(aiExposureSourceDisplayName).join(' / ');
   return sources.length <= 2 ? visible : '$visible +${sources.length - 2}';
 }
 

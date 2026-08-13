@@ -6,6 +6,7 @@ import '../../app/support/silent_log.dart';
 import '../../shared/net/tcp_port_utils.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
+import '../../shared/util/platform_shell.dart';
 import '../../shared/util/text_normalization.dart';
 import 'android_reverse_session_config.dart';
 
@@ -1047,10 +1048,5 @@ class AndroidReverseAdbClient {
     return normalized.substring(0, slash);
   }
 
-  String _quoteShell(String value) {
-    if (RegExp(r'^[A-Za-z0-9_./:@%+=,-]+$').hasMatch(value)) {
-      return value;
-    }
-    return "'${value.replaceAll("'", "'\"'\"'")}'";
-  }
+  String _quoteShell(String value) => posixShellQuoteIfNeeded(value);
 }

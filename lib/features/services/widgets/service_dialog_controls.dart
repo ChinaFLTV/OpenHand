@@ -313,6 +313,38 @@ String serviceProxyRouteText(
   AiExposureProxyRoute.direct => 'DIRECT',
 };
 
+/// 扫描数据源展示名。除「手工目标」外都是产品专名，不随语言变化，因此
+/// 只把它开放给调用方本地化；扫描弹窗与监控洞察两套 UI 共用同一份映射。
+String aiExposureSourceDisplayName(
+  AiExposureSource source, {
+  String manualLabel = '手工目标',
+}) => switch (source) {
+  AiExposureSource.manual => manualLabel,
+  AiExposureSource.github => 'GitHub',
+  AiExposureSource.githubArtifact => 'GitHub Artifact',
+  AiExposureSource.gitee => 'Gitee',
+  AiExposureSource.gitcode => 'GitCode',
+  AiExposureSource.fofa => 'FOFA',
+  AiExposureSource.shodan => 'Shodan',
+  AiExposureSource.nodeseek => 'NodeSeek',
+  AiExposureSource.linuxDo => 'LINUX DO',
+  AiExposureSource.v2ex => 'V2EX',
+};
+
+/// 扫描数据源图标，与 [aiExposureSourceDisplayName] 配套。
+IconData aiExposureSourceIcon(AiExposureSource source) => switch (source) {
+  AiExposureSource.manual => Icons.edit_location_alt_outlined,
+  AiExposureSource.github => Icons.code_rounded,
+  AiExposureSource.githubArtifact => Icons.inventory_2_outlined,
+  AiExposureSource.gitee => Icons.code_rounded,
+  AiExposureSource.gitcode => Icons.account_tree_outlined,
+  AiExposureSource.fofa => Icons.public_rounded,
+  AiExposureSource.shodan => Icons.radar_rounded,
+  AiExposureSource.nodeseek => Icons.forum_outlined,
+  AiExposureSource.linuxDo => Icons.terminal_rounded,
+  AiExposureSource.v2ex => Icons.explore_outlined,
+};
+
 class ServiceDialogHeaderIconButton extends StatelessWidget {
   const ServiceDialogHeaderIconButton({
     super.key,

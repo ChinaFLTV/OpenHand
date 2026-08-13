@@ -27,6 +27,7 @@ import '../../../shared/util/date_time_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/text_normalization.dart';
+import '../../ai/index.dart';
 import '../crons_controller.dart';
 import '../model/cron_parser.dart';
 
@@ -2652,49 +2653,10 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
 }
 
 // Hermes Talker 历史富展示面板
-/// 解析后的单个会话报告（与 SelfLearningSessionReport.toJson() 对齐）。
-class _HermesTalkerSessionReport {
-  const _HermesTalkerSessionReport({
-    required this.sessionId,
-    required this.sessionTitle,
-    required this.status,
-    required this.summary,
-    required this.mutations,
-    this.aiResponse,
-    this.aiReasoning,
-    this.error,
-  });
-
-  factory _HermesTalkerSessionReport.fromJson(Map<String, Object?> json) {
-    Map<String, Object?> readMap(Object? value) {
-      if (value is Map<String, Object?>) return value;
-      if (value is Map) {
-        return value.map((k, v) => MapEntry('$k', v));
-      }
-      return const <String, Object?>{};
-    }
-
-    return _HermesTalkerSessionReport(
-      sessionId: '${json['session_id'] ?? ''}',
-      sessionTitle: '${json['session_title'] ?? ''}',
-      status: '${json['status'] ?? 'ok'}',
-      summary: '${json['summary'] ?? ''}',
-      mutations: readMap(json['mutations']),
-      aiResponse: json['ai_response'] as String?,
-      aiReasoning: json['ai_reasoning'] as String?,
-      error: json['error'] as String?,
-    );
-  }
-
-  final String sessionId;
-  final String sessionTitle;
-  final String status;
-  final String summary;
-  final Map<String, Object?> mutations;
-  final String? aiResponse;
-  final String? aiReasoning;
-  final String? error;
-
+/// Hermes Talker 历史卡片读取 [SelfLearningSessionReport.mutations] 的取值口径。
+/// 报告结构由 runner 定义，这里只补 UI 需要的派生字段，避免再抄一份模型
+/// 导致两处字段口径悄悄漂移。
+extension _HermesTalkerSessionReportView on SelfLearningSessionReport {
   int get memoryUpdates =>
       intFromValue(mutations['memory_updates'], fallback: 0);
   int get memoryErrors => intFromValue(mutations['memory_errors'], fallback: 0);
@@ -2824,24 +2786,24 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
     );
   }
 
-  List<_HermesTalkerSessionReport> _decodeReports() {
+  List<SelfLearningSessionReport> _decodeReports() {
     final raw = appContext[CronsController.hermesTalkerReportsKey];
-    if (raw == null || raw.isEmpty) return const <_HermesTalkerSessionReport>[];
+    if (raw == null || raw.isEmpty) return const <SelfLearningSessionReport>[];
     try {
       final parsed = jsonDecode(raw);
-      if (parsed is! List) return const <_HermesTalkerSessionReport>[];
-      final out = <_HermesTalkerSessionReport>[];
+      if (parsed is! List) return const <SelfLearningSessionReport>[];
+      final out = <SelfLearningSessionReport>[];
       for (final item in parsed) {
         if (item is Map) {
           out.add(
-            _HermesTalkerSessionReport.fromJson(stringKeyedMapFromValue(item)),
+            SelfLearningSessionReport.fromJson(stringKeyedMapFromValue(item)),
           );
         }
       }
       return out;
     } catch (error, stack) {
       silentLog('crons_view', '解码 Hermes Talker 报告', error, stack);
-      return const <_HermesTalkerSessionReport>[];
+      return const <SelfLearningSessionReport>[];
     }
   }
 
@@ -2876,7 +2838,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
 class _HermesTalkerSessionCard extends StatelessWidget {
   const _HermesTalkerSessionCard({required this.report});
 
-  final _HermesTalkerSessionReport report;
+  final SelfLearningSessionReport report;
 
   @override
   Widget build(BuildContext context) {

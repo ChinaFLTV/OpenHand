@@ -16,6 +16,7 @@ import '../../../shared/ui/openhand_console_log_view.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/ui/openhand_typography.dart';
+import '../../../shared/util/platform_shell.dart';
 import '../service/harness_cli_catalog.dart';
 
 /// 执行 CLI 安装命令并实时展示输出；安装成功时返回 `true`。
@@ -443,7 +444,7 @@ class _HarnessCliInstallDialogState extends State<HarnessCliInstallDialog>
   }
 
   /// 使用单引号安全包裹 Shell 参数。
-  String _shellQuote(String s) => "'${s.replaceAll("'", "'\\''")}'";
+  String _shellQuote(String value) => posixShellQuote(value);
 
   @override
   Widget build(BuildContext context) {

@@ -8,6 +8,7 @@ import '../../../../app/support/safe_subprocess.dart';
 import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/bounded_file_io.dart';
+import '../../../../shared/util/platform_shell.dart';
 import '../../model/ai_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
 import 'ai_sandbox_proxy_service.dart';
@@ -808,7 +809,5 @@ class AiSandboxService {
     return value.replaceAll('\\', '\\\\').replaceAll('"', '\\"');
   }
 
-  String _quoteShell(String value) {
-    return "'${value.replaceAll("'", r"'\''")}'";
-  }
+  String _quoteShell(String value) => posixShellQuote(value);
 }

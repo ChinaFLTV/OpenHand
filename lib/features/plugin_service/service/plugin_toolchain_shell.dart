@@ -6,6 +6,7 @@ import 'package:path/path.dart' as p;
 import '../../../app/support/openhand_paths.dart';
 import '../../../app/support/safe_subprocess.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/platform_shell.dart';
 import 'plugin_environment_probe.dart';
 
 const String pluginDingtalkWorkspaceCliPackage = 'dingtalk-workspace-cli';
@@ -160,8 +161,8 @@ String pluginToolchainManagedCommandScript(
   String executable,
   List<String> arguments,
 ) {
-  final command = pluginToolchainShellQuote(executable);
-  final args = arguments.map(pluginToolchainShellQuote).join(' ');
+  final command = posixShellQuote(executable);
+  final args = arguments.map(posixShellQuote).join(' ');
   final invocation = args.isEmpty ? command : '$command $args';
   return '''
 ${pluginToolchainShellPrefix()}
@@ -178,7 +179,7 @@ String pluginToolchainExecutableAvailabilityScript(
   String executable, {
   bool includeNpmGlobalBinFallback = false,
 }) {
-  final command = pluginToolchainShellQuote(executable);
+  final command = posixShellQuote(executable);
   final npmFallback = includeNpmGlobalBinFallback
       ? _pluginToolchainNpmGlobalBinFallbackScript(command)
       : '';
@@ -193,7 +194,7 @@ String pluginToolchainCommandPathScript(
   String executable, {
   bool includeNpmGlobalBinFallback = false,
 }) {
-  final command = pluginToolchainShellQuote(executable);
+  final command = posixShellQuote(executable);
   final npmFallback = includeNpmGlobalBinFallback
       ? _pluginToolchainNpmGlobalBinFallbackScript(command)
       : '';
@@ -205,9 +206,9 @@ command -v $command
 }
 
 String pluginToolchainShellPrefix() {
-  final voltaHome = pluginToolchainShellQuote(pluginVoltaHomeDirectoryPath());
-  final pyenvRoot = pluginToolchainShellQuote(pluginPyenvRootDirectoryPath());
-  final nvmDirectory = pluginToolchainShellQuote(pluginNvmDirectoryPath());
+  final voltaHome = posixShellQuote(pluginVoltaHomeDirectoryPath());
+  final pyenvRoot = posixShellQuote(pluginPyenvRootDirectoryPath());
+  final nvmDirectory = posixShellQuote(pluginNvmDirectoryPath());
   return '''
 export VOLTA_HOME=$voltaHome
 export PYENV_ROOT=$pyenvRoot
@@ -234,9 +235,4 @@ if ! command -v $quotedCommand >/dev/null 2>&1; then
   fi
 fi
 ''';
-}
-
-String pluginToolchainShellQuote(String value) {
-  if (value.isEmpty) return "''";
-  return "'${value.replaceAll("'", "'\"'\"'")}'";
 }
