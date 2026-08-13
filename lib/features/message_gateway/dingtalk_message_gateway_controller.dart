@@ -34,6 +34,13 @@ import 'service/dingtalk_message_gateway_service.dart';
 
 const String _dingTalkResponseRoundIdMetadataKey = 'dingtalk_response_round_id';
 
+enum DingTalkConversationResponseState {
+  idle,
+  active,
+  awaitingApproval,
+  failed,
+}
+
 typedef DingTalkWriteApprovalHandler =
     Future<BashCommandApprovalDecision> Function(
       String sessionId,
@@ -288,6 +295,25 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   String? get warningMessage => _warningMessage;
   String? responseErrorMessage(String conversationId) =>
       _responseErrors[conversationId.trim()];
+
+  DingTalkConversationResponseState conversationResponseState(
+    String conversationId,
+  ) {
+    final normalizedId = conversationId.trim();
+    if (normalizedId.isEmpty) return DingTalkConversationResponseState.idle;
+    final sessionId = _conversations[normalizedId]?.aiSessionId;
+    final phase = _sessionController.sendPhaseForSession(sessionId);
+    if (phase == AiSendPhase.awaitingApproval) {
+      return DingTalkConversationResponseState.awaitingApproval;
+    }
+    if (isConversationResponding(normalizedId)) {
+      return DingTalkConversationResponseState.active;
+    }
+    if (_responseErrors[normalizedId]?.trim().isNotEmpty ?? false) {
+      return DingTalkConversationResponseState.failed;
+    }
+    return DingTalkConversationResponseState.idle;
+  }
 
   void clearResponseError(String conversationId) {
     final normalizedId = conversationId.trim();
@@ -3665,8 +3691,14 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         return null;
       }
 
+      var visiblePhase = _sessionController.sendPhaseForSession(sessionId);
       void onSessionChanged() {
         if (responseCancelled()) return;
+        final nextPhase = _sessionController.sendPhaseForSession(sessionId);
+        if (nextPhase != visiblePhase) {
+          visiblePhase = nextPhase;
+          _notify();
+        }
         final session = currentSession();
         if (session != null) echoCoordinator.ingest(session);
       }

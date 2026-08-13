@@ -49,6 +49,7 @@ import '../../../shared/ui/openhand_safe_markdown_body.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/ui/openhand_sweep_shimmer.dart';
 import '../../../shared/ui/openhand_tap_region.dart';
 import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
@@ -12356,6 +12357,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                 itemBuilder: (context, index) {
                                   final item = conversations[index];
                                   final active = item.id == selected?.id;
+                                  final responseState = widget.controller
+                                      .conversationResponseState(item.id);
                                   return Builder(
                                     builder: (itemContext) => Material(
                                       color: active
@@ -12426,6 +12429,55 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                             : FontWeight.w600,
                                                       ),
                                                 ),
+                                              ),
+                                              AnimatedSwitcher(
+                                                duration:
+                                                    openHandMotionDuration(
+                                                      context,
+                                                      kOpenHandMotion220,
+                                                    ),
+                                                switchInCurve:
+                                                    Curves.easeOutBack,
+                                                switchOutCurve:
+                                                    Curves.easeInCubic,
+                                                transitionBuilder:
+                                                    (
+                                                      child,
+                                                      animation,
+                                                    ) => FadeTransition(
+                                                      opacity: animation,
+                                                      child: ScaleTransition(
+                                                        scale: animation,
+                                                        child: child,
+                                                      ),
+                                                    ),
+                                                child:
+                                                    responseState ==
+                                                        DingTalkConversationResponseState
+                                                            .idle
+                                                    ? const SizedBox.shrink(
+                                                        key: ValueKey<String>(
+                                                          'dingtalk-conversation-status-idle',
+                                                        ),
+                                                      )
+                                                    : Padding(
+                                                        key:
+                                                            ValueKey<
+                                                              DingTalkConversationResponseState
+                                                            >(responseState),
+                                                        padding:
+                                                            const EdgeInsets.only(
+                                                              left: 8,
+                                                            ),
+                                                        child: RepaintBoundary(
+                                                          child:
+                                                              _DingTalkConversationStatusCapsule(
+                                                              state:
+                                                                  responseState,
+                                                              selected: active,
+                                                              ),
+                                                        ),
+                                                      ),
                                               ),
                                             ],
                                           ),
@@ -15070,6 +15122,129 @@ class _DingTalkRespondingIndicator extends StatelessWidget {
       child: CircularProgressIndicator(strokeWidth: 2, color: color),
     );
   }
+}
+
+class _DingTalkConversationStatusCapsule extends StatelessWidget {
+  const _DingTalkConversationStatusCapsule({
+    required this.state,
+    required this.selected,
+  });
+
+  static const Color _approvalColor = Color(0xFFE6A817);
+  static const Color _failedColor = Color(0xFFC84B4B);
+
+  final DingTalkConversationResponseState state;
+  final bool selected;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final foreground = switch (state) {
+      DingTalkConversationResponseState.awaitingApproval => _approvalColor,
+      DingTalkConversationResponseState.failed => _failedColor,
+      DingTalkConversationResponseState.active =>
+        selected ? colors.onPrimaryContainer : colors.primary,
+      DingTalkConversationResponseState.idle => colors.outline,
+    };
+    final label = switch (state) {
+      DingTalkConversationResponseState.awaitingApproval => '等待审批',
+      DingTalkConversationResponseState.failed => '执行失败',
+      DingTalkConversationResponseState.active => '进行中',
+      DingTalkConversationResponseState.idle => '',
+    };
+    final capsule = Container(
+      constraints: const BoxConstraints(maxWidth: 82),
+      padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 5),
+      decoration: BoxDecoration(
+        color: foreground.withValues(alpha: 0.12),
+        borderRadius: kOpenHandPillBorderRadius,
+        border: Border.all(color: foreground.withValues(alpha: 0.22)),
+      ),
+      child: Row(
+        mainAxisSize: MainAxisSize.min,
+        children: [
+          if (state != DingTalkConversationResponseState.failed) ...[
+            _DingTalkStatusDot(
+              color: foreground,
+              pulsing:
+                  state == DingTalkConversationResponseState.awaitingApproval,
+            ),
+            kOpenHandHGap6,
+          ],
+          Flexible(
+            child: Text(
+              label,
+              maxLines: 1,
+              overflow: TextOverflow.ellipsis,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: foreground,
+                fontWeight: FontWeight.w700,
+              ),
+            ),
+          ),
+        ],
+      ),
+    );
+    if (state == DingTalkConversationResponseState.failed) return capsule;
+    return ClipRRect(
+      borderRadius: kOpenHandPillBorderRadius,
+      child: OpenHandSweepShimmer(
+        sweepColor: foreground.withValues(alpha: 0.18),
+        child: capsule,
+      ),
+    );
+  }
+}
+
+class _DingTalkStatusDot extends StatefulWidget {
+  const _DingTalkStatusDot({required this.color, required this.pulsing});
+
+  final Color color;
+  final bool pulsing;
+
+  @override
+  State<_DingTalkStatusDot> createState() => _DingTalkStatusDotState();
+}
+
+class _DingTalkStatusDotState extends State<_DingTalkStatusDot>
+    with SingleTickerProviderStateMixin {
+  static const Duration _pulseDuration = Duration(milliseconds: 1200);
+
+  late final AnimationController _controller = AnimationController(
+    vsync: this,
+    duration: _pulseDuration,
+  );
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final animate = widget.pulsing && openHandTickerMotionEnabled(context);
+    if (animate && !_controller.isAnimating) {
+      _controller.repeat(reverse: true);
+    } else if (!animate) {
+      _controller.stop();
+    }
+    if (!animate) return _buildDot(1);
+    return AnimatedBuilder(
+      animation: _controller,
+      builder: (context, _) => _buildDot(0.35 + _controller.value * 0.65),
+    );
+  }
+
+  Widget _buildDot(double opacity) => Container(
+    width: 7,
+    height: 7,
+    decoration: BoxDecoration(
+      color: widget.color.withValues(alpha: opacity),
+      shape: BoxShape.circle,
+    ),
+  );
 }
 
 class _DingTalkResponseErrorBanner extends StatelessWidget {
