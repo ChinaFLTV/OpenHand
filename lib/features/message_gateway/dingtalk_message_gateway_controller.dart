@@ -58,6 +58,8 @@ class _QueuedDingTalkResponse {
   _QueuedDingTalkResponse(
     this.content,
     this.sourceMessageId,
+    this.scheduledAt,
+    this.sequence,
     this.forceResponse,
     this.automaticResponse,
     this.pollingGeneration,
@@ -66,6 +68,8 @@ class _QueuedDingTalkResponse {
 
   String content;
   String sourceMessageId;
+  DateTime scheduledAt;
+  final int sequence;
   bool forceResponse;
   final bool automaticResponse;
   final int? pollingGeneration;
@@ -198,6 +202,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Map<String, Set<String>> _activeResponseContextMessageIds =
       <String, Set<String>>{};
   final Map<String, int> _activeAutomaticResponseGenerations = <String, int>{};
+  final Map<String, DateTime> _activeResponseLatestTriggerTimes =
+      <String, DateTime>{};
   final Map<String, int> _responsePreparingCounts = <String, int>{};
   final Map<String, String> _responseErrors = <String, String>{};
 
@@ -206,7 +212,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final Map<String, int> _responseCancellationVersions = <String, int>{};
   final Map<String, Queue<_QueuedDingTalkResponse>> _responseQueues =
       <String, Queue<_QueuedDingTalkResponse>>{};
-  final Set<String> _responseDraining = <String>{};
+  final Set<String> _activeResponseConversationIds = <String>{};
   final Set<String> _seenMessageIds = <String>{};
   final Set<String> _unresolvedOutgoingMessageIds = <String>{};
   // 正在流式回显中的源 AI 消息标识，驱动本地气泡的渐显动画与合并防回退。
@@ -243,6 +249,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Object? _persistenceError;
   bool _pollInFlight = false;
   bool _usingPollingFallback = false;
+  bool _responseSchedulingQueued = false;
   bool _initialized = false;
   bool _disposed = false;
   bool _shutdownRequested = false;
@@ -253,6 +260,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   bool _isSending = false;
   bool _editingMessageInFlight = false;
   int _conversationReconcileCursor = 0;
+  int _responseSequence = 0;
   int _unreadCount = 0;
   String? _errorMessage;
   String? _warningMessage;
@@ -735,7 +743,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _conversationHistoryStates.remove(conversationId);
     _conversationReconcileFailures.remove(conversationId);
     _conversationRefreshInFlight.remove(conversationId);
-    if (!_responseDraining.contains(conversationId) &&
+    if (!_activeResponseConversationIds.contains(conversationId) &&
         !_responseInFlight.contains(conversationId) &&
         !_responseQueues.containsKey(conversationId)) {
       _responseCancellationVersions.remove(conversationId);
@@ -1411,6 +1419,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
     }
     _settings = normalized;
+    _scheduleResponseWorkers();
     _queuePersist();
     final task = _persistInFlight;
     if (task != null) await task;
@@ -4662,6 +4671,15 @@ ${_markdownStructuredFields(response)}''';
       if (checkpointIndex >= 0 && sourceIndex <= checkpointIndex) {
         return Future<void>.value();
       }
+      if (_activeResponseConversationIds.contains(conversation.id) &&
+          source != null) {
+        _activeResponseLatestTriggerTimes.update(
+          conversation.id,
+          (current) =>
+              source.createdAt.isAfter(current) ? source.createdAt : current,
+          ifAbsent: () => source.createdAt,
+        );
+      }
     }
     final queue = _responseQueues.putIfAbsent(
       conversation.id,
@@ -4721,6 +4739,8 @@ ${_markdownStructuredFields(response)}''';
           _QueuedDingTalkResponse(
             normalized,
             sourceId,
+            source?.createdAt ?? DateTime.now(),
+            _responseSequence++,
             forceResponse,
             automaticResponse,
             pollingGeneration,
@@ -4733,6 +4753,8 @@ ${_markdownStructuredFields(response)}''';
       final queuedResponse = _QueuedDingTalkResponse(
         normalized,
         sourceId,
+        source?.createdAt ?? DateTime.now(),
+        _responseSequence++,
         forceResponse,
         automaticResponse,
         pollingGeneration,
@@ -4773,9 +4795,7 @@ ${_markdownStructuredFields(response)}''';
       ),
     );
     _notify();
-    if (_responseDraining.add(conversation.id)) {
-      unawaited(_drainResponseQueue(conversation));
-    }
+    _scheduleResponseWorkers();
     return completer.future;
   }
 
@@ -4810,7 +4830,9 @@ ${_markdownStructuredFields(response)}''';
   }
 
   Future<void> _cancelObsoleteAutomaticResponses() async {
-    for (final queue in _responseQueues.values) {
+    final emptyConversationIds = <String>[];
+    for (final entry in _responseQueues.entries) {
+      final queue = entry.value;
       final obsolete = queue
           .where(
             (item) =>
@@ -4822,7 +4844,12 @@ ${_markdownStructuredFields(response)}''';
         queue.remove(item);
         item.complete();
       }
+      if (queue.isEmpty) emptyConversationIds.add(entry.key);
     }
+    for (final conversationId in emptyConversationIds) {
+      _responseQueues.remove(conversationId);
+    }
+    _scheduleResponseWorkers();
     final activeConversationIds = _activeAutomaticResponseGenerations.entries
         .where((entry) => entry.value != _pollingGeneration)
         .map((entry) => entry.key)
@@ -4895,38 +4922,113 @@ ${_markdownStructuredFields(response)}''';
     return null;
   }
 
-  Future<void> _drainResponseQueue(DingTalkConversation conversation) async {
-    final queue = _responseQueues[conversation.id];
-    if (queue == null) {
-      _responseDraining.remove(conversation.id);
-      return;
+  void _scheduleResponseWorkers() {
+    if (_disposed || _shutdownRequested || _responseSchedulingQueued) return;
+    _responseSchedulingQueued = true;
+    scheduleMicrotask(() {
+      _responseSchedulingQueued = false;
+      _dispatchResponseWorkers();
+    });
+  }
+
+  void _dispatchResponseWorkers() {
+    if (_disposed || _shutdownRequested) return;
+    while (_activeResponseConversationIds.length <
+        _settings.responseWorkerCount) {
+      String? selectedConversationId;
+      _QueuedDingTalkResponse? selectedItem;
+      for (final entry in _responseQueues.entries) {
+        if (entry.value.isEmpty ||
+            _activeResponseConversationIds.contains(entry.key)) {
+          continue;
+        }
+        final candidate = entry.value.first;
+        if (selectedItem == null ||
+            candidate.scheduledAt.isBefore(selectedItem.scheduledAt) ||
+            (candidate.scheduledAt.isAtSameMomentAs(selectedItem.scheduledAt) &&
+                candidate.sequence < selectedItem.sequence)) {
+          selectedConversationId = entry.key;
+          selectedItem = candidate;
+        }
+      }
+      if (selectedConversationId == null || selectedItem == null) return;
+      final conversation = _conversations[selectedConversationId];
+      final queue = _responseQueues[selectedConversationId];
+      if (conversation == null || queue == null || queue.isEmpty) {
+        final discardedQueue = _responseQueues.remove(selectedConversationId);
+        if (discardedQueue == null) {
+          selectedItem.complete();
+        } else {
+          for (final item in discardedQueue) {
+            item.complete();
+          }
+        }
+        continue;
+      }
+      queue.removeFirst();
+      if (queue.isEmpty) _responseQueues.remove(selectedConversationId);
+      _activeResponseConversationIds.add(selectedConversationId);
+      unawaited(_runResponseWorker(conversation, selectedItem));
     }
+  }
+
+  Future<void> _runResponseWorker(
+    DingTalkConversation conversation,
+    _QueuedDingTalkResponse item,
+  ) async {
     try {
-      while (!_disposed && queue.isNotEmpty) {
-        final item = queue.removeFirst();
-        try {
-          final preparationVersion =
-              _responseCancellationVersions[conversation.id] ?? 0;
-          var source = conversation.messages
+      if (!_disposed && !_shutdownRequested) {
+        final preparationVersion =
+            _responseCancellationVersions[conversation.id] ?? 0;
+        var source = conversation.messages
+            .where((message) => message.id == item.sourceMessageId)
+            .firstOrNull;
+        if (item.automaticResponse && source != null) {
+          final checkpointId =
+              conversation.aiContextCheckpointMessageId?.trim() ?? '';
+          final checkpointIndex = checkpointId.isEmpty
+              ? -1
+              : conversation.messages.indexWhere(
+                  (message) => message.id == checkpointId,
+                );
+          final sourceIndex = conversation.messages.indexWhere(
+            (message) => message.id == source!.id,
+          );
+          if (checkpointIndex >= 0 && sourceIndex <= checkpointIndex) {
+            return;
+          }
+        }
+        if (item.automaticResponse &&
+            conversation.type == DingTalkConversationType.direct &&
+            (source == null || source.isExcludedFromAiContext)) {
+          source = _latestPendingDirectResponseSource(
+            conversation,
+            item.sourceMessageId,
+            item.pollingGeneration,
+          );
+          if (source != null) {
+            item
+              ..sourceMessageId = source.id
+              ..content = source.content;
+          }
+        }
+        if (item.automaticResponse &&
+            (source == null ||
+                !_isAutomaticResponseEligible(
+                  source,
+                  item.pollingGeneration,
+                ))) {
+          return;
+        }
+        if (item.automaticResponse) {
+          await _ensureIncomingContextMedia(conversation, item.sourceMessageId);
+          if (_isResponseCancelled(conversation.id, preparationVersion)) {
+            return;
+          }
+          source = conversation.messages
               .where((message) => message.id == item.sourceMessageId)
               .firstOrNull;
-          if (item.automaticResponse && source != null) {
-            final checkpointId =
-                conversation.aiContextCheckpointMessageId?.trim() ?? '';
-            final checkpointIndex = checkpointId.isEmpty
-                ? -1
-                : conversation.messages.indexWhere(
-                    (message) => message.id == checkpointId,
-                  );
-            final sourceIndex = conversation.messages.indexWhere(
-              (message) => message.id == source!.id,
-            );
-            if (checkpointIndex >= 0 && sourceIndex <= checkpointIndex) {
-              continue;
-            }
-          }
-          if (item.automaticResponse &&
-              conversation.type == DingTalkConversationType.direct &&
+          if (conversation.type == DingTalkConversationType.direct &&
               (source == null || source.isExcludedFromAiContext)) {
             source = _latestPendingDirectResponseSource(
               conversation,
@@ -4939,75 +5041,40 @@ ${_markdownStructuredFields(response)}''';
                 ..content = source.content;
             }
           }
-          if (item.automaticResponse &&
-              (source == null ||
-                  !_isAutomaticResponseEligible(
-                    source,
-                    item.pollingGeneration,
-                  ))) {
-            continue;
+          if (source == null ||
+              source.isAssistant ||
+              source.isExcludedFromAiContext ||
+              !_isAutomaticResponseEligible(source, item.pollingGeneration)) {
+            return;
           }
-          if (item.automaticResponse) {
-            await _ensureIncomingContextMedia(
-              conversation,
-              item.sourceMessageId,
-            );
-            if (_isResponseCancelled(conversation.id, preparationVersion)) {
-              continue;
-            }
-            source = conversation.messages
-                .where((message) => message.id == item.sourceMessageId)
-                .firstOrNull;
-            if (conversation.type == DingTalkConversationType.direct &&
-                (source == null || source.isExcludedFromAiContext)) {
-              source = _latestPendingDirectResponseSource(
-                conversation,
-                item.sourceMessageId,
-                item.pollingGeneration,
-              );
-              if (source != null) {
-                item
-                  ..sourceMessageId = source.id
-                  ..content = source.content;
-              }
-            }
-            if (source == null ||
-                source.isAssistant ||
-                source.isExcludedFromAiContext ||
-                !_isAutomaticResponseEligible(source, item.pollingGeneration)) {
-              continue;
-            }
-          }
-          await _respondWithAi(
-            conversation,
-            item.content,
-            item.sourceMessageId,
-            forceResponse: item.forceResponse,
-            automaticResponse: item.automaticResponse,
-            pollingGeneration: item.pollingGeneration,
-          );
-        } catch (error, stack) {
-          silentLog('dingtalk_gateway', '处理钉钉消息队列', error, stack);
-        } finally {
-          item.complete();
         }
+        await _respondWithAi(
+          conversation,
+          item.content,
+          item.sourceMessageId,
+          forceResponse: item.forceResponse,
+          automaticResponse: item.automaticResponse,
+          pollingGeneration: item.pollingGeneration,
+        );
       }
+    } catch (error, stack) {
+      silentLog('dingtalk_gateway', '处理钉钉消息队列', error, stack);
     } finally {
-      _responseDraining.remove(conversation.id);
-      if (identical(_responseQueues[conversation.id], queue) && queue.isEmpty) {
-        _responseQueues.remove(conversation.id);
-      }
+      item.complete();
+      _activeResponseConversationIds.remove(conversation.id);
+      final latestTriggerAt = _activeResponseLatestTriggerTimes.remove(
+        conversation.id,
+      );
       final pendingQueue = _responseQueues[conversation.id];
-      if (!_disposed &&
-          (pendingQueue?.isNotEmpty ?? false) &&
-          _responseDraining.add(conversation.id)) {
-        unawaited(_drainResponseQueue(conversation));
+      if (latestTriggerAt != null && (pendingQueue?.isNotEmpty ?? false)) {
+        pendingQueue!.first.scheduledAt = latestTriggerAt;
       }
-      if (pendingQueue == null &&
+      if (!_responseQueues.containsKey(conversation.id) &&
           !_responseInFlight.contains(conversation.id) &&
           !_conversations.containsKey(conversation.id)) {
         _responseCancellationVersions.remove(conversation.id);
       }
+      _scheduleResponseWorkers();
       _notify();
     }
   }
@@ -5379,7 +5446,8 @@ ${_markdownStructuredFields(response)}''';
       }
     }
     _responseQueues.clear();
-    _responseDraining.clear();
+    _activeResponseConversationIds.clear();
+    _activeResponseLatestTriggerTimes.clear();
     _activeResponseContextMessageIds.clear();
     _activeAutomaticResponseGenerations.clear();
     _responsePreparingCounts.clear();

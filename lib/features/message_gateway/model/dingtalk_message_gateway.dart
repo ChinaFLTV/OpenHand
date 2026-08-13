@@ -676,6 +676,7 @@ class DingTalkConversationTarget {
 class DingTalkGatewaySettings {
   const DingTalkGatewaySettings({
     this.pollIntervalSeconds = defaultPollIntervalSeconds,
+    this.responseWorkerCount = defaultResponseWorkerCount,
     this.reminderMode = DingTalkReminderMode.inApp,
     this.responseMode = DingTalkResponseMode.allowlist,
     this.responseModelKey = '',
@@ -708,6 +709,9 @@ class DingTalkGatewaySettings {
     return DingTalkGatewaySettings(
       pollIntervalSeconds: normalizePollIntervalSeconds(
         json['poll_interval_seconds'],
+      ),
+      responseWorkerCount: normalizeResponseWorkerCount(
+        json['response_worker_count'],
       ),
       reminderMode: mode,
       responseMode: DingTalkResponseMode.fromStorage(json['response_mode']),
@@ -747,8 +751,11 @@ class DingTalkGatewaySettings {
   static const int defaultPollIntervalSeconds = 3;
   static const int minPollIntervalSeconds = 3;
   static const int maxPollIntervalSeconds = 300;
+  static const int defaultResponseWorkerCount = 1;
+  static const int minResponseWorkerCount = 1;
 
   final int pollIntervalSeconds;
+  final int responseWorkerCount;
   final DingTalkReminderMode reminderMode;
   final DingTalkResponseMode responseMode;
   final String responseModelKey;
@@ -776,6 +783,12 @@ class DingTalkGatewaySettings {
         .toInt();
   }
 
+  static int normalizeResponseWorkerCount(Object? value) {
+    final parsed = optionalIntegralIntFromValue(value);
+    if (parsed == null) return defaultResponseWorkerCount;
+    return parsed < minResponseWorkerCount ? minResponseWorkerCount : parsed;
+  }
+
   Duration get pollInterval =>
       Duration(seconds: normalizePollIntervalSeconds(pollIntervalSeconds));
 
@@ -788,6 +801,7 @@ class DingTalkGatewaySettings {
     Iterable<String>? availableDingTalkDwsCommandIds,
   }) => DingTalkGatewaySettings(
     pollIntervalSeconds: normalizePollIntervalSeconds(pollIntervalSeconds),
+    responseWorkerCount: normalizeResponseWorkerCount(responseWorkerCount),
     reminderMode: reminderMode,
     responseMode: responseMode,
     responseModelKey: responseModelKey.trim(),
@@ -839,6 +853,7 @@ class DingTalkGatewaySettings {
 
   DingTalkGatewaySettings copyWith({
     int? pollIntervalSeconds,
+    int? responseWorkerCount,
     DingTalkReminderMode? reminderMode,
     DingTalkResponseMode? responseMode,
     String? responseModelKey,
@@ -861,6 +876,9 @@ class DingTalkGatewaySettings {
   }) => DingTalkGatewaySettings(
     pollIntervalSeconds: normalizePollIntervalSeconds(
       pollIntervalSeconds ?? this.pollIntervalSeconds,
+    ),
+    responseWorkerCount: normalizeResponseWorkerCount(
+      responseWorkerCount ?? this.responseWorkerCount,
     ),
     reminderMode: reminderMode ?? this.reminderMode,
     responseMode: responseMode ?? this.responseMode,
@@ -891,6 +909,7 @@ class DingTalkGatewaySettings {
 
   Map<String, Object?> toJson() => <String, Object?>{
     'poll_interval_seconds': pollIntervalSeconds,
+    'response_worker_count': responseWorkerCount,
     'reminder_mode': reminderMode.name,
     'response_mode': responseMode.storageValue,
     'response_model_key': responseModelKey,

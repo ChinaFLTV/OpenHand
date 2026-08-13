@@ -20193,6 +20193,10 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   late final TextEditingController _intervalController = TextEditingController(
     text: '${widget.controller.settings.pollIntervalSeconds}',
   );
+  late final TextEditingController _workerCountController =
+      TextEditingController(
+        text: '${widget.controller.settings.responseWorkerCount}',
+      );
   late final TextEditingController _workingDirectoryController =
       TextEditingController(
         text: widget.controller.settings.workingDirectory.isEmpty
@@ -20274,6 +20278,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
   @override
   void dispose() {
     _intervalController.dispose();
+    _workerCountController.dispose();
     _workingDirectoryController.dispose();
     super.dispose();
   }
@@ -20310,6 +20315,16 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
                       labelText: '兜底轮询间隔（秒）',
                       helperText: '实时事件不可用时使用，最小 3 秒，保存后立即生效',
                       prefixIcon: Icon(Icons.schedule_rounded),
+                    ),
+                  ),
+                  kOpenHandGap14,
+                  TextField(
+                    controller: _workerCountController,
+                    keyboardType: TextInputType.number,
+                    decoration: const InputDecoration(
+                      labelText: '工作线程数',
+                      helperText: '同时处理的会话数，最小 1，保存后立即生效',
+                      prefixIcon: Icon(Icons.account_tree_rounded),
                     ),
                   ),
                   kOpenHandGap14,
@@ -21155,6 +21170,14 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
     final seconds = DingTalkGatewaySettings.normalizePollIntervalSeconds(
       _intervalController.text,
     );
+    final workerCount = optionalIntegralIntFromValue(
+      _workerCountController.text,
+    );
+    if (workerCount == null ||
+        workerCount < DingTalkGatewaySettings.minResponseWorkerCount) {
+      showOpenHandErrorSnack(context, '工作线程数必须为不小于 1 的整数。');
+      return;
+    }
     final rawDirectory = _workingDirectoryController.text.trim();
     final workingDirectory = Directory(
       OpenHandPaths.normalizePath(
@@ -21171,6 +21194,7 @@ class _DingTalkSettingsDialogState extends State<_DingTalkSettingsDialog> {
       await widget.controller.updateSettings(
         DingTalkGatewaySettings(
           pollIntervalSeconds: seconds,
+          responseWorkerCount: workerCount,
           reminderMode: _reminderMode,
           responseMode: _responseMode,
           responseModelKey: _modelKey,
