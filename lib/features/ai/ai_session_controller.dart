@@ -2449,10 +2449,10 @@ class AiSessionController extends ChangeNotifier {
       if (!_isCurrentSessionMessageWindowAttempt(sessionId, generation)) {
         return _sessionById(sessionId);
       }
-      final replaced = _replaceSessionInMemory(normalized, sortSessions: false);
-      if (replaced) {
-        notifyListeners();
-      }
+      // 到达这里 attempt 必然仍有效，且下方直到 finally 无 await——finally
+      // 在同一微任务内必然再 notifyListeners（清除水合标记），这里不再单独
+      // 通知，把打开路径两次相邻的全量监听回调并成一次。
+      _replaceSessionInMemory(normalized, sortSessions: false);
       final effective = _sessionById(sessionId) ?? normalized;
       if (!identical(normalized, loaded)) {
         unawaited(

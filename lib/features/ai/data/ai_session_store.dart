@@ -820,6 +820,11 @@ class AiSessionStore {
             orderBy: 'sort_order ASC',
           );
     final session = await _sessionFromRowCooperatively(rows.first, messageRows);
+    // 播种落库影子：刚加载的消息列表即数据库当前状态，作为增量落库的
+    // 对比基线后，水合→normalize→首次 save 也只写真正变化的行，而不是
+    // 因影子缺失回退整会话重写。必须在压缩旁路恢复之前取列表——旁路
+    // 可能替换内存中的检查点消息，而数据库里仍是原行。
+    _rememberSavedMessages(session.id, session.messages);
     return restoreCompressionCheckpointFromSidecar(session);
   }
 
@@ -977,9 +982,13 @@ class AiSessionStore {
     }
     // 尾部窗口只服务首屏。向局部尾窗恢复旧压缩旁路文件既会增加磁盘开销，
     // 也会把历史检查点错误放到可见尾部；完整加载仍会在构建提示词前恢复。
-    return session.hasCompleteMessages
-        ? restoreCompressionCheckpointFromSidecar(session)
-        : session;
+    if (!session.hasCompleteMessages) {
+      return session;
+    }
+    // 小会话经尾窗一次性加载完整（无预览截断、offset=0）时，列表即数据库
+    // 状态，可直接作为增量落库基线；同样须在压缩旁路恢复之前取列表。
+    _rememberSavedMessages(session.id, session.messages);
+    return restoreCompressionCheckpointFromSidecar(session);
   }
 
   int _boundedMessageLoadLimit({
