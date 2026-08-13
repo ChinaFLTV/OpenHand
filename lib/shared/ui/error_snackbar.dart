@@ -35,37 +35,29 @@ void showFriendlyErrorSnackBar(
       .toList(growable: false);
   final headline = lines.isEmpty ? fallback : lines.first;
   final hasDetails = lines.length > 1;
-  final messenger = ScaffoldMessenger.maybeOf(context);
   // SnackBarAction 的 onPressed 触发时，调用方 context 往往已离开树
   // （例如发出 SnackBar 的临时 widget 已 dispose），此时再用它去
   // showAnimatedDialog 会触发「Looking up a deactivated widget's
   // ancestor is unsafe」断言。这里提前抓住根 Navigator 的 context，
   // 它由 MaterialApp 持有，生命周期与 App 一致，可在异步回调里安全使用。
   final rootContext = Navigator.of(context, rootNavigator: true).context;
-  OpenHandSnackBar.hideCurrentOn(messenger);
-  OpenHandSnackBar.show(
+  replaceOpenHandSnack(
     context,
-    messenger,
-    OpenHandSnackBar.error(
-      context,
-      headline,
-      maxLines: 2,
-      duration: hasDetails
-          ? _kFriendlyErrorDetailsSnackDuration
-          : kOpenHandSnackBarDetailedDuration,
-      action: hasDetails
-          ? SnackBarAction(
-              label: l10n.commonDetails,
-              onPressed: () {
-                if (!rootContext.mounted) return;
-                showFriendlyErrorDetailsDialog(
-                  rootContext,
-                  fullText: effective,
-                );
-              },
-            )
-          : null,
-    ),
+    headline,
+    kind: OpenHandSnackKind.error,
+    maxLines: 2,
+    duration: hasDetails
+        ? _kFriendlyErrorDetailsSnackDuration
+        : kOpenHandSnackBarDetailedDuration,
+    action: hasDetails
+        ? SnackBarAction(
+            label: l10n.commonDetails,
+            onPressed: () {
+              if (!rootContext.mounted) return;
+              showFriendlyErrorDetailsDialog(rootContext, fullText: effective);
+            },
+          )
+        : null,
   );
 }
 
@@ -74,14 +66,6 @@ void showFriendlyErrorSnackBar(
 /// 任何带有「现象 / 原因 / 建议」三段式诊断文案的 UI（SnackBar、会话气泡
 /// banner、设置页测试结果等）都可以共用同一个查看体验。
 void showFriendlyErrorDetailsDialog(
-  BuildContext context, {
-  required String fullText,
-  String? title,
-}) {
-  _showErrorDetailsDialog(context, fullText: fullText, title: title);
-}
-
-void _showErrorDetailsDialog(
   BuildContext context, {
   required String fullText,
   String? title,
@@ -107,33 +91,9 @@ void _showErrorDetailsDialog(
                 text: fullText,
                 logTag: 'error_snackbar',
                 successMessage: l10n.commonCopiedToClipboard,
-                showSuccessSnack: (context, message, {required duration}) {
-                  final messenger = ScaffoldMessenger.maybeOf(context);
-                  OpenHandSnackBar.hideCurrentOn(messenger);
-                  OpenHandSnackBar.show(
-                    context,
-                    messenger,
-                    OpenHandSnackBar.success(
-                      context,
-                      message,
-                      duration: duration,
-                    ),
-                  );
-                },
-                showErrorSnack: (context, message, {required duration}) {
-                  final messenger = ScaffoldMessenger.maybeOf(context);
-                  OpenHandSnackBar.hideCurrentOn(messenger);
-                  OpenHandSnackBar.show(
-                    context,
-                    messenger,
-                    OpenHandSnackBar.error(
-                      context,
-                      message,
-                      duration: duration,
-                      maxLines: 2,
-                    ),
-                  );
-                },
+                // 触发复制时，唤出本弹窗的错误提示条通常仍在展示，
+                // 需顶替掉它，否则「已复制」要排队等它自然消失。
+                replaceCurrentSnack: true,
               );
             },
             icon: Icons.copy_all_outlined,
@@ -162,6 +122,17 @@ class _ErrorDetailsScrollBody extends StatefulWidget {
 
 class _ErrorDetailsScrollBodyState extends State<_ErrorDetailsScrollBody> {
   final ScrollController _scrollController = ScrollController();
+  late _FriendlyErrorDetails _details = _FriendlyErrorDetails.parse(
+    widget.fullText,
+  );
+
+  @override
+  void didUpdateWidget(_ErrorDetailsScrollBody oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.fullText != widget.fullText) {
+      _details = _FriendlyErrorDetails.parse(widget.fullText);
+    }
+  }
 
   @override
   void dispose() {
@@ -171,7 +142,7 @@ class _ErrorDetailsScrollBodyState extends State<_ErrorDetailsScrollBody> {
 
   @override
   Widget build(BuildContext context) {
-    final details = _FriendlyErrorDetails.parse(widget.fullText);
+    final details = _details;
     final showStructuredSections = details.sections.isNotEmpty;
     final primaryText = details.structured ? details.summary : details.rawText;
     return PrimaryScrollController.none(
@@ -363,11 +334,15 @@ class _ParsedErrorHeading {
   final String inlineBody;
 }
 
+/// 「现象 / 原因 / 建议」等段落标题，中英双语。诊断文案逐行匹配，
+/// 编译一次复用，避免每行都新建 [RegExp]。
+final RegExp _kErrorHeadingPattern = RegExp(
+  r'^(现象|概览|原因|建议|排查建议|服务端原文|服务端响应|原始响应|详情|完整信息|Summary|Reason|Suggestion|Troubleshooting|Server response|Raw response|Details)\s*[:：]\s*(.*)$',
+  caseSensitive: false,
+);
+
 _ParsedErrorHeading? _errorHeading(String line) {
-  final match = RegExp(
-    r'^(现象|概览|原因|建议|排查建议|服务端原文|服务端响应|原始响应|详情|完整信息|Summary|Reason|Suggestion|Troubleshooting|Server response|Raw response|Details)\s*[:：]\s*(.*)$',
-    caseSensitive: false,
-  ).firstMatch(line.trimLeft());
+  final match = _kErrorHeadingPattern.firstMatch(line.trimLeft());
   if (match == null) return null;
   return _ParsedErrorHeading(
     title: match.group(1)!.trim(),

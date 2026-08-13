@@ -1674,48 +1674,53 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (event.sessionId != controller.currentSessionId) return;
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
+    _showToolSearchLoadedSnack(
+      message: l10n.snackToolSearchLoaded(
+        event.loadedCount,
+        event.totalDeferred,
+      ),
+      actionLabel: l10n.snackToolSearchLoadedAction,
+      onViewDetails: () {
+        final controller = _observedSessionController;
+        final sessionId = event.sessionId;
+        final names = controller == null
+            ? const <String>[]
+            : controller.loadedMcpToolNamesForSession(sessionId);
+        final history = controller == null
+            ? const <AiToolSearchLoadHistoryEntry>[]
+            : controller.loadedMcpToolHistoryForSession(sessionId);
+        _showToolSearchLoadedDialog(
+          names: names,
+          history: history,
+          onClear: controller == null
+              ? null
+              : () => controller.clearLoadedMcpToolsForSession(sessionId),
+          onReplayBatch: _replayToolSearchSelectQuery,
+        );
+      },
+    );
+  }
+
+  /// ToolSearch 批量加载提示条：AI 会话与 Harness phase 两条链路共用同一
+  /// 外观（放大镜图标 + 文案 + 「查看」动作），只有文案与动作回调不同。
+  void _showToolSearchLoadedSnack({
+    required String message,
+    required String actionLabel,
+    required VoidCallback onViewDetails,
+  }) {
     showOpenHandSnackBarOn(
       context,
-      messenger,
+      ScaffoldMessenger.maybeOf(context),
       SnackBar(
         content: Row(
           children: [
             const Icon(Icons.search_rounded, size: 18),
             kOpenHandHGap8,
-            Expanded(
-              child: Text(
-                l10n.snackToolSearchLoaded(
-                  event.loadedCount,
-                  event.totalDeferred,
-                ),
-              ),
-            ),
+            Expanded(child: Text(message)),
           ],
         ),
         behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: l10n.snackToolSearchLoadedAction,
-          onPressed: () {
-            final controller = _observedSessionController;
-            final sessionId = event.sessionId;
-            final names = controller == null
-                ? const <String>[]
-                : controller.loadedMcpToolNamesForSession(sessionId);
-            final history = controller == null
-                ? const <AiToolSearchLoadHistoryEntry>[]
-                : controller.loadedMcpToolHistoryForSession(sessionId);
-            _showToolSearchLoadedDialog(
-              names: names,
-              history: history,
-              onClear: controller == null
-                  ? null
-                  : () => controller.clearLoadedMcpToolsForSession(sessionId),
-              onReplayBatch: _replayToolSearchSelectQuery,
-            );
-          },
-        ),
+        action: SnackBarAction(label: actionLabel, onPressed: onViewDetails),
       ),
     );
   }
@@ -1763,8 +1768,6 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     if (!mounted) return;
     final l10n = AppLocalizations.of(context);
     if (l10n == null) return;
-    final messenger = ScaffoldMessenger.maybeOf(context);
-    if (messenger == null) return;
     final entry = AiToolSearchLoadHistoryEntry(
       timestamp: DateTime.now().toUtc(),
       query: query,
@@ -1773,37 +1776,19 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       source: AiToolSearchLoadSource.harnessPhase,
     );
     _touchHarnessHistoryBucket(phaseSessionId).add(entry);
-    showOpenHandSnackBarOn(
-      context,
-      messenger,
-      SnackBar(
-        content: Row(
-          children: [
-            const Icon(Icons.search_rounded, size: 18),
-            kOpenHandHGap8,
-            Expanded(
-              child: Text(
-                l10n.snackToolSearchLoaded(loadedNames.length, totalDeferred),
-              ),
-            ),
-          ],
+    _showToolSearchLoadedSnack(
+      message: l10n.snackToolSearchLoaded(loadedNames.length, totalDeferred),
+      actionLabel: l10n.snackToolSearchLoadedAction,
+      // Harness phase 自身的 tool loop 是自治的，无法直接重放；用户的意图
+      // 通常是「我想再加载这一批」——为了不污染当前 Harness 活跃会话的
+      // 上下文，专门走「先建独立 AI session 再在新 session 里发 select:」。
+      onViewDetails: () => _showToolSearchLoadedDialog(
+        names: List<String>.from(loadedNames)..sort(),
+        history: List<AiToolSearchLoadHistoryEntry>.unmodifiable(
+          _harnessToolSearchHistory[phaseSessionId] ??
+              const <AiToolSearchLoadHistoryEntry>[],
         ),
-        behavior: SnackBarBehavior.floating,
-        action: SnackBarAction(
-          label: l10n.snackToolSearchLoadedAction,
-          onPressed: () => _showToolSearchLoadedDialog(
-            names: List<String>.from(loadedNames)..sort(),
-            history: List<AiToolSearchLoadHistoryEntry>.unmodifiable(
-              _harnessToolSearchHistory[phaseSessionId] ??
-                  const <AiToolSearchLoadHistoryEntry>[],
-            ),
-            // Harness phase 自身的 tool loop 是自治的，无法直接重放；
-            // 用户的意图通常是「我想再加载这一批」——为了不污染当前
-            // Harness 活跃会话的上下文，专门走「先建独立 AI session
-            // 再在新 session 里发 select:」的路径。
-            onReplayBatch: _replayToolSearchInFreshSession,
-          ),
-        ),
+        onReplayBatch: _replayToolSearchInFreshSession,
       ),
     );
   }
@@ -1859,16 +1844,11 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       if (_composerController.text == query) {
         _composerController.clear();
       }
-      if (mounted && l10n != null && messenger != null) {
-        OpenHandSnackBar.hideCurrentOn(messenger);
-        showOpenHandSnackBarOn(
+      if (mounted && l10n != null) {
+        replaceOpenHandSnack(
           context,
-          messenger,
-          OpenHandSnackBar.info(
-            context,
-            l10n.snackToolSearchLoadedReplayCancelledToast,
-            duration: kOpenHandSnackBarBriefDuration,
-          ),
+          l10n.snackToolSearchLoadedReplayCancelledToast,
+          duration: kOpenHandSnackBarBriefDuration,
         );
       }
       if (!completer.isCompleted) completer.complete();

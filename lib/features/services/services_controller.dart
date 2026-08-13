@@ -27,6 +27,13 @@ const Duration _kProxyInspectionFirstRunDelay = Duration(seconds: 10);
 const Duration _kProxyStatisticsSyncInterval = Duration(seconds: 5);
 const Duration _kEventStreamReconnectBaseDelay = Duration(seconds: 1);
 const Duration _kRuntimeOperationDrainTimeout = Duration(seconds: 3);
+// 停止扫描后有界回读任务状态，兜底 SSE 缺失/延迟，避免工作台卡在"运行中"。
+// 上限覆盖在飞 HTTP 探测（10s 超时）的排空窗口，且严格有界不会无限轮询。
+const int _kScanTerminationSyncMaxAttempts = 40;
+const Duration _kScanTerminationSyncInterval = Duration(milliseconds: 300);
+// SSE 重连耗尽后转入低频轮询兜底，直至任务进入终态。
+const int _kEventStreamPollFallbackMaxAttempts = 60;
+const Duration _kEventStreamPollFallbackInterval = Duration(seconds: 2);
 const List<String> _kScanReaderFailureMarkers = <String>[
   'Jina Reader',
   '页面读取失败',
@@ -134,6 +141,13 @@ class ServicesController extends ChangeNotifier {
   bool _proxyInspectionCancelRequested = false;
   int _proxyInspectionGeneration = 0;
   int _proxyInspectionScheduleGeneration = 0;
+
+  /// 各节点已成功持久化的请求样本 record_id，按节点保存最近一个窗口
+  /// （≤ [kAiExposureProxyRuntimeRequestSampleLimit] 条），容量有界。
+  /// 统计同步据此只写入新样本；保存失败或应用重启后回退为整窗重发，
+  /// 由历史表 record_id 唯一约束去重兜底，不会丢样本。
+  final Map<String, Set<String>> _persistedRequestRecordIds =
+      <String, Set<String>>{};
   final OpenHandSingleFlight<void> _proxyStatisticsSync =
       OpenHandSingleFlight<void>();
   final OpenHandSingleFlight<void> _serviceStatusRefresh =
@@ -783,13 +797,49 @@ class ServicesController extends ChangeNotifier {
     final jobId = _progress?.jobId;
     if (jobId == null || jobId.isEmpty || !hasActiveScan) return;
     _eventStreamReconnectAttempts = 0;
-    unawaited(_cancelEventSubscription());
+    if (_errorMessage == _eventStreamErrorMessage) _errorMessage = null;
+    _eventStreamErrorMessage = null;
+    await _cancelEventSubscription();
+    _notify();
     try {
       await _requireClient().stopJob(jobId);
     } catch (error, stack) {
+      // 任务恰好已结束时后端返回 409，也需继续回读终态收敛 UI。
       _errorMessage = _reportServicesFailure('停止扫描任务', error, stack);
     }
+    await _awaitScanTermination(jobId);
     _notify();
+  }
+
+  /// 取消实时订阅后，有界轮询任务状态直至进入终态。
+  /// 这是停止/重连兜底的唯一 `_progress` 刷新路径，避免工作台卡在"运行中"。
+  Future<void> _awaitScanTermination(
+    String jobId, {
+    int maxAttempts = _kScanTerminationSyncMaxAttempts,
+    Duration interval = _kScanTerminationSyncInterval,
+  }) async {
+    for (var attempt = 0; attempt < maxAttempts; attempt++) {
+      final client = _client;
+      if (client == null || _disposed) return;
+      final AiExposureProgress progress;
+      try {
+        progress = await client.progress(jobId);
+      } catch (error, stack) {
+        silentLog('services_controller', '回读扫描任务终态', error, stack);
+        return;
+      }
+      if (!_isCurrentClient(client)) return;
+      _progress = progress;
+      if (!progress.isRunning) {
+        _eventStreamReconnectAttempts = 0;
+        if (_errorMessage == _eventStreamErrorMessage) _errorMessage = null;
+        _eventStreamErrorMessage = null;
+        await _refreshHistoryAndResultsSafely();
+        return;
+      }
+      _notify();
+      await Future<void>.delayed(interval);
+    }
   }
 
   Future<bool> resumeHistory(String jobId) async {
@@ -1260,6 +1310,7 @@ class ServicesController extends ChangeNotifier {
     var runtimeChanged = false;
     final changedEndpoints = <AiExposureProxyEndpoint>[];
     final requestHistory = <AiExposureProxyRequestRecord>[];
+    final windowRecordIdsByUrl = <String, Set<String>>{};
     final beforeAwait = _proxyConfiguration.endpoints;
     final endpoints = beforeAwait
         .map((endpoint) {
@@ -1272,14 +1323,21 @@ class ServicesController extends ChangeNotifier {
           if (statisticsChanged) {
             changed = true;
             changedEndpoints.add(updated);
-            requestHistory.addAll(
-              next.recentRequests.map(
-                (sample) => AiExposureProxyRequestRecord(
-                  endpointUrl: endpoint.url,
-                  sample: sample,
-                ),
-              ),
-            );
+            final persisted =
+                _persistedRequestRecordIds[endpoint.url] ?? const <String>{};
+            final windowIds = <String>{};
+            for (final sample in next.recentRequests) {
+              // 未上报时间的样本存储层会跳过，且其 recordId 不稳定，直接忽略。
+              if (!sample.atReported) continue;
+              final record = AiExposureProxyRequestRecord(
+                endpointUrl: endpoint.url,
+                sample: sample,
+              );
+              final recordId = record.recordId;
+              windowIds.add(recordId);
+              if (!persisted.contains(recordId)) requestHistory.add(record);
+            }
+            windowRecordIdsByUrl[endpoint.url] = windowIds;
           }
           if (current.inFlight != next.inFlight) runtimeChanged = true;
           return updated;
@@ -1289,6 +1347,13 @@ class ServicesController extends ChangeNotifier {
       await _preferencesStore.saveProxyStatistics(changedEndpoints);
       try {
         await _preferencesStore.saveProxyRequestHistory(requestHistory);
+        // 保存成功后才推进增量水位；失败时保持原水位，下一轮全量重发。
+        final activeUrls = <String>{
+          for (final endpoint in _proxyConfiguration.endpoints) endpoint.url,
+        };
+        _persistedRequestRecordIds
+          ..addAll(windowRecordIdsByUrl)
+          ..removeWhere((url, _) => !activeUrls.contains(url));
       } catch (error, stack) {
         silentLog('services_controller', '保存代理请求明细', error, stack);
       }
@@ -1714,8 +1779,18 @@ class ServicesController extends ChangeNotifier {
         return;
       } else {
         if (_eventStreamReconnectAttempts >= _kEventStreamReconnectLimit) {
-          _eventStreamErrorMessage = '扫描实时事件连接持续中断，请重新连接扫描服务。';
+          // 实时事件持续中断时不再放弃，转入低频轮询兜底直至任务终态，
+          // 避免 _progress 永远停在"运行中"导致工作台卡死、无法新建扫描。
+          _eventStreamErrorMessage = '扫描实时事件连接持续中断，已转入轮询同步任务状态。';
           _errorMessage = _eventStreamErrorMessage;
+          _notify();
+          await _cancelEventSubscription();
+          await _awaitScanTermination(
+            jobId,
+            maxAttempts: _kEventStreamPollFallbackMaxAttempts,
+            interval: _kEventStreamPollFallbackInterval,
+          );
+          return;
         } else {
           _eventStreamReconnectAttempts += 1;
           await Future<void>.delayed(

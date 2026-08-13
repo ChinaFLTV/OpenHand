@@ -116,6 +116,36 @@ void showOpenHandSnackBarOn(
   OpenHandSnackBar.show(context, messenger, snackBar);
 }
 
+/// 用新提示条顶替当前正在显示的一条：先收起再展示。
+///
+/// 同一操作的连续反馈（「已复制」紧随「正在复制」、失败提示覆盖成功提示）
+/// 必须立刻可见，若直接 show 会排到队尾等前一条自然消失。调用方无需再各自
+/// 内联 `ScaffoldMessenger` 查找 + [OpenHandSnackBar.hideCurrentOn] 样板。
+void replaceOpenHandSnack(
+  BuildContext context,
+  String message, {
+  OpenHandSnackKind kind = OpenHandSnackKind.info,
+  Duration? duration,
+  SnackBarAction? action,
+  int? maxLines,
+}) {
+  if (!context.mounted) return;
+  final messenger = ScaffoldMessenger.maybeOf(context);
+  OpenHandSnackBar.hideCurrentOn(messenger);
+  OpenHandSnackBar.show(
+    context,
+    messenger,
+    OpenHandSnackBar.ofKind(
+      context,
+      kind,
+      message,
+      duration: duration,
+      action: action,
+      maxLines: maxLines,
+    ),
+  );
+}
+
 class OpenHandGlobalSnackBarHost extends StatefulWidget {
   const OpenHandGlobalSnackBarHost({super.key});
 

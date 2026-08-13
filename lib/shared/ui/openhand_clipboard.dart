@@ -12,6 +12,9 @@ import 'openhand_snack_bar.dart';
 const Duration kOpenHandClipboardCopyTimeout = Duration(seconds: 10);
 const Duration _kOpenHandClipboardMaxCopyTimeout = Duration(seconds: 60);
 
+/// 复制失败提示带一段原因后缀，限两行避免长文案糊住半屏。
+const int _kClipboardErrorSnackMaxLines = 2;
+
 typedef OpenHandClipboardSnackPresenter =
     void Function(
       BuildContext context,
@@ -64,6 +67,7 @@ Future<bool> copyOpenHandTextToClipboard({
   Duration timeout = kOpenHandClipboardCopyTimeout,
   Duration successDuration = kOpenHandSnackBarBriefDuration,
   Duration errorDuration = kOpenHandSnackBarDetailedDuration,
+  bool replaceCurrentSnack = false,
   OpenHandClipboardSnackPresenter? showSuccessSnack,
   OpenHandClipboardSnackPresenter? showErrorSnack,
 }) async {
@@ -72,7 +76,10 @@ Future<bool> copyOpenHandTextToClipboard({
   } catch (error, stack) {
     silentLog(logTag, logAction, error, stack);
     if (!context.mounted) return false;
-    (showErrorSnack ?? _showDefaultClipboardErrorSnack)(
+    (showErrorSnack ??
+        (replaceCurrentSnack
+            ? _replaceClipboardErrorSnack
+            : _showDefaultClipboardErrorSnack))(
       context,
       errorMessage ?? openHandClipboardCopyErrorMessage(context, error),
       duration: errorDuration,
@@ -82,7 +89,10 @@ Future<bool> copyOpenHandTextToClipboard({
 
   if (!context.mounted) return false;
   if (showSuccess) {
-    (showSuccessSnack ?? _showDefaultClipboardSuccessSnack)(
+    (showSuccessSnack ??
+        (replaceCurrentSnack
+            ? _replaceClipboardSuccessSnack
+            : _showDefaultClipboardSuccessSnack))(
       context,
       successMessage ?? openHandClipboardCopySuccessMessage(context),
       duration: successDuration,
@@ -140,7 +150,39 @@ void _showDefaultClipboardErrorSnack(
   String message, {
   required Duration duration,
 }) {
-  showOpenHandErrorSnack(context, message, duration: duration);
+  showOpenHandErrorSnack(
+    context,
+    message,
+    duration: duration,
+    maxLines: _kClipboardErrorSnackMaxLines,
+  );
+}
+
+void _replaceClipboardSuccessSnack(
+  BuildContext context,
+  String message, {
+  required Duration duration,
+}) {
+  replaceOpenHandSnack(
+    context,
+    message,
+    kind: OpenHandSnackKind.success,
+    duration: duration,
+  );
+}
+
+void _replaceClipboardErrorSnack(
+  BuildContext context,
+  String message, {
+  required Duration duration,
+}) {
+  replaceOpenHandSnack(
+    context,
+    message,
+    kind: OpenHandSnackKind.error,
+    duration: duration,
+    maxLines: _kClipboardErrorSnackMaxLines,
+  );
 }
 
 const Duration kOpenHandClipboardImageReadTimeout = Duration(seconds: 10);

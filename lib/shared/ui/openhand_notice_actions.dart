@@ -2,7 +2,6 @@ import 'package:flutter/material.dart';
 
 import '../../l10n/app_localizations.dart';
 import 'openhand_clipboard.dart';
-import 'openhand_snack_bar.dart';
 
 class OpenHandNoticeActionButtons extends StatelessWidget {
   const OpenHandNoticeActionButtons({
@@ -63,23 +62,6 @@ class OpenHandNoticeActionButtons extends StatelessWidget {
       text: text,
       logTag: 'notice_actions',
       successMessage: l10n?.commonCopiedToClipboard,
-      showSuccessSnack: (context, message, {required duration}) {
-        OpenHandSnackBar.showInContext(
-          context,
-          OpenHandSnackBar.success(context, message, duration: duration),
-        );
-      },
-      showErrorSnack: (context, message, {required duration}) {
-        OpenHandSnackBar.showInContext(
-          context,
-          OpenHandSnackBar.error(
-            context,
-            message,
-            duration: duration,
-            maxLines: 2,
-          ),
-        );
-      },
     );
   }
 }

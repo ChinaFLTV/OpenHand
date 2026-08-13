@@ -692,15 +692,10 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     _BubbleHtmlInteractiveScope.maybeOf(context)?.markInteractiveTap();
     _copiedResetTimer?.cancel();
     setState(() => _copied = true);
-    final messenger = ScaffoldMessenger.of(context);
-    OpenHandSnackBar.hideCurrentOn(messenger);
-    showOpenHandSnackBarOn(
+    replaceOpenHandSnack(
       context,
-      messenger,
-      OpenHandSnackBar.success(
-        context,
-        openHandLocalizedText(context, zh: 'Diff 内容已复制。', en: 'Diff copied.'),
-      ),
+      openHandLocalizedText(context, zh: 'Diff 内容已复制。', en: 'Diff copied.'),
+      kind: OpenHandSnackKind.success,
     );
     _copiedResetTimer = startSafeTimer(_actionResetDelay, () {
       if (!mounted) return;
@@ -717,19 +712,14 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       if (!mounted) return;
       _copiedResetTimer?.cancel();
       setState(() => _copied = false);
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.hideCurrentOn(messenger);
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '复制 Diff 失败。',
-            en: 'Failed to copy diff.',
-          ),
+          zh: '复制 Diff 失败。',
+          en: 'Failed to copy diff.',
         ),
+        kind: OpenHandSnackKind.error,
       );
     }
   }
@@ -754,19 +744,14 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
       await writeFileAtomically(File(selectedPath), widget.content);
       if (!mounted) return;
       setState(() => _downloaded = true);
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.hideCurrentOn(messenger);
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        OpenHandSnackBar.success(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: 'Diff 已下载为 ${p.basename(selectedPath)}',
-            en: 'Diff downloaded as ${p.basename(selectedPath)}',
-          ),
+          zh: 'Diff 已下载为 ${p.basename(selectedPath)}',
+          en: 'Diff downloaded as ${p.basename(selectedPath)}',
         ),
+        kind: OpenHandSnackKind.success,
       );
       _downloadedResetTimer = startSafeTimer(_actionResetDelay, () {
         if (!mounted) return;
@@ -775,19 +760,14 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     } catch (error, stack) {
       silentLog('home_code_highlighting', '下载行内差异', error, stack);
       if (!mounted) return;
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.hideCurrentOn(messenger);
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '下载 Diff 失败。',
-            en: 'Download failed.',
-          ),
+          zh: '下载 Diff 失败。',
+          en: 'Download failed.',
         ),
+        kind: OpenHandSnackKind.error,
       );
     }
   }
@@ -1496,15 +1476,10 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       await setOpenHandClipboardText(widget.content);
       if (!mounted) return;
       setState(() => _copied = true);
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.hideCurrentOn(messenger);
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        OpenHandSnackBar.success(
-          context,
-          openHandLocalizedText(context, zh: '代码块内容已复制。', en: 'Code copied.'),
-        ),
+        openHandLocalizedText(context, zh: '代码块内容已复制。', en: 'Code copied.'),
+        kind: OpenHandSnackKind.success,
       );
       _copiedResetTimer = startSafeTimer(_codeActionResetDelay, () {
         if (!mounted) return;
@@ -1515,19 +1490,14 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       if (!mounted) return;
       _copiedResetTimer?.cancel();
       if (_copied) setState(() => _copied = false);
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.hideCurrentOn(messenger);
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '复制代码块失败。',
-            en: 'Failed to copy code.',
-          ),
+          zh: '复制代码块失败。',
+          en: 'Failed to copy code.',
         ),
+        kind: OpenHandSnackKind.error,
       );
     } finally {
       _copying = false;
@@ -1560,19 +1530,14 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       setState(() {
         _downloaded = true;
       });
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.hideCurrentOn(messenger);
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        OpenHandSnackBar.success(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '代码已下载为 ${p.basename(selectedPath)}',
-            en: 'Code downloaded as ${p.basename(selectedPath)}',
-          ),
+          zh: '代码已下载为 ${p.basename(selectedPath)}',
+          en: 'Code downloaded as ${p.basename(selectedPath)}',
         ),
+        kind: OpenHandSnackKind.success,
       );
       _downloadedResetTimer = startSafeTimer(_codeActionResetDelay, () {
         if (!mounted) {
@@ -1587,15 +1552,10 @@ class _HighlightedCodePanelState extends State<_HighlightedCodePanel> {
       if (!mounted) {
         return;
       }
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.hideCurrentOn(messenger);
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        OpenHandSnackBar.error(
-          context,
-          openHandLocalizedText(context, zh: '下载失败。', en: 'Download failed.'),
-        ),
+        openHandLocalizedText(context, zh: '下载失败。', en: 'Download failed.'),
+        kind: OpenHandSnackKind.error,
       );
     } finally {
       _downloading = false;
@@ -2421,24 +2381,18 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       setState(() {
         _isCleaning = false;
       });
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.hideCurrentOn(messenger);
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '已清理 $deletedCount 个临时 HTML 缓存目录。',
-              zhHant: '已清理 $deletedCount 個臨時 HTML 快取目錄。',
-              en: 'Cleaned $deletedCount temporary HTML cache directories.',
-              fr: '$deletedCount dossiers de cache HTML temporaires nettoyés.',
-              de: '$deletedCount temporäre HTML-Cache-Ordner wurden bereinigt.',
-              ja: '$deletedCount 個の一時 HTML キャッシュディレクトリを削除しました。',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: '已清理 $deletedCount 个临时 HTML 缓存目录。',
+          zhHant: '已清理 $deletedCount 個臨時 HTML 快取目錄。',
+          en: 'Cleaned $deletedCount temporary HTML cache directories.',
+          fr: '$deletedCount dossiers de cache HTML temporaires nettoyés.',
+          de: '$deletedCount temporäre HTML-Cache-Ordner wurden bereinigt.',
+          ja: '$deletedCount 個の一時 HTML キャッシュディレクトリを削除しました。',
         ),
+        kind: OpenHandSnackKind.success,
       );
     } catch (e) {
       if (!mounted) {
@@ -2447,7 +2401,6 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       setState(() {
         _isCleaning = false;
       });
-      OpenHandSnackBar.hideCurrentOn(ScaffoldMessenger.of(context));
       showFriendlyErrorSnackBar(
         context,
         message: '$e',
@@ -2483,24 +2436,18 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
       if (!context.mounted) {
         return;
       }
-      final messenger = ScaffoldMessenger.of(context);
-      OpenHandSnackBar.hideCurrentOn(messenger);
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: '无法在浏览器中打开。',
-              zhHant: '無法在瀏覽器中開啟。',
-              en: 'Could not open in browser.',
-              fr: 'Impossible d’ouvrir dans le navigateur.',
-              de: 'Konnte nicht im Browser geöffnet werden.',
-              ja: 'ブラウザで開けませんでした。',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: '无法在浏览器中打开。',
+          zhHant: '無法在瀏覽器中開啟。',
+          en: 'Could not open in browser.',
+          fr: 'Impossible d’ouvrir dans le navigateur.',
+          de: 'Konnte nicht im Browser geöffnet werden.',
+          ja: 'ブラウザで開けませんでした。',
         ),
+        kind: OpenHandSnackKind.error,
       );
     }
   }
@@ -3564,19 +3511,11 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
   }
 
   Future<void> _copySvgMarkup() async {
-    final messenger = ScaffoldMessenger.of(context);
-
     if (mounted) {
-      OpenHandSnackBar.hideCurrentOn(messenger);
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(context, zh: '正在复制 SVG…', en: 'Copying SVG…'),
-          ),
-          duration: const Duration(milliseconds: 700),
-        ),
+        openHandLocalizedText(context, zh: '正在复制 SVG…', en: 'Copying SVG…'),
+        duration: kOpenHandSnackBarBriefDuration,
       );
     }
 
@@ -3584,7 +3523,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     if (svg.isEmpty) {
       final controller = _controller;
       if (controller == null) {
-        _showSvgNotReadySnack(messenger);
+        _showSvgNotReadySnack();
         return;
       }
       try {
@@ -3607,7 +3546,7 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     }
 
     if (svg.isEmpty) {
-      _showSvgNotReadySnack(messenger);
+      _showSvgNotReadySnack();
       return;
     }
 
@@ -3693,7 +3632,6 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     }
 
     if (!mounted) return;
-    OpenHandSnackBar.hideCurrentOn(messenger);
     final pathHint =
         savedPath ??
         openHandLocalizedText(
@@ -3702,42 +3640,36 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
           en: 'temp file write failed',
         );
     if (writeOk && verification.osLayerOk) {
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        OpenHandSnackBar.success(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: 'SVG 已复制（${svgBytes.length} 字节，方法=$writeMethod）。如粘贴异常，可打开文件: $pathHint',
-            en: 'SVG copied (${svgBytes.length}B, method=$writeMethod). If paste fails, file at: $pathHint',
-          ),
-          duration: kOpenHandSnackBarLongReadDuration,
-          maxLines: 4,
+          zh: 'SVG 已复制（${svgBytes.length} 字节，方法=$writeMethod）。如粘贴异常，可打开文件: $pathHint',
+          en: 'SVG copied (${svgBytes.length}B, method=$writeMethod). If paste fails, file at: $pathHint',
         ),
+        kind: OpenHandSnackKind.success,
+        duration: kOpenHandSnackBarLongReadDuration,
+        maxLines: 4,
       );
     } else {
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        messenger,
-        OpenHandSnackBar.error(
+        openHandLocalizedText(
           context,
-          openHandLocalizedText(
-            context,
-            zh: '剪贴板不可信：写 ${svgBytes.length}B, pbpaste 读 ${verification.pbpasteLen}B。SVG 已存到文件: $pathHint，请打开后复制。',
-            en: 'Clipboard unreliable: wrote ${svgBytes.length}B, pbpaste read ${verification.pbpasteLen}B. SVG saved to: $pathHint. Open and copy.',
-          ),
-          duration: kOpenHandSnackBarLongReadDuration,
-          maxLines: 4,
-          action: savedPath == null
-              ? null
-              : SnackBarAction(
-                  label: _homeOpenLabel(context),
-                  onPressed: () {
-                    unawaited(_openSavedSvgFile(savedPath!));
-                  },
-                ),
+          zh: '剪贴板不可信：写 ${svgBytes.length}B, pbpaste 读 ${verification.pbpasteLen}B。SVG 已存到文件: $pathHint，请打开后复制。',
+          en: 'Clipboard unreliable: wrote ${svgBytes.length}B, pbpaste read ${verification.pbpasteLen}B. SVG saved to: $pathHint. Open and copy.',
         ),
+        kind: OpenHandSnackKind.error,
+        duration: kOpenHandSnackBarLongReadDuration,
+        maxLines: 4,
+        action: savedPath == null
+            ? null
+            : SnackBarAction(
+                label: _homeOpenLabel(context),
+                onPressed: () {
+                  unawaited(_openSavedSvgFile(savedPath!));
+                },
+              ),
       );
     }
   }
@@ -3797,20 +3729,14 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     );
   }
 
-  void _showSvgNotReadySnack(ScaffoldMessengerState messenger) {
+  void _showSvgNotReadySnack() {
     if (!mounted) return;
-    OpenHandSnackBar.hideCurrentOn(messenger);
-    showOpenHandSnackBarOn(
+    replaceOpenHandSnack(
       context,
-      messenger,
-      SnackBar(
-        content: Text(
-          openHandLocalizedText(
-            context,
-            zh: 'SVG 还未生成，请稍后再试。',
-            en: 'SVG is not ready yet. Please try again.',
-          ),
-        ),
+      openHandLocalizedText(
+        context,
+        zh: 'SVG 还未生成，请稍后再试。',
+        en: 'SVG is not ready yet. Please try again.',
       ),
     );
   }
@@ -3823,14 +3749,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       try {
         await writeOpenHandClipboardImage(pngBytes);
         if (!mounted) return;
-        showOpenHandSnackBarOn(
+        replaceOpenHandSnack(
           context,
-          ScaffoldMessenger.of(context),
-          SnackBar(
-            content: Text(
-              openHandLocalizedText(context, zh: '已复制图像。', en: 'Image copied.'),
-            ),
-          ),
+          openHandLocalizedText(context, zh: '已复制图像。', en: 'Image copied.'),
+          kind: OpenHandSnackKind.success,
         );
         return;
       } catch (error, stack) {
@@ -3842,17 +3764,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     try {
       await writeOpenHandClipboardImage(_svgUtf8Bytes(svg));
       if (!mounted) return;
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        ScaffoldMessenger.of(context),
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: 'PNG 复制失败，已回退复制 SVG 图像。',
-              en: 'PNG copy failed; copied SVG image instead.',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: 'PNG 复制失败，已回退复制 SVG 图像。',
+          en: 'PNG copy failed; copied SVG image instead.',
         ),
       );
     } catch (error, stack) {
@@ -3879,14 +3796,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       if (!mounted || path == null || path.isEmpty) return;
       await writeFileAtomically(File(path), svg);
       if (!mounted) return;
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        ScaffoldMessenger.of(context),
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(context, zh: 'SVG 已导出。', en: 'SVG exported.'),
-          ),
-        ),
+        openHandLocalizedText(context, zh: 'SVG 已导出。', en: 'SVG exported.'),
+        kind: OpenHandSnackKind.success,
       );
     } catch (error, stack) {
       silentLog('home_code_highlighting', '下载 Mermaid SVG', error, stack);
@@ -3897,17 +3810,12 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
     final pngBytes = _decodePngBytes(_pngDataUrl);
     if (pngBytes == null) {
       if (!mounted) return;
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        ScaffoldMessenger.of(context),
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(
-              context,
-              zh: 'PNG 仍未就绪，请稍后重试。',
-              en: 'PNG is not ready yet. Please try again.',
-            ),
-          ),
+        openHandLocalizedText(
+          context,
+          zh: 'PNG 仍未就绪，请稍后重试。',
+          en: 'PNG is not ready yet. Please try again.',
         ),
       );
       return;
@@ -3927,14 +3835,10 @@ class _MermaidDiagramViewState extends State<_MermaidDiagramView> {
       if (!mounted || path == null || path.isEmpty) return;
       await writeBytesFileAtomically(File(path), pngBytes);
       if (!mounted) return;
-      showOpenHandSnackBarOn(
+      replaceOpenHandSnack(
         context,
-        ScaffoldMessenger.of(context),
-        SnackBar(
-          content: Text(
-            openHandLocalizedText(context, zh: 'PNG 已导出。', en: 'PNG exported.'),
-          ),
-        ),
+        openHandLocalizedText(context, zh: 'PNG 已导出。', en: 'PNG exported.'),
+        kind: OpenHandSnackKind.success,
       );
     } catch (error, stack) {
       silentLog('home_code_highlighting', '下载 Mermaid PNG', error, stack);
