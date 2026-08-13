@@ -2770,6 +2770,17 @@ impl HuntEngine {
                 format!("命中 {} 凭证上下文。", finding.vendor)
             });
             item_evidence.extend(validation.evidence);
+            // 防御处置提示：仅对经验证为活跃的泄露凭证给出可执行的轮换建议，
+            // 蜜罐/未确认项不提示以免误导。纯派生自验证结果，不发起额外请求、不查余额、不复用。
+            match category {
+                ResultCategory::HighValue => item_evidence.push(
+                    "高危泄露：凭证已验证为活跃且可列举模型，建议立即轮换并排查调用记录。".to_owned(),
+                ),
+                ResultCategory::Valid => {
+                    item_evidence.push("泄露凭证已验证为活跃，建议尽快轮换。".to_owned())
+                }
+                ResultCategory::Suspicious | ResultCategory::Honeypot => {}
+            }
             results.push(ScanResult {
                 id: Uuid::new_v4(),
                 job_id,
