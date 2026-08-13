@@ -1277,7 +1277,7 @@ class _DependencyRecordListState extends State<_DependencyRecordList> {
         thumbVisibility: true,
         interactive: true,
         thickness: 5,
-        radius: const Radius.circular(99),
+        radius: const Radius.circular(kOpenHandRadiusPill),
         scrollbarOrientation: ScrollbarOrientation.right,
         child: ListView(
           controller: _controller,

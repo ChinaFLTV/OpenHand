@@ -227,33 +227,37 @@ class AiExposurePreferencesStore {
   ) async {
     if (endpoints.isEmpty) return;
     final updatedAt = DateTime.now().toUtc().toIso8601String();
-    final batch = _database.batch();
-    for (final endpoint in endpoints) {
-      batch.insert(_statisticsTable, <String, Object?>{
-        'endpoint_url': endpoint.url,
-        'statistics_json': jsonEncode(endpoint.statistics.toJson()),
-        'updated_at': updatedAt,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
-    }
-    await batch.commit(noResult: true);
+    await _database.transaction((transaction) async {
+      final batch = transaction.batch();
+      for (final endpoint in endpoints) {
+        batch.insert(_statisticsTable, <String, Object?>{
+          'endpoint_url': endpoint.url,
+          'statistics_json': jsonEncode(endpoint.statistics.toJson()),
+          'updated_at': updatedAt,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
+    });
   }
 
   Future<void> saveProxySamples(List<AiExposureProxyEndpoint> endpoints) async {
     if (endpoints.isEmpty) return;
     final updatedAt = DateTime.now().toUtc().toIso8601String();
-    final batch = _database.batch();
-    for (final endpoint in endpoints) {
-      batch.insert(_samplesTable, <String, Object?>{
-        'endpoint_url': endpoint.url,
-        'samples_json': jsonEncode(
-          endpoint.samples
-              .map((sample) => sample.toJson())
-              .toList(growable: false),
-        ),
-        'updated_at': updatedAt,
-      }, conflictAlgorithm: ConflictAlgorithm.replace);
-    }
-    await batch.commit(noResult: true);
+    await _database.transaction((transaction) async {
+      final batch = transaction.batch();
+      for (final endpoint in endpoints) {
+        batch.insert(_samplesTable, <String, Object?>{
+          'endpoint_url': endpoint.url,
+          'samples_json': jsonEncode(
+            endpoint.samples
+                .map((sample) => sample.toJson())
+                .toList(growable: false),
+          ),
+          'updated_at': updatedAt,
+        }, conflictAlgorithm: ConflictAlgorithm.replace);
+      }
+      await batch.commit(noResult: true);
+    });
   }
 
   Future<void> saveProxyRequestHistory(

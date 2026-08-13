@@ -340,7 +340,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                                     controller: _endpointScrollController,
                                     thumbVisibility: true,
                                     thickness: 5,
-                                    radius: const Radius.circular(99),
+                                    radius: const Radius.circular(kOpenHandRadiusPill),
                                     interactive: true,
                                     scrollbarOrientation:
                                         ScrollbarOrientation.right,

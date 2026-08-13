@@ -273,7 +273,7 @@ class _DistributionDetailRow extends StatelessWidget {
   Widget build(BuildContext context) {
     final share = total <= 0 ? 0.0 : item.value / total;
     final bar = ClipRRect(
-      borderRadius: BorderRadius.circular(99),
+      borderRadius: BorderRadius.circular(kOpenHandRadiusPill),
       child: ServiceAnimatedProgressBar(
         value: share,
         minHeight: 9,
@@ -550,7 +550,7 @@ class _InsightListViewportState extends State<_InsightListViewport> {
         thumbVisibility: true,
         interactive: true,
         thickness: 5,
-        radius: const Radius.circular(99),
+        radius: const Radius.circular(kOpenHandRadiusPill),
         scrollbarOrientation: ScrollbarOrientation.right,
         child: SingleChildScrollView(
           controller: _controller,
@@ -647,7 +647,7 @@ class _InsightRecordRow extends StatelessWidget {
             margin: const EdgeInsets.only(top: 2, right: 10),
             decoration: BoxDecoration(
               color: record.color,
-              borderRadius: BorderRadius.circular(99),
+              borderRadius: BorderRadius.circular(kOpenHandRadiusPill),
             ),
           ),
           Container(
@@ -716,7 +716,7 @@ class _InsightMiniTag extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(99),
+        borderRadius: BorderRadius.circular(kOpenHandRadiusPill),
         border: Border.all(
           color: colors.outlineVariant.withValues(alpha: 0.55),
         ),
@@ -1303,7 +1303,7 @@ class _InsightRankingSectionState extends State<_InsightRankingSection> {
                               ),
                               kOpenHandGap7,
                               ClipRRect(
-                                borderRadius: BorderRadius.circular(99),
+                                borderRadius: BorderRadius.circular(kOpenHandRadiusPill),
                                 child: ServiceAnimatedProgressBar(
                                   value: maxValue <= 0
                                       ? 0

@@ -27,6 +27,10 @@ const Duration _kProxyInspectionFirstRunDelay = Duration(seconds: 10);
 const Duration _kProxyStatisticsSyncInterval = Duration(seconds: 5);
 const Duration _kEventStreamReconnectBaseDelay = Duration(seconds: 1);
 const Duration _kRuntimeOperationDrainTimeout = Duration(seconds: 3);
+const List<String> _kScanReaderFailureMarkers = <String>[
+  'Jina Reader',
+  '页面读取失败',
+];
 
 typedef AiExposureProxyInspectionResultCallback =
     void Function(
@@ -778,6 +782,8 @@ class ServicesController extends ChangeNotifier {
   Future<void> stopScan() async {
     final jobId = _progress?.jobId;
     if (jobId == null || jobId.isEmpty || !hasActiveScan) return;
+    _eventStreamReconnectAttempts = 0;
+    unawaited(_cancelEventSubscription());
     try {
       await _requireClient().stopJob(jobId);
     } catch (error, stack) {
@@ -1054,6 +1060,11 @@ class ServicesController extends ChangeNotifier {
     Future<bool> persistCheckpoint({required bool force}) async {
       if (persistenceFailed) return false;
       while (persistence != null) {
+        if (_disposed ||
+            generation != _proxyInspectionGeneration ||
+            _proxyInspectionCancelRequested) {
+          return false;
+        }
         if (!await persistence!) return false;
       }
       if (persistenceFailed) return false;
@@ -1586,6 +1597,7 @@ class ServicesController extends ChangeNotifier {
         .listen(
           (event) {
             if (!_disposed && generation == _eventSubscriptionGeneration) {
+              _eventStreamReconnectAttempts = 0;
               if (_errorMessage == _eventStreamErrorMessage) {
                 _errorMessage = null;
               }
@@ -1675,7 +1687,9 @@ class ServicesController extends ChangeNotifier {
         progress.discovered == 0 &&
         progress.candidates == 0) {
       final hasReaderFailure = _logs.any(
-        (entry) => entry.message.contains('Jina Reader') || entry.message.contains('页面读取失败'),
+        (entry) => _kScanReaderFailureMarkers.any(
+          (marker) => entry.message.contains(marker),
+        ),
       );
       _errorMessage = hasReaderFailure
           ? '扫描完成但未发现目标，页面抓取失败。请检查系统代理设置后重试。'
@@ -1721,6 +1735,11 @@ class ServicesController extends ChangeNotifier {
         }
       }
     } catch (error, stack) {
+      if (_disposed ||
+          _client == null ||
+          generation != _eventSubscriptionGeneration) {
+        return;
+      }
       _eventStreamErrorMessage = '同步扫描任务状态失败。';
       _errorMessage = _eventStreamErrorMessage;
       silentLog('services_controller', '同步扫描任务最终状态', error, stack);
@@ -1766,6 +1785,14 @@ class ServicesController extends ChangeNotifier {
 
   void _appendLog(AiExposureLogEntry entry) {
     if (entry.message.trim().isEmpty) return;
+    final id = entry.id;
+    if (id != null && id.isNotEmpty) {
+      final index = _logs.indexWhere((item) => item.id == id);
+      if (index >= 0) {
+        _logs[index] = entry;
+        return;
+      }
+    }
     _logs.add(entry);
     if (_logs.length > _kAiExposureMaxLogs) {
       _logs.removeRange(0, _logs.length - _kAiExposureMaxLogs);
@@ -1778,6 +1805,8 @@ class ServicesController extends ChangeNotifier {
     _proxyStatisticsTimer = null;
     _managedDependencyListenerSyncQueue.discardPending();
     _systemProxySyncPending = false;
+    _scanBusy = false;
+    _logRefreshBusy = false;
     unawaited(_cancelEventSubscription());
     _eventStreamReconnectAttempts = 0;
     if (_errorMessage == _eventStreamErrorMessage) _errorMessage = null;

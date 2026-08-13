@@ -16,6 +16,7 @@ const List<({String host, int port})> _kProxyProbeTargets = [
   (host: 'connectivitycheck.gstatic.com', port: 443),
 ];
 const String _kProxyUserAgent = 'OpenHand-Proxy-Probe';
+const String _kProxyAuthFailureMessage = '代理认证失败，请核对用户名、密码或供应商认证方式。';
 const String _kProxyIdentityHttpsUrl = 'https://ipwho.is/';
 const String _kProxyIdentityHttpUrl = 'http://ipwho.is/';
 const List<int> _kHttpLineBreak = <int>[0x0d, 0x0a];
@@ -178,6 +179,10 @@ class AiExposureProxyProbe {
       throw const FormatException('代理身份查询的 TLS 握手失败');
     } on SocketException {
       throw const FormatException('代理网关未完成身份查询转发，请检查供应商线路或节点状态。');
+    } on FormatException {
+      rethrow;
+    } catch (error) {
+      throw FormatException('代理身份查询失败：$error');
     }
   }
 }
@@ -186,7 +191,7 @@ class AiExposureProxyProbe {
 /// 返回 null 表示非认证类状态码，由调用方自行处理。
 String? _proxyIdentityAuthError(int? status) {
   if (status == 401 || status == 407) {
-    return '代理认证失败，请核对用户名、密码或供应商认证方式。';
+    return _kProxyAuthFailureMessage;
   }
   return null;
 }
@@ -322,7 +327,7 @@ _ProxyProbeAttempt _statusFailure(int statusCode) {
       gatewayReachable: true,
       statusCode: statusCode,
       failure: AiExposureProxyProbeFailure.authentication,
-      error: '代理认证失败，请核对用户名、密码或供应商认证方式。',
+      error: _kProxyAuthFailureMessage,
       retryable: false,
     );
   }

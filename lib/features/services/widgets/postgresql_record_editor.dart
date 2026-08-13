@@ -257,7 +257,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
               thumbVisibility: true,
               interactive: true,
               thickness: 5,
-              radius: const Radius.circular(99),
+              radius: const Radius.circular(kOpenHandRadiusPill),
               scrollbarOrientation: ScrollbarOrientation.right,
               child: SingleChildScrollView(
                 controller: _scrollController,
@@ -782,7 +782,7 @@ class _TypeBadge extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surfaceContainerHighest,
-      borderRadius: BorderRadius.circular(999),
+      borderRadius: BorderRadius.circular(kOpenHandRadiusPill),
     ),
     child: Padding(
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
