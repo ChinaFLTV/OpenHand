@@ -24,10 +24,16 @@ use tokio::{io::AsyncWriteExt, process::Command, sync::Semaphore, time::timeout}
 
 const MAX_SOURCE_RESULTS: usize = 1_000;
 const DEFAULT_PAGE_SIZE: usize = 100;
+// 单个数据源的分页上限与页间延时：与 MAX_SOURCE_RESULTS 共同构成双重上界，
+// 页间短暂延时以尊重外部配额/限速，杜绝无限翻页与无节制请求。
+const MAX_DISCOVERY_PAGES: usize = 5;
+const DISCOVERY_PAGE_DELAY: Duration = Duration::from_millis(300);
 const MAX_SOURCE_RESPONSE_BYTES: usize = 2 * 1024 * 1024;
 const MAX_GITHUB_FILE_BYTES: usize = 512 * 1024;
 const MAX_ARTIFACT_CONTEXT_BYTES: usize = 16 * 1024;
 const GITHUB_CONTENT_CONCURRENCY: usize = 6;
+// 分页累积的 GitHub 公开检索项上限，约束后续逐项内容拉取对 GitHub API 的用量。
+const MAX_GITHUB_SEARCH_RESULTS: usize = 300;
 const MAX_GIT_REPOSITORIES: usize = 5;
 const MAX_GIT_FILES_PER_REPOSITORY: usize = 8;
 const GIT_REPOSITORY_CONCURRENCY: usize = 3;
@@ -1298,29 +1304,58 @@ impl AssetSource for GithubSource {
         let query = source_query(request, query_key)
             .or_else(|| source_query(request, "github"))
             .unwrap_or_else(|| default_github_query(request));
-        let response = self
-            .client
-            .get("https://api.github.com/search/code")
-            .header("Accept", "application/vnd.github+json")
-            .header("X-GitHub-Api-Version", "2022-11-28")
-            .bearer_auth(token.expose_secret())
-            .query(&[("q", query), ("per_page", DEFAULT_PAGE_SIZE.to_string())])
-            .send()
-            .await
-            .map_err(|_| SourceError::Transport("GitHub"))?;
-        let http_status = response.status();
-        ensure_success("GitHub", http_status)?;
-        let search = parse_json_limited::<GithubSearchResponse>("GitHub", response).await?;
-        // fail-closed 过滤非公开仓库，仅保留明确公开的检索结果，并限制单页数量。
+        let per_page = DEFAULT_PAGE_SIZE.to_string();
+        // fail-closed 过滤非公开仓库；有界分页跨页累积公开检索项，首页错误上抛、
+        // 后续页错误保留已得项；页间延时；累积上限约束后续内容拉取对 GitHub API 的用量。
         let mut public_items = Vec::new();
         let mut skipped_private = 0_usize;
-        for item in search.items {
-            if item.is_public() {
-                if public_items.len() < DEFAULT_PAGE_SIZE {
-                    public_items.push(item);
+        for page in 1..=MAX_DISCOVERY_PAGES {
+            if page > 1 {
+                tokio::time::sleep(DISCOVERY_PAGE_DELAY).await;
+            }
+            let page_str = page.to_string();
+            let response = match self
+                .client
+                .get("https://api.github.com/search/code")
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .bearer_auth(token.expose_secret())
+                .query(&[
+                    ("q", query.as_str()),
+                    ("per_page", per_page.as_str()),
+                    ("page", page_str.as_str()),
+                ])
+                .send()
+                .await
+            {
+                Ok(response) => response,
+                Err(_) if page == 1 => return Err(SourceError::Transport("GitHub")),
+                Err(_) => break,
+            };
+            let http_status = response.status();
+            if !http_status.is_success() {
+                if page == 1 {
+                    ensure_success("GitHub", http_status)?;
                 }
-            } else {
-                skipped_private += 1;
+                break;
+            }
+            let search = match parse_json_limited::<GithubSearchResponse>("GitHub", response).await {
+                Ok(search) => search,
+                Err(error) if page == 1 => return Err(error),
+                Err(_) => break,
+            };
+            let item_count = search.items.len();
+            for item in search.items {
+                if item.is_public() {
+                    if public_items.len() < MAX_GITHUB_SEARCH_RESULTS {
+                        public_items.push(item);
+                    }
+                } else {
+                    skipped_private += 1;
+                }
+            }
+            if public_items.len() >= MAX_GITHUB_SEARCH_RESULTS || item_count < DEFAULT_PAGE_SIZE {
+                break;
             }
         }
         let client = self.client.clone();
@@ -1832,41 +1867,71 @@ impl AssetSource for FofaSource {
     ) -> Result<SourceDiscovery, SourceError> {
         let (email, key) = fofa_credentials(credentials)?;
         let query = source_query(request, "fofa").unwrap_or_else(|| default_fofa_query(request));
-        let response = self
-            .client
-            .get("https://fofa.info/api/v1/search/all")
-            .query(&[
-                ("email", email.expose_secret().to_owned()),
-                ("key", key.expose_secret().to_owned()),
-                ("qbase64", STANDARD.encode(query)),
-                ("size", DEFAULT_PAGE_SIZE.to_string()),
-                ("fields", "host,ip,port,protocol".to_owned()),
-            ])
-            .send()
-            .await
-            .map_err(|_| SourceError::Transport("FOFA"))?;
-        let http_status = response.status();
-        ensure_success("FOFA", http_status)?;
-        let body = parse_json_limited::<FofaSearchResponse>("FOFA", response).await?;
-        if body.error {
-            return Err(SourceError::Other(anyhow::anyhow!(
-                "FOFA 查询失败：{}",
-                body.errmsg.unwrap_or_else(|| "未知错误".to_owned())
-            )));
+        let encoded_query = STANDARD.encode(query);
+        let mut candidates = Vec::new();
+        // 有界分页：首页错误视为数据源不可用向上返回，后续页错误则保留已获取结果，
+        // 页间延时并受 MAX_SOURCE_RESULTS 上界约束，避免丢弃已得数据与无限翻页。
+        for page in 1..=MAX_DISCOVERY_PAGES {
+            if page > 1 {
+                tokio::time::sleep(DISCOVERY_PAGE_DELAY).await;
+            }
+            let response = match self
+                .client
+                .get("https://fofa.info/api/v1/search/all")
+                .query(&[
+                    ("email", email.expose_secret().to_owned()),
+                    ("key", key.expose_secret().to_owned()),
+                    ("qbase64", encoded_query.clone()),
+                    ("size", DEFAULT_PAGE_SIZE.to_string()),
+                    ("page", page.to_string()),
+                    ("fields", "host,ip,port,protocol".to_owned()),
+                ])
+                .send()
+                .await
+            {
+                Ok(response) => response,
+                Err(_) if page == 1 => return Err(SourceError::Transport("FOFA")),
+                Err(_) => break,
+            };
+            let http_status = response.status();
+            if !http_status.is_success() {
+                if page == 1 {
+                    ensure_success("FOFA", http_status)?;
+                }
+                break;
+            }
+            let body = match parse_json_limited::<FofaSearchResponse>("FOFA", response).await {
+                Ok(body) => body,
+                Err(error) if page == 1 => return Err(error),
+                Err(_) => break,
+            };
+            if body.error {
+                if page == 1 {
+                    return Err(SourceError::Other(anyhow::anyhow!(
+                        "FOFA 查询失败：{}",
+                        body.errmsg.unwrap_or_else(|| "未知错误".to_owned())
+                    )));
+                }
+                break;
+            }
+            let page_len = body.results.len();
+            candidates.extend(
+                body.results
+                    .into_iter()
+                    .filter_map(|row| row.first().and_then(value_as_string))
+                    .map(|target| Candidate {
+                        source: SourceKind::Fofa,
+                        target,
+                        discovered_at: Utc::now(),
+                        metadata: BTreeMap::new(),
+                    }),
+            );
+            if candidates.len() >= MAX_SOURCE_RESULTS || page_len < DEFAULT_PAGE_SIZE {
+                break;
+            }
         }
-        Ok(SourceDiscovery::new(
-            body.results
-                .into_iter()
-                .filter_map(|row| row.first().and_then(value_as_string))
-                .take(MAX_SOURCE_RESULTS)
-                .map(|target| Candidate {
-                    source: SourceKind::Fofa,
-                    target,
-                    discovered_at: Utc::now(),
-                    metadata: BTreeMap::new(),
-                })
-                .collect(),
-        ))
+        candidates.truncate(MAX_SOURCE_RESULTS);
+        Ok(SourceDiscovery::new(candidates))
     }
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
@@ -1952,40 +2017,65 @@ impl AssetSource for ShodanSource {
             .ok_or(SourceError::MissingCredential("Shodan"))?;
         let query =
             source_query(request, "shodan").unwrap_or_else(|| default_shodan_query(request));
-        let response = self
-            .client
-            .get("https://api.shodan.io/shodan/host/search")
-            .query(&[("key", key.expose_secret()), ("query", query.as_str())])
-            .send()
-            .await
-            .map_err(|_| SourceError::Transport("Shodan"))?;
-        let http_status = response.status();
-        ensure_success("Shodan", http_status)?;
-        let body = parse_json_limited::<ShodanSearchResponse>("Shodan", response).await?;
-        Ok(SourceDiscovery::new(
-            body.matches
-                .into_iter()
-                .flat_map(|item| {
-                    let scheme = if item.ssl.is_some() || matches!(item.port, 443 | 8443 | 9443) {
-                        "https"
-                    } else {
-                        "http"
-                    };
-                    let transport = item.transport.unwrap_or_else(|| "tcp".to_owned());
-                    let mut hosts = vec![item.ip_str];
-                    hosts.extend(item.hostnames.unwrap_or_default().into_iter().take(5));
-                    hosts.sort();
-                    hosts.dedup();
-                    hosts.into_iter().map(move |host| Candidate {
-                        source: SourceKind::Shodan,
-                        target: format!("{scheme}://{host}:{}", item.port),
-                        discovered_at: Utc::now(),
-                        metadata: BTreeMap::from([("transport".to_owned(), transport.clone())]),
-                    })
+        let mut candidates = Vec::new();
+        // 有界分页：首页错误上抛，后续页错误保留已得结果；页间延时；受 MAX_SOURCE_RESULTS 约束。
+        for page in 1..=MAX_DISCOVERY_PAGES {
+            if page > 1 {
+                tokio::time::sleep(DISCOVERY_PAGE_DELAY).await;
+            }
+            let page_str = page.to_string();
+            let response = match self
+                .client
+                .get("https://api.shodan.io/shodan/host/search")
+                .query(&[
+                    ("key", key.expose_secret()),
+                    ("query", query.as_str()),
+                    ("page", page_str.as_str()),
+                ])
+                .send()
+                .await
+            {
+                Ok(response) => response,
+                Err(_) if page == 1 => return Err(SourceError::Transport("Shodan")),
+                Err(_) => break,
+            };
+            let http_status = response.status();
+            if !http_status.is_success() {
+                if page == 1 {
+                    ensure_success("Shodan", http_status)?;
+                }
+                break;
+            }
+            let body = match parse_json_limited::<ShodanSearchResponse>("Shodan", response).await {
+                Ok(body) => body,
+                Err(error) if page == 1 => return Err(error),
+                Err(_) => break,
+            };
+            let match_count = body.matches.len();
+            candidates.extend(body.matches.into_iter().flat_map(|item| {
+                let scheme = if item.ssl.is_some() || matches!(item.port, 443 | 8443 | 9443) {
+                    "https"
+                } else {
+                    "http"
+                };
+                let transport = item.transport.unwrap_or_else(|| "tcp".to_owned());
+                let mut hosts = vec![item.ip_str];
+                hosts.extend(item.hostnames.unwrap_or_default().into_iter().take(5));
+                hosts.sort();
+                hosts.dedup();
+                hosts.into_iter().map(move |host| Candidate {
+                    source: SourceKind::Shodan,
+                    target: format!("{scheme}://{host}:{}", item.port),
+                    discovered_at: Utc::now(),
+                    metadata: BTreeMap::from([("transport".to_owned(), transport.clone())]),
                 })
-                .take(MAX_SOURCE_RESULTS)
-                .collect(),
-        ))
+            }));
+            if candidates.len() >= MAX_SOURCE_RESULTS || match_count < DEFAULT_PAGE_SIZE {
+                break;
+            }
+        }
+        candidates.truncate(MAX_SOURCE_RESULTS);
+        Ok(SourceDiscovery::new(candidates))
     }
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
