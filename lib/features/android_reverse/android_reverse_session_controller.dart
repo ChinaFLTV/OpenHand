@@ -1276,7 +1276,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
     );
   }
 
-  Future<AdbCommandResult> startNetworkCapture({int port = 8080}) {
+  Future<AdbCommandResult> startNetworkCapture({int port = kDefaultMitmProxyPort}) {
     if (!isRunning) {
       return Future<AdbCommandResult>.value(
         const AdbCommandResult(

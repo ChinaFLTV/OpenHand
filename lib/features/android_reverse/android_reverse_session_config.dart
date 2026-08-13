@@ -2,6 +2,9 @@ import '../../shared/util/input_value_parsing.dart';
 
 const int _kAndroidPackageNameMaxLength = 220;
 
+/// mitmproxy 默认监听端口。
+const int kDefaultMitmProxyPort = 8080;
+
 /// Android 包名形态校验（如 com.example.app）：至少两段、每段以字母开头。
 /// 预编译正则供高频 ADB 路径复用。
 final RegExp _androidPackageNamePattern = RegExp(

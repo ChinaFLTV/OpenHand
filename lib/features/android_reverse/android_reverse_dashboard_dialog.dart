@@ -744,7 +744,7 @@ class _AndroidReverseDashboardDialogState
     _pullRemoteCtrl.text = '/sdcard/Download/';
     _pullLocalCtrl.text = _ctrl.artifactsRootDir;
     _networkProxyHostCtrl.text = '10.0.2.2';
-    _networkProxyPortCtrl.text = '8080';
+    _networkProxyPortCtrl.text = kDefaultMitmProxyPort.toString();
     _mitmCertPathCtrl.text = '~/.mitmproxy/mitmproxy-ca-cert.pem';
     _ctrl.addListener(_onControllerChanged);
     _fridaScriptCtrl.addListener(_onFridaScriptChanged);
@@ -1974,7 +1974,7 @@ class _AndroidReverseDashboardDialogState
       if (!mounted) return;
       final command =
           'OPENHAND_NETWORK_JSONL=${posixShellQuoteIfNeeded(_ctrl.networkJsonlPath)} '
-          'mitmdump -p 8080 -s ${posixShellQuoteIfNeeded(addonPath)} '
+          'mitmdump -p $kDefaultMitmProxyPort -s ${posixShellQuoteIfNeeded(addonPath)} '
           '-w ${posixShellQuoteIfNeeded('${_ctrl.networkDir}/flows.mitm')}';
       setState(() {
         _networkAddonOutput = [
