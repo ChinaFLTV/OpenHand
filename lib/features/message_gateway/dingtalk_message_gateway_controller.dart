@@ -213,6 +213,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       <String, DateTime>{};
   final Map<String, int> _responsePreparingCounts = <String, int>{};
   final Map<String, String> _responseErrors = <String, String>{};
+  final Set<String> _pendingInitialContextHydration = <String>{};
 
   /// 每次停止响应都会递增。正在执行的响应携带启动时版本，前置异步
   /// 阶段完成后若版本已变化，立即结束本轮，避免停止后继续发起 AI 请求。
@@ -769,6 +770,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _conversationHistoryStates.remove(conversationId);
     _conversationReconcileFailures.remove(conversationId);
     _conversationRefreshInFlight.remove(conversationId);
+    _pendingInitialContextHydration.remove(conversationId);
     if (!_activeResponseConversationIds.contains(conversationId) &&
         !_responseInFlight.contains(conversationId) &&
         !_responseQueues.containsKey(conversationId)) {
@@ -1529,6 +1531,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     _conversationReconcileFailures.clear();
     _pendingRecalledMessageIds.clear();
     _pendingStatusEvents.clear();
+    _pendingInitialContextHydration.clear();
     _unresolvedOutgoingMessageIds.clear();
     _notify();
     late final Future<void> task;
@@ -2516,17 +2519,27 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       return;
     }
     final localConversation = _conversationForIncomingMessage(incoming);
-    // 事件/全局消息查询可能在用户打开会话前先收到并记入 seen 集合。
-    // 只要当前会话已经打开，仍需把这条消息补入本地列表；seen 只能阻止
-    // 没有目标会话的重复事件，不能阻止已打开会话的历史补偿同步。
-    if (_seenMessageIds.contains(messageId) && localConversation == null) {
-      return;
-    }
     final allowedTarget = _targetForIncomingMessage(
       incoming,
       localConversation,
     );
     if (allowedTarget == null) return;
+    final shouldRespond = _shouldAutomaticallyRespondToMessage(
+      incoming,
+      allowResponse: allowResponse,
+    );
+    // 同一条群消息可能先从全量查询进入，再从 @我查询补齐标记。
+    // 触发条件成立时允许穿透全局去重，避免漏建会话。
+    if (_seenMessageIds.contains(messageId) &&
+        localConversation == null &&
+        !shouldRespond) {
+      return;
+    }
+    // 未打开的会话只由启动后的有效响应消息创建；普通群消息不污染左侧列表。
+    if (localConversation == null && !shouldRespond) {
+      _remember(messageId);
+      return;
+    }
     if (!allowHistorical &&
         localConversation != null &&
         incoming.createdAt.isBefore(
@@ -2542,6 +2555,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         (incoming.conversationType == DingTalkConversationType.group
             ? incoming.conversationId
             : allowedTarget.id);
+    final createdConversation = localConversation == null;
     final conversation =
         localConversation ??
         _conversations.putIfAbsent(
@@ -2574,19 +2588,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       }
     }
     _appendMessage(conversation, incoming);
-    _applyPendingStatusEvents(conversation, messageId);
-    _unreadCount += 1;
-    if (_settings.reminderMode == DingTalkReminderMode.sound) {
-      unawaited(SystemSound.play(SystemSoundType.alert));
+    if (createdConversation) {
+      _pendingInitialContextHydration.add(conversation.id);
     }
-    final shouldRespond = _canRespondToMessage(incoming);
+    _applyPendingStatusEvents(conversation, messageId);
+    if (allowResponse) {
+      _unreadCount += 1;
+      if (_settings.reminderMode == DingTalkReminderMode.sound) {
+        unawaited(SystemSound.play(SystemSoundType.alert));
+      }
+    }
     if (!allowHistorical && incoming.media.isNotEmpty && !shouldRespond) {
       unawaited(_cacheIncomingMedia(conversation, incoming));
     }
-    if (!incoming.recalled &&
-        shouldRespond &&
-        allowResponse &&
-        _isAutomaticResponseEligible(incoming)) {
+    if (shouldRespond) {
       _enqueueIncomingMessage(conversation, incoming);
     }
     _notify();
@@ -2952,6 +2967,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   Future<int?> _reconcileConversationNow(
     DingTalkConversation conversation, {
     bool force = false,
+    bool allowResponses = true,
+    bool reportError = true,
+    DateTime? before,
   }) async {
     if (_disposed || !_isPolling) return null;
     if (force) {
@@ -2976,7 +2994,10 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     final task = () async {
       try {
-        final page = await _queryRecentConversation(conversation);
+        final page = await _queryRecentConversation(
+          conversation,
+          before: before,
+        );
         if (_disposed ||
             !_isPolling ||
             !identical(_conversations[conversation.id], conversation)) {
@@ -2990,7 +3011,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
         state
           ..hasMore = page.hasMore
           ..initialized = true;
-        return _ingestReconciledMessages(conversation, page.messages);
+        return _ingestReconciledMessages(
+          conversation,
+          page.messages,
+          allowResponses: allowResponses,
+        );
       } catch (error, stack) {
         if (_disposed || !_isPolling) return null;
         final now = DateTime.now();
@@ -3036,7 +3061,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               errorKey: errorKey,
               lastLoggedAt: shouldLog ? now : previous?.lastLoggedAt ?? now,
             );
-        if (force) {
+        if (force && reportError) {
           _setError('刷新当前钉钉会话', error, stack);
         } else if (shouldLog) {
           silentLog('dingtalk_gateway', '对账钉钉会话消息', error, stack);
@@ -3056,8 +3081,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   int _ingestReconciledMessages(
     DingTalkConversation conversation,
-    List<DingTalkGatewayMessage> messages,
-  ) {
+    List<DingTalkGatewayMessage> messages, {
+    bool allowResponses = true,
+  }) {
     final initialMessageCount = conversation.messages.length;
     if (conversation.type == DingTalkConversationType.direct &&
         (conversation.openConversationId?.trim().isEmpty ?? true)) {
@@ -3082,7 +3108,9 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final isNew = messageId.isNotEmpty && !knownIds.contains(messageId);
       _handleIncomingMessage(
         message,
-        allowResponse: !isNew || !message.createdAt.isBefore(recentCutoff),
+        allowResponse:
+            allowResponses &&
+            (!isNew || !message.createdAt.isBefore(recentCutoff)),
         allowHistorical: true,
       );
     }
@@ -3325,6 +3353,16 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     }
     return message.conversationType == DingTalkConversationType.direct ||
         message.mentionedCurrentUser;
+  }
+
+  bool _shouldAutomaticallyRespondToMessage(
+    DingTalkGatewayMessage message, {
+    required bool allowResponse,
+  }) {
+    return allowResponse &&
+        !message.recalled &&
+        _canRespondToMessage(message) &&
+        _isAutomaticResponseEligible(message);
   }
 
   bool _isAutomaticResponseEligible(
@@ -5012,6 +5050,19 @@ ${_markdownStructuredFields(response)}''';
       if (!_disposed && !_shutdownRequested) {
         final preparationVersion =
             _responseCancellationVersions[conversation.id] ?? 0;
+        if (item.automaticResponse &&
+            _pendingInitialContextHydration.remove(conversation.id)) {
+          await _reconcileConversationNow(
+            conversation,
+            force: true,
+            allowResponses: false,
+            reportError: false,
+            before: item.scheduledAt,
+          );
+          if (_isResponseCancelled(conversation.id, preparationVersion)) {
+            return;
+          }
+        }
         var source = conversation.messages
             .where((message) => message.id == item.sourceMessageId)
             .firstOrNull;
@@ -5447,6 +5498,7 @@ ${_markdownStructuredFields(response)}''';
     _conversationReconcileFailures.clear();
     _conversationHistoryStates.clear();
     _conversationRefreshInFlight.clear();
+    _pendingInitialContextHydration.clear();
     _mediaHydrationFailures.clear();
     _targetSearchCache.clear();
     await _stopEventListening();
