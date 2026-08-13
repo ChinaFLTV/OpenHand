@@ -22,6 +22,8 @@ import '../../../shared/util/version_compare.dart';
 enum HarnessCliAuthProbeMode { commandExitCode, localStateFile }
 
 const int _localAuthStateMaxBytes = 2 * 1024 * 1024;
+const String _kDiagBeginMarker = '__OPENHAND_DIAG_BEGIN__';
+const String _kDiagEndMarker = '__OPENHAND_DIAG_END__';
 const BoundedDeletePolicy _localAuthStateDeletePolicy = BoundedDeletePolicy(
   maxEntries: 1,
   maxDepth: 0,
@@ -767,7 +769,7 @@ Future<List<String>> collectHarnessCliFailureDiagnostics(
   try {
     final quotedExecutable = _q(executable);
     final result = await runHarnessCliShellCommand('''
-printf '%s\\n' '__OPENHAND_DIAG_BEGIN__'
+printf '%s\\n' _kDiagBeginMarker
 printf 'shell=%s\\n' "\${SHELL:-}"
 if command -v $quotedExecutable >/dev/null 2>&1; then
   printf 'executable=%s\\n' "\$(command -v $quotedExecutable)"
@@ -781,7 +783,7 @@ else
   printf 'node=\\n'
   printf 'node_version=\\n'
 fi
-printf '%s\\n' '__OPENHAND_DIAG_END__'
+printf '%s\\n' _kDiagEndMarker
 ''', timeout: _kHarnessCliLookupTimeout);
 
     final diagnostics = _extractHarnessCliDiagnostics('${result.stdout}');
@@ -950,11 +952,11 @@ Map<String, String> _extractHarnessCliDiagnostics(String stdout) {
   var inBlock = false;
   for (final rawLine in const LineSplitter().convert(stdout)) {
     final line = rawLine.trim();
-    if (line == '__OPENHAND_DIAG_BEGIN__') {
+    if (line == _kDiagBeginMarker) {
       inBlock = true;
       continue;
     }
-    if (line == '__OPENHAND_DIAG_END__') {
+    if (line == _kDiagEndMarker) {
       break;
     }
     if (!inBlock) {

@@ -19,6 +19,10 @@ import '../sandbox/ai_sandbox_service.dart';
 const Utf8Decoder _shellOutputDecoder = Utf8Decoder(allowMalformed: true);
 const String _capturedOutputTruncatedMarker = '\n...[输出已截断]';
 
+const String _kCmdStartMarkerPrefix = '__OPENHAND_CMD_START__';
+const String _kExitMarkerPrefix = '__OPENHAND_EXIT__';
+const String _kPwdEndMarkerPrefix = '__OPENHAND_PWD_END__';
+
 void _appendCapturedOutput(
   StringBuffer buffer,
   String chunk,
@@ -1291,9 +1295,9 @@ class AiBashToolService {
     final execution = _PersistentBashExecution(
       command: command,
       workingDirectory: effectiveWorkingDirectory,
-      stdoutStartMarker: '__OPENHAND_CMD_START__$markerToken',
-      stdoutExitMarker: '__OPENHAND_EXIT__$markerToken:',
-      stdoutPwdEndMarker: '__OPENHAND_PWD_END__$markerToken',
+      stdoutStartMarker: '$_kCmdStartMarkerPrefix$markerToken',
+      stdoutExitMarker: '$_kExitMarkerPrefix$markerToken:',
+      stdoutPwdEndMarker: '$_kPwdEndMarkerPrefix$markerToken',
       stopwatch: Stopwatch()..start(),
       onUpdate: onUpdate,
     );
@@ -1748,9 +1752,9 @@ class AiBashToolService {
         workingDirectory: workingDirectory,
       );
     }
-    final startMarker = posixShellQuote('__OPENHAND_CMD_START__$markerToken');
-    final exitMarker = posixShellQuote('__OPENHAND_EXIT__$markerToken');
-    final pwdEndMarker = posixShellQuote('__OPENHAND_PWD_END__$markerToken');
+    final startMarker = posixShellQuote('$_kCmdStartMarkerPrefix$markerToken');
+    final exitMarker = posixShellQuote('$_kExitMarkerPrefix$markerToken');
+    final pwdEndMarker = posixShellQuote('$_kPwdEndMarkerPrefix$markerToken');
     // 多行、复杂引号或 AppleScript 命令改用临时脚本，避免 Shell 误解析。
     final needsSafeWrap = _commandNeedsSafeWrap(command);
     final buffer = StringBuffer()
@@ -1790,7 +1794,7 @@ class AiBashToolService {
     required String workingDirectory,
   }) {
     final buffer = StringBuffer()
-      ..writeln('echo __OPENHAND_CMD_START__$markerToken');
+      ..writeln('echo $_kCmdStartMarkerPrefix$markerToken');
     if (workingDirectory.trim().isNotEmpty) {
       // 路径使用双引号，避免目录名中的 Shell 元字符注入。
       final escapedWorkDir = workingDirectory.replaceAll('"', '""');
@@ -1805,9 +1809,9 @@ class AiBashToolService {
         ..writeln('set __OPENHAND_EXIT_CODE=%errorlevel%');
     }
     buffer
-      ..writeln('echo __OPENHAND_EXIT__$markerToken:%__OPENHAND_EXIT_CODE%')
+      ..writeln('echo $_kExitMarkerPrefix$markerToken:%__OPENHAND_EXIT_CODE%')
       ..writeln('cd')
-      ..writeln('echo __OPENHAND_PWD_END__$markerToken');
+      ..writeln('echo $_kPwdEndMarkerPrefix$markerToken');
     return buffer.toString().trimRight();
   }
 
