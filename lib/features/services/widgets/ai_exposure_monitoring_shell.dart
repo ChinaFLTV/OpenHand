@@ -276,7 +276,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                 label: running
                     ? text(zh: '运行中', en: 'Running')
                     : text(zh: '已停止', en: 'Stopped'),
-                color: running ? Colors.green : cs.outline,
+                color: running ? OpenHandStatusColors.success : cs.outline,
               ),
               _StatusPill(
                 icon: Icons.schedule_rounded,

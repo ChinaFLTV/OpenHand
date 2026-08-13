@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
+import '../../../app/theme/openhand_status_colors.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/appear_once.dart';
 import '../../../shared/ui/feature_page_shell.dart';
@@ -345,7 +346,7 @@ class _ServiceIdentity extends StatelessWidget {
                 ),
                 child: Icon(
                   Icons.circle,
-                  color: running ? Colors.green : cs.outline,
+                  color: running ? OpenHandStatusColors.success : cs.outline,
                   size: 18,
                 ),
               ),
