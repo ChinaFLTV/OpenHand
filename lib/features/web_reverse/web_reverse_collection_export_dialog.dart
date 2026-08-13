@@ -116,7 +116,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
         },
       };
     }).toList();
-    return _pretty(<String, Object?>{
+    return prettyPrintJson(<String, Object?>{
       'info': <String, Object?>{
         'name': _nameCtrl.text.trim().isEmpty
             ? 'OpenHand Capture'
@@ -162,7 +162,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
         };
       }),
     ];
-    return _pretty(<String, Object?>{
+    return prettyPrintJson(<String, Object?>{
       '_type': 'export',
       '__export_format': 4,
       '__export_date': DateTime.now().toUtc().toIso8601String(),
@@ -271,7 +271,7 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
         'timings': <String, Object?>{'send': 0, 'wait': 0, 'receive': 0},
       };
     }).toList();
-    return _pretty(<String, Object?>{
+    return prettyPrintJson(<String, Object?>{
       'log': <String, Object?>{
         'version': '1.2',
         'creator': <String, Object?>{
@@ -283,7 +283,6 @@ class _CollectionExportDialogState extends State<_CollectionExportDialog> {
     });
   }
 
-  String _pretty(Object? v) => prettyPrintJson(v);
 
   String _escSingle(String s) => s.replaceAll("'", r"'\''");
 

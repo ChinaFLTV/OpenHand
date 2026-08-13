@@ -1,8 +1,6 @@
-/// 这里不包含 Flutter 依赖，可直接用于 isolate。UI 层只通过本文件获取
-/// 分类元数据与人类友好的字节数格式化结果。
+/// 这里不包含 Flutter 依赖，可直接用于 isolate。UI 层通过本文件获取
+/// 数据清理的分类元数据与体积统计模型。
 library;
-
-import '../../../shared/util/byte_size_format.dart';
 
 /// 数据清理分类。每一项都对应"全局设置 → 应用数据 → 数据清理"面板里的
 /// 一行。**枚举顺序就是 UI 顺序**，`wipeAll` 必须放在最后。
@@ -96,6 +94,3 @@ class DataCleanupSizeReport {
     );
   }
 }
-
-/// 把字节数渲染为人类友好的字符串。`1500` → `'1.46 KB'`。
-String formatHumanBytes(int bytes) => formatByteSize(bytes);

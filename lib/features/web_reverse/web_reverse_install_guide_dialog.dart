@@ -29,10 +29,8 @@ enum WebReverseInstallGuideDecision { rechecked, cancelled, openedDownloadPage }
 class _WebReverseInstallGuideDialog extends StatelessWidget {
   const _WebReverseInstallGuideDialog();
 
-  bool _isZh(BuildContext context) => openHandIsChineseLocale(context);
-
   String _downloadUrl(BuildContext context) {
-    return _isZh(context)
+    return openHandIsChineseLocale(context)
         ? 'https://www.google.cn/chrome/'
         : 'https://www.google.com/chrome/';
   }

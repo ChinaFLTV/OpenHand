@@ -10,11 +10,6 @@ final RegExp kHtmlTagPattern = RegExp(r'<[^>]*>');
 /// 连续三个及以上换行，供折叠多空行复用。
 final RegExp kExcessiveNewlinesPattern = RegExp(r'\n{3,}');
 
-/// 将连续空行折叠为至多两行换行，并 trim 首尾。
-String collapseExcessiveNewlines(String value) {
-  return value.replaceAll(kExcessiveNewlinesPattern, '\n\n').trim();
-}
-
 String collapseInlineWhitespace(String value) {
   return value.replaceAll(kInlineWhitespacePattern, ' ').trim();
 }

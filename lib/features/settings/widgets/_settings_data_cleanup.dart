@@ -319,7 +319,7 @@ class _DataCleanupSectionState extends State<_DataCleanupSection> {
         en: '$enLabel cache: 0 B',
       );
     }
-    final human = formatHumanBytes(bytes);
+    final human = formatByteSize(bytes);
     return openHandLocalizedText(
       context,
       zh: '其中 $zhLabel 缓存：$human',
@@ -441,7 +441,7 @@ class _DataCleanupRow extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final sizeText = isMeasuring || report == null
         ? openHandLocalizedText(context, zh: '测算中…', en: 'Measuring…')
-        : formatHumanBytes(report!.bytes);
+        : formatByteSize(report!.bytes);
     final itemCount = report?.itemCount;
     final detailText = (isMeasuring || report == null)
         ? null
@@ -951,10 +951,10 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
             context,
             zh:
                 '已清理 · 释放 ${gc.removed} 个 blob · '
-                '${formatHumanBytes(gc.bytesFreed)}',
+                '${formatByteSize(gc.bytesFreed)}',
             en:
                 'Cleaned · ${gc.removed} blob(s) · '
-                '${formatHumanBytes(gc.bytesFreed)} freed',
+                '${formatByteSize(gc.bytesFreed)} freed',
           ),
         );
       }
@@ -1027,8 +1027,8 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
         context,
         openHandLocalizedText(
           context,
-          zh: '已复制 ledger bundle · ${formatHumanBytes(bytes)}',
-          en: 'Copied ledger bundle · ${formatHumanBytes(bytes)}',
+          zh: '已复制 ledger bundle · ${formatByteSize(bytes)}',
+          en: 'Copied ledger bundle · ${formatByteSize(bytes)}',
         ),
       );
     } catch (error, stack) {
@@ -1361,8 +1361,8 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
                   child: Text(
                     openHandLocalizedText(
                       context,
-                      zh: '上次 GC 释放 ${_lastGcStats!.removed} 个 blob · ${formatHumanBytes(_lastGcStats!.bytesFreed)}',
-                      en: 'Last GC freed ${_lastGcStats!.removed} blob(s) · ${formatHumanBytes(_lastGcStats!.bytesFreed)}',
+                      zh: '上次 GC 释放 ${_lastGcStats!.removed} 个 blob · ${formatByteSize(_lastGcStats!.bytesFreed)}',
+                      en: 'Last GC freed ${_lastGcStats!.removed} blob(s) · ${formatByteSize(_lastGcStats!.bytesFreed)}',
                     ),
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: cs.onSurfaceVariant,

@@ -2939,7 +2939,7 @@ class _ComposerAttachmentChip extends StatelessWidget {
             ConstrainedBox(
               constraints: const BoxConstraints(maxWidth: 260),
               child: Text(
-                '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
+                '${attachment.name} · ${formatByteSize(attachment.sizeBytes)}',
                 overflow: TextOverflow.ellipsis,
                 style: theme.textTheme.bodySmall?.copyWith(
                   color: colorScheme.onSurface,
@@ -2981,7 +2981,7 @@ class _ComposerImageThumbChip extends StatelessWidget {
     final colorScheme = Theme.of(context).colorScheme;
     const double size = 64;
     return Tooltip(
-      message: '${attachment.name} · ${aiFormatBytes(attachment.sizeBytes)}',
+      message: '${attachment.name} · ${formatByteSize(attachment.sizeBytes)}',
       waitDuration: kOpenHandTooltipWait,
       child: SizedBox(
         width: size,

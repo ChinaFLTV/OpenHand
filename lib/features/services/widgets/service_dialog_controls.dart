@@ -1046,7 +1046,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
     final donut = _donut(
       context,
       values,
-      centerValue: _compactServiceNumber(total),
+      centerValue: formatCompactCount(total),
       centerLabel: '总量',
     );
     final bars = _bars(context, values, showRank: false, total: total);
@@ -1534,7 +1534,7 @@ class _ServiceDetailDashboard extends StatelessWidget {
               maximum: maximum,
             );
             final valueLabel = total == null
-                ? item.valueLabel ?? _compactServiceNumber(item.value)
+                ? item.valueLabel ?? formatCompactCount(item.value)
                 : '${(ratio * 100).toStringAsFixed(1)}%';
             return Padding(
               padding: EdgeInsets.only(
@@ -1848,8 +1848,6 @@ Color _serviceDetailTone(int index, ColorScheme colors, Color accentColor) =>
       const Color(0xff0891b2),
       OpenHandStatusColors.error,
     ][index % 8];
-
-String _compactServiceNumber(double value) => formatCompactCount(value);
 
 class ServiceFilterChip extends StatelessWidget {
   const ServiceFilterChip({

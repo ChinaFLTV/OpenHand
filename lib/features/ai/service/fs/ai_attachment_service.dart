@@ -377,7 +377,7 @@ class AiAttachmentService {
     final stat = await sourceFile.stat().timeout(
       defaultBoundedFileReadIdleTimeout,
     );
-    final sizeLabel = aiFormatBytes(stat.size);
+    final sizeLabel = formatByteSize(stat.size);
     return _importCopiedAttachment(
       sourceFile: sourceFile,
       targetDirectory: targetDirectory,
@@ -458,7 +458,7 @@ class AiAttachmentService {
     } on BoundedFileReadException catch (error) {
       if (error.failure != BoundedFileReadFailure.tooLarge) rethrow;
       throw AiAttachmentException(
-        'Image file exceeds the ${aiFormatBytes(maxImageRawBytes)} limit.',
+        'Image file exceeds the ${formatByteSize(maxImageRawBytes)} limit.',
       );
     }
     final originalSize = sourceBytes.length;
@@ -499,7 +499,7 @@ class AiAttachmentService {
     await writeBytesFileAtomically(targetFile, outputBytes);
     final summary = StringBuffer()
       ..write('Image attachment: $sourceName')
-      ..write(' (${aiFormatBytes(outputBytes.length)}');
+      ..write(' (${formatByteSize(outputBytes.length)}');
     if (width != null && height != null) {
       summary.write(', ${width}x$height');
     }
@@ -696,7 +696,7 @@ class AiAttachmentService {
           ..writeln();
       }
       buffer.write(
-        '[preview truncated: read ${aiFormatBytes(preview.bytes.length)} from ${aiFormatBytes(preview.totalBytes)}]',
+        '[preview truncated: read ${formatByteSize(preview.bytes.length)} from ${formatByteSize(preview.totalBytes)}]',
       );
     }
     return _truncateText(buffer.toString().trim(), characterLimit);
@@ -740,7 +740,7 @@ class AiAttachmentService {
         ..writeln()
         ..writeln()
         ..write(
-          '[preview truncated: read ${aiFormatBytes(preview.bytes.length)} from ${aiFormatBytes(preview.totalBytes)}]',
+          '[preview truncated: read ${formatByteSize(preview.bytes.length)} from ${formatByteSize(preview.totalBytes)}]',
         );
     }
     return _truncateText(buffer.toString().trim(), characterLimit);
@@ -867,7 +867,7 @@ class AiAttachmentService {
       return _truncateText(buffer.toString().trim(), characterLimit);
     } on BoundedFileReadException catch (error) {
       if (error.failure == BoundedFileReadFailure.tooLarge) {
-        return 'XLSX preview skipped because the archive exceeds ${aiFormatBytes(_maxSpreadsheetArchiveBytes)}.';
+        return 'XLSX preview skipped because the archive exceeds ${formatByteSize(_maxSpreadsheetArchiveBytes)}.';
       }
       return 'Unable to read workbook structure from the XLSX file.';
     } catch (_) {

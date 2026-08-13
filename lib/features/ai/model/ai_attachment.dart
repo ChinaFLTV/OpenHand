@@ -315,8 +315,6 @@ String aiMimeTypeForPath(String path) {
   };
 }
 
-String aiFormatBytes(int sizeBytes) => formatByteSize(sizeBytes);
-
 const Set<String> _imageExtensions = <String>{
   '.png',
   '.jpg',

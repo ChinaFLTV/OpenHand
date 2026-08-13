@@ -10,6 +10,7 @@ import '../../../../app/support/silent_log.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/bounded_line_budget.dart';
+import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/stable_hash.dart';
 import '../../../../shared/util/text_clip.dart';
@@ -3819,7 +3820,7 @@ $tail''';
         final mimeType = attachment.mimeType.trim();
         final metadataText =
             '[Video attachment]\nid=${attachment.id}\n'
-            '${attachment.name} (${attachment.mimeType}, ${aiFormatBytes(attachment.sizeBytes)})';
+            '${attachment.name} (${attachment.mimeType}, ${formatByteSize(attachment.sizeBytes)})';
         if (!isLatestUserMessage) {
           parts.add(AiChatContentPart.text(metadataText));
           continue;
@@ -3859,7 +3860,7 @@ $tail''';
         final mimeType = attachment.mimeType.trim();
         final metadataText =
             '[Audio attachment]\nid=${attachment.id}\n'
-            '${attachment.name} (${attachment.mimeType}, ${aiFormatBytes(attachment.sizeBytes)})';
+            '${attachment.name} (${attachment.mimeType}, ${formatByteSize(attachment.sizeBytes)})';
         if (!isLatestUserMessage) {
           parts.add(AiChatContentPart.text(metadataText));
           continue;

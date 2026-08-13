@@ -3303,10 +3303,8 @@ String _entityRedactText(String value) {
   );
 }
 
-bool _entitySensitiveKey(String key) => isSensitiveDataKey(key);
-
 Object? _entityRedactStructuredValue(Object? value, {String? key}) {
-  if (key != null && _entitySensitiveKey(key)) return '[已隐藏]';
+  if (key != null && isSensitiveDataKey(key)) return '[已隐藏]';
   if (value is Map) {
     return <String, Object?>{
       for (final entry in value.entries)

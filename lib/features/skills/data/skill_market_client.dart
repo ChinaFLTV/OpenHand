@@ -125,7 +125,7 @@ class SkillMarketClient {
   }
 
   Future<SkillMarketBundle> loadSkillBundle(String slug, {String? version}) {
-    final normalizedSlug = _normalizeSlug(slug);
+    final normalizedSlug = nullIfBlank(slug);
     if (normalizedSlug == null) {
       return Future<SkillMarketBundle>.error(
         const SkillMarketException('技能标识不能为空。'),
@@ -145,7 +145,7 @@ class SkillMarketClient {
   }
 
   Future<Uint8List> downloadSkillArchive(String slug) async {
-    final normalizedSlug = _normalizeSlug(slug);
+    final normalizedSlug = nullIfBlank(slug);
     if (normalizedSlug == null) {
       throw const SkillMarketException('技能标识不能为空。');
     }
@@ -270,7 +270,7 @@ class SkillMarketClient {
   }
 
   Future<SkillMarketDetail> fetchSkillDetail(String slug) async {
-    final normalizedSlug = _normalizeSlug(slug);
+    final normalizedSlug = nullIfBlank(slug);
     if (normalizedSlug == null) {
       throw const SkillMarketException('技能标识不能为空。');
     }
@@ -286,7 +286,7 @@ class SkillMarketClient {
     String slug,
     String version,
   ) async {
-    final normalizedSlug = _normalizeSlug(slug);
+    final normalizedSlug = nullIfBlank(slug);
     if (normalizedSlug == null) {
       throw const SkillMarketException('技能标识不能为空。');
     }
@@ -311,7 +311,7 @@ class SkillMarketClient {
     required String path,
     required String version,
   }) async {
-    final normalizedSlug = _normalizeSlug(slug);
+    final normalizedSlug = nullIfBlank(slug);
     if (normalizedSlug == null) {
       throw const SkillMarketException('技能标识不能为空。');
     }
@@ -368,7 +368,7 @@ class SkillMarketClient {
   }
 
   Future<SkillMarketVersionsResult> fetchSkillVersions(String slug) async {
-    final normalizedSlug = _normalizeSlug(slug);
+    final normalizedSlug = nullIfBlank(slug);
     if (normalizedSlug == null) {
       throw const SkillMarketException('技能标识不能为空。');
     }
@@ -426,8 +426,6 @@ class SkillMarketClient {
     }
     return '';
   }
-
-  String? _normalizeSlug(String slug) => nullIfBlank(slug);
 
   String _normalizeVersion(String? version) => nullIfBlank(version) ?? '';
 
