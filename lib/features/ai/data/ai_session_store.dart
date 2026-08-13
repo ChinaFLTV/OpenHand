@@ -1507,7 +1507,7 @@ class AiSessionStore {
     Transaction txn,
     AiSession session,
     List<int> indices,
-  ) async {
+  ) {
     final deferredIds = <String>[
       for (final index in indices)
         if (session.messages[index]
@@ -1515,32 +1515,55 @@ class AiSessionStore {
             true)
           session.messages[index].id,
     ];
-    if (deferredIds.isEmpty) {
+    return _queryMessageMetadataByIds(txn, session.id, deferredIds);
+  }
+
+  /// 批量读回指定消息在库内的完整 metadata（含遥测大字段）。
+  ///
+  /// 供分叉等需要把全保真 metadata 复制到新 id / 新会话的场景使用——
+  /// 这类副本换了主键，落库时的按 id 遥测补回无法再命中源行。
+  Future<Map<String, Map<String, Object?>>> loadFullMessageMetadata(
+    String sessionId,
+    List<String> messageIds,
+  ) {
+    final normalizedSessionId = sessionId.trim();
+    if (!isSafeStorageIdentifier(normalizedSessionId)) {
+      return Future.value(const <String, Map<String, Object?>>{});
+    }
+    return _queryMessageMetadataByIds(_db, normalizedSessionId, messageIds);
+  }
+
+  Future<Map<String, Map<String, Object?>>> _queryMessageMetadataByIds(
+    DatabaseExecutor executor,
+    String sessionId,
+    List<String> messageIds,
+  ) async {
+    if (messageIds.isEmpty) {
       return const <String, Map<String, Object?>>{};
     }
-    final storedTelemetry = <String, Map<String, Object?>>{};
+    final metadataById = <String, Map<String, Object?>>{};
     for (
       var start = 0;
-      start < deferredIds.length;
+      start < messageIds.length;
       start += _kMessageBatchSize
     ) {
-      final end = math.min(start + _kMessageBatchSize, deferredIds.length);
-      final batchIds = deferredIds.sublist(start, end);
+      final end = math.min(start + _kMessageBatchSize, messageIds.length);
+      final batchIds = messageIds.sublist(start, end);
       final placeholders = List.filled(batchIds.length, '?').join(', ');
-      final rows = await txn.query(
+      final rows = await executor.query(
         'messages',
         columns: const <String>['id', 'metadata_json'],
         where: 'session_id = ? AND id IN ($placeholders)',
-        whereArgs: <Object?>[session.id, ...batchIds],
+        whereArgs: <Object?>[sessionId, ...batchIds],
       );
       for (final row in rows) {
         final id = row['id'] as String?;
         if (id != null) {
-          storedTelemetry[id] = _decodeJsonMap(row['metadata_json']);
+          metadataById[id] = _decodeJsonMap(row['metadata_json']);
         }
       }
     }
-    return storedTelemetry;
+    return metadataById;
   }
 
   void _rememberSavedMessages(

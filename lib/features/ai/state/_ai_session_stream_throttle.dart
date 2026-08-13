@@ -356,6 +356,14 @@ class _StreamCharThrottle {
     return _budget.partialCharProgress;
   }
 
+  /// 直通（关闭）期间调用方以码元数近似计量，与 grapheme 预算口径脱钩；
+  /// 重新开启节流时用真实 grapheme 总数校准已放出计数：已展示内容不回缩，
+  /// 新增内容从当前位置按预算铺开。
+  void syncEmittedGraphemes(int totalGraphemes) {
+    if (totalGraphemes < 0 || _disposed) return;
+    _emittedGraphemes = totalGraphemes;
+  }
+
   /// 立刻释放剩余预算，供流结束 / 取消时把全部内容一次性显式刷出。
   void release() {
     _disposed = true;

@@ -4634,6 +4634,25 @@ class AiSessionController extends ChangeNotifier {
     required String targetSessionId,
     required Map<String, String> forkedMessageIdBySourceId,
   }) async {
+    // 全量水合默认裁剪遥测大字段；分叉副本换 id、换会话后，落库时按 id
+    // 的遥测补回必然落空。先按源会话批量读回完整 metadata，把被裁剪的
+    // 遥测键补进副本，保证分叉不丢审计数据。
+    final deferredSourceIds = <String>[
+      for (final message in sourceMessages)
+        if (aiSessionMessageHasDeferredTelemetryMetadata(message.metadata))
+          message.id,
+    ];
+    var storedMetadataBySourceId = const <String, Map<String, Object?>>{};
+    if (deferredSourceIds.isNotEmpty) {
+      try {
+        storedMetadataBySourceId = await _store.loadFullMessageMetadata(
+          sourceSessionId,
+          deferredSourceIds,
+        );
+      } catch (error, stack) {
+        silentLog('ai_session_controller', '分叉前读回完整遥测', error, stack);
+      }
+    }
     final forkedMessages = <AiSessionMessage>[];
     for (final sourceMessage in sourceMessages) {
       final forkedMessageId = forkedMessageIdBySourceId[sourceMessage.id];
@@ -4641,7 +4660,10 @@ class AiSessionController extends ChangeNotifier {
         continue;
       }
       final metadata = _forkedMessageMetadata(
-        sourceMessage: sourceMessage,
+        sourceMessage: _sourceMessageWithRestoredTelemetry(
+          sourceMessage,
+          storedMetadataBySourceId[sourceMessage.id],
+        ),
         sourceSessionId: sourceSessionId,
         forkedMessageIdBySourceId: forkedMessageIdBySourceId,
       );
@@ -4669,6 +4691,28 @@ class AiSessionController extends ChangeNotifier {
       );
     }
     return List<AiSessionMessage>.unmodifiable(forkedMessages);
+  }
+
+  /// 以内存 metadata 为准（保留未落库的界面态意图），仅从库内完整版补回
+  /// 被裁剪的遥测键并剥掉加载期标记；无库内版本时原样返回。
+  AiSessionMessage _sourceMessageWithRestoredTelemetry(
+    AiSessionMessage sourceMessage,
+    Map<String, Object?>? storedMetadata,
+  ) {
+    if (storedMetadata == null) {
+      return sourceMessage;
+    }
+    return sourceMessage.copyWith(
+      metadata: <String, Object?>{
+        for (final entry in sourceMessage.metadata.entries)
+          if (entry.key != aiSessionMessageDeferredTelemetryMetadataKey)
+            entry.key: entry.value,
+        for (final key in aiSessionMessageDeferredTelemetryMetadataKeys)
+          if (!sourceMessage.metadata.containsKey(key) &&
+              storedMetadata.containsKey(key))
+            key: storedMetadata[key],
+      },
+    );
   }
 
   Future<void> _copyPersistedToolOutputForFork(
@@ -7515,6 +7559,11 @@ class AiSessionController extends ChangeNotifier {
       // 清洗累积出的 O(N²) 主线程成本。
       var assistantRenderPending = false;
       var reasoningRenderPending = false;
+      // 节流启用态跟踪：直通期间以码元近似计量，直通→节流切换时需先用
+      // 真实 grapheme 总数校准预算基线（见 syncEmittedGraphemes）。
+      // 初值在 throttle 构造后校准。
+      var assistantThrottleWasEnabled = false;
+      var reasoningThrottleWasEnabled = false;
       Timer? previewTimer;
       String? pendingReasoningContent;
       var hasPendingReasoningPreview = false;
@@ -7840,8 +7889,15 @@ class AiSessionController extends ChangeNotifier {
         );
         // 节流按 grapheme 计算，避免中文 / emoji 被切在 cluster 中间；
         // 节流关闭时无需切片，跳过 O(N) 的 grapheme 统计（吞吐采样按码元
-        // 近似即可）。
-        final visibleGraphemes = charThrottle.isEnabled
+        // 近似即可）。直通→节流切换先校准预算基线。
+        final assistantThrottleEnabled = charThrottle.isEnabled;
+        if (assistantThrottleEnabled && !assistantThrottleWasEnabled) {
+          charThrottle.syncEmittedGraphemes(
+            assistantSanitizedMemo.graphemeCountFor(assistantRawBuffer),
+          );
+        }
+        assistantThrottleWasEnabled = assistantThrottleEnabled;
+        final visibleGraphemes = assistantThrottleEnabled
             ? assistantSanitizedMemo.graphemeCountFor(assistantRawBuffer)
             : fullSanitized.length;
         final visibleLen = charThrottle.renderableGraphemeCount(
@@ -7904,8 +7960,15 @@ class AiSessionController extends ChangeNotifier {
           reasoningRawBuffer,
         );
         // reasoning 路径与 assistant 一样按 grapheme 边界切片；节流关闭时
-        // 同样跳过 grapheme 统计。
-        final visibleGraphemes = reasoningCharThrottle.isEnabled
+        // 同样跳过 grapheme 统计，直通→节流切换先校准预算基线。
+        final reasoningThrottleEnabled = reasoningCharThrottle.isEnabled;
+        if (reasoningThrottleEnabled && !reasoningThrottleWasEnabled) {
+          reasoningCharThrottle.syncEmittedGraphemes(
+            reasoningSanitizedMemo.graphemeCountFor(reasoningRawBuffer),
+          );
+        }
+        reasoningThrottleWasEnabled = reasoningThrottleEnabled;
+        final visibleGraphemes = reasoningThrottleEnabled
             ? reasoningSanitizedMemo.graphemeCountFor(reasoningRawBuffer)
             : fullSanitized.length;
         final visibleLen = reasoningCharThrottle.renderableGraphemeCount(
@@ -8003,6 +8066,9 @@ class AiSessionController extends ChangeNotifier {
         reasoningCharThrottle.enabledOverride = persistedEnabled;
         cardThrottle.enabledOverride = persistedEnabled;
       }
+      // 启用态基线：首次渲染不应被误判为「直通→节流」切换。
+      assistantThrottleWasEnabled = charThrottle.isEnabled;
+      reasoningThrottleWasEnabled = reasoningCharThrottle.isEnabled;
       // 节流时长一到，立刻向 UI 派发一次信号，让顶栏胶囊
       // 把渲染态切换为「时长已耗尽 → 灰色」。流式结束时统一被 release，
       // 此 timer 即便被回调命中也是无副作用。
@@ -8297,6 +8363,16 @@ class AiSessionController extends ChangeNotifier {
         previewTimer = null;
         throttleExpiryTimer?.cancel();
         throttleExpiryTimer = null;
+        // 与正常终局同理：release 之前先消费渲染下沉标记并清位，
+        // 保证后面的 flushPreview 不会以直通模式把完整缓冲补渲染出来。
+        if (reasoningRenderPending) {
+          renderReasoningBuffered(schedulePreviewAfterRender: false);
+        }
+        if (assistantRenderPending) {
+          renderAssistantBuffered(schedulePreviewAfterRender: false);
+        }
+        assistantRenderPending = false;
+        reasoningRenderPending = false;
         // 释放限速器：先放开字符余量、再回放 pending 卡片，避免错误后
         // 还在后台尝试推进 UI。
         _cacheStreamThroughputSnapshots(workingSession.id, aiThroughputSampler);
@@ -8467,6 +8543,19 @@ class AiSessionController extends ChangeNotifier {
       }
       final didCancelStream =
           didCancelStreamEarly || _isStopRequestedForSession(workingSession.id);
+      // 终局前先消费渲染下沉标记：此刻节流仍活跃，按预算切片渲染与逐 delta
+      // 时代的可见内容一致。若拖到 release 之后由 flushPreview 消费，
+      // pass-through 会用完整缓冲覆盖「取消时已显示内容」，reasoning 还会被
+      // 预览路径重新标回 streaming 并丢失耗时。渲染后无条件清位：内容定格
+      // 自此由 syncFinal* 接管，不允许 release 后再补渲染。
+      if (reasoningRenderPending) {
+        renderReasoningBuffered(schedulePreviewAfterRender: false);
+      }
+      if (assistantRenderPending) {
+        renderAssistantBuffered(schedulePreviewAfterRender: false);
+      }
+      assistantRenderPending = false;
+      reasoningRenderPending = false;
       materializePendingReasoningPreview();
       String visibleMessageContent(String? messageId) {
         if (messageId == null) return '';
