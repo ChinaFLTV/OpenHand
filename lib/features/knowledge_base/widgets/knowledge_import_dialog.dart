@@ -525,7 +525,7 @@ class _KnowledgeNoteEditor extends StatelessWidget {
                   color: colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.78,
                   ),
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius9),
                 ),
                 child: Icon(
                   Icons.note_add_outlined,

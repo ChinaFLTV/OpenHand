@@ -6216,7 +6216,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 height: 22,
                 decoration: BoxDecoration(
                   color: accentColor.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(7),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius7),
                 ),
                 alignment: Alignment.center,
                 child: Icon(node.icon, size: 13, color: accentColor),
@@ -11097,7 +11097,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
             height: 44,
             decoration: BoxDecoration(
               color: colorScheme.surfaceContainerHigh,
-              borderRadius: const BorderRadius.all(Radius.circular(22)),
+              borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius22)),
             ),
             child: Row(
               children: [
@@ -11195,7 +11195,7 @@ class _CodeEditorViewState extends State<_CodeEditorView>
                 clipBehavior: Clip.antiAlias,
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerLow,
-                  borderRadius: const BorderRadius.all(Radius.circular(16)),
+                  borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius16)),
                   border: Border.all(
                     color: colorScheme.outlineVariant.withValues(alpha: 0.2),
                     width: 0.5,
@@ -11739,7 +11739,7 @@ class _CompletionOverlay extends StatelessWidget {
                             color: colorScheme.secondaryContainer.withValues(
                               alpha: 0.5,
                             ),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(kOpenHandRadius4),
                           ),
                           child: Text(
                             kindLabel,
@@ -12139,9 +12139,9 @@ class _BreadcrumbSegment extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     return Material(
       color: Colors.transparent,
-      borderRadius: BorderRadius.circular(4),
+      borderRadius: BorderRadius.circular(kOpenHandRadius4),
       child: InkWell(
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(kOpenHandRadius4),
         mouseCursor: SystemMouseCursors.click,
         hoverColor: colorScheme.primary.withValues(alpha: 0.06),
         onTap: () => _handleTap(context),
@@ -12347,9 +12347,9 @@ class _FindBarButton extends StatelessWidget {
         color: isActive
             ? colorScheme.primaryContainer.withValues(alpha: 0.6)
             : Colors.transparent,
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(kOpenHandRadius4),
         child: InkWell(
-          borderRadius: BorderRadius.circular(4),
+          borderRadius: BorderRadius.circular(kOpenHandRadius4),
           onTap: onPressed,
           child: Padding(
             padding: const EdgeInsets.all(4),

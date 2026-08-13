@@ -124,7 +124,7 @@ Future<void> showReasoningEffortSelector({
     context: context,
     position: RelativeRect.fromRect(anchorRect, Offset.zero & overlayBox.size),
     constraints: BoxConstraints(minWidth: popupWidth, maxWidth: popupWidth),
-    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius24)),
     items: <PopupMenuEntry<String>>[
       _ReasoningEffortPopupEntry(
         width: popupWidth,

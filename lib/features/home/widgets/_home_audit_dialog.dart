@@ -119,7 +119,7 @@ AiSessionMessage? _auditRelatedTelemetryMessage(
 const Duration _auditShimmerPeriod = Duration(milliseconds: 1400);
 const double _auditShimmerLineHeight = 14;
 const double _auditShimmerLastLineWidth = 180;
-const BorderRadius _auditShimmerRadius = BorderRadius.all(Radius.circular(6));
+const BorderRadius _auditShimmerRadius = BorderRadius.all(Radius.circular(kOpenHandRadius6));
 const Duration _auditShellSizeDuration = Duration(milliseconds: 260);
 const Duration _auditToggleRotationDuration = Duration(milliseconds: 200);
 const Duration _auditContentSizeDuration = Duration(milliseconds: 220);
@@ -406,7 +406,7 @@ class _AuditJsonBlockState extends State<_AuditJsonBlock> {
             onTap: _isEmpty
                 ? null
                 : () => setState(() => _expanded = !_expanded),
-            borderRadius: const BorderRadius.vertical(top: Radius.circular(14)),
+            borderRadius: const BorderRadius.vertical(top: Radius.circular(kOpenHandRadius14)),
             child: Padding(
               padding: const EdgeInsets.fromLTRB(14, 10, 8, 10),
               child: Row(

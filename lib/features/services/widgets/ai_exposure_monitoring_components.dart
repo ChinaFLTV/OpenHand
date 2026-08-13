@@ -87,7 +87,7 @@ class _DependencyServiceCard extends StatelessWidget {
             height: 48,
             decoration: BoxDecoration(
               color: color.withValues(alpha: connected ? 0.14 : 0.08),
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(kOpenHandRadius14),
               border: Border.all(color: color.withValues(alpha: 0.24)),
             ),
             child: Icon(icon, size: 24, color: color),
@@ -973,7 +973,7 @@ class _TappableOpsCard extends StatefulWidget {
     required this.child,
     required this.color,
     this.onTap,
-    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(kOpenHandRadius8)),
   });
 
   final Widget child;

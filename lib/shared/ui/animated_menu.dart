@@ -1437,7 +1437,7 @@ class _AnimatedPopupMenuButtonState<T>
       final button = widget.style == null
           ? InkWell(
               onTap: widget.enabled ? _showMenu : null,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(kOpenHandRadius4),
               child: widget.child,
             )
           : TextButton(
@@ -1528,7 +1528,7 @@ class _PopupMenuDefaultsM2 extends PopupMenuThemeData {
 
   @override
   ShapeBorder? get shape => const RoundedRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(8)),
+    borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8)),
   );
 
   @override
@@ -1551,7 +1551,7 @@ class _PopupMenuDefaultsM3 extends PopupMenuThemeData {
 
   @override
   ShapeBorder? get shape => const RoundedRectangleBorder(
-    borderRadius: BorderRadius.all(Radius.circular(8)),
+    borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8)),
   );
 
   @override

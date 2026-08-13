@@ -343,7 +343,7 @@ class _ApprovalInfoPanel extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.35),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kOpenHandRadius18),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
       ),
       child: Column(
@@ -428,7 +428,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
             cs.surfaceContainerHighest.withValues(alpha: 0.32),
           ],
         ),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kOpenHandRadius18),
         border: Border.all(color: accent.withValues(alpha: 0.24)),
         boxShadow: <BoxShadow>[
           BoxShadow(
@@ -451,7 +451,7 @@ class _ApprovalPayloadPanel extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius11),
                   border: Border.all(color: accent.withValues(alpha: 0.22)),
                 ),
                 child: Icon(Icons.data_object_rounded, color: accent, size: 19),
@@ -676,7 +676,7 @@ class _ApprovalPayloadField extends StatelessWidget {
         color: depth == 0
             ? cs.surface.withValues(alpha: 0.58)
             : cs.surfaceContainerLow.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(15),
+        borderRadius: BorderRadius.circular(kOpenHandRadius15),
         border: Border.all(
           color: (depth == 0 ? accent : cs.outlineVariant).withValues(
             alpha: depth == 0 ? 0.18 : 0.42,
@@ -707,7 +707,7 @@ class _ApprovalPayloadField extends StatelessWidget {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: tone.withValues(alpha: 0.10),
-                        borderRadius: BorderRadius.circular(9),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius9),
                         border: Border.all(color: tone.withValues(alpha: 0.20)),
                       ),
                       child: Icon(
@@ -769,7 +769,7 @@ class _ApprovalPayloadOverflowNotice extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: accent.withValues(alpha: 0.08),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
         border: Border.all(color: accent.withValues(alpha: 0.18)),
       ),
       child: Row(

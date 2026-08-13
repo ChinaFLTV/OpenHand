@@ -738,7 +738,7 @@ class _ThreadSessionManagementDialogState
                           padding: const EdgeInsets.all(10),
                           decoration: BoxDecoration(
                             color: theme.colorScheme.surfaceContainerHigh,
-                            borderRadius: BorderRadius.circular(8),
+                            borderRadius: BorderRadius.circular(kOpenHandRadius8),
                           ),
                           child: Column(
                             crossAxisAlignment: CrossAxisAlignment.start,
@@ -1337,7 +1337,7 @@ class _SessionRow extends StatelessWidget {
                     : theme.colorScheme.outlineVariant),
           width: isPreviewing ? 1.4 : 1,
         ),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
       ),
       child: Opacity(
         opacity: isArchived ? 0.62 : 1.0,

@@ -191,7 +191,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius12),
                 ),
                 child: Icon(Icons.table_view_rounded, color: colors.primary),
               ),
@@ -227,7 +227,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
           DecoratedBox(
             decoration: BoxDecoration(
               color: colors.primaryContainer.withValues(alpha: 0.28),
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(kOpenHandRadius12),
               border: Border.all(color: colors.primary.withValues(alpha: 0.2)),
             ),
             child: Padding(
@@ -335,7 +335,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.surface,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
         border: Border.all(
           color: colors.outlineVariant.withValues(alpha: 0.72),
         ),
@@ -487,7 +487,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
         DecoratedBox(
           decoration: BoxDecoration(
             color: colors.surfaceContainerHighest.withValues(alpha: 0.42),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(kOpenHandRadius10),
           ),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
@@ -552,7 +552,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
         DecoratedBox(
           decoration: BoxDecoration(
             color: colors.primaryContainer.withValues(alpha: 0.24),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(kOpenHandRadius10),
             border: Border.all(color: colors.primary.withValues(alpha: 0.2)),
           ),
           child: Padding(
@@ -718,7 +718,7 @@ class _PostgresqlFormSection extends StatelessWidget {
   Widget build(BuildContext context) => DecoratedBox(
     decoration: BoxDecoration(
       color: Theme.of(context).colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(14),
+      borderRadius: BorderRadius.circular(kOpenHandRadius14),
       border: Border.all(color: Theme.of(context).colorScheme.outlineVariant),
     ),
     child: Padding(
@@ -1007,7 +1007,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius12),
                 ),
                 child: Icon(Icons.data_object_rounded, color: colors.primary),
               ),
@@ -1176,7 +1176,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Padding(

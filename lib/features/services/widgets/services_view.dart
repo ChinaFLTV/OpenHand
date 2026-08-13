@@ -311,7 +311,7 @@ class _ServiceIdentity extends StatelessWidget {
               height: _kServiceIconExtent,
               decoration: BoxDecoration(
                 color: cs.primaryContainer,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(kOpenHandRadius18),
               ),
               alignment: Alignment.center,
               child: Icon(

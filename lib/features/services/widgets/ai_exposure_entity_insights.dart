@@ -3142,7 +3142,7 @@ Widget _entityCode(
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colors.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
         border: Border.all(color: colors.outlineVariant),
       ),
       child: SelectableText(

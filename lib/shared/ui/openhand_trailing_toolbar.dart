@@ -96,7 +96,7 @@ const EdgeInsets kOpenHandSessionHeaderPadding = EdgeInsets.symmetric(
   vertical: 6,
 );
 const BorderRadius kOpenHandSessionHeaderRadius = BorderRadius.all(
-  Radius.circular(16),
+  Radius.circular(kOpenHandRadius16),
 );
 
 /// 会话头部条：左侧标题占两份宽，右侧尾部工具条占三份宽。

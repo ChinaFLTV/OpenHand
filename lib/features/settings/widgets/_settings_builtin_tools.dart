@@ -33,7 +33,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.tertiaryContainer.withValues(alpha: 0.24),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
         border: Border.all(color: cs.tertiary.withValues(alpha: 0.22)),
       ),
       child: Padding(
@@ -46,7 +46,7 @@ class _MachineTerminalBuiltinToolSummaryCard extends StatelessWidget {
               height: 38,
               decoration: BoxDecoration(
                 color: cs.tertiary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(kOpenHandRadius12),
               ),
               alignment: Alignment.center,
               child: Icon(Icons.terminal_rounded, color: cs.tertiary),
@@ -194,7 +194,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.primaryContainer.withValues(alpha: 0.28),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
         border: Border.all(color: cs.primary.withValues(alpha: 0.22)),
       ),
       child: Padding(
@@ -207,7 +207,7 @@ class _AgentBuiltinToolSummaryCard extends StatelessWidget {
               height: 38,
               decoration: BoxDecoration(
                 color: cs.primary.withValues(alpha: 0.12),
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(kOpenHandRadius12),
               ),
               alignment: Alignment.center,
               child: Icon(Icons.account_tree_rounded, color: cs.primary),
@@ -350,7 +350,7 @@ class _AgentToolGroupChip extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: cs.surface.withValues(alpha: 0.58),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(kOpenHandRadius12),
           border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.8)),
         ),
         child: Padding(
@@ -564,7 +564,7 @@ class _BuiltinToolTile extends StatelessWidget {
         color: config.enabled
             ? colorScheme.surfaceContainerLow
             : colorScheme.surfaceContainerLow.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
         border: Border.all(
           color: config.enabled
               ? colorScheme.outlineVariant.withValues(alpha: 0.45)
@@ -612,7 +612,7 @@ class _BuiltinToolTile extends StatelessWidget {
                           ),
                           decoration: BoxDecoration(
                             color: colorScheme.tertiary.withValues(alpha: 0.15),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(kOpenHandRadius4),
                           ),
                           child: Text(
                             l10n.builtinToolCustomBadge,
@@ -632,7 +632,7 @@ class _BuiltinToolTile extends StatelessWidget {
                           color: colorScheme.secondaryContainer.withValues(
                             alpha: 0.6,
                           ),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(kOpenHandRadius4),
                         ),
                         child: Text(
                           _loadStrategyLabel(l10n, config.loadStrategy),
@@ -652,7 +652,7 @@ class _BuiltinToolTile extends StatelessWidget {
                             color: colorScheme.primaryContainer.withValues(
                               alpha: 0.62,
                             ),
-                            borderRadius: BorderRadius.circular(4),
+                            borderRadius: BorderRadius.circular(kOpenHandRadius4),
                           ),
                           child: Text(
                             l10n.builtinToolForceBadge,
@@ -672,7 +672,7 @@ class _BuiltinToolTile extends StatelessWidget {
                           color: colorScheme.surfaceContainerHighest.withValues(
                             alpha: 0.6,
                           ),
-                          borderRadius: BorderRadius.circular(4),
+                          borderRadius: BorderRadius.circular(kOpenHandRadius4),
                         ),
                         child: Text(
                           'P${config.priority}',
@@ -710,7 +710,7 @@ class _BuiltinToolTile extends StatelessWidget {
                                 color: colorScheme.primaryContainer.withValues(
                                   alpha: 0.4,
                                 ),
-                                borderRadius: BorderRadius.circular(4),
+                                borderRadius: BorderRadius.circular(kOpenHandRadius4),
                               ),
                               child: Text(
                                 tag,

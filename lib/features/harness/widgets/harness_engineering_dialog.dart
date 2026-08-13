@@ -1059,7 +1059,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                               color: colorScheme.errorContainer.withValues(
                                 alpha: 0.16,
                               ),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(kOpenHandRadius10),
                               border: Border.all(
                                 color: colorScheme.error.withValues(
                                   alpha: 0.24,
@@ -1152,7 +1152,7 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                               color: colorScheme.secondaryContainer.withValues(
                                 alpha: 0.28,
                               ),
-                              borderRadius: BorderRadius.circular(10),
+                              borderRadius: BorderRadius.circular(kOpenHandRadius10),
                               border: Border.all(
                                 color: colorScheme.secondary.withValues(
                                   alpha: 0.22,
@@ -1527,7 +1527,7 @@ class _RoleConfigRow extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colorScheme.surfaceContainerLow,
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(kOpenHandRadius10),
           border: Border.all(
             color: colorScheme.outlineVariant.withValues(alpha: 0.5),
           ),
@@ -1978,7 +1978,7 @@ class _QuickApplyBar extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.25),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.3)),
       ),
       child: Padding(

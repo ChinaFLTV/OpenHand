@@ -7,6 +7,7 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
 import '../../shared/util/localized_text.dart';
 import '../../shared/util/timer_safety.dart';
@@ -14,12 +15,12 @@ import 'web_reverse_session_config.dart';
 import 'web_reverse_session_controller.dart';
 
 // 通用圆角档位：收敛散落的 BorderRadius.circular 字面量。
-const BorderRadius kWebReverseRadiusXS = BorderRadius.all(Radius.circular(4));
-const BorderRadius kWebReverseRadiusSmall = BorderRadius.all(Radius.circular(6));
-const BorderRadius kWebReverseRadiusMedium = BorderRadius.all(Radius.circular(8));
-const BorderRadius kWebReverseRadiusLarge = BorderRadius.all(Radius.circular(10));
-const BorderRadius kWebReverseRadiusXLarge = BorderRadius.all(Radius.circular(12));
-const BorderRadius kWebReverseRadiusXXLarge = BorderRadius.all(Radius.circular(14));
+const BorderRadius kWebReverseRadiusXS = BorderRadius.all(Radius.circular(kOpenHandRadius4));
+const BorderRadius kWebReverseRadiusSmall = BorderRadius.all(Radius.circular(kOpenHandRadius6));
+const BorderRadius kWebReverseRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius8));
+const BorderRadius kWebReverseRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius10));
+const BorderRadius kWebReverseRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius12));
+const BorderRadius kWebReverseRadiusXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius14));
 
 const EdgeInsets kWebReverseStatusBarPadding = EdgeInsets.fromLTRB(
   16,

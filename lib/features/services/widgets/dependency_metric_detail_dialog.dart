@@ -2140,7 +2140,7 @@ class _MetricRangeBar extends StatelessWidget {
                 EdgeInsets.symmetric(horizontal: 14, vertical: 10),
               ),
               shape: WidgetStatePropertyAll(
-                RoundedRectangleBorder(borderRadius: BorderRadius.circular(10)),
+                RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius10)),
               ),
             ),
             onSelectionChanged: (selection) => onChanged(selection.first),
@@ -2299,7 +2299,7 @@ class _MetricSection extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: colors.primary.withValues(alpha: 0.1),
-                    borderRadius: BorderRadius.circular(9),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius9),
                   ),
                   child: Icon(icon, size: 18, color: colors.primary),
                 ),
@@ -2474,7 +2474,7 @@ class _KpiStrip extends StatelessWidget {
                             alignment: Alignment.center,
                             decoration: BoxDecoration(
                               color: tone.withValues(alpha: 0.12),
-                              borderRadius: BorderRadius.circular(9),
+                              borderRadius: BorderRadius.circular(kOpenHandRadius9),
                             ),
                             child: Icon(item.icon, size: 17, color: tone),
                           ),
@@ -2532,7 +2532,7 @@ class _InlineNotice extends StatelessWidget {
     padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
     decoration: BoxDecoration(
       color: color.withValues(alpha: 0.08),
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(kOpenHandRadius10),
       border: Border.all(color: color.withValues(alpha: 0.24)),
     ),
     child: Row(
@@ -2746,7 +2746,7 @@ class _ConnectionCapacityHero extends StatelessWidget {
                   DecoratedBox(
                     decoration: BoxDecoration(
                       color: colors.surface.withValues(alpha: 0.58),
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius10),
                       border: Border.all(
                         color: colors.outlineVariant.withValues(alpha: 0.42),
                       ),
@@ -3521,7 +3521,7 @@ class _OperationalSummary extends StatelessWidget {
                     height: 24,
                     decoration: BoxDecoration(
                       color: items[index].color,
-                      borderRadius: BorderRadius.circular(2),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius2),
                     ),
                   ),
                   kOpenHandHGap10,

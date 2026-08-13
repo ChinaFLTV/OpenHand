@@ -323,7 +323,7 @@ class _MachineTerminalShell extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.54),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kOpenHandRadius18),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.72)),
       ),
       child: Padding(padding: const EdgeInsets.all(12), child: child),
@@ -1647,7 +1647,7 @@ class _MachineTerminalCommandHistoryTile extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(kOpenHandRadius9),
             border: Border.all(color: color.withValues(alpha: 0.24)),
           ),
           child: Icon(_commandRecordIcon(record), size: 17, color: color),
@@ -1922,7 +1922,7 @@ class _MachineTerminalMiniActionButton extends StatelessWidget {
     return Tooltip(
       message: tooltip,
       child: InkWell(
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(kOpenHandRadius9),
         onTap: onPressed,
         child: AnimatedOpacity(
           duration: openHandMotionDuration(context, kOpenHandMotion140,
@@ -1934,7 +1934,7 @@ class _MachineTerminalMiniActionButton extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: color.withValues(alpha: destructive ? 0.10 : 0.12),
-              borderRadius: BorderRadius.circular(9),
+              borderRadius: BorderRadius.circular(kOpenHandRadius9),
               border: Border.all(color: color.withValues(alpha: 0.24)),
             ),
             child: Icon(icon, size: 16, color: color),
@@ -2045,7 +2045,7 @@ class _MachineTerminalTabCloseButton extends StatelessWidget {
         onTap: onPressed,
         radius: 13,
         containedInkWell: true,
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(kOpenHandRadius7),
         child: SizedBox(
           width: 24,
           height: 24,

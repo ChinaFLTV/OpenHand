@@ -108,7 +108,7 @@ class _CommandRuleTile extends StatelessWidget {
     final trimmedNote = note.trim();
     return Material(
       color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(kOpenHandRadius20),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: Row(
@@ -119,7 +119,7 @@ class _CommandRuleTile extends StatelessWidget {
               height: 40,
               decoration: BoxDecoration(
                 color: iconBackgroundColor,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(kOpenHandRadius14),
               ),
               alignment: Alignment.center,
               child: Icon(icon, color: iconColor),

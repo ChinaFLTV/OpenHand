@@ -591,7 +591,7 @@ class _MessageBubbleState extends State<_MessageBubble>
         : isUser
         ? Alignment.centerRight
         : Alignment.centerLeft;
-    final borderRadius = BorderRadius.circular(18);
+    final borderRadius = BorderRadius.circular(kOpenHandRadius18);
     final backgroundColor = isCompressionPoint
         ? colorScheme.tertiaryContainer
         : isUser
@@ -2653,7 +2653,7 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
   }
 }
 
-const BorderRadius _imageShimmerRadius = BorderRadius.all(Radius.circular(12));
+const BorderRadius _imageShimmerRadius = BorderRadius.all(Radius.circular(kOpenHandRadius12));
 const double _imageShimmerIconSize = 48;
 
 /// 图片帧解码期间的骨架占位。
@@ -3938,7 +3938,7 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
                             ),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(kOpenHandRadius6),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
@@ -5098,7 +5098,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
             backgroundColor: isVideo ? colorScheme.surface : Colors.transparent,
             elevation: isVideo ? null : 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(kOpenHandRadius22),
             ),
             child: isVideo
                 ? _buildVideoDialogBody(context, theme, colorScheme, metrics)
@@ -8917,7 +8917,7 @@ class _TypewriterCaretState extends State<_TypewriterCaret>
       height: 16,
       decoration: BoxDecoration(
         color: widget.color.withValues(alpha: opacity),
-        borderRadius: BorderRadius.circular(2),
+        borderRadius: BorderRadius.circular(kOpenHandRadius2),
       ),
     );
   }

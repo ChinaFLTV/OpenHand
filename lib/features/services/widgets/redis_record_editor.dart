@@ -813,7 +813,7 @@ class _RedisStructuredPanel extends StatelessWidget {
     return Container(
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(

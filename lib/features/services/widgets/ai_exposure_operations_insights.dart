@@ -282,7 +282,7 @@ class _InsightContextBar extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(kOpenHandRadius8),
             border: Border.all(color: color.withValues(alpha: 0.28)),
           ),
           child: Icon(icon, size: 20, color: color),
@@ -328,7 +328,7 @@ class _InsightContextBar extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.38),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
         border: Border.all(color: colors.outlineVariant),
       ),
       child: LayoutBuilder(
@@ -1313,7 +1313,7 @@ class _TaskLedgerFooter extends StatelessWidget {
       fixedSize: const Size.square(40),
       padding: EdgeInsets.zero,
       backgroundColor: colors.surfaceContainerHighest,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius8)),
     );
     final count = Text(
       countLabel,

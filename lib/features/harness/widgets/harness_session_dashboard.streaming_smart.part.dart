@@ -431,7 +431,7 @@ class _HeAsyncFilePathChipState extends State<_HeAsyncFilePathChip> {
       padding: const EdgeInsets.symmetric(horizontal: 5, vertical: 2),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(kOpenHandRadius4),
       ),
       child: Text(
         text,

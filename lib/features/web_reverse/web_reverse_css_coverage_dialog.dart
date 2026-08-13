@@ -274,7 +274,7 @@ class _CssCovDialogState extends State<_CssCovDialog> {
                             ),
                             kOpenHandGap6,
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(3),
+                              borderRadius: BorderRadius.circular(kOpenHandRadius3),
                               child: LinearProgressIndicator(
                                 value: r.totalBytes == 0
                                     ? 0

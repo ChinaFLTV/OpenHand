@@ -86,10 +86,10 @@ enum _AgentCardAction {
 const double _agentCardRadius = 22;
 
 // 通用圆角档位：收敛散落的 BorderRadius.circular 字面量。
-const BorderRadius _agentRadiusSmall = BorderRadius.all(Radius.circular(8));
-const BorderRadius _agentRadiusMedium = BorderRadius.all(Radius.circular(10));
-const BorderRadius _agentRadiusLarge = BorderRadius.all(Radius.circular(12));
-const BorderRadius _agentRadiusXLarge = BorderRadius.all(Radius.circular(18));
+const BorderRadius _agentRadiusSmall = BorderRadius.all(Radius.circular(kOpenHandRadius8));
+const BorderRadius _agentRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius10));
+const BorderRadius _agentRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius12));
+const BorderRadius _agentRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius18));
 const double _agentListCardSurfaceAlpha = 0.42;
 
 /// 数字员工列表项 / 卡片的统一底色与描边；圆角由调用方按层级给定。
@@ -2166,7 +2166,7 @@ class _AgentCapabilityLogDetailHero extends StatelessWidget {
             cs.surfaceContainerHighest.withValues(alpha: 0.46),
           ],
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(kOpenHandRadius20),
         border: Border.all(color: color.withValues(alpha: 0.26)),
       ),
       child: Padding(
@@ -2179,7 +2179,7 @@ class _AgentCapabilityLogDetailHero extends StatelessWidget {
               height: 54,
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.16),
-                borderRadius: BorderRadius.circular(17),
+                borderRadius: BorderRadius.circular(kOpenHandRadius17),
               ),
               alignment: Alignment.center,
               child: Icon(
@@ -5153,7 +5153,7 @@ class _AgentResourceLiveSummary extends StatelessWidget {
           color.withValues(alpha: 0.08),
           cs.surfaceContainerHighest.withValues(alpha: 0.46),
         ),
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(kOpenHandRadius20),
         border: Border.all(color: color.withValues(alpha: 0.24)),
       ),
       child: Padding(
@@ -6788,7 +6788,7 @@ class _AgentAuditSection extends StatelessWidget {
                 height: 34,
                 decoration: BoxDecoration(
                   color: color.withValues(alpha: 0.13),
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius11),
                 ),
                 alignment: Alignment.center,
                 child: Icon(icon, size: 18, color: color),
@@ -6934,7 +6934,7 @@ class _AgentAuditEventRow extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: cs.surface.withValues(alpha: 0.48),
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(kOpenHandRadius14),
           border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.7)),
         ),
         child: Padding(
@@ -9583,7 +9583,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
             clipBehavior: Clip.antiAlias,
             decoration: BoxDecoration(
               color: colors.primaryContainer,
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(kOpenHandRadius16),
             ),
             alignment: Alignment.center,
             child: _AgentAvatarContent(

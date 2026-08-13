@@ -3671,7 +3671,7 @@ fi
       constraints: const BoxConstraints(maxHeight: _kShellOutputMaxHeight),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.55)),
       ),
       clipBehavior: Clip.antiAlias,
@@ -4841,7 +4841,7 @@ fi
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(kOpenHandRadius8),
               ),
               child: _lastDeviceActionResult == null
                   ? _formattedTerminalText(_lastDeviceActionOutput!, cs)
@@ -5798,7 +5798,7 @@ fi
               padding: const EdgeInsets.all(10),
               decoration: BoxDecoration(
                 color: cs.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(kOpenHandRadius8),
                 border: Border.all(
                   color: cs.outlineVariant.withValues(alpha: 0.58),
                 ),
@@ -6306,7 +6306,7 @@ fi
       padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.72)),
       ),
       child: Column(
@@ -6608,7 +6608,7 @@ fi
       padding: const EdgeInsets.fromLTRB(12, 10, 10, 10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.52),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.62)),
       ),
       child: Row(
@@ -7017,7 +7017,7 @@ fi
       padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.58)),
       ),
       child: Row(
@@ -7519,7 +7519,7 @@ fi
       padding: const EdgeInsets.fromLTRB(10, 8, 8, 8),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
         border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.58)),
       ),
       child: Column(
@@ -7853,7 +7853,7 @@ fi
                     child: DecoratedBox(
                       decoration: BoxDecoration(
                         color: cs.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(6),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius6),
                       ),
                       child: OpenHandSafeScrollbar(
                         child: SingleChildScrollView(
@@ -8092,7 +8092,7 @@ fi
               focusColor: cs.primary.withValues(alpha: 0.08),
               highlightColor: cs.primary.withValues(alpha: 0.12),
               shape: RoundedRectangleBorder(
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(kOpenHandRadius8),
               ),
             ),
           ),
@@ -8495,7 +8495,7 @@ fi
     return DecoratedBox(
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest.withValues(alpha: 0.55),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
         border: Border.all(color: cs.outlineVariant),
       ),
       child: OpenHandSafeScrollbar(
@@ -10064,7 +10064,7 @@ fi
       padding: const EdgeInsets.all(10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerHighest,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
       ),
       child: _formattedTerminalText(text, cs),
     );
@@ -10205,7 +10205,7 @@ fi
         color: isError
             ? cs.errorContainer.withValues(alpha: 0.18)
             : cs.surface.withValues(alpha: 0.46),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(kOpenHandRadius6),
         border: Border.all(
           color: (isError ? cs.error : cs.outlineVariant).withValues(
             alpha: 0.42,
@@ -10527,7 +10527,7 @@ class _LogcatLineTile extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
         decoration: BoxDecoration(
           color: color.withValues(alpha: level == null ? 0.03 : 0.07),
-          borderRadius: BorderRadius.circular(6),
+          borderRadius: BorderRadius.circular(kOpenHandRadius6),
           border: Border.all(color: color.withValues(alpha: 0.18)),
         ),
         child: Row(
@@ -10932,7 +10932,7 @@ class _ForwardRow extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 6),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(kOpenHandRadius6),
       ),
       child: Row(
         children: [
@@ -11603,7 +11603,7 @@ class _DashboardDetailSection extends StatelessWidget {
           padding: const EdgeInsets.all(12),
           decoration: BoxDecoration(
             color: cs.surfaceContainerHighest.withValues(alpha: 0.42),
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(kOpenHandRadius8),
             border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.6)),
           ),
           child: Column(
@@ -11688,7 +11688,7 @@ class _InfoCard extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: cs.primaryContainer.withValues(alpha: 0.3),
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
         border: Border.all(color: cs.primary.withValues(alpha: 0.2)),
       ),
       child: Row(

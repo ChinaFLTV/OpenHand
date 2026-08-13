@@ -3,6 +3,7 @@ import 'dart:collection';
 import 'package:flutter/material.dart';
 
 import '../../shared/ui/interaction_timings.dart';
+import '../../shared/ui/openhand_spacing.dart';
 import 'openhand_palette.dart';
 import 'openhand_theme_preset.dart';
 
@@ -138,7 +139,7 @@ abstract final class OpenHandTheme {
           return BorderSide(color: palette.outlineSoft);
         }),
         padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius22)),
       ),
       filledButtonTheme: FilledButtonThemeData(
         style: FilledButton.styleFrom(
@@ -147,7 +148,7 @@ abstract final class OpenHandTheme {
           minimumSize: const Size(0, 50),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(kOpenHandRadius22),
           ),
         ),
       ),
@@ -158,7 +159,7 @@ abstract final class OpenHandTheme {
           minimumSize: const Size(0, 50),
           padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 18),
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(22),
+            borderRadius: BorderRadius.circular(kOpenHandRadius22),
           ),
         ),
       ),
@@ -177,7 +178,7 @@ abstract final class OpenHandTheme {
             return colorScheme.onSurfaceVariant;
           }),
           shape: WidgetStatePropertyAll<OutlinedBorder>(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(18)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius18)),
           ),
         ),
       ),
@@ -194,21 +195,21 @@ abstract final class OpenHandTheme {
           vertical: 18,
         ),
         border: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(kOpenHandRadius24),
           borderSide: BorderSide(color: palette.outlineSoft),
         ),
         enabledBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(kOpenHandRadius24),
           borderSide: BorderSide(color: palette.outlineSoft),
         ),
         focusedBorder: OutlineInputBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(kOpenHandRadius24),
           borderSide: BorderSide(color: colorScheme.primary, width: 1.6),
         ),
       ),
       listTileTheme: ListTileThemeData(
         contentPadding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius24)),
         selectedTileColor: colorScheme.secondaryContainer.withValues(
           alpha: isDark ? 0.34 : 0.72,
         ),
@@ -221,7 +222,7 @@ abstract final class OpenHandTheme {
         surfaceTintColor: Colors.transparent,
         indicatorColor: colorScheme.secondaryContainer,
         indicatorShape: RoundedRectangleBorder(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(kOpenHandRadius24),
         ),
         tileHeight: 58,
         labelTextStyle: WidgetStateProperty.resolveWith<TextStyle?>((states) {
@@ -256,7 +257,7 @@ abstract final class OpenHandTheme {
           BorderSide(color: palette.outlineSoft),
         ),
         shape: WidgetStatePropertyAll<OutlinedBorder>(
-          RoundedRectangleBorder(borderRadius: BorderRadius.circular(24)),
+          RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius24)),
         ),
         padding: const WidgetStatePropertyAll<EdgeInsetsGeometry>(
           EdgeInsets.symmetric(horizontal: 18),
@@ -276,7 +277,7 @@ abstract final class OpenHandTheme {
             EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           ),
           shape: WidgetStatePropertyAll<OutlinedBorder>(
-            RoundedRectangleBorder(borderRadius: BorderRadius.circular(22)),
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius22)),
           ),
           backgroundColor: WidgetStateProperty.resolveWith<Color?>((states) {
             if (states.contains(WidgetState.selected)) {
@@ -322,7 +323,7 @@ abstract final class OpenHandTheme {
         dismissDirection: DismissDirection.down,
         elevation: isDark ? 6 : 4,
         insetPadding: const EdgeInsets.symmetric(horizontal: 20, vertical: 14),
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(14)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius14)),
       ),
       textTheme: baseTheme.textTheme.copyWith(
         displaySmall: baseTheme.textTheme.displaySmall?.copyWith(

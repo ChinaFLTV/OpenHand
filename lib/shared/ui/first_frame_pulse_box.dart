@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/ui/openhand_spacing.dart';
 import 'highlight_pulse.dart';
 
 /// 把 [child] 套上一个「首帧后自动 pulse 一次」的高亮条。用于在用户首次
@@ -16,7 +17,7 @@ class FirstFramePulseBox extends StatefulWidget {
   const FirstFramePulseBox({
     super.key,
     required this.child,
-    this.borderRadius = const BorderRadius.all(Radius.circular(2)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(kOpenHandRadius2)),
   });
 
   final Widget child;

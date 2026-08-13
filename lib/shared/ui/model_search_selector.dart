@@ -229,7 +229,7 @@ class _ModelSearchDialogState extends State<_ModelSearchDialog> {
                   vertical: 10,
                 ),
                 border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius12),
                 ),
                 suffixIcon: _searchController.text.isNotEmpty
                     ? IconButton(

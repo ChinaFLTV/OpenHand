@@ -2875,7 +2875,7 @@ class _CacheHitTrendChartState extends State<_CacheHitTrendChart> {
                               color: colorScheme.inverseSurface.withValues(
                                 alpha: 0.9,
                               ),
-                              borderRadius: BorderRadius.circular(6),
+                              borderRadius: BorderRadius.circular(kOpenHandRadius6),
                             ),
                             child: Text(
                               label.toString(),

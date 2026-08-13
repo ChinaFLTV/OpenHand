@@ -436,7 +436,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                     child: pending
                         ? DecoratedBox(
                             decoration: BoxDecoration(
-                              borderRadius: BorderRadius.circular(2),
+                              borderRadius: BorderRadius.circular(kOpenHandRadius2),
                               border: Border.all(color: cs.outlineVariant),
                             ),
                           )
@@ -447,8 +447,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                 decoration: BoxDecoration(
                                   color: cs.primary.withValues(alpha: 0.7),
                                   borderRadius: const BorderRadius.only(
-                                    topLeft: Radius.circular(2),
-                                    bottomLeft: Radius.circular(2),
+                                    topLeft: Radius.circular(kOpenHandRadius2),
+                                    bottomLeft: Radius.circular(kOpenHandRadius2),
                                   ),
                                 ),
                               ),
@@ -457,8 +457,8 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
                                 decoration: BoxDecoration(
                                   color: cs.tertiary.withValues(alpha: 0.85),
                                   borderRadius: const BorderRadius.only(
-                                    topRight: Radius.circular(2),
-                                    bottomRight: Radius.circular(2),
+                                    topRight: Radius.circular(kOpenHandRadius2),
+                                    bottomRight: Radius.circular(kOpenHandRadius2),
                                   ),
                                 ),
                               ),
@@ -520,14 +520,14 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
         message: tooltipMsg,
         child: InkWell(
           onTap: hasAny ? () => _showInitiator(e) : null,
-          borderRadius: BorderRadius.circular(3),
+          borderRadius: BorderRadius.circular(kOpenHandRadius3),
           child: Container(
             width: 16,
             height: 14,
             alignment: Alignment.center,
             decoration: BoxDecoration(
               border: Border.all(color: color),
-              borderRadius: BorderRadius.circular(3),
+              borderRadius: BorderRadius.circular(kOpenHandRadius3),
             ),
             child: Text(
               letter,
@@ -559,7 +559,7 @@ class _WaterfallDialogState extends State<_WaterfallDialog> {
           maxWidth: kOpenHandDialogWidthStandard,
           backgroundColor: cs.surfaceContainer,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(kOpenHandRadius16),
           ),
           child: Column(
             mainAxisSize: MainAxisSize.min,

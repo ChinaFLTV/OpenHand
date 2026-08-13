@@ -133,7 +133,7 @@ class OpenHandMetricChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
       ),
       child: Text(
         label,

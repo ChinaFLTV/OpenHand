@@ -106,7 +106,7 @@ class OpenHandDirectoryField extends StatelessWidget {
                   color: colorScheme.outline.withValues(alpha: 0.6),
                 ),
                 shape: RoundedRectangleBorder(
-                  borderRadius: BorderRadius.circular(6),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius6),
                 ),
                 foregroundColor: colorScheme.onSurfaceVariant,
               ),
@@ -151,7 +151,7 @@ class OpenHandAnimatedSwitchTile extends StatelessWidget {
         color: value
             ? colorScheme.primaryContainer.withValues(alpha: 0.42)
             : colorScheme.surfaceContainer,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
         border: Border.all(
           color: value
               ? colorScheme.primary.withValues(alpha: 0.46)

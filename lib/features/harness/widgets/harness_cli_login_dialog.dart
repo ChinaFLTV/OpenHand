@@ -521,7 +521,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                 DecoratedBox(
                   decoration: BoxDecoration(
                     color: colorScheme.surfaceContainerHighest,
-                    borderRadius: BorderRadius.circular(14),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius14),
                     border: Border.all(
                       color: colorScheme.outlineVariant.withValues(alpha: 0.8),
                     ),
@@ -587,7 +587,7 @@ class _HarnessCliLoginDialogState extends State<HarnessCliLoginDialog> {
                   child: DecoratedBox(
                     decoration: BoxDecoration(
                       color: const Color(0xFF0F172A),
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius18),
                       border: Border.all(
                         color: colorScheme.outlineVariant.withValues(
                           alpha: 0.4,

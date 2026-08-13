@@ -844,7 +844,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: tone,
-        borderRadius: BorderRadius.circular(10),
+        borderRadius: BorderRadius.circular(kOpenHandRadius10),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -1143,7 +1143,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
           }
         });
       },
-      borderRadius: BorderRadius.circular(10),
+      borderRadius: BorderRadius.circular(kOpenHandRadius10),
       child: AnimatedContainer(
         duration: openHandMotionDuration(context, kOpenHandMotion120),
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
@@ -1153,7 +1153,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
               : theme.colorScheme.surfaceContainerHighest.withValues(
                   alpha: 0.4,
                 ),
-          borderRadius: BorderRadius.circular(10),
+          borderRadius: BorderRadius.circular(kOpenHandRadius10),
           border: Border.all(
             color: visible
                 ? levelColor.withValues(alpha: 0.45)

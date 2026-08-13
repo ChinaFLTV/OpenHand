@@ -1462,7 +1462,7 @@ class _ContextWindowUsageBar extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(10, 9, 10, 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(kOpenHandRadius11),
         border: Border.all(color: color.withValues(alpha: 0.20)),
       ),
       child: Column(
@@ -1743,7 +1743,7 @@ class _PopupRowState extends State<_PopupRow> {
           color: _hovered
               ? accent.withValues(alpha: 0.10)
               : colorScheme.surface.withValues(alpha: 0.52),
-          borderRadius: BorderRadius.circular(9),
+          borderRadius: BorderRadius.circular(kOpenHandRadius9),
           border: Border.all(
             color: _hovered
                 ? accent.withValues(alpha: 0.22)

@@ -309,7 +309,7 @@ class _PluginStatusBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.12),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
       ),
       child: Text(
         label,
@@ -335,7 +335,7 @@ class _PluginTemplateBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
       decoration: BoxDecoration(
         color: theme.colorScheme.secondaryContainer.withValues(alpha: 0.62),
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
       ),
       child: Text(
         _localizedTemplateDependencyLabel(l10n, spec),
@@ -396,7 +396,7 @@ class _PluginCard extends StatelessWidget {
                           height: 46,
                           decoration: BoxDecoration(
                             color: theme.colorScheme.primaryContainer,
-                            borderRadius: BorderRadius.circular(18),
+                            borderRadius: BorderRadius.circular(kOpenHandRadius18),
                           ),
                           child: Center(
                             child: SizedBox(
@@ -1615,7 +1615,7 @@ class _DetailSection extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colors.surfaceContainerHighest.withValues(alpha: 0.26),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
         border: Border.all(color: colors.outlineVariant.withValues(alpha: 0.7)),
       ),
       child: Column(
@@ -1628,7 +1628,7 @@ class _DetailSection extends StatelessWidget {
                 height: 34,
                 decoration: BoxDecoration(
                   color: colors.primaryContainer.withValues(alpha: 0.72),
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius11),
                 ),
                 child: Icon(icon, size: 18, color: colors.onPrimaryContainer),
               ),

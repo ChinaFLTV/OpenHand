@@ -485,7 +485,7 @@ class _DashboardScriptWorkspace extends StatelessWidget {
     final colorScheme = theme.colorScheme;
     final paneDecoration = BoxDecoration(
       color: colorScheme.surfaceContainerHigh,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(kOpenHandRadius16),
       border: Border.all(color: colorScheme.outlineVariant),
     );
     return Padding(

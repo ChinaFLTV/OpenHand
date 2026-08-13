@@ -4628,7 +4628,7 @@ class _IceTopologyPainter extends CustomPainter {
       _ => onSurface,
     };
     final box = Rect.fromCenter(center: pos, width: 110, height: 36);
-    final rrect = RRect.fromRectAndRadius(box, const Radius.circular(8));
+    final rrect = RRect.fromRectAndRadius(box, const Radius.circular(kOpenHandRadius8));
     canvas.drawRRect(rrect, Paint()..color = color.withValues(alpha: 0.22));
     canvas.drawRRect(
       rrect,

@@ -108,7 +108,7 @@ class _EmojiGridPopupEntryState extends State<_EmojiGridPopupEntry> {
                         : colorScheme.surfaceContainerHigh,
                     foregroundColor: colorScheme.onSurface,
                     shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(14),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius14),
                     ),
                   ),
                   child: Text(emoji, style: const TextStyle(fontSize: 24)),
@@ -467,7 +467,7 @@ class _SkillsViewState extends State<SkillsView> {
                         color: Theme.of(
                           context,
                         ).colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius18),
                       ),
                       child: Text(
                         skill.defaultPrompt!,
@@ -480,7 +480,7 @@ class _SkillsViewState extends State<SkillsView> {
                   kOpenHandGap16,
                   Expanded(
                     child: ClipRRect(
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius24),
                       child: ColoredBox(
                         color: Theme.of(
                           context,
@@ -678,14 +678,14 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
                 child: Row(
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(16),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius16),
                       child: Container(
                         width: _kSkillIconPreviewExtent,
                         height: _kSkillIconPreviewExtent,
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(16),
+                          borderRadius: BorderRadius.circular(kOpenHandRadius16),
                         ),
                         child: _buildSelectedIconPreview(),
                       ),
@@ -1155,7 +1155,7 @@ class _SkillCard extends StatelessWidget {
                     padding: const EdgeInsets.all(12),
                     decoration: BoxDecoration(
                       color: colorScheme.surfaceContainerHigh,
-                      borderRadius: BorderRadius.circular(18),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius18),
                     ),
                     child: Row(
                       crossAxisAlignment: CrossAxisAlignment.start,
@@ -1212,7 +1212,7 @@ class _SkillCardAvatar extends StatelessWidget {
       height: 52,
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kOpenHandRadius18),
       ),
       clipBehavior: Clip.antiAlias,
       alignment: Alignment.center,

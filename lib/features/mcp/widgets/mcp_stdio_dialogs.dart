@@ -711,7 +711,7 @@ class _InfoSection extends StatelessWidget {
             color: theme.colorScheme.surfaceContainerHighest.withValues(
               alpha: 0.3,
             ),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(kOpenHandRadius10),
           ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,

@@ -1283,7 +1283,7 @@ class _ChartTooltip extends StatelessWidget {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: colors.surfaceContainerHigh,
-          borderRadius: BorderRadius.circular(8),
+          borderRadius: BorderRadius.circular(kOpenHandRadius8),
           border: Border.all(color: color.withValues(alpha: 0.72)),
         ),
         child: Padding(
@@ -1318,7 +1318,7 @@ class _ChartLegend extends StatelessWidget {
             button: true,
             label: '${segments[index].label} 图例',
             child: InkWell(
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(kOpenHandRadius6),
               onTap: () => onTap(index),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 2, vertical: 2),
@@ -1580,7 +1580,7 @@ class _ChartActionSurfaceState extends State<_ChartActionSurface> {
               color: highlighted
                   ? colors.primary.withValues(alpha: _pressed ? 0.14 : 0.08)
                   : Colors.transparent,
-              borderRadius: BorderRadius.circular(6),
+              borderRadius: BorderRadius.circular(kOpenHandRadius6),
               border: Border.all(
                 color: _focused
                     ? colors.primary.withValues(alpha: 0.65)
@@ -1633,7 +1633,7 @@ class _HorizontalComparisonBars extends StatelessWidget {
                 Expanded(
                   flex: 5,
                   child: ClipRRect(
-                    borderRadius: BorderRadius.circular(4),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius4),
                     child: SizedBox(
                       height: 10,
                       child: Stack(
@@ -1731,7 +1731,7 @@ class _VerticalComparisonBars extends StatelessWidget {
                               decoration: BoxDecoration(
                                 color: segment.color,
                                 borderRadius: const BorderRadius.vertical(
-                                  top: Radius.circular(4),
+                                  top: Radius.circular(kOpenHandRadius4),
                                 ),
                               ),
                             ),
@@ -1790,7 +1790,7 @@ class OpenHandOperationalStatusBand extends StatelessWidget {
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
             ClipRRect(
-              borderRadius: BorderRadius.circular(7),
+              borderRadius: BorderRadius.circular(kOpenHandRadius7),
               child: SizedBox(
                 height: 18,
                 child: LayoutBuilder(
@@ -2019,7 +2019,7 @@ class OpenHandOperationalHeatmap extends StatelessWidget {
                         child: DecoratedBox(
                           decoration: BoxDecoration(
                             color: color.withValues(alpha: 0.16 + ratio * 0.84),
-                            borderRadius: BorderRadius.circular(9),
+                            borderRadius: BorderRadius.circular(kOpenHandRadius9),
                             border: Border.all(
                               color: color.withValues(
                                 alpha: 0.24 + ratio * 0.5,

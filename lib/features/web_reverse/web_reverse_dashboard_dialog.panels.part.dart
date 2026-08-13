@@ -1282,7 +1282,7 @@ class _LongTasksPane extends StatelessWidget {
                               margin: const EdgeInsets.only(right: 8, top: 2),
                               decoration: BoxDecoration(
                                 color: color,
-                                borderRadius: BorderRadius.circular(2),
+                                borderRadius: BorderRadius.circular(kOpenHandRadius2),
                               ),
                             ),
                             Expanded(
@@ -2545,7 +2545,7 @@ class _SamplingTopList extends StatelessWidget {
                                 height: 6,
                                 decoration: BoxDecoration(
                                   color: cs.surfaceContainer,
-                                  borderRadius: BorderRadius.circular(3),
+                                  borderRadius: BorderRadius.circular(kOpenHandRadius3),
                                 ),
                               ),
                               FractionallySizedBox(
@@ -2554,7 +2554,7 @@ class _SamplingTopList extends StatelessWidget {
                                   height: 6,
                                   decoration: BoxDecoration(
                                     color: cs.primary,
-                                    borderRadius: BorderRadius.circular(3),
+                                    borderRadius: BorderRadius.circular(kOpenHandRadius3),
                                   ),
                                 ),
                               ),
@@ -7066,7 +7066,7 @@ class _TraceLanesInlineState extends State<_TraceLanesInline> {
                   height: 10,
                   decoration: BoxDecoration(
                     color: entry.value.color,
-                    borderRadius: BorderRadius.circular(2),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius2),
                   ),
                 ),
                 kOpenHandHGap4,
@@ -7305,12 +7305,12 @@ class _TraceLanesPainter extends CustomPainter {
       final top = e.lane * laneH + 2;
       final rect = Rect.fromLTWH(left, top, w, laneH - 4);
       canvas.drawRRect(
-        RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+        RRect.fromRectAndRadius(rect, const Radius.circular(kOpenHandRadius2)),
         fills[e.lane],
       );
       if (identical(e, highlight)) {
         canvas.drawRRect(
-          RRect.fromRectAndRadius(rect, const Radius.circular(2)),
+          RRect.fromRectAndRadius(rect, const Radius.circular(kOpenHandRadius2)),
           highlightStroke,
         );
       }

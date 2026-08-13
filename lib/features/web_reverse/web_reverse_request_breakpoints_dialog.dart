@@ -343,7 +343,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: cs.tertiaryContainer,
-                                  borderRadius: BorderRadius.circular(3),
+                                  borderRadius: BorderRadius.circular(kOpenHandRadius3),
                                 ),
                                 child: Text(
                                   h.method,
@@ -361,7 +361,7 @@ class _RequestBreakpointsDialogState extends State<_RequestBreakpointsDialog> {
                                 ),
                                 decoration: BoxDecoration(
                                   color: cs.primaryContainer,
-                                  borderRadius: BorderRadius.circular(3),
+                                  borderRadius: BorderRadius.circular(kOpenHandRadius3),
                                 ),
                                 child: Text(
                                   h.breakpointName,

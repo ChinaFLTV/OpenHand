@@ -127,13 +127,13 @@ const int _kSettingsWriteToolSummaryMaxChars = 8192;
 const int _kThrottleConfigImportMaxBytes = 1 * kBytesPerMiB;
 
 // 通用圆角档位：收敛散落的 BorderRadius.circular 字面量。
-const BorderRadius _kSettingsRadiusXS = BorderRadius.all(Radius.circular(4));
-const BorderRadius _kSettingsRadiusSmall = BorderRadius.all(Radius.circular(8));
-const BorderRadius _kSettingsRadiusMedium = BorderRadius.all(Radius.circular(10));
-const BorderRadius _kSettingsRadiusLarge = BorderRadius.all(Radius.circular(12));
-const BorderRadius _kSettingsRadiusXLarge = BorderRadius.all(Radius.circular(14));
-const BorderRadius _kSettingsRadiusXXLarge = BorderRadius.all(Radius.circular(16));
-const BorderRadius _kSettingsRadiusXXXLarge = BorderRadius.all(Radius.circular(18));
+const BorderRadius _kSettingsRadiusXS = BorderRadius.all(Radius.circular(kOpenHandRadius4));
+const BorderRadius _kSettingsRadiusSmall = BorderRadius.all(Radius.circular(kOpenHandRadius8));
+const BorderRadius _kSettingsRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius10));
+const BorderRadius _kSettingsRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius12));
+const BorderRadius _kSettingsRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius14));
+const BorderRadius _kSettingsRadiusXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius16));
+const BorderRadius _kSettingsRadiusXXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius18));
 
 bool _settingsMotionEnabled(BuildContext context) {
   return openHandTickerMotionEnabled(context);
@@ -7052,7 +7052,7 @@ class _McpStdioMirrorModeControl extends StatelessWidget {
           padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
           decoration: BoxDecoration(
             color: statusBg,
-            borderRadius: const BorderRadius.all(Radius.circular(10)),
+            borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius10)),
             border: Border.all(color: statusBorder),
           ),
           child: Column(
@@ -7185,7 +7185,7 @@ class _McpKeywordIndexUpdateModeControl extends StatelessWidget {
               color: theme.colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.55,
               ),
-              borderRadius: const BorderRadius.all(Radius.circular(10)),
+              borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius10)),
               border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: Text(
@@ -7363,7 +7363,7 @@ class _McpKeywordIndexScheduledForm extends StatelessWidget {
               color: theme.colorScheme.surfaceContainerHighest.withValues(
                 alpha: 0.55,
               ),
-              borderRadius: const BorderRadius.all(Radius.circular(10)),
+              borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius10)),
               border: Border.all(color: theme.colorScheme.outlineVariant),
             ),
             child: Row(
@@ -7410,7 +7410,7 @@ class _McpLazyLoadingHelpBanner extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 12, 14, 12),
       decoration: BoxDecoration(
         color: colorScheme.primaryContainer.withValues(alpha: 0.35),
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
         border: Border.all(color: colorScheme.primary.withValues(alpha: 0.18)),
       ),
       child: Row(

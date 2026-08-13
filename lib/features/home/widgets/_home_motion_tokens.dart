@@ -55,9 +55,9 @@ Widget maybeAnimatedSize({
 }
 
 // 通用圆角档位：收敛散落的 BorderRadius.circular 字面量。
-const BorderRadius _kHomeRadiusSmall = BorderRadius.all(Radius.circular(8));
-const BorderRadius _kHomeRadiusMedium = BorderRadius.all(Radius.circular(10));
-const BorderRadius _kHomeRadiusLarge = BorderRadius.all(Radius.circular(12));
-const BorderRadius _kHomeRadiusXLarge = BorderRadius.all(Radius.circular(14));
-const BorderRadius _kHomeRadiusXXLarge = BorderRadius.all(Radius.circular(16));
-const BorderRadius _kHomeRadiusFull = BorderRadius.all(Radius.circular(20));
+const BorderRadius _kHomeRadiusSmall = BorderRadius.all(Radius.circular(kOpenHandRadius8));
+const BorderRadius _kHomeRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius10));
+const BorderRadius _kHomeRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius12));
+const BorderRadius _kHomeRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius14));
+const BorderRadius _kHomeRadiusXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius16));
+const BorderRadius _kHomeRadiusFull = BorderRadius.all(Radius.circular(kOpenHandRadius20));

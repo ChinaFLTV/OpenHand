@@ -175,7 +175,7 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
           Material(
             elevation: 4,
             clipBehavior: Clip.antiAlias,
-            borderRadius: BorderRadius.circular(8),
+            borderRadius: BorderRadius.circular(kOpenHandRadius8),
             child: Container(
               width: popupWidth,
               padding: const EdgeInsets.all(12),
@@ -183,7 +183,7 @@ class _OpenHandFileHoverPopupState extends State<OpenHandFileHoverPopup> {
                 color: Theme.of(
                   overlayContext,
                 ).colorScheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(kOpenHandRadius8),
                 border: Border.all(
                   color: Theme.of(overlayContext).dividerColor,
                 ),

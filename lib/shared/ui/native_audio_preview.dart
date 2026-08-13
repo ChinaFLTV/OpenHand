@@ -1489,7 +1489,7 @@ class _NativeAudioPreviewState extends State<NativeAudioPreview> {
           child: Card(
             elevation: 0,
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(16),
+              borderRadius: BorderRadius.circular(kOpenHandRadius16),
               side: BorderSide(color: cs.outlineVariant),
             ),
             child: Padding(
@@ -1965,7 +1965,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
     return Tooltip(
       message: l10n.nativeAudioEffectTooltip(label),
       child: InkWell(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(kOpenHandRadius20),
         onTap: () => _showMenu(ctx, l10n, cs),
         child: AnimatedContainer(
           duration: openHandMotionDuration(
@@ -1978,7 +1978,7 @@ class _NativeAudioEffectMenuButton extends StatelessWidget {
             color: effect != _NativeAudioEffect.standard
                 ? cs.primary.withValues(alpha: 0.12)
                 : cs.onSurface.withValues(alpha: 0.06),
-            borderRadius: BorderRadius.circular(20),
+            borderRadius: BorderRadius.circular(kOpenHandRadius20),
             border: Border.all(
               color: effect != _NativeAudioEffect.standard
                   ? cs.primary.withValues(alpha: 0.36)

@@ -13,11 +13,11 @@ import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 
 // 知识库对话框统一圆角档位。
-const BorderRadius kKnowledgeRadiusMedium = BorderRadius.all(Radius.circular(10));
-const BorderRadius kKnowledgeRadiusLarge = BorderRadius.all(Radius.circular(12));
-const BorderRadius kKnowledgeRadiusXLarge = BorderRadius.all(Radius.circular(14));
-const BorderRadius kKnowledgeRadiusXXLarge = BorderRadius.all(Radius.circular(16));
-const BorderRadius kKnowledgeRadiusXXXLarge = BorderRadius.all(Radius.circular(18));
+const BorderRadius kKnowledgeRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius10));
+const BorderRadius kKnowledgeRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius12));
+const BorderRadius kKnowledgeRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius14));
+const BorderRadius kKnowledgeRadiusXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius16));
+const BorderRadius kKnowledgeRadiusXXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius18));
 
 IconData knowledgeSourceKindIcon(String kind) {
   return switch (kind.trim().toLowerCase()) {
@@ -213,7 +213,7 @@ MarkdownStyleSheet knowledgeMarkdownStyleSheet(BuildContext context) {
 const double _kKnowledgeMarkdownLineHeight = 1.42;
 const double _kKnowledgeBlockquoteBarWidth = 3;
 const BorderRadius _kKnowledgeMarkdownBlockRadius = BorderRadius.all(
-  Radius.circular(10),
+  Radius.circular(kOpenHandRadius10),
 );
 
 /// 知识库弹窗顶部的错误提示，出现与消失沿用全局动效。
@@ -275,7 +275,7 @@ class KnowledgeDialogSection extends StatelessWidget {
       padding: const EdgeInsets.fromLTRB(14, 13, 14, 14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainer.withValues(alpha: 0.86),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(kOpenHandRadius14),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.84),
         ),
@@ -293,7 +293,7 @@ class KnowledgeDialogSection extends StatelessWidget {
                   color: colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.78,
                   ),
-                  borderRadius: BorderRadius.circular(9),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius9),
                 ),
                 child: Icon(icon, size: 17, color: colorScheme.primary),
               ),
@@ -426,7 +426,7 @@ class KnowledgeDialogJsonBox extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.64),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.56),
         ),
@@ -493,7 +493,7 @@ class KnowledgeDialogNotice extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 11),
       decoration: BoxDecoration(
         color: colors.background,
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
         border: Border.all(color: colors.border),
       ),
       child: LayoutBuilder(
@@ -655,7 +655,7 @@ class KnowledgeDialogTextBox extends StatelessWidget {
       padding: const EdgeInsets.all(12),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.54),
-        borderRadius: BorderRadius.circular(12),
+        borderRadius: BorderRadius.circular(kOpenHandRadius12),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.56),
         ),
@@ -732,15 +732,15 @@ InputDecoration knowledgeDialogInputDecoration(
     filled: true,
     fillColor: colorScheme.surfaceContainerHighest.withValues(alpha: 0.46),
     contentPadding: const EdgeInsets.symmetric(horizontal: 12, vertical: 12),
-    border: OutlineInputBorder(borderRadius: BorderRadius.circular(12)),
+    border: OutlineInputBorder(borderRadius: BorderRadius.circular(kOpenHandRadius12)),
     enabledBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(kOpenHandRadius12),
       borderSide: BorderSide(
         color: colorScheme.outlineVariant.withValues(alpha: 0.84),
       ),
     ),
     focusedBorder: OutlineInputBorder(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(kOpenHandRadius12),
       borderSide: BorderSide(color: colorScheme.primary, width: 1.4),
     ),
   );
@@ -783,7 +783,7 @@ class KnowledgeCollectionTile extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(kOpenHandRadius14),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(

@@ -94,7 +94,7 @@ class ExportProgressDialog extends StatelessWidget {
                   Text(subtitle, style: theme.textTheme.bodyMedium),
                   kOpenHandGap16,
                   ClipRRect(
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius8),
                     child: LinearProgressIndicator(
                       value: progress.total > 0 ? progress.fraction : null,
                       minHeight: 8,

@@ -4,6 +4,7 @@ library;
 import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart' show SelectedContent;
 
+import '../../shared/ui/openhand_spacing.dart';
 import 'openhand_typography.dart';
 
 /// 深色控制台面板的配色令牌。
@@ -95,7 +96,7 @@ class OpenHandConsoleLogPanel extends StatefulWidget {
     required this.emptyPlaceholder,
     this.margin = EdgeInsets.zero,
     this.padding = const EdgeInsets.all(10),
-    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(kOpenHandRadius8)),
     this.lineSpacing = 0,
     this.reverse = false,
   });

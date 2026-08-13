@@ -110,11 +110,11 @@ const double _mcpToolChipMaxWidth = 360;
 const double _mcpScrollCorrectionEpsilon = 0.5;
 
 // 通用圆角档位：收敛散落的 BorderRadius.circular 字面量。
-const BorderRadius _mcpRadiusSmall = BorderRadius.all(Radius.circular(8));
-const BorderRadius _mcpRadiusMedium = BorderRadius.all(Radius.circular(12));
-const BorderRadius _mcpRadiusLarge = BorderRadius.all(Radius.circular(14));
-const BorderRadius _mcpRadiusXLarge = BorderRadius.all(Radius.circular(16));
-const BorderRadius _mcpRadiusXXLarge = BorderRadius.all(Radius.circular(18));
+const BorderRadius _mcpRadiusSmall = BorderRadius.all(Radius.circular(kOpenHandRadius8));
+const BorderRadius _mcpRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius12));
+const BorderRadius _mcpRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius14));
+const BorderRadius _mcpRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius16));
+const BorderRadius _mcpRadiusXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius18));
 const DialogAnimationSettings _mcpChipAnimationSettings =
     DialogAnimationSettings(
       durationMs: 220,
@@ -2558,16 +2558,13 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
     final controller = context.watch<McpController>();
     final snapshot = controller.opsSnapshot;
     final config = _buildConfig();
-    final endpoint = mcpOpsAdvertisedClientAuthority(
+    final endpointUri = mcpOpsAdvertisedClientEndpointUri(
       snapshot,
       config,
       discoveredHosts: _advertisedHosts,
     );
-    final localEndpoint = mcpOpsClientAuthority(snapshot, config);
-    final bindEndpoint = mcpOpsBindAuthority(snapshot, config);
-    final endpointUri = 'http://$endpoint/mcp';
-    final localEndpointUri = 'http://$localEndpoint/mcp';
-    final bindEndpointUri = 'http://$bindEndpoint/mcp';
+    final localEndpointUri = mcpOpsClientEndpointUri(snapshot, config);
+    final bindEndpointUri = mcpOpsBindEndpointUri(snapshot, config);
     return OpenHandEscapeDismissScope(
       enabled: !_saving,
       child: buildOpenHandResponsiveDialogShell(
@@ -2642,12 +2639,11 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
   String _currentEndpointUri() {
     final controller = context.read<McpController>();
     final config = _buildConfig();
-    final endpoint = mcpOpsAdvertisedClientAuthority(
+    return mcpOpsAdvertisedClientEndpointUri(
       controller.opsSnapshot,
       config,
       discoveredHosts: _advertisedHosts,
     );
-    return 'http://$endpoint/mcp';
   }
 
   Future<void> _copyCurrentOpsEndpoint(BuildContext context) async {
@@ -2885,21 +2881,11 @@ class _McpOpsDialogState extends State<_McpOpsDialog> {
       snapshot: snapshot,
       auditEntries: auditEntries,
     );
-    final endpoint = mcpOpsAdvertisedClientAuthority(
-      snapshot,
-      config,
-      discoveredHosts: _advertisedHosts,
-    );
-    final localEndpoint = mcpOpsClientAuthority(snapshot, config);
-    final bindEndpoint = mcpOpsBindAuthority(snapshot, config);
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
         _McpOpsHeroPanel(
           snapshot: snapshot,
-          endpoint: endpoint,
-          localEndpoint: localEndpoint,
-          bindEndpoint: bindEndpoint,
           discoveredHosts: _advertisedHosts,
           config: config,
         ),
@@ -5471,17 +5457,11 @@ class _McpOpsDashboardStats {
 class _McpOpsHeroPanel extends StatelessWidget {
   const _McpOpsHeroPanel({
     required this.snapshot,
-    required this.endpoint,
-    required this.localEndpoint,
-    required this.bindEndpoint,
     required this.discoveredHosts,
     required this.config,
   });
 
   final McpOpsRuntimeSnapshot snapshot;
-  final String endpoint;
-  final String localEndpoint;
-  final String bindEndpoint;
   final List<String> discoveredHosts;
   final McpOpsConfig config;
 
@@ -5495,11 +5475,15 @@ class _McpOpsHeroPanel extends StatelessWidget {
         : snapshot.lifecycle == McpOpsLifecycleState.failed
         ? cs.error
         : cs.primary;
-    final endpointUri = 'http://$endpoint/mcp';
-    final localEndpointUri = 'http://$localEndpoint/mcp';
-    final bindEndpointUri = 'http://$bindEndpoint/mcp';
+    final endpointUri = mcpOpsAdvertisedClientEndpointUri(
+      snapshot,
+      config,
+      discoveredHosts: discoveredHosts,
+    );
+    final localEndpointUri = mcpOpsClientEndpointUri(snapshot, config);
+    final bindEndpointUri = mcpOpsBindEndpointUri(snapshot, config);
     final showsLocalEndpoint = localEndpointUri != endpointUri;
-    final showsBindEndpoint = bindEndpoint != endpoint;
+    final showsBindEndpoint = bindEndpointUri != endpointUri;
     final wildcardListen = mcpOpsIsWildcardHost(config.listenHost);
     return _McpOpsPanel(
       icon: running ? Icons.cloud_done_rounded : Icons.cloud_queue_rounded,
@@ -5881,7 +5865,7 @@ class _McpOpsMetricTile extends StatelessWidget {
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: tone.withValues(alpha: 0.12),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius10),
                     border: Border.all(color: tone.withValues(alpha: 0.22)),
                   ),
                   child: Icon(icon, size: 17, color: tone),
@@ -6147,7 +6131,7 @@ class _McpOpsPanel extends StatelessWidget {
                         cs.primary.withValues(alpha: 0.08),
                       ],
                     ),
-                    borderRadius: BorderRadius.circular(11),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius11),
                     border: Border.all(
                       color: cs.primary.withValues(alpha: 0.24),
                     ),
@@ -6670,7 +6654,7 @@ class _McpOpsToggleFormField extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: tone.withValues(alpha: value ? 0.14 : 0.08),
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius11),
                   border: Border.all(color: tone.withValues(alpha: 0.22)),
                 ),
                 child: Icon(icon, size: 18, color: tone),
@@ -7134,7 +7118,7 @@ class _McpOpsSchemaDialogState extends State<_McpOpsSchemaDialog> {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: cs.primary.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(kOpenHandRadius13),
             border: Border.all(color: cs.primary.withValues(alpha: 0.28)),
           ),
           child: Icon(Icons.data_object_rounded, color: cs.primary, size: 24),
@@ -8183,7 +8167,7 @@ class _McpOpsAuditRow extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(10),
+            borderRadius: BorderRadius.circular(kOpenHandRadius10),
             border: Border.all(color: statusColor.withValues(alpha: 0.24)),
           ),
           child: Icon(
@@ -8580,7 +8564,7 @@ class _McpOpsAuditDetailDialog extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: statusColor.withValues(alpha: 0.12),
-            borderRadius: BorderRadius.circular(13),
+            borderRadius: BorderRadius.circular(kOpenHandRadius13),
             border: Border.all(color: statusColor.withValues(alpha: 0.28)),
           ),
           child: Icon(
@@ -8837,7 +8821,7 @@ class _McpOpsPayloadInspectorHeader extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: cs.surface.withValues(alpha: 0.62),
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(kOpenHandRadius11),
               border: Border.all(color: accent.withValues(alpha: 0.20)),
             ),
             child: Icon(Icons.account_tree_rounded, size: 18, color: accent),
@@ -9099,7 +9083,7 @@ class _McpOpsPayloadOverflowNotice extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: cs.secondaryContainer.withValues(alpha: 0.34),
-        borderRadius: BorderRadius.circular(11),
+        borderRadius: BorderRadius.circular(kOpenHandRadius11),
         border: Border.all(color: cs.secondary.withValues(alpha: 0.18)),
       ),
       child: Row(
@@ -9148,7 +9132,7 @@ class _McpOpsPayloadFieldHeader extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: accent.withValues(alpha: 0.10),
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(kOpenHandRadius9),
             border: Border.all(color: accent.withValues(alpha: 0.20)),
           ),
           child: Icon(mcpPayloadValueIcon(value), size: 16, color: accent),
@@ -12100,7 +12084,7 @@ class _McpHealthProbeTile extends StatelessWidget {
             height: 32,
             decoration: BoxDecoration(
               color: accentSurface,
-              borderRadius: BorderRadius.circular(10),
+              borderRadius: BorderRadius.circular(kOpenHandRadius10),
             ),
             alignment: Alignment.center,
             child: Icon(
@@ -17437,7 +17421,7 @@ class _McpOpsInsightDialog extends StatelessWidget {
                 alignment: Alignment.center,
                 decoration: BoxDecoration(
                   color: accent.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(13),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius13),
                   border: Border.all(color: accent.withValues(alpha: 0.26)),
                 ),
                 child: Icon(icon, color: accent),

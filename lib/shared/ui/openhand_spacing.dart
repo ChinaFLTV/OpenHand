@@ -41,3 +41,34 @@ const SizedBox kOpenHandHGap14 = SizedBox(width: 14);
 const SizedBox kOpenHandHGap18 = SizedBox(width: 18);
 const SizedBox kOpenHandHGap20 = SizedBox(width: 20);
 const SizedBox kOpenHandHGap24 = SizedBox(width: 24);
+
+/// 全局圆角 token —— 收敛散落的 `BorderRadius.circular(数字)` 字面量，
+/// 数值即现网常用值。与间距 token 同源同文件，便于统一管理。
+///
+/// 约定：
+///   * 仅用于 `BorderRadius.circular` / `BorderRadius.all(Radius.circular(...))`
+///     位置。
+///   * 出现两次及以上的值必须用 token；独有值允许写字面量。
+///   * 语义化圆角（如 `_mcpOpsPanelRadius` 等领域内已有常量）继续用语义常量。
+const double kOpenHandRadius2 = 2;
+const double kOpenHandRadius3 = 3;
+const double kOpenHandRadius4 = 4;
+const double kOpenHandRadius6 = 6;
+const double kOpenHandRadius7 = 7;
+const double kOpenHandRadius8 = 8;
+const double kOpenHandRadius9 = 9;
+const double kOpenHandRadius10 = 10;
+const double kOpenHandRadius11 = 11;
+const double kOpenHandRadius12 = 12;
+const double kOpenHandRadius13 = 13;
+const double kOpenHandRadius14 = 14;
+const double kOpenHandRadius15 = 15;
+const double kOpenHandRadius16 = 16;
+const double kOpenHandRadius17 = 17;
+const double kOpenHandRadius18 = 18;
+const double kOpenHandRadius20 = 20;
+const double kOpenHandRadius22 = 22;
+const double kOpenHandRadius24 = 24;
+
+/// 胶囊形（full-round）圆角，用于 Chip / Tag / 小型药丸组件。
+const double kOpenHandRadiusPill = 99;

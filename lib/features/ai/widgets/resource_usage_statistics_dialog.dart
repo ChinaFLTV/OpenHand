@@ -166,7 +166,7 @@ class _ResourceUsageStatisticsDialogState
               height: 52,
               decoration: BoxDecoration(
                 color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(kOpenHandRadius18),
               ),
               child: Icon(
                 Icons.query_stats_rounded,
@@ -593,7 +593,7 @@ class _SummaryCard extends StatelessWidget {
       padding: const EdgeInsets.all(16),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(kOpenHandRadius20),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(
@@ -603,7 +603,7 @@ class _SummaryCard extends StatelessWidget {
             height: 42,
             decoration: BoxDecoration(
               color: colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(kOpenHandRadius14),
             ),
             child: Icon(icon, color: colorScheme.onPrimaryContainer, size: 22),
           ),
@@ -669,7 +669,7 @@ class _AnalyticsPanel extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLowest,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(kOpenHandRadius22),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Column(
@@ -917,7 +917,7 @@ class _UsageDistribution extends StatelessWidget {
                   height: 9,
                   decoration: BoxDecoration(
                     color: colors[index % colors.length],
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius3),
                   ),
                 ),
                 kOpenHandHGap8,
@@ -948,7 +948,7 @@ class _UsageDistribution extends StatelessWidget {
                   height: 9,
                   decoration: BoxDecoration(
                     color: colors[visible.length % colors.length],
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius3),
                   ),
                 ),
                 kOpenHandHGap8,
@@ -1203,7 +1203,7 @@ class _ResourceDetailCard extends StatelessWidget {
       padding: const EdgeInsets.all(15),
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kOpenHandRadius18),
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(
@@ -1216,7 +1216,7 @@ class _ResourceDetailCard extends StatelessWidget {
                 height: 38,
                 decoration: BoxDecoration(
                   color: colors.primaryContainer,
-                  borderRadius: BorderRadius.circular(12),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius12),
                 ),
                 child: Icon(
                   children.isEmpty
@@ -1300,7 +1300,7 @@ class _ResourceDetailCard extends StatelessWidget {
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 6),
               decoration: BoxDecoration(
                 color: colors.surfaceContainerLowest,
-                borderRadius: BorderRadius.circular(14),
+                borderRadius: BorderRadius.circular(kOpenHandRadius14),
                 border: Border.all(color: colors.outlineVariant),
               ),
               child: Column(
@@ -1452,7 +1452,7 @@ class _UsageEventCard extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colors.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(17),
+        borderRadius: BorderRadius.circular(kOpenHandRadius17),
         border: Border.all(color: colors.outlineVariant),
       ),
       child: Column(

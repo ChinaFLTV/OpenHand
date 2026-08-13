@@ -218,7 +218,7 @@ class _HookEntryCard extends StatelessWidget {
                 color: entry.enabled
                     ? colorScheme.primaryContainer
                     : colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(16),
+                borderRadius: BorderRadius.circular(kOpenHandRadius16),
               ),
               child: Text(
                 entry.event.label(l10n),

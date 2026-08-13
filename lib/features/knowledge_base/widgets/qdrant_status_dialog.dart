@@ -555,7 +555,7 @@ class _QdrantOpsHeader extends StatelessWidget {
             height: 34,
             decoration: BoxDecoration(
               color: statusColor.withValues(alpha: 0.12),
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(kOpenHandRadius11),
             ),
             child: Icon(Icons.monitor_heart_outlined, color: statusColor),
           ),
@@ -1090,7 +1090,7 @@ class _QdrantTrendPainter extends CustomPainter {
       ..color = grid.withValues(alpha: 0.72)
       ..style = PaintingStyle.stroke
       ..strokeWidth = 1;
-    final rounded = RRect.fromRectAndRadius(rect, const Radius.circular(14));
+    final rounded = RRect.fromRectAndRadius(rect, const Radius.circular(kOpenHandRadius14));
     canvas.drawRRect(rounded, background);
     canvas.drawRRect(rounded, border);
 

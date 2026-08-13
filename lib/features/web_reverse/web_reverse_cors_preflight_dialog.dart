@@ -433,7 +433,7 @@ class _CorsDialogState extends State<_CorsDialog> {
                           ),
                           decoration: BoxDecoration(
                             color: cs.primaryContainer.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(20),
+                            borderRadius: BorderRadius.circular(kOpenHandRadius20),
                           ),
                           child: Text(
                             'HTTP ${res['status']} ${res['statusText']}',

@@ -1636,7 +1636,7 @@ Widget buildOpenHandApprovalDialogHeader(
         alignment: Alignment.center,
         decoration: BoxDecoration(
           color: accent.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(kOpenHandRadius16),
           border: Border.all(color: accent.withValues(alpha: 0.28)),
         ),
         child: Icon(icon, color: accent),
@@ -1689,7 +1689,7 @@ Widget buildOpenHandDialogValidationMessage(
           key: ValueKey<String>(message),
           decoration: BoxDecoration(
             color: colorScheme.errorContainer.withValues(alpha: 0.7),
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(kOpenHandRadius14),
             border: Border.all(
               color: colorScheme.error.withValues(alpha: 0.25),
             ),

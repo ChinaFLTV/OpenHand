@@ -129,9 +129,9 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
       height: 300,
       child: Material(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(kOpenHandRadius24),
         child: InkWell(
-          borderRadius: BorderRadius.circular(24),
+          borderRadius: BorderRadius.circular(kOpenHandRadius24),
           onTap: widget.onTap,
           child: Padding(
             padding: const EdgeInsets.all(18),

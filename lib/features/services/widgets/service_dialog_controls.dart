@@ -16,12 +16,12 @@ import '../services_controller.dart';
 
 const double kServiceDialogItemActionGap = 8;
 const BorderRadius kServiceInteractiveBorderRadius = BorderRadius.all(
-  Radius.circular(8),
+  Radius.circular(kOpenHandRadius8),
 );
 
-const BorderRadius kServiceRadiusMedium = BorderRadius.all(Radius.circular(12));
-const BorderRadius kServiceRadiusLarge = BorderRadius.all(Radius.circular(14));
-const BorderRadius kServiceRadiusXLarge = BorderRadius.all(Radius.circular(16));
+const BorderRadius kServiceRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius12));
+const BorderRadius kServiceRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius14));
+const BorderRadius kServiceRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius16));
 const BorderRadius kServiceRadiusPill = BorderRadius.all(Radius.circular(999));
 
 enum ServiceDialogHeaderActionTone { neutral, primary }
@@ -365,7 +365,7 @@ class ServiceDialogHeaderIconButton extends StatelessWidget {
         ),
         shape: const WidgetStatePropertyAll(
           RoundedRectangleBorder(
-            borderRadius: BorderRadius.all(Radius.circular(8)),
+            borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8)),
           ),
         ),
       ),
@@ -438,7 +438,7 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     const shape = RoundedRectangleBorder(
-      borderRadius: BorderRadius.all(Radius.circular(8)),
+      borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8)),
     );
     return Theme(
       data: theme.copyWith(
@@ -457,14 +457,14 @@ class ServiceDialogInteractionTheme extends StatelessWidget {
           filled: true,
           fillColor: colors.surfaceContainerHighest.withValues(alpha: 0.28),
           border: const OutlineInputBorder(
-            borderRadius: BorderRadius.all(Radius.circular(8)),
+            borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8)),
           ),
           enabledBorder: OutlineInputBorder(
-            borderRadius: const BorderRadius.all(Radius.circular(8)),
+            borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius8)),
             borderSide: BorderSide(color: colors.outlineVariant),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: const BorderRadius.all(Radius.circular(8)),
+            borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius8)),
             borderSide: BorderSide(color: colors.primary, width: 1.4),
           ),
         ),

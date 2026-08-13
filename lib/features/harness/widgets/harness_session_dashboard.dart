@@ -632,12 +632,12 @@ MarkdownStyleSheet _heBuildMarkdownStyleSheet(
 
 // 与首页会话界面共用的圆角规格。
 const _br26 = BorderRadius.all(Radius.circular(26));
-const _br18 = BorderRadius.all(Radius.circular(18));
-const _br16 = BorderRadius.all(Radius.circular(16));
-const _br12 = BorderRadius.all(Radius.circular(12));
-const _br10 = BorderRadius.all(Radius.circular(10));
-const _br8 = BorderRadius.all(Radius.circular(8));
-const _br6 = BorderRadius.all(Radius.circular(6));
+const _br18 = BorderRadius.all(Radius.circular(kOpenHandRadius18));
+const _br16 = BorderRadius.all(Radius.circular(kOpenHandRadius16));
+const _br12 = BorderRadius.all(Radius.circular(kOpenHandRadius12));
+const _br10 = BorderRadius.all(Radius.circular(kOpenHandRadius10));
+const _br8 = BorderRadius.all(Radius.circular(kOpenHandRadius8));
+const _br6 = BorderRadius.all(Radius.circular(kOpenHandRadius6));
 
 /// 根据卡片实际背景构建 Markdown 配色，保证跨明暗主题的可读性。
 MarkdownStyleSheet _heBuildDarkAwareMarkdownStyleSheet(

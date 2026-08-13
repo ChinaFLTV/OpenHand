@@ -24,7 +24,7 @@ class _ShortcutBindingTile extends StatelessWidget {
     final l10n = AppLocalizations.of(context)!;
     return Material(
       color: colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(20),
+      borderRadius: BorderRadius.circular(kOpenHandRadius20),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: LayoutBuilder(
@@ -63,7 +63,7 @@ class _ShortcutBindingTile extends StatelessWidget {
                       key: ValueKey<String>('shortcut-value-$actionStorageKey'),
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius14),
                         border: Border.all(color: colorScheme.outlineVariant),
                       ),
                       child: Padding(
@@ -95,7 +95,7 @@ class _ShortcutBindingTile extends StatelessWidget {
                       minimumSize: const Size(0, kCtrlHeight),
                       padding: const EdgeInsets.symmetric(horizontal: 14),
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius14),
                       ),
                     ),
                     onPressed: onRecord,
@@ -113,7 +113,7 @@ class _ShortcutBindingTile extends StatelessWidget {
                     visualDensity: VisualDensity.compact,
                     style: IconButton.styleFrom(
                       shape: RoundedRectangleBorder(
-                        borderRadius: BorderRadius.circular(14),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius14),
                       ),
                       side: BorderSide(color: colorScheme.outlineVariant),
                     ),
@@ -224,7 +224,7 @@ class _ShortcutRecorderDialogState extends State<_ShortcutRecorderDialog> {
                 padding: const EdgeInsets.all(16),
                 decoration: BoxDecoration(
                   color: Theme.of(context).colorScheme.surfaceContainerHigh,
-                  borderRadius: BorderRadius.circular(16),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius16),
                 ),
                 child: Text(
                   formatShortcutLabel(_currentKeyIds),

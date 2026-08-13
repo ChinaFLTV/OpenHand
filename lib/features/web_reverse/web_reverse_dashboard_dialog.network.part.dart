@@ -983,7 +983,7 @@ class _Waterfall extends StatelessWidget {
                     color: selected
                         ? cs.onPrimaryContainer.withValues(alpha: 0.7)
                         : cs.primary.withValues(alpha: 0.55),
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius3),
                   ),
                 ),
               ),
@@ -998,7 +998,7 @@ class _Waterfall extends StatelessWidget {
                       color: selected
                           ? cs.onPrimaryContainer
                           : cs.tertiary.withValues(alpha: 0.85),
-                      borderRadius: BorderRadius.circular(3),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius3),
                     ),
                   ),
                 ),

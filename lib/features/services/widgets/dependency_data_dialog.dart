@@ -40,7 +40,7 @@ const ButtonStyle _kToolbarButtonStyle = ButtonStyle(
     EdgeInsets.symmetric(horizontal: 16, vertical: 10),
   ),
   shape: WidgetStatePropertyAll(
-    RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(8))),
+    RoundedRectangleBorder(borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius8))),
   ),
 );
 const List<String> _kPostgresqlTables = <String>[
@@ -1355,7 +1355,7 @@ class _DataRecordTile extends StatelessWidget {
                     ),
                     decoration: BoxDecoration(
                       color: colors.surfaceContainerHighest,
-                      borderRadius: BorderRadius.circular(6),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius6),
                     ),
                     child: Text(
                       tag,

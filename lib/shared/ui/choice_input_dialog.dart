@@ -325,7 +325,7 @@ class _ChoiceInputDialogState extends State<_ChoiceInputDialog> {
           filled: true,
           fillColor: colorScheme.surfaceContainerHigh,
           border: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(kOpenHandRadius14),
             borderSide: BorderSide.none,
           ),
         ),
@@ -357,10 +357,10 @@ class _ChoiceTile extends StatelessWidget {
         color: selected
             ? colorScheme.primaryContainer.withValues(alpha: 0.55)
             : colorScheme.surfaceContainerHighest.withValues(alpha: 0.45),
-        borderRadius: BorderRadius.circular(14),
+        borderRadius: BorderRadius.circular(kOpenHandRadius14),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(14),
+          borderRadius: BorderRadius.circular(kOpenHandRadius14),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Row(

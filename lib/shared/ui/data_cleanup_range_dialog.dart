@@ -102,7 +102,7 @@ class _OpenHandCleanupRangeDialogState
                   alignment: Alignment.center,
                   decoration: BoxDecoration(
                     color: cs.errorContainer.withValues(alpha: 0.72),
-                    borderRadius: BorderRadius.circular(12),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius12),
                     border: Border.all(color: cs.error.withValues(alpha: 0.24)),
                   ),
                   child: Icon(

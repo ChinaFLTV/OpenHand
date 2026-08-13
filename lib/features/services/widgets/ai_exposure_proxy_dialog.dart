@@ -265,7 +265,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                       DecoratedBox(
                         decoration: BoxDecoration(
                           color: colors.surface,
-                          borderRadius: BorderRadius.circular(10),
+                          borderRadius: BorderRadius.circular(kOpenHandRadius10),
                           border: Border.all(color: colors.outlineVariant),
                         ),
                         child: Padding(
@@ -2616,7 +2616,7 @@ class _ProxyRequestTelemetryDialogState
                   height: 46,
                   decoration: BoxDecoration(
                     color: colors.primary.withValues(alpha: 0.15),
-                    borderRadius: BorderRadius.circular(10),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius10),
                     border: Border.all(
                       color: colors.primary.withValues(alpha: 0.28),
                     ),
@@ -3051,7 +3051,7 @@ class _ProxyOutcomeCard extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.07),
-        borderRadius: BorderRadius.circular(9),
+        borderRadius: BorderRadius.circular(kOpenHandRadius9),
         border: Border.all(color: color.withValues(alpha: 0.24)),
       ),
       child: Row(
@@ -3732,7 +3732,7 @@ class _ProxyDetailTrendTooltip extends StatelessWidget {
                   height: 22,
                   decoration: BoxDecoration(
                     color: point.color.withValues(alpha: .13),
-                    borderRadius: BorderRadius.circular(6),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius6),
                   ),
                   alignment: Alignment.center,
                   child: Icon(point.icon, size: 14, color: point.color),
@@ -4909,7 +4909,7 @@ class _ProxyDetailField extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
         color: colors.surface.withValues(alpha: 0.5),
-        borderRadius: BorderRadius.circular(7),
+        borderRadius: BorderRadius.circular(kOpenHandRadius7),
         border: Border.all(
           color: colors.outlineVariant.withValues(alpha: 0.75),
         ),

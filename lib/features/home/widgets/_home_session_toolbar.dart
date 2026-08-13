@@ -1744,7 +1744,7 @@ class _GoalRecordSection extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kOpenHandRadius18),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(
@@ -2049,7 +2049,7 @@ class _GoalRecordShell extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kOpenHandRadius18),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Padding(

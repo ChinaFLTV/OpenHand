@@ -469,7 +469,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
       padding: const EdgeInsets.fromLTRB(12, 10, 12, 10),
       decoration: BoxDecoration(
         color: cs.surfaceContainerLow.withValues(alpha: 0.78),
-        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius16)),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -495,7 +495,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
           kOpenHandGap8,
           for (final p in paths)
             InkWell(
-              borderRadius: const BorderRadius.all(Radius.circular(12)),
+              borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
               onTap: () => _showLegacyDiff(p, mutKind),
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 6),
@@ -584,7 +584,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
           Container(
             decoration: BoxDecoration(
               color: cs.surfaceContainerLow.withValues(alpha: 0.85),
-              borderRadius: const BorderRadius.all(Radius.circular(16)),
+              borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius16)),
               border: Border.all(
                 color: cs.outlineVariant.withValues(alpha: 0.55),
                 width: 0.6,
@@ -605,7 +605,7 @@ class _FileMutationCardState extends State<_FileMutationCard> {
                       unawaited(_revealLedgerFile());
                     },
                     borderRadius: const BorderRadius.vertical(
-                      top: Radius.circular(16),
+                      top: Radius.circular(kOpenHandRadius16),
                     ),
                     child: Padding(
                       padding: const EdgeInsets.fromLTRB(12, 10, 8, 8),
@@ -1749,7 +1749,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
     final paletteSignature = palette.signature;
     final diffDecoration = BoxDecoration(
       color: palette.surface,
-      borderRadius: const BorderRadius.all(Radius.circular(12)),
+      borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
       border: Border.all(color: palette.border, width: 0.8),
     );
     final baseStyle = openHandCodeBodyTextStyle(theme, color: palette.text);
@@ -1775,7 +1775,7 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
     }
 
     return ClipRRect(
-      borderRadius: const BorderRadius.all(Radius.circular(12)),
+      borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
       child: DecoratedBox(
         decoration: diffDecoration,
         child: LayoutBuilder(
@@ -2436,10 +2436,10 @@ class _FileDiffDialogState extends State<_FileDiffDialog> {
       safeAreaMinimum: kOpenHandDialogDefaultInsetPadding,
       backgroundColor: colorScheme.surface,
       shape: const RoundedRectangleBorder(
-        borderRadius: BorderRadius.all(Radius.circular(24)),
+        borderRadius: BorderRadius.all(Radius.circular(kOpenHandRadius24)),
       ),
       child: ClipRRect(
-        borderRadius: const BorderRadius.all(Radius.circular(24)),
+        borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius24)),
         child: Column(
           crossAxisAlignment: CrossAxisAlignment.stretch,
           children: [
@@ -2865,7 +2865,7 @@ class _HistoryInspectorGroup extends StatelessWidget {
               onTap: () => _copyPathToClipboard(context, filePath),
               onDoubleTap: onZoomToggle,
               borderRadius: const BorderRadius.vertical(
-                top: Radius.circular(12),
+                top: Radius.circular(kOpenHandRadius12),
               ),
               child: Padding(
                 padding: const EdgeInsets.fromLTRB(12, 10, 12, 8),
@@ -3120,7 +3120,7 @@ class _RecordKindBadge extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
       decoration: BoxDecoration(
         color: color.withValues(alpha: 0.10),
-        borderRadius: BorderRadius.circular(6),
+        borderRadius: BorderRadius.circular(kOpenHandRadius6),
       ),
       child: Row(
         mainAxisSize: MainAxisSize.min,
@@ -3285,7 +3285,7 @@ class _BulkUndoOverlay extends StatelessWidget {
     // 进度指示器断言失败，这里统一夹到 0..1。
     final ratio = total == 0 ? null : unitRatio(done, total);
     return ClipRRect(
-      borderRadius: const BorderRadius.all(Radius.circular(16)),
+      borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius16)),
       child: BackdropFilter(
         filter: ImageFilter.blur(sigmaX: 6, sigmaY: 6),
         child: Container(
@@ -3746,14 +3746,14 @@ class _RoundFileMutationSummaryCardState
           Container(
             decoration: BoxDecoration(
               color: cs.surfaceContainer.withValues(alpha: 0.92),
-              borderRadius: const BorderRadius.all(Radius.circular(18)),
+              borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius18)),
               border: Border.all(
                 color: cs.primary.withValues(alpha: 0.28),
                 width: 0.8,
               ),
             ),
             child: ClipRRect(
-              borderRadius: const BorderRadius.all(Radius.circular(18)),
+              borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius18)),
               child: FutureBuilder<List<_RoundSummaryRow>>(
                 future: _rowsFuture,
                 builder: (context, snap) {
@@ -4330,7 +4330,7 @@ class _RoundSummaryRowTile extends StatelessWidget {
         color: greyOut
             ? cs.surfaceContainerHighest.withValues(alpha: 0.32)
             : cs.surface.withValues(alpha: 0.55),
-        borderRadius: const BorderRadius.all(Radius.circular(12)),
+        borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
         border: Border.all(
           color: cs.outlineVariant.withValues(alpha: 0.45),
           width: 0.5,
@@ -4485,7 +4485,7 @@ class _GroupHeader extends StatelessWidget {
     return MicroPressFeedback(
       child: InkWell(
         onTap: onToggle,
-        borderRadius: const BorderRadius.all(Radius.circular(10)),
+        borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius10)),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(6, 8, 6, 4),
           child: Row(
@@ -4552,7 +4552,7 @@ class _PathSubGroupHeader extends StatelessWidget {
     return MicroPressFeedback(
       child: InkWell(
         onTap: onToggle,
-        borderRadius: const BorderRadius.all(Radius.circular(8)),
+        borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius8)),
         child: Padding(
           padding: const EdgeInsets.fromLTRB(20, 4, 6, 2),
           child: Row(
@@ -4691,7 +4691,7 @@ class _DiffLoadingPlaceholder extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.45),
-        borderRadius: const BorderRadius.all(Radius.circular(10)),
+        borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius10)),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.35),
           width: 0.5,
@@ -4743,7 +4743,7 @@ class _DiffEmptyPlaceholder extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.45),
-        borderRadius: const BorderRadius.all(Radius.circular(10)),
+        borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius10)),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.35),
           width: 0.5,

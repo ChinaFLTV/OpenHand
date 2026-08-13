@@ -1171,7 +1171,7 @@ class _LedgerAdvancedControlsState extends State<_LedgerAdvancedControls> {
           padding: const EdgeInsets.fromLTRB(14, 12, 14, 10),
           decoration: BoxDecoration(
             color: cs.surfaceContainerHighest.withValues(alpha: 0.4),
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(kOpenHandRadius12),
             border: Border.all(color: cs.outlineVariant.withValues(alpha: 0.4)),
           ),
           child: Column(
@@ -1772,7 +1772,7 @@ class _LedgerSearchDialogState extends State<_LedgerSearchDialog> {
                                           alpha: 0.10,
                                         ),
                                         borderRadius: const BorderRadius.all(
-                                          Radius.circular(4),
+                                          Radius.circular(kOpenHandRadius4),
                                         ),
                                       ),
                                       child: Text(

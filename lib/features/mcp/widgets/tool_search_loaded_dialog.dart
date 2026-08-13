@@ -484,7 +484,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       verticalMargin: 40,
       safeAreaMinimum: const EdgeInsets.all(12),
       backgroundColor: colorScheme.surfaceContainer,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius20)),
       expandToMax: true,
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -542,7 +542,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       padding: const EdgeInsets.all(4),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.72),
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
@@ -554,14 +554,14 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
         indicator: ShapeDecoration(
           color: colorScheme.primaryContainer,
           shape: RoundedRectangleBorder(
-            borderRadius: BorderRadius.circular(12),
+            borderRadius: BorderRadius.circular(kOpenHandRadius12),
             side: BorderSide(
               color: colorScheme.primary.withValues(alpha: 0.24),
             ),
           ),
         ),
         splashFactory: NoSplash.splashFactory,
-        splashBorderRadius: BorderRadius.circular(12),
+        splashBorderRadius: BorderRadius.circular(kOpenHandRadius12),
         overlayColor: const WidgetStatePropertyAll<Color>(Colors.transparent),
         labelColor: colorScheme.onPrimaryContainer,
         unselectedLabelColor: colorScheme.onSurfaceVariant,
@@ -704,15 +704,15 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   onPressed: onClear,
                 ),
           suffixIconConstraints: const BoxConstraints(minWidth: 42),
-          border: OutlineInputBorder(borderRadius: BorderRadius.circular(14)),
+          border: OutlineInputBorder(borderRadius: BorderRadius.circular(kOpenHandRadius14)),
           enabledBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(kOpenHandRadius14),
             borderSide: BorderSide(
               color: Theme.of(context).colorScheme.outlineVariant,
             ),
           ),
           focusedBorder: OutlineInputBorder(
-            borderRadius: BorderRadius.circular(14),
+            borderRadius: BorderRadius.circular(kOpenHandRadius14),
             borderSide: BorderSide(
               color: Theme.of(context).colorScheme.primary,
               width: 1.5,
@@ -745,7 +745,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                 height: 56,
                 decoration: BoxDecoration(
                   color: colorScheme.primaryContainer.withValues(alpha: 0.7),
-                  borderRadius: BorderRadius.circular(18),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius18),
                 ),
                 child: Icon(icon, color: colorScheme.onPrimaryContainer),
               ),
@@ -1005,7 +1005,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
     return Material(
       color: colorScheme.surfaceContainerLow,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
@@ -1099,7 +1099,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
                   color: colorScheme.surfaceContainerHighest.withValues(
                     alpha: 0.68,
                   ),
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius11),
                 ),
                 child: SelectableText.rich(
                   TextSpan(
@@ -1189,7 +1189,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
       margin: const EdgeInsets.only(bottom: 10),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       clipBehavior: Clip.antiAlias,
@@ -1212,7 +1212,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
             height: 36,
             decoration: BoxDecoration(
               color: colorScheme.primaryContainer.withValues(alpha: 0.72),
-              borderRadius: BorderRadius.circular(11),
+              borderRadius: BorderRadius.circular(kOpenHandRadius11),
             ),
             child: Icon(
               group.server == null
@@ -1342,7 +1342,7 @@ class _ToolSearchLoadedDialogState extends State<ToolSearchLoadedDialog>
               height: 30,
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHighest,
-                borderRadius: BorderRadius.circular(9),
+                borderRadius: BorderRadius.circular(kOpenHandRadius9),
               ),
               child: Icon(
                 Icons.extension_rounded,

@@ -1662,7 +1662,7 @@ class _TimingWaterfall extends StatelessWidget {
                             color: cs.surfaceContainerHigh.withValues(
                               alpha: 0.45,
                             ),
-                            borderRadius: BorderRadius.circular(2),
+                            borderRadius: BorderRadius.circular(kOpenHandRadius2),
                           ),
                         ),
                         Positioned(
@@ -1673,7 +1673,7 @@ class _TimingWaterfall extends StatelessWidget {
                           child: Container(
                             decoration: BoxDecoration(
                               color: color,
-                              borderRadius: BorderRadius.circular(2),
+                              borderRadius: BorderRadius.circular(kOpenHandRadius2),
                             ),
                           ),
                         ),

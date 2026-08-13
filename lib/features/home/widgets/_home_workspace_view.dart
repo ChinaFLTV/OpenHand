@@ -441,7 +441,7 @@ class _TranscriptLoadFailure extends StatelessWidget {
         child: DecoratedBox(
           decoration: BoxDecoration(
             color: colors.errorContainer.withValues(alpha: 0.72),
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(kOpenHandRadius24),
             border: Border.all(color: colors.error.withValues(alpha: 0.28)),
           ),
           child: Padding(

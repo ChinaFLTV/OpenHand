@@ -264,7 +264,7 @@ class _AiUsageSettingsSectionState extends State<_AiUsageSettingsSection> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(kOpenHandRadius20),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Padding(
@@ -400,7 +400,7 @@ class _AiUsageHero extends StatelessWidget {
       padding: const EdgeInsets.all(22),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(kOpenHandRadius24),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: LayoutBuilder(
@@ -417,7 +417,7 @@ class _AiUsageHero extends StatelessWidget {
                     height: 44,
                     decoration: BoxDecoration(
                       color: colorScheme.primary.withValues(alpha: 0.14),
-                      borderRadius: BorderRadius.circular(15),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius15),
                     ),
                     child: Icon(Icons.bolt_rounded, color: colorScheme.primary),
                   ),
@@ -792,7 +792,7 @@ class _AiUsageMetricCard extends StatelessWidget {
                 height: 34,
                 decoration: BoxDecoration(
                   color: data.color.withValues(alpha: 0.12),
-                  borderRadius: BorderRadius.circular(11),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius11),
                 ),
                 child: Icon(data.icon, size: 19, color: data.color),
               ),
@@ -1110,7 +1110,7 @@ class _AiUsageOverviewMetricCard extends StatelessWidget {
                       ),
                       decoration: BoxDecoration(
                         color: data.color.withValues(alpha: 0.09),
-                        borderRadius: BorderRadius.circular(11),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius11),
                         border: Border.all(
                           color: data.color.withValues(alpha: 0.18),
                         ),
@@ -1478,7 +1478,7 @@ class _AiUsagePanel extends StatelessWidget {
       padding: const EdgeInsets.all(20),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(kOpenHandRadius22),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
@@ -2121,7 +2121,7 @@ class _AiUsageHeatmap extends StatelessWidget {
                   height: 11,
                   decoration: BoxDecoration(
                     color: _usageHeatColor(theme.colorScheme, level / 4),
-                    borderRadius: BorderRadius.circular(3),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius3),
                   ),
                 ),
                 kOpenHandHGap3,
@@ -2169,7 +2169,7 @@ class _AiUsageHeatmapCell extends StatelessWidget {
         color: future
             ? Colors.transparent
             : _usageHeatColor(Theme.of(context).colorScheme, intensity),
-        borderRadius: BorderRadius.circular(3),
+        borderRadius: BorderRadius.circular(kOpenHandRadius3),
         border: future
             ? null
             : Border.all(
@@ -2462,7 +2462,7 @@ class _AiUsageBreakdownTableState extends State<_AiUsageBreakdownTable> {
                         height: 30,
                         decoration: BoxDecoration(
                           color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(9),
+                          borderRadius: BorderRadius.circular(kOpenHandRadius9),
                         ),
                         child: Icon(
                           _usageDimensionIcon(widget.dimension),
@@ -3000,7 +3000,7 @@ class _AiUsageRequestDetailsDialog extends StatelessWidget {
       insetPadding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
       backgroundColor: colorScheme.surface,
       shape: RoundedRectangleBorder(
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(kOpenHandRadius20),
         side: BorderSide(color: colorScheme.outlineVariant),
       ),
       maxWidth: kOpenHandDialogWidthWide,
@@ -3428,7 +3428,7 @@ class _AiUsageFilterDialogState extends State<_AiUsageFilterDialog> {
                   height: 44,
                   decoration: BoxDecoration(
                     color: theme.colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(15),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius15),
                   ),
                   child: Icon(
                     Icons.tune_rounded,
@@ -3687,7 +3687,7 @@ class _AiUsageEmptyState extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 24, vertical: 48),
       decoration: BoxDecoration(
         color: theme.colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(22),
+        borderRadius: BorderRadius.circular(kOpenHandRadius22),
         border: Border.all(color: theme.colorScheme.outlineVariant),
       ),
       child: Column(
@@ -3697,7 +3697,7 @@ class _AiUsageEmptyState extends StatelessWidget {
             height: 66,
             decoration: BoxDecoration(
               color: theme.colorScheme.primaryContainer,
-              borderRadius: BorderRadius.circular(22),
+              borderRadius: BorderRadius.circular(kOpenHandRadius22),
             ),
             child: Icon(
               hasFilters
@@ -3752,7 +3752,7 @@ class _AiUsageLoadingState extends StatelessWidget {
           height: 150,
           decoration: BoxDecoration(
             color: color,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(kOpenHandRadius24),
           ),
         ),
         kOpenHandGap12,

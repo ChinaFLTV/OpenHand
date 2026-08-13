@@ -6154,7 +6154,7 @@ class _EndpointPreviewRow extends StatelessWidget {
           alignment: Alignment.center,
           decoration: BoxDecoration(
             color: color.withValues(alpha: 0.1),
-            borderRadius: BorderRadius.circular(9),
+            borderRadius: BorderRadius.circular(kOpenHandRadius9),
           ),
           child: Icon(icon, size: 16, color: color),
         ),

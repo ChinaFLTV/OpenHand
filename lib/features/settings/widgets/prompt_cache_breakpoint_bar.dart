@@ -175,7 +175,7 @@ class _PromptCacheBreakpointBarState extends State<PromptCacheBreakpointBar> {
                       right: 0,
                       top: _topReserve,
                       child: ClipRRect(
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius8),
                         child: Row(
                           children: [
                             for (final seg in segments)
@@ -421,7 +421,7 @@ class _StaticPegHandle extends StatelessWidget {
             height: 18,
             decoration: BoxDecoration(
               color: accent,
-              borderRadius: BorderRadius.circular(4),
+              borderRadius: BorderRadius.circular(kOpenHandRadius4),
               boxShadow: active
                   ? [
                       BoxShadow(
@@ -567,7 +567,7 @@ class _DynamicPegHandleState extends State<_DynamicPegHandle>
       height: 18,
       decoration: BoxDecoration(
         color: widget.accent.withValues(alpha: 0.18 + 0.18 * t),
-        borderRadius: BorderRadius.circular(4),
+        borderRadius: BorderRadius.circular(kOpenHandRadius4),
         border: Border.all(color: widget.accent, width: 1.4),
         boxShadow: [
           BoxShadow(
@@ -623,7 +623,7 @@ class _SegmentLegendChip extends StatelessWidget {
         padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
         decoration: BoxDecoration(
           color: segment.color.withValues(alpha: 0.12),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(kOpenHandRadius12),
           border: Border.all(color: segment.color.withValues(alpha: 0.5)),
         ),
         child: Row(

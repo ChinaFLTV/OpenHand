@@ -692,7 +692,7 @@ class _OpenHandGlobalSnackBarEntry extends StatelessWidget {
     final shape =
         snackBar.shape ??
         snackBarTheme.shape ??
-        RoundedRectangleBorder(borderRadius: BorderRadius.circular(14));
+        RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius14));
     final isDark = theme.brightness == Brightness.dark;
     final backgroundColor =
         snackBar.backgroundColor ??

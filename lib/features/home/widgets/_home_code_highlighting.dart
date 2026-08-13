@@ -600,12 +600,12 @@ class _InlineCodexDiffPanelState extends State<_InlineCodexDiffPanel> {
     );
     final diffDecoration = BoxDecoration(
       color: palette.surface,
-      borderRadius: const BorderRadius.all(Radius.circular(12)),
+      borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
       border: Border.all(color: palette.border, width: 0.8),
     );
 
     return ClipRRect(
-      borderRadius: const BorderRadius.all(Radius.circular(12)),
+      borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius12)),
       child: DecoratedBox(
         decoration: diffDecoration,
         child: Column(
@@ -2270,7 +2270,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
               decoration: BoxDecoration(
                 color: widget.theme.colorScheme.surfaceContainerHigh,
                 borderRadius: const BorderRadius.vertical(
-                  top: Radius.circular(20),
+                  top: Radius.circular(kOpenHandRadius20),
                 ),
                 border: Border(
                   bottom: BorderSide(
@@ -2354,7 +2354,7 @@ class _HtmlPreviewDialogState extends State<_HtmlPreviewDialog> {
             Expanded(
               child: ClipRRect(
                 borderRadius: const BorderRadius.vertical(
-                  bottom: Radius.circular(20),
+                  bottom: Radius.circular(kOpenHandRadius20),
                 ),
                 child: _HtmlWebViewPreview(
                   key: _previewKey,

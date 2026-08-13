@@ -72,7 +72,7 @@ class FeatureStateCard extends StatelessWidget {
                     height: 72,
                     decoration: BoxDecoration(
                       color: colors.iconBackground,
-                      borderRadius: BorderRadius.circular(24),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius24),
                     ),
                     alignment: Alignment.center,
                     child: Icon(icon, color: colors.iconForeground),
@@ -139,7 +139,7 @@ class FeatureStateCard extends StatelessWidget {
       padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
         color: colors.background,
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kOpenHandRadius18),
         border: Border.all(color: colors.border),
       ),
       child: Row(

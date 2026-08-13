@@ -317,7 +317,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       insetPadding: const EdgeInsets.all(_kInsetPadding),
       width: dialogW,
       maxHeight: maxDialogH,
-      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius16)),
       child: AnimatedSize(
         duration: motionEnabled
             ? motionSettings.entranceDuration
@@ -672,7 +672,7 @@ class _MediaPreviewDialogState extends State<MediaPreviewDialog> {
       child: DecoratedBox(
         decoration: BoxDecoration(
           color: cs.errorContainer.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(kOpenHandRadius12),
         ),
         child: Center(
           child: Icon(Icons.broken_image_outlined, size: 48, color: cs.error),
@@ -1058,7 +1058,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
       return DecoratedBox(
         decoration: BoxDecoration(
           color: cs.errorContainer.withValues(alpha: 0.3),
-          borderRadius: BorderRadius.circular(12),
+          borderRadius: BorderRadius.circular(kOpenHandRadius12),
         ),
         child: Center(
           child: Padding(
@@ -1076,7 +1076,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
       return Center(child: CircularProgressIndicator(color: cs.primary));
     }
     return ClipRRect(
-      borderRadius: BorderRadius.circular(12),
+      borderRadius: BorderRadius.circular(kOpenHandRadius12),
       child: WebViewWidget(controller: _controller!),
     );
   }

@@ -108,7 +108,7 @@ class _OperationsInsightDialog extends StatelessWidget {
         maxHeightFraction: 0.9,
         backgroundColor: colors.surface,
         surfaceTintColor: Colors.transparent,
-        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(kOpenHandRadius16)),
         expandToMax: !adaptiveHeight,
         child: ServiceDialogInteractionTheme(
           child: Padding(
@@ -127,7 +127,7 @@ class _OperationsInsightDialog extends StatelessWidget {
                       alignment: Alignment.center,
                       decoration: BoxDecoration(
                         color: tone.withValues(alpha: 0.12),
-                        borderRadius: BorderRadius.circular(8),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius8),
                         border: Border.all(color: tone.withValues(alpha: 0.28)),
                       ),
                       child: Icon(icon, color: tone),
@@ -656,7 +656,7 @@ class _InsightRecordRow extends StatelessWidget {
             alignment: Alignment.center,
             decoration: BoxDecoration(
               color: record.color.withValues(alpha: 0.1),
-              borderRadius: BorderRadius.circular(8),
+              borderRadius: BorderRadius.circular(kOpenHandRadius8),
             ),
             child: Icon(record.icon, size: 18, color: record.color),
           ),
@@ -1103,7 +1103,7 @@ class _InsightKpiBand extends StatelessWidget {
                         padding: const EdgeInsets.all(12),
                         decoration: BoxDecoration(
                           color: items[index].color.withValues(alpha: 0.08),
-                          borderRadius: BorderRadius.circular(8),
+                          borderRadius: BorderRadius.circular(kOpenHandRadius8),
                           border: Border.all(
                             color: items[index].color.withValues(alpha: 0.26),
                           ),
@@ -1443,7 +1443,7 @@ class _InsightMatrixSection extends StatelessWidget {
                                 alignment: Alignment.center,
                                 decoration: BoxDecoration(
                                   color: entry.$2.color.withValues(alpha: 0.1),
-                                  borderRadius: BorderRadius.circular(8),
+                                  borderRadius: BorderRadius.circular(kOpenHandRadius8),
                                 ),
                                 child: Icon(
                                   entry.$2.icon,
@@ -1788,7 +1788,7 @@ class _AnimatedFunnelBar extends StatelessWidget {
             child: DecoratedBox(
               decoration: BoxDecoration(
                 color: color.withValues(alpha: 0.78),
-                borderRadius: BorderRadius.circular(4),
+                borderRadius: BorderRadius.circular(kOpenHandRadius4),
               ),
             ),
           ),
@@ -1867,7 +1867,7 @@ class _InsightCapacitySection extends StatelessWidget {
                           color,
                           activity,
                         ),
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius2),
                       ),
                     );
                   }),

@@ -182,7 +182,7 @@ class _OperationsDialogState extends State<_OperationsDialog> {
                   height: 46,
                   decoration: BoxDecoration(
                     color: cs.primaryContainer,
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius8),
                     border: Border.all(
                       color: cs.primary.withValues(alpha: 0.35),
                     ),

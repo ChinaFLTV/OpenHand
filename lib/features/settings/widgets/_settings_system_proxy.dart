@@ -766,7 +766,7 @@ class _InputRepairSectionState extends State<_InputRepairSection> {
             minimumSize: const Size(0, 40),
             padding: const EdgeInsets.symmetric(horizontal: 14),
             shape: RoundedRectangleBorder(
-              borderRadius: BorderRadius.circular(14),
+              borderRadius: BorderRadius.circular(kOpenHandRadius14),
             ),
           ),
           icon: _repairing

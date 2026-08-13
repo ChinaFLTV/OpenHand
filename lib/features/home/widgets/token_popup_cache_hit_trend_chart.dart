@@ -462,7 +462,7 @@ class _TokenPopupCacheHitTrendChartState
                   final anchor = _viewport.start + _viewport.span / 2;
                   _zoom(anchor, 1.35);
                 },
-                borderRadius: BorderRadius.circular(8),
+                borderRadius: BorderRadius.circular(kOpenHandRadius8),
                 child: Padding(
                   padding: const EdgeInsets.symmetric(
                     horizontal: 6,
@@ -488,7 +488,7 @@ class _TokenPopupCacheHitTrendChartState
                       );
                     });
                   },
-                  borderRadius: BorderRadius.circular(8),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius8),
                   child: Padding(
                     padding: const EdgeInsets.symmetric(
                       horizontal: 6,
@@ -826,7 +826,7 @@ class _TokenPopupCacheHitTrendChartState
                                       color: colorScheme.surface.withValues(
                                         alpha: 0.92,
                                       ),
-                                      borderRadius: BorderRadius.circular(4),
+                                      borderRadius: BorderRadius.circular(kOpenHandRadius4),
                                       border: Border.all(
                                         color: colorScheme.outlineVariant
                                             .withValues(alpha: 0.55),
@@ -880,7 +880,7 @@ class _TokenPopupCacheHitTrendChartState
                                 ),
                                 decoration: BoxDecoration(
                                   color: colorScheme.surface,
-                                  borderRadius: BorderRadius.circular(4),
+                                  borderRadius: BorderRadius.circular(kOpenHandRadius4),
                                 ),
                                 child: Text(
                                   l10n.sessMetaCacheHitAvg,
@@ -1099,7 +1099,7 @@ class _TokenPopupCacheHitTrendChartState
                   ),
                   decoration: BoxDecoration(
                     color: tooltipBg.withValues(alpha: 0.96),
-                    borderRadius: BorderRadius.circular(8),
+                    borderRadius: BorderRadius.circular(kOpenHandRadius8),
                     border: Border.all(color: tooltipBorder),
                     boxShadow: [
                       BoxShadow(

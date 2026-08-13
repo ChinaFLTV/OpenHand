@@ -789,7 +789,7 @@ class _MemoryEntryCard extends StatelessWidget {
                       height: 54,
                       decoration: BoxDecoration(
                         color: colorScheme.primaryContainer,
-                        borderRadius: BorderRadius.circular(18),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius18),
                       ),
                       alignment: Alignment.center,
                       child: Icon(

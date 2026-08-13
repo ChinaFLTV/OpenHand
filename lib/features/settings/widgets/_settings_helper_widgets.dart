@@ -283,7 +283,7 @@ class _SettingsSubsectionCard extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(kOpenHandRadius24),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.45),
         ),
@@ -4777,7 +4777,7 @@ class _SettingsStateBox extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(kOpenHandRadius24),
       ),
       child: Padding(
         padding: const EdgeInsets.all(20),
@@ -5492,7 +5492,7 @@ class _AiModelTileState extends State<_AiModelTile> {
     return MicroPressFeedback(
       child: InkWell(
         onTap: widget.onSelect,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(kOpenHandRadius24),
         child: AnimatedContainer(
           duration: animationDuration,
           curve: Curves.easeOutCubic,
@@ -5500,7 +5500,7 @@ class _AiModelTileState extends State<_AiModelTile> {
             color: widget.isSelected
                 ? colorScheme.primaryContainer.withValues(alpha: 0.52)
                 : colorScheme.surfaceContainerLow,
-            borderRadius: BorderRadius.circular(24),
+            borderRadius: BorderRadius.circular(kOpenHandRadius24),
             border: Border.all(
               color: widget.isSelected
                   ? colorScheme.primary

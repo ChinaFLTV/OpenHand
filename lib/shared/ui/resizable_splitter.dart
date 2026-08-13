@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/ui/openhand_spacing.dart';
 import '../util/input_value_parsing.dart';
 import 'motion_preference.dart';
 
@@ -113,7 +114,7 @@ class _ResizableSplitterState extends State<ResizableSplitter> {
                             : (_hovering
                                   ? cs.primary.withValues(alpha: 0.55)
                                   : cs.outlineVariant),
-                        borderRadius: BorderRadius.circular(2),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius2),
                       ),
                     ),
                   ),

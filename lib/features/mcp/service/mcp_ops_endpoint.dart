@@ -166,6 +166,45 @@ String mcpOpsBindAuthority(
   );
 }
 
+const String _mcpOpsHttpScheme = 'http';
+const String _mcpOpsEndpointPath = '/mcp';
+
+/// 把 authority 拼装为完整的运维入口 URI。
+String mcpOpsEndpointUri(String authority) {
+  return '$_mcpOpsHttpScheme://$authority$_mcpOpsEndpointPath';
+}
+
+/// 对外展示的客户端入口 URI（含已发现的局域网地址）。
+String mcpOpsAdvertisedClientEndpointUri(
+  McpOpsRuntimeSnapshot snapshot,
+  McpOpsConfig config, {
+  List<String> discoveredHosts = const <String>[],
+}) {
+  return mcpOpsEndpointUri(
+    mcpOpsAdvertisedClientAuthority(
+      snapshot,
+      config,
+      discoveredHosts: discoveredHosts,
+    ),
+  );
+}
+
+/// 本机自检可直接拨号的入口 URI。
+String mcpOpsClientEndpointUri(
+  McpOpsRuntimeSnapshot snapshot,
+  McpOpsConfig config,
+) {
+  return mcpOpsEndpointUri(mcpOpsClientAuthority(snapshot, config));
+}
+
+/// 服务器真实监听的入口 URI（保留通配地址，仅用于展示）。
+String mcpOpsBindEndpointUri(
+  McpOpsRuntimeSnapshot snapshot,
+  McpOpsConfig config,
+) {
+  return mcpOpsEndpointUri(mcpOpsBindAuthority(snapshot, config));
+}
+
 /// 判断一个待保存的 MCP server 是否指向 OpenHand 自身的 MCP 运维入口。
 ///
 /// 命中即为「自引用」：把内置运维入口再添加回 MCP 列表会造成引用循环

@@ -2443,7 +2443,7 @@ class _EditorLspInstallRunnerDialogState
                       decoration: const BoxDecoration(
                         color: terminalChrome,
                         borderRadius: BorderRadius.vertical(
-                          top: Radius.circular(12),
+                          top: Radius.circular(kOpenHandRadius12),
                         ),
                       ),
                       child: Row(

@@ -206,7 +206,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
           height: 48,
           decoration: BoxDecoration(
             color: colorScheme.primaryContainer,
-            borderRadius: BorderRadius.circular(16),
+            borderRadius: BorderRadius.circular(kOpenHandRadius16),
           ),
           child: Icon(
             Icons.storefront_rounded,
@@ -387,7 +387,7 @@ class _SkillMarketDialogState extends State<_SkillMarketDialog> {
           padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
           decoration: BoxDecoration(
             color: colorScheme.surfaceContainerHigh,
-            borderRadius: BorderRadius.circular(18),
+            borderRadius: BorderRadius.circular(kOpenHandRadius18),
           ),
           child: Row(
             children: [
@@ -1059,14 +1059,14 @@ class _SkillMarketResultTile extends StatelessWidget {
         color: selected
             ? colorScheme.primaryContainer.withValues(alpha: 0.52)
             : colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(20),
+        borderRadius: BorderRadius.circular(kOpenHandRadius20),
         child: InkWell(
           onTap: onTap,
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(kOpenHandRadius20),
           child: Container(
             padding: const EdgeInsets.all(14),
             decoration: BoxDecoration(
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(kOpenHandRadius20),
               border: Border.all(
                 color: selected
                     ? colorScheme.primary
@@ -1186,7 +1186,7 @@ class _SkillMarketDetailView extends StatelessWidget {
         : _truncateMarkdown(bundle.skillMarkdown!, maxMarkdownChars, context);
 
     return ClipRRect(
-      borderRadius: BorderRadius.circular(22),
+      borderRadius: BorderRadius.circular(kOpenHandRadius22),
       child: ColoredBox(
         color: colorScheme.surfaceContainerLow,
         child: ListView(
@@ -1452,7 +1452,7 @@ class _SkillMarketDetailView extends StatelessWidget {
               padding: const EdgeInsets.all(18),
               decoration: BoxDecoration(
                 color: colorScheme.surfaceContainerHigh,
-                borderRadius: BorderRadius.circular(18),
+                borderRadius: BorderRadius.circular(kOpenHandRadius18),
                 border: Border.all(color: colorScheme.outlineVariant),
               ),
               child: markdown == null || markdown.trim().isEmpty
@@ -1628,7 +1628,7 @@ class _InfoChip extends StatelessWidget {
       padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
         border: Border.all(color: colorScheme.outlineVariant),
       ),
       child: Row(

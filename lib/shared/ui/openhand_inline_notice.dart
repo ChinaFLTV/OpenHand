@@ -103,7 +103,7 @@ class _OpenHandInlineNoticeState extends State<OpenHandInlineNotice> {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: widget.color,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
       ),
       child: Row(
         crossAxisAlignment: CrossAxisAlignment.start,

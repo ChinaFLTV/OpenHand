@@ -33,11 +33,11 @@ import '../model/cron_parser.dart';
 const int _cronTagPreviewLimit = 6;
 
 // 通用圆角档位。
-const BorderRadius _kCronRadiusSmall = BorderRadius.all(Radius.circular(6));
-const BorderRadius _kCronRadiusMedium = BorderRadius.all(Radius.circular(8));
-const BorderRadius _kCronRadiusLarge = BorderRadius.all(Radius.circular(10));
-const BorderRadius _kCronRadiusXLarge = BorderRadius.all(Radius.circular(12));
-const BorderRadius _kCronRadiusXXLarge = BorderRadius.all(Radius.circular(14));
+const BorderRadius _kCronRadiusSmall = BorderRadius.all(Radius.circular(kOpenHandRadius6));
+const BorderRadius _kCronRadiusMedium = BorderRadius.all(Radius.circular(kOpenHandRadius8));
+const BorderRadius _kCronRadiusLarge = BorderRadius.all(Radius.circular(kOpenHandRadius10));
+const BorderRadius _kCronRadiusXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius12));
+const BorderRadius _kCronRadiusXXLarge = BorderRadius.all(Radius.circular(kOpenHandRadius14));
 
 const Color _kCronRunningColor = Color(0xFF56C271);
 
@@ -1048,7 +1048,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                 padding: const EdgeInsets.fromLTRB(12, 12, 12, 4),
                 decoration: BoxDecoration(
                   color: colorScheme.surfaceContainerLow,
-                  borderRadius: BorderRadius.circular(24),
+                  borderRadius: BorderRadius.circular(kOpenHandRadius24),
                   border: Border.all(
                     color: colorScheme.outlineVariant.withValues(alpha: 0.45),
                   ),
@@ -1123,7 +1123,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
                       ),
                       decoration: BoxDecoration(
                         color: colorScheme.surfaceContainerHigh,
-                        borderRadius: BorderRadius.circular(22),
+                        borderRadius: BorderRadius.circular(kOpenHandRadius22),
                         border: Border.all(
                           color: colorScheme.outlineVariant.withValues(
                             alpha: 0.9,
@@ -1292,7 +1292,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerLow,
-        borderRadius: BorderRadius.circular(24),
+        borderRadius: BorderRadius.circular(kOpenHandRadius24),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.45),
         ),
@@ -1844,7 +1844,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(kOpenHandRadius20),
           onTap: () => onChanged(!value),
           child: AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion180,
@@ -1853,7 +1853,7 @@ class _CronEditorDialogState extends State<_CronEditorDialog> {
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             decoration: BoxDecoration(
               color: baseColor,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(kOpenHandRadius20),
               border: Border.all(
                 color: value
                     ? colorScheme.primary.withValues(alpha: 0.6)
@@ -2018,7 +2018,7 @@ class _CronHistoryDialog extends StatelessWidget {
                             padding: const EdgeInsets.only(right: 20),
                             decoration: BoxDecoration(
                               color: colorScheme.errorContainer,
-                              borderRadius: BorderRadius.circular(16),
+                              borderRadius: BorderRadius.circular(kOpenHandRadius16),
                             ),
                             child: Icon(
                               Icons.delete_outline_rounded,
@@ -2206,14 +2206,14 @@ class _HistoryRecordTileState extends State<_HistoryRecordTile>
           : (_fadeAnimation.reverseCurve ?? _fadeAnimation.curve),
       decoration: BoxDecoration(
         color: tileBackground,
-        borderRadius: BorderRadius.circular(16),
+        borderRadius: BorderRadius.circular(kOpenHandRadius16),
         border: Border.all(color: tileBorderColor),
       ),
       child: Material(
         color: Colors.transparent,
         child: InkWell(
           onTap: _toggle,
-          borderRadius: BorderRadius.circular(16),
+          borderRadius: BorderRadius.circular(kOpenHandRadius16),
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
             child: Column(
@@ -2743,7 +2743,7 @@ class _HermesTalkerHistoryPanel extends StatelessWidget {
       padding: const EdgeInsets.all(14),
       decoration: BoxDecoration(
         color: colorScheme.surfaceContainerHigh.withValues(alpha: 0.65),
-        borderRadius: BorderRadius.circular(18),
+        borderRadius: BorderRadius.circular(kOpenHandRadius18),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.45),
         ),

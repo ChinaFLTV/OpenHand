@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/ui/openhand_spacing.dart';
 import 'motion_preference.dart';
 
 const Duration _kOpenHandSweepShimmerDuration = Duration(milliseconds: 1350);
@@ -113,7 +114,7 @@ class OpenHandSkeletonShimmer extends StatefulWidget {
     this.width,
     this.height,
     this.expand = false,
-    this.borderRadius = const BorderRadius.all(Radius.circular(8)),
+    this.borderRadius = const BorderRadius.all(Radius.circular(kOpenHandRadius8)),
     this.period = kOpenHandSkeletonShimmerPeriod,
     this.child,
   });

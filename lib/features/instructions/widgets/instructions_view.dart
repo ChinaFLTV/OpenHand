@@ -251,7 +251,7 @@ class _InstructionCard extends StatelessWidget {
                               color: entry.enabled
                                   ? colorScheme.primaryContainer
                                   : colorScheme.surfaceContainerHighest,
-                              borderRadius: BorderRadius.circular(18),
+                              borderRadius: BorderRadius.circular(kOpenHandRadius18),
                             ),
                             alignment: Alignment.center,
                             child: Icon(
@@ -520,7 +520,7 @@ class _InstructionToggleCard extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
-          borderRadius: BorderRadius.circular(20),
+          borderRadius: BorderRadius.circular(kOpenHandRadius20),
           onTap: onChanged == null ? null : () => onChanged!(!value),
           child: AnimatedContainer(
             duration: openHandMotionDuration(context, kOpenHandMotion180,
@@ -530,7 +530,7 @@ class _InstructionToggleCard extends StatelessWidget {
               color: value
                   ? colorScheme.primaryContainer.withValues(alpha: 0.55)
                   : colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(20),
+              borderRadius: BorderRadius.circular(kOpenHandRadius20),
               border: Border.all(
                 color: value
                     ? colorScheme.primary.withValues(alpha: 0.36)

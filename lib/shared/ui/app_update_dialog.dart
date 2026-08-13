@@ -336,7 +336,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
               padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
               decoration: BoxDecoration(
                 color: colorScheme.primaryContainer,
-                borderRadius: BorderRadius.circular(12),
+                borderRadius: BorderRadius.circular(kOpenHandRadius12),
               ),
               child: Row(
                 children: [
@@ -454,7 +454,7 @@ class _AppUpdateDialogContentState extends State<_AppUpdateDialogContent>
                 return Column(
                   children: [
                     ClipRRect(
-                      borderRadius: BorderRadius.circular(8),
+                      borderRadius: BorderRadius.circular(kOpenHandRadius8),
                       child: LinearProgressIndicator(
                         value: value,
                         minHeight: 8,

@@ -367,7 +367,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
     final theme = Theme.of(context);
     return Material(
       color: theme.colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(18),
+      borderRadius: BorderRadius.circular(kOpenHandRadius18),
       child: Padding(
         padding: const EdgeInsets.all(16),
         child: FutureBuilder<AiSandboxEnvironmentStatus>(
@@ -810,7 +810,7 @@ class _SandboxRuleTile extends StatelessWidget {
     final theme = Theme.of(context);
     return Material(
       color: theme.colorScheme.surfaceContainerLow,
-      borderRadius: BorderRadius.circular(16),
+      borderRadius: BorderRadius.circular(kOpenHandRadius16),
       child: ListTile(
         leading: Icon(icon),
         title: Text(title),

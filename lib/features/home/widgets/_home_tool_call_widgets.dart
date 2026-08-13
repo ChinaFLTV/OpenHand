@@ -646,13 +646,13 @@ class _ExpandableToolSection extends StatelessWidget {
     final motionDuration = cardMotionDurationFor(context, expanding: expanded);
     return Material(
       color: theme.colorScheme.surface.withValues(alpha: 0.78),
-      borderRadius: const BorderRadius.all(Radius.circular(16)),
+      borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius16)),
       child: InkWell(
         onTap: () {
           _markToolCardInteractiveTap(context);
           onToggle();
         },
-        borderRadius: const BorderRadius.all(Radius.circular(16)),
+        borderRadius: const BorderRadius.all(Radius.circular(kOpenHandRadius16)),
         // AnimatedSize wraps the *entire* card so the chevron rotation
         // and content cross-fade ride a single height curve — feels
         // like the card itself is breathing.

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import '../../shared/ui/openhand_spacing.dart';
 import 'openhand_console_log_panel.dart';
 import 'openhand_safe_scrollbar.dart';
 
@@ -23,7 +24,7 @@ class OpenHandConsoleLogView extends StatelessWidget {
     return DecoratedBox(
       decoration: BoxDecoration(
         color: OpenHandConsolePalette.deepSurface,
-        borderRadius: BorderRadius.circular(8),
+        borderRadius: BorderRadius.circular(kOpenHandRadius8),
         border: Border.all(
           color: colorScheme.outlineVariant.withValues(alpha: 0.4),
         ),

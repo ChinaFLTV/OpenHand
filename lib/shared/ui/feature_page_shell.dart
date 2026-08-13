@@ -119,7 +119,7 @@ class FeaturePageShell extends StatelessWidget {
           ConstrainedBox(
             constraints: const BoxConstraints(maxHeight: 220),
             child: ClipRRect(
-              borderRadius: BorderRadius.circular(12),
+              borderRadius: BorderRadius.circular(kOpenHandRadius12),
               child: notice,
             ),
           ),
