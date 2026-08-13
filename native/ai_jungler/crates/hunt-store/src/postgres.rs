@@ -543,6 +543,16 @@ impl PostgresMirror {
         .bind(job_id.to_string())
         .execute(&mut *transaction)
         .await?;
+        query(
+            "UPDATE hunt_results SET category = 'suspicious'
+             WHERE job_id = $1
+               AND category IN ('valid', 'high_value')
+               AND (duplicate_key_hosts >= $2 OR duplicate_response_hosts >= $2)",
+        )
+        .bind(job_id.to_string())
+        .bind(crate::HONEYPOT_CROSS_HOST_THRESHOLD)
+        .execute(&mut *transaction)
+        .await?;
         transaction.commit().await?;
         Ok(())
     }

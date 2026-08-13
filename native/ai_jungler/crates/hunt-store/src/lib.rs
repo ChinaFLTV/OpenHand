@@ -542,6 +542,15 @@ impl HuntStore {
                  WHERE current.job_id = ?1",
                 [&job_id_text],
             )?;
+            // 跨多主机复现的凭证/响应属蜜罐诱饵或广撒的低可信线索，降级为可疑，
+            // 与 count_models 的 fail-closed 一并抑制“高价值密钥”误报。
+            connection.execute(
+                "UPDATE results SET category = 'suspicious'
+                 WHERE job_id = ?1
+                   AND category IN ('valid', 'high_value')
+                   AND (duplicate_key_hosts >= ?2 OR duplicate_response_hosts >= ?2)",
+                params![&job_id_text, HONEYPOT_CROSS_HOST_THRESHOLD],
+            )?;
             Ok(())
         })
         .await?;
@@ -835,6 +844,10 @@ fn parse_json_enum<T: serde::de::DeserializeOwned>(value: &str) -> rusqlite::Res
         rusqlite::Error::FromSqlConversionFailure(0, rusqlite::types::Type::Text, Box::new(error))
     })
 }
+
+/// 同一凭证指纹或响应指纹在一次扫描中跨这么多其他主机复现时，
+/// 视为蜜罐诱饵/广撒的低可信线索，将其有效性降级为可疑，避免误报“高价值密钥”。
+pub(crate) const HONEYPOT_CROSS_HOST_THRESHOLD: i64 = 5;
 
 fn stage_name(stage: ScanStage) -> &'static str {
     match stage {

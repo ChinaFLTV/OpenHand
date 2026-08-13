@@ -3235,11 +3235,28 @@ fn parse_ai_findings(content: &str) -> anyhow::Result<Vec<(String, String)>> {
         .collect())
 }
 
+/// 统计模型列表端点返回的“真实模型条目”数量。仅计入含非空 id/name/model/modelId
+/// 字段的对象；当无任何合法模型条目时返回 None，使验证 fail-closed，
+/// 避免 `{"data":[]}` 或 `{"data":[1,2,3]}` 这类空/非模型数组被误判为有效凭证。
 fn count_models(body: &serde_json::Value) -> Option<u32> {
-    body.get("data")
+    let items = body
+        .get("data")
         .or_else(|| body.get("models"))
-        .and_then(serde_json::Value::as_array)
-        .map(|items| items.len().min(u32::MAX as usize) as u32)
+        .and_then(serde_json::Value::as_array)?;
+    let count = items.iter().filter(|item| is_model_entry(item)).count();
+    (count > 0).then(|| count.min(u32::MAX as usize) as u32)
+}
+
+fn is_model_entry(item: &serde_json::Value) -> bool {
+    let Some(object) = item.as_object() else {
+        return false;
+    };
+    ["id", "name", "model", "modelId"].iter().any(|key| {
+        object
+            .get(*key)
+            .and_then(serde_json::Value::as_str)
+            .is_some_and(|value| !value.trim().is_empty())
+    })
 }
 
 fn same_origin_url(target: &NormalizedTarget, path: &str) -> Option<reqwest::Url> {

@@ -22,6 +22,29 @@ pub struct CredentialFinding {
 
 const MAX_DECODE_INPUT_BYTES: usize = 512 * 1024;
 const MAX_DECODED_VARIANTS: usize = 32;
+/// 文档/示例中常见的占位符片段。命中即视为噪声，不作为凭证线索，
+/// 降低"示例密钥/模板变量"造成的误报。
+const NOISE_SUBSTRINGS: &[&str] = &[
+    "example",
+    "changeme",
+    "change_me",
+    "placeholder",
+    "your-",
+    "your_",
+    "yourkey",
+    "yourapikey",
+    "dummy",
+    "sample",
+    "test-key",
+    "testkey",
+    "redacted",
+    "<your",
+    "insert-",
+    "replace-",
+    "xxxxxx",
+];
+/// 同一字符连续出现达到此长度即判为占位符（如 sk-aaaaaaaa、000000...）。
+const MAX_REPEATED_RUN: usize = 8;
 static BASE64_FRAGMENT_PATTERN: LazyLock<Regex> =
     LazyLock::new(|| Regex::new(r"[A-Za-z0-9+/_-]{20,}={0,2}").expect("内置 Base64 正则必须有效"));
 static HEX_FRAGMENT_PATTERN: LazyLock<Regex> =
@@ -82,6 +105,7 @@ impl CompiledRuleSet {
             || secret.len() < 8
             || secret.len() > 4096
             || secret.contains(['\r', '\n'])
+            || is_placeholder_secret(secret)
         {
             return None;
         }
@@ -185,6 +209,9 @@ fn extract_from_candidate(
                 continue;
             };
             let secret = secret.as_str().to_owned();
+            if is_placeholder_secret(&secret) {
+                continue;
+            }
             if seen.insert(secret.clone()) {
                 findings.push(CredentialFinding {
                     vendor: rule.vendor.clone(),
@@ -196,6 +223,29 @@ fn extract_from_candidate(
             }
         }
     }
+}
+
+/// 判断提取到的密钥是否为占位符/模板噪声：命中已知占位子串，或存在超长同字符游程。
+/// 真实随机密钥极少出现 8 个以上连续相同字符，因此该启发式不会误伤有效凭证。
+fn is_placeholder_secret(secret: &str) -> bool {
+    let lowered = secret.to_ascii_lowercase();
+    if NOISE_SUBSTRINGS.iter().any(|noise| lowered.contains(noise)) {
+        return true;
+    }
+    let mut run = 1;
+    let mut previous = None;
+    for character in lowered.chars() {
+        if Some(character) == previous {
+            run += 1;
+            if run >= MAX_REPEATED_RUN {
+                return true;
+            }
+        } else {
+            run = 1;
+            previous = Some(character);
+        }
+    }
+    false
 }
 
 fn decoded_variants(text: &str, encodings: &[ContentEncoding]) -> Vec<String> {
