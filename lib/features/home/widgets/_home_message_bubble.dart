@@ -3394,15 +3394,7 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
     setState(() => _isSaving = true);
     final basename = _suggestedSaveName();
     final ext = _normalizeSaveExtension(p.extension(basename).toLowerCase());
-    // Map common image extensions to MIME types for the save dialog.
-    final mimeType = switch (ext) {
-      '.png' => 'image/png',
-      '.jpg' || '.jpeg' => 'image/jpeg',
-      '.webp' => 'image/webp',
-      '.gif' => 'image/gif',
-      '.bmp' => 'image/bmp',
-      _ => 'image/png',
-    };
+    final mimeType = aiMimeTypeForPath(basename);
     final extensionWithoutDot = ext.replaceFirst('.', '');
     try {
       final location = await getSaveLocation(
