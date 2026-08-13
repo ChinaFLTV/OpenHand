@@ -1955,7 +1955,7 @@ class McpServerOpsRuntime {
   }
 
   int? _validPort(int? value) {
-    if (value == null || value <= 0 || value > 65535) return null;
+    if (!isValidPort(value)) return null;
     return value;
   }
 

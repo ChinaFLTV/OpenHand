@@ -2,6 +2,8 @@ import 'dart:convert';
 
 import 'package:crypto/crypto.dart';
 
+import '../../../shared/util/input_value_parsing.dart';
+
 enum AiExposureServiceLifecycle { stopped, starting, running, stopping, error }
 
 enum AiExposureSource {
@@ -972,7 +974,7 @@ class AiExposureProxyEndpoint {
               : 'http://$value'
         : () {
             final port = int.tryParse(compactMatch.group(2)!);
-            if (port == null || port < 1 || port > 65535) {
+            if (!isValidPort(port)) {
               throw const FormatException('代理端口无效。');
             }
             final username = compactMatch.group(3)!;

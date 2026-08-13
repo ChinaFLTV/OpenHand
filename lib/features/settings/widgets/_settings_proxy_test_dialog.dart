@@ -282,11 +282,11 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
         final parsedPort = colon <= 0
             ? null
             : int.tryParse(spec.substring(colon + 1));
-        if (parsedPort == null || parsedPort <= 0 || parsedPort > 65535) {
+        if (!isValidPort(parsedPort)) {
           throw FormatException('代理指令格式无效："$via"');
         }
         hopHost = spec.substring(0, colon);
-        hopPort = parsedPort;
+        hopPort = parsedPort!;
         _log(
           _ProxyTestLogLevel.info,
           '路由',

@@ -935,7 +935,7 @@ bool webGatewayShouldCollectRequestMetrics({
 String webGatewayFormatRemoteEndpoint(String address, int? port) {
   final host = address.trim();
   if (host.isEmpty) return 'unknown';
-  if (port == null || port <= 0 || port > 65535) return host;
+  if (!isValidPort(port)) return host;
   return '${_webGatewayFormatRemoteHost(host)}:$port';
 }
 

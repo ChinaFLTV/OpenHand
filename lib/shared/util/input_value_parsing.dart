@@ -928,3 +928,10 @@ String _effectiveKeyValueSeparator(String separator) {
       ? (lower: safeMin, upper: safeMax)
       : (lower: safeMax, upper: safeMin);
 }
+
+/// TCP/UDP 端口合法范围（1–65535）。
+const int kMinPort = 1;
+const int kMaxPort = 65535;
+
+/// 判断 [port] 是否在合法端口范围内（1–65535）。
+bool isValidPort(int? port) => port != null && port >= kMinPort && port <= kMaxPort;
