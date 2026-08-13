@@ -15,10 +15,10 @@ const String kAndroidEmulatorHostIp = '10.0.2.2';
 const String kAndroidArtifactBase = '/sdcard/OpenHand';
 
 /// 设备上截图保存目录。
-const String kAndroidScreenshotDir = '/sdcard/OpenHand/screenshots';
+const String kAndroidScreenshotDir = '$kAndroidArtifactBase/screenshots';
 
 /// 设备上录屏保存目录。
-const String kAndroidRecordingDir = '/sdcard/OpenHand/recordings';
+const String kAndroidRecordingDir = '$kAndroidArtifactBase/recordings';
 
 /// Android 包名形态校验（如 com.example.app）：至少两段、每段以字母开头。
 /// 预编译正则供高频 ADB 路径复用。

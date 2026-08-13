@@ -12,14 +12,6 @@ function hashToBase36(hash: number): string {
   return (hash >>> 0).toString(36);
 }
 
-export function fnv1aHashBase36(value: string): string {
-  let hash = FNV1A_32_OFFSET;
-  for (let index = 0; index < value.length; index += 1) {
-    hash = fnv1aStep(hash, value.charCodeAt(index));
-  }
-  return hashToBase36(hash);
-}
-
 export function boundedFnv1aHashBase36(
   value: string,
   edgeChars = DEFAULT_BOUNDED_HASH_EDGE_CHARS,
