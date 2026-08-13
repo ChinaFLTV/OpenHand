@@ -752,7 +752,7 @@ String _taskTrendDurationLabel(Duration value) {
 }
 
 String _taskTrendLabel(DateTime value) =>
-    '${value.month}/${value.day} ${value.hour.toString().padLeft(2, '0')}:${value.minute.toString().padLeft(2, '0')}';
+    '${value.month}/${value.day} ${twoDigit(value.hour)}:${twoDigit(value.minute)}';
 
 class AiExposureTaskLedger extends StatefulWidget {
   const AiExposureTaskLedger({
@@ -1786,7 +1786,5 @@ String _taskLedgerSources(List<AiExposureSource> sources) {
 }
 
 String _taskLedgerDateTime(DateTime value) {
-  final local = value.toLocal();
-  String two(int number) => number.toString().padLeft(2, '0');
-  return '${local.year}-${two(local.month)}-${two(local.day)} ${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
+  return formatYearMonthDayHms(value.toLocal());
 }

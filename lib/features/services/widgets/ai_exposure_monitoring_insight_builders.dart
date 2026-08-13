@@ -988,8 +988,7 @@ Widget _buildLogMetricInsight(
   final hourCounts = <String, int>{};
   for (final entry in entries) {
     final key =
-        '${entry.at.month.toString().padLeft(2, '0')}-${entry.at.day.toString().padLeft(2, '0')} '
-        '${entry.at.hour.toString().padLeft(2, '0')}:00';
+        '${formatMonthDay(entry.at)} ${twoDigit(entry.at.hour)}:00';
     hourCounts.update(key, (value) => value + 1, ifAbsent: () => 1);
   }
   final colors = Theme.of(context).colorScheme;
@@ -1068,8 +1067,7 @@ Widget _buildLogMetricInsight(
         records: entries
             .where((entry) {
               final key =
-                  '${entry.at.month.toString().padLeft(2, '0')}-${entry.at.day.toString().padLeft(2, '0')} '
-                  '${entry.at.hour.toString().padLeft(2, '0')}:00';
+                  '${formatMonthDay(entry.at)} ${twoDigit(entry.at.hour)}:00';
               return key == item.key;
             })
             .map(_logInsightRecord)
