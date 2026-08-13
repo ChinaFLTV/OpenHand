@@ -172,3 +172,27 @@ bool isExpectedMcpStdioSinkStateError(StateError error) {
       message.contains('cannot add event after closing') ||
       message.contains('cannot add to a closed sink');
 }
+
+/// 判断完整命令行（可能含参数）是否以 [executable] 开头。
+///
+/// 兼容两种用户输入：
+///   1. command="npx", args=["@playwright/mcp"]
+///   2. command="npx chrome-devtools-mcp@latest", args=["--autoConnect"]
+/// 同时支持绝对路径形式（如 /opt/homebrew/bin/npx）。
+bool _commandLineMatches(String commandLine, String executable) {
+  final cmd = commandLine.trim();
+  if (cmd.isEmpty) return false;
+  if (cmd == executable || cmd.endsWith('/$executable')) return true;
+  final firstToken = cmd.split(_mcpShellWhitespacePattern).first;
+  return firstToken == executable || firstToken.endsWith('/$executable');
+}
+
+/// 判断 STDIO MCP 服务是否使用 npx 启动（command 可能含参数）。
+bool isMcpNpxCommandLine(String command) => _commandLineMatches(command, 'npx');
+
+/// 判断 STDIO MCP 服务是否使用 uvx 启动（command 可能含参数）。
+bool isMcpUvxCommandLine(String command) => _commandLineMatches(command, 'uvx');
+
+/// 判断 STDIO MCP 服务是否使用包管理器（npx 或 uvx）启动。
+bool isMcpPackageManagerCommandLine(String command) =>
+    isMcpNpxCommandLine(command) || isMcpUvxCommandLine(command);

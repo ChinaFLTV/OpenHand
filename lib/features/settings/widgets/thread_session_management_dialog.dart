@@ -885,7 +885,7 @@ class _ThreadSessionManagementDialogState
                       curve: panelMotion.curve.curve,
                       alignment: Alignment.centerLeft,
                       child: _previewSession == null
-                          ? const SizedBox(width: 0)
+                          ? const SizedBox.shrink()
                           : _buildPreviewDrawer(theme),
                     ),
                   ],

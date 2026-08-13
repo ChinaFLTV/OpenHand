@@ -23,6 +23,7 @@ import '../../../shared/util/text_normalization.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../mcp_errors.dart';
 import '../model/mcp_server.dart';
+import '../service/mcp_stdio_io_utils.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
 
@@ -814,19 +815,9 @@ class _StdioDepsDialogState extends State<_StdioDepsDialog> {
     return '';
   }
 
-  bool get _isNpxService {
-    final cmd = widget.server.command.trim();
-    if (cmd == 'npx' || cmd.endsWith('/npx')) return true;
-    final firstToken = cmd.split(kInlineWhitespacePattern).first;
-    return firstToken == 'npx' || firstToken.endsWith('/npx');
-  }
+  bool get _isNpxService => isMcpNpxCommandLine(widget.server.command);
 
-  bool get _isUvxService {
-    final cmd = widget.server.command.trim();
-    if (cmd == 'uvx' || cmd.endsWith('/uvx')) return true;
-    final firstToken = cmd.split(kInlineWhitespacePattern).first;
-    return firstToken == 'uvx' || firstToken.endsWith('/uvx');
-  }
+  bool get _isUvxService => isMcpUvxCommandLine(widget.server.command);
 
   bool get _isPackageManagerService => _isNpxService || _isUvxService;
 

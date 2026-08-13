@@ -81,6 +81,7 @@ import '../model/mcp_server_health.dart';
 import '../model/mcp_server_ops.dart';
 import '../model/mcp_tool.dart';
 import '../service/mcp_ops_endpoint.dart';
+import '../service/mcp_stdio_io_utils.dart';
 import '../service/mcp_stdio_process_manager.dart';
 import '../service/mcp_tool_discovery_service.dart';
 import 'mcp_keyword_index_progress_dialog.dart';
@@ -718,7 +719,7 @@ class _McpViewState extends State<McpView> with WidgetsBindingObserver {
     // 对于 STDIO 类型的 npx/uvx 服务，询问是否同时清理底层包
     bool shouldCleanupDeps = false;
     final isNpxService =
-        server.type == McpServerType.stdio && _isPackageManagerCommand(server);
+        server.type == McpServerType.stdio && isMcpPackageManagerCommandLine(server.command);
     final npxPackageName = isNpxService ? _extractPackageName(server) : null;
 
     final confirmed = await showOpenHandConfirmDialog(
@@ -10522,7 +10523,7 @@ class _StdioProcessButtons extends StatelessWidget {
               ),
             ),
             // 依赖管理按钮（npx / uvx 类型）
-            if (_isPackageManagerCommand(server))
+            if (isMcpPackageManagerCommandLine(server.command))
               Tooltip(
                 message: _localizedText(
                   context,
@@ -17280,34 +17281,6 @@ String _formatRelativePast(BuildContext context, DateTime utc) {
   final d = diff.inDays;
   return l10n.mcpRelativeDaysAgo(d);
 }
-
-/// 判断 STDIO MCP 服务是否为 npx 类型。
-/// 兼容两种用户输入习惯：
-///   1. command="npx", args=["@playwright/mcp"]
-///   2. command="npx chrome-devtools-mcp@latest", args=["--autoConnect"]
-/// 同时支持绝对路径形式（如 /opt/homebrew/bin/npx）。
-bool _isNpxCommand(McpServer server) {
-  final cmd = server.command.trim();
-  // 精确匹配或路径结尾匹配
-  if (cmd == 'npx' || cmd.endsWith('/npx')) return true;
-  // 用户把整条命令粘进 command 字段：第一个 token 是 npx
-  final firstToken = cmd.split(kInlineWhitespacePattern).first;
-  return firstToken == 'npx' || firstToken.endsWith('/npx');
-}
-
-/// 判断 STDIO MCP 服务是否为 uvx 类型（Python 包管理器）。
-bool _isUvxCommand(McpServer server) {
-  final cmd = server.command.trim();
-  if (cmd == 'uvx' || cmd.endsWith('/uvx')) return true;
-  final firstToken = cmd.split(kInlineWhitespacePattern).first;
-  return firstToken == 'uvx' || firstToken.endsWith('/uvx');
-}
-
-/// 判断 STDIO MCP 服务是否为包管理器类型（npx 或 uvx），支持依赖管理功能。
-bool _isPackageManagerCommand(McpServer server) {
-  return _isNpxCommand(server) || _isUvxCommand(server);
-}
-
 /// 从 STDIO MCP 服务配置中提取包名。
 /// 兼容两种输入习惯：
 ///   1. command="npx", args=["@playwright/mcp", "--headless"]  → "@playwright/mcp"
