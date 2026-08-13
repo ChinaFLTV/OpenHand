@@ -75,6 +75,10 @@ part 'web_message_platform_service_telemetry.part.dart';
 const String _kWebGatewayErrorSessionMissing = 'session_deleted_or_not_found';
 const String _modelSelectionLockedMessage = '已锁定服务商与模型以保证缓存命中。';
 const String _webShellAssetPath = 'assets/web/index.html';
+const String _kJavaScriptContentType = 'application/javascript; charset=utf-8';
+const String _kCssContentType = 'text/css; charset=utf-8';
+const String _kManifestContentType = 'application/manifest+json; charset=utf-8';
+const String _kPngContentType = 'image/png';
 
 class _WebWriteApprovalRequest {
   _WebWriteApprovalRequest({
@@ -2179,13 +2183,13 @@ class WebMessagePlatformService {
       '/app.js',
       (shelf.Request _) => _serveBundleAsset(
         'assets/web/app.js',
-        'application/javascript; charset=utf-8',
+        _kJavaScriptContentType,
       ),
     );
     router.get(
       '/app.css',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/app.css', 'text/css; charset=utf-8'),
+          _serveBundleAsset('assets/web/app.css', _kCssContentType),
     );
     // 兼容旧缓存 shell: 旧 index.html 使用 ./app.css / ./app.js，用户在
     // /threads/<id> 原地刷新时浏览器会解析到 /threads/app.css。
@@ -2193,13 +2197,13 @@ class WebMessagePlatformService {
       '/threads/app.js',
       (shelf.Request _) => _serveBundleAsset(
         'assets/web/app.js',
-        'application/javascript; charset=utf-8',
+        _kJavaScriptContentType,
       ),
     );
     router.get(
       '/threads/app.css',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/app.css', 'text/css; charset=utf-8'),
+          _serveBundleAsset('assets/web/app.css', _kCssContentType),
     );
     // 通配子路径覆盖 chunks/*.js 与 assets/*.{png,svg,woff2,...}。
     router.get(
@@ -2228,22 +2232,22 @@ class WebMessagePlatformService {
     router.get(
       '/openhand_logo.png',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'),
+          _serveBundleAsset('assets/web/openhand_logo.png', _kPngContentType),
     );
     router.get(
       '/threads/openhand_logo.png',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'),
+          _serveBundleAsset('assets/web/openhand_logo.png', _kPngContentType),
     );
     router.get(
       '/favicon.ico',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'),
+          _serveBundleAsset('assets/web/openhand_logo.png', _kPngContentType),
     );
     router.get(
       '/threads/favicon.ico',
       (shelf.Request _) =>
-          _serveBundleAsset('assets/web/openhand_logo.png', 'image/png'),
+          _serveBundleAsset('assets/web/openhand_logo.png', _kPngContentType),
     );
     // PWA: Service Worker 必须挂在站点根 scope, manifest.webmanifest 给浏览器
     // 装机使用. 两者通过 vite public/ 目录被 Flutter rootBundle 一并打包。
@@ -2251,28 +2255,28 @@ class WebMessagePlatformService {
       '/sw.js',
       (shelf.Request _) => _serveBundleAsset(
         'assets/web/sw.js',
-        'application/javascript; charset=utf-8',
+        _kJavaScriptContentType,
       ),
     );
     router.get(
       '/threads/sw.js',
       (shelf.Request _) => _serveBundleAsset(
         'assets/web/sw.js',
-        'application/javascript; charset=utf-8',
+        _kJavaScriptContentType,
       ),
     );
     router.get(
       '/manifest.webmanifest',
       (shelf.Request _) => _serveBundleAsset(
         'assets/web/manifest.webmanifest',
-        'application/manifest+json; charset=utf-8',
+        _kManifestContentType,
       ),
     );
     router.get(
       '/threads/manifest.webmanifest',
       (shelf.Request _) => _serveBundleAsset(
         'assets/web/manifest.webmanifest',
-        'application/manifest+json; charset=utf-8',
+        _kManifestContentType,
       ),
     );
     // SPA 深路由：/threads/<id> 直接刷新或粘贴打开都能命中前端 Router。
@@ -9033,12 +9037,12 @@ class WebMessagePlatformService {
   String _guessContentType(String path) {
     final lower = path.toLowerCase();
     if (lower.endsWith('.js') || lower.endsWith('.mjs')) {
-      return 'application/javascript; charset=utf-8';
+      return _kJavaScriptContentType;
     }
-    if (lower.endsWith('.css')) return 'text/css; charset=utf-8';
+    if (lower.endsWith('.css')) return _kCssContentType;
     if (lower.endsWith('.json')) return kApplicationJsonUtf8ContentType;
     if (lower.endsWith('.svg')) return 'image/svg+xml';
-    if (lower.endsWith('.png')) return 'image/png';
+    if (lower.endsWith('.png')) return _kPngContentType;
     if (lower.endsWith('.jpg') || lower.endsWith('.jpeg')) return 'image/jpeg';
     if (lower.endsWith('.webp')) return 'image/webp';
     if (lower.endsWith('.gif')) return 'image/gif';
