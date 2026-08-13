@@ -4133,7 +4133,7 @@ class _ProxyEndpointDetailsDialogState
                           text(zh: '最短响应', en: 'Minimum'),
                           '${statistics.minResponseTimeMs} ms',
                           text(zh: '请求头响应', en: 'Header response'),
-                          const Color(0xff0891b2),
+                          colors.secondary,
                         ),
                         _ProxyPoolMetricData(
                           Icons.vertical_align_top_rounded,
