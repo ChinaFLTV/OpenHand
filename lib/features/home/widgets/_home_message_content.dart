@@ -2281,7 +2281,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
 
   int _computeThemeSignature() {
     final theme = Theme.of(context);
-    return Object.hashAll(<Object?>[
+    return Object.hash(
       theme.brightness,
       theme.colorScheme.surface.toARGB32(),
       theme.colorScheme.onSurface.toARGB32(),
@@ -2289,7 +2289,7 @@ class _SafeMarkdownBodyState extends State<_SafeMarkdownBody>
       widget.styleSheet.hashCode,
       widget.styleSheet.p?.color?.toARGB32(),
       widget.styleSheet.code?.color?.toARGB32(),
-    ]);
+    );
   }
 
   String _builderSignature() {

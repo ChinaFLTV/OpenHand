@@ -1604,8 +1604,8 @@ class _CodexDiffViewerState extends State<_CodexDiffViewer> {
       widget.record.afterSha ?? '_',
       widget.before.length,
       widget.after.length,
-      widget.before.hashCode,
-      widget.after.hashCode,
+      boundedTextFingerprint(widget.before),
+      boundedTextFingerprint(widget.after),
     ].join('|');
   }
 
@@ -2035,9 +2035,12 @@ class _CodexDiffLineRow extends StatelessWidget {
 
   TextSpan _highlightedCodeSpan() {
     final text = line.text.isEmpty ? ' ' : line.text;
-    final spanKey =
-        'codex-diff::$cacheKey::${line.kind.name}::${line.lineNumber ?? 0}::$text'
-            .hashCode;
+    final spanKey = Object.hash(
+      cacheKey,
+      line.kind.name,
+      line.lineNumber ?? 0,
+      boundedTextFingerprint(text),
+    );
     var span = _highlightSpanCache.get(spanKey);
     if (span == null) {
       span = highlighter.build(text, language: language);
