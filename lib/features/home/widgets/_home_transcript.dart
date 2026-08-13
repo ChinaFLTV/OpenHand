@@ -37,6 +37,16 @@ final Expando<bool> _transcriptHtmlRendererCache = Expando<bool>(
   'transcriptHtmlRenderer',
 );
 
+/// 知识库元数据判定缓存。消息对象不可变，直接元数据结果恒定。
+// 包装类：Expando 的值类型必须为 Object（非可空），用包装区分 null 与未缓存。
+class _KnowledgeBaseMetadataCacheEntry {
+  const _KnowledgeBaseMetadataCacheEntry(this.value);
+  final Map<String, Object?>? value;
+}
+
+final Expando<_KnowledgeBaseMetadataCacheEntry> _knowledgeBaseDirectMetadataCache =
+    Expando<_KnowledgeBaseMetadataCacheEntry>('knowledgeBaseDirectMetadata');
+
 /// keepAlive 开关由参数驱动而非「换一个 widget 类型」。按类型切换会让
 /// Element 类型不匹配，选中/取消选中一条 HTML 消息就整棵子树卸载重建——
 /// 重新净化、重新解析、WebView 重挂，恰好把 keepAlive 想省的开销全付一遍。
@@ -2845,7 +2855,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         onFork: () => widget.messageActions.onFork(message),
         onUserExpansionChanged: _handleMessageExpansionChanged,
         associatedKnowledgeBaseMetadata:
-            _associatedKnowledgeBaseMetadataForMessage(
+            _cachedKnowledgeBaseMetadataForMessage(
               visibleMessages: visibleMessages,
               currentIndex: visibleMessageIndex,
               message: message,
@@ -3595,6 +3605,26 @@ class _SessionErrorBannerState extends State<_SessionErrorBanner>
       ),
     );
   }
+}
+
+Map<String, Object?>? _cachedKnowledgeBaseMetadataForMessage({
+  required List<AiSessionMessage> visibleMessages,
+  required int? currentIndex,
+  required AiSessionMessage message,
+}) {
+  if (message.kind != AiSessionMessageKind.assistant) return null;
+  // 直接元数据结果对同一消息恒定，按对象缓存。
+  final cached = _knowledgeBaseDirectMetadataCache[message];
+  if (cached != null) return cached.value;
+  final result = _associatedKnowledgeBaseMetadataForMessage(
+    visibleMessages: visibleMessages,
+    currentIndex: currentIndex,
+    message: message,
+  );
+  // 仅缓存非 null 结果，避免 null 与未缓存歧义。
+  _knowledgeBaseDirectMetadataCache[message] =
+      _KnowledgeBaseMetadataCacheEntry(result);
+  return result;
 }
 
 Map<String, Object?>? _associatedKnowledgeBaseMetadataForMessage({
