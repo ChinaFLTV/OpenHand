@@ -955,7 +955,7 @@ class PluginLifecycleService {
   /// 启动与更新两条脚本共用。片段停在 `fi` 之前，调用方接上各自的后续分支：
   /// 启动走 `docker start`，更新走 `docker stop` + `docker rm`。
   String _qdrantManagedContainerGuard() {
-    final name = _pluginShellQuote(_qdrantContainerName);
+    final name = posixShellQuote(_qdrantContainerName);
     return '''
 if docker inspect $name >/dev/null 2>&1; then
   LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' $name 2>/dev/null || true)"
@@ -973,14 +973,14 @@ if docker inspect $name >/dev/null 2>&1; then
     final pad = ' ' * (indent + 2);
     return '''
 ${head}docker run -d \\
-$pad--name ${_pluginShellQuote(_qdrantContainerName)} \\
+$pad--name ${posixShellQuote(_qdrantContainerName)} \\
 $pad--label openhand.managed=true \\
 $pad--label com.openhand.managed=true \\
 $pad--restart unless-stopped \\
 $pad-p $_qdrantRestPort:6333 \\
 $pad-p $_qdrantGrpcPort:6334 \\
-$pad-v ${_pluginShellQuote(dataDir)}:/qdrant/storage \\
-$pad${_pluginShellQuote(_qdrantImage)}''';
+$pad-v ${posixShellQuote(dataDir)}:/qdrant/storage \\
+$pad${posixShellQuote(_qdrantImage)}''';
   }
 
   /// 轮询 REST 端点直到 Qdrant 就绪，30 秒内未就绪则以 4 退出。
@@ -1006,7 +1006,7 @@ exit 4''';
   }
 
   String _managedDatabaseGuard(String containerName) {
-    final name = _pluginShellQuote(containerName);
+    final name = posixShellQuote(containerName);
     return '''
 if docker inspect $name >/dev/null 2>&1; then
   LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' $name 2>/dev/null || true)"
@@ -1028,15 +1028,15 @@ fi''';
   }) {
     final args = <String>[
       'docker run -d',
-      '--name ${_pluginShellQuote(containerName)}',
+      '--name ${posixShellQuote(containerName)}',
       '--label openhand.managed=true',
       '--label com.openhand.managed=true',
       '--restart unless-stopped',
       '-p 127.0.0.1:$port:$port',
-      '-v ${_pluginShellQuote(dataDir)}:${_pluginShellQuote(dataDestination)}',
-      ...dockerArguments.map(_pluginShellQuote),
-      _pluginShellQuote(image),
-      ...containerArguments.map(_pluginShellQuote),
+      '-v ${posixShellQuote(dataDir)}:${posixShellQuote(dataDestination)}',
+      ...dockerArguments.map(posixShellQuote),
+      posixShellQuote(image),
+      ...containerArguments.map(posixShellQuote),
     ];
     return args.join(' ${String.fromCharCode(92)}\n  ');
   }
@@ -1046,8 +1046,8 @@ fi''';
     required String healthCommand,
     required String label,
   }) {
-    final name = _pluginShellQuote(containerName);
-    final command = _pluginShellQuote(healthCommand);
+    final name = posixShellQuote(containerName);
+    final command = posixShellQuote(healthCommand);
     return '''
 for i in \$(seq 1 30); do
   if docker exec $name sh -c $command >/dev/null 2>&1; then
@@ -1062,7 +1062,7 @@ exit 4''';
 
   /// nvm 是 shell 函数而非可执行文件，需要先 source 初始化脚本。
   static String _nvmSourcePrefix() {
-    final nvmDirectory = _pluginShellQuote(pluginNvmDirectoryPath());
+    final nvmDirectory = posixShellQuote(pluginNvmDirectoryPath());
     return '''
 export NVM_DIR=$nvmDirectory
 [ -s "\$NVM_DIR/nvm.sh" ] && . "\$NVM_DIR/nvm.sh"
@@ -1070,7 +1070,7 @@ export NVM_DIR=$nvmDirectory
   }
 
   static String _pythonShellPrefix() {
-    final pyenvRoot = _pluginShellQuote(pluginPyenvRootDirectoryPath());
+    final pyenvRoot = posixShellQuote(pluginPyenvRootDirectoryPath());
     return '''
 export PYENV_ROOT=$pyenvRoot
 export PATH="\$PYENV_ROOT/bin:/opt/homebrew/bin:/usr/local/bin:\$PATH"
@@ -1686,7 +1686,7 @@ fi
           )
         : await _runWithProgress(
             pluginShellExecutable(),
-            <String>['-c', 'curl -fsSL ${_pluginShellQuote(url)} | sh'],
+            <String>['-c', 'curl -fsSL ${posixShellQuote(url)} | sh'],
             onProgress: onProgress,
             timeout: _packageOperationTimeout,
           );
@@ -2299,7 +2299,7 @@ fi
     }
     final shim =
         '#!/usr/bin/env bash\n'
-        'exec python3 ${_pluginShellQuote(entrypointPath)} "\$@"\n';
+        'exec python3 ${posixShellQuote(entrypointPath)} "\$@"\n';
     final brewStep = macosBrewPackages == null || macosBrewPackages.isEmpty
         ? ''
         : '''
@@ -2309,10 +2309,10 @@ fi
 ''';
     final pipStep = pipPackages.isEmpty
         ? ''
-        : 'python3 -m pip install --user --upgrade ${pipPackages.map(_pluginShellQuote).join(' ')}';
+        : 'python3 -m pip install --user --upgrade ${pipPackages.map(posixShellQuote).join(' ')}';
     final sourceStep = updateExisting
-        ? 'git -C ${_pluginShellQuote(target)} pull --ff-only'
-        : 'git clone --depth 1 ${_pluginShellQuote(repoUrl)} ${_pluginShellQuote(target)}';
+        ? 'git -C ${posixShellQuote(target)} pull --ff-only'
+        : 'git clone --depth 1 ${posixShellQuote(repoUrl)} ${posixShellQuote(target)}';
     final script =
         '''
 set -euo pipefail
@@ -2321,9 +2321,9 @@ if ! command -v python3 >/dev/null 2>&1; then echo "未找到 python3" >&2; exit
 $brewStep
 $sourceStep
 $pipStep
-printf %s ${_pluginShellQuote(shim)} > ${_pluginShellQuote(shimPath)}
-chmod +x ${_pluginShellQuote(shimPath)}
-printf '%s\\n' ${_pluginShellQuote('$label 命令入口：$shimPath')}
+printf %s ${posixShellQuote(shim)} > ${posixShellQuote(shimPath)}
+chmod +x ${posixShellQuote(shimPath)}
+printf '%s\\n' ${posixShellQuote('$label 命令入口：$shimPath')}
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
@@ -2449,40 +2449,40 @@ raise SystemExit(3)
 ')"
 if [ -z "\$ASSET" ]; then echo "未找到兼容的 Anything Analyzer 发布包" >&2; exit 3; fi
 NAME="\${ASSET##*/}"
-PKG="${_pluginShellQuote(stagingDirectory.path)}/\$NAME"
+PKG="${posixShellQuote(stagingDirectory.path)}/\$NAME"
 curl -fL "\$ASSET" -o "\$PKG"
 case "\$NAME" in
   *.dmg)
-    MOUNT=${_pluginShellQuote(p.join(stagingDirectory.path, 'mount'))}
+    MOUNT=${posixShellQuote(p.join(stagingDirectory.path, 'mount'))}
     mkdir -p "\$MOUNT"
     trap 'hdiutil detach "\$MOUNT" >/dev/null 2>&1 || true; rmdir "\$MOUNT" >/dev/null 2>&1 || true' EXIT
     hdiutil attach -nobrowse -readonly -mountpoint "\$MOUNT" "\$PKG" >/dev/null
     APP="\$(find "\$MOUNT" -maxdepth 2 -name '*.app' -type d | head -1)"
     if [ -z "\$APP" ]; then echo "安装包中未找到 Anything Analyzer 应用" >&2; exit 5; fi
-    cp -R "\$APP" ${_pluginShellQuote(stagingCurrent)}/
+    cp -R "\$APP" ${posixShellQuote(stagingCurrent)}/
     hdiutil detach "\$MOUNT" >/dev/null
     rmdir "\$MOUNT"
     trap - EXIT
     ;;
   *.zip)
     if ! command -v unzip >/dev/null 2>&1; then echo "未找到 unzip" >&2; exit 127; fi
-    unzip -q "\$PKG" -d ${_pluginShellQuote(stagingCurrent)}
+    unzip -q "\$PKG" -d ${posixShellQuote(stagingCurrent)}
     ;;
   *.AppImage)
-    cp "\$PKG" ${_pluginShellQuote(stagingCurrent)}/Anything-Analyzer.AppImage
-    chmod +x ${_pluginShellQuote(stagingCurrent)}/Anything-Analyzer.AppImage
+    cp "\$PKG" ${posixShellQuote(stagingCurrent)}/Anything-Analyzer.AppImage
+    chmod +x ${posixShellQuote(stagingCurrent)}/Anything-Analyzer.AppImage
     ;;
   *.exe)
-    cp "\$PKG" ${_pluginShellQuote(stagingCurrent)}/
+    cp "\$PKG" ${posixShellQuote(stagingCurrent)}/
     ;;
   *)
     echo "不支持的安装包：\$NAME" >&2
     exit 4
     ;;
 esac
-cat > ${_pluginShellQuote(shimPath)} <<'SHIM'
+cat > ${posixShellQuote(shimPath)} <<'SHIM'
 #!/usr/bin/env bash
-ROOT=${_pluginShellQuote(current)}
+ROOT=${posixShellQuote(current)}
 APP="\$(find "\$ROOT" -maxdepth 2 -name '*.app' -type d 2>/dev/null | head -1)"
 if [ -n "\$APP" ]; then
   exec open -a "\$APP" --args "\$@"
@@ -2494,8 +2494,8 @@ fi
 echo "在 \$ROOT 下未找到 Anything Analyzer 应用" >&2
 exit 2
 SHIM
-chmod +x ${_pluginShellQuote(shimPath)}
-printf '安装包=%s\\n命令入口=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPath)}
+chmod +x ${posixShellQuote(shimPath)}
+printf '安装包=%s\\n命令入口=%s\\n' "\$ASSET" ${posixShellQuote(shimPath)}
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
@@ -2791,10 +2791,10 @@ printf '安装包=%s\\n命令入口=%s\\n' "\$ASSET" ${_pluginShellQuote(shimPat
     final script =
         '''
 set -euo pipefail
-mkdir -p ${_pluginShellQuote(dataDir)}
-docker pull ${_pluginShellQuote(_qdrantImage)}
+mkdir -p ${posixShellQuote(dataDir)}
+docker pull ${posixShellQuote(_qdrantImage)}
 ${_qdrantManagedContainerGuard()}
-  docker start ${_pluginShellQuote(_qdrantContainerName)} >/dev/null
+  docker start ${posixShellQuote(_qdrantContainerName)} >/dev/null
 else
 ${_qdrantDockerRunCommand(dataDir, indent: 2)}
 fi
@@ -2880,16 +2880,16 @@ ${_qdrantHealthWaitScript()}
       );
     }
     onProgress?.call('正在准备 $label 容器…');
-    final name = _pluginShellQuote(containerName);
+    final name = posixShellQuote(containerName);
     final script =
         '''
 set -euo pipefail
-mkdir -p ${_pluginShellQuote(dataDir)}
+mkdir -p ${posixShellQuote(dataDir)}
 ${_managedDatabaseGuard(containerName)}
 if docker inspect $name >/dev/null 2>&1; then
   docker start $name >/dev/null
 else
-  docker pull ${_pluginShellQuote(image)}
+  docker pull ${posixShellQuote(image)}
   ${_managedDatabaseRunCommand(containerName: containerName, image: image, port: port, dataDir: dataDir, dataDestination: dataDestination, dockerArguments: dockerArguments, containerArguments: containerArguments)}
 fi
 ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: healthCommand, label: label)}
@@ -3384,12 +3384,12 @@ ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: 
     final script =
         '''
 set -euo pipefail
-docker pull ${_pluginShellQuote(_qdrantImage)}
+docker pull ${posixShellQuote(_qdrantImage)}
 ${_qdrantManagedContainerGuard()}
-  docker stop ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
-  docker rm ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
+  docker stop ${posixShellQuote(_qdrantContainerName)} >/dev/null || true
+  docker rm ${posixShellQuote(_qdrantContainerName)} >/dev/null || true
 fi
-mkdir -p ${_pluginShellQuote(dataDir)}
+mkdir -p ${posixShellQuote(dataDir)}
 ${_qdrantDockerRunCommand(dataDir, indent: 0)}
 ${_qdrantHealthWaitScript()}
 ''';
@@ -3467,11 +3467,11 @@ ${_qdrantHealthWaitScript()}
       );
     }
     onProgress?.call('正在更新 $label 镜像并重建容器…');
-    final name = _pluginShellQuote(containerName);
+    final name = posixShellQuote(containerName);
     final script =
         '''
 set -euo pipefail
-docker pull ${_pluginShellQuote(image)}
+docker pull ${posixShellQuote(image)}
 ${_managedDatabaseGuard(containerName)}
 if ! docker inspect $name >/dev/null 2>&1; then
   echo "未找到 OpenHand 托管的 $label 容器" >&2
@@ -3479,7 +3479,7 @@ if ! docker inspect $name >/dev/null 2>&1; then
 fi
 docker stop $name >/dev/null || true
 docker rm $name >/dev/null || true
-mkdir -p ${_pluginShellQuote(dataDir)}
+mkdir -p ${posixShellQuote(dataDir)}
 ${_managedDatabaseRunCommand(containerName: containerName, image: image, port: port, dataDir: dataDir, dataDestination: dataDestination, dockerArguments: dockerArguments, containerArguments: containerArguments)}
 ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: healthCommand, label: label)}
 ''';
@@ -3831,18 +3831,18 @@ ${_managedDatabaseHealthWaitScript(containerName: containerName, healthCommand: 
     final script =
         '''
 set -euo pipefail
-if ! docker inspect ${_pluginShellQuote(_qdrantContainerName)} >/dev/null 2>&1; then
+if ! docker inspect ${posixShellQuote(_qdrantContainerName)} >/dev/null 2>&1; then
   echo "Qdrant 容器不存在"
   exit 0
 fi
-LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' ${_pluginShellQuote(_qdrantContainerName)} 2>/dev/null || true)"
+LABEL="\$(docker inspect -f '{{ index .Config.Labels "openhand.managed" }}' ${posixShellQuote(_qdrantContainerName)} 2>/dev/null || true)"
 if [ "\$LABEL" != "true" ]; then
   echo "检测到同名但非 OpenHand 托管的容器：$_qdrantContainerName" >&2
   exit 3
 fi
-docker stop ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
-docker rm ${_pluginShellQuote(_qdrantContainerName)} >/dev/null || true
-echo "已保留 Qdrant 数据目录：${_pluginShellQuote(dataDir)}"
+docker stop ${posixShellQuote(_qdrantContainerName)} >/dev/null || true
+docker rm ${posixShellQuote(_qdrantContainerName)} >/dev/null || true
+echo "已保留 Qdrant 数据目录：${posixShellQuote(dataDir)}"
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
@@ -3954,7 +3954,7 @@ echo "已保留 Qdrant 数据目录：${_pluginShellQuote(dataDir)}"
       );
     }
     onProgress?.call('正在${running ? '启动' : '停止'} $label…');
-    final name = _pluginShellQuote(containerName);
+    final name = posixShellQuote(containerName);
     final script =
         '''
 set -euo pipefail
@@ -4022,7 +4022,7 @@ ${running ? healthWaitScript : 'echo "$label 已停止"'}
       );
     }
     onProgress?.call('正在卸载 $label 容器…');
-    final name = _pluginShellQuote(containerName);
+    final name = posixShellQuote(containerName);
     final script =
         '''
 set -euo pipefail
@@ -4033,7 +4033,7 @@ fi
 ${_managedDatabaseGuard(containerName)}
 docker stop $name >/dev/null || true
 docker rm $name >/dev/null || true
-echo "已保留 $label 数据目录：${_pluginShellQuote(dataDir)}"
+echo "已保留 $label 数据目录：${posixShellQuote(dataDir)}"
 ''';
     final result = await _runWithProgress(
       pluginShellExecutable(),
@@ -4119,7 +4119,6 @@ echo "已保留 $label 数据目录：${_pluginShellQuote(dataDir)}"
   }
 }
 
-String _pluginShellQuote(String value) => posixShellQuote(value);
 
 String _timeoutMessage(Duration timeout) {
   final seconds = timeout.inSeconds;

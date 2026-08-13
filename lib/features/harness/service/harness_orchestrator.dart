@@ -13,6 +13,7 @@ import '../../../shared/util/bounded_delete.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../ai/index.dart';
 import '../model/harness_phase.dart';
@@ -2063,16 +2064,16 @@ class HarnessOrchestrator extends ChangeNotifier {
     String modelId,
     String promptFilePath,
   ) {
-    final quotedPath = _shellSingleQuote(promptFilePath);
+    final quotedPath = posixShellQuote(promptFilePath);
     // 双引号阻止 Shell 展开提示词内容时发生分词。
     final promptSubst = '"\$(cat $quotedPath)"';
     final modelFlag = modelId.isNotEmpty
-        ? ' --model ${_shellSingleQuote(modelId)}'
+        ? ' --model ${posixShellQuote(modelId)}'
         : '';
     final modelFlagShort = modelId.isNotEmpty
-        ? ' -m ${_shellSingleQuote(modelId)}'
+        ? ' -m ${posixShellQuote(modelId)}'
         : '';
-    final quotedWd = _shellSingleQuote(config.workingDirectory);
+    final quotedWd = posixShellQuote(config.workingDirectory);
     final geminiIncludeDirectoriesFlags = _buildGeminiIncludeDirectoriesFlags();
 
     return switch (executable) {
@@ -2117,7 +2118,7 @@ class HarnessOrchestrator extends ChangeNotifier {
       return '';
     }
 
-    return ' --include-directories ${_shellSingleQuote(normalizedPersistenceDirectory)}';
+    return ' --include-directories ${posixShellQuote(normalizedPersistenceDirectory)}';
   }
 
   // ── I/O 辅助方法 ─────────────────────────────────────────────────────────
@@ -2140,7 +2141,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     // 安全兜底：进程在该时限内未退出时强制终止。两小时足以覆盖正常 AI 编码任务。
     Duration timeout = const Duration(hours: 2),
   }) async {
-    final quotedWd = _shellSingleQuote(workingDirectory);
+    final quotedWd = posixShellQuote(workingDirectory);
     final fullCmd = 'cd $quotedWd && $cmdStr';
     Process? startedProcess;
     try {
@@ -2478,10 +2479,6 @@ class HarnessOrchestrator extends ChangeNotifier {
       return false;
     }
   }
-
-  /// 使用 POSIX 单引号安全转义参数。
-  static String _shellSingleQuote(String s) =>
-      "'${s.replaceAll("'", "'\\''")}'";
 
   // ── 文件变更跟踪 ─────────────────────────────────────────────────────────
 
