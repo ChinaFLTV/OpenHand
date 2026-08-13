@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/net/sse_line_parsing.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../model/ai_exposure_models.dart';
 
@@ -301,9 +302,8 @@ class AiJunglerClient {
       await for (final line in _boundedUtf8Lines(
         response.timeout(_kAiJunglerSseIdleTimeout),
       )) {
-        if (!line.startsWith('data:')) continue;
-        final payload = line.substring(5).trim();
-        if (payload.isEmpty) continue;
+        final payload = sseDataPayload(line);
+        if (payload == null || payload.isEmpty) continue;
         final Object? decoded;
         try {
           decoded = jsonDecode(payload);

@@ -204,6 +204,10 @@ const String kTextEventStreamMimeType = 'text/event-stream';
 const String kApplicationJsonUtf8ContentType =
     '$kApplicationJsonMimeType; charset=utf-8';
 
+/// 带 UTF-8 charset 的 SSE `Content-Type` 取值，供本地 SSE 服务响应复用。
+const String kTextEventStreamUtf8ContentType =
+    '$kTextEventStreamMimeType; charset=utf-8';
+
 /// 取 `Content-Type` 的 MIME 部分（丢掉 `; charset=...` 参数），统一转小写；
 /// 缺失时返回空字符串。
 String responseMimeType(Map<String, String> headers) {

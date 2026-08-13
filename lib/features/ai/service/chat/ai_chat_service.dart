@@ -11,6 +11,7 @@ import '../../../../shared/net/http_error_message.dart';
 import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
+import '../../../../shared/net/sse_line_parsing.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -30,7 +31,6 @@ import '../runtime/ai_endpoint_router.dart';
 import '../session_io/ai_token_usage_parser.dart';
 import '../usage/ai_usage_tracker.dart';
 import 'ai_protocol_adapter.dart';
-import 'ai_sse_data_parser.dart';
 import 'ai_transport_diagnostic_messages.dart';
 
 const String aiChatRequestFallbackCacheAffinityRejected =

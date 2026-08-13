@@ -17,6 +17,7 @@ import '../../app/support/openhand_paths.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/net/sse_line_parsing.dart';
 import '../../shared/ui/structured_error_text.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_delete.dart';
@@ -4606,8 +4607,11 @@ class AiSessionController extends ChangeNotifier {
     };
   }
 
+  /// 唯一 ID 生成的采样上限；ID 生成器基于随机源，正常情况一次即中。
+  static const int _maxUniqueForkIdAttempts = 64;
+
   String _generateUniqueForkSessionId() {
-    for (var attempt = 0; attempt < 64; attempt += 1) {
+    for (var attempt = 0; attempt < _maxUniqueForkIdAttempts; attempt += 1) {
       final id = _idGenerator().trim();
       if (id.isNotEmpty &&
           !_sessionsById.containsKey(id) &&
@@ -4619,7 +4623,7 @@ class AiSessionController extends ChangeNotifier {
   }
 
   String _generateUniqueForkMessageId(Set<String> usedIds) {
-    for (var attempt = 0; attempt < 64; attempt += 1) {
+    for (var attempt = 0; attempt < _maxUniqueForkIdAttempts; attempt += 1) {
       final id = _idGenerator().trim();
       if (id.isNotEmpty && usedIds.add(id)) {
         return id;
@@ -14784,9 +14788,7 @@ $tail''';
     for (final line in raw.split('\n')) {
       var text = line.trim();
       if (text.isEmpty) continue;
-      if (text.startsWith('data:')) {
-        text = text.substring(5).trim();
-      }
+      text = sseDataPayload(text) ?? text;
       if (text.isEmpty || text == '[DONE]') continue;
       try {
         collectFromDecoded(jsonDecode(text));

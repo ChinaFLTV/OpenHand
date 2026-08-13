@@ -13,6 +13,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/net/http_status_utils.dart';
+import '../../../shared/net/sse_line_parsing.dart';
 import '../../../shared/util/argument_guards.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_delete.dart';
@@ -1713,12 +1714,14 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
       var eventName = '';
       final dataLines = <String>[];
       for (final line in trimmedBlock.split('\n')) {
-        if (line.startsWith('event:')) {
-          eventName = line.substring(6).trim();
+        final event = sseEventName(line);
+        if (event != null) {
+          eventName = event;
           continue;
         }
-        if (line.startsWith('data:')) {
-          dataLines.add(line.substring(5).trim());
+        final payload = sseDataPayload(line);
+        if (payload != null) {
+          dataLines.add(payload);
         }
       }
       if (dataLines.isEmpty) {

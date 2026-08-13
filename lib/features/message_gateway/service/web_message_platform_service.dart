@@ -6187,7 +6187,7 @@ class WebMessagePlatformService {
     return shelf.Response.ok(
       controller.stream,
       headers: <String, String>{
-        HttpHeaders.contentTypeHeader: 'text/event-stream; charset=utf-8',
+        HttpHeaders.contentTypeHeader: kTextEventStreamUtf8ContentType,
         HttpHeaders.cacheControlHeader: 'no-store, no-transform',
         HttpHeaders.connectionHeader: 'keep-alive',
         'x-accel-buffering': 'no',

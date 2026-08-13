@@ -813,7 +813,7 @@ class McpServerOpsRuntime {
       headers: <String, String>{
         ..._responseHeaders,
         ..._sessionHeaders(request),
-        kContentTypeHeaderName: 'text/event-stream; charset=utf-8',
+        kContentTypeHeaderName: kTextEventStreamUtf8ContentType,
         'cache-control': 'no-cache, no-transform',
         'connection': 'keep-alive',
         'x-accel-buffering': 'no',
