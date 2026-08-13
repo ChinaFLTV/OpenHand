@@ -550,7 +550,7 @@ class _InsightListViewportState extends State<_InsightListViewport> {
         thumbVisibility: true,
         interactive: true,
         thickness: 5,
-        radius: const Radius.circular(kOpenHandRadiusPill),
+        radius: kOpenHandPillRadius,
         scrollbarOrientation: ScrollbarOrientation.right,
         child: SingleChildScrollView(
           controller: _controller,

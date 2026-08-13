@@ -9,6 +9,7 @@ import '../../../app/theme/openhand_status_colors.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_safe_scrollbar.dart';
 import '../../../shared/ui/openhand_snack_bar.dart';
 import '../../../shared/ui/openhand_spacing.dart';
@@ -1277,7 +1278,7 @@ class _DependencyRecordListState extends State<_DependencyRecordList> {
         thumbVisibility: true,
         interactive: true,
         thickness: 5,
-        radius: const Radius.circular(kOpenHandRadiusPill),
+        radius: kOpenHandPillRadius,
         scrollbarOrientation: ScrollbarOrientation.right,
         child: ListView(
           controller: _controller,
@@ -1630,3 +1631,4 @@ String _compactValue(Object? value, {int maxChars = 80}) {
 }
 
 String _ttlText(int seconds) => seconds < 0 ? '永久' : '${seconds}s';
+

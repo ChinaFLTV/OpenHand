@@ -15,6 +15,7 @@ import '../../../shared/ui/animated_menu.dart';
 import '../../../shared/ui/list_removal_transition.dart';
 import '../../../shared/ui/motion_durations.dart';
 import '../../../shared/ui/motion_preference.dart';
+import '../../../shared/ui/oh_pill.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_reveal_switcher.dart';
@@ -340,7 +341,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                                     controller: _endpointScrollController,
                                     thumbVisibility: true,
                                     thickness: 5,
-                                    radius: const Radius.circular(kOpenHandRadiusPill),
+                                    radius: kOpenHandPillRadius,
                                     interactive: true,
                                     scrollbarOrientation:
                                         ScrollbarOrientation.right,
@@ -6282,3 +6283,4 @@ String _dateTimeLabel(DateTime value) {
   return '${local.year}-${two(local.month)}-${two(local.day)} '
       '${two(local.hour)}:${two(local.minute)}:${two(local.second)}';
 }
+

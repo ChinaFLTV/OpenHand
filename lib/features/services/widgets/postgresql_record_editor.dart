@@ -258,7 +258,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
               thumbVisibility: true,
               interactive: true,
               thickness: 5,
-              radius: const Radius.circular(kOpenHandRadiusPill),
+              radius: kOpenHandPillRadius,
               scrollbarOrientation: ScrollbarOrientation.right,
               child: SingleChildScrollView(
                 controller: _scrollController,
