@@ -10,6 +10,7 @@ import 'package:xml/xml.dart' as xml;
 
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/db/atomic_file_operations.dart';
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_delete.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
@@ -425,7 +426,7 @@ class AiAttachmentService {
     );
   }
 
-  static const String _pdfMimeType = 'application/pdf';
+  static const String _pdfMimeType = kApplicationPdfMimeType;
   static const String _legacyXlsPreviewNotice =
       'Legacy XLS preview is not available in this runtime. Keep the file name '
       'and use the surrounding prompt to explain what to inspect.';

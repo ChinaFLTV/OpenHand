@@ -212,6 +212,9 @@ const String kApplicationYamlMimeType = 'application/yaml';
 /// HTML MIME 类型常量。
 const String kTextHtmlMimeType = 'text/html';
 
+/// PDF MIME 类型常量。
+const String kApplicationPdfMimeType = 'application/pdf';
+
 /// 带 UTF-8 charset 的 JSON `Content-Type` 取值，供发送 JSON 请求体时复用。
 const String kApplicationJsonUtf8ContentType =
     '$kApplicationJsonMimeType; charset=utf-8';

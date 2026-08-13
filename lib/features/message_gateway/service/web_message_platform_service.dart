@@ -9057,7 +9057,7 @@ class WebMessagePlatformService {
     if (lower.endsWith('.ogg')) return 'audio/ogg';
     if (lower.endsWith('.m4a')) return 'audio/mp4';
     if (lower.endsWith('.flac')) return 'audio/flac';
-    if (lower.endsWith('.pdf')) return 'application/pdf';
+    if (lower.endsWith('.pdf')) return kApplicationPdfMimeType;
     if (lower.endsWith('.woff2')) return 'font/woff2';
     if (lower.endsWith('.woff')) return 'font/woff';
     if (lower.endsWith('.ttf')) return 'font/ttf';
