@@ -622,12 +622,8 @@ class _MessageBubbleState extends State<_MessageBubble>
         ? colorScheme.onTertiaryContainer
         : colorScheme.onSurface;
     final useDarkCodeSurface = isReasoning || isToolCall;
-    final environmentKey =
-        '${widget.sessionEnvironment.applicationDirectory}|${_toolExecutionWorkingDirectory(message)}';
-    // 缓存签名必须覆盖整套调色板：只比对 brightness 时，同亮度切换主题预设
-    //（seed 变了、brightness 没变）不会触发刷新，markdown 样式表与代码块高亮
-    // 会停留在旧配色，与已按新配色重算的气泡底色/文字色对不上（低对比度）。
-    // 口径与 `_MessageMarkdownThemeData.fromMessageBubble` 的进程级缓存键一致。
+    // 快速路径：消息 id 未变时先算轻量签名，避免每帧重复解析 bash 参数。
+    final messageIdUnchanged = _lastCacheMessageId == message.id;
     final themeSignature = Object.hash(
       theme.brightness.index,
       colorScheme.primary.toARGB32(),
@@ -640,8 +636,13 @@ class _MessageBubbleState extends State<_MessageBubble>
       textColor.toARGB32(),
       useDarkCodeSurface,
     );
+    final environmentKey = messageIdUnchanged &&
+            _lastCacheThemeSignature == themeSignature &&
+            _lastCacheEnvironmentKey != null
+        ? _lastCacheEnvironmentKey!
+        : '${widget.sessionEnvironment.applicationDirectory}|${_toolExecutionWorkingDirectory(message)}';
     final needsCacheRefresh =
-        _lastCacheMessageId != message.id ||
+        !messageIdUnchanged ||
         _lastCacheEnvironmentKey != environmentKey ||
         _lastCacheThemeSignature != themeSignature;
     if (needsCacheRefresh) {
