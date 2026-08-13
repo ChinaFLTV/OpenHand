@@ -70,5 +70,3 @@ const double kOpenHandRadius20 = 20;
 const double kOpenHandRadius22 = 22;
 const double kOpenHandRadius24 = 24;
 
-/// 胶囊形（full-round）圆角，用于 Chip / Tag / 小型药丸组件。
-const double kOpenHandRadiusPill = 99;
