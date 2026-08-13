@@ -1034,7 +1034,7 @@ class AiExposureProxyEndpoint {
   String get maskedUrl => maskAiExposureProxyUrl(url);
 
   String get displayName =>
-      name.trim().isEmpty ? Uri.parse(url).host : name.trim();
+      name.trim().isEmpty ? (Uri.tryParse(url)?.host ?? '') : name.trim();
 
   String get runtimeId =>
       sha256.convert(utf8.encode(url)).toString().substring(0, 12);

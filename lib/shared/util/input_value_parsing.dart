@@ -935,3 +935,21 @@ const int kMaxPort = 65535;
 
 /// 判断 [port] 是否在合法端口范围内（1–65535）。
 bool isValidPort(int? port) => port != null && port >= kMinPort && port <= kMaxPort;
+
+/// 紧凑计数格式化：1000→1.0K, 1000000→1.0M, 1000000000→1.0B。
+String formatCompactCount(num value, {int fractionDigits = 1}) {
+  if (!value.isFinite) return '--';
+  final abs = value.abs();
+  if (abs >= 1000000000) {
+    return '${(value / 1000000000).toStringAsFixed(fractionDigits)}B';
+  }
+  if (abs >= 1000000) {
+    return '${(value / 1000000).toStringAsFixed(fractionDigits)}M';
+  }
+  if (abs >= 1000) {
+    return '${(value / 1000).toStringAsFixed(fractionDigits)}K';
+  }
+  if (value is int) return '$value';
+  if (value == value.roundToDouble()) return value.round().toString();
+  return value.toStringAsFixed(fractionDigits);
+}

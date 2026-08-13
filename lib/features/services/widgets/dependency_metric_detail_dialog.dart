@@ -9,6 +9,7 @@ import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
 import '../../../shared/util/byte_size_format.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/dependency_telemetry.dart';
 import '../services_controller.dart';
 import '../services_errors.dart';
@@ -4128,15 +4129,7 @@ String _percent(double value) {
   return '${(safe * 100).toStringAsFixed(1)}%';
 }
 
-String _compactCount(int value) {
-  final absolute = value.abs();
-  if (absolute >= 1000000000) {
-    return '${(value / 1000000000).toStringAsFixed(1)}B';
-  }
-  if (absolute >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
-  if (absolute >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
-  return '$value';
-}
+String _compactCount(int value) => formatCompactCount(value);
 
 String _durationText(int seconds) {
   if (seconds < 0) return '永久';

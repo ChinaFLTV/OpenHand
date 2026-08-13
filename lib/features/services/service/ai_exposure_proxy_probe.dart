@@ -740,15 +740,8 @@ String _proxyAuthority(Uri proxy) {
 
 (String, String)? _proxyCredentials(Uri proxy) {
   if (proxy.userInfo.isEmpty) return null;
-  final separator = proxy.userInfo.indexOf(':');
-  return (
-    Uri.decodeComponent(
-      separator < 0 ? proxy.userInfo : proxy.userInfo.substring(0, separator),
-    ),
-    separator < 0
-        ? ''
-        : Uri.decodeComponent(proxy.userInfo.substring(separator + 1)),
-  );
+  final credentials = aiExposureProxyCredentials(proxy.userInfo);
+  return (credentials.username, credentials.password);
 }
 
 String? _proxyAuthorization(Uri proxy) {

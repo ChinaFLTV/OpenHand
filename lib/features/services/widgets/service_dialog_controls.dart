@@ -10,6 +10,7 @@ import '../../../shared/ui/openhand_clipboard.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
 import '../../../shared/ui/openhand_ops_charts.dart';
 import '../../../shared/ui/openhand_spacing.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/localized_text.dart';
 import '../model/ai_exposure_models.dart';
 import '../services_controller.dart';
@@ -1816,15 +1817,7 @@ Color _serviceDetailTone(int index, ColorScheme colors, Color accentColor) =>
       OpenHandStatusColors.error,
     ][index % 8];
 
-String _compactServiceNumber(double value) {
-  if (!value.isFinite) return '--';
-  if (value >= 1000000000) return '${(value / 1000000000).toStringAsFixed(1)}B';
-  if (value >= 1000000) return '${(value / 1000000).toStringAsFixed(1)}M';
-  if (value >= 1000) return '${(value / 1000).toStringAsFixed(1)}K';
-  return value == value.roundToDouble()
-      ? value.round().toString()
-      : value.toStringAsFixed(1);
-}
+String _compactServiceNumber(double value) => formatCompactCount(value);
 
 class ServiceFilterChip extends StatelessWidget {
   const ServiceFilterChip({
