@@ -30,14 +30,8 @@ class HtmlWebViewMountLimiter {
   HtmlWebViewMountPermit request(
     void Function() onGranted, {
     bool priority = false,
-    void Function()? onRevoked,
   }) {
-    final permit = HtmlWebViewMountPermit._(
-      ++_nextId,
-      this,
-      onGranted,
-      onRevoked,
-    );
+    final permit = HtmlWebViewMountPermit._(++_nextId, this, onGranted);
     if (_active.length < maxMounted) {
       _active[permit.id] = permit;
       permit._granted = true;
@@ -66,32 +60,6 @@ class HtmlWebViewMountLimiter {
       _waiting.remove(permit);
     }
     _drain();
-  }
-
-  void revokeOldest() {
-    if (_active.isEmpty) return;
-    final permit = _active.values.first;
-    _active.remove(permit.id);
-    permit._granted = false;
-    permit._released = true;
-    _notifyRevoked(permit);
-    _drain();
-  }
-
-  void clear() {
-    final activePermits = _active.values.toList(growable: false);
-    for (final permit in activePermits) {
-      permit._granted = false;
-      permit._released = true;
-    }
-    for (final permit in _waiting) {
-      permit._released = true;
-    }
-    _waiting.clear();
-    _active.clear();
-    for (final permit in activePermits) {
-      _notifyRevoked(permit);
-    }
   }
 
   void _drain() {
@@ -129,14 +97,6 @@ class HtmlWebViewMountLimiter {
     }
   }
 
-  void _notifyRevoked(HtmlWebViewMountPermit permit) {
-    try {
-      permit._onRevoked?.call();
-    } catch (error, stack) {
-      _reportCallbackError(error, stack);
-    }
-  }
-
   void _releaseFailedPermit(
     HtmlWebViewMountPermit permit,
     Object error,
@@ -155,17 +115,11 @@ class HtmlWebViewMountLimiter {
 }
 
 class HtmlWebViewMountPermit {
-  HtmlWebViewMountPermit._(
-    this.id,
-    this._owner,
-    this._onGranted,
-    this._onRevoked,
-  );
+  HtmlWebViewMountPermit._(this.id, this._owner, this._onGranted);
 
   final int id;
   final HtmlWebViewMountLimiter _owner;
   final void Function() _onGranted;
-  final void Function()? _onRevoked;
   bool _granted = false;
   bool _released = false;
 

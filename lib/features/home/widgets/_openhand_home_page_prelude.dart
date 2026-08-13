@@ -55,6 +55,10 @@ const int _responseVariantAnchorSettleFrameCount = 18;
 const int _postScrollContentAnchorSettleFrameCount = 18;
 const double _transcriptPrependAnchorMinCorrection = 0.75;
 
+/// 锚点修正循环的静默提前退出阈值：连续该数量的帧无需修正即认定内容
+/// 高度已收敛，提前结束逐帧测量，避免异步测高结束后仍空跑满帧预算。
+const int _transcriptPrependAnchorStableFrameLimit = 2;
+
 /// 只订阅 size / padding / viewInsets 三项：整份 MediaQuery 里还有文字缩放、
 /// 无障碍开关等无关属性，任一变化都会白白重建整棵首页内容树。
 Size _homeContentViewportSize(BuildContext context) {

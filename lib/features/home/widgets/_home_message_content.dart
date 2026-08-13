@@ -3548,6 +3548,8 @@ class _PreparedHtmlRenderData {
     required this.hasTagStructure,
     required this.tagCount,
     required this.highCostTagCount,
+    required this.hasMarkdownFence,
+    required this.healedSharesSource,
   });
 
   final int sourceLength;
@@ -3559,6 +3561,14 @@ class _PreparedHtmlRenderData {
   final int tagCount;
   final int highCostTagCount;
 
+  /// 内容以 mermaid fence 开头或包含 fenced code block。此类内容必须坚持
+  /// 走 Markdown 渲染；随 prepared 数据一起缓存，避免分发器每次 build 重
+  /// 复对全文跑 fence 正则。
+  final bool hasMarkdownFence;
+
+  /// [healedHtml] 是否与源串同一实例（未做补齐）。
+  final bool healedSharesSource;
+
   bool get isHtmlCandidate => looksLikeHtml || hasTagStructure;
 
   bool get shouldUseProgressiveHighFidelity {
@@ -3568,7 +3578,11 @@ class _PreparedHtmlRenderData {
         highCostTagCount >= _htmlProgressiveRenderHighCostTagThreshold;
   }
 
-  int get cacheCost => healedHtml.length + previewText.length + 64;
+  /// 只按「本条目独占的新增驻留」记账：healedHtml 与源串共享实例时不计入，
+  /// 否则大段纯文本 / markdown 消息会以全文长度挤占预算，把真正需要缓存的
+  /// HTML 卡条目全部逐出，长会话滚动往返时被迫反复同步重算。
+  int get cacheCost =>
+      (healedSharesSource ? 0 : healedHtml.length) + previewText.length + 64;
 }
 
 final LifecycleLruCache<_PreparedHtmlRenderData> _preparedHtmlRenderCache =
@@ -3613,6 +3627,7 @@ _PreparedHtmlRenderData _preparedHtmlRenderDataFor(String value) {
           _htmlProgressiveRenderHighCostTagThreshold + 1,
         )
       : 0;
+  final trimmed = value.trim();
   final prepared = _PreparedHtmlRenderData(
     sourceLength: sourceLength,
     sourceFingerprint: sourceFingerprint,
@@ -3622,6 +3637,10 @@ _PreparedHtmlRenderData _preparedHtmlRenderDataFor(String value) {
     hasTagStructure: hasTagStructure,
     tagCount: tagCount,
     highCostTagCount: highCostTagCount,
+    hasMarkdownFence:
+        _startsWithFencedMermaidBlock(trimmed) ||
+        _containsMarkdownCodeFence(trimmed),
+    healedSharesSource: identical(healedHtml, value),
   );
   _preparedHtmlRenderCache.put(cacheKey, prepared);
   return prepared;
@@ -4453,14 +4472,6 @@ int _htmlBubbleHeightCacheKey(String data, TextStyle? baseTextStyle) {
   );
 }
 
-void _warmHtmlBubbleMetrics(String data, TextStyle? baseTextStyle) {
-  // 这里只保留一次廉价估算，避免预热路径把“估算高度”写入真实高度
-  // cache/floor。真实 cache 只能由 WebView JS 测高回调写入，否则滚动
-  // 冻结期间会拿估算值当 floor，把消息卡片撑出大面积空白。
-  _htmlBubbleHeightCacheKey(data, baseTextStyle);
-  _estimateHtmlBubbleHeight(data);
-}
-
 /// 平台视图挂载同样限制为 1/帧：WebView 创建会同步阻塞 UI 线程。
 final _FrameTaskScheduler _htmlWebViewFrameScheduler = _FrameTaskScheduler(
   maxPerFrame: 1,
@@ -4503,6 +4514,11 @@ class _DeferredHtmlBubbleWebView extends StatefulWidget {
 
 class _DeferredHtmlBubbleWebViewState
     extends State<_DeferredHtmlBubbleWebView> {
+  /// 许可等待超时的重试上限：超过后转 Flutter 静态 HTML 渲染，内容照常
+  /// 可见。视口内 HTML 卡多于并发上限时，无界重试会形成「销毁-重建」
+  /// 平台视图风暴（WebView 创建同步阻塞 UI 线程，是 ANR 的直接来源）。
+  static const int _kPermitWaitMaxTimeouts = 2;
+
   bool _mountWebView = false;
   bool _useFlutterFallback = false;
   int _generation = 0;
@@ -4514,6 +4530,7 @@ class _DeferredHtmlBubbleWebViewState
   Timer? _coldMountTimer;
   Timer? _permitWaitTimer;
   Timer? _bootstrapTimer;
+  int _permitWaitTimeoutCount = 0;
 
   bool _hasWarmWebViewMetrics() {
     final cacheKey = _htmlBubbleHeightCacheKey(
@@ -4553,6 +4570,7 @@ class _DeferredHtmlBubbleWebViewState
       if (_useFlutterFallback) _useFlutterFallback = false;
       if (_mountWebView) return;
       _generation += 1;
+      _permitWaitTimeoutCount = 0;
       _pendingMountAfterScroll = false;
       _cancelColdMountTimer();
       _bootstrapTimer?.cancel();
@@ -4606,12 +4624,14 @@ class _DeferredHtmlBubbleWebViewState
     if (_mountWebView || _activePermit != null || _coldMountTimer != null) {
       return;
     }
-    final warmMetrics = _hasWarmWebViewMetrics();
-    if ((_scrollActivity?.value ?? false) && !warmMetrics) {
+    // 滚动进行中一律推迟挂载（不再豁免有高度缓存的 warm 卡）：WebView
+    // 创建同步占用 UI 线程数十毫秒，fling 中挂载必然掉帧；warm 卡的占位
+    // 盒尺寸精确，等滚动停止再挂载没有布局跳动。
+    if (_scrollActivity?.value ?? false) {
       _pendingMountAfterScroll = true;
       return;
     }
-    if (allowColdDelay && !warmMetrics) {
+    if (allowColdDelay && !_hasWarmWebViewMetrics()) {
       final generation = ++_generation;
       _coldMountTimer = startSafeTimer(_htmlWebViewColdMountDelay, () {
         _coldMountTimer = null;
@@ -4628,7 +4648,7 @@ class _DeferredHtmlBubbleWebViewState
         if (!mounted || generation != _generation || _mountWebView) {
           return;
         }
-        if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
+        if (_scrollActivity?.value ?? false) {
           _pendingMountAfterScroll = true;
           return;
         }
@@ -4650,49 +4670,34 @@ class _DeferredHtmlBubbleWebViewState
 
     late final HtmlWebViewMountPermit permit;
     final warmMetrics = _hasWarmWebViewMetrics();
-    permit = _htmlWebViewActiveLimiter.request(
-      () {
-        if (!mounted ||
-            generation != _generation ||
-            _mountWebView ||
-            !identical(_activePermit, permit)) {
-          permit.release();
-          return;
-        }
-        if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
-          _pendingMountAfterScroll = true;
-          _activePermit = null;
-          permit.release();
-          return;
-        }
-        _pendingMountAfterScroll = false;
-        _cancelPermitWaitTimer();
-        _requestWebViewBootstrap(generation);
-      },
-      priority: warmMetrics,
-      onRevoked: () {
-        if (!mounted || !identical(_activePermit, permit)) return;
-        _activePermit = null;
-        _releaseBootstrapPermit();
-        _bootstrapTimer?.cancel();
-        _bootstrapTimer = null;
-        _mountedWebViewGeneration = null;
-        if (_mountWebView) setState(() => _mountWebView = false);
+    permit = _htmlWebViewActiveLimiter.request(() {
+      if (!mounted ||
+          generation != _generation ||
+          _mountWebView ||
+          !identical(_activePermit, permit)) {
+        permit.release();
+        return;
+      }
+      if (_scrollActivity?.value ?? false) {
+        // 许可授予落在滚动进行中：释放并等滚动停止后重排，避免 fling
+        // 中同步创建平台视图掉帧。
         _pendingMountAfterScroll = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (!mounted || _mountWebView) return;
-          if (_scrollActivity?.value ?? false) return;
-          _pendingMountAfterScroll = false;
-          _scheduleMount();
-        });
-      },
-    );
+        _activePermit = null;
+        permit.release();
+        return;
+      }
+      _permitWaitTimeoutCount = 0;
+      _pendingMountAfterScroll = false;
+      _cancelPermitWaitTimer();
+      _requestWebViewBootstrap(generation);
+    }, priority: warmMetrics);
     _activePermit = permit;
     if (permit.released) {
       _handleWebViewFallback();
       return;
     }
     if (permit.granted) {
+      _permitWaitTimeoutCount = 0;
       _pendingMountAfterScroll = false;
       _cancelPermitWaitTimer();
       _requestWebViewBootstrap(generation);
@@ -4822,8 +4827,15 @@ class _DeferredHtmlBubbleWebViewState
       }
       _activePermit = null;
       permit.release();
-      _htmlWebViewActiveLimiter.revokeOldest();
-      if ((_scrollActivity?.value ?? false) && !_hasWarmWebViewMetrics()) {
+      // 有界重试：并发上限长期占满（视口内 HTML 卡过多）时不再撤销正在
+      // 展示的卡片去喂等待者——那会造成可见卡轮流闪白重载；重试耗尽后
+      // 直接回退 Flutter 静态渲染，内容依旧完整可见。
+      _permitWaitTimeoutCount += 1;
+      if (_permitWaitTimeoutCount >= _kPermitWaitMaxTimeouts) {
+        _handleWebViewFallback();
+        return;
+      }
+      if (_scrollActivity?.value ?? false) {
         _pendingMountAfterScroll = true;
         return;
       }
@@ -5014,8 +5026,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
       for (var i = 0; i < limit; i++) {
         var style = nodes[i] && nodes[i].style;
         if (!style) continue;
-        style.setProperty('min-height', 'auto', 'important');
-        style.setProperty('height', 'auto', 'important');
+        // 写前比较：无条件 setProperty 会触发 attributes MutationObserver →
+        // schedule → measure → 再写，形成 60Hz 永续的全量 DOM 扫描死循环。
+        if (style.getPropertyValue('min-height') !== 'auto') style.setProperty('min-height', 'auto', 'important');
+        if (style.getPropertyValue('height') !== 'auto') style.setProperty('height', 'auto', 'important');
       }
     } catch (_) {}
   }
@@ -5105,8 +5119,10 @@ class _HtmlBubbleWebViewState extends State<_HtmlBubbleWebView> {
         marker = document.createElement('span');
         marker.id = 'openhand-html-bubble-flow-end';
         marker.setAttribute('aria-hidden', 'true');
+        // 样式只在创建时写一次：每次 measure 重写 cssText 会被 subtree
+        // attributes 观察者捕获并再次 schedule，构成测高自激循环。
+        marker.style.cssText = 'display:block;clear:both;width:0;height:0;margin:0;padding:0;border:0;overflow:hidden;pointer-events:none;';
       }
-      marker.style.cssText = 'display:block;clear:both;width:0;height:0;margin:0;padding:0;border:0;overflow:hidden;pointer-events:none;';
       if (marker.parentElement !== container) container.appendChild(marker);
       var rect = marker.getBoundingClientRect();
       var styles = window.getComputedStyle(container);
@@ -6289,17 +6305,24 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   }
 
   Widget _buildMarkdownOrFallback() {
+    // 流式阶段直接走 Markdown：对半成品缓冲做 HTML 嗅探每个 delta 都会
+    // 缓存 miss 并全量重算（O(N²) 累积），还会把中间版本挤进 prepared LRU
+    // 污染真正需要的条目；流式结束后本组件以 isStreaming=false 重建，届时
+    // 再做一次性嗅探。
+    if (isStreaming) {
+      return _buildMarkdown();
+    }
     // Markdown 格式智能回退：仅当内容整体看起来像 HTML 文档时，才优先尝试
     // HTML 渲染。若消息里已经出现 fenced code block，则必须坚持走 Markdown
     // 路径 —— 代码块正文可能合法包含 `<br/>` / `<div>` / `<table>` 等字样
     //（典型如 mermaid、HTML 示例代码），此时回退到 WebView 会把整个 fenced
     // block 当普通文本吃掉，导致代码块/mermaid 完全失效。
-    final normalized = data.trim();
-    if (_startsWithFencedMermaidBlock(normalized) ||
-        _containsMarkdownCodeFence(normalized)) {
+    // fence 判定与 HTML 嗅探结果都随 prepared 数据按内容缓存，build 路径
+    // 不再重复对全文跑正则。
+    final preparedHtml = _preparedHtmlRenderDataFor(data);
+    if (preparedHtml.hasMarkdownFence) {
       return _buildMarkdown();
     }
-    final preparedHtml = _preparedHtmlRenderDataFor(data);
 
     if (preparedHtml.isHtmlCandidate) {
       return _ProgressiveHtmlMessageBody(
@@ -6388,22 +6411,20 @@ class _AssistantMessageBodyDispatcher extends StatelessWidget {
   }
 
   bool _buildsPlatformHtmlBody() {
-    if (isStreaming) {
+    if (isStreaming || data.isEmpty) {
       return false;
     }
-    final normalized = data.trim();
-    if (normalized.isEmpty) {
-      return false;
-    }
+    // 空白内容不可能是 HTML 候选（looksLikeHtml / tagStructure 均为 false），
+    // 无需先 trim 复制一份再判空。
     return switch (format) {
       AiMessageContentFormat.plainText => false,
       AiMessageContentFormat.html => _preparedHtmlRenderDataFor(
         data,
       ).isHtmlCandidate,
-      AiMessageContentFormat.markdown =>
-        !_startsWithFencedMermaidBlock(normalized) &&
-            !_containsMarkdownCodeFence(normalized) &&
-            _preparedHtmlRenderDataFor(data).isHtmlCandidate,
+      AiMessageContentFormat.markdown => () {
+        final prepared = _preparedHtmlRenderDataFor(data);
+        return !prepared.hasMarkdownFence && prepared.isHtmlCandidate;
+      }(),
     };
   }
 

@@ -447,6 +447,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   int _translationGeneration = 0;
   _TranscriptViewportAnchor? _pendingPrependAnchor;
   int _pendingPrependAnchorFrames = 0;
+  int _pendingPrependAnchorStableFrames = 0;
   bool _prependAnchorCorrectionQueued = false;
   TranscriptScrollActivity? _scrollActivity;
   _PendingRevealRestore? _pendingRevealRestore;
@@ -1076,15 +1077,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     }
 
     final colorScheme = theme.colorScheme;
-    final backgroundColor = isCompressionPoint
-        ? colorScheme.tertiaryContainer
-        : isReasoning
-        ? const Color(0xFF18181B)
-        : isToolResult
-        ? colorScheme.surfaceContainerHighest
-        : isStatus
-        ? colorScheme.surfaceContainer
-        : colorScheme.surfaceContainerHigh;
     final textColor = isCompressionPoint
         ? colorScheme.onTertiaryContainer
         : isReasoning
@@ -1096,12 +1088,6 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       workingDirectory: _toolExecutionWorkingDirectory(message),
     );
     final parseKey = pathRoots.join('|');
-    final markdownThemeData = _MessageMarkdownThemeData.fromMessageBubble(
-      theme: theme,
-      backgroundColor: backgroundColor,
-      textColor: textColor,
-      useDarkCodeSurface: useDarkCodeSurface,
-    );
     final inlineSyntaxes = <md.InlineSyntax>[
       _GeneratedMediaLinkSyntax.byExtension(pathRoots: pathRoots),
       _GeneratedMediaLinkSyntax.byGeneratedLabel(pathRoots: pathRoots),
@@ -1221,13 +1207,9 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         return;
       case AiMessageContentFormat.html:
         if (hasHtmlLikeTags || hasTagStructure) {
-          final preparedHtml = _preparedHtmlRenderDataFor(normalizedContent);
-          if (!preparedHtml.shouldUseProgressiveHighFidelity) {
-            _warmHtmlBubbleMetrics(
-              preparedHtml.healedHtml,
-              markdownThemeData.styleSheet.p,
-            );
-          }
+          // 预热 prepared LRU（嗅探 + 自愈 + 预览文本）；高度只能由
+          // WebView 测高回调写入，预热阶段无事可做。
+          _preparedHtmlRenderDataFor(normalizedContent);
           return;
         }
         if (settings.aiHtmlRenderFallback == AiHtmlRenderFallback.markdown) {
@@ -1236,13 +1218,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         return;
       case AiMessageContentFormat.markdown:
         if (!containsMarkdownFence && (hasHtmlLikeTags || hasTagStructure)) {
-          final preparedHtml = _preparedHtmlRenderDataFor(normalizedContent);
-          if (!preparedHtml.shouldUseProgressiveHighFidelity) {
-            _warmHtmlBubbleMetrics(
-              preparedHtml.healedHtml,
-              markdownThemeData.styleSheet.p,
-            );
-          }
+          _preparedHtmlRenderDataFor(normalizedContent);
           return;
         }
         warmMarkdownBody();
@@ -1630,6 +1606,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     _pendingRevealRestore = null;
     _pendingPrependAnchor = null;
     _pendingPrependAnchorFrames = 0;
+    _pendingPrependAnchorStableFrames = 0;
   }
 
   void _handleMessageExpansionChanged(bool expanded) {
@@ -1818,6 +1795,12 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }
 
   bool _messageHasMultimediaContent(AiSessionMessage message) {
+    // 流式尾消息每次更新都是新对象，Expando 必然 miss；而流式阶段生成
+    // 媒体尚未落地（TTS/翻译按钮此时也不可用），直接按 false 处理，
+    // 等流结束后的稳定实例再真正计算，避免每帧对全文跑两轮正则。
+    if (message.metadata[aiSessionMessageMetadataStreamingKey] == true) {
+      return false;
+    }
     final cached = _transcriptMultimediaContentCache[message];
     if (cached != null) return cached;
     final result = _computeMessageHasMultimediaContent(message);
@@ -1848,14 +1831,17 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     return _messageContentHasMultimediaLink(message.content);
   }
 
+  /// 按 id 取消息走会话级缓存索引，TTS 播放期间每次 rebuild 不再对全部
+  /// 已加载消息做线性查找。
+  AiSessionMessage? _sessionMessageById(String? messageId) {
+    if (messageId == null || messageId.isEmpty) return null;
+    final index = widget.session.messageIndexOf(messageId);
+    return index < 0 ? null : widget.session.messages[index];
+  }
+
   bool _messageIdTargetsMultimediaContent(String? messageId) {
-    if (messageId == null || messageId.isEmpty) return false;
-    for (final message in widget.session.displayMessages) {
-      if (message.id == messageId) {
-        return _messageHasMultimediaContent(message);
-      }
-    }
-    return false;
+    final message = _sessionMessageById(messageId);
+    return message != null && _messageHasMultimediaContent(message);
   }
 
   bool _attachmentIsMultimedia(AiMessageAttachment attachment) {
@@ -2146,13 +2132,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
     String? messageId,
     SettingsController settings,
   ) {
-    if (messageId == null || messageId.isEmpty) return false;
-    for (final message in widget.session.displayMessages) {
-      if (message.id == messageId) {
-        return !_messageSupportsSpeech(message, settings);
-      }
-    }
-    return false;
+    final message = _sessionMessageById(messageId);
+    return message != null && !_messageSupportsSpeech(message, settings);
   }
 
   String _friendlyMessageActionUiError(Object error) {
@@ -2331,7 +2312,16 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
       if (box == null || !box.attached || !box.hasSize) continue;
       final bottom = offset + box.size.height;
       if (bottom <= 0 || offset >= viewportExtent) continue;
-      final rank = offset >= 0 ? offset : viewportExtent + offset.abs();
+      if (offset >= 0) {
+        // 条目按视觉顺序排列：首个顶部落在视口内的气泡即最优锚点，
+        // 其后偏移只会更大，无需继续对剩余窗口做 localToGlobal 测量。
+        return _TranscriptViewportAnchor(
+          messageId: entry.id,
+          viewportOffset: offset,
+        );
+      }
+      // 负偏移（顶部在视口上方）作兜底，取最靠近视口顶的一个。
+      final rank = viewportExtent + offset.abs();
       if (rank < bestRank) {
         bestRank = rank;
         best = _TranscriptViewportAnchor(
@@ -2390,6 +2380,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
   }) {
     _pendingPrependAnchor = anchor;
     _pendingPrependAnchorFrames = math.max(1, settleFrameCount);
+    _pendingPrependAnchorStableFrames = 0;
     _queuePrependAnchorCorrection();
   }
 
@@ -2408,11 +2399,23 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
         return;
       }
       if (_isTranscriptScrollActive(context)) {
-        _pendingPrependAnchor = null;
-        _pendingPrependAnchorFrames = 0;
+        _cancelPendingViewportRestore();
         return;
       }
-      _restorePrependAnchor(anchor);
+      final corrected = _restorePrependAnchor(anchor);
+      // 静默提前退出：连续多帧无需修正说明内容高度已收敛，剩余帧预算
+      // 不必再逐帧做 localToGlobal + 潜在 jumpTo（每次 jumpTo 都会触发
+      // 整个视口 sliver 重排与滚动通知级联）。
+      if (corrected) {
+        _pendingPrependAnchorStableFrames = 0;
+      } else {
+        _pendingPrependAnchorStableFrames += 1;
+        if (_pendingPrependAnchorStableFrames >=
+            _transcriptPrependAnchorStableFrameLimit) {
+          _cancelPendingViewportRestore();
+          return;
+        }
+      }
       _pendingPrependAnchorFrames -= 1;
       if (_pendingPrependAnchorFrames > 0) {
         _queuePrependAnchorCorrection();
@@ -3613,6 +3616,11 @@ Map<String, Object?>? _cachedKnowledgeBaseMetadataForMessage({
   required AiSessionMessage message,
 }) {
   if (message.kind != AiSessionMessageKind.assistant) return null;
+  // 流式尾消息每次更新都是新对象且气泡在流式期间不展示知识库引用，
+  // 直接短路，避免每帧全文引用匹配 + 无效缓存写入。
+  if (message.metadata[aiSessionMessageMetadataStreamingKey] == true) {
+    return null;
+  }
   // 直接元数据结果对同一消息恒定，按对象缓存。
   final cached = _knowledgeBaseDirectMetadataCache[message];
   if (cached != null) return cached.value;
@@ -3830,131 +3838,132 @@ class _PendingCreationPlaceholderCardState
         ],
       ),
     );
+    // 静态层（外壳阴影 / 首尾渐变 / 光斑本体）提前构建一次：等待期可达
+    // 分钟级，逐帧重建这些装饰对象只产生 GC 压力。每帧真正变化的只有
+    // 漂移光晕的圆心与光斑的位移缩放。
+    final shellDecoration = BoxDecoration(
+      borderRadius: cardRadius,
+      border: Border.all(color: borderColor),
+      color: baseColor,
+      boxShadow: [
+        BoxShadow(
+          color: Colors.white.withValues(alpha: isDark ? 0.025 : 0.20),
+          offset: const Offset(0, 1),
+          spreadRadius: -1,
+        ),
+        BoxShadow(
+          color: cs.shadow.withValues(alpha: isDark ? 0.12 : 0.06),
+          blurRadius: 30,
+          offset: const Offset(0, 12),
+        ),
+      ],
+    );
+    final topGradientLayer = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.topLeft,
+          end: Alignment.bottomRight,
+          colors: [
+            Colors.white.withValues(alpha: !motionEnabled ? 0.055 : 0.12),
+            Colors.white.withValues(alpha: !motionEnabled ? 0.018 : 0.04),
+            cs.onSurfaceVariant.withValues(
+              alpha: !motionEnabled ? 0.024 : 0.065,
+            ),
+          ],
+          stops: const [0.0, 0.44, 1.0],
+        ),
+      ),
+    );
+    final glowOrb = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: RadialGradient(
+          center: const Alignment(0.18, 0.18),
+          radius: 0.52,
+          colors: [
+            Colors.white.withValues(alpha: isDark ? 0.035 : 0.085),
+            cs.onSurfaceVariant.withValues(alpha: isDark ? 0.018 : 0.026),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.46, 1.0],
+        ),
+      ),
+    );
+    final bottomGradientLayer = DecoratedBox(
+      decoration: BoxDecoration(
+        gradient: LinearGradient(
+          begin: Alignment.bottomRight,
+          end: Alignment.topLeft,
+          colors: [
+            cs.onSurfaceVariant.withValues(
+              alpha: !motionEnabled
+                  ? (isDark ? 0.02 : 0.026)
+                  : (isDark ? 0.034 : 0.045),
+            ),
+            Colors.transparent,
+          ],
+          stops: const [0.0, 0.62],
+        ),
+      ),
+    );
+    // RepaintBoundary 把每帧重绘限制在本卡片图层内，避免与相邻列表项
+    // 合并重绘。
     final card = Align(
       alignment: Alignment.centerLeft,
-      child: ClipRRect(
-        borderRadius: cardRadius,
-        child: AnimatedBuilder(
-          animation: _motionController,
-          child: content,
-          builder: (context, child) {
-            final phase = !motionEnabled ? 0.0 : _motionController.value;
-            final drift = math.sin(phase * math.pi * 2);
-            return DecoratedBox(
-              decoration: BoxDecoration(
-                borderRadius: cardRadius,
-                border: Border.all(color: borderColor),
-                color: baseColor,
-                boxShadow: [
-                  BoxShadow(
-                    color: Colors.white.withValues(
-                      alpha: isDark ? 0.025 : 0.20,
-                    ),
-                    offset: const Offset(0, 1),
-                    spreadRadius: -1,
-                  ),
-                  BoxShadow(
-                    color: cs.shadow.withValues(alpha: isDark ? 0.12 : 0.06),
-                    blurRadius: 30,
-                    offset: const Offset(0, 12),
-                  ),
-                ],
-              ),
-              child: SizedBox(
-                width: 280,
-                height: 220,
-                child: Stack(
-                  fit: StackFit.expand,
-                  children: [
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.topLeft,
-                          end: Alignment.bottomRight,
-                          colors: [
-                            Colors.white.withValues(
-                              alpha: !motionEnabled ? 0.055 : 0.12,
+      child: RepaintBoundary(
+        child: ClipRRect(
+          borderRadius: cardRadius,
+          child: DecoratedBox(
+            decoration: shellDecoration,
+            child: SizedBox(
+              width: 280,
+              height: 220,
+              child: AnimatedBuilder(
+                animation: _motionController,
+                child: content,
+                builder: (context, child) {
+                  final phase = !motionEnabled ? 0.0 : _motionController.value;
+                  final drift = math.sin(phase * math.pi * 2);
+                  return Stack(
+                    fit: StackFit.expand,
+                    children: [
+                      topGradientLayer,
+                      DecoratedBox(
+                        decoration: BoxDecoration(
+                          gradient: RadialGradient(
+                            center: Alignment(
+                              !motionEnabled ? -0.42 : -0.42 + drift * 0.08,
+                              !motionEnabled ? -0.52 : -0.52 + drift * 0.04,
                             ),
-                            Colors.white.withValues(
-                              alpha: !motionEnabled ? 0.018 : 0.04,
-                            ),
-                            cs.onSurfaceVariant.withValues(
-                              alpha: !motionEnabled ? 0.024 : 0.065,
-                            ),
-                          ],
-                          stops: const [0.0, 0.44, 1.0],
-                        ),
-                      ),
-                    ),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: RadialGradient(
-                          center: Alignment(
-                            !motionEnabled ? -0.42 : -0.42 + drift * 0.08,
-                            !motionEnabled ? -0.52 : -0.52 + drift * 0.04,
-                          ),
-                          radius: 0.82,
-                          colors: [
-                            Colors.white.withValues(
-                              alpha: !motionEnabled
-                                  ? (isDark ? 0.035 : 0.075)
-                                  : (isDark ? 0.052 : 0.11),
-                            ),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 1.0],
-                        ),
-                      ),
-                    ),
-                    Transform.translate(
-                      offset: !motionEnabled
-                          ? Offset.zero
-                          : Offset(drift * 7, -drift * 4),
-                      child: Transform.scale(
-                        scale: !motionEnabled ? 1 : 1.0 + drift.abs() * 0.035,
-                        child: DecoratedBox(
-                          decoration: BoxDecoration(
-                            gradient: RadialGradient(
-                              center: const Alignment(0.18, 0.18),
-                              radius: 0.52,
-                              colors: [
-                                Colors.white.withValues(
-                                  alpha: isDark ? 0.035 : 0.085,
-                                ),
-                                cs.onSurfaceVariant.withValues(
-                                  alpha: isDark ? 0.018 : 0.026,
-                                ),
-                                Colors.transparent,
-                              ],
-                              stops: const [0.0, 0.46, 1.0],
-                            ),
+                            radius: 0.82,
+                            colors: [
+                              Colors.white.withValues(
+                                alpha: !motionEnabled
+                                    ? (isDark ? 0.035 : 0.075)
+                                    : (isDark ? 0.052 : 0.11),
+                              ),
+                              Colors.transparent,
+                            ],
+                            stops: const [0.0, 1.0],
                           ),
                         ),
                       ),
-                    ),
-                    DecoratedBox(
-                      decoration: BoxDecoration(
-                        gradient: LinearGradient(
-                          begin: Alignment.bottomRight,
-                          end: Alignment.topLeft,
-                          colors: [
-                            cs.onSurfaceVariant.withValues(
-                              alpha: !motionEnabled
-                                  ? (isDark ? 0.02 : 0.026)
-                                  : (isDark ? 0.034 : 0.045),
-                            ),
-                            Colors.transparent,
-                          ],
-                          stops: const [0.0, 0.62],
+                      Transform.translate(
+                        offset: !motionEnabled
+                            ? Offset.zero
+                            : Offset(drift * 7, -drift * 4),
+                        child: Transform.scale(
+                          scale: !motionEnabled ? 1 : 1.0 + drift.abs() * 0.035,
+                          child: glowOrb,
                         ),
                       ),
-                    ),
-                    child ?? const SizedBox.shrink(),
-                  ],
-                ),
+                      bottomGradientLayer,
+                      child ?? const SizedBox.shrink(),
+                    ],
+                  );
+                },
               ),
-            );
-          },
+            ),
+          ),
         ),
       ),
     );
@@ -4096,6 +4105,35 @@ class _GeneratingMediaRingPainter extends CustomPainter {
   final bool isDark;
   final bool animate;
 
+  /// 渐变着色器按 (尺寸, 颜色, 亮暗) 缓存：渐变本体与进度无关，旋转由
+  /// canvas 变换承担，避免生成等待期间每帧 createShader 的引擎对象churn。
+  static final Map<int, Shader> _sweepShaderCache = <int, Shader>{};
+  static const int _sweepShaderCacheLimit = 8;
+
+  Shader _sweepShaderFor(Rect rect) {
+    final key = Object.hash(rect.width, rect.height, color.toARGB32(), isDark);
+    final cached = _sweepShaderCache[key];
+    if (cached != null) return cached;
+    final shader = SweepGradient(
+      startAngle: -math.pi / 2,
+      endAngle: math.pi * 1.5,
+      colors: [
+        Colors.transparent,
+        color.withValues(alpha: isDark ? 0.12 : 0.10),
+        color.withValues(alpha: isDark ? 0.46 : 0.52),
+        Colors.white.withValues(alpha: isDark ? 0.36 : 0.70),
+        color.withValues(alpha: isDark ? 0.18 : 0.16),
+        Colors.transparent,
+      ],
+      stops: const [0.0, 0.24, 0.46, 0.56, 0.72, 1.0],
+    ).createShader(rect);
+    if (_sweepShaderCache.length >= _sweepShaderCacheLimit) {
+      _sweepShaderCache.remove(_sweepShaderCache.keys.first);
+    }
+    _sweepShaderCache[key] = shader;
+    return shader;
+  }
+
   @override
   void paint(Canvas canvas, Size size) {
     final center = size.center(Offset.zero);
@@ -4113,21 +4151,13 @@ class _GeneratingMediaRingPainter extends CustomPainter {
       ..style = PaintingStyle.stroke
       ..strokeWidth = 3.4
       ..strokeCap = StrokeCap.round
-      ..shader = SweepGradient(
-        startAngle: -math.pi / 2,
-        endAngle: math.pi * 1.5,
-        transform: GradientRotation(rotation),
-        colors: [
-          Colors.transparent,
-          color.withValues(alpha: isDark ? 0.12 : 0.10),
-          color.withValues(alpha: isDark ? 0.46 : 0.52),
-          Colors.white.withValues(alpha: isDark ? 0.36 : 0.70),
-          color.withValues(alpha: isDark ? 0.18 : 0.16),
-          Colors.transparent,
-        ],
-        stops: const [0.0, 0.24, 0.46, 0.56, 0.72, 1.0],
-      ).createShader(rect);
+      ..shader = _sweepShaderFor(rect);
+    canvas.save();
+    canvas.translate(center.dx, center.dy);
+    canvas.rotate(rotation);
+    canvas.translate(-center.dx, -center.dy);
     canvas.drawCircle(center, radius, activePaint);
+    canvas.restore();
 
     final arcPaint = Paint()
       ..style = PaintingStyle.stroke

@@ -1,5 +1,93 @@
 part of '../openhand_home_page.dart';
 
+/// 专家请求卡解析结果的进程级缓存（按消息对象；用户消息不可变且不流式，
+/// identity 稳定）。可空结果用哨兵区分「未缓存」，选中面板胶囊与气泡
+/// State 共用，legacy 消息不再每次 build 对全文重跑 fromPrompt 分行解析。
+const Object _kExpertRequestCardNullSentinel = Object();
+final Expando<Object> _machineExpertRequestCardCache = Expando<Object>(
+  'machineExpertRequestCard',
+);
+final Expando<Object> _webReverseRequestCardCache = Expando<Object>(
+  'webReverseRequestCard',
+);
+final Expando<Object> _androidReverseRequestCardCache = Expando<Object>(
+  'androidReverseRequestCard',
+);
+
+T? _cachedExpertRequestCard<T extends Object>(
+  Expando<Object> cache,
+  AiSessionMessage message,
+  T? Function() compute,
+) {
+  final existing = cache[message];
+  if (existing != null) {
+    return identical(existing, _kExpertRequestCardNullSentinel)
+        ? null
+        : existing as T;
+  }
+  final computed = compute();
+  cache[message] = computed ?? _kExpertRequestCardNullSentinel;
+  return computed;
+}
+
+AiMachineExpertRequestCard? _machineExpertRequestCardFor(
+  AiSessionMessage message,
+) {
+  if (message.kind != AiSessionMessageKind.user) return null;
+  return _cachedExpertRequestCard(
+    _machineExpertRequestCardCache,
+    message,
+    () =>
+        AiMachineExpertRequestCard.fromMetadata(
+          message.metadata[aiSessionMachineExpertRequestCardMetadataKey],
+        ) ??
+        AiMachineExpertRequestCard.fromPrompt(message.content),
+  );
+}
+
+AiWebReverseRequestCard? _webReverseRequestCardFor(AiSessionMessage message) {
+  if (message.kind != AiSessionMessageKind.user) return null;
+  return _cachedExpertRequestCard(
+    _webReverseRequestCardCache,
+    message,
+    () =>
+        AiWebReverseRequestCard.fromMetadata(
+          message.metadata[aiSessionWebReverseRequestCardMetadataKey],
+        ) ??
+        AiWebReverseRequestCard.fromPrompt(message.content),
+  );
+}
+
+AiAndroidReverseRequestCard? _androidReverseRequestCardFor(
+  AiSessionMessage message,
+) {
+  if (message.kind != AiSessionMessageKind.user) return null;
+  return _cachedExpertRequestCard(
+    _androidReverseRequestCardCache,
+    message,
+    () =>
+        AiAndroidReverseRequestCard.fromMetadata(
+          message.metadata[aiSessionAndroidReverseRequestCardMetadataKey],
+        ) ??
+        AiAndroidReverseRequestCard.fromPrompt(message.content),
+  );
+}
+
+/// 附件解析结果缓存（按消息对象）。解析会复制条目 map 并构造附件对象，
+/// 带附件的用户消息每次 build 重复解析既费时又让下游 identity 比较失效。
+final Expando<List<AiMessageAttachment>> _messageAttachmentsCache =
+    Expando<List<AiMessageAttachment>>('messageAttachments');
+
+List<AiMessageAttachment> _cachedMessageAttachments(AiSessionMessage message) {
+  final raw = message.metadata[aiSessionMessageAttachmentsMetadataKey];
+  if (raw == null) return const <AiMessageAttachment>[];
+  final cached = _messageAttachmentsCache[message];
+  if (cached != null) return cached;
+  final parsed = AiMessageAttachment.listFromMetadata(raw);
+  _messageAttachmentsCache[message] = parsed;
+  return parsed;
+}
+
 class _MessageBubble extends StatefulWidget {
   const _MessageBubble({
     super.key,
@@ -371,8 +459,8 @@ class _MessageBubbleState extends State<_MessageBubble>
     );
   }
 
-  /// 解析（并缓存）三套专家请求卡。非用户消息一律为空。优先用 metadata 里已
-  /// 结构化的卡片，缺失时才回退到对正文做一次 fromPrompt 解析。
+  /// 解析（并缓存）三套专家请求卡。非用户消息一律为空。解析结果由进程级
+  /// Expando 按消息对象缓存，State 只做本地引用同步。
   void _ensureExpertRequestCards(
     AiSessionMessage message, {
     required bool isUser,
@@ -385,21 +473,9 @@ class _MessageBubbleState extends State<_MessageBubble>
       _androidReverseRequestCard = null;
       return;
     }
-    _machineExpertRequestCard =
-        AiMachineExpertRequestCard.fromMetadata(
-          message.metadata[aiSessionMachineExpertRequestCardMetadataKey],
-        ) ??
-        AiMachineExpertRequestCard.fromPrompt(message.content);
-    _webReverseRequestCard =
-        AiWebReverseRequestCard.fromMetadata(
-          message.metadata[aiSessionWebReverseRequestCardMetadataKey],
-        ) ??
-        AiWebReverseRequestCard.fromPrompt(message.content);
-    _androidReverseRequestCard =
-        AiAndroidReverseRequestCard.fromMetadata(
-          message.metadata[aiSessionAndroidReverseRequestCardMetadataKey],
-        ) ??
-        AiAndroidReverseRequestCard.fromPrompt(message.content);
+    _machineExpertRequestCard = _machineExpertRequestCardFor(message);
+    _webReverseRequestCard = _webReverseRequestCardFor(message);
+    _androidReverseRequestCard = _androidReverseRequestCardFor(message);
   }
 
   void _invalidateCache() {
@@ -567,9 +643,7 @@ class _MessageBubbleState extends State<_MessageBubble>
         ),
       );
     }
-    final attachments = AiMessageAttachment.listFromMetadata(
-      message.metadata[aiSessionMessageAttachmentsMetadataKey],
-    );
+    final attachments = _cachedMessageAttachments(message);
     // Resolve content format per message — messages store their own format
     // in metadata when created; fall back to global setting for legacy data.
     final resolvedMessageContentFormat = _resolveMessageContentFormat(
@@ -733,24 +807,13 @@ class _MessageBubbleState extends State<_MessageBubble>
         !isToolResult &&
         !isStatus &&
         !isSelfLearning;
-    final directKnowledgeBaseMetadata =
-        KnowledgeMessageMetadata.fromMessageMetadata(message.metadata);
-    Map<String, Object?>? associatedKnowledgeBaseMetadata;
-    if (isAssistantResponse && !isStreamingAssistant) {
-      final directUsedKnowledgeBaseMetadata =
-          _knowledgeBaseMetadataUsedByAnswer(
-            directKnowledgeBaseMetadata,
-            message.content,
-          );
-      if (directUsedKnowledgeBaseMetadata != null) {
-        associatedKnowledgeBaseMetadata = directUsedKnowledgeBaseMetadata;
-      } else {
-        associatedKnowledgeBaseMetadata = _knowledgeBaseMetadataUsedByAnswer(
-          widget.associatedKnowledgeBaseMetadata,
-          message.content,
-        );
-      }
-    }
+    // 转录层已按消息对象缓存了「直接元数据 + 回合工具消息」两条链路的
+    // used-references 结果（含全文引用匹配），这里直接采用，避免每次
+    // build 对整条回答重复跑 O(答案长度 × 词条数) 的归一化与匹配。
+    final associatedKnowledgeBaseMetadata =
+        (isAssistantResponse && !isStreamingAssistant)
+        ? widget.associatedKnowledgeBaseMetadata
+        : null;
     final isAiSideMessage =
         message.isAiSideConversationMessage && !isGoalEvaluationMessage;
     final selectedFeedback = message.feedback;
@@ -1525,7 +1588,11 @@ class _MessageBubbleState extends State<_MessageBubble>
             !isStatus &&
             !isGoalRuntimeMessage &&
             resolvedMessageContentFormat == AiMessageContentFormat.html &&
-            _looksLikeHtml(effectiveContent))
+            // 流式内容每帧变化会击穿 prepared LRU，保留直接探测；
+            // 稳定内容改读缓存结果，避免每次 build 重扫全文。
+            (isStreamingAssistant
+                ? _looksLikeHtml(effectiveContent)
+                : _preparedHtmlRenderDataFor(effectiveContent).looksLikeHtml))
           _MessageActionSpec(
             id: 'open-html',
             onPressed: () async {
@@ -2318,6 +2385,9 @@ Future<void> _openAttachment(
   );
 }
 
+final RegExp _uriSchemePattern = RegExp(r'^[A-Za-z][A-Za-z0-9+.-]*:');
+final RegExp _windowsDrivePathPattern = RegExp(r'^[A-Za-z]:([\\/]|$)');
+
 Future<void> _openLocalPathWithSystemApp(
   BuildContext context,
   String path,
@@ -2329,16 +2399,12 @@ Future<void> _openLocalPathWithSystemApp(
   if (normalizedPath.isEmpty) {
     return;
   }
-  // Refuse anything that doesn't look like a local file path. Without this
-  // a string such as `https://evil.invalid` or a leading `-flag` could be
-  // forwarded directly to `open` / `xdg-open`, which both happily treat
-  // those inputs as URLs / option flags.
-  final looksLikeUri = RegExp(
-    r'^[A-Za-z][A-Za-z0-9+.-]*:',
-  ).hasMatch(normalizedPath);
+  // 拒绝非本地文件路径：URI scheme 或 `-` 开头的选项标志
+  // 会被 open / xdg-open 当作 URL / flag 处理。
+  final looksLikeUri = _uriSchemePattern.hasMatch(normalizedPath);
   final isWindowsDrivePath =
       Platform.isWindows &&
-      RegExp(r'^[A-Za-z]:([\\/]|$)').hasMatch(normalizedPath);
+      _windowsDrivePathPattern.hasMatch(normalizedPath);
   final hasLeadingDash = normalizedPath.startsWith('-');
   if ((looksLikeUri && !isWindowsDrivePath) || hasLeadingDash) {
     if (context.mounted) {
@@ -5934,6 +6000,11 @@ enum _GoalMessageViewKind {
   evaluationResponse,
 }
 
+final RegExp _goalAutoFollowUpMarkerPattern = RegExp(
+  r'\n\s*Goal:\s*',
+  caseSensitive: false,
+);
+
 class _GoalMessageViewData {
   const _GoalMessageViewData({
     required this.kind,
@@ -5977,7 +6048,27 @@ class _GoalMessageViewData {
   final List<String> evidence;
   final List<String> missing;
 
+  /// 解析结果按消息对象缓存：goal 评估消息的正文是完整 JSON 载荷，
+  /// 每次 build 重复 jsonDecode 是 O(content) 的纯浪费；非 goal 消息
+  /// 走 metadata 快速短路，缓存 null 哨兵后连短路检查也省掉。
+  static final Expando<Object> _viewDataCache = Expando<Object>(
+    'goalMessageViewData',
+  );
+  static const Object _nullViewDataSentinel = Object();
+
   static _GoalMessageViewData? fromMessage(AiSessionMessage message) {
+    final cached = _viewDataCache[message];
+    if (cached != null) {
+      return identical(cached, _nullViewDataSentinel)
+          ? null
+          : cached as _GoalMessageViewData;
+    }
+    final computed = _computeFromMessage(message);
+    _viewDataCache[message] = computed ?? _nullViewDataSentinel;
+    return computed;
+  }
+
+  static _GoalMessageViewData? _computeFromMessage(AiSessionMessage message) {
     final metadata = message.metadata;
     final goalId = _readString(metadata[aiSessionGoalIdMetadataKey]);
     final evaluationId = _readString(
@@ -6051,10 +6142,7 @@ class _GoalMessageViewData {
     String content,
   ) {
     final trimmed = content.trim();
-    final marker = RegExp(
-      r'\n\s*Goal:\s*',
-      caseSensitive: false,
-    ).firstMatch(trimmed);
+    final marker = _goalAutoFollowUpMarkerPattern.firstMatch(trimmed);
     if (marker == null) {
       return (prompt: trimmed.ifEmpty(null), objective: null);
     }
@@ -7190,16 +7278,34 @@ class _SelectedMessageContextRow extends StatelessWidget {
   final Map<String, Object?>? associatedKnowledgeBaseMetadata;
   final Future<void> Function(int index)? onSelectResponseVariant;
 
+  /// 消息自带知识库元数据的 used-references 结果缓存（按消息对象）。
+  /// 面板可见期间每次 build 重跑全文引用匹配是 O(答案长度 × 词条数) 的
+  /// 纯浪费；消息不可变，一次计算终身有效。
+  static final Expando<_KnowledgeBaseMetadataCacheEntry> _selfUsedMetadataCache =
+      Expando<_KnowledgeBaseMetadataCacheEntry>('selfKnowledgeBaseUsed');
+
+  static Map<String, Object?>? _selfUsedKnowledgeBaseMetadata(
+    AiSessionMessage message,
+  ) {
+    final cached = _selfUsedMetadataCache[message];
+    if (cached != null) return cached.value;
+    final computed = _knowledgeBaseMetadataUsedByAnswer(
+      KnowledgeMessageMetadata.fromMessageMetadata(message.metadata),
+      message.content,
+    );
+    _selfUsedMetadataCache[message] = _KnowledgeBaseMetadataCacheEntry(
+      computed,
+    );
+    return computed;
+  }
+
   @override
   Widget build(BuildContext context) {
     final creationRequest = AiCreationRequest.fromMetadata(
       message.metadata[AiCreationRequest.metadataKey],
     );
     final skillMetadata = message.metadata[aiUserSkillSelectionMetadataKey];
-    final knowledgeBaseMetadata = _knowledgeBaseMetadataUsedByAnswer(
-      KnowledgeMessageMetadata.fromMessageMetadata(message.metadata),
-      message.content,
-    );
+    final knowledgeBaseMetadata = _selfUsedKnowledgeBaseMetadata(message);
     final associatedKnowledgeBaseSourceCount =
         associatedKnowledgeBaseMetadata == null
         ? 0
@@ -7445,14 +7551,7 @@ class _MachineExpertRequestContextCapsules {
     required AiSessionMessage message,
     required Color textColor,
   }) {
-    if (message.kind != AiSessionMessageKind.user) {
-      return const <Widget>[];
-    }
-    final data =
-        AiMachineExpertRequestCard.fromMetadata(
-          message.metadata[aiSessionMachineExpertRequestCardMetadataKey],
-        ) ??
-        AiMachineExpertRequestCard.fromPrompt(message.content);
+    final data = _machineExpertRequestCardFor(message);
     if (data == null) {
       return const <Widget>[];
     }
@@ -7484,14 +7583,7 @@ class _ReverseExpertRequestContextCapsules {
     required AiSessionMessage message,
     required Color textColor,
   }) {
-    if (message.kind != AiSessionMessageKind.user) {
-      return const <Widget>[];
-    }
-    final webData =
-        AiWebReverseRequestCard.fromMetadata(
-          message.metadata[aiSessionWebReverseRequestCardMetadataKey],
-        ) ??
-        AiWebReverseRequestCard.fromPrompt(message.content);
+    final webData = _webReverseRequestCardFor(message);
     if (webData != null) {
       return <Widget>[
         _MessageContextCapsule(
@@ -7507,11 +7599,7 @@ class _ReverseExpertRequestContextCapsules {
           ),
       ];
     }
-    final androidData =
-        AiAndroidReverseRequestCard.fromMetadata(
-          message.metadata[aiSessionAndroidReverseRequestCardMetadataKey],
-        ) ??
-        AiAndroidReverseRequestCard.fromPrompt(message.content);
+    final androidData = _androidReverseRequestCardFor(message);
     if (androidData == null) {
       return const <Widget>[];
     }
