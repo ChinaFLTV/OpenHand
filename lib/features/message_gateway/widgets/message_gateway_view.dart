@@ -12006,7 +12006,10 @@ Future<void> _showDingTalkRuntimeLogs(
       de: 'Laufzeitprotokolle der DingTalk-Nachrichtenplattform',
       ja: 'DingTalkメッセージプラットフォームの実行ログ',
     ),
-    listenable: controller,
+    listenable: Listenable.merge(<Listenable>[
+      controller,
+      controller.runtimeLogListenable,
+    ]),
     logs: () {
       final logs = controller.runtimeLogs;
       if (!controller.isInstalled) {
@@ -12070,7 +12073,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const double _messagesScrollbarThickness = 6;
   static const Radius _messagesScrollbarRadius = kOpenHandPillRadius;
   static const double _latestMessageBottomThreshold = 2;
-  static const int _jumpToLatestMaxAttempts = 4;
   static const Duration _clipboardAttachmentReadTimeout = Duration(seconds: 2);
   static const Duration _clipboardImageReadTimeout = Duration(seconds: 3);
   static const Duration _clipboardImageWriteTimeout = Duration(seconds: 10);
@@ -12090,8 +12092,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   final Set<String> _loadingTranslationMessageIds = <String>{};
   final Set<String> _autoMediaLoadAttemptedMessageIds = <String>{};
   final Set<String> _autoMediaLoadPendingMessageIds = <String>{};
-  Timer? _refreshTimer;
-  int? _refreshIntervalSeconds;
   bool _followScheduled = false;
   String? _followConversationId;
   bool _followJumpToBottom = false;
@@ -12145,7 +12145,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     widget.controller.removeListener(_handleControllerChanged);
     _input.removeListener(_handleInputChanged);
     _ttsPlaybackService.state.removeListener(_handleTtsStateChanged);
-    _refreshTimer?.cancel();
     _voiceVisualTimer?.cancel();
     unawaited(_voiceAmplitudeSubscription?.cancel());
     final recorder = _voiceRecorder;
@@ -12171,7 +12170,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
 
   @override
   Widget build(BuildContext context) {
-    _ensureRefreshTimer();
     final theme = Theme.of(context);
     final colors = theme.colorScheme;
     final ttsSettings = context.select<SettingsController, AiTtsSettings>(
@@ -12209,7 +12207,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         final selectedRefreshing =
             selected != null &&
             widget.controller.isRefreshingConversationMessages(selected.id);
-        _scheduleAutoFollow();
         return SizedBox(
           width: double.infinity,
           height: 680,
@@ -12548,6 +12545,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                 controller:
                                                     _messagesScrollController,
                                                 addRepaintBoundaries: false,
+                                                reverse: true,
                                                 keyboardDismissBehavior:
                                                     ScrollViewKeyboardDismissBehavior
                                                         .onDrag,
@@ -12556,6 +12554,29 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                 primary: false,
                                                 cacheExtent:
                                                     _messageCacheExtent,
+                                                findChildIndexCallback: (key) {
+                                                  if (key case ValueKey<String>(
+                                                    value: final identity,
+                                                  )) {
+                                                    final messageIndex = selected
+                                                        .messages
+                                                        .lastIndexWhere(
+                                                          (message) =>
+                                                              _dingTalkMessageRenderIdentity(
+                                                                message,
+                                                              ) ==
+                                                              identity,
+                                                        );
+                                                    if (messageIndex >= 0) {
+                                                      return selected
+                                                              .messages
+                                                              .length -
+                                                          messageIndex -
+                                                          1;
+                                                    }
+                                                  }
+                                                  return null;
+                                                },
                                                 padding:
                                                     const EdgeInsets.fromLTRB(
                                                       20,
@@ -12574,7 +12595,10 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                       selectedHasOlderMessages ||
                                                       selectedLoadingOlderMessages;
                                                   if (historyHeaderVisible &&
-                                                      index == 0) {
+                                                      index ==
+                                                          selected
+                                                              .messages
+                                                              .length) {
                                                     final loading =
                                                         selectedLoadingOlderMessages;
                                                     return Padding(
@@ -12615,10 +12639,11 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                     );
                                                   }
                                                   final message =
-                                                      selected.messages[index -
-                                                          (historyHeaderVisible
-                                                              ? 1
-                                                              : 0)];
+                                                      selected.messages[selected
+                                                              .messages
+                                                              .length -
+                                                          index -
+                                                          1];
                                                   _scheduleVisibleMediaLoad(
                                                     selected.id,
                                                     message,
@@ -13352,23 +13377,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     );
   }
 
-  void _ensureRefreshTimer() {
-    final interval = widget.controller.settings.pollInterval;
-    final seconds = interval.inSeconds;
-    if (_refreshIntervalSeconds == seconds && _refreshTimer != null) return;
-    _refreshTimer?.cancel();
-    _refreshIntervalSeconds = seconds;
-    _refreshTimer = startNonOverlappingPeriodicTimer(
-      interval,
-      (_) {
-        if (!mounted) return;
-        _scheduleAutoFollow();
-      },
-      onError: (error, stack) =>
-          silentLog('dingtalk_gateway_ui', '刷新钉钉消息视图', error, stack),
-    );
-  }
-
   void _close() {
     if (_closing) return;
     _closing = true;
@@ -13407,7 +13415,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       context,
       addedCount > 0 ? '已同步 $addedCount 条最新消息' : '当前会话已刷新',
     );
-    _scheduleAutoFollow();
   }
 
   void _handleControllerChanged() {
@@ -13420,7 +13427,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       }
       if (_inputFocusNode.hasFocus) _inputFocusNode.unfocus();
     }
-    _ensureRefreshTimer();
     _updateMessagesBottomState();
   }
 
@@ -13435,7 +13441,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         !_autoFollow &&
         controller.hasClients &&
         controller.position.hasContentDimensions &&
-        controller.position.maxScrollExtent - controller.position.pixels >
+        controller.position.pixels - controller.position.minScrollExtent >
             _latestMessageBottomThreshold;
     if (awayFromLatest == _showJumpToLatest) return;
     setState(() => _showJumpToLatest = awayFromLatest);
@@ -13453,41 +13459,30 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   }
 
   Future<void> _settleMessagesAtLatest(int requestVersion) async {
-    for (var attempt = 0; attempt <= _jumpToLatestMaxAttempts; attempt++) {
-      if (!mounted || requestVersion != _followRequestVersion) return;
-      final controller = _messagesScrollController;
-      if (!controller.hasClients || !controller.position.hasContentDimensions) {
-        await WidgetsBinding.instance.endOfFrame;
-        continue;
+    if (!mounted || requestVersion != _followRequestVersion) return;
+    final controller = _messagesScrollController;
+    if (!controller.hasClients || !controller.position.hasContentDimensions) {
+      return;
+    }
+    final position = controller.position;
+    if (position.pixels - position.minScrollExtent <=
+        _latestMessageBottomThreshold) {
+      _updateMessagesBottomState();
+      return;
+    }
+    _messagesProgrammaticScroll.begin();
+    try {
+      await controller.animateTo(
+        position.minScrollExtent,
+        duration: openHandMotionDuration(context, kOpenHandMotion260),
+        curve: Curves.easeOutCubic,
+      );
+    } catch (error, stack) {
+      if (mounted && requestVersion == _followRequestVersion) {
+        silentLog('dingtalk_gateway_ui', '滚动至钉钉最新消息', error, stack);
       }
-      final position = controller.position;
-      final distance = position.maxScrollExtent - position.pixels;
-      if (distance <= _latestMessageBottomThreshold) break;
-
-      _messagesProgrammaticScroll.begin();
-      try {
-        if (attempt == _jumpToLatestMaxAttempts) {
-          position.jumpTo(position.maxScrollExtent);
-        } else {
-          await controller.animateTo(
-            position.maxScrollExtent,
-            duration: openHandMotionDuration(
-              context,
-              attempt == 0 ? kOpenHandMotion260 : kOpenHandMotion180,
-            ),
-            curve: Curves.easeOutCubic,
-          );
-        }
-      } catch (error, stack) {
-        if (mounted && requestVersion == _followRequestVersion) {
-          silentLog('dingtalk_gateway_ui', '滚动至钉钉最新消息', error, stack);
-        }
-        return;
-      } finally {
-        _messagesProgrammaticScroll.end();
-      }
-      if (!mounted || requestVersion != _followRequestVersion) return;
-      await WidgetsBinding.instance.endOfFrame;
+    } finally {
+      _messagesProgrammaticScroll.end();
     }
     if (mounted && requestVersion == _followRequestVersion) {
       _updateMessagesBottomState();
@@ -13517,7 +13512,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     _lastMessagesPointerSignalAt = _messagesScrollActivityStopwatch.elapsed;
     final controller = _messagesScrollController;
     if (controller.hasClients &&
-        controller.position.maxScrollExtent - controller.position.pixels > 2) {
+        controller.position.pixels - controller.position.minScrollExtent > 2) {
       _disableAutoFollow();
     }
   }
@@ -13545,25 +13540,15 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     if (programmaticScroll && !explicitUserScroll) return false;
     if (!userScroll) return false;
     final distanceToBottom =
-        notification.metrics.maxScrollExtent - notification.metrics.pixels;
+        notification.metrics.pixels - notification.metrics.minScrollExtent;
     if (distanceToBottom > 2) _disableAutoFollow();
     return false;
   }
 
   bool _handleMessagesNotification(Notification notification) {
-    if (notification is ScrollMetricsNotification) {
-      return _handleMessagesMetricsNotification(notification);
-    }
     if (notification is ScrollNotification) {
       return _handleMessagesScrollNotification(notification);
     }
-    return false;
-  }
-
-  bool _handleMessagesMetricsNotification(
-    ScrollMetricsNotification notification,
-  ) {
-    if (notification.depth == 0 && _autoFollow) _scheduleAutoFollow();
     return false;
   }
 
@@ -13583,6 +13568,18 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   void _selectConversation(String id) {
     if (_selectedId == id) return;
     _messagesProgrammaticScroll.cancel();
+    if (_messagesScrollController.hasClients) {
+      final position = _messagesScrollController.position;
+      if (position.hasContentDimensions &&
+          (position.pixels - position.minScrollExtent).abs() >= 1) {
+        _messagesProgrammaticScroll.begin();
+        try {
+          position.jumpTo(position.minScrollExtent);
+        } finally {
+          _messagesProgrammaticScroll.end();
+        }
+      }
+    }
     if (_recordingVoice && _voiceConversationId != id) {
       _cancelVoiceRecording();
     }
@@ -13595,11 +13592,6 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       _editSubmitting = false;
       _input.clear();
       _pendingAttachments = const <_DingTalkPendingAttachment>[];
-    });
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) {
-        unawaited(widget.controller.ensureConversationMediaCached(id));
-      }
     });
     _scheduleAutoFollow(force: true);
   }
@@ -13650,30 +13642,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       return;
     }
     _disableAutoFollow();
-    final scrollController = _messagesScrollController;
-    final hadClients = scrollController.hasClients;
-    final previousPixels = hadClients ? scrollController.position.pixels : 0.0;
-    final previousMaxExtent = hadClients
-        ? scrollController.position.maxScrollExtent
-        : 0.0;
     await widget.controller.loadOlderConversationMessages(conversation.id);
-    if (!mounted || !hadClients) return;
-    await WidgetsBinding.instance.endOfFrame;
-    if (!scrollController.hasClients) return;
-    final position = scrollController.position;
-    final delta = position.maxScrollExtent - previousMaxExtent;
-    final target = (previousPixels + delta).clamp(
-      position.minScrollExtent,
-      position.maxScrollExtent,
-    );
-    if ((target - position.pixels).abs() >= 1) {
-      _messagesProgrammaticScroll.begin();
-      try {
-        position.jumpTo(target);
-      } finally {
-        _messagesProgrammaticScroll.end();
-      }
-    }
   }
 
   void _handleInputChanged() {
@@ -13722,7 +13691,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       return;
     }
     final position = _messagesScrollController.position;
-    final target = position.maxScrollExtent;
+    final target = position.minScrollExtent;
     if ((target - position.pixels).abs() < 1) {
       _followJumpToBottom = false;
       return;

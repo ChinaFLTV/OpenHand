@@ -111,14 +111,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
        _service = service ?? DingTalkMessageGatewayService(),
        _mediaGenerationService = AiImageGenerationService() {
     _runtimeLogSubscription = _service.runtimeLogStream.listen((_) {
-      _notify();
+      _runtimeLogRevision.value = _service.runtimeLogRevision;
     });
   }
 
   static const Uuid _uuid = Uuid();
   static const int _mediaCacheConcurrency = 3;
   static const int _echoRestoreConcurrency = 4;
-  static const int _mediaWarmupMessageLimit = 12;
   static const int _targetSearchCacheMaxEntries = 20;
   static const int _targetSearchMaxConcurrentRequests = 8;
   static const Duration _targetSearchCacheTtl = Duration(seconds: 5);
@@ -165,6 +164,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   final DingTalkMessageGatewayStore _store;
   final DingTalkMessageGatewayService _service;
   final AiImageGenerationService _mediaGenerationService;
+  final ValueNotifier<int> _runtimeLogRevision = ValueNotifier<int>(0);
   StreamSubscription<String>? _runtimeLogSubscription;
   final Map<String, DingTalkConversation> _conversations =
       <String, DingTalkConversation>{};
@@ -271,10 +271,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   DingTalkGatewaySettings get settings => _settings;
   List<String> get runtimeLogs => _service.runtimeLogs;
   int get runtimeLogRevision => _service.runtimeLogRevision;
+  ValueListenable<int> get runtimeLogListenable => _runtimeLogRevision;
 
   void clearRuntimeLogs() {
     _service.clearRuntimeLogs();
-    _notify();
+    _runtimeLogRevision.value = _service.runtimeLogRevision;
   }
 
   /// 由应用层注入审批弹窗协调器，控制器本身不持有 BuildContext。
@@ -1017,38 +1018,6 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       _notify();
     }
     return hydrated;
-  }
-
-  Future<void> ensureConversationMediaCached(String conversationId) async {
-    final conversation = _conversations[conversationId];
-    if (conversation == null) return;
-    final messages = conversation.messages.reversed
-        .where((message) => message.media.isNotEmpty)
-        .take(_mediaWarmupMessageLimit)
-        .toList(growable: false);
-    if (messages.isEmpty) return;
-    try {
-      await forEachIndexWithConcurrencyLimit(
-        itemCount: messages.length,
-        maxConcurrency: _mediaCacheConcurrency,
-        shouldContinue: () =>
-            !_disposed &&
-            identical(_conversations[conversationId], conversation),
-        task: (index) async {
-          final message = messages[index];
-          try {
-            await ensureMessageMediaCached(
-              conversationId: conversationId,
-              messageId: message.id,
-            );
-          } catch (error, stack) {
-            silentLog('dingtalk_gateway', '加载钉钉会话媒体', error, stack);
-          }
-        },
-      ).timeout(_mediaPreparationTimeout);
-    } on TimeoutException catch (error, stack) {
-      silentLog('dingtalk_gateway', '钉钉会话媒体预热超时', error, stack);
-    }
   }
 
   Future<Object?> loadConversationDetails(String conversationId) async {
@@ -5058,6 +5027,7 @@ ${_markdownStructuredFields(response)}''';
       onError: (error, stack) =>
           silentLog('dingtalk_gateway', '清理钉钉授权进程', error, stack),
     );
+    _runtimeLogRevision.dispose();
   }
 
   @override
