@@ -15,7 +15,6 @@ import 'motion_preference.dart';
 import 'oh_pill.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_reveal_switcher.dart';
-import 'openhand_safe_scrollbar.dart';
 import 'openhand_scroll_behaviors.dart';
 import 'openhand_tooltip_dismissal.dart';
 import 'safe_edge_insets.dart';
@@ -166,21 +165,8 @@ Future<DateTimeRange?> showAnimatedDateRangePicker({
   ),
 );
 
-class OpenHandDialogScrollBehavior extends OpenHandScrollBehaviorBase {
+class OpenHandDialogScrollBehavior extends OpenHandImplicitScrollbarBehavior {
   const OpenHandDialogScrollBehavior();
-
-  @override
-  Widget buildScrollbar(
-    BuildContext context,
-    Widget child,
-    ScrollableDetails details,
-  ) {
-    return buildOpenHandImplicitScrollbar(
-      platform: getPlatform(context),
-      child: child,
-      details: details,
-    );
-  }
 
   @override
   ScrollPhysics getScrollPhysics(BuildContext context) {

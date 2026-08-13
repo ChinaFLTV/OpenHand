@@ -1,6 +1,8 @@
 import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 
+import 'openhand_safe_scrollbar.dart';
+
 /// 应用内滚动行为的公共基类。
 ///
 /// 统一两件事：
@@ -25,6 +27,25 @@ abstract class OpenHandScrollBehaviorBase extends MaterialScrollBehavior {
   @override
   GestureVelocityTrackerBuilder velocityTrackerBuilder(BuildContext context) {
     return (PointerEvent event) => VelocityTracker.withKind(event.kind);
+  }
+}
+
+/// 桌面端为滚动域套全局隐式安全滚动条；App 根滚动配置与弹窗滚动域共用，
+/// 此前两处各自维护一份相同的 [buildScrollbar] 覆写。
+class OpenHandImplicitScrollbarBehavior extends OpenHandScrollBehaviorBase {
+  const OpenHandImplicitScrollbarBehavior();
+
+  @override
+  Widget buildScrollbar(
+    BuildContext context,
+    Widget child,
+    ScrollableDetails details,
+  ) {
+    return buildOpenHandImplicitScrollbar(
+      platform: getPlatform(context),
+      child: child,
+      details: details,
+    );
   }
 }
 

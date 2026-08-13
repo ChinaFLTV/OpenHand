@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:ui';
 
-import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
@@ -13,7 +12,7 @@ import '../features/message_gateway/index.dart';
 import '../l10n/app_localizations.dart';
 import '../shared/ui/animated_dialog.dart';
 import '../shared/ui/motion_durations.dart';
-import '../shared/ui/openhand_safe_scrollbar.dart';
+import '../shared/ui/openhand_scroll_behaviors.dart';
 import '../shared/ui/openhand_snack_bar.dart';
 import '../shared/ui/openhand_tooltip_dismissal.dart';
 import '../shared/util/timer_safety.dart';
@@ -116,7 +115,7 @@ class _OpenHandAppState extends State<OpenHandApp> {
       localizationsDelegates: AppLocalizations.localizationsDelegates,
       themeAnimationCurve: Curves.easeOutCubic,
       themeAnimationDuration: reduceMotion ? Duration.zero : kOpenHandMotion220,
-      scrollBehavior: const _SafeScrollBehavior(),
+      scrollBehavior: const OpenHandImplicitScrollbarBehavior(),
       // 用户层 reduceMotion 通过 MediaQuery.disableAnimations 向会读取该
       // 信号的框架能力和自研动画组件统一传播；系统级偏好仍由 Flutter
       // 的 PlatformDispatcher 合并进 MediaQuery。
@@ -475,26 +474,3 @@ class _OverlayPortalStabilityBoundary extends StatelessWidget {
   }
 }
 
-/// 规避 macOS 触控板事件时间戳非单调导致的 Flutter 断言。
-/// 使用基础 [VelocityTracker] 保持滚动惯性，同时绕开框架缺陷。
-class _SafeScrollBehavior extends MaterialScrollBehavior {
-  const _SafeScrollBehavior();
-
-  @override
-  Widget buildScrollbar(
-    BuildContext context,
-    Widget child,
-    ScrollableDetails details,
-  ) {
-    return buildOpenHandImplicitScrollbar(
-      platform: getPlatform(context),
-      child: child,
-      details: details,
-    );
-  }
-
-  @override
-  GestureVelocityTrackerBuilder velocityTrackerBuilder(BuildContext context) {
-    return (PointerEvent event) => VelocityTracker.withKind(event.kind);
-  }
-}
