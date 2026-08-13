@@ -1031,13 +1031,7 @@ class AiExposureProxyEndpoint {
 
   AiExposureProxyProbeSample? get latestSample => samples.lastOrNull;
 
-  String get maskedUrl {
-    final uri = Uri.parse(url);
-    final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
-    if (uri.userInfo.isEmpty) return '${uri.scheme}://$host:${uri.port}';
-    final username = Uri.decodeComponent(uri.userInfo.split(':').first);
-    return '${uri.scheme}://$username:******@$host:${uri.port}';
-  }
+  String get maskedUrl => maskAiExposureProxyUrl(url);
 
   String get displayName =>
       name.trim().isEmpty ? Uri.parse(url).host : name.trim();
@@ -1765,6 +1759,33 @@ class AiExposurePreferences {
 }
 
 Map<String, Object?> aiExposureJsonMap(Object? value) => _jsonMap(value);
+
+/// 从 URI 的 userInfo 解析代理凭据；无分隔符时整体作为用户名、密码留空。
+({String username, String password}) aiExposureProxyCredentials(
+  String userInfo,
+) {
+  if (userInfo.isEmpty) return (username: '', password: '');
+  final separator = userInfo.indexOf(':');
+  if (separator < 0) {
+    return (username: Uri.decodeComponent(userInfo), password: '');
+  }
+  return (
+    username: Uri.decodeComponent(userInfo.substring(0, separator)),
+    password: Uri.decodeComponent(userInfo.substring(separator + 1)),
+  );
+}
+
+/// 对代理地址脱敏展示：保留协议、用户名、主机与端口，密码固定替换为 ******。
+/// 解析失败或缺少主机时返回 [fallback]。
+String maskAiExposureProxyUrl(String value, {String fallback = '--'}) {
+  final uri = Uri.tryParse(value.trim());
+  if (uri == null || uri.host.isEmpty) return fallback;
+  final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
+  final port = uri.hasPort ? ':${uri.port}' : '';
+  if (uri.userInfo.isEmpty) return '${uri.scheme}://$host$port';
+  final username = Uri.decodeComponent(uri.userInfo.split(':').first);
+  return '${uri.scheme}://$username:******@$host$port';
+}
 
 Map<String, Object?> _jsonMap(Object? value) => value is Map
     ? value.map((key, item) => MapEntry('$key', item))

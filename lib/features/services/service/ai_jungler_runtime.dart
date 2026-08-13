@@ -439,7 +439,7 @@ class AiJunglerRuntime {
       final address = Uri.tryParse(decoded['address'] as String? ?? '');
       if (address == null ||
           !address.isScheme('http') ||
-          !_isLoopbackHost(address.host) ||
+          !isLoopbackHost(address.host) ||
           address.userInfo.isNotEmpty ||
           address.query.isNotEmpty ||
           address.fragment.isNotEmpty ||
@@ -480,15 +480,8 @@ Uri _normalizeExternalAddress(Uri address) {
       (address.path.isNotEmpty && address.path != '/')) {
     throw const FormatException('服务地址必须是有效的 HTTP/HTTPS 根地址。');
   }
-  if (scheme == 'http' && !_isLoopbackHost(host)) {
+  if (scheme == 'http' && !isLoopbackHost(host)) {
     throw const FormatException('非本机扫描服务必须使用 HTTPS。');
   }
   return address.replace(scheme: scheme, host: host, path: '/');
-}
-
-bool _isLoopbackHost(String host) {
-  final normalized = host.toLowerCase();
-  return normalized == '127.0.0.1' ||
-      normalized == '::1' ||
-      normalized == 'localhost';
 }

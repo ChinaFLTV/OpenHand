@@ -2309,15 +2309,8 @@ Widget _proxyRequestInsightPanel(
   );
 }
 
-String _maskProxyAddress(String value) {
-  final uri = Uri.tryParse(value);
-  if (uri == null || uri.host.isEmpty) return '代理地址不可用';
-  final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
-  final port = uri.hasPort ? ':${uri.port}' : '';
-  if (uri.userInfo.isEmpty) return '${uri.scheme}://$host$port';
-  final username = Uri.decodeComponent(uri.userInfo.split(':').first);
-  return '${uri.scheme}://$username:******@$host$port';
-}
+String _maskProxyAddress(String value) =>
+    maskAiExposureProxyUrl(value, fallback: '代理地址不可用');
 
 class _LocalFileStatsBuilder extends StatefulWidget {
   const _LocalFileStatsBuilder({

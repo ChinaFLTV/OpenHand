@@ -5049,18 +5049,11 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
     _name = TextEditingController(text: initial?.name ?? '');
     _host = TextEditingController(text: uri?.host ?? '');
     _port = TextEditingController(text: uri?.port.toString() ?? '8080');
-    _username = TextEditingController(
-      text: uri == null || uri.userInfo.isEmpty
-          ? ''
-          : Uri.decodeComponent(uri.userInfo.split(':').first),
-    );
-    _password = TextEditingController(
-      text: uri == null || !uri.userInfo.contains(':')
-          ? ''
-          : Uri.decodeComponent(
-              uri.userInfo.substring(uri.userInfo.indexOf(':') + 1),
-            ),
-    );
+    final credentials = uri == null
+        ? (username: '', password: '')
+        : aiExposureProxyCredentials(uri.userInfo);
+    _username = TextEditingController(text: credentials.username);
+    _password = TextEditingController(text: credentials.password);
     _scheme = uri?.scheme ?? 'http';
   }
 
@@ -5339,17 +5332,9 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
     try {
       final endpoint = AiExposureProxyEndpoint.parse(raw);
       final uri = Uri.parse(endpoint.url);
-      final separator = uri.userInfo.indexOf(':');
-      final username = uri.userInfo.isEmpty
-          ? ''
-          : Uri.decodeComponent(
-              separator < 0
-                  ? uri.userInfo
-                  : uri.userInfo.substring(0, separator),
-            );
-      final password = separator < 0
-          ? ''
-          : Uri.decodeComponent(uri.userInfo.substring(separator + 1));
+      final credentials = aiExposureProxyCredentials(uri.userInfo);
+      final username = credentials.username;
+      final password = credentials.password;
       setState(() {
         _scheme = uri.scheme;
         _host.text = uri.host;
