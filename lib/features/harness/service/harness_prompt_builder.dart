@@ -270,10 +270,7 @@ class HarnessPromptBuilder {
   }
 
   String _truncateDescription(String description, int maxChars) {
-    final normalized = description
-        .trim()
-        .replaceAll(kInlineWhitespacePattern, ' ')
-        .replaceAll(RegExp(r'\.\s*\.'), '.');
+    final normalized = normalizeDescriptionText(description);
 
     return clipTextByCodeUnits(normalized, maxChars, suffix: '…').trimRight();
   }

@@ -893,7 +893,7 @@ class AiTtsPlaybackService {
       uri: uri,
       method: 'POST',
       headers: <String, String>{
-        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.contentTypeHeader: kApplicationJsonUtf8ContentType,
         HttpHeaders.acceptHeader: kApplicationJsonMimeType,
         'api-key': settings.apiKey,
       },
@@ -1021,7 +1021,7 @@ class AiTtsPlaybackService {
       uri: uri,
       method: 'POST',
       headers: <String, String>{
-        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.contentTypeHeader: kApplicationJsonUtf8ContentType,
         HttpHeaders.acceptHeader: kApplicationJsonMimeType,
         'X-Api-Key': settings.apiKey,
         'X-Api-Resource-Id': resourceId,
@@ -1295,7 +1295,7 @@ class AiTtsPlaybackService {
       uri: uri,
       method: 'POST',
       headers: const <String, String>{
-        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.contentTypeHeader: kApplicationJsonUtf8ContentType,
         HttpHeaders.acceptHeader: kApplicationJsonMimeType,
       },
       body: <String, Object?>{
@@ -2472,7 +2472,7 @@ class AiTtsPlaybackService {
   static bool _isPlayableAudioContentType(String contentType) {
     return contentType.isEmpty ||
         contentType.startsWith('audio/') ||
-        contentType == 'application/octet-stream';
+        contentType == kApplicationOctetStreamMimeType;
   }
 
   static String _mimoAudioExtension(String format) {

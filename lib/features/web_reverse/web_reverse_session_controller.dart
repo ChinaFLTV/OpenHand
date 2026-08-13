@@ -9,6 +9,7 @@ import 'package:flutter/foundation.dart';
 import '../../app/support/safe_subprocess.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/db/atomic_file_operations.dart';
+import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/bounded_base64.dart';
 import '../../shared/util/bounded_file_io.dart';
@@ -6488,7 +6489,7 @@ class WebReverseSessionController extends ChangeNotifier {
         <String, Object?>{
           'name': 'content-type',
           'value': rule.contentType.isEmpty
-              ? 'application/json; charset=utf-8'
+              ? kApplicationJsonUtf8ContentType
               : rule.contentType,
         },
         for (final e in rule.extraHeaders.entries)
@@ -9657,7 +9658,7 @@ WebReverseMockRule _normalizeMockRule(
     ),
     statusCode: status,
     contentType: contentType.isEmpty
-        ? 'application/json; charset=utf-8'
+        ? kApplicationJsonUtf8ContentType
         : contentType,
     body: _capPlainWebReverseText(
       rule.body,
@@ -10773,7 +10774,7 @@ class WebReverseMockRule {
     this.enabled = true,
     this.methodFilter = '',
     this.statusCode = 200,
-    this.contentType = 'application/json; charset=utf-8',
+    this.contentType = kApplicationJsonUtf8ContentType,
     this.body = '{}',
     this.extraHeaders = const <String, String>{},
   });
@@ -10793,7 +10794,7 @@ class WebReverseMockRule {
         ),
         contentType: stringFromValue(
           j['contentType'],
-          fallback: 'application/json; charset=utf-8',
+          fallback: kApplicationJsonUtf8ContentType,
         ),
         body: stringFromValue(j['body']),
         extraHeaders: _webReverseHeaderMapFromValue(j['headers']),

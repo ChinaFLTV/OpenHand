@@ -14,6 +14,7 @@ import '../../app/state/settings_controller.dart';
 import '../../app/support/openhand_paths.dart';
 import '../../app/support/silent_log.dart';
 import '../../shared/model/dingtalk_multimodal_capability.dart';
+import '../../shared/net/http_redirect_utils.dart';
 import '../../shared/util/async_concurrency.dart';
 import '../../shared/util/byte_size_format.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -614,7 +615,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   String _mediaMimeType(
     String path, {
-    String fallback = 'application/octet-stream',
+    String fallback = kApplicationOctetStreamMimeType,
   }) {
     return switch (p.extension(path).toLowerCase()) {
       '.png' => 'image/png',

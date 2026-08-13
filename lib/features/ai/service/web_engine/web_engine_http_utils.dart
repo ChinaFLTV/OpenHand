@@ -125,7 +125,7 @@ extension GrokLiveSearchRequest on BoundedWebEngineHttpClient {
       Uri.parse(kGrokChatCompletionsEndpoint),
       headers: {
         'authorization': 'Bearer $key',
-        kContentTypeHeaderName: 'application/json',
+        kContentTypeHeaderName: kApplicationJsonMimeType,
       },
       body: jsonEncode({
         'model': kGrokLiveSearchModel,
@@ -172,7 +172,7 @@ extension GeminiGroundedContentRequest on BoundedWebEngineHttpClient {
     final response = await sendWebEngineHttpRequest(
       'POST',
       uri,
-      headers: const {kContentTypeHeaderName: 'application/json'},
+      headers: const {kContentTypeHeaderName: kApplicationJsonMimeType},
       body: jsonEncode({
         'contents': [
           {

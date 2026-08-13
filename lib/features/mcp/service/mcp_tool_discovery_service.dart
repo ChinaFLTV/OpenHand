@@ -880,7 +880,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
     if (sessionId == null || _isDisposed) return;
     final headers = _mergeRequestHeaders(
       baseHeaders: const <String, String>{
-        'accept': 'application/json',
+        'accept': kApplicationJsonMimeType,
         ..._mcpFreshRequestHeaders,
       },
       extraHeaders: customHeaders ?? server.headers,
@@ -1198,7 +1198,7 @@ class DefaultMcpToolDiscoveryService implements McpToolDiscoveryService {
   }) async {
     final headers = _mergeRequestHeaders(
       baseHeaders: const <String, String>{
-        kContentTypeHeaderName: 'application/json',
+        kContentTypeHeaderName: kApplicationJsonMimeType,
         'accept': 'application/json, text/event-stream',
         ..._mcpFreshRequestHeaders,
       },
@@ -2197,7 +2197,7 @@ class _LegacySseSession {
       uri: _endpointUri,
       headers: _mergeRequestHeaders(
         baseHeaders: const <String, String>{
-          kContentTypeHeaderName: 'application/json',
+          kContentTypeHeaderName: kApplicationJsonMimeType,
           ..._mcpFreshRequestHeaders,
         },
         extraHeaders: _headers,

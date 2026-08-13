@@ -259,7 +259,7 @@ class ThrottleCloudSyncService {
         method: 'PUT',
         uri: target.uri!,
         headers: <String, String>{
-          HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+          HttpHeaders.contentTypeHeader: kApplicationJsonUtf8ContentType,
           if (target.bearerToken != null)
             HttpHeaders.authorizationHeader: 'Bearer ${target.bearerToken}',
           'X-OpenHand-Client': _customClientHeader,
@@ -663,7 +663,7 @@ class ThrottleCloudSyncService {
       final bodyBytes = utf8.encode(body);
       final headers = <String, String>{
         HttpHeaders.acceptHeader: 'application/vnd.github+json',
-        HttpHeaders.contentTypeHeader: 'application/json; charset=utf-8',
+        HttpHeaders.contentTypeHeader: kApplicationJsonUtf8ContentType,
         HttpHeaders.authorizationHeader: 'Bearer $pat',
         'X-GitHub-Api-Version': _githubApiVersion,
         'User-Agent': _githubUserAgent,

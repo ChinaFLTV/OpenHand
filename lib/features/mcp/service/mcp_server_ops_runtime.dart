@@ -539,7 +539,7 @@ class McpServerOpsRuntime {
     try {
       final request = await client.postUrl(uri).timeout(deadline.remaining());
       request.headers
-        ..set(HttpHeaders.contentTypeHeader, 'application/json')
+        ..set(HttpHeaders.contentTypeHeader, kApplicationJsonMimeType)
         ..set(HttpHeaders.acceptHeader, 'application/json, text/event-stream')
         ..set('mcp-protocol-version', _protocolVersion)
         ..set('x-openhand-client', 'OpenHand Self-Test');
@@ -1888,7 +1888,7 @@ class McpServerOpsRuntime {
       body: body,
       headers: <String, String>{
         ..._responseHeaders,
-        kContentTypeHeaderName: 'application/json; charset=utf-8',
+        kContentTypeHeaderName: kApplicationJsonUtf8ContentType,
         ...headers,
       },
     );

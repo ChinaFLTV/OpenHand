@@ -2146,10 +2146,7 @@ class AiPromptBuilder {
     String description, {
     int maxCharacters = 220,
   }) {
-    final normalized = description
-        .trim()
-        .replaceAll(kInlineWhitespacePattern, ' ')
-        .replaceAll(RegExp(r'\.\s*\.'), '.');
+    final normalized = normalizeDescriptionText(description);
     if (normalized.length <= maxCharacters) {
       return normalized;
     }

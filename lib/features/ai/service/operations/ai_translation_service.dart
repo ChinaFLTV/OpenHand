@@ -7,6 +7,7 @@ import 'package:flutter/services.dart';
 import 'package:http/http.dart' as http;
 import 'package:uuid/uuid.dart';
 
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -423,7 +424,7 @@ class AiTranslationService {
       uri: uri,
       method: 'POST',
       headers: const <String, String>{
-        'content-type': 'application/json; charset=utf-8',
+        'content-type': kApplicationJsonUtf8ContentType,
       },
       body: body,
       timeout: timeout,
@@ -464,7 +465,7 @@ class AiTranslationService {
       uri: _withQuery(Uri.parse(_endpointOrDefault(providerSettings)), query),
       method: 'POST',
       headers: <String, String>{
-        'content-type': 'application/json; charset=utf-8',
+        'content-type': kApplicationJsonUtf8ContentType,
         'Ocp-Apim-Subscription-Key': providerSettings.apiKey,
         if (nullIfBlank(providerSettings.region) case final region?)
           'Ocp-Apim-Subscription-Region': region,
@@ -511,7 +512,7 @@ class AiTranslationService {
       );
     }
     final headers = <String, String>{
-      'content-type': 'application/json; charset=utf-8',
+      'content-type': kApplicationJsonUtf8ContentType,
       if (nullIfBlank(providerSettings.apiKey) case final apiKey?)
         'x-api-key': apiKey,
       if (nullIfBlank(providerSettings.accessToken) case final accessToken?)
@@ -617,7 +618,7 @@ class AiTranslationService {
     if (corpus != null) body['corpus'] = corpus;
 
     final headers = <String, String>{
-      'content-type': 'application/json; charset=utf-8',
+      'content-type': kApplicationJsonUtf8ContentType,
       'X-Api-Resource-Id': resourceId,
       'X-Api-Request-Id': requestId,
       if (apiKey != null) 'X-Api-Key': apiKey,
