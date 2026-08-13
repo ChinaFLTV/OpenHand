@@ -3248,14 +3248,16 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       });
     }
 
-    developer.Timeline.startSync(
-      'openhand.session.open',
-      arguments: <String, Object?>{'sessionId': sessionId},
-    );
+    if (kDebugMode) {
+      developer.Timeline.startSync(
+        'openhand.session.open',
+        arguments: <String, Object?>{'sessionId': sessionId},
+      );
+    }
     try {
       await sessionController.selectSession(sessionId);
     } finally {
-      developer.Timeline.finishSync();
+      if (kDebugMode) developer.Timeline.finishSync();
     }
 
     unawaited(
