@@ -540,7 +540,7 @@ class McpServerOpsRuntime {
       final request = await client.postUrl(uri).timeout(deadline.remaining());
       request.headers
         ..set(HttpHeaders.contentTypeHeader, kApplicationJsonMimeType)
-        ..set(HttpHeaders.acceptHeader, 'application/json, text/event-stream')
+        ..set(HttpHeaders.acceptHeader, '$kApplicationJsonMimeType, $kTextEventStreamMimeType')
         ..set('mcp-protocol-version', _protocolVersion)
         ..set('x-openhand-client', 'OpenHand Self-Test');
       final token = nullIfBlank(_config.authToken);
