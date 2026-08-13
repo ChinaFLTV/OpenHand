@@ -395,7 +395,7 @@ class AiKnowledgeReadTool extends AiTool {
         : rows
               .where(
                 (row) =>
-                    allowedSourceIds.contains(_stringValue(row['source_id'])),
+                    allowedSourceIds.contains(stringFromValue(row['source_id'])),
               )
               .toList(growable: false);
     if (allowedSourceIds != null &&
@@ -561,9 +561,9 @@ List<_KnowledgeRankedRow> _rankSearchRows(
       left.score.normalizedScore,
     );
     if (scoreCompare != 0) return scoreCompare;
-    final updatedCompare = _stringValue(
+    final updatedCompare = stringFromValue(
       right.row['source_updated_at'],
-    ).compareTo(_stringValue(left.row['source_updated_at']));
+    ).compareTo(stringFromValue(left.row['source_updated_at']));
     if (updatedCompare != 0) return updatedCompare;
     return _intValue(
       left.row['chunk_index'],
@@ -577,10 +577,10 @@ _KnowledgeSearchScore _scoreSearchRow(
   required String query,
   required List<String> terms,
 }) {
-  final content = _stringValue(row['content']);
-  final chunkTitle = _stringValue(row['chunk_title']);
-  final headingPath = _stringValue(row['heading_path']);
-  final sourceTitle = _stringValue(row['source_title']);
+  final content = stringFromValue(row['content']);
+  final chunkTitle = stringFromValue(row['chunk_title']);
+  final headingPath = stringFromValue(row['heading_path']);
+  final sourceTitle = stringFromValue(row['source_title']);
   // 每个字段只归一化一次。此前是在词循环里对整段正文重复归一化，单次检索
   // 最坏要跑 500 候选 × 8 词 × 4 字段 = 16000 次全文 lowercase + 全量替换，
   // 且全部同步执行在 UI isolate 上。
@@ -644,7 +644,7 @@ Map<String, Object?> _searchHitJson(
   required List<String> terms,
 }) {
   final row = ranked.row;
-  final content = _stringValue(row['content']);
+  final content = stringFromValue(row['content']);
   final preview = _contentPreview(content, query: query, terms: terms);
   final tags = _sourceTagsFromRow(row);
   return <String, Object?>{
@@ -675,9 +675,9 @@ Map<String, Object?> _readHitJson(
   Map<String, Object?> row, {
   required bool includeContent,
 }) {
-  final content = _stringValue(row['content']).trim();
-  final chunkTitle = _stringValue(row['title']);
-  final sourceTitle = _stringValue(row['source_title']);
+  final content = stringFromValue(row['content']).trim();
+  final chunkTitle = stringFromValue(row['title']);
+  final sourceTitle = stringFromValue(row['source_title']);
   final contentView = includeContent
       ? clipText(content, _knowledgeReadContentMaxChars)
       : '';
@@ -739,7 +739,7 @@ LIMIT 1
   );
   if (anchors.isEmpty) return const <Map<String, Object?>>[];
   final anchor = anchors.first;
-  final anchorSourceId = _stringValue(anchor['source_id']);
+  final anchorSourceId = stringFromValue(anchor['source_id']);
   final anchorIndex = _intValue(anchor['chunk_index']);
   final startIndex = math.max(0, anchorIndex - (limit ~/ 2));
   return db.rawQuery(
@@ -805,7 +805,7 @@ Map<String, Object?> _knowledgeToolMetadata({
     'prompt_append': <String, Object?>{
       'chunk_count': results.length,
       'source_count': results
-          .map((hit) => _stringValue(hit['source_id']))
+          .map((hit) => stringFromValue(hit['source_id']))
           .where((id) => id.isNotEmpty)
           .toSet()
           .length,
@@ -929,8 +929,6 @@ String _normalizeForMatch(String value) {
   return value.toLowerCase().replaceAll(kInlineWhitespacePattern, '');
 }
 
-String _stringValue(Object? value) => stringFromValue(value);
-
 int _intValue(Object? value) {
   return nonNegativeIntFromValue(value, fallback: 0);
 }
@@ -945,7 +943,7 @@ List<String> _stringList(Object? value, {int maxItems = 32}) {
 
 List<String> _sourceTagsFromRow(Map<String, Object?> row) {
   final metadata = stringKeyedMapFromJsonText(
-    _stringValue(row['source_metadata_json']),
+    stringFromValue(row['source_metadata_json']),
   );
   return _stringList(metadata['tags']);
 }

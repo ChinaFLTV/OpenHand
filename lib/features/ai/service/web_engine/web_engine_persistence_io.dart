@@ -8,6 +8,7 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
+import '../../../../shared/util/hex_encoding.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 
 const int webEngineMaxJsonFileBytes = 16 * kBytesPerMiB;
@@ -20,10 +21,9 @@ const Duration webEngineDirectoryIdleTimeout = Duration(seconds: 2);
 const Duration webEngineDirectoryTotalTimeout = Duration(seconds: 15);
 const Duration webEngineFileOperationTimeout = Duration(seconds: 2);
 
-final RegExp _webEngineCacheKeyPattern = RegExp(r'^[0-9a-f]{64}$');
-
+/// 缓存键即载荷内容的 SHA-256 摘要。
 bool isValidWebEngineCacheKey(String key) {
-  return _webEngineCacheKeyPattern.hasMatch(key);
+  return isLowercaseSha256Hex(key);
 }
 
 String? webEngineCachePayloadFileName(String key) {

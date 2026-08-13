@@ -28,6 +28,7 @@ import '../../../../shared/util/bounded_directory_io.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/exponential_backoff.dart';
+import '../../../../shared/util/hex_encoding.dart';
 import '../../../../shared/util/input_value_parsing.dart';
 import '../../../../shared/util/lifecycle_cache.dart';
 import '../../../../shared/util/serial_task_queue.dart';
@@ -388,7 +389,6 @@ class AiFileMutationLedger {
   static final Map<String, AiFileMutationLedger> _instances =
       <String, AiFileMutationLedger>{};
 
-  static final RegExp _sha256HexPattern = RegExp(r'^[0-9a-f]{64}$');
   static final RegExp _unsafeSessionIdCharPattern = RegExp(r'[^a-zA-Z0-9_\-.]');
   static const Duration _staleAtomicArtifactAge = Duration(days: 1);
   static const int _initializationRetryBaseMs = 1000;
@@ -1926,7 +1926,7 @@ class AiFileMutationLedger {
       return null;
     }
     final sha = fileName.substring(0, fileName.length - '.txt'.length);
-    if (!_sha256HexPattern.hasMatch(sha)) {
+    if (!isLowercaseSha256Hex(sha)) {
       return null;
     }
     if (p.basename(shard.path) != sha.substring(0, 2)) {
@@ -2047,7 +2047,7 @@ class AiFileMutationLedger {
   }
 
   Future<void> _writeBlobIfMissing(String sha, String content) async {
-    if (!_sha256HexPattern.hasMatch(sha) || _sha256Of(content) != sha) {
+    if (!isLowercaseSha256Hex(sha) || _sha256Of(content) != sha) {
       throw const FormatException('Blob 内容与其 SHA-256 键不匹配。');
     }
     if (utf8.encode(content).length > _blobRecoveryMaxBytes) {
@@ -2062,7 +2062,7 @@ class AiFileMutationLedger {
   }
 
   Future<String?> _readBlob(String sha) async {
-    if (!_sha256HexPattern.hasMatch(sha)) return null;
+    if (!isLowercaseSha256Hex(sha)) return null;
     try {
       final shard = sha.substring(0, 2);
       final file = File(p.join(_blobsDir().path, shard, '$sha.txt'));
@@ -2081,7 +2081,7 @@ class AiFileMutationLedger {
     required String expectedSha,
     required int expectedSize,
   }) async {
-    if (!_sha256HexPattern.hasMatch(expectedSha) ||
+    if (!isLowercaseSha256Hex(expectedSha) ||
         nullIfBlank(filePath) == null) {
       return null;
     }
@@ -2106,7 +2106,7 @@ class AiFileMutationLedger {
   }
 
   Future<String?> _recoverBlobFromLegacyVersions(String sha) async {
-    if (!_sha256HexPattern.hasMatch(sha)) return null;
+    if (!isLowercaseSha256Hex(sha)) return null;
     if (_legacyBlobRecoveryMisses.contains(sha)) return null;
     try {
       final indexResult = await _legacyBlobIndex();
@@ -2483,7 +2483,7 @@ class AiFileMutationLedger {
         final raw = optionalStringFromValue(entry.value);
         if (sha == null ||
             raw == null ||
-            !_sha256HexPattern.hasMatch(sha) ||
+            !isLowercaseSha256Hex(sha) ||
             raw.length > _maxBlobBase64Characters) {
           continue;
         }

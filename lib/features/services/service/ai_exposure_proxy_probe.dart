@@ -23,6 +23,13 @@ const String _kProxyIdentityHttpUrl = 'http://ipwho.is/';
 const List<int> _kHttpLineBreak = <int>[0x0d, 0x0a];
 const List<int> _kHttpHeaderBreak = <int>[0x0d, 0x0a, 0x0d, 0x0a];
 
+final RegExp _httpStatusLinePattern = RegExp(r'^HTTP/\d(?:\.\d)?\s+(\d{3})\b');
+
+/// 从 HTTP 状态行（或以状态行开头的响应头文本）解析状态码，解析失败返回 null。
+int? _statusCodeFromHttpStatusLine(String text) {
+  return int.tryParse(_httpStatusLinePattern.firstMatch(text)?.group(1) ?? '');
+}
+
 /// 代理巡检取消令牌；取消时主动关闭当前 Socket，避免停止操作被网络超时拖住。
 class AiExposureProxyProbeCancellation {
   final Completer<void> _cancelled = Completer<void>();
@@ -454,10 +461,7 @@ Future<Uint8List> _loadIdentityThroughSecureProxy(Uri proxy) async {
       Uint8List.sublistView(response, 0, headerEnd),
       allowInvalid: true,
     );
-    final status = int.tryParse(
-      RegExp(r'^HTTP/\d(?:\.\d)?\s+(\d{3})\b').firstMatch(header)?.group(1) ??
-          '',
-    );
+    final status = _statusCodeFromHttpStatusLine(header);
     final authError = _proxyIdentityAuthError(status);
     if (authError != null) throw FormatException(authError);
     if (status == null || status < 200 || status >= 300) {
@@ -643,8 +647,7 @@ Future<int> _readStatusCode(Socket socket) async {
     throw const FormatException('代理网关已连接，但未返回协议响应，请检查供应商凭据、IP 白名单或套餐状态。');
   }
   final firstLine = ascii.decode(bytes, allowInvalid: true).trim();
-  final match = RegExp(r'^HTTP/\d(?:\.\d)?\s+(\d{3})\b').firstMatch(firstLine);
-  final statusCode = int.tryParse(match?.group(1) ?? '');
+  final statusCode = _statusCodeFromHttpStatusLine(firstLine);
   if (statusCode == null) {
     throw const FormatException('代理网关返回非 HTTP 响应，请确认节点协议与端口。');
   }

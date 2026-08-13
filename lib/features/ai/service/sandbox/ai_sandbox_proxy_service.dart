@@ -3,8 +3,6 @@ import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
-import 'package:openhand/shared/util/text_normalization.dart';
-
 import '../../../../app/support/silent_log.dart';
 import '../../../../shared/net/bounded_server_bind.dart';
 import '../../../../shared/net/tcp_port_utils.dart';
@@ -12,6 +10,8 @@ import '../../../../shared/util/argument_guards.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/message_frame_scan.dart';
+import '../../../../shared/util/text_normalization.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../model/ai_command_rule.dart';
 import '../../model/ai_sandbox_settings.dart';
@@ -1482,11 +1482,12 @@ class _SocketReadBuffer {
       var scannedLength = 0;
       while (true) {
         _throwIfErrored();
-        final end = _findHeaderEnd(
+        final frame = findMessageFrameHeaderEnd(
           _buffer,
-          startIndex: scannedLength > 3 ? scannedLength - 3 : 0,
+          startIndex: scannedLength,
         );
-        if (end >= 0) {
+        if (frame != null) {
+          final end = frame.bodyStart;
           if (end > effectiveMaxBytes) {
             throw const FormatException('代理请求头过大。');
           }
@@ -1683,25 +1684,6 @@ class _SocketReadBuffer {
       onError: (error, stack) =>
           silentLog('ai_sandbox_proxy', '取消握手读取器', error, stack),
     );
-  }
-
-  int _findHeaderEnd(List<int> bytes, {int startIndex = 0}) {
-    final crlfStart = startIndex > 3 ? startIndex : 3;
-    for (var index = crlfStart; index < bytes.length; index++) {
-      if (bytes[index - 3] == 13 &&
-          bytes[index - 2] == 10 &&
-          bytes[index - 1] == 13 &&
-          bytes[index] == 10) {
-        return index + 1;
-      }
-    }
-    final lfStart = startIndex > 1 ? startIndex : 1;
-    for (var index = lfStart; index < bytes.length; index++) {
-      if (bytes[index - 1] == 10 && bytes[index] == 10) {
-        return index + 1;
-      }
-    }
-    return -1;
   }
 
   int _findCrlf(List<int> bytes, {int startIndex = 0}) {

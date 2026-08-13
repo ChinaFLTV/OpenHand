@@ -12,6 +12,7 @@ import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/byte_size_format.dart';
 import '../../../../shared/util/input_value_parsing.dart';
+import '../../../../shared/util/message_frame_scan.dart';
 import '../../../../shared/util/timer_safety.dart';
 import '../../../../shared/util/workspace_root_resolver.dart';
 import '../../model/ai_lsp_backend_catalog.dart';
@@ -2614,8 +2615,8 @@ class _AiLspSession {
   void _processBuffer() {
     var processedMessages = 0;
     while (!_shutdownRequested && _responseBuffer.isNotEmpty) {
-      final headerEnd = _findHeaderEnd(_responseBuffer);
-      if (headerEnd < 0) {
+      final frame = findMessageFrameHeaderEnd(_responseBuffer, acceptBareLf: false);
+      if (frame == null) {
         if (_responseBuffer.length > _maxLspHeaderBytes) {
           _failProtocol(
             const FormatException('LSP 消息头超过 $_maxLspHeaderBytes 字节。'),
@@ -2623,6 +2624,7 @@ class _AiLspSession {
         }
         return;
       }
+      final headerEnd = frame.headerEnd;
       if (headerEnd > _maxLspHeaderBytes) {
         _failProtocol(
           const FormatException('LSP 消息头超过 $_maxLspHeaderBytes 字节。'),
@@ -2637,7 +2639,7 @@ class _AiLspSession {
         _failProtocol(const FormatException('Content-Length 消息头无效。'));
         return;
       }
-      final bodyStart = headerEnd + 4;
+      final bodyStart = frame.bodyStart;
       final bodyEnd = bodyStart + contentLength;
       if (bodyEnd > _responseBuffer.length) return;
       final body = _responseBuffer.sublist(bodyStart, bodyEnd);
@@ -2694,18 +2696,6 @@ class _AiLspSession {
       contentLength = int.tryParse(value);
     }
     return contentLength;
-  }
-
-  int _findHeaderEnd(List<int> bytes) {
-    for (var index = 0; index + 3 < bytes.length; index += 1) {
-      if (bytes[index] == 13 &&
-          bytes[index + 1] == 10 &&
-          bytes[index + 2] == 13 &&
-          bytes[index + 3] == 10) {
-        return index;
-      }
-    }
-    return -1;
   }
 
   void _failProtocol(Object error, {StackTrace? stack}) {

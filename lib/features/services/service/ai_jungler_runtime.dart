@@ -16,6 +16,7 @@ import '../../../app/support/system_proxy.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/hex_encoding.dart';
 import 'ai_jungler_client.dart';
 
 const Duration _kAiJunglerLaunchTimeout = Duration(seconds: 10);
@@ -382,7 +383,7 @@ class AiJunglerRuntime {
     if (manifest['engine'] != _kAiJunglerExecutableName ||
         manifest['platform'] != platformId ||
         manifest['executable'] != executable ||
-        !RegExp(r'^[0-9a-f]{64}$').hasMatch(expectedHash)) {
+        !isLowercaseSha256Hex(expectedHash)) {
       throw StateError('内嵌扫描引擎清单无效：$platformId。');
     }
     final binaryBytes = bytes.buffer.asUint8List(

@@ -15,6 +15,7 @@ import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/input_value_parsing.dart';
+import '../../../shared/util/message_frame_scan.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/timer_safety.dart';
 import '../../../shared/util/user_failure_message.dart';
@@ -627,14 +628,17 @@ class WebReverseLspClient {
   void _drainStdoutBuffer() {
     var processedMessages = 0;
     while (_proc != null) {
-      final end = _findHeaderEnd(_buf);
-      if (end < 0) {
+      final frame = findMessageFrameHeaderEnd(_buf, acceptBareLf: false);
+      if (frame == null) {
         if (_buf.length > _kMaxLspHeaderBytes) {
           _failProtocol('LSP 消息头超过 $_kMaxLspHeaderBytes 字节上限');
         }
         return;
       }
-      final header = utf8.decode(_buf.sublist(0, end), allowMalformed: true);
+      final header = utf8.decode(
+        _buf.sublist(0, frame.headerEnd),
+        allowMalformed: true,
+      );
       final m = _lspContentLengthPattern.firstMatch(header);
       if (m == null) {
         // 不识别头，丢掉之前数据避免死循环。
@@ -649,7 +653,7 @@ class WebReverseLspClient {
         _failProtocol('无效的 Content-Length：$lengthText');
         return;
       }
-      final bodyStart = end + 4;
+      final bodyStart = frame.bodyStart;
       final bodyEnd = bodyStart + clen;
       if (_buf.length < bodyEnd) return;
       final body = _buf.sublist(bodyStart, bodyEnd);
@@ -740,16 +744,4 @@ class WebReverseLspClient {
     );
   }
 
-  int _findHeaderEnd(List<int> buf) {
-    // 找 \r\n\r\n。
-    for (var i = 0; i + 3 < buf.length; i++) {
-      if (buf[i] == 13 &&
-          buf[i + 1] == 10 &&
-          buf[i + 2] == 13 &&
-          buf[i + 3] == 10) {
-        return i;
-      }
-    }
-    return -1;
-  }
 }

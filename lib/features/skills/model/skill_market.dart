@@ -81,7 +81,7 @@ class SkillMarketSummary {
       slug: _readString(json['slug']),
       source: _readString(json['source']),
       stars: _readInt(json['stars']),
-      tags: _readStringList(json['tags']),
+      tags: stringListFromValue(json['tags']),
       updatedAt: _readInt(json['updated_at']),
       version: _readString(json['version']),
     );
@@ -380,10 +380,6 @@ double _readDouble(Object? value) {
 
 bool _readBool(Object? value) {
   return boolFromValue(value);
-}
-
-List<String> _readStringList(Object? value) {
-  return stringListFromValue(value);
 }
 
 Map<String, String> _readStringMap(Object? value) {

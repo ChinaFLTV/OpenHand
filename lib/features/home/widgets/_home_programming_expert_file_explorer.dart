@@ -12875,25 +12875,34 @@ const Set<String> _editorIgnoredSymbolNames = <String>{
   'do',
 };
 
+/// 多语言符号表共享的 pattern 实例，避免重复编译同一正则。
+final _EditorSymbolPattern _abstractClassSymbolPattern = _EditorSymbolPattern(
+  RegExp(r'^\s*(?:abstract\s+)?class\s+([A-Za-z_][\w$]*)\b'),
+  'class',
+);
+final _EditorSymbolPattern _plainEnumSymbolPattern = _EditorSymbolPattern(
+  RegExp(r'^\s*enum\s+([A-Za-z_][\w$]*)\b'),
+  'enum',
+);
+final _EditorSymbolPattern _pythonDefSymbolPattern = _EditorSymbolPattern(
+  RegExp(r'^\s*(?:async\s+)?def\s+([A-Za-z_][\w$]*)\s*\('),
+  'function',
+);
+final _EditorSymbolPattern _goFuncSymbolPattern = _EditorSymbolPattern(
+  RegExp(r'^\s*func\s+(?:\([^)]+\)\s*)?([A-Za-z_][\w$]*)\s*\('),
+  'function',
+);
+
 final List<_EditorSymbolPattern> _genericSymbolPatterns =
     <_EditorSymbolPattern>[
-      _EditorSymbolPattern(
-        RegExp(r'^\s*(?:abstract\s+)?class\s+([A-Za-z_][\w$]*)\b'),
-        'class',
-      ),
+      _abstractClassSymbolPattern,
       _EditorSymbolPattern(
         RegExp(r'^\s*(?:abstract\s+)?interface\s+([A-Za-z_][\w$]*)\b'),
         'interface',
       ),
-      _EditorSymbolPattern(RegExp(r'^\s*enum\s+([A-Za-z_][\w$]*)\b'), 'enum'),
-      _EditorSymbolPattern(
-        RegExp(r'^\s*(?:async\s+)?def\s+([A-Za-z_][\w$]*)\s*\('),
-        'function',
-      ),
-      _EditorSymbolPattern(
-        RegExp(r'^\s*func\s+(?:\([^)]+\)\s*)?([A-Za-z_][\w$]*)\s*\('),
-        'function',
-      ),
+      _plainEnumSymbolPattern,
+      _pythonDefSymbolPattern,
+      _goFuncSymbolPattern,
       _EditorSymbolPattern(
         RegExp(
           r'^\s*(?:export\s+)?(?:async\s+)?function\s+([A-Za-z_][\w$]*)\s*\(',
@@ -12903,12 +12912,9 @@ final List<_EditorSymbolPattern> _genericSymbolPatterns =
     ];
 
 final List<_EditorSymbolPattern> _dartSymbolPatterns = <_EditorSymbolPattern>[
-  _EditorSymbolPattern(
-    RegExp(r'^\s*(?:abstract\s+)?class\s+([A-Za-z_][\w$]*)\b'),
-    'class',
-  ),
+  _abstractClassSymbolPattern,
   _EditorSymbolPattern(RegExp(r'^\s*mixin\s+([A-Za-z_][\w$]*)\b'), 'mixin'),
-  _EditorSymbolPattern(RegExp(r'^\s*enum\s+([A-Za-z_][\w$]*)\b'), 'enum'),
+  _plainEnumSymbolPattern,
   _EditorSymbolPattern(
     RegExp(r'^\s*extension\s+([A-Za-z_][\w$]*)\s+on\b'),
     'extension',
@@ -12960,10 +12966,7 @@ _javascriptSymbolPatterns = <_EditorSymbolPattern>[
 
 final List<_EditorSymbolPattern> _pythonSymbolPatterns = <_EditorSymbolPattern>[
   _EditorSymbolPattern(RegExp(r'^\s*class\s+([A-Za-z_][\w$]*)\b'), 'class'),
-  _EditorSymbolPattern(
-    RegExp(r'^\s*(?:async\s+)?def\s+([A-Za-z_][\w$]*)\s*\('),
-    'function',
-  ),
+  _pythonDefSymbolPattern,
 ];
 
 final List<_EditorSymbolPattern> _goSymbolPatterns = <_EditorSymbolPattern>[
@@ -12971,10 +12974,7 @@ final List<_EditorSymbolPattern> _goSymbolPatterns = <_EditorSymbolPattern>[
     RegExp(r'^\s*type\s+([A-Za-z_][\w$]*)\s+(?:struct|interface)\b'),
     'type',
   ),
-  _EditorSymbolPattern(
-    RegExp(r'^\s*func\s+(?:\([^)]+\)\s*)?([A-Za-z_][\w$]*)\s*\('),
-    'function',
-  ),
+  _goFuncSymbolPattern,
 ];
 
 final List<_EditorSymbolPattern>
