@@ -209,6 +209,8 @@ class _OpenHandStableRawScrollbarState
     extends RawScrollbarState<_OpenHandStableRawScrollbar> {
   late final AnimationController _settleController;
   Timer? _settleTimer;
+  final Stopwatch _settleClock = Stopwatch()..start();
+  int _settleDeadlineMs = 0;
   ScrollMetrics? _latestMetrics;
   double? _displayMaxScrollExtent;
   double _settleStartMaxScrollExtent = 0;
@@ -263,10 +265,24 @@ class _OpenHandStableRawScrollbarState
     _paintMetrics(metrics);
   }
 
+  /// 防抖改为「推进截止时间 + 单常驻计时器」：滚动期间每帧都有通知，
+  /// 逐通知 cancel+新建 Timer 会产生每秒上百个定时器对象churn。
   void _scheduleSettle() {
-    _settleTimer?.cancel();
-    _settleTimer = startSafeTimer(_kStableScrollbarSettleDelay, () {
+    _settleDeadlineMs =
+        _settleClock.elapsedMilliseconds +
+        _kStableScrollbarSettleDelay.inMilliseconds;
+    if (_settleTimer != null) return;
+    _armSettleTimer(_kStableScrollbarSettleDelay);
+  }
+
+  void _armSettleTimer(Duration wait) {
+    _settleTimer = startSafeTimer(wait, () {
       _settleTimer = null;
+      final remainingMs = _settleDeadlineMs - _settleClock.elapsedMilliseconds;
+      if (remainingMs > 0) {
+        _armSettleTimer(Duration(milliseconds: remainingMs));
+        return;
+      }
       _startSettle();
     });
   }

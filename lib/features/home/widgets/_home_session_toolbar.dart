@@ -2899,7 +2899,17 @@ class _StreamThrottlePill extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final sessionController = context.watch<AiSessionController>();
+    // 窄订阅代替整控制器 watch：流式期间控制器每次全量 notify（~14Hz）
+    // 都会重建整个胶囊子树；胶囊真正依赖的只有下面三个易变量与覆盖信号。
+    final (wasInitiallyThrottled, durationExpired, backlog) = context
+        .select<AiSessionController, (bool, bool, int)>(
+          (controller) => (
+            controller.sessionWasInitiallyThrottled(sessionId),
+            controller.sessionStreamThrottleDurationExpired(sessionId),
+            controller.sessionStreamCardBacklog(sessionId),
+          ),
+        );
+    final sessionController = context.read<AiSessionController>();
     final settingsController = context.watch<SettingsController>();
     // 监听会话覆盖变更信号，确保拨快慢即时反映在颜色与文案上。
     return ValueListenableBuilder<int>(
@@ -2922,20 +2932,15 @@ class _StreamThrottlePill extends StatelessWidget {
         //   * 否则该会话从未进入节流态 → 不显示。
         //   * `sessionWasInitiallyThrottled` 兜底持久化关闭场景。
         final hasOverride = override != null;
-        final wasInitiallyThrottled = sessionController
-            .sessionWasInitiallyThrottled(sessionId);
         final globalActive = globalEnabled && (effChars > 0 || effCards > 0);
         if (!hasOverride && !wasInitiallyThrottled && !globalActive) {
           return const SizedBox.shrink();
         }
         // 关闭状态（全局或会话级覆盖关闭）以及任一速率为 0 都视作灰态。
         final disabled = !effEnabled || effChars <= 0 || effCards <= 0;
-        // 节流时长已耗尽：胶囊渲染为灰色并改文案，向用户
+        // 节流时长已耗尽（select 订阅）：胶囊渲染为灰色并改文案，向用户
         // 暗示「剩余流式响应正以 AI 真实速率追加」。
-        final durationExpired = sessionController
-            .sessionStreamThrottleDurationExpired(sessionId);
         final showAsGray = disabled || durationExpired;
-        final backlog = sessionController.sessionStreamCardBacklog(sessionId);
         final theme = Theme.of(context);
         final scheme = theme.colorScheme;
         final pillColor = showAsGray
@@ -3102,7 +3107,14 @@ class _StreamThrottleSessionDialogState
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
     final settings = context.watch<SettingsController>();
-    final session = context.watch<AiSessionController>();
+    // 只订阅本会话覆盖对象（按实例比较）：流式期间控制器全量 notify 高达
+    // 每秒十余次，整控制器 watch 会让弹窗表单全程跟着重建。
+    final session = context.read<AiSessionController>();
+    final sessionOverride = context
+        .select<AiSessionController, AiStreamThrottleOverride?>(
+          (controller) =>
+              controller.sessionStreamThrottleOverride(widget.sessionId),
+        );
     final text = openHandTextResolver(context);
 
     final globalChars = settings.effectiveStreamMaxCharsPerSecond();
@@ -3111,9 +3123,6 @@ class _StreamThrottleSessionDialogState
     // 弹窗的 "当前生效" 标签和 mini 仪表盘上限都按这个值显示，避免
     // 用户已在文本框里输入了新数字、但标签仍停留在全局值导致的
     // 「我设置了为什么没生效」错觉。
-    final sessionOverride = session.sessionStreamThrottleOverride(
-      widget.sessionId,
-    );
     final effectiveChars = sessionOverride?.charsPerSecond ?? globalChars;
     final effectiveCards = sessionOverride?.cardsPerSecond ?? globalCards;
     // 当前生效的启用态：会话级 > 全局。

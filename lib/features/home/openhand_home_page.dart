@@ -8129,9 +8129,14 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     }
     final lastMessage = displayMessages.last;
     final activeFollowParts = <String>[];
+    // 回溯硬上限：驱动自动跟随的消息（流式 / 运行中工具）只可能出现在
+    // 当前回合尾部。历史消息几乎都不满足条件，不设上限时每次 rebuild
+    // 都会把整个已加载列表从尾扫到头，大会话下这是 build 路径上最大的
+    // 一笔 O(N) 常数税。
+    final scanFloor = math.max(0, displayMessages.length - 32);
     for (
       var index = displayMessages.length - 1;
-      index >= 0 && activeFollowParts.length < 4;
+      index >= scanFloor && activeFollowParts.length < 4;
       index -= 1
     ) {
       final message = displayMessages[index];
