@@ -1221,6 +1221,41 @@ impl GithubSource {
     fn new(client: ObservedHttpClient, kind: SourceKind) -> Self {
         Self { client, kind }
     }
+
+    /// 以多 token 故障转移方式发起一次 GitHub 代码检索：命中限速(403/429)即切换下一 token，
+    /// 无等待、最多尝试 token 数量次并推进轮询游标。
+    /// Ok(Some) 成功、Ok(None) 全部 token 被限速、Err 传输错误。
+    async fn search_page(
+        &self,
+        query: &str,
+        per_page: &str,
+        page: &str,
+        tokens: &[String],
+        cursor: &mut usize,
+    ) -> Result<Option<Response>, SourceError> {
+        for _ in 0..tokens.len() {
+            let token = &tokens[*cursor % tokens.len()];
+            let response = self
+                .client
+                .get("https://api.github.com/search/code")
+                .header("Accept", "application/vnd.github+json")
+                .header("X-GitHub-Api-Version", "2022-11-28")
+                .bearer_auth(token)
+                .query(&[("q", query), ("per_page", per_page), ("page", page)])
+                .send()
+                .await
+                .map_err(|_| SourceError::Transport("GitHub"))?;
+            if matches!(
+                response.status(),
+                StatusCode::FORBIDDEN | StatusCode::TOO_MANY_REQUESTS
+            ) {
+                *cursor = cursor.wrapping_add(1);
+                continue;
+            }
+            return Ok(Some(response));
+        }
+        Ok(None)
+    }
 }
 
 #[derive(Deserialize)]
@@ -1292,10 +1327,16 @@ impl AssetSource for GithubSource {
         request: &ScanRequest,
         credentials: &SourceCredentials,
     ) -> Result<SourceDiscovery, SourceError> {
-        let token = credentials
+        let credential = credentials
             .github_token
             .as_ref()
             .ok_or(SourceError::MissingCredential("GitHub"))?;
+        // 支持在同一字段填入多把 token（逗号/空白分隔），用于轮询与限速故障转移。
+        let tokens = parse_credential_list(credential.expose_secret());
+        if tokens.is_empty() {
+            return Err(SourceError::MissingCredential("GitHub"));
+        }
+        let mut token_cursor = 0_usize;
         let query_key = if self.kind == SourceKind::GithubArtifact {
             "github_artifact"
         } else {
@@ -1315,20 +1356,24 @@ impl AssetSource for GithubSource {
             }
             let page_str = page.to_string();
             let response = match self
-                .client
-                .get("https://api.github.com/search/code")
-                .header("Accept", "application/vnd.github+json")
-                .header("X-GitHub-Api-Version", "2022-11-28")
-                .bearer_auth(token.expose_secret())
-                .query(&[
-                    ("q", query.as_str()),
-                    ("per_page", per_page.as_str()),
-                    ("page", page_str.as_str()),
-                ])
-                .send()
+                .search_page(
+                    query.as_str(),
+                    per_page.as_str(),
+                    page_str.as_str(),
+                    &tokens,
+                    &mut token_cursor,
+                )
                 .await
             {
-                Ok(response) => response,
+                Ok(Some(response)) => response,
+                // 全部 token 均被限速：首页视为不可用，后续页保留已获取结果。
+                Ok(None) if page == 1 => {
+                    return Err(SourceError::Http {
+                        platform: "GitHub",
+                        status: StatusCode::TOO_MANY_REQUESTS.as_u16(),
+                    });
+                }
+                Ok(None) => break,
                 Err(_) if page == 1 => return Err(SourceError::Transport("GitHub")),
                 Err(_) => break,
             };
@@ -1360,10 +1405,10 @@ impl AssetSource for GithubSource {
         }
         let client = self.client.clone();
         let kind = self.kind;
-        let token = token.expose_secret().to_owned();
-        let batches = stream::iter(public_items.into_iter().map(|item| {
+        // 逐项内容拉取按 token 轮询分摊，进一步降低单 token 触发限速的概率。
+        let batches = stream::iter(public_items.into_iter().enumerate().map(|(index, item)| {
             let client = client.clone();
-            let token = token.clone();
+            let token = tokens[index % tokens.len()].clone();
             async move { github_item_candidates(client, kind, token, item).await }
         }))
         .buffer_unordered(GITHUB_CONTENT_CONCURRENCY);
@@ -1396,15 +1441,20 @@ impl AssetSource for GithubSource {
     }
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
-        let token = credentials
+        let credential = credentials
             .github_token
             .as_ref()
+            .ok_or(SourceError::MissingCredential("GitHub"))?;
+        // 多 token 场景取首把校验配额，避免把逗号分隔的整串当作单一 token 发送。
+        let token = parse_credential_list(credential.expose_secret())
+            .into_iter()
+            .next()
             .ok_or(SourceError::MissingCredential("GitHub"))?;
         let response = self
             .client
             .get("https://api.github.com/rate_limit")
             .header("Accept", "application/vnd.github+json")
-            .bearer_auth(token.expose_secret())
+            .bearer_auth(&token)
             .send()
             .await
             .map_err(|_| SourceError::Transport("GitHub"))?;
@@ -1838,6 +1888,64 @@ impl FofaSource {
     fn new(client: ObservedHttpClient) -> Self {
         Self { client }
     }
+
+    /// 以多 key 故障转移方式发起一次 FOFA 检索（共用同一 email）：命中 401/403/429 或
+    /// 响应体 error=true（key 无效/额度不足）即切换下一 key，无等待、最多尝试 key 数量次。
+    /// 成功返回 error=false 的响应体；全部 key 失败时返回带最后原因的错误以便观测。
+    async fn search_page(
+        &self,
+        email: &str,
+        encoded_query: &str,
+        size: &str,
+        page: &str,
+        keys: &[String],
+        cursor: &mut usize,
+    ) -> Result<FofaSearchResponse, SourceError> {
+        let mut last_reason = None;
+        for _ in 0..keys.len() {
+            let key = &keys[*cursor % keys.len()];
+            let response = self
+                .client
+                .get("https://fofa.info/api/v1/search/all")
+                .query(&[
+                    ("email", email),
+                    ("key", key.as_str()),
+                    ("qbase64", encoded_query),
+                    ("size", size),
+                    ("page", page),
+                    ("fields", "host,ip,port,protocol"),
+                ])
+                .send()
+                .await
+                .map_err(|_| SourceError::Transport("FOFA"))?;
+            let status = response.status();
+            if matches!(
+                status,
+                StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN | StatusCode::TOO_MANY_REQUESTS
+            ) {
+                last_reason = Some(format!("HTTP {}", status.as_u16()));
+                *cursor = cursor.wrapping_add(1);
+                continue;
+            }
+            if !status.is_success() {
+                return Err(SourceError::Http {
+                    platform: "FOFA",
+                    status: status.as_u16(),
+                });
+            }
+            let body = parse_json_limited::<FofaSearchResponse>("FOFA", response).await?;
+            if body.error {
+                last_reason = Some(body.errmsg.unwrap_or_else(|| "未知错误".to_owned()));
+                *cursor = cursor.wrapping_add(1);
+                continue;
+            }
+            return Ok(body);
+        }
+        Err(SourceError::Other(anyhow::anyhow!(
+            "FOFA 所有 key 均不可用：{}",
+            last_reason.unwrap_or_else(|| "额度不足/限速/无效".to_owned())
+        )))
+    }
 }
 
 #[derive(Deserialize)]
@@ -1866,54 +1974,39 @@ impl AssetSource for FofaSource {
         credentials: &SourceCredentials,
     ) -> Result<SourceDiscovery, SourceError> {
         let (email, key) = fofa_credentials(credentials)?;
+        // 支持在 key 字段填入多把 key（逗号/空白分隔），共用同一 email 做 fcoin 池化与故障转移。
+        let keys = parse_credential_list(key.expose_secret());
+        if keys.is_empty() {
+            return Err(SourceError::MissingCredential("FOFA"));
+        }
+        let mut key_cursor = 0_usize;
+        let email = email.expose_secret();
         let query = source_query(request, "fofa").unwrap_or_else(|| default_fofa_query(request));
         let encoded_query = STANDARD.encode(query);
+        let size = DEFAULT_PAGE_SIZE.to_string();
         let mut candidates = Vec::new();
-        // 有界分页：首页错误视为数据源不可用向上返回，后续页错误则保留已获取结果，
+        // 有界分页 + 多 key 故障转移：首页错误视为数据源不可用向上返回，后续页错误保留已获取结果，
         // 页间延时并受 MAX_SOURCE_RESULTS 上界约束，避免丢弃已得数据与无限翻页。
         for page in 1..=MAX_DISCOVERY_PAGES {
             if page > 1 {
                 tokio::time::sleep(DISCOVERY_PAGE_DELAY).await;
             }
-            let response = match self
-                .client
-                .get("https://fofa.info/api/v1/search/all")
-                .query(&[
-                    ("email", email.expose_secret().to_owned()),
-                    ("key", key.expose_secret().to_owned()),
-                    ("qbase64", encoded_query.clone()),
-                    ("size", DEFAULT_PAGE_SIZE.to_string()),
-                    ("page", page.to_string()),
-                    ("fields", "host,ip,port,protocol".to_owned()),
-                ])
-                .send()
+            let page_str = page.to_string();
+            let body = match self
+                .search_page(
+                    email,
+                    &encoded_query,
+                    size.as_str(),
+                    page_str.as_str(),
+                    &keys,
+                    &mut key_cursor,
+                )
                 .await
             {
-                Ok(response) => response,
-                Err(_) if page == 1 => return Err(SourceError::Transport("FOFA")),
-                Err(_) => break,
-            };
-            let http_status = response.status();
-            if !http_status.is_success() {
-                if page == 1 {
-                    ensure_success("FOFA", http_status)?;
-                }
-                break;
-            }
-            let body = match parse_json_limited::<FofaSearchResponse>("FOFA", response).await {
                 Ok(body) => body,
                 Err(error) if page == 1 => return Err(error),
                 Err(_) => break,
             };
-            if body.error {
-                if page == 1 {
-                    return Err(SourceError::Other(anyhow::anyhow!(
-                        "FOFA 查询失败：{}",
-                        body.errmsg.unwrap_or_else(|| "未知错误".to_owned())
-                    )));
-                }
-                break;
-            }
             let page_len = body.results.len();
             candidates.extend(
                 body.results
@@ -1936,13 +2029,15 @@ impl AssetSource for FofaSource {
 
     async fn quota(&self, credentials: &SourceCredentials) -> Result<SourceQuota, SourceError> {
         let (email, key) = fofa_credentials(credentials)?;
+        // 多 key 场景取首把校验账户，避免把逗号分隔的整串当作单一 key 发送。
+        let key = parse_credential_list(key.expose_secret())
+            .into_iter()
+            .next()
+            .ok_or(SourceError::MissingCredential("FOFA"))?;
         let response = self
             .client
             .get("https://fofa.info/api/v1/info/my")
-            .query(&[
-                ("email", email.expose_secret()),
-                ("key", key.expose_secret()),
-            ])
+            .query(&[("email", email.expose_secret()), ("key", key.as_str())])
             .send()
             .await
             .map_err(|_| SourceError::Transport("FOFA"))?;
@@ -1977,6 +2072,36 @@ struct ShodanSource {
 impl ShodanSource {
     fn new(client: ObservedHttpClient) -> Self {
         Self { client }
+    }
+
+    /// 以多 key 故障转移方式发起一次 Shodan 检索：命中 401/403/429(鉴权失败/信用不足/限速)
+    /// 即切换下一 key，无等待、最多尝试 key 数量次并推进轮询游标。
+    async fn search_page(
+        &self,
+        query: &str,
+        page: &str,
+        keys: &[String],
+        cursor: &mut usize,
+    ) -> Result<Option<Response>, SourceError> {
+        for _ in 0..keys.len() {
+            let key = &keys[*cursor % keys.len()];
+            let response = self
+                .client
+                .get("https://api.shodan.io/shodan/host/search")
+                .query(&[("key", key.as_str()), ("query", query), ("page", page)])
+                .send()
+                .await
+                .map_err(|_| SourceError::Transport("Shodan"))?;
+            if matches!(
+                response.status(),
+                StatusCode::UNAUTHORIZED | StatusCode::FORBIDDEN | StatusCode::TOO_MANY_REQUESTS
+            ) {
+                *cursor = cursor.wrapping_add(1);
+                continue;
+            }
+            return Ok(Some(response));
+        }
+        Ok(None)
     }
 }
 
@@ -2015,27 +2140,33 @@ impl AssetSource for ShodanSource {
             .shodan_key
             .as_ref()
             .ok_or(SourceError::MissingCredential("Shodan"))?;
+        // 支持在同一字段填入多把 key（逗号/空白分隔）用于信用池化与限速故障转移。
+        let keys = parse_credential_list(key.expose_secret());
+        if keys.is_empty() {
+            return Err(SourceError::MissingCredential("Shodan"));
+        }
+        let mut key_cursor = 0_usize;
         let query =
             source_query(request, "shodan").unwrap_or_else(|| default_shodan_query(request));
         let mut candidates = Vec::new();
-        // 有界分页：首页错误上抛，后续页错误保留已得结果；页间延时；受 MAX_SOURCE_RESULTS 约束。
+        // 有界分页 + 多 key 故障转移：首页错误上抛，后续页错误保留已得结果；页间延时。
         for page in 1..=MAX_DISCOVERY_PAGES {
             if page > 1 {
                 tokio::time::sleep(DISCOVERY_PAGE_DELAY).await;
             }
             let page_str = page.to_string();
             let response = match self
-                .client
-                .get("https://api.shodan.io/shodan/host/search")
-                .query(&[
-                    ("key", key.expose_secret()),
-                    ("query", query.as_str()),
-                    ("page", page_str.as_str()),
-                ])
-                .send()
+                .search_page(query.as_str(), page_str.as_str(), &keys, &mut key_cursor)
                 .await
             {
-                Ok(response) => response,
+                Ok(Some(response)) => response,
+                Ok(None) if page == 1 => {
+                    return Err(SourceError::Http {
+                        platform: "Shodan",
+                        status: StatusCode::TOO_MANY_REQUESTS.as_u16(),
+                    });
+                }
+                Ok(None) => break,
                 Err(_) if page == 1 => return Err(SourceError::Transport("Shodan")),
                 Err(_) => break,
             };
@@ -2083,10 +2214,15 @@ impl AssetSource for ShodanSource {
             .shodan_key
             .as_ref()
             .ok_or(SourceError::MissingCredential("Shodan"))?;
+        // 多 key 场景取首把校验配额，避免把逗号分隔的整串当作单一 key 发送。
+        let key = parse_credential_list(key.expose_secret())
+            .into_iter()
+            .next()
+            .ok_or(SourceError::MissingCredential("Shodan"))?;
         let response = self
             .client
             .get("https://api.shodan.io/api-info")
-            .query(&[("key", key.expose_secret())])
+            .query(&[("key", key.as_str())])
             .send()
             .await
             .map_err(|_| SourceError::Transport("Shodan"))?;
@@ -2419,6 +2555,18 @@ fn ensure_success(source: &'static str, status: StatusCode) -> Result<(), Source
             status: status.as_u16(),
         })
     }
+}
+
+/// 将单个凭证字符串解析为多凭证列表：按逗号/空白切分、去空白、去重且保序。
+/// 允许在同一输入框填入多把 key，配合轮询与限速故障转移提升稳健性。
+fn parse_credential_list(secret: &str) -> Vec<String> {
+    let mut seen = BTreeSet::new();
+    secret
+        .split(|character: char| character == ',' || character.is_whitespace())
+        .map(str::trim)
+        .filter(|value| !value.is_empty() && seen.insert(value.to_owned()))
+        .map(ToOwned::to_owned)
+        .collect()
 }
 
 fn value_as_string(value: &serde_json::Value) -> Option<String> {
