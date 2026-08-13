@@ -8,7 +8,10 @@ import 'dart:io';
 ///      '@/features/<b>/<sub>/...' 或 '../<b>/<sub>/...'（b != a，sub 非 index*）。
 ///   3. lib/ 业务代码禁止直接调用或构造 Flutter 原生弹窗、菜单、底部面板与
 ///      OverlayEntry；统一通过 shared/ui 的全局动画入口展示。
-///   4. lib/ 业务代码禁止直接构造 Timer；统一通过安全计时工具限制时长并处理
+///   4. lib/ 业务代码禁止直接调用 ScaffoldMessenger 的 SnackBar 方法；统一
+///      通过 shared/ui/openhand_snack_bar.dart，以保证进退场动效与全局
+///      弹窗动画设置一致。
+///   5. lib/ 业务代码禁止直接构造 Timer；统一通过安全计时工具限制时长并处理
 ///      异步回调异常。
 ///
 /// 同 feature 内部 import 不限制；该脚本只约束跨 feature 深路径依赖。
@@ -28,8 +31,7 @@ Future<void> main(List<String> args) async {
   var violations = 0;
 
   violations += await _scanDart(root);
-  violations += await _scanDialogApis(root);
-  violations += await _scanTimerApis(root);
+  violations += await _scanRestrictedApis(root);
   violations += await _scanWeb(Directory('$root/clients/web/src/features'));
 
   if (violations > 0) {
@@ -99,77 +101,112 @@ Future<int> _scanDart(String root) async {
   return n;
 }
 
-Future<int> _scanDialogApis(String root) async {
-  final libRoot = Directory('$root/lib');
-  if (!libRoot.existsSync()) return 0;
-  final sharedUiRoot =
-      '$root${Platform.pathSeparator}lib${Platform.pathSeparator}shared'
-      '${Platform.pathSeparator}ui${Platform.pathSeparator}';
-  final allowedPaths = <String>{
-    _normalize('${sharedUiRoot}animated_dialog.dart'),
-    _normalize('${sharedUiRoot}animated_menu.dart'),
-    _normalize('${sharedUiRoot}animated_overlay.dart'),
-  };
-  final forbiddenApi = RegExp(
-    r'\b(showDialog|showGeneralDialog|showAdaptiveDialog|showCupertinoDialog'
-    r'|showCupertinoModalPopup|showModalBottomSheet|showBottomSheet'
-    r'|showDatePicker|showDateRangePicker|showTimePicker|showAboutDialog'
-    r'|showLicensePage|showSearch|showMenu)\s*(?:<[^>\n]+>)?\s*\('
-    r'|\b(DialogRoute|RawDialogRoute|CupertinoDialogRoute'
-    r'|ModalBottomSheetRoute|PopupMenuRoute|AlertDialog|SimpleDialog|Dialog'
-    r'|PopupMenuButton|DropdownButton|DropdownMenu|MenuAnchor|OverlayEntry)'
-    r'\s*(?:<[^>\n]+>)?\s*\(',
-  );
-  var violations = 0;
+/// 只允许在指定封装文件里出现的原生 API 规则。
+class _RestrictedApiRule {
+  const _RestrictedApiRule({
+    required this.pattern,
+    required this.allowedRelativePaths,
+    required this.fallbackApiName,
+    required this.advice,
+  });
 
-  await for (final entity in libRoot.list(recursive: true)) {
-    if (entity is! File || !entity.path.endsWith('.dart')) continue;
-    if (allowedPaths.contains(_normalize(entity.path))) continue;
-    var blockCommentDepth = 0;
-    final lines = await entity.readAsLines();
-    for (var i = 0; i < lines.length; i++) {
-      final stripped = _stripDartComments(lines[i], blockCommentDepth);
-      blockCommentDepth = stripped.blockCommentDepth;
-      for (final match in forbiddenApi.allMatches(stripped.code)) {
-        final api = match.group(1) ?? match.group(2) ?? '原生弹窗 API';
-        stderr.writeln(
-          '${entity.path}:${i + 1} 业务代码禁止直接调用 $api；'
-          '请使用 shared/ui 的全局动画入口',
-        );
-        violations++;
-      }
-    }
-  }
-  return violations;
+  final RegExp pattern;
+
+  /// 相对 `lib/` 的封装文件路径，用 `/` 分隔。
+  final Set<String> allowedRelativePaths;
+
+  /// 正则未捕获到具体 API 名时的兜底描述。
+  final String fallbackApiName;
+  final String advice;
 }
 
-Future<int> _scanTimerApis(String root) async {
+List<_RestrictedApiRule> _restrictedApiRules() => <_RestrictedApiRule>[
+  _RestrictedApiRule(
+    pattern: RegExp(
+      r'\b(showDialog|showGeneralDialog|showAdaptiveDialog|showCupertinoDialog'
+      r'|showCupertinoModalPopup|showModalBottomSheet|showBottomSheet'
+      r'|showDatePicker|showDateRangePicker|showTimePicker|showAboutDialog'
+      r'|showLicensePage|showSearch|showMenu)\s*(?:<[^>\n]+>)?\s*\('
+      r'|\b(DialogRoute|RawDialogRoute|CupertinoDialogRoute'
+      r'|ModalBottomSheetRoute|PopupMenuRoute|AlertDialog|SimpleDialog|Dialog'
+      r'|PopupMenuButton|DropdownButton|DropdownMenu|MenuAnchor|OverlayEntry)'
+      r'\s*(?:<[^>\n]+>)?\s*\(',
+    ),
+    allowedRelativePaths: const <String>{
+      'shared/ui/animated_dialog.dart',
+      'shared/ui/animated_menu.dart',
+      'shared/ui/animated_overlay.dart',
+    },
+    fallbackApiName: '原生弹窗 API',
+    advice: '请使用 shared/ui 的全局动画入口',
+  ),
+  // 提示条与弹窗共用同一套全局动效设置：绕过封装直接 showSnackBar 会失去
+  // 进场/退场动画与队列管理，出现生硬的 UI 变换。
+  _RestrictedApiRule(
+    pattern: RegExp(
+      r'\b(showSnackBar|hideCurrentSnackBar|removeCurrentSnackBar'
+      r'|clearSnackBars)\s*\(',
+    ),
+    allowedRelativePaths: const <String>{'shared/ui/openhand_snack_bar.dart'},
+    fallbackApiName: '原生 SnackBar API',
+    advice: '请使用 shared/ui/openhand_snack_bar.dart 的提示条入口',
+  ),
+  _RestrictedApiRule(
+    pattern: RegExp(r'\bTimer\s*(?:\.periodic\s*)?\('),
+    allowedRelativePaths: const <String>{
+      'shared/util/timer_safety.dart',
+      'shared/util/async_concurrency.dart',
+    },
+    fallbackApiName: 'Timer',
+    advice: '请使用 shared/util/timer_safety.dart 的安全计时工具',
+  ),
+];
+
+/// 取命中的具体 API 名；规则正则可能没有捕获组（如 Timer），此时用兜底名称。
+String _matchedApiName(RegExpMatch match, String fallback) {
+  for (var group = 1; group <= match.groupCount; group++) {
+    final name = match.group(group);
+    if (name != null && name.isNotEmpty) return name;
+  }
+  return fallback;
+}
+
+Future<int> _scanRestrictedApis(String root) async {
   final libRoot = Directory('$root/lib');
   if (!libRoot.existsSync()) return 0;
-  final sharedUtilRoot =
-      '$root${Platform.pathSeparator}lib${Platform.pathSeparator}shared'
-      '${Platform.pathSeparator}util${Platform.pathSeparator}';
-  final allowedPaths = <String>{
-    _normalize('${sharedUtilRoot}timer_safety.dart'),
-    _normalize('${sharedUtilRoot}async_concurrency.dart'),
-  };
-  final forbiddenApi = RegExp(r'\bTimer\s*(?:\.periodic\s*)?\(');
+  final sep = Platform.pathSeparator;
+  final rules = _restrictedApiRules();
+  final allowedByRule = rules
+      .map(
+        (rule) => rule.allowedRelativePaths
+            .map(
+              (path) =>
+                  _normalize('$root${sep}lib$sep${path.replaceAll('/', sep)}'),
+            )
+            .toSet(),
+      )
+      .toList(growable: false);
   var violations = 0;
 
   await for (final entity in libRoot.list(recursive: true)) {
     if (entity is! File || !entity.path.endsWith('.dart')) continue;
-    if (allowedPaths.contains(_normalize(entity.path))) continue;
+    final normalizedPath = _normalize(entity.path);
     var blockCommentDepth = 0;
     final lines = await entity.readAsLines();
     for (var i = 0; i < lines.length; i++) {
       final stripped = _stripDartComments(lines[i], blockCommentDepth);
       blockCommentDepth = stripped.blockCommentDepth;
-      if (!forbiddenApi.hasMatch(stripped.code)) continue;
-      stderr.writeln(
-        '${entity.path}:${i + 1} 业务代码禁止直接构造 Timer；'
-        '请使用 shared/util/timer_safety.dart 的安全计时工具',
-      );
-      violations++;
+      for (var index = 0; index < rules.length; index++) {
+        if (allowedByRule[index].contains(normalizedPath)) continue;
+        final rule = rules[index];
+        for (final match in rule.pattern.allMatches(stripped.code)) {
+          stderr.writeln(
+            '${entity.path}:${i + 1} 业务代码禁止直接调用 '
+            '${_matchedApiName(match, rule.fallbackApiName)}；${rule.advice}',
+          );
+          violations++;
+        }
+      }
     }
   }
   return violations;

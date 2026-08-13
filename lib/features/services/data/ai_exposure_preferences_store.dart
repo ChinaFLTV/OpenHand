@@ -336,7 +336,10 @@ class AiExposurePreferencesStore {
     required DateTime startAt,
     required Duration interval,
   }) async {
-    final intervalMs = interval.inMilliseconds.clamp(60000, 86400000);
+    final intervalMs = interval.inMilliseconds.clamp(
+      Duration.millisecondsPerMinute,
+      Duration.millisecondsPerDay,
+    );
     final rows = await _database.rawQuery(
       'SELECT (at_ms / ?) * ? AS bucket_ms, COUNT(*) AS total, '
       'SUM(response_time_ms) AS total_response_time_ms, '

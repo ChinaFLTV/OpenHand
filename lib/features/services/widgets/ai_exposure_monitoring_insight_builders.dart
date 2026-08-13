@@ -1617,7 +1617,7 @@ _InsightRecord _taskInsightRecord(
       _stageName(entry.stage),
     ],
     _TaskRecordLens.duration => [
-      '耗时 ${duration == null ? '--' : _duration(duration.inSeconds.clamp(0, 86400))}',
+      '耗时 ${duration == null ? '--' : _duration(duration.inSeconds.clamp(0, Duration.secondsPerDay))}',
       '开始 ${entry.effectiveStartedAt == null ? '时间未上报' : _shortDateTime(entry.effectiveStartedAt!)}',
       if (finishedAt != null) '结束 ${_shortDateTime(finishedAt)}',
       '处理 ${progress.processed}',
@@ -1647,7 +1647,7 @@ _InsightRecord _taskInsightRecord(
       '候选 ${progress.candidates}',
       '有效 ${progress.valid}',
       if (duration != null)
-        '耗时 ${_duration(duration.inSeconds.clamp(0, 86400))}',
+        '耗时 ${_duration(duration.inSeconds.clamp(0, Duration.secondsPerDay))}',
       if (entry.sources.isNotEmpty)
         entry.sources.map(aiExposureSourceDisplayName).take(3).join(' / '),
       finishedAt == null

@@ -1183,7 +1183,7 @@ class _DependencyMetricDetailDialogState
                       _ttlText(_integer(record['ttlSeconds'])),
                     ],
                     value: _integer(record['sizeBytes']).toDouble(),
-                    alert: _integer(record['sizeBytes']) >= 1024 * 1024,
+                    alert: _integer(record['sizeBytes']) >= kBytesPerMiB,
                   ),
                 )
                 .toList(growable: false),
@@ -1262,11 +1262,11 @@ class _DependencyMetricDetailDialogState
       final ttl = _integer(record['ttlSeconds']);
       final bucket = ttl < 0
           ? '永久'
-          : ttl < 60
+          : ttl < Duration.secondsPerMinute
           ? '即将过期 < 1 分钟'
-          : ttl < 3600
+          : ttl < Duration.secondsPerHour
           ? '1 分钟 - 1 小时'
-          : ttl < 86400
+          : ttl < Duration.secondsPerDay
           ? '1 - 24 小时'
           : '大于 24 小时';
       ttlBuckets[bucket] = ttlBuckets[bucket]! + 1;
@@ -4133,10 +4133,14 @@ String _compactCount(int value) => formatCompactCount(value);
 
 String _durationText(int seconds) {
   if (seconds < 0) return '永久';
-  if (seconds < 60) return '$seconds 秒';
-  if (seconds < 3600) return '${(seconds / 60).toStringAsFixed(1)} 分钟';
-  if (seconds < 86400) return '${(seconds / 3600).toStringAsFixed(1)} 小时';
-  return '${(seconds / 86400).toStringAsFixed(1)} 天';
+  if (seconds < Duration.secondsPerMinute) return '$seconds 秒';
+  if (seconds < Duration.secondsPerHour) {
+    return '${(seconds / Duration.secondsPerMinute).toStringAsFixed(1)} 分钟';
+  }
+  if (seconds < Duration.secondsPerDay) {
+    return '${(seconds / Duration.secondsPerHour).toStringAsFixed(1)} 小时';
+  }
+  return '${(seconds / Duration.secondsPerDay).toStringAsFixed(1)} 天';
 }
 
 String _ttlText(int ttlSeconds) {

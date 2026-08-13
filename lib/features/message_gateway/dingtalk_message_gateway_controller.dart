@@ -4509,7 +4509,7 @@ ${_markdownStructuredFields(response)}''';
     return (finished ?? DateTime.now().toUtc())
         .difference(started)
         .inMilliseconds
-        .clamp(0, 86400000);
+        .clamp(0, Duration.millisecondsPerDay);
   }
 
   static const int _maxQueuedResponsesPerConversation = 256;

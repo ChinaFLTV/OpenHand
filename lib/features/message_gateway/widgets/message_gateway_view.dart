@@ -1232,7 +1232,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       text: '${config.maxMessagesPerSession}',
     );
     _logMaxMbController = TextEditingController(
-      text: '${(config.logConfig.fileMaxBytes / (1024 * 1024)).round()}',
+      text: '${(config.logConfig.fileMaxBytes / kBytesPerMiB).round()}',
     );
     _logRotationDaysController = TextEditingController(
       text: '${config.logConfig.rotationDays}',
@@ -1242,7 +1242,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
     );
     _workspaceFileMaxMbController = TextEditingController(
       text:
-          '${math.max(1, (config.workspaceFileMaxBytes / (1024 * 1024)).ceil())}',
+          '${math.max(1, (config.workspaceFileMaxBytes / kBytesPerMiB).ceil())}',
     );
     _workspaceFileExtensionsController = TextEditingController(
       text: config.workspaceFileAllowedExtensions.join(', '),
@@ -1251,7 +1251,7 @@ class _WebPlatformEditorDialogState extends State<_WebPlatformEditorDialog> {
       text: '${config.uploadCacheRetentionDays}',
     );
     _uploadCacheMaxMbController = TextEditingController(
-      text: '${(config.uploadCacheMaxBytes / (1024 * 1024)).round()}',
+      text: '${(config.uploadCacheMaxBytes / kBytesPerMiB).round()}',
     );
     _healthPathController = TextEditingController(
       text: config.healthCheck.path,
@@ -11322,13 +11322,12 @@ int _boundedMegabytesAsBytes(
   required int minBytes,
   required int maxBytes,
 }) {
-  const bytesPerMegabyte = 1024 * 1024;
-  final minMegabytes = math.max(1, (minBytes / bytesPerMegabyte).ceil());
+  final minMegabytes = math.max(1, (minBytes / kBytesPerMiB).ceil());
   final maxMegabytes = math.max(
     minMegabytes,
-    (maxBytes / bytesPerMegabyte).floor(),
+    (maxBytes / kBytesPerMiB).floor(),
   );
-  final fallbackMegabytes = (fallbackBytes / bytesPerMegabyte)
+  final fallbackMegabytes = (fallbackBytes / kBytesPerMiB)
       .round()
       .clamp(minMegabytes, maxMegabytes)
       .toInt();
@@ -11338,7 +11337,7 @@ int _boundedMegabytesAsBytes(
         min: minMegabytes,
         max: maxMegabytes,
       ) *
-      bytesPerMegabyte;
+      kBytesPerMiB;
 }
 
 String _rate(double value) {

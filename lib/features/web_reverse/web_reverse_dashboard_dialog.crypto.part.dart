@@ -94,15 +94,9 @@ class _CryptoPadBodyState extends State<_CryptoPadBody> {
     final t = s.trim().replaceAll(kInlineWhitespacePattern, '');
     if (t.isEmpty) return '';
     if (t.length.isOdd) return '! odd length';
-    try {
-      final bytes = <int>[];
-      for (var i = 0; i < t.length; i += 2) {
-        bytes.add(int.parse(t.substring(i, i + 2), radix: 16));
-      }
-      return utf8.decode(bytes, allowMalformed: true);
-    } catch (e) {
-      return '! $e';
-    }
+    final bytes = hexToBytes(t);
+    if (bytes == null) return '! invalid hex';
+    return utf8.decode(bytes, allowMalformed: true);
   }
 
   String _hashStr(crypto.Hash algo, String s) {
