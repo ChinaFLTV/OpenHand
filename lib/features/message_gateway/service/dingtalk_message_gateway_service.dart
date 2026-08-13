@@ -497,7 +497,9 @@ class DingTalkMessageGatewayService {
       return controller.stream;
     } catch (_) {
       _logRuntime('ERROR', '启动钉钉实时事件监听失败。');
-      await stopEventSubscription();
+      if (generation == _eventGeneration) {
+        await stopEventSubscription();
+      }
       rethrow;
     }
   }
@@ -2841,7 +2843,11 @@ class DingTalkMessageGatewayService {
               ? _mediaSummary(media)
               : displayContent,
           createdAt: _parseDateTime(
-            map['createTime'] ?? map['createdAt'] ?? map['create_time'],
+            map['createTime'] ??
+                map['createdAt'] ??
+                map['create_time'] ??
+                map['created_at'],
+            fallback: DateTime.fromMillisecondsSinceEpoch(0),
           ),
           senderName: _eventString(map, const <String>[
             'senderName',
@@ -3378,9 +3384,10 @@ class DingTalkMessageGatewayService {
         map['createdAt'] ??
         map['event_time'] ??
         map['timestamp'],
+    fallback: DateTime.fromMillisecondsSinceEpoch(0),
   );
 
-  DateTime _parseDateTime(Object? value) {
+  DateTime _parseDateTime(Object? value, {DateTime? fallback}) {
     if (value is num) {
       final milliseconds = value.abs() < 100000000000
           ? value.toInt() * 1000
@@ -3395,7 +3402,7 @@ class DingTalkMessageGatewayService {
           : numeric.toInt();
       return DateTime.fromMillisecondsSinceEpoch(milliseconds).toLocal();
     }
-    return DateTime.tryParse(text)?.toLocal() ?? DateTime.now();
+    return DateTime.tryParse(text)?.toLocal() ?? fallback ?? DateTime.now();
   }
 
   List<DingTalkConversationTarget> _parseTargets(
