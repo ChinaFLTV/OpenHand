@@ -2948,7 +2948,8 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           )
         : stableBubble;
     const entrySizeDuration = Duration.zero;
-    return maybeAnimatedSize(
+    return RepaintBoundary(
+      child: maybeAnimatedSize(
       key: ValueKey<String>('$_kTranscriptEntryKeyPrefix${message.id}'),
       duration: entrySizeDuration,
       curve: kCardMotionCurve,
@@ -2958,6 +2959,7 @@ class _SessionTranscriptState extends State<_SessionTranscript> {
           bottom: messageIndex == _renderEntries.length - 1 ? 0 : 14,
         ),
         child: content,
+      ),
       ),
     );
   }
