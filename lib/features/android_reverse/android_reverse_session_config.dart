@@ -5,6 +5,21 @@ const int _kAndroidPackageNameMaxLength = 220;
 /// mitmproxy 默认监听端口。
 const int kDefaultMitmProxyPort = 8080;
 
+/// Android 设备默认存储根路径。
+const String kAndroidSdCardRoot = '/sdcard';
+
+/// Android 模拟器访问宿主机的回环地址。
+const String kAndroidEmulatorHostIp = '10.0.2.2';
+
+/// 设备上 OpenHand 工件目录。
+const String kAndroidArtifactBase = '/sdcard/OpenHand';
+
+/// 设备上截图保存目录。
+const String kAndroidScreenshotDir = '/sdcard/OpenHand/screenshots';
+
+/// 设备上录屏保存目录。
+const String kAndroidRecordingDir = '/sdcard/OpenHand/recordings';
+
 /// Android 包名形态校验（如 com.example.app）：至少两段、每段以字母开头。
 /// 预编译正则供高频 ADB 路径复用。
 final RegExp _androidPackageNamePattern = RegExp(

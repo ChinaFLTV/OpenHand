@@ -802,7 +802,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   }) async {
     final client = _clientForSerial(serial);
     final stamp = _artifactTimestamp();
-    final remotePath = '/sdcard/OpenHand/screenshots/$stamp.png';
+    final remotePath = '$kAndroidArtifactBase/screenshots/$stamp.png';
     final localPath = '$screenshotsDir/$stamp.png';
     await createDirectoryBounded(Directory(screenshotsDir));
     final capture = await client.captureScreenshotDetailed(remotePath);
@@ -817,7 +817,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
   }) async {
     final client = _clientForSerial(serial);
     final stamp = _artifactTimestamp();
-    final remotePath = '/sdcard/OpenHand/recordings/$stamp.mp4';
+    final remotePath = '$kAndroidArtifactBase/recordings/$stamp.mp4';
     final localPath = '$recordingsDir/$stamp.mp4';
     await createDirectoryBounded(Directory(recordingsDir));
     final record = await client.screenRecordDetailed(

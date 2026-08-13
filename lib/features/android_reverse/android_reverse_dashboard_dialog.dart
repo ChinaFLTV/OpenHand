@@ -740,10 +740,10 @@ class _AndroidReverseDashboardDialogState
         .trim()
         .isNotEmpty;
     _installApkPathCtrl.text = _ctrl.config.apkPath ?? '';
-    _pushRemoteCtrl.text = '/sdcard/Download/';
-    _pullRemoteCtrl.text = '/sdcard/Download/';
+    _pushRemoteCtrl.text = '$kAndroidSdCardRoot/Download/';
+    _pullRemoteCtrl.text = '$kAndroidSdCardRoot/Download/';
     _pullLocalCtrl.text = _ctrl.artifactsRootDir;
-    _networkProxyHostCtrl.text = '10.0.2.2';
+    _networkProxyHostCtrl.text = kAndroidEmulatorHostIp;
     _networkProxyPortCtrl.text = kDefaultMitmProxyPort.toString();
     _mitmCertPathCtrl.text = '~/.mitmproxy/mitmproxy-ca-cert.pem';
     _ctrl.addListener(_onControllerChanged);

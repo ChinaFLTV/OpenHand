@@ -1044,7 +1044,7 @@ class AndroidReverseAdbClient {
   String _remoteParent(String path) {
     final normalized = nullIfBlank(path) ?? '';
     final slash = normalized.lastIndexOf('/');
-    if (slash <= 0) return '/sdcard';
+    if (slash <= 0) return kAndroidSdCardRoot;
     return normalized.substring(0, slash);
   }
 }
