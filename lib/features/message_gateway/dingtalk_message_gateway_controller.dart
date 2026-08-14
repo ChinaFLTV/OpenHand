@@ -1566,7 +1566,8 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               message.content.trim().isNotEmpty,
         )
         .firstOrNull;
-    if (source == null || _configuredTargetFor(source) == null) return false;
+    // 手动强制响应不受自动响应的白名单与群聊 @ 条件限制。
+    if (source == null) return false;
     final responseVersion = _responseCancellationVersions[conversationId] ?? 0;
     unawaited(
       _enqueueAiResponse(
@@ -2513,7 +2514,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           !_isSelf(previous) &&
           !_isSelf(incoming) &&
           _isAutomaticResponseEligible(incoming) &&
-          _canRespondToMessage(incoming)) {
+          _canAutomaticallyRespondToMessage(incoming)) {
         _enqueueIncomingMessage(existingConversation, incoming);
       }
       return;
@@ -3345,7 +3346,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     return null;
   }
 
-  bool _canRespondToMessage(DingTalkGatewayMessage message) {
+  bool _canAutomaticallyRespondToMessage(DingTalkGatewayMessage message) {
     if (message.isAssistant ||
         message.isExcludedFromAiContext ||
         _configuredTargetFor(message) == null) {
@@ -3361,7 +3362,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   }) {
     return allowResponse &&
         !message.recalled &&
-        _canRespondToMessage(message) &&
+        _canAutomaticallyRespondToMessage(message) &&
         _isAutomaticResponseEligible(message);
   }
 
