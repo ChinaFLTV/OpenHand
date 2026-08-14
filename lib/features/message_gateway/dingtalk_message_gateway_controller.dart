@@ -158,6 +158,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const Duration _outgoingEchoWindow = Duration(seconds: 30);
   static const int _maxAiConversationContextCharacters = 48000;
   static const int _maxAiConversationContextMessages = 200;
+  static const int _initialConversationHistoryMessageLimit = 20;
   static const Duration _conversationStartSkew = Duration(seconds: 2);
   static const Duration _queryWindow = Duration(minutes: 10);
   static const Duration _realtimeReconcilePollInterval = Duration(seconds: 10);
@@ -184,7 +185,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const String _standardResponseReminder =
       '钉钉网关规则：仅回复本轮最后一条触发消息；此前消息仅作上下文，不逐条回复。直接输出适合发送给对方的回复。';
   static const String _forcedResponseReminder =
-      '钉钉网关规则：结合提供的会话历史，直接输出一条连贯、适合发送给对方的回复。';
+      '钉钉网关规则：回复本轮最后一条有效消息；此前消息仅作上下文。直接输出一条适合发送的回复。';
   static const int _maxConversationReconcileCount = 12;
   static const int _conversationReconcileConcurrency = 4;
   static const int _maxConversationReconcileFailureCount = 6;
@@ -744,7 +745,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
 
   void openConversation(DingTalkConversationTarget target) {
     if (_conversations.containsKey(target.id)) return;
-    _conversations[target.id] = DingTalkConversation(
+    final conversation = DingTalkConversation(
       id: target.id,
       type: target.type,
       title: target.title,
@@ -753,10 +754,56 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           ? null
           : target.openDingTalkId.trim(),
     );
+    _conversations[target.id] = conversation;
     _queuePersist();
     _notify();
+    unawaited(_loadInitialConversationMessages(conversation));
     if (_isPolling && !_usingPollingFallback && _eventSubscription != null) {
       unawaited(_restartEventListening());
+    }
+  }
+
+  Future<void> _loadInitialConversationMessages(
+    DingTalkConversation conversation,
+  ) async {
+    if (_disposed || !isAuthorized) return;
+    if (!_conversationRefreshInFlight.add(conversation.id)) return;
+    _notify();
+    try {
+      final page = await _service.queryConversationPage(
+        conversation: conversation,
+        limit: _initialConversationHistoryMessageLimit,
+      );
+      if (_disposed ||
+          !identical(_conversations[conversation.id], conversation)) {
+        return;
+      }
+      final initialMessages =
+          page.messages.length <= _initialConversationHistoryMessageLimit
+          ? page.messages
+          : page.messages.sublist(
+              page.messages.length - _initialConversationHistoryMessageLimit,
+            );
+      _ingestReconciledMessages(
+        conversation,
+        initialMessages,
+        allowResponses: false,
+      );
+      final state = _conversationHistoryStates.putIfAbsent(
+        conversation.id,
+        _DingTalkConversationHistoryState.new,
+      );
+      // 首次建会话只导入最近 20 条已有消息，后续新消息不受此上限影响。
+      state
+        ..hasMore = false
+        ..initialized = true;
+    } catch (error, stack) {
+      if (!_disposed) {
+        _setError('同步钉钉新会话历史消息', error, stack);
+      }
+    } finally {
+      _conversationRefreshInFlight.remove(conversation.id);
+      _notify();
     }
   }
 
@@ -2474,7 +2521,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     bool allowResponse = true,
     bool allowHistorical = false,
   }) {
-    if (!_isPolling || _disposed) return;
+    if (_disposed || (!_isPolling && !allowHistorical)) return;
     final messageId = normalizeDingTalkMessageId(message.id);
     if (messageId.isEmpty) return;
     final normalizedMessage = messageId == message.id
@@ -2971,6 +3018,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     bool allowResponses = true,
     bool reportError = true,
     DateTime? before,
+    bool allowHistoricalBackfill = false,
   }) async {
     if (_disposed || !_isPolling) return null;
     if (force) {
@@ -3009,13 +3057,15 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           conversation.id,
           _DingTalkConversationHistoryState.new,
         );
-        state
-          ..hasMore = page.hasMore
-          ..initialized = true;
+        if (!state.initialized) state.hasMore = page.hasMore;
+        state.initialized = true;
         return _ingestReconciledMessages(
           conversation,
           page.messages,
           allowResponses: allowResponses,
+          historicalMessageFloor: allowHistoricalBackfill
+              ? null
+              : conversation.createdAt.subtract(_conversationStartSkew),
         );
       } catch (error, stack) {
         if (_disposed || !_isPolling) return null;
@@ -3084,6 +3134,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     DingTalkConversation conversation,
     List<DingTalkGatewayMessage> messages, {
     bool allowResponses = true,
+    DateTime? historicalMessageFloor,
   }) {
     final initialMessageCount = conversation.messages.length;
     if (conversation.type == DingTalkConversationType.direct &&
@@ -3107,6 +3158,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     for (final message in messages) {
       final messageId = normalizeDingTalkMessageId(message.id);
       final isNew = messageId.isNotEmpty && !knownIds.contains(messageId);
+      if (isNew &&
+          historicalMessageFloor != null &&
+          message.createdAt.isBefore(historicalMessageFloor)) {
+        continue;
+      }
       _handleIncomingMessage(
         message,
         allowResponse:
@@ -3238,15 +3294,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       (message) => message.id == sourceMessageId,
     );
     if (sourceIndex < 0) return;
-    final checkpointId =
-        conversation.aiContextCheckpointMessageId?.trim() ?? '';
-    final checkpointIndex = forceResponse || checkpointId.isEmpty
-        ? -1
-        : conversation.messages.indexWhere(
-            (message) => message.id == checkpointId,
-          );
+    final startIndex = _conversationTurnStartIndex(
+      conversation,
+      sourceIndex,
+      forceResponse: forceResponse,
+    );
     final candidates = <DingTalkGatewayMessage>[];
-    for (var index = sourceIndex; index > checkpointIndex; index--) {
+    for (var index = sourceIndex; index >= startIndex; index--) {
       final message = conversation.messages[index];
       if (message.isAssistant ||
           message.isExcludedFromAiContext ||
@@ -3925,19 +3979,11 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       (message) => message.id == sourceMessageId,
     );
     if (sourceIndex < 0) return const <DingTalkGatewayMessage>[];
-    final checkpointId =
-        conversation.aiContextCheckpointMessageId?.trim() ?? '';
-    var startIndex = 0;
-    if (checkpointId.isNotEmpty) {
-      final checkpointIndex = conversation.messages.indexWhere(
-        (message) => message.id == checkpointId,
-      );
-      if (!forceResponse &&
-          checkpointIndex >= 0 &&
-          checkpointIndex < sourceIndex) {
-        startIndex = checkpointIndex + 1;
-      }
-    }
+    final startIndex = _conversationTurnStartIndex(
+      conversation,
+      sourceIndex,
+      forceResponse: forceResponse,
+    );
     return conversation.messages
         .sublist(startIndex, sourceIndex + 1)
         .where(
@@ -3947,6 +3993,33 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
               message.content.trim().isNotEmpty,
         )
         .toList(growable: false);
+  }
+
+  int _conversationTurnStartIndex(
+    DingTalkConversation conversation,
+    int sourceIndex, {
+    required bool forceResponse,
+  }) {
+    if (forceResponse) {
+      for (var index = sourceIndex - 1; index >= 0; index--) {
+        final message = conversation.messages[index];
+        if (message.isAssistant && !message.isExcludedFromAiContext) {
+          return index + 1;
+        }
+      }
+      return 0;
+    }
+    final checkpointId =
+        conversation.aiContextCheckpointMessageId?.trim() ?? '';
+    if (checkpointId.isNotEmpty) {
+      final checkpointIndex = conversation.messages.indexWhere(
+        (message) => message.id == checkpointId,
+      );
+      if (checkpointIndex >= 0 && checkpointIndex < sourceIndex) {
+        return checkpointIndex + 1;
+      }
+    }
+    return 0;
   }
 
   List<String> _attachmentPathsForTurn(
@@ -3959,8 +4032,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     );
     if (endIndex < 0) endIndex = conversation.messages.length - 1;
     if (endIndex < 0) return const <String>[];
+    final startIndex = _conversationTurnStartIndex(
+      conversation,
+      endIndex,
+      forceResponse: forceResponse,
+    );
     final selected = <String>[];
-    for (var index = endIndex; index >= 0; index--) {
+    for (var index = endIndex; index >= startIndex; index--) {
       final message = conversation.messages[index];
       if (message.isAssistant) {
         if (forceResponse) continue;
@@ -5059,6 +5137,7 @@ ${_markdownStructuredFields(response)}''';
             allowResponses: false,
             reportError: false,
             before: item.scheduledAt,
+            allowHistoricalBackfill: true,
           );
           if (_isResponseCancelled(conversation.id, preparationVersion)) {
             return;

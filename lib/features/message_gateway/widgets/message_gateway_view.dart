@@ -12569,13 +12569,51 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                 Expanded(
                                   child: selected.messages.isEmpty
                                       ? Center(
-                                          child: Text(
-                                            '暂无消息，发送一条消息开始交流',
-                                            style: theme.textTheme.bodyMedium
-                                                ?.copyWith(
-                                                  color:
-                                                      colors.onSurfaceVariant,
-                                                ),
+                                          child: AnimatedSwitcher(
+                                            duration: openHandMotionDuration(
+                                              context,
+                                              kOpenHandMotion220,
+                                            ),
+                                            child: selectedRefreshing
+                                                ? Row(
+                                                    key: const ValueKey<String>(
+                                                      'dingtalk-initial-history-loading',
+                                                    ),
+                                                    mainAxisSize:
+                                                        MainAxisSize.min,
+                                                    children: [
+                                                      const SizedBox(
+                                                        width: 20,
+                                                        height: 20,
+                                                        child:
+                                                            CircularProgressIndicator(
+                                                              strokeWidth: 2.2,
+                                                            ),
+                                                      ),
+                                                      kOpenHandHGap10,
+                                                      Text(
+                                                        '正在同步最近 20 条消息…',
+                                                        style: theme.textTheme.bodyMedium
+                                                            ?.copyWith(
+                                                              color: colors
+                                                                  .onSurfaceVariant,
+                                                            ),
+                                                      ),
+                                                    ],
+                                                  )
+                                                : Text(
+                                                    '暂无消息，发送一条消息开始交流',
+                                                    key: const ValueKey<String>(
+                                                      'dingtalk-empty-conversation',
+                                                    ),
+                                                    style: theme
+                                                        .textTheme
+                                                        .bodyMedium
+                                                        ?.copyWith(
+                                                          color: colors
+                                                              .onSurfaceVariant,
+                                                        ),
+                                                  ),
                                           ),
                                         )
                                       : Listener(
@@ -13895,19 +13933,36 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   }
 
   Widget _buildForceResponseButton(DingTalkConversation conversation) {
+    final loadingHistory = widget.controller.isRefreshingConversationMessages(
+      conversation.id,
+    );
     final enabled =
         !_attachmentBusy &&
+        !loadingHistory &&
         !widget.controller.isSending &&
         !widget.controller.isConversationResponding(conversation.id);
     return Tooltip(
-      message: '强制响应历史消息',
+      message: loadingHistory ? '正在同步会话历史消息' : '强制响应历史消息',
       child: SizedBox(
         width: _composerIconButtonSize,
         height: _composerIconButtonSize,
         child: FilledButton.tonal(
           style: _composerIconButtonStyle(),
           onPressed: enabled ? () => _forceRespond(conversation) : null,
-          child: const Icon(Icons.auto_awesome_rounded),
+          child: AnimatedSwitcher(
+            duration: openHandMotionDuration(context, kOpenHandMotion180),
+            child: loadingHistory
+                ? const SizedBox(
+                    key: ValueKey<String>('force-response-history-loading'),
+                    width: 18,
+                    height: 18,
+                    child: CircularProgressIndicator(strokeWidth: 2),
+                  )
+                : const Icon(
+                    Icons.auto_awesome_rounded,
+                    key: ValueKey<String>('force-response-ready'),
+                  ),
+          ),
         ),
       ),
     );

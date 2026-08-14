@@ -32,7 +32,6 @@ class DingTalkMessageGatewayStore {
   static const int _maxBytes = 512 * kBytesPerKiB;
   static const int _maxConversations = 200;
   static const int _maxMessagesPerConversation = 1000;
-  static const int _initialMessagesPerConversation = 50;
   static const int _maxMessageContentLength = 256 * kBytesPerKiB;
   final String filePath;
   String? _expectedContent;
@@ -66,9 +65,10 @@ class DingTalkMessageGatewayStore {
           final conversation = DingTalkConversation.fromJson(
             stringKeyedMapFromValue(item),
           );
+          // 20 条限制只用于首次导入远端历史；重启后恢复全部已持久化消息。
           final messages = _keepRecentMessages(
             conversation.messages,
-            maxMessages: _initialMessagesPerConversation,
+            maxMessages: _maxMessagesPerConversation,
           );
           conversation.messages
             ..clear()
