@@ -24,6 +24,21 @@ final class BoundedByteStreamPrefix {
   final bool truncated;
 }
 
+/// 判断响应类型是否符合调用方要求。
+///
+/// 部分下载服务会把二进制内容标记为 `application/octet-stream`，在显式允许
+/// 时将其视为兼容类型；缺失 Content-Type 不作强制猜测，交由调用方决定。
+bool matchesExpectedContentType(
+  ContentType? contentType, {
+  required String expectedPrimaryType,
+  bool allowOctetStream = true,
+}) {
+  if (contentType == null) return true;
+  if (contentType.primaryType == expectedPrimaryType) return true;
+  return allowOctetStream &&
+      contentType.mimeType == kApplicationOctetStreamMimeType;
+}
+
 /// 获取 HTTP(S) 资源，并统一执行状态码、类型、空闲时限、总时限和容量校验。
 /// 调用方仍负责关闭 [client]。
 Future<Uint8List> fetchBoundedHttpBytes({
@@ -69,11 +84,15 @@ Future<Uint8List> fetchBoundedHttpBytes({
       }
       final contentType = response.headers.contentType;
       if (expectedPrimaryType != null &&
-          contentType != null &&
-          contentType.primaryType != expectedPrimaryType &&
-          (!allowOctetStream ||
-              contentType.mimeType != kApplicationOctetStreamMimeType)) {
-        throw HttpException('响应内容类型不符合预期：${contentType.mimeType}', uri: uri);
+          !matchesExpectedContentType(
+            contentType,
+            expectedPrimaryType: expectedPrimaryType,
+            allowOctetStream: allowOctetStream,
+          )) {
+        throw HttpException(
+          '响应内容类型不符合预期：${contentType?.mimeType ?? '未知'}',
+          uri: uri,
+        );
       }
       final remainingTotal = totalTimeout == null
           ? null

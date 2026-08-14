@@ -718,7 +718,8 @@ class _MessageBubbleState extends State<_MessageBubble>
       textColor.toARGB32(),
       useDarkCodeSurface,
     );
-    final environmentKey = messageIdUnchanged &&
+    final environmentKey =
+        messageIdUnchanged &&
             _lastCacheThemeSignature == themeSignature &&
             _lastCacheEnvironmentKey != null
         ? _lastCacheEnvironmentKey!
@@ -1019,8 +1020,7 @@ class _MessageBubbleState extends State<_MessageBubble>
     final isScrollHighlighted = widget.isScrollHighlighted;
     final highlightBorderColor = colorScheme.primary.withValues(alpha: 0.78);
     final bubbleCard = AnimatedContainer(
-      duration: openHandMotionDuration(context, kOpenHandMotion260,
-      ),
+      duration: openHandMotionDuration(context, kOpenHandMotion260),
       curve: kCardDecorationMotionCurve,
       decoration: BoxDecoration(
         color: backgroundColor,
@@ -2263,11 +2263,15 @@ Future<void> _downloadRemoteUriToFile({
     }
     final contentType = response.headers.contentType;
     if (expectedPrimaryType != null &&
-        contentType != null &&
-        contentType.primaryType != expectedPrimaryType &&
-        (!allowOctetStream ||
-            contentType.mimeType != kApplicationOctetStreamMimeType)) {
-      throw HttpException('媒体响应类型不符合预期：${contentType.mimeType}', uri: uri);
+        !matchesExpectedContentType(
+          contentType,
+          expectedPrimaryType: expectedPrimaryType,
+          allowOctetStream: allowOctetStream,
+        )) {
+      throw HttpException(
+        '媒体响应类型不符合预期：${contentType?.mimeType ?? '未知'}',
+        uri: uri,
+      );
     }
     if (response.contentLength > maxBytes) {
       throw FileSystemException('媒体下载超过容量上限。', destination);
@@ -2403,8 +2407,7 @@ Future<void> _openLocalPathWithSystemApp(
   // 会被 open / xdg-open 当作 URL / flag 处理。
   final looksLikeUri = _uriSchemePattern.hasMatch(normalizedPath);
   final isWindowsDrivePath =
-      Platform.isWindows &&
-      _windowsDrivePathPattern.hasMatch(normalizedPath);
+      Platform.isWindows && _windowsDrivePathPattern.hasMatch(normalizedPath);
   final hasLeadingDash = normalizedPath.startsWith('-');
   if ((looksLikeUri && !isWindowsDrivePath) || hasLeadingDash) {
     if (context.mounted) {
@@ -2429,9 +2432,7 @@ Future<void> _openLocalPathWithSystemApp(
       return;
     }
     throw FileSystemException(
-      isDesktopPlatform()
-          ? 'Failed to open file.'
-          : 'Unsupported platform.',
+      isDesktopPlatform() ? 'Failed to open file.' : 'Unsupported platform.',
       normalizedPath,
     );
   } catch (error) {
@@ -2516,7 +2517,9 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
         horizontalMargin: 48,
         safeAreaMinimum: const EdgeInsets.all(24),
         backgroundColor: colorScheme.surface,
-        shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
+        shape: const RoundedRectangleBorder(
+          borderRadius: kOpenHandBorderRadius16,
+        ),
         child: Column(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -2723,7 +2726,9 @@ class _FilePreviewDialogState extends State<_FilePreviewDialog> {
   }
 }
 
-const BorderRadius _imageShimmerRadius = BorderRadius.all(Radius.circular(kOpenHandRadius12));
+const BorderRadius _imageShimmerRadius = BorderRadius.all(
+  Radius.circular(kOpenHandRadius12),
+);
 const double _imageShimmerIconSize = 48;
 
 /// 图片帧解码期间的骨架占位。
@@ -3009,7 +3014,9 @@ class _ImagePreviewDialogState extends State<_ImagePreviewDialog>
         width: metrics.dialogWidth,
         maxHeight: metrics.maxDialogHeight,
         backgroundColor: colorScheme.surface,
-        shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius16),
+        shape: const RoundedRectangleBorder(
+          borderRadius: kOpenHandBorderRadius16,
+        ),
         child: maybeAnimatedSize(
           duration: motionSettings.entranceDuration,
           curve: motionSettings.curve.curve,
@@ -4000,7 +4007,9 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
                             ),
                             decoration: BoxDecoration(
                               color: Colors.black.withValues(alpha: 0.55),
-                              borderRadius: BorderRadius.circular(kOpenHandRadius6),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius6,
+                              ),
                             ),
                             child: const Row(
                               mainAxisSize: MainAxisSize.min,
@@ -7273,8 +7282,10 @@ class _SelectedMessageContextRow extends StatelessWidget {
   /// 消息自带知识库元数据的 used-references 结果缓存（按消息对象）。
   /// 面板可见期间每次 build 重跑全文引用匹配是 O(答案长度 × 词条数) 的
   /// 纯浪费；消息不可变，一次计算终身有效。
-  static final Expando<_KnowledgeBaseMetadataCacheEntry> _selfUsedMetadataCache =
-      Expando<_KnowledgeBaseMetadataCacheEntry>('selfKnowledgeBaseUsed');
+  static final Expando<_KnowledgeBaseMetadataCacheEntry>
+  _selfUsedMetadataCache = Expando<_KnowledgeBaseMetadataCacheEntry>(
+    'selfKnowledgeBaseUsed',
+  );
 
   static Map<String, Object?>? _selfUsedKnowledgeBaseMetadata(
     AiSessionMessage message,
