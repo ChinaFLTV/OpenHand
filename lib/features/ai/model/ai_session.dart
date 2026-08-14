@@ -789,6 +789,10 @@ class AiSession {
   bool get isDingTalkGatewaySession =>
       metadata['created_via'] == 'dingtalk_gateway' ||
       metadata.containsKey('dingtalk_conversation_id');
+
+  /// 是否允许出现在主工作区并成为当前线程。
+  bool get isPrimaryWorkspaceSession => !isDingTalkGatewaySession;
+
   // 派生自 [messages] 的 O(N) 缓存。刻意不用 `late final` 字段初始化器：
   // 那样每个 copyWith 产出的新实例都会在首次访问时重跑全量扫描，而
   // 绝大多数 copyWith（改标题 / 统计 / 错误 / 流式节流等）并不改动

@@ -797,7 +797,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
 
   List<AiSession> _navigationSessions(AiSessionController sessionController) {
     final sessions = sessionController.sessions
-        .where((session) => !session.isDingTalkGatewaySession)
+        .where((session) => session.isPrimaryWorkspaceSession)
         .toList(growable: false);
     if (sessions.length <= _navigationSessionLimit) {
       return sessions;
@@ -816,7 +816,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     for (final sessionId in retainedIds) {
       if (visibleIds.contains(sessionId)) continue;
       final session = sessionController.sessionById(sessionId);
-      if (session == null || session.isDingTalkGatewaySession) continue;
+      if (session == null || !session.isPrimaryWorkspaceSession) continue;
       final isCurrent = sessionId == sessionController.currentSessionId;
       if (isCurrent ||
           _displaySendPhaseForSession(sessionController, sessionId) !=
@@ -851,7 +851,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
     final sessionCount = context
         .read<AiSessionController>()
         .sessions
-        .where((session) => !session.isDingTalkGatewaySession)
+        .where((session) => session.isPrimaryWorkspaceSession)
         .length;
     if (_navigationSessionLimit >= sessionCount) return;
     setState(() {
@@ -3146,7 +3146,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
   Future<void> _cycleSessionSelection(int delta) async {
     final sessionController = context.read<AiSessionController>();
     final sessions = sessionController.sessions
-        .where((session) => !session.isDingTalkGatewaySession)
+        .where((session) => session.isPrimaryWorkspaceSession)
         .toList(growable: false);
     if (sessions.isEmpty) {
       return;
@@ -9536,7 +9536,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
                             totalSessionCount: sessionController.sessions
                                 .where(
                                   (session) =>
-                                      !session.isDingTalkGatewaySession,
+                                      session.isPrimaryWorkspaceSession,
                                 )
                                 .length,
                             harnessInsertionIndex:

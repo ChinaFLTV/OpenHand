@@ -1082,12 +1082,13 @@ class AiSessionController extends ChangeNotifier {
   bool get isLoading => _isLoading;
   bool get isMessagesHydrating => _isMessagesHydrating;
   bool get isSending => _sessionSendPhases.isNotEmpty;
-  AiSendPhase get sendPhase => sendPhaseForSession(_currentSessionId);
-  String? get currentSessionId => _currentSessionId;
+  AiSendPhase get sendPhase => sendPhaseForSession(currentSessionId);
+  String? get currentSessionId =>
+      _primaryWorkspaceSessionById(_currentSessionId)?.id;
   AiSessionDeletionNotice? get lastDeletionNotice => _lastDeletionNotice;
   String? get editingMessageId => _editingMessageId;
   String? get lastErrorMessage {
-    final currentSessionId = _currentSessionId;
+    final currentSessionId = this.currentSessionId;
     if (currentSessionId != null) {
       final sessionError = _lastErrorMessagesBySession[currentSessionId];
       if (sessionError != null) {
@@ -1550,11 +1551,7 @@ class AiSessionController extends ChangeNotifier {
   }
 
   AiSession? get currentSession {
-    final currentSessionId = _currentSessionId;
-    if (currentSessionId == null) {
-      return null;
-    }
-    return _sessionsById[currentSessionId];
+    return _primaryWorkspaceSessionById(_currentSessionId);
   }
 
   AiSessionMessage? get editingMessage {
@@ -1746,18 +1743,6 @@ class AiSessionController extends ChangeNotifier {
         // _sessionStreamThrottleOverrides，让上次设过会话节流的会话
         // 冷启动后立刻继续生效。
         _rehydrateThrottleOverrides();
-        final currentSessionId = _currentSessionId;
-        final currentSession = currentSessionId == null
-            ? null
-            : _sessionsById[currentSessionId];
-        // 冷启动保持“未选择会话”状态，避免自动打开持久化列表中的第一条。
-        // 仅当已有选择失效，或误指向钉钉内部会话时清空选择；用户主动点击
-        // 或新建会话仍由 selectSession/createSession 负责更新当前会话。
-        if (currentSessionId != null &&
-            (currentSession == null ||
-                currentSession.isDingTalkGatewaySession)) {
-          _currentSessionId = null;
-        }
         final editingMessageId = _editingMessageId;
         if (editingMessageId != null &&
             !_sessions.any(
@@ -1829,13 +1814,10 @@ class AiSessionController extends ChangeNotifier {
   }
 
   Future<void> selectSession(String sessionId) async {
-    if (!_sessionsById.containsKey(sessionId)) {
-      return;
-    }
+    final session = _primaryWorkspaceSessionById(sessionId);
+    if (session == null) return;
     if (_currentSessionId == sessionId) {
-      final selectedSession = _sessionById(sessionId);
-      if (selectedSession != null &&
-          _sessionNeedsInitialMessageWindow(selectedSession)) {
+      if (_sessionNeedsInitialMessageWindow(session)) {
         unawaited(ensureSessionMessageWindowHydrated(sessionId));
       }
       return;
@@ -1854,7 +1836,7 @@ class AiSessionController extends ChangeNotifier {
   }
 
   AiSession? _primeSelectedSessionMessageWindow(String sessionId) {
-    final selectedSession = _sessionById(sessionId);
+    final selectedSession = _primaryWorkspaceSessionById(sessionId);
     if (selectedSession != null &&
         _sessionNeedsInitialMessageWindow(selectedSession)) {
       _hydratingSessionMessageIds.add(sessionId);
@@ -2716,7 +2698,7 @@ class AiSessionController extends ChangeNotifier {
     if (!committed) {
       return false;
     }
-    if (selectAfterCreate) {
+    if (selectAfterCreate && session.isPrimaryWorkspaceSession) {
       _currentSessionId = session.id;
       _editingMessageId = null;
     }
@@ -4104,8 +4086,10 @@ class AiSessionController extends ChangeNotifier {
       _store.beginSessionDeletion(sessionId);
       _invalidateSessionMessageLoads(sessionId);
       _setSessions(updatedSessions);
-      if (_currentSessionId == sessionId) {
-        nextSelectedSession = updatedSessions.firstOrNull;
+      if (previousCurrentSessionId == sessionId) {
+        nextSelectedSession = updatedSessions
+            .where((session) => session.isPrimaryWorkspaceSession)
+            .firstOrNull;
         _currentSessionId = nextSelectedSession?.id;
         if (nextSelectedSession != null) {
           nextSelectedSession = _primeSelectedSessionMessageWindow(
@@ -4175,15 +4159,19 @@ class AiSessionController extends ChangeNotifier {
         _sessionDeletionsInProgress.remove(sessionId);
         _store.endSessionDeletion(sessionId);
         _setSessions(previousSessions);
-        _currentSessionId = previousCurrentSessionId;
-        _editingMessageId = previousEditingMessageId;
+        final restoredCurrent = _primaryWorkspaceSessionById(
+          previousCurrentSessionId,
+        );
+        _currentSessionId = restoredCurrent?.id;
+        _editingMessageId = restoredCurrent == null
+            ? null
+            : previousEditingMessageId;
         _didCompressInLastSendBySession
           ..clear()
           ..addAll(previousDidCompressInLastSendBySession);
         _lastErrorMessagesBySession
           ..clear()
           ..addAll(previousLastErrorMessagesBySession);
-        final restoredCurrent = _sessionById(previousCurrentSessionId ?? '');
         if (restoredCurrent != null &&
             _sessionNeedsInitialMessageWindow(restoredCurrent)) {
           _scheduleSelectedSessionMessageWindowHydration(
@@ -4429,7 +4417,7 @@ class AiSessionController extends ChangeNotifier {
         final sourceSession =
             await ensureSessionMessagesHydrated(resolvedSessionId) ??
             _sessionById(resolvedSessionId);
-        if (sourceSession == null) {
+        if (sourceSession == null || !sourceSession.isPrimaryWorkspaceSession) {
           return null;
         }
         final forkIndex = sourceSession.messages.indexWhere(
@@ -4579,7 +4567,9 @@ class AiSessionController extends ChangeNotifier {
           notifyListeners();
           return _sessionById(rebuiltSession.id) ?? rebuiltSession;
         }
-        _currentSessionId = previousCurrentSessionId;
+        _currentSessionId = _primaryWorkspaceSessionById(
+          previousCurrentSessionId,
+        )?.id;
         _editingMessageId = previousEditingMessageId;
         notifyListeners();
         return null;
@@ -4589,7 +4579,9 @@ class AiSessionController extends ChangeNotifier {
           error,
           operation: 'save',
         );
-        _currentSessionId = previousCurrentSessionId;
+        _currentSessionId = _primaryWorkspaceSessionById(
+          previousCurrentSessionId,
+        )?.id;
         _editingMessageId = previousEditingMessageId;
         notifyListeners();
         return null;
@@ -11961,6 +11953,7 @@ $tail''';
     _sessions = updatedSessions;
     _sessionsView = List<AiSession>.unmodifiable(updatedSessions);
     _sessionsById[normalized.id] = normalized;
+    _clearInvalidCurrentSessionSelection();
   }
 
   AiSession? _replaceSessionHeaderInMemory(
@@ -11996,7 +11989,7 @@ $tail''';
     final updatedSessions = List<AiSession>.from(_sessions);
     updatedSessions[existingIndex] = effectiveSession;
     _setSessions(updatedSessions);
-    if (keepCurrentIfUnset) {
+    if (keepCurrentIfUnset && session.isPrimaryWorkspaceSession) {
       _currentSessionId ??= session.id;
     }
     notifyListeners();
@@ -12197,6 +12190,7 @@ $tail''';
     _sessionsById = <String, AiSession>{
       for (final session in normalizedSessions) session.id: session,
     };
+    _clearInvalidCurrentSessionSelection();
   }
 
   List<AiSession> _mergeHeaderSessionsWithLiveMessages(
@@ -12233,6 +12227,21 @@ $tail''';
 
   AiSession? _sessionById(String sessionId) {
     return _sessionsById[sessionId];
+  }
+
+  AiSession? _primaryWorkspaceSessionById(String? sessionId) {
+    if (sessionId == null || sessionId.isEmpty) return null;
+    final session = _sessionsById[sessionId];
+    return session?.isPrimaryWorkspaceSession == true ? session : null;
+  }
+
+  void _clearInvalidCurrentSessionSelection() {
+    if (_currentSessionId == null ||
+        _primaryWorkspaceSessionById(_currentSessionId) != null) {
+      return;
+    }
+    _currentSessionId = null;
+    _editingMessageId = null;
   }
 
   Future<void> _emitSessionStartHook({
