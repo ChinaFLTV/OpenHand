@@ -208,6 +208,7 @@ class _MessageBubbleState extends State<_MessageBubble>
   // 左上方胶囊（思考 / 工具调用 / 工具结果）有自己的
   // 折叠/展开语义。指针落在胶囊内部时不应触发外层 Listener 的"选中
   // 卡片"，否则会同时切换胶囊折叠和功能按钮。
+  final GlobalKey _bubbleInteractionKey = GlobalKey();
   final GlobalKey _metaCapsuleKey = GlobalKey();
   final GlobalKey _actionPanelKey = GlobalKey();
 
@@ -519,6 +520,13 @@ class _MessageBubbleState extends State<_MessageBubble>
     final topLeft = box.localToGlobal(Offset.zero);
     final rect = topLeft & box.size;
     return rect.contains(globalPosition);
+  }
+
+  bool _isPointerInsideBubbleInteraction(Offset globalPosition) {
+    final box = _bubbleInteractionKey.currentContext?.findRenderObject();
+    if (box is! RenderBox || !box.attached) return false;
+    final topLeft = box.localToGlobal(Offset.zero);
+    return (topLeft & box.size).contains(globalPosition);
   }
 
   /// 选中后的功能胶囊只承载消息操作，不参与消息卡片聚焦/失焦切换。
@@ -1619,7 +1627,86 @@ class _MessageBubbleState extends State<_MessageBubble>
       alignment: alignment,
       child: ConstrainedBox(
         constraints: const BoxConstraints(maxWidth: _messageBubbleMaxWidth),
-        child: bubbleCard,
+        child: Listener(
+          key: _bubbleInteractionKey,
+          behavior: HitTestBehavior.opaque,
+          onPointerDown: (event) {
+            _pointerDownPosition = event.position;
+            _pointerDownAt = DateTime.now();
+            _htmlPointerDownState = _htmlInteractiveStateAt(event.position);
+            _htmlSelectionDragActive = false;
+          },
+          onPointerMove: (event) {
+            final htmlState = _htmlPointerDownState;
+            final downPos = _pointerDownPosition;
+            if (htmlState == null || downPos == null) return;
+            if (_htmlInteractiveStateAt(event.position) == null) return;
+            final movement = (event.position - downPos).distance;
+            if (movement <= _htmlSelectionDragStartDistance) return;
+            if (!_htmlSelectionDragActive) {
+              _htmlSelectionDragActive = true;
+              htmlState.beginSelectionAtGlobal(downPos);
+            }
+            htmlState.updateSelectionAtGlobal(event.position);
+          },
+          onPointerCancel: (event) {
+            _pointerDownPosition = null;
+            _pointerDownAt = null;
+            _htmlPointerDownState = null;
+            _htmlSelectionDragActive = false;
+          },
+          onPointerUp: (event) {
+            final downPos = _pointerDownPosition;
+            final downAt = _pointerDownAt;
+            final htmlStateFromDown = _htmlPointerDownState;
+            final htmlSelectionActive = _htmlSelectionDragActive;
+            _pointerDownPosition = null;
+            _pointerDownAt = null;
+            _htmlPointerDownState = null;
+            _htmlSelectionDragActive = false;
+            if (downPos == null || downAt == null) return;
+            // 命中消息卡片内的元数据胶囊时，只执行胶囊自身的折叠操作。
+            if (_isPointerInsideMetaCapsule(event.position)) return;
+            if (_isPointerInsideActionPanel(event.position) ||
+                _isPointerInsideActionPanel(downPos)) {
+              return;
+            }
+            // HTML 内嵌交互区域自行处理点击与文本选择。
+            final htmlStateUp = _htmlInteractiveStateAt(event.position);
+            final htmlStateDown =
+                htmlStateFromDown ?? _htmlInteractiveStateAt(downPos);
+            if (_isPointerInsideEmbeddedInteractiveRegion(event.position) ||
+                _isPointerInsideEmbeddedInteractiveRegion(downPos)) {
+              return;
+            }
+            if (htmlStateUp != null || htmlStateDown != null) {
+              if (htmlSelectionActive) {
+                (htmlStateUp ?? htmlStateDown)?.finishSelectionAtGlobal(
+                  event.position,
+                );
+                return;
+              }
+              final movement = (event.position - downPos).distance;
+              final elapsed = DateTime.now().difference(downAt);
+              if (movement <= _selectionTapMaxDistance &&
+                  elapsed <= _htmlTapMaxDuration) {
+                (htmlStateUp ?? htmlStateDown)?.simulateTapAtGlobal(
+                  event.position,
+                );
+              }
+              return;
+            }
+            final movement = (event.position - downPos).distance;
+            final elapsed = DateTime.now().difference(downAt);
+            if (movement <= _selectionTapMaxDistance &&
+                elapsed <= _selectionTapMaxDuration) {
+              if (!_isPointerInsideBubbleInteraction(event.position)) return;
+              // 延迟切换，给卡片内部按钮一个取消切换的时间窗口。
+              _scheduleSelectionToggle();
+            }
+          },
+          child: bubbleCard,
+        ),
       ),
     );
     final messageLayout = Column(
@@ -1642,94 +1729,7 @@ class _MessageBubbleState extends State<_MessageBubble>
       ],
     );
 
-    return Listener(
-      behavior: HitTestBehavior.translucent,
-      onPointerDown: (event) {
-        _pointerDownPosition = event.position;
-        _pointerDownAt = DateTime.now();
-        _htmlPointerDownState = _htmlInteractiveStateAt(event.position);
-        _htmlSelectionDragActive = false;
-      },
-      onPointerMove: (event) {
-        final htmlState = _htmlPointerDownState;
-        final downPos = _pointerDownPosition;
-        if (htmlState == null || downPos == null) return;
-        if (_htmlInteractiveStateAt(event.position) == null) return;
-        final movement = (event.position - downPos).distance;
-        if (movement <= _htmlSelectionDragStartDistance) return;
-        if (!_htmlSelectionDragActive) {
-          _htmlSelectionDragActive = true;
-          htmlState.beginSelectionAtGlobal(downPos);
-        }
-        htmlState.updateSelectionAtGlobal(event.position);
-      },
-      onPointerCancel: (event) {
-        _pointerDownPosition = null;
-        _pointerDownAt = null;
-        _htmlPointerDownState = null;
-        _htmlSelectionDragActive = false;
-      },
-      onPointerUp: (event) {
-        final downPos = _pointerDownPosition;
-        final downAt = _pointerDownAt;
-        final htmlStateFromDown = _htmlPointerDownState;
-        final htmlSelectionActive = _htmlSelectionDragActive;
-        _pointerDownPosition = null;
-        _pointerDownAt = null;
-        _htmlPointerDownState = null;
-        _htmlSelectionDragActive = false;
-        if (downPos == null || downAt == null) {
-          return;
-        }
-        // 左上方"思考 / 工具调用 / 工具结果"胶囊有自己的
-        // 折叠/展开手势，不应顺带触发整张消息卡的"选中"。这里取胶囊
-        // 全局矩形与抬起点比较，命中即直接 swallow 不切换 selection。
-        if (_isPointerInsideMetaCapsule(event.position)) {
-          return;
-        }
-        if (_isPointerInsideActionPanel(event.position) ||
-            _isPointerInsideActionPanel(downPos)) {
-          return;
-        }
-        // HTML 消息中 WebView 内部按钮/链接/表单的点击不能被气泡
-        // 选中切换吞掉，否则点了没反应、还多了一条功能按钮条。
-        // 同时——macOS Flutter embedder 不会把鼠标事件转发给嵌入的
-        // WKWebView 平台视图，所以这里在 tap-like 抬起时主动把坐标
-        // 喂给对应 WebView 的 simulateTapAtGlobal()，用 JS 合成点击。
-        final htmlStateUp = _htmlInteractiveStateAt(event.position);
-        final htmlStateDown =
-            htmlStateFromDown ?? _htmlInteractiveStateAt(downPos);
-        if (_isPointerInsideEmbeddedInteractiveRegion(event.position) ||
-            _isPointerInsideEmbeddedInteractiveRegion(downPos)) {
-          return;
-        }
-        if (htmlStateUp != null || htmlStateDown != null) {
-          if (htmlSelectionActive) {
-            (htmlStateUp ?? htmlStateDown)?.finishSelectionAtGlobal(
-              event.position,
-            );
-            return;
-          }
-          final movement = (event.position - downPos).distance;
-          final elapsed = DateTime.now().difference(downAt);
-          if (movement <= _selectionTapMaxDistance &&
-              elapsed <= _htmlTapMaxDuration) {
-            (htmlStateUp ?? htmlStateDown)?.simulateTapAtGlobal(event.position);
-          }
-          return;
-        }
-        final movement = (event.position - downPos).distance;
-        final elapsed = DateTime.now().difference(downAt);
-        if (movement <= _selectionTapMaxDistance &&
-            elapsed <= _selectionTapMaxDuration) {
-          // Toggle: 已选中时再次点击隐藏功能按钮，未选中时显示。
-          // 延迟 80ms，给气泡内的子交互回调（链接 / 图片 / 工具栏按钮）
-          // 一个调用 markInteractiveTap() 取消切换的窗口期。
-          _scheduleSelectionToggle();
-        }
-      },
-      child: _BubbleHtmlInteractiveScope(state: this, child: messageLayout),
-    );
+    return _BubbleHtmlInteractiveScope(state: this, child: messageLayout);
   }
 }
 
