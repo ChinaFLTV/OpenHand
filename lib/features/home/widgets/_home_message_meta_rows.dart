@@ -76,19 +76,47 @@ _MetaCapsulePalette _responseMetaCapsulePalette(
   );
 }
 
-class _ReasoningMetaRow extends StatefulWidget {
+abstract class _ElapsedMessageWidget extends StatefulWidget {
+  const _ElapsedMessageWidget({super.key, required this.message});
+
+  final AiSessionMessage message;
+
+  bool get shouldTickElapsed;
+
+  bool elapsedTimingChanged(covariant _ElapsedMessageWidget oldWidget);
+}
+
+abstract class _SweepElapsedMetaRow extends _ElapsedMessageWidget {
+  const _SweepElapsedMetaRow({
+    super.key,
+    required super.message,
+    required this.showSweep,
+  });
+
+  final bool showSweep;
+
+  @override
+  bool get shouldTickElapsed => showSweep;
+
+  @override
+  bool elapsedTimingChanged(covariant _SweepElapsedMetaRow oldWidget) {
+    return oldWidget.showSweep != showSweep ||
+        oldWidget.message.id != message.id ||
+        oldWidget.message.createdAt != message.createdAt;
+  }
+}
+
+class _ReasoningMetaRow extends _SweepElapsedMetaRow {
   const _ReasoningMetaRow({
     super.key,
-    required this.message,
+    required super.message,
     required this.color,
-    required this.showSweep,
+    required super.showSweep,
     required this.expanded,
     required this.onTap,
   });
 
-  final AiSessionMessage message;
   final Color color;
-  final bool showSweep;
   final bool expanded;
   final VoidCallback onTap;
 
@@ -98,19 +126,6 @@ class _ReasoningMetaRow extends StatefulWidget {
 
 class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
     with WidgetsBindingObserver, _ForegroundElapsedTicker<_ReasoningMetaRow> {
-  @override
-  bool get shouldTickElapsed => widget.showSweep;
-
-  @override
-  void didUpdateWidget(covariant _ReasoningMetaRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.showSweep != widget.showSweep ||
-        oldWidget.message.id != widget.message.id ||
-        oldWidget.message.createdAt != widget.message.createdAt) {
-      syncElapsedTicker();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -187,19 +202,17 @@ class _ReasoningMetaRowState extends State<_ReasoningMetaRow>
   }
 }
 
-class _ResponseMetaRow extends StatefulWidget {
+class _ResponseMetaRow extends _SweepElapsedMetaRow {
   const _ResponseMetaRow({
     super.key,
-    required this.message,
+    required super.message,
     required this.color,
-    required this.showSweep,
+    required super.showSweep,
     required this.expanded,
     required this.onTap,
   });
 
-  final AiSessionMessage message;
   final Color color;
-  final bool showSweep;
   final bool expanded;
   final VoidCallback? onTap;
 
@@ -209,19 +222,6 @@ class _ResponseMetaRow extends StatefulWidget {
 
 class _ResponseMetaRowState extends State<_ResponseMetaRow>
     with WidgetsBindingObserver, _ForegroundElapsedTicker<_ResponseMetaRow> {
-  @override
-  bool get shouldTickElapsed => widget.showSweep;
-
-  @override
-  void didUpdateWidget(covariant _ResponseMetaRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (oldWidget.showSweep != widget.showSweep ||
-        oldWidget.message.id != widget.message.id ||
-        oldWidget.message.createdAt != widget.message.createdAt) {
-      syncElapsedTicker();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final theme = Theme.of(context);
@@ -312,17 +312,25 @@ class _ResponseMetaRowState extends State<_ResponseMetaRow>
   }
 }
 
-mixin _ForegroundElapsedTicker<T extends StatefulWidget>
+mixin _ForegroundElapsedTicker<T extends _ElapsedMessageWidget>
     on State<T>, WidgetsBindingObserver {
   Timer? _elapsedTimer;
 
-  bool get shouldTickElapsed;
+  bool get shouldTickElapsed => widget.shouldTickElapsed;
 
   @override
   void initState() {
     super.initState();
     WidgetsBinding.instance.addObserver(this);
     syncElapsedTicker();
+  }
+
+  @override
+  void didUpdateWidget(covariant T oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (widget.elapsedTimingChanged(oldWidget)) {
+      syncElapsedTicker();
+    }
   }
 
   void syncElapsedTicker() {
@@ -357,15 +365,22 @@ mixin _ForegroundElapsedTicker<T extends StatefulWidget>
   }
 }
 
-class _ToolCallMetaRow extends StatefulWidget {
+class _ToolCallMetaRow extends _ElapsedMessageWidget {
   const _ToolCallMetaRow({
     super.key,
-    required this.message,
+    required super.message,
     required this.color,
   });
 
-  final AiSessionMessage message;
   final Color color;
+
+  @override
+  bool get shouldTickElapsed => _shouldTickToolExecutionElapsed(message);
+
+  @override
+  bool elapsedTimingChanged(covariant _ToolCallMetaRow oldWidget) {
+    return _toolExecutionTimingChanged(oldWidget.message, message);
+  }
 
   @override
   State<_ToolCallMetaRow> createState() => _ToolCallMetaRowState();
@@ -373,17 +388,6 @@ class _ToolCallMetaRow extends StatefulWidget {
 
 class _ToolCallMetaRowState extends State<_ToolCallMetaRow>
     with WidgetsBindingObserver, _ForegroundElapsedTicker<_ToolCallMetaRow> {
-  @override
-  bool get shouldTickElapsed => _shouldTickToolExecutionElapsed(widget.message);
-
-  @override
-  void didUpdateWidget(covariant _ToolCallMetaRow oldWidget) {
-    super.didUpdateWidget(oldWidget);
-    if (_toolExecutionTimingChanged(oldWidget.message, widget.message)) {
-      syncElapsedTicker();
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final data = _ToolCallStatusViewData.from(context, widget.message);

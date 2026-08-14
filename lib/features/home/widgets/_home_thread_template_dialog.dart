@@ -185,13 +185,10 @@ class _ThreadTemplateCardState extends State<_ThreadTemplateCard> {
   }
 }
 
-
 Widget _buildProgrammingExpertConfigSection(
   BuildContext context,
   AiSession session,
 ) {
-  final theme = Theme.of(context);
-  final colorScheme = theme.colorScheme;
   final sectionTitle = openHandLocalizedText(
     context,
     zh: '编程专家配置',
@@ -206,25 +203,7 @@ Widget _buildProgrammingExpertConfigSection(
     'programming_expert_config',
   );
   if (configMap == null) {
-    return OpenHandMetadataSection(
-      title: sectionTitle,
-      children: [
-        Text(
-          openHandLocalizedText(
-            context,
-            zh: '配置数据尚未写入会话元数据。',
-            zhHant: '設定資料尚未寫入會話中繼資料。',
-            en: 'Configuration data has not been stored in session metadata.',
-            fr: 'Les données de configuration ne sont pas encore dans les métadonnées de session.',
-            de: 'Konfigurationsdaten wurden noch nicht in den Sitzungsmetadaten gespeichert.',
-            ja: '設定データはまだセッションメタデータに保存されていません。',
-          ),
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
+    return _buildMissingThreadTemplateConfigSection(context, sectionTitle);
   }
 
   final projectRoot = '${configMap['project_root'] ?? ''}'.trim();
@@ -292,7 +271,6 @@ Widget _buildProgrammingExpertConfigSection(
 
 Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
   final theme = Theme.of(context);
-  final colorScheme = theme.colorScheme;
   final sectionTitle = openHandLocalizedText(
     context,
     zh: 'Harness Engineering 配置',
@@ -304,24 +282,10 @@ Widget _buildHarnessConfigSection(BuildContext context, AiSession session) {
   );
   final configMap = _threadTemplateMetadataMap(session, 'harness_config');
   if (configMap == null) {
-    return OpenHandMetadataSection(
-      title: sectionTitle,
-      children: [
-        Text(
-          openHandLocalizedText(
-            context,
-            zh: '配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。',
-            zhHant: '設定資料尚未寫入會話中繼資料（此會話可能早於此功能）。',
-            en: 'Configuration data has not been stored in session metadata (session may predate this feature).',
-            fr: 'Les données de configuration ne sont pas dans les métadonnées de session (session peut-être antérieure à cette fonction).',
-            de: 'Konfigurationsdaten fehlen in den Sitzungsmetadaten (die Sitzung ist eventuell älter als diese Funktion).',
-            ja: '設定データはセッションメタデータにありません（この機能以前のセッションの可能性があります）。',
-          ),
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
+    return _buildMissingThreadTemplateConfigSection(
+      context,
+      sectionTitle,
+      includeLegacyHint: true,
     );
   }
 
@@ -505,9 +469,44 @@ Map<String, Object?>? _threadTemplateMetadataMap(
   return rawValue is Map ? stringKeyedMapFromValue(rawValue) : null;
 }
 
-Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
+Widget _buildMissingThreadTemplateConfigSection(
+  BuildContext context,
+  String title, {
+  bool includeLegacyHint = false,
+}) {
   final theme = Theme.of(context);
-  final colorScheme = theme.colorScheme;
+  return OpenHandMetadataSection(
+    title: title,
+    children: [
+      Text(
+        includeLegacyHint
+            ? openHandLocalizedText(
+                context,
+                zh: '配置数据尚未写入会话元数据（该会话可能创建于功能推出之前）。',
+                zhHant: '設定資料尚未寫入會話中繼資料（此會話可能早於此功能）。',
+                en: 'Configuration data has not been stored in session metadata (session may predate this feature).',
+                fr: 'Les données de configuration ne sont pas dans les métadonnées de session (session peut-être antérieure à cette fonction).',
+                de: 'Konfigurationsdaten fehlen in den Sitzungsmetadaten (die Sitzung ist eventuell älter als diese Funktion).',
+                ja: '設定データはセッションメタデータにありません（この機能以前のセッションの可能性があります）。',
+              )
+            : openHandLocalizedText(
+                context,
+                zh: '配置数据尚未写入会话元数据。',
+                zhHant: '設定資料尚未寫入會話中繼資料。',
+                en: 'Configuration data has not been stored in session metadata.',
+                fr: 'Les données de configuration ne sont pas encore dans les métadonnées de session.',
+                de: 'Konfigurationsdaten wurden noch nicht in den Sitzungsmetadaten gespeichert.',
+                ja: '設定データはまだセッションメタデータに保存されていません。',
+              ),
+        style: theme.textTheme.bodyMedium?.copyWith(
+          color: theme.colorScheme.onSurfaceVariant,
+        ),
+      ),
+    ],
+  );
+}
+
+Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
   final sectionTitle = openHandLocalizedText(
     context,
     zh: 'Web 逆向配置',
@@ -521,25 +520,7 @@ Widget _buildWebReverseConfigSection(BuildContext context, AiSession session) {
     session.metadata['web_reverse_config'],
   );
   if (config == null) {
-    return OpenHandMetadataSection(
-      title: sectionTitle,
-      children: [
-        Text(
-          openHandLocalizedText(
-            context,
-            zh: '配置数据尚未写入会话元数据。',
-            zhHant: '設定資料尚未寫入會話中繼資料。',
-            en: 'Configuration data has not been stored in session metadata.',
-            fr: 'Les données de configuration ne sont pas encore dans les métadonnées de session.',
-            de: 'Konfigurationsdaten wurden noch nicht in den Sitzungsmetadaten gespeichert.',
-            ja: '設定データはまだセッションメタデータに保存されていません。',
-          ),
-          style: theme.textTheme.bodyMedium?.copyWith(
-            color: colorScheme.onSurfaceVariant,
-          ),
-        ),
-      ],
-    );
+    return _buildMissingThreadTemplateConfigSection(context, sectionTitle);
   }
   return OpenHandMetadataSection(
     title: sectionTitle,

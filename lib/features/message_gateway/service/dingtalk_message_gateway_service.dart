@@ -207,6 +207,8 @@ class DingTalkMessageGatewayService {
   static const int _maxMediaCacheFiles = 512;
   static const int _maxMediaCacheBytes = 1024 * 1024 * 1024;
   static const int _maxMediaFileBytes = 512 * 1024 * 1024;
+  static const int _maxAuthOutputLines = 256;
+  static const int _maxAuthOutputCharacters = 32 * 1024;
   static const Duration _transientMediaFailureCooldown = Duration(minutes: 10);
   // 媒体资源一旦被钉钉明确判定不存在，在当前进程内短期内不会恢复。
   // 设定 TTL 和容量上限，既避免无效资源无限重试，也避免负缓存无限增长。
@@ -653,13 +655,7 @@ class DingTalkMessageGatewayService {
           .transform(utf8.decoder)
           .transform(const LineSplitter())
           .listen(
-            (line) {
-              _logRuntime(
-                'DEBUG',
-                '实时事件${spec.label}标准输出一行（${line.length} 字符）。',
-              );
-              _consumeEventLine(line, generation);
-            },
+            (line) => _consumeEventLine(line, generation),
             onError: (Object error, StackTrace stack) {
               if (!ready.isCompleted) ready.completeError(error, stack);
             },
@@ -1112,7 +1108,10 @@ class DingTalkMessageGatewayService {
     );
     _authProcess = process;
     _logRuntime('INFO', '钉钉设备流授权进程已启动（PID ${process.pid}）。');
-    final output = StringBuffer();
+    final output = BoundedLogBuffer(
+      maxLines: _maxAuthOutputLines,
+      maxCharacters: _maxAuthOutputCharacters,
+    );
     late final StreamSubscription<String> stdoutSub;
     late final StreamSubscription<String> stderrSub;
     var opened = false;
@@ -1139,7 +1138,7 @@ class DingTalkMessageGatewayService {
     }
 
     void consume(String line) {
-      output.writeln(line);
+      output.add(line);
       if (opened) return;
       final code = RegExp(
         r'authorization\s+code\s*:\s*([A-Za-z0-9]+(?:-[A-Za-z0-9]+)?)',
@@ -1162,10 +1161,7 @@ class DingTalkMessageGatewayService {
         .transform(utf8.decoder)
         .transform(const LineSplitter())
         .listen(
-          (line) {
-            _logRuntime('DEBUG', '授权标准输出：${_safeProcessLogLine(line)}');
-            consume(line);
-          },
+          consume,
           onError: (Object error, StackTrace stack) {
             _logRuntime('ERROR', '读取授权标准输出失败：$error');
             silentLog('dingtalk_gateway', '读取授权输出', error, stack);
@@ -1198,11 +1194,8 @@ class DingTalkMessageGatewayService {
       if (exitCode != 0) {
         _logRuntime('ERROR', '钉钉设备流授权进程退出，退出码 $exitCode。');
         if (_authCancelled) return authStatus();
-        throw StateError(
-          output.toString().trim().isEmpty
-              ? '钉钉授权未完成。'
-              : output.toString().trim(),
-        );
+        final errorOutput = output.snapshot().join('\n').trim();
+        throw StateError(errorOutput.isEmpty ? '钉钉授权未完成。' : errorOutput);
       }
       _logRuntime('SUCCESS', '钉钉设备流授权进程已完成。');
       return await authStatus();
@@ -2565,17 +2558,6 @@ class DingTalkMessageGatewayService {
         // 默认 4,000 字符；截断行或丢弃前面的行都会破坏整体 JSON。
         maxCapturedLinesPerStream: 65536,
         maxLineCharacters: 64 * 1024,
-        onStdoutLine: (line) {
-          final trimmed = line.trimLeft();
-          final isStructured =
-              trimmed.startsWith('{') || trimmed.startsWith('[');
-          _logRuntime(
-            'DEBUG',
-            isStructured
-                ? 'dws 返回结构化输出（${line.length} 字符）。'
-                : 'dws 标准输出：${_safeProcessLogLine(line)}',
-          );
-        },
         onStderrLine: (line) =>
             _logRuntime('WARN', 'dws 标准错误：${_safeProcessLogLine(line)}'),
       );
@@ -3861,7 +3843,6 @@ class DingTalkMessageGatewayService {
         normalized.contains('(mediaid=') ||
         normalized.contains('(fileid=');
   }
-
 
   String _first(Map<String, Object?> map, List<String> keys) {
     for (final key in keys) {

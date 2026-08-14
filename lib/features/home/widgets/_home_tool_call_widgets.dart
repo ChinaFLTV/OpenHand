@@ -13,16 +13,23 @@ const Curve _kToolCardMotionCurve = Curves.easeOutCubic;
 const double _kToolStructureSlideOffsetY = 0.06;
 const int _kToolFullContentMaxBytes = 32 * 1024 * 1024;
 
-class _ToolCallBody extends StatefulWidget {
+class _ToolCallBody extends _ElapsedMessageWidget {
   const _ToolCallBody({
-    required this.message,
+    required super.message,
     required this.sessionId,
     required this.selectable,
   });
 
-  final AiSessionMessage message;
   final String sessionId;
   final bool selectable;
+
+  @override
+  bool get shouldTickElapsed => _shouldTickToolExecutionElapsed(message);
+
+  @override
+  bool elapsedTimingChanged(covariant _ToolCallBody oldWidget) {
+    return _toolExecutionTimingChanged(oldWidget.message, message);
+  }
 
   @override
   State<_ToolCallBody> createState() => _ToolCallBodyState();
@@ -46,9 +53,6 @@ class _ToolCallBodyState extends State<_ToolCallBody>
   ]);
   String? _lastTerminalStatus; // success / error / failure once it lands
   bool? _wasPreExecution;
-
-  @override
-  bool get shouldTickElapsed => _shouldTickToolExecutionElapsed(widget.message);
 
   @override
   void initState() {
@@ -111,9 +115,6 @@ class _ToolCallBodyState extends State<_ToolCallBody>
         _lastTerminalStatus = initialStatus;
         _completionGlowCtrl.value = 1.0;
       }
-    }
-    if (_toolExecutionTimingChanged(oldWidget.message, widget.message)) {
-      syncElapsedTicker();
     }
   }
 

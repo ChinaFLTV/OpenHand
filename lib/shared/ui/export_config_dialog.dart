@@ -9,12 +9,10 @@ import '../util/input_value_parsing.dart';
 import 'animated_dialog.dart';
 import 'openhand_dialog_action_button.dart';
 
-/// Shows the AI session export configuration dialog. Returns the chosen
-/// [AiSessionExportConfig] when the user confirms, or `null` if the dialog
-/// is cancelled / dismissed.
+/// 显示 AI 会话导出配置弹窗；确认后返回 [AiSessionExportConfig]，取消时返回
+/// `null`。
 ///
-/// [totalMessages] is the size of the candidate message list and is used to
-/// validate / clamp the user-supplied range bounds.
+/// [totalMessages] 用于校验并限制用户输入的消息范围。
 Future<AiSessionExportConfig?> showAiSessionExportConfigDialog({
   required BuildContext context,
   required int totalMessages,
@@ -31,7 +29,7 @@ Future<AiSessionExportConfig?> showAiSessionExportConfigDialog({
   );
 }
 
-/// Shows the Harness session export configuration dialog.
+/// 显示 Harness 会话导出配置弹窗。
 Future<HarnessSessionExportConfig?> showHarnessSessionExportConfigDialog({
   required BuildContext context,
   required int totalPhaseLogs,
@@ -98,6 +96,32 @@ Widget _buildExportIndexRangeFields({
   );
 }
 
+List<Widget> _buildExportRangeSection({
+  required AppLocalizations l10n,
+  required String title,
+  required bool useRange,
+  required ValueChanged<bool> onUseRangeChanged,
+  required TextEditingController startController,
+  required TextEditingController endController,
+}) {
+  return <Widget>[
+    _SectionHeader(text: title),
+    SwitchListTile(
+      dense: true,
+      contentPadding: EdgeInsets.zero,
+      title: Text(l10n.exportOnlyRange),
+      value: useRange,
+      onChanged: onUseRangeChanged,
+    ),
+    if (useRange)
+      _buildExportIndexRangeFields(
+        l10n: l10n,
+        startController: startController,
+        endController: endController,
+      ),
+  ];
+}
+
 List<Widget> _buildExportDialogActions({
   required BuildContext context,
   required AppLocalizations l10n,
@@ -113,6 +137,10 @@ List<Widget> _buildExportDialogActions({
       label: l10n.commonExport,
     ),
   ];
+}
+
+void _popExportConfig<T>(BuildContext context, T? config) {
+  if (config != null) Navigator.of(context).pop(config);
 }
 
 class _ExportIndexTextField extends StatelessWidget {
@@ -383,20 +411,15 @@ class _AiSessionExportConfigDialogState
               ),
               if (widget.allowRange) ...[
                 const SizedBox(height: _kExportSectionGap),
-                _SectionHeader(text: l10n.exportMessageRangeSection),
-                SwitchListTile(
-                  dense: true,
-                  contentPadding: EdgeInsets.zero,
-                  title: Text(l10n.exportOnlyRange),
-                  value: _useRange,
-                  onChanged: (value) => setState(() => _useRange = value),
+                ..._buildExportRangeSection(
+                  l10n: l10n,
+                  title: l10n.exportMessageRangeSection,
+                  useRange: _useRange,
+                  onUseRangeChanged: (value) =>
+                      setState(() => _useRange = value),
+                  startController: _startController,
+                  endController: _endController,
                 ),
-                if (_useRange)
-                  _buildExportIndexRangeFields(
-                    l10n: l10n,
-                    startController: _startController,
-                    endController: _endController,
-                  ),
               ],
               const SizedBox(height: _kExportSectionGap),
               _SectionHeader(text: l10n.exportOtherOptions),
@@ -420,12 +443,7 @@ class _AiSessionExportConfigDialogState
       actions: _buildExportDialogActions(
         context: context,
         l10n: l10n,
-        onConfirm: () {
-          final config = _buildConfig();
-          if (config != null) {
-            Navigator.of(context).pop(config);
-          }
-        },
+        onConfirm: () => _popExportConfig(context, _buildConfig()),
       ),
     );
   }
@@ -515,20 +533,14 @@ class _HarnessSessionExportConfigDialogState
                 style: theme.textTheme.bodyMedium,
               ),
               kOpenHandGap12,
-              _SectionHeader(text: l10n.exportPhaseLogRangeSection),
-              SwitchListTile(
-                dense: true,
-                contentPadding: EdgeInsets.zero,
-                title: Text(l10n.exportOnlyRange),
-                value: _useRange,
-                onChanged: (value) => setState(() => _useRange = value),
+              ..._buildExportRangeSection(
+                l10n: l10n,
+                title: l10n.exportPhaseLogRangeSection,
+                useRange: _useRange,
+                onUseRangeChanged: (value) => setState(() => _useRange = value),
+                startController: _startController,
+                endController: _endController,
               ),
-              if (_useRange)
-                _buildExportIndexRangeFields(
-                  l10n: l10n,
-                  startController: _startController,
-                  endController: _endController,
-                ),
               kOpenHandGap12,
               _SectionHeader(text: l10n.exportOtherOptions),
               buildOpenHandDialogValidationMessage(
@@ -542,12 +554,7 @@ class _HarnessSessionExportConfigDialogState
       actions: _buildExportDialogActions(
         context: context,
         l10n: l10n,
-        onConfirm: () {
-          final config = _buildConfig();
-          if (config != null) {
-            Navigator.of(context).pop(config);
-          }
-        },
+        onConfirm: () => _popExportConfig(context, _buildConfig()),
       ),
     );
   }

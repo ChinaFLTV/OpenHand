@@ -10,6 +10,34 @@ import '../web_engine/web_engine_http_exception.dart';
 import '../web_engine/web_engine_http_utils.dart';
 import 'web_search_engine.dart';
 
+List<WebSearchEngineHit> _parseHtmlSearchHits({
+  required String html,
+  required RegExp pattern,
+  required int maxResults,
+  required String source,
+  String Function(String url)? normalizeUrl,
+}) {
+  if (maxResults <= 0) return const <WebSearchEngineHit>[];
+  final hits = <WebSearchEngineHit>[];
+  for (final match in pattern.allMatches(html)) {
+    final rawUrl = AiToolUtils.htmlToText(match.group(1) ?? '');
+    final url = normalizeUrl?.call(rawUrl) ?? rawUrl;
+    final title = AiToolUtils.htmlToText(match.group(2) ?? '');
+    final snippet = AiToolUtils.htmlToText(match.group(3) ?? '');
+    if (url.isEmpty || title.isEmpty) continue;
+    hits.add(
+      WebSearchEngineHit(
+        title: title,
+        url: url,
+        snippet: snippet,
+        source: source,
+      ),
+    );
+    if (hits.length >= maxResults) break;
+  }
+  return hits;
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 // 无 / 弱认证的 HTML / JSON 引擎：DuckDuckGo HTML、Bing HTML、SearXNG JSON。
 // 使用与既有 ai_web_search_tool.dart 兼容的 DDG HTML 抓取逻辑。
@@ -43,23 +71,13 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
     if (_isChallenge(html)) {
       throw WebEngineHttpException('DuckDuckGo anti-bot challenge');
     }
-    final hits = <WebSearchEngineHit>[];
-    for (final m in _resultPattern.allMatches(html)) {
-      final url = _resolveUrl(m.group(1) ?? '');
-      final title = AiToolUtils.htmlToText(m.group(2) ?? '');
-      final snippet = AiToolUtils.htmlToText(m.group(3) ?? '');
-      if (url.isEmpty || title.isEmpty) continue;
-      hits.add(
-        WebSearchEngineHit(
-          title: title,
-          url: url,
-          snippet: snippet,
-          source: 'duckduckgo',
-        ),
-      );
-      if (hits.length >= req.maxResults) break;
-    }
-    return hits;
+    return _parseHtmlSearchHits(
+      html: html,
+      pattern: _resultPattern,
+      maxResults: req.maxResults,
+      source: 'duckduckgo',
+      normalizeUrl: _resolveUrl,
+    );
   }
 
   bool _isChallenge(String html) {
@@ -71,7 +89,7 @@ class WebSearchDuckDuckGoEngine extends WebSearchEngine {
   }
 
   String _resolveUrl(String raw) {
-    final clean = AiToolUtils.htmlToText(raw).trim();
+    final clean = raw.trim();
     if (clean.isEmpty) return '';
     final resolved = clean.startsWith('//') ? 'https:$clean' : clean;
     final uri = Uri.tryParse(resolved);
@@ -115,23 +133,12 @@ class WebSearchBingEngine extends WebSearchEngine {
       throw WebEngineHttpException('Bing ${response.statusCode}');
     }
     final html = response.body;
-    final hits = <WebSearchEngineHit>[];
-    for (final m in _resultPattern.allMatches(html)) {
-      final url = AiToolUtils.htmlToText(m.group(1) ?? '');
-      final title = AiToolUtils.htmlToText(m.group(2) ?? '');
-      final snippet = AiToolUtils.htmlToText(m.group(3) ?? '');
-      if (url.isEmpty || title.isEmpty) continue;
-      hits.add(
-        WebSearchEngineHit(
-          title: title,
-          url: url,
-          snippet: snippet,
-          source: 'bing',
-        ),
-      );
-      if (hits.length >= req.maxResults) break;
-    }
-    return hits;
+    return _parseHtmlSearchHits(
+      html: html,
+      pattern: _resultPattern,
+      maxResults: req.maxResults,
+      source: 'bing',
+    );
   }
 }
 

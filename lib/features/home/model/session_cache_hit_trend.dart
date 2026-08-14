@@ -413,17 +413,7 @@ class SessionCacheHitTrend {
       previousDenominatorTokens = denominator;
     }
 
-    final averageHitRatio = _averageCacheHitRatioForPoints(
-      points.where((point) {
-        return !point.isFirstRequest && !_isExpiredCacheMiss(point);
-      }),
-      claudeStyle: claudeStyle,
-    );
-    return SessionCacheHitTrend(
-      points: List<SessionCacheHitTurnPoint>.unmodifiable(points),
-      averageHitRatio: averageHitRatio,
-      claudeStyle: claudeStyle,
-    );
+    return _buildTrend(points, claudeStyle: claudeStyle);
   }
 
   static bool statisticsTrendUsesRoundStarterSchema(
@@ -520,6 +510,13 @@ class SessionCacheHitTrend {
       );
       previousDenominatorTokens = denominator;
     }
+    return _buildTrend(points, claudeStyle: claudeStyle);
+  }
+
+  static SessionCacheHitTrend _buildTrend(
+    List<SessionCacheHitTurnPoint> points, {
+    required bool claudeStyle,
+  }) {
     final averageHitRatio = _averageCacheHitRatioForPoints(
       points.where((point) {
         return !point.isFirstRequest && !_isExpiredCacheMiss(point);

@@ -357,8 +357,8 @@ class AiTtsSettings {
     if (json == null) return defaults;
     return AiTtsSettings(
       enabled: boolFromValue(json['enabled']),
-      timeoutSeconds: timeoutSecondsFromValue(json['timeout_seconds']),
-      maxTextCharacters: maxTextCharactersFromValue(
+      timeoutSeconds: _timeoutSecondsRange.fromValue(json['timeout_seconds']),
+      maxTextCharacters: _maxTextCharactersRange.fromValue(
         json['max_text_characters'],
       ),
       providers: parseAiProviderSettings(
@@ -405,22 +405,6 @@ class AiTtsSettings {
     AiTtsProvider.mimo,
   ];
 
-  static int timeoutSecondsFromValue(Object? value) {
-    return _timeoutSecondsRange.fromValue(value);
-  }
-
-  static int normalizeTimeoutSeconds(int value) {
-    return _timeoutSecondsRange.normalize(value);
-  }
-
-  static int maxTextCharactersFromValue(Object? value) {
-    return _maxTextCharactersRange.fromValue(value);
-  }
-
-  static int normalizeMaxTextCharacters(int value) {
-    return _maxTextCharactersRange.normalize(value);
-  }
-
   final bool enabled;
   final int timeoutSeconds;
   final int maxTextCharacters;
@@ -436,10 +420,10 @@ class AiTtsSettings {
   }) {
     return AiTtsSettings(
       enabled: enabled ?? this.enabled,
-      timeoutSeconds: normalizeTimeoutSeconds(
+      timeoutSeconds: _timeoutSecondsRange.normalize(
         timeoutSeconds ?? this.timeoutSeconds,
       ),
-      maxTextCharacters: normalizeMaxTextCharacters(
+      maxTextCharacters: _maxTextCharactersRange.normalize(
         maxTextCharacters ?? this.maxTextCharacters,
       ),
       providers: providers ?? this.providers,
@@ -456,8 +440,8 @@ class AiTtsSettings {
     };
     return AiTtsSettings(
       enabled: enabled,
-      timeoutSeconds: normalizeTimeoutSeconds(timeoutSeconds),
-      maxTextCharacters: normalizeMaxTextCharacters(maxTextCharacters),
+      timeoutSeconds: _timeoutSecondsRange.normalize(timeoutSeconds),
+      maxTextCharacters: _maxTextCharactersRange.normalize(maxTextCharacters),
       providers: Map<AiTtsProvider, AiTtsProviderSettings>.unmodifiable(
         normalizedProviders,
       ),
@@ -474,8 +458,10 @@ class AiTtsSettings {
   Map<String, Object?> toJson() {
     return <String, Object?>{
       'enabled': enabled,
-      'timeout_seconds': normalizeTimeoutSeconds(timeoutSeconds),
-      'max_text_characters': normalizeMaxTextCharacters(maxTextCharacters),
+      'timeout_seconds': _timeoutSecondsRange.normalize(timeoutSeconds),
+      'max_text_characters': _maxTextCharactersRange.normalize(
+        maxTextCharacters,
+      ),
       ...aiProviderSettingsToJson(
         providers: providers,
         priority: providerPriority,

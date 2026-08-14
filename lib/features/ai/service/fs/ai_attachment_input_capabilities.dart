@@ -59,16 +59,22 @@ AiAttachmentInputCapabilities resolveAiAttachmentInputCapabilities(
   if (model == null || !model.resolvedSupportsAttachments) {
     return AiAttachmentInputCapabilities.disabled;
   }
+  final profile = model.profileFor(model.modelId);
   return AiAttachmentInputCapabilities(
-    supportsImageInput: _supportsImageInput(model),
-    supportsVideoInput: _supportsVideoInput(model),
-    supportsAudioInput: _supportsAudioInput(model),
+    supportsImageInput: _supportsImageInput(model, profile),
+    supportsVideoInput: _supportsModalityInput(
+      model,
+      profile,
+      AiModelModality.video,
+    ),
+    supportsAudioInput: _supportsModalityInput(
+      model,
+      profile,
+      AiModelModality.audio,
+    ),
     supportsFileInput:
         model.protocolType != AiProtocolType.mimo ||
-        model
-            .profileFor(model.modelId)
-            .supportedModalities
-            .contains(AiModelModality.file),
+        profile.supportedModalities.contains(AiModelModality.file),
     allowedExtensions: model.protocolType == AiProtocolType.mimo
         ? _mimoAllowedExtensions(model)
         : null,
@@ -83,8 +89,7 @@ List<String> aiAttachmentPickerExtensionsForCapabilities(
       .toList(growable: false);
 }
 
-bool _supportsImageInput(AiModelConfig model) {
-  final profile = model.profileFor(model.modelId);
+bool _supportsImageInput(AiModelConfig model, AiModelProfile profile) {
   if (profile.supportsAttachments == false) {
     return false;
   }
@@ -126,26 +131,17 @@ Set<String> _mimoAllowedExtensions(AiModelConfig model) {
   };
 }
 
-bool _supportsVideoInput(AiModelConfig model) {
+bool _supportsModalityInput(
+  AiModelConfig model,
+  AiModelProfile profile,
+  AiModelModality modality,
+) {
   if (model.protocolType == AiProtocolType.mimo &&
       model.apiDialect == AiApiDialect.anthropicNative) {
     return false;
   }
-  final profile = model.profileFor(model.modelId);
   if (profile.supportsAttachments == false || profile.isMultimodal == false) {
     return false;
   }
-  return profile.supportedModalities.contains(AiModelModality.video);
-}
-
-bool _supportsAudioInput(AiModelConfig model) {
-  if (model.protocolType == AiProtocolType.mimo &&
-      model.apiDialect == AiApiDialect.anthropicNative) {
-    return false;
-  }
-  final profile = model.profileFor(model.modelId);
-  if (profile.supportsAttachments == false || profile.isMultimodal == false) {
-    return false;
-  }
-  return profile.supportedModalities.contains(AiModelModality.audio);
+  return profile.supportedModalities.contains(modality);
 }

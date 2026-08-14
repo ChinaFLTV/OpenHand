@@ -195,8 +195,8 @@ class AiTranslationSettings {
             optionalStringFromValue(json['target_language']),
           ) ??
           defaultTargetLanguage,
-      timeoutSeconds: timeoutSecondsFromValue(json['timeout_seconds']),
-      maxTextCharacters: maxTextCharactersFromValue(
+      timeoutSeconds: _timeoutSecondsRange.fromValue(json['timeout_seconds']),
+      maxTextCharacters: _maxTextCharactersRange.fromValue(
         json['max_text_characters'],
       ),
       providers: parseAiProviderSettings(
@@ -268,22 +268,6 @@ class AiTranslationSettings {
     'da',
   };
 
-  static int timeoutSecondsFromValue(Object? value) {
-    return _timeoutSecondsRange.fromValue(value);
-  }
-
-  static int normalizeTimeoutSeconds(int value) {
-    return _timeoutSecondsRange.normalize(value);
-  }
-
-  static int maxTextCharactersFromValue(Object? value) {
-    return _maxTextCharactersRange.fromValue(value);
-  }
-
-  static int normalizeMaxTextCharacters(int value) {
-    return _maxTextCharactersRange.normalize(value);
-  }
-
   final bool enabled;
   final String sourceLanguage;
   final String targetLanguage;
@@ -305,10 +289,10 @@ class AiTranslationSettings {
       enabled: enabled ?? this.enabled,
       sourceLanguage: sourceLanguage ?? this.sourceLanguage,
       targetLanguage: targetLanguage ?? this.targetLanguage,
-      timeoutSeconds: normalizeTimeoutSeconds(
+      timeoutSeconds: _timeoutSecondsRange.normalize(
         timeoutSeconds ?? this.timeoutSeconds,
       ),
-      maxTextCharacters: normalizeMaxTextCharacters(
+      maxTextCharacters: _maxTextCharactersRange.normalize(
         maxTextCharacters ?? this.maxTextCharacters,
       ),
       providers: providers ?? this.providers,
@@ -335,8 +319,8 @@ class AiTranslationSettings {
       targetLanguage: normalizedTarget == 'auto'
           ? defaultTargetLanguage
           : normalizedTarget,
-      timeoutSeconds: normalizeTimeoutSeconds(timeoutSeconds),
-      maxTextCharacters: normalizeMaxTextCharacters(maxTextCharacters),
+      timeoutSeconds: _timeoutSecondsRange.normalize(timeoutSeconds),
+      maxTextCharacters: _maxTextCharactersRange.normalize(maxTextCharacters),
       providers:
           Map<
             AiTranslationProvider,
@@ -358,8 +342,10 @@ class AiTranslationSettings {
       'enabled': enabled,
       'source_language': sourceLanguage,
       'target_language': targetLanguage,
-      'timeout_seconds': normalizeTimeoutSeconds(timeoutSeconds),
-      'max_text_characters': normalizeMaxTextCharacters(maxTextCharacters),
+      'timeout_seconds': _timeoutSecondsRange.normalize(timeoutSeconds),
+      'max_text_characters': _maxTextCharactersRange.normalize(
+        maxTextCharacters,
+      ),
       ...aiProviderSettingsToJson(
         providers: providers,
         priority: providerPriority,

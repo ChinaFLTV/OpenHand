@@ -30,21 +30,6 @@ enum _MemoryCardAction { edit, delete }
 
 const int _memoryTagPreviewLimit = 8;
 
-enum _MemoryDisplayItemKind { autoLearned, regular }
-
-class _MemoryDisplayItem {
-  const _MemoryDisplayItem._({required this.kind, this.entry});
-
-  const _MemoryDisplayItem.autoLearned(UserMemoryEntry entry)
-    : this._(kind: _MemoryDisplayItemKind.autoLearned, entry: entry);
-
-  const _MemoryDisplayItem.regular(UserMemoryEntry entry)
-    : this._(kind: _MemoryDisplayItemKind.regular, entry: entry);
-
-  final _MemoryDisplayItemKind kind;
-  final UserMemoryEntry? entry;
-}
-
 class MemoryView extends StatelessWidget {
   const MemoryView({super.key});
 
@@ -200,13 +185,7 @@ class MemoryView extends StatelessWidget {
       regular.add(entry);
     }
 
-    final items = <_MemoryDisplayItem>[];
-    for (final entry in autoLearned) {
-      items.add(_MemoryDisplayItem.autoLearned(entry));
-    }
-    for (final entry in regular) {
-      items.add(_MemoryDisplayItem.regular(entry));
-    }
+    final items = <UserMemoryEntry>[...autoLearned, ...regular];
     if (items.isEmpty) {
       return FeatureStateCard.centered(
         key: const ValueKey<String>('memory-empty-after-filter'),
@@ -224,57 +203,31 @@ class MemoryView extends StatelessWidget {
         cacheExtent: 600,
         separatorBuilder: (context, index) => kOpenHandGap14,
         itemBuilder: (context, index) {
-          final item = items[index];
-          switch (item.kind) {
-            case _MemoryDisplayItemKind.autoLearned:
-              final entry = item.entry!;
-              return SettingsAwareAppearOnce(
-                key: ValueKey<String>('memory-auto-learned-appear-${entry.id}'),
-                child: RepaintBoundary(
-                  child: OpenHandListRemovalTransition(
-                    collapsed: removal.isRemoving(entry.id),
-                    child: _MemoryEntryCard(
-                      key: ValueKey<String>('memory-auto-learned-${entry.id}'),
-                      entry: entry,
-                      onTap: () =>
-                          _showMemoryDialog(context, initialEntry: entry),
-                      onActionSelected: (action) {
-                        switch (action) {
-                          case _MemoryCardAction.edit:
-                            _showMemoryDialog(context, initialEntry: entry);
-                          case _MemoryCardAction.delete:
-                            _confirmDeleteMemory(context, removal, entry);
-                        }
-                      },
-                    ),
-                  ),
+          final entry = items[index];
+          final keyPrefix = entry.isAutoLearned
+              ? 'memory-auto-learned'
+              : 'memory-entry';
+          return SettingsAwareAppearOnce(
+            key: ValueKey<String>('$keyPrefix-appear-${entry.id}'),
+            child: RepaintBoundary(
+              child: OpenHandListRemovalTransition(
+                collapsed: removal.isRemoving(entry.id),
+                child: _MemoryEntryCard(
+                  key: ValueKey<String>('$keyPrefix-${entry.id}'),
+                  entry: entry,
+                  onTap: () => _showMemoryDialog(context, initialEntry: entry),
+                  onActionSelected: (action) {
+                    switch (action) {
+                      case _MemoryCardAction.edit:
+                        _showMemoryDialog(context, initialEntry: entry);
+                      case _MemoryCardAction.delete:
+                        _confirmDeleteMemory(context, removal, entry);
+                    }
+                  },
                 ),
-              );
-            case _MemoryDisplayItemKind.regular:
-              final entry = item.entry!;
-              return SettingsAwareAppearOnce(
-                key: ValueKey<String>('memory-entry-appear-${entry.id}'),
-                child: RepaintBoundary(
-                  child: OpenHandListRemovalTransition(
-                    collapsed: removal.isRemoving(entry.id),
-                    child: _MemoryEntryCard(
-                      key: ValueKey<String>('memory-entry-${entry.id}'),
-                      entry: entry,
-                      onTap: () =>
-                          _showMemoryDialog(context, initialEntry: entry),
-                      onActionSelected: (action) {
-                        switch (action) {
-                          case _MemoryCardAction.edit:
-                            _showMemoryDialog(context, initialEntry: entry);
-                          case _MemoryCardAction.delete:
-                            _confirmDeleteMemory(context, removal, entry);
-                        }
-                      },
-                    ),
-                  ),
-                ),
-              );
-          }
+              ),
+            ),
+          );
         },
       ),
     );
