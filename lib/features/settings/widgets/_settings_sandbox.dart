@@ -18,6 +18,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
   late final TextEditingController _httpProxyPortController;
   late final TextEditingController _socksProxyPortController;
   late AiSandboxService _sandboxService;
+  late AiSandboxSettings _serviceSettings;
   Future<AiSandboxEnvironmentStatus>? _statusFuture;
   String _actionMessage = '';
   String _actionCommand = '';
@@ -32,9 +33,8 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
     super.initState();
     _httpProxyPortController = TextEditingController();
     _socksProxyPortController = TextEditingController();
-    _sandboxService = AiSandboxService(
-      settings: widget.settingsController.aiSandboxSettings,
-    );
+    _serviceSettings = widget.settingsController.aiSandboxSettings;
+    _sandboxService = AiSandboxService(settings: _serviceSettings);
     _syncControllers();
     _statusFuture = _sandboxService.detectEnvironment();
   }
@@ -42,12 +42,11 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
   @override
   void didUpdateWidget(covariant _SandboxSettingsSection oldWidget) {
     super.didUpdateWidget(oldWidget);
+    final settings = widget.settingsController.aiSandboxSettings;
     if (!identical(oldWidget.settingsController, widget.settingsController) ||
-        oldWidget.settingsController.aiSandboxSettings.toJson().toString() !=
-            widget.settingsController.aiSandboxSettings.toJson().toString()) {
-      _sandboxService = AiSandboxService(
-        settings: widget.settingsController.aiSandboxSettings,
-      );
+        _serviceSettings != settings) {
+      _serviceSettings = settings;
+      _sandboxService.settings = settings;
       _syncControllers();
       _statusFuture = _sandboxService.detectEnvironment(refresh: true);
     }
@@ -725,6 +724,7 @@ class _SandboxSettingsSectionState extends State<_SandboxSettingsSection> {
       widget.onPersistenceFailure();
       return;
     }
+    _serviceSettings = settings;
     _sandboxService.settings = settings;
     setState(() {
       _statusFuture = _sandboxService.detectEnvironment(refresh: true);

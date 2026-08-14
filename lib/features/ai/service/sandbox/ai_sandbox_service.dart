@@ -154,7 +154,7 @@ class AiSandboxService {
   /// filesystemRules 的匹配模式与域名规则，沿用旧缓存会让 UI 长期显示与当前
   /// 设置不符的告警。此前只有设置面板记得手动 refresh，运行时下发那条路径没有。
   set settings(AiSandboxSettings value) {
-    if (identical(_settings, value)) return;
+    if (_settings == value) return;
     _settings = value;
     _cachedStatus = null;
   }

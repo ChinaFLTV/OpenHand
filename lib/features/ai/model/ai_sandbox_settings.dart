@@ -1,3 +1,5 @@
+import 'package:flutter/foundation.dart';
+
 import '../../../shared/net/tcp_port_utils.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_normalization.dart';
@@ -53,6 +55,19 @@ class AiSandboxPatternRule extends AiCommandRule {
       note: note ?? this.note,
     );
   }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is AiSandboxPatternRule &&
+            id == other.id &&
+            pattern == other.pattern &&
+            matchMode == other.matchMode &&
+            note == other.note;
+  }
+
+  @override
+  int get hashCode => Object.hash(id, pattern, matchMode, note);
 }
 
 class AiSandboxFileRule {
@@ -109,6 +124,20 @@ class AiSandboxFileRule {
       'note': note,
     };
   }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is AiSandboxFileRule &&
+            id == other.id &&
+            path == other.path &&
+            accessMode == other.accessMode &&
+            matchMode == other.matchMode &&
+            note == other.note;
+  }
+
+  @override
+  int get hashCode => Object.hash(id, path, accessMode, matchMode, note);
 }
 
 class AiSandboxSettings {
@@ -272,6 +301,41 @@ class AiSandboxSettings {
       'allow_network_when_no_domain_rules': allowNetworkWhenNoDomainRules,
     };
   }
+
+  @override
+  bool operator ==(Object other) {
+    return identical(this, other) ||
+        other is AiSandboxSettings &&
+            enabled == other.enabled &&
+            failIfUnavailable == other.failIfUnavailable &&
+            allowUnsandboxedCommands == other.allowUnsandboxedCommands &&
+            autoAllowBashIfSandboxed == other.autoAllowBashIfSandboxed &&
+            listEquals(sandboxedBuiltinTools, other.sandboxedBuiltinTools) &&
+            listEquals(filesystemRules, other.filesystemRules) &&
+            listEquals(excludedCommands, other.excludedCommands) &&
+            listEquals(allowedDomains, other.allowedDomains) &&
+            listEquals(deniedDomains, other.deniedDomains) &&
+            httpProxyPort == other.httpProxyPort &&
+            socksProxyPort == other.socksProxyPort &&
+            allowNetworkWhenNoDomainRules ==
+                other.allowNetworkWhenNoDomainRules;
+  }
+
+  @override
+  int get hashCode => Object.hash(
+    enabled,
+    failIfUnavailable,
+    allowUnsandboxedCommands,
+    autoAllowBashIfSandboxed,
+    Object.hashAll(sandboxedBuiltinTools),
+    Object.hashAll(filesystemRules),
+    Object.hashAll(excludedCommands),
+    Object.hashAll(allowedDomains),
+    Object.hashAll(deniedDomains),
+    httpProxyPort,
+    socksProxyPort,
+    allowNetworkWhenNoDomainRules,
+  );
 
   static List<String> _readUniqueStringList(Object? value) {
     return stringListFromValueOrJsonText(value).toSet().toList(growable: false);

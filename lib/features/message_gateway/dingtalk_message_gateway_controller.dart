@@ -1485,7 +1485,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       maxWait: const Duration(seconds: 6),
     );
     final normalized = _normalizeSettings(_settings);
-    if (normalized.toJson().toString() != _settings.toJson().toString()) {
+    if (jsonEncode(normalized.toJson()) != jsonEncode(_settings.toJson())) {
       _settings = normalized;
       _queuePersist();
       final task = _persistInFlight;

@@ -55,6 +55,7 @@ import '../../../shared/ui/openhand_trailing_toolbar.dart';
 import '../../../shared/ui/openhand_typography.dart';
 import '../../../shared/ui/runtime_log_dialog.dart';
 import '../../../shared/ui/streaming_text_reveal.dart';
+import '../../../shared/util/async_concurrency.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/date_time_format.dart';
@@ -12068,6 +12069,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   static const Duration _maxVoiceDuration = Duration(minutes: 2);
   static const double _composerIconButtonSize = 48;
   static const Duration _voiceVisualInterval = Duration(milliseconds: 160);
+  static const Duration _voiceOperationTimeout = Duration(seconds: 10);
+  static const Duration _voiceCleanupTimeout = Duration(seconds: 5);
   static const int _voiceWaveformSampleCount = 40;
   static const int _maxTranslationCacheEntries = 64;
   static const double _messageCacheExtent = 120;
@@ -12147,7 +12150,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     _input.removeListener(_handleInputChanged);
     _ttsPlaybackService.state.removeListener(_handleTtsStateChanged);
     _voiceVisualTimer?.cancel();
-    unawaited(_voiceAmplitudeSubscription?.cancel());
+    unawaited(_cancelVoiceAmplitudeSubscription());
     final recorder = _voiceRecorder;
     _voiceRecorder = null;
     _voiceRecorderStarted = false;
@@ -14389,7 +14392,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       _voiceConversationId = conversation.id;
     });
     try {
-      if (!await recorder.hasPermission()) {
+      if (!await _runVoiceOperation(recorder.hasPermission(), '检查麦克风权限')) {
         throw StateError('未获得麦克风权限，请在系统设置中允许 OpenHand 使用麦克风。');
       }
       if (!mounted || !identical(_voiceRecorder, recorder)) {
@@ -14408,15 +14411,18 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
         directory.path,
         'voice-${DateTime.now().microsecondsSinceEpoch}.m4a',
       );
-      await recorder.start(
-        const RecordConfig(
-          bitRate: 64000,
-          sampleRate: 16000,
-          numChannels: 1,
-          noiseSuppress: true,
-          echoCancel: true,
+      await _runVoiceOperation(
+        recorder.start(
+          const RecordConfig(
+            bitRate: 64000,
+            sampleRate: 16000,
+            numChannels: 1,
+            noiseSuppress: true,
+            echoCancel: true,
+          ),
+          path: path,
         ),
-        path: path,
+        '启动录音',
       );
       if (!mounted || !identical(_voiceRecorder, recorder)) {
         await _cancelAndDisposeRecorder(recorder);
@@ -14427,7 +14433,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       _voicePaused = false;
       _voiceElapsed = Duration.zero;
       _voiceSegmentStartedAt = DateTime.now();
-      _voiceAmplitudeSubscription?.cancel();
+      unawaited(_cancelVoiceAmplitudeSubscription());
       _voiceAmplitudeSubscription = recorder
           .onAmplitudeChanged(const Duration(milliseconds: 120))
           .listen(
@@ -14451,8 +14457,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
       silentLog('dingtalk_gateway', '录制钉钉语音', error, stack);
       _voiceVisualTimer?.cancel();
       _voiceVisualTimer = null;
-      await _voiceAmplitudeSubscription?.cancel();
-      _voiceAmplitudeSubscription = null;
+      await _cancelVoiceAmplitudeSubscription();
       await _cancelAndDisposeRecorder(recorder);
       if (!identical(_voiceRecorder, recorder)) return;
       if (mounted) {
@@ -14532,12 +14537,12 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     if (mounted) setState(() => _voiceControlBusy = true);
     try {
       if (_voicePaused) {
-        await recorder.resume();
+        await _runVoiceOperation(recorder.resume(), '继续录音');
         _voiceSegmentStartedAt = DateTime.now();
         _voicePaused = false;
       } else {
         final elapsed = _currentVoiceElapsed();
-        await recorder.pause();
+        await _runVoiceOperation(recorder.pause(), '暂停录音');
         _voiceElapsed = elapsed;
         _voiceSegmentStartedAt = null;
         _voicePaused = true;
@@ -14559,20 +14564,16 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     if (mounted) setState(() => _voiceControlBusy = true);
     _voiceVisualTimer?.cancel();
     _voiceVisualTimer = null;
-    await _voiceAmplitudeSubscription?.cancel();
-    _voiceAmplitudeSubscription = null;
+    await _cancelVoiceAmplitudeSubscription();
     final conversationId = _voiceConversationId;
     final fallbackPath = _voicePath;
     try {
       String? recordedPath;
       try {
-        recordedPath = await recorder.stop() ?? fallbackPath;
+        recordedPath =
+            await _runVoiceOperation(recorder.stop(), '停止录音') ?? fallbackPath;
       } finally {
-        try {
-          await recorder.dispose();
-        } catch (error, stack) {
-          silentLog('dingtalk_gateway', '释放钉钉语音录音器', error, stack);
-        }
+        await _disposeVoiceRecorder(recorder);
       }
       if (conversationId == null || recordedPath == null) return;
       final file = File(recordedPath);
@@ -14604,8 +14605,7 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
     final recorder = _voiceRecorder;
     _voiceVisualTimer?.cancel();
     _voiceVisualTimer = null;
-    unawaited(_voiceAmplitudeSubscription?.cancel());
-    _voiceAmplitudeSubscription = null;
+    unawaited(_cancelVoiceAmplitudeSubscription());
     _voiceRecorder = null;
     _voiceRecorderStarted = false;
     _voicePaused = false;
@@ -14621,16 +14621,40 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
   }
 
   Future<void> _cancelAndDisposeRecorder(AudioRecorder recorder) async {
-    try {
-      await recorder.cancel();
-    } catch (error, stack) {
-      silentLog('dingtalk_gateway', '取消钉钉语音录制', error, stack);
-    }
-    try {
-      await recorder.dispose();
-    } catch (error, stack) {
-      silentLog('dingtalk_gateway', '释放钉钉语音录音器', error, stack);
-    }
+    await runAsyncCleanupBounded(
+      recorder.cancel,
+      timeout: _voiceCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('dingtalk_gateway', '取消钉钉语音录制', error, stack),
+    );
+    await _disposeVoiceRecorder(recorder);
+  }
+
+  Future<void> _disposeVoiceRecorder(AudioRecorder recorder) async {
+    await runAsyncCleanupBounded(
+      recorder.dispose,
+      timeout: _voiceCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('dingtalk_gateway', '释放钉钉语音录音器', error, stack),
+    );
+  }
+
+  Future<void> _cancelVoiceAmplitudeSubscription() async {
+    final subscription = _voiceAmplitudeSubscription;
+    _voiceAmplitudeSubscription = null;
+    await cancelStreamSubscriptionBounded<Amplitude>(
+      subscription,
+      timeout: _voiceCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('dingtalk_gateway', '取消钉钉语音波形订阅', error, stack),
+    );
+  }
+
+  Future<T> _runVoiceOperation<T>(Future<T> operation, String action) {
+    return operation.timeout(
+      _voiceOperationTimeout,
+      onTimeout: () => throw StateError('$action超时，请重试。'),
+    );
   }
 
   void _sendOrStop(DingTalkConversation conversation) {

@@ -5949,7 +5949,7 @@ class _OpenHandHomePageState extends State<OpenHandHomePage>
       settingsController.telemetryCaptureRawPayload,
       settingsController.telemetryCaptureEnvironment,
       settingsController.telemetryMaxPayloadChars,
-      settingsController.aiSandboxSettings.toJson().toString(),
+      settingsController.aiSandboxSettings,
       settingsController.builtinToolLazyLoadingMode,
       settingsController.mcpLazyLoadingThresholdTokens,
       _identityHashAll(allowCommandRules),

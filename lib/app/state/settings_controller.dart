@@ -1658,7 +1658,7 @@ class SettingsController extends ChangeNotifier {
 
   Future<bool> updateAiSandboxSettings(AiSandboxSettings value) async {
     return _commitMutation(() {
-      if (_aiSandboxSettings.toJson().toString() == value.toJson().toString()) {
+      if (_aiSandboxSettings == value) {
         return _MutationDisposition.successNoChange;
       }
       _aiSandboxSettings = value;

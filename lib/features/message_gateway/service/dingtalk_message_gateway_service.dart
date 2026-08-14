@@ -181,6 +181,7 @@ class DingTalkMessageGatewayService {
   static const Duration _authTimeout = Duration(minutes: 15);
   static const Duration _eventProcessStartTimeout = Duration(seconds: 10);
   static const Duration _eventReadyTimeout = Duration(seconds: 30);
+  static const Duration _eventCleanupTimeout = Duration(seconds: 5);
   static const Duration _mediaDownloadTimeout = Duration(minutes: 3);
   static const Duration _sentMessageLookupWindow = Duration(minutes: 2);
   static const Duration _sentMessageLookupTimeout = Duration(seconds: 8);
@@ -570,6 +571,54 @@ class DingTalkMessageGatewayService {
     return specs;
   }
 
+  Future<void> _cancelTextSubscriptions(
+    Iterable<StreamSubscription<String>?> subscriptions, {
+    required String action,
+  }) async {
+    await Future.wait<bool>(
+      subscriptions.whereType<StreamSubscription<String>>().map(
+        (subscription) => cancelStreamSubscriptionBounded<String>(
+          subscription,
+          timeout: _eventCleanupTimeout,
+          onError: (error, stack) =>
+              silentLog('dingtalk_gateway', action, error, stack),
+        ),
+      ),
+    );
+  }
+
+  Future<void> _cancelEventProcessSubscriptions(
+    _DingTalkEventProcessHandle handle,
+  ) {
+    final stdoutSubscription = handle.stdoutSubscription;
+    final stderrSubscription = handle.stderrSubscription;
+    handle.stdoutSubscription = null;
+    handle.stderrSubscription = null;
+    return _cancelTextSubscriptions(<StreamSubscription<String>?>[
+      stdoutSubscription,
+      stderrSubscription,
+    ], action: '取消钉钉实时事件${handle.label}输出订阅');
+  }
+
+  Future<void> _terminateEventProcess(
+    _DingTalkEventProcessHandle handle,
+  ) async {
+    await runAsyncCleanupBounded(
+      () => terminateTrackedProcessTree(
+        handle.process,
+        gracefulTimeout: const Duration(seconds: 2),
+      ),
+      timeout: _eventCleanupTimeout,
+      onError: (error, stack) => silentLog(
+        'dingtalk_gateway',
+        '停止钉钉实时事件${handle.label}进程',
+        error,
+        stack,
+      ),
+    );
+    await _cancelEventProcessSubscriptions(handle);
+  }
+
   Future<void> _startEventProcess({
     required String executable,
     required _DingTalkEventSubscriptionSpec spec,
@@ -645,15 +694,19 @@ class DingTalkMessageGatewayService {
     } catch (_) {
       if (handle != null) {
         _eventProcesses.remove(handle);
-        await handle.stdoutSubscription?.cancel();
-        await handle.stderrSubscription?.cancel();
       }
       if (process != null) {
-        await terminateTrackedProcessTree(
-          process,
-          gracefulTimeout: const Duration(seconds: 2),
+        await runAsyncCleanupBounded(
+          () => terminateTrackedProcessTree(
+            process!,
+            gracefulTimeout: const Duration(seconds: 2),
+          ),
+          timeout: _eventCleanupTimeout,
+          onError: (error, stack) =>
+              silentLog('dingtalk_gateway', '清理启动失败的钉钉实时事件进程', error, stack),
         );
       }
+      if (handle != null) await _cancelEventProcessSubscriptions(handle);
       rethrow;
     }
   }
@@ -687,8 +740,7 @@ class DingTalkMessageGatewayService {
       _logRuntime('INFO', '实时事件${handle.label}进程已退出。');
     }
     _eventProcesses.remove(handle);
-    await handle.stdoutSubscription?.cancel();
-    await handle.stderrSubscription?.cancel();
+    await _cancelEventProcessSubscriptions(handle);
     if (handle.required) {
       await stopEventSubscription();
     }
@@ -701,25 +753,17 @@ class DingTalkMessageGatewayService {
     _eventProcesses.clear();
     final controller = _eventController;
     _eventController = null;
-    await Future.wait<void>(
-      processes.map((handle) async {
-        await handle.stdoutSubscription?.cancel();
-        await handle.stderrSubscription?.cancel();
-      }),
-    );
     if (processes.isNotEmpty) {
       _logRuntime('INFO', '正在停止钉钉实时事件监听。');
-      await Future.wait<void>(
-        processes.map(
-          (handle) => terminateTrackedProcessTree(
-            handle.process,
-            gracefulTimeout: const Duration(seconds: 2),
-          ),
-        ),
-      );
+      await Future.wait<void>(processes.map(_terminateEventProcess));
       _logRuntime('SUCCESS', '钉钉实时事件监听已停止。');
     }
-    await controller?.close();
+    await runAsyncCleanupBounded(
+      () => controller?.close(),
+      timeout: _eventCleanupTimeout,
+      onError: (error, stack) =>
+          silentLog('dingtalk_gateway', '关闭钉钉实时事件流', error, stack),
+    );
   }
 
   /// 将钉钉消息中的媒体资源下载到确定性本地缓存。缓存文件不存在时会自动重取，
@@ -1164,8 +1208,10 @@ class DingTalkMessageGatewayService {
       return await authStatus();
     } finally {
       _authProcess = null;
-      await stdoutSub.cancel();
-      await stderrSub.cancel();
+      await _cancelTextSubscriptions(<StreamSubscription<String>>[
+        stdoutSub,
+        stderrSub,
+      ], action: '取消钉钉授权输出订阅');
     }
   }
 
