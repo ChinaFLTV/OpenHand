@@ -4,7 +4,8 @@ import 'dart:io';
 import 'dart:math' as math;
 
 import 'package:file_selector/file_selector.dart';
-import 'package:flutter/gestures.dart' show PointerScrollEvent, PointerSignalEvent;
+import 'package:flutter/gestures.dart'
+    show PointerScrollEvent, PointerSignalEvent, TapGestureRecognizer;
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_markdown_plus/flutter_markdown_plus.dart';
@@ -16201,19 +16202,33 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           ? bodyStyle?.copyWith(fontFamily: 'monospace', fontSize: 12.5)
           : bodyStyle;
       // 流式期间用稳定 key 的静态文本，避免每帧重建可选择文本的手势状态。
-      return streaming
-          ? Text(
-              text,
-              key: const ValueKey<String>('dingtalk-streaming-plain'),
-              textWidthBasis: TextWidthBasis.longestLine,
-              style: style,
-            )
-          : SelectableText(
-              text,
-              key: ValueKey<String>('plain:$text'),
-              textWidthBasis: TextWidthBasis.longestLine,
-              style: style,
-            );
+      if (streaming) {
+        return Text(
+          text,
+          key: const ValueKey<String>('dingtalk-streaming-plain'),
+          textWidthBasis: TextWidthBasis.longestLine,
+          style: style,
+        );
+      }
+      if (_showRawContent) {
+        return SelectableText(
+          text,
+          key: ValueKey<String>('raw:$text'),
+          textWidthBasis: TextWidthBasis.longestLine,
+          style: style,
+        );
+      }
+      return _DingTalkLinkifiedText(
+        text: text,
+        style: style,
+        linkStyle: (style ?? const TextStyle()).copyWith(
+          color: widget.mine ? foreground : theme.colorScheme.primary,
+          decoration: TextDecoration.underline,
+          decorationColor: widget.mine ? foreground : theme.colorScheme.primary,
+          decorationThickness: 1.2,
+        ),
+        onOpenLink: (href) => unawaited(_openMessageLink(context, href)),
+      );
     }
     final thinkingFontStyle = widget.message.isThinkingEcho
         ? FontStyle.italic
@@ -16232,7 +16247,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       selectable: !streaming,
       streaming: streaming,
       onTapLink: (text, href, title) =>
-          unawaited(_openMarkdownLink(context, href ?? text)),
+          unawaited(_openMessageLink(context, href ?? text)),
       imageBuilder: (uri, title, alt) => Text(
         alt?.trim().isNotEmpty == true ? '[${alt!.trim()}]' : '[图片]',
         style: bodyStyle?.copyWith(fontStyle: FontStyle.italic),
@@ -16309,15 +16324,17 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           );
   }
 
-  Future<void> _openMarkdownLink(BuildContext context, String? href) async {
+  Future<void> _openMessageLink(BuildContext context, String? href) async {
     _cancelPendingActionToggle();
     final target = href?.trim() ?? '';
     final uri = target.isEmpty ? null : Uri.tryParse(target);
     final scheme = uri?.scheme.toLowerCase();
+    final isWebLink = scheme == 'http' || scheme == 'https';
     if (uri == null ||
-        (scheme != 'http' && scheme != 'https' && scheme != 'mailto')) {
-      const error = FormatException('Markdown 链接无效或暂不支持。');
-      silentLog('dingtalk_gateway', '打开 Markdown 链接', error);
+        (!isWebLink && scheme != 'mailto') ||
+        (isWebLink && (uri.host.isEmpty || uri.userInfo.isNotEmpty))) {
+      const error = FormatException('消息链接无效或暂不支持。');
+      silentLog('dingtalk_gateway', '打开消息链接', error);
       if (context.mounted) {
         showOpenHandErrorSnack(context, '链接无效或暂不支持打开。');
       }
@@ -16325,7 +16342,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     }
     final opened = await openExternalUriWithSystemApp(
       uri,
-      tag: 'dingtalk_gateway.markdown_link',
+      tag: 'dingtalk_gateway.message_link',
     );
     if (!context.mounted) return;
     if (!opened) {
@@ -16601,6 +16618,163 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     } finally {
       if (mounted) setState(() => _copyingMedia = false);
     }
+  }
+}
+
+class _DingTalkLinkifiedText extends StatefulWidget {
+  const _DingTalkLinkifiedText({
+    required this.text,
+    required this.style,
+    required this.linkStyle,
+    required this.onOpenLink,
+  });
+
+  final String text;
+  final TextStyle? style;
+  final TextStyle linkStyle;
+  final ValueChanged<String> onOpenLink;
+
+  @override
+  State<_DingTalkLinkifiedText> createState() => _DingTalkLinkifiedTextState();
+}
+
+class _DingTalkLinkifiedTextState extends State<_DingTalkLinkifiedText> {
+  static const int _maxScannedCharacters = 64 * 1024;
+  static const int _maxLinks = 64;
+  static final RegExp _urlPattern = RegExp(
+    r"""https?://[^\s<>"']+""",
+    caseSensitive: false,
+  );
+  static const String _trailingPunctuation = '）】》」』”’，。！？、,.!?:;';
+
+  List<({int start, int end, String url})> _links = const [];
+  final List<TapGestureRecognizer> _recognizers = [];
+
+  @override
+  void initState() {
+    super.initState();
+    _refreshLinks();
+  }
+
+  @override
+  void didUpdateWidget(covariant _DingTalkLinkifiedText oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.text != widget.text) _refreshLinks();
+  }
+
+  @override
+  void dispose() {
+    _disposeRecognizers();
+    super.dispose();
+  }
+
+  void _refreshLinks() {
+    _disposeRecognizers();
+    final scanLength = math.min(widget.text.length, _maxScannedCharacters);
+    final scannedText = widget.text.substring(0, scanLength);
+    final links = <({int start, int end, String url})>[];
+    for (final match in _urlPattern.allMatches(scannedText)) {
+      if (links.length >= _maxLinks) break;
+      if (scanLength < widget.text.length && match.end == scanLength) break;
+      final matchedText = match.group(0)!;
+      final url = _trimLinkEnd(matchedText);
+      final uri = Uri.tryParse(url);
+      final scheme = uri?.scheme.toLowerCase();
+      if (url.isEmpty ||
+          uri == null ||
+          (scheme != 'http' && scheme != 'https') ||
+          uri.host.isEmpty ||
+          uri.userInfo.isNotEmpty) {
+        continue;
+      }
+      links.add((start: match.start, end: match.start + url.length, url: url));
+    }
+    _links = List.unmodifiable(links);
+    for (final link in _links) {
+      _recognizers.add(
+        TapGestureRecognizer()..onTap = () => widget.onOpenLink(link.url),
+      );
+    }
+  }
+
+  static String _trimLinkEnd(String value) {
+    var end = value.length;
+    while (end > 0) {
+      final last = value[end - 1];
+      if (_trailingPunctuation.contains(last)) {
+        end--;
+        continue;
+      }
+      final unmatchedClosing = switch (last) {
+        ')' => _hasUnmatchedClosing(value, end, '(', ')'),
+        ']' => _hasUnmatchedClosing(value, end, '[', ']'),
+        '}' => _hasUnmatchedClosing(value, end, '{', '}'),
+        _ => false,
+      };
+      if (!unmatchedClosing) break;
+      end--;
+    }
+    return end == value.length ? value : value.substring(0, end);
+  }
+
+  static bool _hasUnmatchedClosing(
+    String value,
+    int end,
+    String opening,
+    String closing,
+  ) {
+    var balance = 0;
+    for (var index = 0; index < end; index++) {
+      final character = value[index];
+      if (character == opening) {
+        balance++;
+      } else if (character == closing) {
+        balance--;
+      }
+    }
+    return balance < 0;
+  }
+
+  void _disposeRecognizers() {
+    for (final recognizer in _recognizers) {
+      recognizer.dispose();
+    }
+    _recognizers.clear();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    if (_links.isEmpty) {
+      return SelectableText(
+        widget.text,
+        textWidthBasis: TextWidthBasis.longestLine,
+        style: widget.style,
+      );
+    }
+    final spans = <InlineSpan>[];
+    var cursor = 0;
+    for (var index = 0; index < _links.length; index++) {
+      final link = _links[index];
+      if (link.start > cursor) {
+        spans.add(TextSpan(text: widget.text.substring(cursor, link.start)));
+      }
+      spans.add(
+        TextSpan(
+          text: widget.text.substring(link.start, link.end),
+          style: widget.linkStyle,
+          recognizer: _recognizers[index],
+          mouseCursor: SystemMouseCursors.click,
+        ),
+      );
+      cursor = link.end;
+    }
+    if (cursor < widget.text.length) {
+      spans.add(TextSpan(text: widget.text.substring(cursor)));
+    }
+    return SelectableText.rich(
+      TextSpan(style: widget.style, children: spans),
+      textWidthBasis: TextWidthBasis.longestLine,
+    );
   }
 }
 
