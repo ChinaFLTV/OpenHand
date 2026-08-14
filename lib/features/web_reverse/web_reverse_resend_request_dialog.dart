@@ -721,47 +721,42 @@ print(resp.text[:2000])''';
               ),
             ),
           ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(18, 10, 18, 12),
-            child: Row(
-              children: [
-                Text(
-                  _transport == _ReplayTransport.browser
-                      ? openHandLocalizedText(
-                          context,
-                          zh: '通过 CDP 在页面上下文重放请求',
-                          zhHant: '透過 CDP 在頁面上下文重放請求',
-                          en: 'Replays through CDP in the page context',
-                          fr: 'Rejoue via CDP dans le contexte de la page',
-                          de: 'Wiederholt per CDP im Seitenkontext',
-                          ja: 'CDP でページコンテキスト内にリプレイ',
-                        )
-                      : (loc?.webReverseResendRequestFooterNote ??
-                            'Direct mode uses Dart HttpClient and bypasses the browser.'),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-                const Spacer(),
-                OpenHandDialogActionButton.secondary(
-                  onPressed: () => Navigator.of(context).pop(),
-                  label: loc?.webReverseResendRequestClose ?? 'Close',
-                ),
-                kOpenHandHGap8,
-                _sending
-                    ? OpenHandDialogActionButton.destructive(
-                        onPressed: _abort,
-                        icon: Icons.stop_rounded,
-                        label: loc?.webReverseResendRequestAbort ?? 'Abort',
-                      )
-                    : OpenHandDialogActionButton.primary(
-                        onPressed: _send,
-                        icon: Icons.send_rounded,
-                        label: loc?.webReverseResendRequestSend ?? 'Send',
-                      ),
-              ],
+          buildWebReverseDialogFooter(
+            context,
+            leading: Text(
+              _transport == _ReplayTransport.browser
+                  ? openHandLocalizedText(
+                      context,
+                      zh: '通过 CDP 在页面上下文重放请求',
+                      zhHant: '透過 CDP 在頁面上下文重放請求',
+                      en: 'Replays through CDP in the page context',
+                      fr: 'Rejoue via CDP dans le contexte de la page',
+                      de: 'Wiederholt per CDP im Seitenkontext',
+                      ja: 'CDP でページコンテキスト内にリプレイ',
+                    )
+                  : (loc?.webReverseResendRequestFooterNote ??
+                        'Direct mode uses Dart HttpClient and bypasses the browser.'),
+              style: theme.textTheme.bodySmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(context).pop(),
+                label: loc?.webReverseResendRequestClose ?? 'Close',
+              ),
+              _sending
+                  ? OpenHandDialogActionButton.destructive(
+                      onPressed: _abort,
+                      icon: Icons.stop_rounded,
+                      label: loc?.webReverseResendRequestAbort ?? 'Abort',
+                    )
+                  : OpenHandDialogActionButton.primary(
+                      onPressed: _send,
+                      icon: Icons.send_rounded,
+                      label: loc?.webReverseResendRequestSend ?? 'Send',
+                    ),
+            ],
           ),
         ],
       ),

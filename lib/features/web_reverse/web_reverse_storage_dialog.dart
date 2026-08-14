@@ -9,7 +9,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
@@ -742,15 +741,9 @@ class _StorageDialogState extends State<_StorageDialog>
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: OpenHandDialogActionButton.primary(
-                label: loc?.webReverseStorageClose ?? 'Close',
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.webReverseStorageClose ?? 'Close',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

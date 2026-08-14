@@ -14,7 +14,6 @@ import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/motion_durations.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_notice.dart';
 import '../../shared/ui/openhand_reveal_switcher.dart';
 import '../../shared/ui/openhand_spacing.dart';
@@ -433,7 +432,9 @@ class _CorsDialogState extends State<_CorsDialog> {
                           ),
                           decoration: BoxDecoration(
                             color: cs.primaryContainer.withValues(alpha: 0.5),
-                            borderRadius: BorderRadius.circular(kOpenHandRadius20),
+                            borderRadius: BorderRadius.circular(
+                              kOpenHandRadius20,
+                            ),
                           ),
                           child: Text(
                             'HTTP ${res['status']} ${res['statusText']}',
@@ -541,15 +542,9 @@ class _CorsDialogState extends State<_CorsDialog> {
               ],
             ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: OpenHandDialogActionButton.primary(
-                label: loc?.webReverseCorsClose ?? 'Close',
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.webReverseCorsClose ?? 'Close',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

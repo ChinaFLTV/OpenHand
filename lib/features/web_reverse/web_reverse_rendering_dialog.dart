@@ -421,23 +421,19 @@ class _RenderingDialogState extends State<_RenderingDialog> {
               ],
             ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-            child: Row(
-              children: [
-                OpenHandBusyStatusIcon(
-                  busy: _busy,
-                  icon: null,
-                  color: cs.primary,
-                ),
-                const Spacer(),
-                OpenHandDialogActionButton.primary(
-                  label: loc?.webReverseRenderingClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
+          buildWebReverseDialogFooter(
+            context,
+            leading: OpenHandBusyStatusIcon(
+              busy: _busy,
+              icon: null,
+              color: cs.primary,
             ),
+            actions: [
+              OpenHandDialogActionButton.primary(
+                label: loc?.webReverseRenderingClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
         ],
       ),

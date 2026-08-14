@@ -261,7 +261,9 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                           controller: _w,
                           decoration: InputDecoration(
                             labelText: loc?.webReverseDeviceEmuWidth ?? 'Width',
-                            border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+                            border: const OutlineInputBorder(
+                              borderRadius: kOpenHandBorderRadius10,
+                            ),
                           ),
                           keyboardType: TextInputType.number,
                         ),
@@ -273,7 +275,9 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                           decoration: InputDecoration(
                             labelText:
                                 loc?.webReverseDeviceEmuHeight ?? 'Height',
-                            border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+                            border: const OutlineInputBorder(
+                              borderRadius: kOpenHandBorderRadius10,
+                            ),
                           ),
                           keyboardType: TextInputType.number,
                         ),
@@ -282,7 +286,12 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       Expanded(
                         child: TextField(
                           controller: _dpr,
-                          decoration: const InputDecoration(labelText: 'DPR', border: OutlineInputBorder(borderRadius: kOpenHandBorderRadius10)),
+                          decoration: const InputDecoration(
+                            labelText: 'DPR',
+                            border: OutlineInputBorder(
+                              borderRadius: kOpenHandBorderRadius10,
+                            ),
+                          ),
                           keyboardType: TextInputType.number,
                         ),
                       ),
@@ -306,7 +315,9 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
                       hintText:
                           loc?.webReverseDeviceEmuUaHint ??
                           'leave empty to keep default',
-                      border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+                      border: const OutlineInputBorder(
+                        borderRadius: kOpenHandBorderRadius10,
+                      ),
                     ),
                     minLines: 2,
                     maxLines: 4,
@@ -335,15 +346,9 @@ class _DeviceEmuDialogState extends State<_DeviceEmuDialog> {
             ),
           ),
           buildWebReverseStatusBar(context, status: _status),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: OpenHandDialogActionButton.primary(
-                label: loc?.webReverseDeviceEmuClose ?? 'Close',
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.webReverseDeviceEmuClose ?? 'Close',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

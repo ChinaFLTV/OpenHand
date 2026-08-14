@@ -21,13 +21,38 @@ enum AiExposureSource {
   const AiExposureSource(this.id);
   final String id;
 
-  static AiExposureSource fromId(String? value) =>
-      values.firstWhere((item) => item.id == value, orElse: () => manual);
+  static AiExposureSource fromId(Object? value) =>
+      enumByStorageValueOr(values, value, (item) => item.id, fallback: manual);
 }
 
-enum AiExposureScanMode { incremental, full }
+enum AiExposureScanMode {
+  incremental('incremental'),
+  full('full');
 
-enum AiExposureValidationMode { passive, authorizedActive }
+  const AiExposureScanMode(this.id);
+  final String id;
+
+  static AiExposureScanMode fromId(Object? value) => enumByStorageValueOr(
+    values,
+    value,
+    (item) => item.id,
+    fallback: incremental,
+  );
+}
+
+enum AiExposureValidationMode {
+  passive('passive'),
+  authorizedActive('authorized_active');
+
+  const AiExposureValidationMode(this.id);
+  final String id;
+
+  static AiExposureValidationMode fromId(Object? value) =>
+      tryFromId(value) ?? passive;
+
+  static AiExposureValidationMode? tryFromId(Object? value) =>
+      enumByStorageValue(values, value, (item) => item.id);
+}
 
 enum AiExposureForumFetchMode {
   jinaFallback('jina_fallback'),
@@ -36,11 +61,32 @@ enum AiExposureForumFetchMode {
   const AiExposureForumFetchMode(this.id);
   final String id;
 
-  static AiExposureForumFetchMode fromId(String? value) =>
-      values.firstWhere((item) => item.id == value, orElse: () => jinaFallback);
+  static AiExposureForumFetchMode fromId(Object? value) =>
+      tryFromId(value) ?? jinaFallback;
+
+  static AiExposureForumFetchMode? tryFromId(Object? value) =>
+      enumByStorageValue(values, value, (item) => item.id);
 }
 
-enum AiExposureResultCategory { valid, suspicious, highValue, honeypot }
+enum AiExposureResultCategory {
+  valid('valid'),
+  suspicious('suspicious'),
+  highValue('high_value'),
+  honeypot('honeypot');
+
+  const AiExposureResultCategory(this.id);
+
+  /// 与扫描引擎对齐的线路取值。导出与回读共用，避免 `.name`（highValue）与
+  /// 引擎线路值（high_value）漂移导致回读降级。
+  final String id;
+
+  static AiExposureResultCategory fromId(Object? value) => enumByStorageValueOr(
+    values,
+    value,
+    (item) => item.id,
+    fallback: suspicious,
+  );
+}
 
 const Set<String> _kAiExposureTerminalStages = <String>{
   'completed',
@@ -64,12 +110,8 @@ enum AiExposureContentEncoding {
   const AiExposureContentEncoding(this.id);
   final String id;
 
-  static AiExposureContentEncoding? tryFromId(String value) {
-    for (final encoding in values) {
-      if (encoding.id == value) return encoding;
-    }
-    return null;
-  }
+  static AiExposureContentEncoding? tryFromId(Object? value) =>
+      enumByStorageValue(values, value, (item) => item.id);
 }
 
 enum AiExposureProxyStrategy {
@@ -81,8 +123,12 @@ enum AiExposureProxyStrategy {
   const AiExposureProxyStrategy(this.id);
   final String id;
 
-  static AiExposureProxyStrategy fromId(String? value) =>
-      values.firstWhere((item) => item.id == value, orElse: () => roundRobin);
+  static AiExposureProxyStrategy fromId(Object? value) => enumByStorageValueOr(
+    values,
+    value,
+    (item) => item.id,
+    fallback: roundRobin,
+  );
 }
 
 enum AiExposureProxyRoute { pool, system, direct }
@@ -359,6 +405,11 @@ class AiExposureScanRule {
 const int kAiExposureProxyLatencySampleLimit = 24;
 const int kAiExposureProxyRequestSampleLimit = 24;
 const int kAiExposureProxyRuntimeRequestSampleLimit = 512;
+const int kAiExposureMaxProxyEndpoints = 10000;
+const int kAiExposureMaxProxyRotationEvery = 10000;
+const int kAiExposureMaxProxyInspectionIntervalMinutes = 24 * 60;
+const int kAiExposureMaxProxyInspectionConcurrency = 32;
+const int kAiExposureMaxScanConcurrency = 128;
 
 /// 代理请求明细的持久化上限，避免长期运行导致数据库无限增长。
 const int kAiExposureProxyRequestHistoryLimit = 50000;
@@ -375,12 +426,8 @@ enum AiExposureProxyProbeFailure {
 
   final String id;
 
-  static AiExposureProxyProbeFailure? tryFromId(String? value) {
-    for (final failure in values) {
-      if (failure.id == value) return failure;
-    }
-    return null;
-  }
+  static AiExposureProxyProbeFailure? tryFromId(Object? value) =>
+      enumByStorageValue(values, value, (item) => item.id);
 }
 
 class AiExposureProxyProbeStepResult {
@@ -1125,7 +1172,7 @@ class AiExposureProxyConfiguration {
         json['rotationEvery'],
         fallback: 1,
         min: 1,
-        max: 10000,
+        max: kAiExposureMaxProxyRotationEvery,
       ),
       bypassLocal: _boolValue(json['bypassLocal'], fallback: true),
       endpoints: List<AiExposureProxyEndpoint>.unmodifiable(endpoints),
@@ -1134,13 +1181,13 @@ class AiExposureProxyConfiguration {
         json['inspectionIntervalMinutes'],
         fallback: 30,
         min: 1,
-        max: 1440,
+        max: kAiExposureMaxProxyInspectionIntervalMinutes,
       ),
       inspectionConcurrency: _boundedInt(
         json['inspectionConcurrency'],
         fallback: 8,
         min: 1,
-        max: 32,
+        max: kAiExposureMaxProxyInspectionConcurrency,
       ),
     );
   }
@@ -1163,7 +1210,7 @@ class AiExposureProxyConfiguration {
   }) => <String, Object?>{
     'enabled': enabled,
     'strategy': strategy.id,
-    'rotationEvery': rotationEvery.clamp(1, 10000),
+    'rotationEvery': rotationEvery.clamp(1, kAiExposureMaxProxyRotationEvery),
     'bypassLocal': bypassLocal,
     'endpoints': endpoints
         .map(
@@ -1174,8 +1221,14 @@ class AiExposureProxyConfiguration {
         )
         .toList(growable: false),
     'inspectionEnabled': inspectionEnabled,
-    'inspectionIntervalMinutes': inspectionIntervalMinutes.clamp(1, 1440),
-    'inspectionConcurrency': inspectionConcurrency.clamp(1, 32),
+    'inspectionIntervalMinutes': inspectionIntervalMinutes.clamp(
+      1,
+      kAiExposureMaxProxyInspectionIntervalMinutes,
+    ),
+    'inspectionConcurrency': inspectionConcurrency.clamp(
+      1,
+      kAiExposureMaxProxyInspectionConcurrency,
+    ),
   };
 
   Map<String, Object?> toRuntimeJson({
@@ -1183,7 +1236,7 @@ class AiExposureProxyConfiguration {
   }) => <String, Object?>{
     'enabled': enabled,
     'strategy': strategy.id,
-    'rotationEvery': rotationEvery.clamp(1, 10000),
+    'rotationEvery': rotationEvery.clamp(1, kAiExposureMaxProxyRotationEvery),
     'bypassLocal': bypassLocal,
     'endpoints': activeEndpoints
         .map(
@@ -1267,7 +1320,7 @@ class AiExposureProxyStatus {
       json['rotationEvery'],
       fallback: 1,
       min: 1,
-      max: 10000,
+      max: kAiExposureMaxProxyRotationEvery,
     ),
     bypassLocal: _boolValue(json['bypassLocal'], fallback: true),
     totalSelections: _nonNegativeInt(json['totalSelections']),
@@ -1334,9 +1387,7 @@ class AiExposureHistoryEntry {
       sources: _stringList(
         json['sources'],
       ).map(AiExposureSource.fromId).toList(growable: false),
-      mode: json['mode'] == 'full'
-          ? AiExposureScanMode.full
-          : AiExposureScanMode.incremental,
+      mode: AiExposureScanMode.fromId(json['mode']),
       authorizedScope: _stringList(json['authorizedScope']),
       progress: AiExposureProgress.fromJson(_jsonMap(json['progress'])),
       createdAt: createdAt ?? DateTime.now(),
@@ -1349,17 +1400,16 @@ class AiExposureHistoryEntry {
       lastCheckpointAt: _optionalDateTime(json['lastCheckpointAt']),
       failureStage: _optionalString(json['failureStage']),
       retryCount: _optionalNonNegativeInt(json['retryCount']),
-      concurrency: _optionalNonNegativeInt(json['concurrency'], max: 128),
-      validationMode: switch (json['validationMode']) {
-        'passive' => AiExposureValidationMode.passive,
-        'authorized_active' => AiExposureValidationMode.authorizedActive,
-        _ => null,
-      },
-      forumFetchMode: switch (json['forumFetchMode']) {
-        'jina_fallback' => AiExposureForumFetchMode.jinaFallback,
-        'playwright' => AiExposureForumFetchMode.playwright,
-        _ => null,
-      },
+      concurrency: _optionalNonNegativeInt(
+        json['concurrency'],
+        max: kAiExposureMaxScanConcurrency,
+      ),
+      validationMode: AiExposureValidationMode.tryFromId(
+        json['validationMode'],
+      ),
+      forumFetchMode: AiExposureForumFetchMode.tryFromId(
+        json['forumFetchMode'],
+      ),
       gptAssisted: _optionalBool(json['gptAssisted']),
       stageTimings: _objectList(
         json['stageTimings'],
@@ -1439,12 +1489,9 @@ class AiExposureResult {
       url: _stringValue(json['url']),
       host: _stringValue(json['host']),
       product: _stringValue(json['product']),
-      category: switch (json['category']) {
-        'valid' => AiExposureResultCategory.valid,
-        'high_value' => AiExposureResultCategory.highValue,
-        'honeypot' => AiExposureResultCategory.honeypot,
-        _ => AiExposureResultCategory.suspicious,
-      },
+      category: AiExposureResultCategory.fromId(
+        _optionalString(json['category']),
+      ),
       credentialState: _stringValue(
         json['credentialState'],
         fallback: 'not_found',
@@ -1478,6 +1525,25 @@ class AiExposureResult {
   final List<String> evidence;
   final DateTime createdAt;
   final bool createdAtReported;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'jobId': jobId,
+    'source': source.id,
+    'url': url,
+    'host': host,
+    'product': product,
+    'category': category.id,
+    'credentialState': credentialState,
+    'maskedCredential': maskedCredential,
+    'responseFingerprint': responseFingerprint,
+    'duplicateResponseHosts': duplicateResponseHosts,
+    'duplicateKeyHosts': duplicateKeyHosts,
+    'modelCount': modelCount,
+    'balanceSummary': balanceSummary,
+    'evidence': evidence,
+    'createdAt': createdAt.toIso8601String(),
+  };
 }
 
 class AiExposureScanRequest {
@@ -1512,15 +1578,12 @@ class AiExposureScanRequest {
   Map<String, Object?> toJson() => <String, Object?>{
     'name': name,
     'sources': sources.map((source) => source.id).toList(growable: false),
-    'mode': mode.name,
+    'mode': mode.id,
     'authorizedScope': authorizedScope,
     'authorizationConfirmed': authorizationConfirmed,
     'targets': targets,
     'vendors': vendors,
-    'validationMode':
-        validationMode == AiExposureValidationMode.authorizedActive
-        ? 'authorized_active'
-        : 'passive',
+    'validationMode': validationMode.id,
     'forumFetchMode': forumFetchMode.id,
     'concurrency': concurrency,
     'gptAssisted': gptAssisted,
@@ -1703,19 +1766,19 @@ class AiExposurePreferences {
         json['defaultConcurrency'],
         fallback: 24,
         min: 1,
-        max: 128,
+        max: kAiExposureMaxScanConcurrency,
       ),
-      defaultValidationMode:
-          json['defaultValidationMode'] == 'authorized_active'
-          ? AiExposureValidationMode.authorizedActive
-          : AiExposureValidationMode.passive,
+      defaultValidationMode: AiExposureValidationMode.fromId(
+        json['defaultValidationMode'],
+      ),
       forumFetchMode: AiExposureForumFetchMode.fromId(
         _optionalString(json['forumFetchMode']),
       ),
       defaultGptAssisted: _boolValue(json['defaultGptAssisted']),
       useBundledEngine: _boolValue(json['useBundledEngine'], fallback: true),
       externalAddress:
-          _optionalString(json['externalAddress']) ?? kAiExposureDefaultExternalAddress,
+          _optionalString(json['externalAddress']) ??
+          kAiExposureDefaultExternalAddress,
       postgresqlEnabled: _boolValue(json['postgresqlEnabled']),
       redisEnabled: _boolValue(json['redisEnabled']),
       proxyConfiguration: AiExposureProxyConfiguration.fromJson(json['proxy']),
@@ -1741,10 +1804,7 @@ class AiExposurePreferences {
         .map((source) => source.id)
         .toList(growable: false),
     'defaultConcurrency': defaultConcurrency,
-    'defaultValidationMode':
-        defaultValidationMode == AiExposureValidationMode.authorizedActive
-        ? 'authorized_active'
-        : 'passive',
+    'defaultValidationMode': defaultValidationMode.id,
     'forumFetchMode': forumFetchMode.id,
     'defaultGptAssisted': defaultGptAssisted,
     'useBundledEngine': useBundledEngine,
@@ -1767,11 +1827,11 @@ Map<String, Object?> aiExposureJsonMap(Object? value) => _jsonMap(value);
   if (userInfo.isEmpty) return (username: '', password: '');
   final separator = userInfo.indexOf(':');
   if (separator < 0) {
-    return (username: Uri.decodeComponent(userInfo), password: '');
+    return (username: _decodeProxyUriComponent(userInfo), password: '');
   }
   return (
-    username: Uri.decodeComponent(userInfo.substring(0, separator)),
-    password: Uri.decodeComponent(userInfo.substring(separator + 1)),
+    username: _decodeProxyUriComponent(userInfo.substring(0, separator)),
+    password: _decodeProxyUriComponent(userInfo.substring(separator + 1)),
   );
 }
 
@@ -1783,8 +1843,16 @@ String maskAiExposureProxyUrl(String value, {String fallback = '--'}) {
   final host = uri.host.contains(':') ? '[${uri.host}]' : uri.host;
   final port = uri.hasPort ? ':${uri.port}' : '';
   if (uri.userInfo.isEmpty) return '${uri.scheme}://$host$port';
-  final username = Uri.decodeComponent(uri.userInfo.split(':').first);
+  final username = _decodeProxyUriComponent(uri.userInfo.split(':').first);
   return '${uri.scheme}://$username:******@$host$port';
+}
+
+String _decodeProxyUriComponent(String value) {
+  try {
+    return Uri.decodeComponent(value);
+  } on FormatException {
+    return value;
+  }
 }
 
 Map<String, Object?> _jsonMap(Object? value) => value is Map
@@ -1801,7 +1869,7 @@ List<Object?> _objectList(Object? value) =>
 String _stringValue(Object? value, {String fallback = ''}) =>
     value is String ? value : fallback;
 
-bool? _optionalBool(Object? value) => value is bool ? value : null;
+bool? _optionalBool(Object? value) => optionalBoolFromValue(value);
 
 bool _boolValue(Object? value, {bool fallback = false}) =>
     _optionalBool(value) ?? fallback;
@@ -1815,13 +1883,12 @@ DateTime? _optionalDateTime(Object? value) =>
     value is String ? DateTime.tryParse(value) : null;
 
 double? _optionalFiniteDouble(Object? value) {
-  if (value is! num || !value.isFinite) return null;
-  return value.toDouble();
+  return optionalDoubleFromValue(value);
 }
 
 int? _optionalNonNegativeInt(Object? value, {int max = 0x1fffffffffffff}) {
-  if (value is! num || !value.isFinite) return null;
-  final parsed = value.toInt();
+  final parsed = optionalIntFromValue(value);
+  if (parsed == null) return null;
   return parsed < 0 || parsed > max ? null : parsed;
 }
 
@@ -1831,8 +1898,7 @@ int? _optionalHttpStatus(Object? value) {
 }
 
 int _nonNegativeInt(Object? value, {int max = 0x1fffffffffffff}) {
-  if (value is! num || !value.isFinite) return 0;
-  return value.toInt().clamp(0, max);
+  return (optionalIntFromValue(value) ?? 0).clamp(0, max);
 }
 
 int _boundedInt(
@@ -1841,6 +1907,5 @@ int _boundedInt(
   required int min,
   required int max,
 }) {
-  if (value is! num || !value.isFinite) return fallback;
-  return value.toInt().clamp(min, max);
+  return clampedIntFromValue(value, fallback: fallback, min: min, max: max);
 }

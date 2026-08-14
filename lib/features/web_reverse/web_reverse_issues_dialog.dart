@@ -341,7 +341,9 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                             context,
                           )?.webReverseIssuesFilterHint ??
                           'Filter by code / URL / description…',
-                      border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+                      border: const OutlineInputBorder(
+                        borderRadius: kOpenHandBorderRadius10,
+                      ),
                     ),
                     onChanged: (v) => setState(() => _filter = v),
                   ),
@@ -506,10 +508,9 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                     },
                   ),
           ),
-          Divider(height: 1, color: cs.outlineVariant),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(20, 12, 20, 14),
-            child: Row(
+          buildWebReverseDialogFooter(
+            context,
+            leading: Row(
               children: [
                 Icon(
                   Icons.fiber_manual_record_rounded,
@@ -529,15 +530,16 @@ class _IssuesDialogState extends State<_IssuesDialog> {
                             'Audits domain not ready'),
                   style: tt.labelSmall?.copyWith(color: cs.onSurfaceVariant),
                 ),
-                const Spacer(),
-                OpenHandDialogActionButton.primary(
-                  label:
-                      AppLocalizations.of(context)?.webReverseIssuesClose ??
-                      'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
               ],
             ),
+            actions: [
+              OpenHandDialogActionButton.primary(
+                label:
+                    AppLocalizations.of(context)?.webReverseIssuesClose ??
+                    'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
         ],
       ),

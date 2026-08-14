@@ -174,22 +174,19 @@ class _CpuThrottleDialogState extends State<_CpuThrottleDialog> {
             ),
           ),
           buildWebReverseStatusBar(context, status: _status),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: Row(
-              children: [
-                OpenHandDialogActionButton.secondary(
-                  onPressed: _busy ? null : () => _apply(1),
-                  icon: Icons.restore_rounded,
-                  label: loc?.webReverseCpuThrottleReset ?? 'Reset (1×)',
-                ),
-                const Spacer(),
-                OpenHandDialogActionButton.primary(
-                  label: loc?.commonClose ?? 'Close',
-                  onPressed: () => Navigator.of(context).pop(),
-                ),
-              ],
-            ),
+          buildWebReverseDialogFooter(
+            context,
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                onPressed: _busy ? null : () => _apply(1),
+                icon: Icons.restore_rounded,
+                label: loc?.webReverseCpuThrottleReset ?? 'Reset (1×)',
+              ),
+              OpenHandDialogActionButton.primary(
+                label: loc?.commonClose ?? 'Close',
+                onPressed: () => Navigator.of(context).pop(),
+              ),
+            ],
           ),
         ],
       ),

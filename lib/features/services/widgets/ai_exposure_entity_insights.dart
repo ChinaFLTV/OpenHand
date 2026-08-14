@@ -3597,8 +3597,36 @@ String _probeStepState(
   AiExposureProxyProbeSample sample,
   AiExposureProxyProbeFailure failure,
 ) {
-  if (sample.failure == failure) return '失败';
-  return sample.reachable ? '通过' : '未执行';
+  if (sample.reachable) return '通过';
+  final actual = sample.failure;
+  if (actual == null) return '未执行';
+  if (failure == actual) return '失败';
+  final completed = switch (actual) {
+    AiExposureProxyProbeFailure.gateway =>
+      const <AiExposureProxyProbeFailure>{},
+    AiExposureProxyProbeFailure.authentication => const {
+      AiExposureProxyProbeFailure.gateway,
+    },
+    AiExposureProxyProbeFailure.access => const {
+      AiExposureProxyProbeFailure.gateway,
+      AiExposureProxyProbeFailure.authentication,
+    },
+    AiExposureProxyProbeFailure.forwarding => const {
+      AiExposureProxyProbeFailure.gateway,
+      AiExposureProxyProbeFailure.authentication,
+      AiExposureProxyProbeFailure.access,
+    },
+    AiExposureProxyProbeFailure.protocol => const {
+      AiExposureProxyProbeFailure.gateway,
+    },
+    AiExposureProxyProbeFailure.timeout =>
+      sample.gatewayReachable
+          ? const <AiExposureProxyProbeFailure>{
+              AiExposureProxyProbeFailure.gateway,
+            }
+          : const <AiExposureProxyProbeFailure>{},
+  };
+  return completed.contains(failure) ? '通过' : '未执行';
 }
 
 (String, String, String, String, String) _stageDefinition(String stage) =>

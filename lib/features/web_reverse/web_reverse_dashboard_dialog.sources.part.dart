@@ -2123,32 +2123,28 @@ class _SourcesGlobalSearchDialogState
                     },
                   ),
           ),
-          const Divider(height: 1),
-          Padding(
-            padding: const EdgeInsets.all(10),
-            child: Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text(
-                  openHandLocalizedText(
-                    context,
-                    zh: '命中 ${_hits.length} 条（上限 200）',
-                    zhHant: '命中 ${_hits.length} 條（上限 200）',
-                    en: '${_hits.length} hits (cap 200)',
-                    fr: '${_hits.length} résultats (max 200)',
-                    de: '${_hits.length} Treffer (max. 200)',
-                    ja: '${_hits.length} 件ヒット（上限 200）',
-                  ),
-                  style: theme.textTheme.labelSmall?.copyWith(
-                    color: cs.onSurfaceVariant,
-                  ),
-                ),
-                OpenHandDialogActionButton.secondary(
-                  onPressed: () => Navigator.of(context).pop(),
-                  label: openHandCloseLabel(context),
-                ),
-              ],
+          buildWebReverseDialogFooter(
+            context,
+            leading: Text(
+              openHandLocalizedText(
+                context,
+                zh: '命中 ${_hits.length} 条（上限 200）',
+                zhHant: '命中 ${_hits.length} 條（上限 200）',
+                en: '${_hits.length} hits (cap 200)',
+                fr: '${_hits.length} résultats (max 200)',
+                de: '${_hits.length} Treffer (max. 200)',
+                ja: '${_hits.length} 件ヒット（上限 200）',
+              ),
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: cs.onSurfaceVariant,
+              ),
             ),
+            actions: [
+              OpenHandDialogActionButton.secondary(
+                onPressed: () => Navigator.of(context).pop(),
+                label: openHandCloseLabel(context),
+              ),
+            ],
           ),
         ],
       ),
@@ -3004,7 +3000,9 @@ class _SourcesQuickOpenDialogState extends State<_SourcesQuickOpenDialog> {
     final cs = theme.colorScheme;
     return buildOpenHandDialog(
       backgroundColor: cs.surfaceContainerHigh,
-      shape: const RoundedRectangleBorder(borderRadius: kOpenHandBorderRadius14),
+      shape: const RoundedRectangleBorder(
+        borderRadius: kOpenHandBorderRadius14,
+      ),
       width: 640,
       height: 480,
       child: CallbackShortcuts(

@@ -1059,7 +1059,9 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                               color: colorScheme.errorContainer.withValues(
                                 alpha: 0.16,
                               ),
-                              borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius10,
+                              ),
                               border: Border.all(
                                 color: colorScheme.error.withValues(
                                   alpha: 0.24,
@@ -1152,7 +1154,9 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                               color: colorScheme.secondaryContainer.withValues(
                                 alpha: 0.28,
                               ),
-                              borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius10,
+                              ),
                               border: Border.all(
                                 color: colorScheme.secondary.withValues(
                                   alpha: 0.22,
@@ -1282,8 +1286,8 @@ class _HarnessEngineeringDialogState extends State<HarnessEngineeringDialog> {
                 kOpenHandGap16,
                 OverflowBar(
                   spacing: 8,
-                  overflowAlignment: OverflowBarAlignment.end,
-                  alignment: MainAxisAlignment.end,
+                  overflowAlignment: OverflowBarAlignment.center,
+                  alignment: MainAxisAlignment.center,
                   children: [
                     OpenHandDialogActionButton.secondary(
                       onPressed: () => Navigator.of(context).pop(),

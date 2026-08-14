@@ -36,14 +36,20 @@ import 'service_dialog_controls.dart';
 
 const int _kMaxProxyImportBytes = 4 * 1024 * 1024;
 const int _kMaxProxyImportRecords = 20000;
-const int _kMaxProxyEndpoints = 10000;
 const int _kProxyHighLatencyThresholdMs = 350;
 const double _kProxyEndpointListMaxHeight = 420;
 // 为节点列表滚动条预留独立命中槽位，避免覆盖弹窗主滚动条。
 const double _kProxyEndpointScrollbarGutter = 28;
 const Duration _kProbeResultFlushDelay = Duration(milliseconds: 80);
 const List<int> _kInspectionIntervals = <int>[5, 15, 30, 60, 180, 360];
-const List<int> _kInspectionConcurrencyOptions = <int>[1, 2, 4, 8, 16, 32];
+const List<int> _kInspectionConcurrencyOptions = <int>[
+  1,
+  2,
+  4,
+  8,
+  16,
+  kAiExposureMaxProxyInspectionConcurrency,
+];
 const XTypeGroup _kProxyJsonFileType = XTypeGroup(
   label: 'JSON',
   extensions: <String>['json'],
@@ -267,7 +273,9 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                       DecoratedBox(
                         decoration: BoxDecoration(
                           color: colors.surface,
-                          borderRadius: BorderRadius.circular(kOpenHandRadius10),
+                          borderRadius: BorderRadius.circular(
+                            kOpenHandRadius10,
+                          ),
                           border: Border.all(color: colors.outlineVariant),
                         ),
                         child: Padding(
@@ -780,8 +788,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
             ],
           ),
           AnimatedOpacity(
-            duration: openHandMotionDuration(context, kOpenHandMotion240,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion240),
             curve: Curves.easeOutCubic,
             opacity: _enabled ? 1 : .46,
             child: IgnorePointer(
@@ -830,11 +837,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
                       );
                       if (constraints.maxWidth < 680) {
                         return Column(
-                          children: [
-                            strategy,
-                            kOpenHandGap8,
-                            bypass,
-                          ],
+                          children: [strategy, kOpenHandGap8, bypass],
                         );
                       }
                       return Row(
@@ -869,8 +872,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
             ),
           ),
           AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion220,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             child: _enabled && activeCount == 0
@@ -1373,8 +1375,10 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       if (_endpoints.any((item) => item.url == endpoint.url)) {
         throw const FormatException('该代理已存在。');
       }
-      if (_endpoints.length >= _kMaxProxyEndpoints) {
-        throw const FormatException('代理池已达到 10000 条上限。');
+      if (_endpoints.length >= kAiExposureMaxProxyEndpoints) {
+        throw const FormatException(
+          '代理池已达到 $kAiExposureMaxProxyEndpoints 条上限。',
+        );
       }
       final endpoints = <AiExposureProxyEndpoint>[..._endpoints, endpoint];
       dismissOpenHandTooltipsSafely(debugLabel: '新增代理节点前收起工具提示');
@@ -1625,7 +1629,7 @@ class _ProxyDialogState extends State<_ProxyDialog> {
       };
       var accepted = 0;
       for (final endpoint in imported.endpoints) {
-        if (merged.length >= _kMaxProxyEndpoints) break;
+        if (merged.length >= kAiExposureMaxProxyEndpoints) break;
         final existing = merged[endpoint.url];
         if (existing == null) {
           accepted++;
@@ -4647,9 +4651,7 @@ class _ProxyEndpointDetailsDialogState
     return LayoutBuilder(
       builder: (context, constraints) {
         if (constraints.maxWidth < 680) {
-          return Column(
-            children: [requestChart, kOpenHandGap8, probeChart],
-          );
+          return Column(children: [requestChart, kOpenHandGap8, probeChart]);
         }
         return Row(
           children: [
@@ -5119,7 +5121,9 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
                       tooltip: text(zh: '解析并填充表单', en: 'Parse and fill form'),
                       onPressed: () => _applyProxyAddress(reportInvalid: true),
                       icon: AnimatedSwitcher(
-                        duration: openHandMotionDuration(context, kOpenHandMotion220,
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion220,
                         ),
                         child: Icon(
                           proxyAddressParsed
@@ -5304,7 +5308,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
               ),
               kOpenHandGap18,
               Wrap(
-                alignment: WrapAlignment.end,
+                alignment: WrapAlignment.center,
                 spacing: kOpenHandDialogActionSpacing,
                 runSpacing: kOpenHandDialogActionSpacing,
                 children: [
@@ -5359,7 +5363,7 @@ class _ProxyEndpointEditorState extends State<_ProxyEndpointEditor> {
     if (!(_formKey.currentState?.validate() ?? false)) return;
     final username = _username.text.trim();
     final password = _password.text;
-    final userInfo = username.isEmpty
+    final userInfo = username.isEmpty && password.isEmpty
         ? ''
         : '${Uri.encodeComponent(username)}:${Uri.encodeComponent(password)}@';
     final rawHost = _host.text.trim();
@@ -5440,8 +5444,7 @@ class _ProxyEndpointCard extends StatelessWidget {
               : null,
         ),
         AnimatedContainer(
-          duration: openHandMotionDuration(context, kOpenHandMotion260,
-          ),
+          duration: openHandMotionDuration(context, kOpenHandMotion260),
           curve: Curves.easeOutBack,
           width: 34,
           height: 34,
@@ -5451,8 +5454,7 @@ class _ProxyEndpointCard extends StatelessWidget {
           ),
           alignment: Alignment.center,
           child: AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion220,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
             child: testing
                 ? SizedBox.square(
                     key: const ValueKey<String>('testing'),
@@ -5637,8 +5639,7 @@ class _ProxyEndpointCard extends StatelessWidget {
     ];
     final actions = ServiceDialogIconActions(children: actionChildren);
     return AnimatedContainer(
-      duration: openHandMotionDuration(context, kOpenHandMotion260,
-      ),
+      duration: openHandMotionDuration(context, kOpenHandMotion260),
       curve: Curves.easeOutCubic,
       padding: EdgeInsetsDirectional.fromSTEB(
         12,
@@ -5901,7 +5902,9 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
                           ),
                         ),
                       AnimatedPositioned(
-                        duration: openHandMotionDuration(context, kOpenHandMotion180,
+                        duration: openHandMotionDuration(
+                          context,
+                          kOpenHandMotion180,
                         ),
                         curve: Curves.easeOutCubic,
                         left: tooltipLeft,
@@ -5909,7 +5912,9 @@ class _ProxyLatencyChartState extends State<_ProxyLatencyChart> {
                         width: _tooltipWidth,
                         child: IgnorePointer(
                           child: AnimatedSwitcher(
-                            duration: openHandMotionDuration(context, kOpenHandMotion220,
+                            duration: openHandMotionDuration(
+                              context,
+                              kOpenHandMotion220,
                             ),
                             switchInCurve: Curves.easeOutCubic,
                             switchOutCurve: Curves.easeInCubic,
@@ -6210,8 +6215,10 @@ _ProxyEndpointHealth _proxyEndpointHealth(AiExposureProxyEndpoint endpoint) {
         invalid++;
       }
       if (endpoint == null) continue;
-      if (endpoints.length >= _kMaxProxyEndpoints) {
-        throw const FormatException('有效代理不能超过 $_kMaxProxyEndpoints 个。');
+      if (endpoints.length >= kAiExposureMaxProxyEndpoints) {
+        throw const FormatException(
+          '有效代理不能超过 $kAiExposureMaxProxyEndpoints 个。',
+        );
       }
       endpoints.add(endpoint);
     }
@@ -6241,8 +6248,10 @@ _ProxyEndpointHealth _proxyEndpointHealth(AiExposureProxyEndpoint endpoint) {
         invalid++;
       }
       if (endpoint == null) continue;
-      if (endpoints.length >= _kMaxProxyEndpoints) {
-        throw const FormatException('有效代理不能超过 $_kMaxProxyEndpoints 个。');
+      if (endpoints.length >= kAiExposureMaxProxyEndpoints) {
+        throw const FormatException(
+          '有效代理不能超过 $kAiExposureMaxProxyEndpoints 个。',
+        );
       }
       endpoints.add(endpoint);
     }
@@ -6277,4 +6286,3 @@ String _timeLabel(DateTime value) {
 String _dateTimeLabel(DateTime value) {
   return formatYearMonthDayHms(value.toLocal());
 }
-

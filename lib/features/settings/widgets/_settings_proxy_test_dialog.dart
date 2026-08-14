@@ -690,7 +690,10 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     final hMax = mediaSize.height - 32;
     final dialog = TweenAnimationBuilder<double>(
       tween: Tween<double>(end: _maximized ? 1.0 : 0.0),
-      duration: openHandMotionDuration(context, const Duration(milliseconds: 380)),
+      duration: openHandMotionDuration(
+        context,
+        const Duration(milliseconds: 380),
+      ),
       curve: Curves.easeOutBack,
       builder: (context, t, _) {
         // easeOutBack 会短暂越界；保留少量弹性，最终仍由外层约束兜底。
@@ -1098,27 +1101,23 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
             ],
           ),
           kOpenHandGap8,
-          Row(
-            children: <Widget>[
-              if (_finalSummary != null)
-                Expanded(
-                  child: Text(
+          buildOpenHandDialogActionsBar(
+            padding: EdgeInsets.zero,
+            leading: _finalSummary == null
+                ? null
+                : Text(
                     _finalSummary!,
                     style: theme.textTheme.bodySmall,
                     maxLines: 2,
                     overflow: TextOverflow.ellipsis,
                   ),
-                )
-              else
-                const Spacer(),
-              kOpenHandHGap8,
+            actions: <Widget>[
               if (!_running)
                 OpenHandDialogActionButton.secondary(
                   onPressed: _rerun,
                   icon: Icons.refresh,
                   label: l10n.proxyTestConsoleRerun,
                 ),
-              kOpenHandHGap4,
               OpenHandDialogActionButton.primary(
                 onPressed: _running
                     ? null

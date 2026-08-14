@@ -14,7 +14,6 @@ import '../../shared/util/timer_safety.dart';
 import 'web_reverse_session_config.dart';
 import 'web_reverse_session_controller.dart';
 
-
 const EdgeInsets kWebReverseStatusBarPadding = EdgeInsets.fromLTRB(
   16,
   8,
@@ -25,7 +24,6 @@ const EdgeInsets kWebReverseStatusBarPadding = EdgeInsets.fromLTRB(
 const EdgeInsets kWebReverseSurfaceCardPadding = EdgeInsets.all(10);
 const double kWebReverseSurfaceCardRadius = 10;
 const EdgeInsets kWebReverseDialogFooterPadding = EdgeInsets.all(12);
-const double kWebReverseDialogFooterGap = 8;
 
 const OpenHandAnimationTransitionProfile kWebReverseDialogMotionProfile =
     OpenHandAnimationTransitionProfile(
@@ -211,28 +209,22 @@ Widget buildWebReverseSurfaceCard(
 
 /// Web 逆向工具弹窗统一的底部操作条：分隔线 + 居中动作按钮组。
 ///
-/// [actions] 之间自动插入 [kWebReverseDialogFooterGap] 间距，调用方只需给出
-/// 按钮本身，避免每个弹窗各自重复摆放 Divider / Padding / Row。
+/// 按钮间距由公共动作栏统一处理，调用方只需给出按钮本身，避免每个弹窗
+/// 各自重复摆放 Divider / Padding / Row。
 Widget buildWebReverseDialogFooter(
   BuildContext context, {
   required List<Widget> actions,
+  Widget? leading,
 }) {
   final colorScheme = Theme.of(context).colorScheme;
   return Column(
     mainAxisSize: MainAxisSize.min,
     children: [
       Divider(height: 1, color: colorScheme.outlineVariant),
-      Padding(
+      buildOpenHandDialogActionsBar(
+        leading: leading,
+        actions: actions,
         padding: kWebReverseDialogFooterPadding,
-        child: Row(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            for (var i = 0; i < actions.length; i++) ...[
-              if (i > 0) const SizedBox(width: kWebReverseDialogFooterGap),
-              actions[i],
-            ],
-          ],
-        ),
       ),
     ],
   );

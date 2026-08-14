@@ -279,7 +279,7 @@ class _PostgresqlRecordEditorState extends State<_PostgresqlRecordEditor> {
           ),
           kOpenHandGap14,
           Wrap(
-            alignment: WrapAlignment.end,
+            alignment: WrapAlignment.center,
             spacing: 10,
             runSpacing: 8,
             children: [
@@ -1063,7 +1063,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
           ),
           kOpenHandGap14,
           Wrap(
-            alignment: WrapAlignment.end,
+            alignment: WrapAlignment.center,
             spacing: 10,
             runSpacing: 8,
             children: [

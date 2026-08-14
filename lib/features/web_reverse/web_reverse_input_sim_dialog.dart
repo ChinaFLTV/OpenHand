@@ -12,7 +12,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_snack_bar.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/util/input_value_parsing.dart';
@@ -256,7 +255,12 @@ class _InputSimDialogState extends State<_InputSimDialog>
               Expanded(
                 child: TextField(
                   controller: _mouseX,
-                  decoration: const InputDecoration(labelText: 'X', border: OutlineInputBorder(borderRadius: kOpenHandBorderRadius10)),
+                  decoration: const InputDecoration(
+                    labelText: 'X',
+                    border: OutlineInputBorder(
+                      borderRadius: kOpenHandBorderRadius10,
+                    ),
+                  ),
                   keyboardType: TextInputType.number,
                 ),
               ),
@@ -264,7 +268,12 @@ class _InputSimDialogState extends State<_InputSimDialog>
               Expanded(
                 child: TextField(
                   controller: _mouseY,
-                  decoration: const InputDecoration(labelText: 'Y', border: OutlineInputBorder(borderRadius: kOpenHandBorderRadius10)),
+                  decoration: const InputDecoration(
+                    labelText: 'Y',
+                    border: OutlineInputBorder(
+                      borderRadius: kOpenHandBorderRadius10,
+                    ),
+                  ),
                   keyboardType: TextInputType.number,
                 ),
               ),
@@ -350,12 +359,20 @@ class _InputSimDialogState extends State<_InputSimDialog>
         children: [
           TextField(
             controller: _keyKey,
-            decoration: const InputDecoration(labelText: 'key', hintText: 'Enter / ArrowDown / a', border: OutlineInputBorder(borderRadius: kOpenHandBorderRadius10)),
+            decoration: const InputDecoration(
+              labelText: 'key',
+              hintText: 'Enter / ArrowDown / a',
+              border: OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+            ),
           ),
           kOpenHandGap10,
           TextField(
             controller: _keyCode,
-            decoration: const InputDecoration(labelText: 'code', hintText: 'KeyA / Enter / ArrowDown', border: OutlineInputBorder(borderRadius: kOpenHandBorderRadius10)),
+            decoration: const InputDecoration(
+              labelText: 'code',
+              hintText: 'KeyA / Enter / ArrowDown',
+              border: OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+            ),
           ),
           kOpenHandGap10,
           TextField(
@@ -364,7 +381,9 @@ class _InputSimDialogState extends State<_InputSimDialog>
               labelText:
                   loc?.webReverseInputSimKeyTextLabel ??
                   'text (printable char)',
-              border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+              border: const OutlineInputBorder(
+                borderRadius: kOpenHandBorderRadius10,
+              ),
             ),
           ),
           kOpenHandGap12,
@@ -399,7 +418,9 @@ class _InputSimDialogState extends State<_InputSimDialog>
             controller: _insertCtrl,
             decoration: InputDecoration(
               labelText: loc?.webReverseInputSimInsertTextLabel ?? 'insertText',
-              border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+              border: const OutlineInputBorder(
+                borderRadius: kOpenHandBorderRadius10,
+              ),
             ),
             minLines: 4,
             maxLines: 8,
@@ -446,15 +467,9 @@ class _InputSimDialogState extends State<_InputSimDialog>
           ),
           OpenHandBusyProgressBar(busy: _busy),
           buildWebReverseStatusBar(context, status: _status),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: OpenHandDialogActionButton.primary(
-                label: loc?.webReverseInputSimCloseBtn ?? 'Close',
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.webReverseInputSimCloseBtn ?? 'Close',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

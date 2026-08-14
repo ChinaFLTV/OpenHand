@@ -575,8 +575,8 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
           Slider(
             value: _concurrency,
             min: 1,
-            max: 128,
-            divisions: 127,
+            max: kAiExposureMaxScanConcurrency.toDouble(),
+            divisions: kAiExposureMaxScanConcurrency - 1,
             label: '${_concurrency.round()}',
             onChanged: (value) => setState(() => _concurrency = value),
           ),
@@ -779,8 +779,7 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
           ),
           scrollable: false,
           footer: AnimatedSwitcher(
-            duration: openHandMotionDuration(context, kOpenHandMotion220,
-            ),
+            duration: openHandMotionDuration(context, kOpenHandMotion220),
             switchInCurve: Curves.easeOutCubic,
             switchOutCurve: Curves.easeInCubic,
             child: KeyedSubtree(
@@ -829,8 +828,7 @@ class _ScanWorkspaceDialogState extends State<_ScanWorkspaceDialog> {
               const SizedBox(height: _kSectionGap),
               Expanded(
                 child: AnimatedSwitcher(
-                  duration: openHandMotionDuration(context, kOpenHandMotion240,
-                  ),
+                  duration: openHandMotionDuration(context, kOpenHandMotion240),
                   switchInCurve: Curves.easeOutCubic,
                   switchOutCurve: Curves.easeInCubic,
                   transitionBuilder: (child, animation) => FadeTransition(
@@ -1188,8 +1186,7 @@ class _ToolsDialogState extends State<_ToolsDialog> {
                 }
               }),
             ),
-            if (source != AiExposureSource.values.last)
-              kOpenHandGap8,
+            if (source != AiExposureSource.values.last) kOpenHandGap8,
           ],
           const SizedBox(height: _kSectionGap),
           _SectionTitle(
@@ -1651,8 +1648,8 @@ class _SettingsDialogState extends State<_SettingsDialog> {
           Slider(
             value: _concurrency,
             min: 1,
-            max: 128,
-            divisions: 127,
+            max: kAiExposureMaxScanConcurrency.toDouble(),
+            divisions: kAiExposureMaxScanConcurrency - 1,
             onChanged: (value) => setState(() => _concurrency = value),
           ),
           OpenHandAnimatedSwitchTile(
@@ -3701,6 +3698,12 @@ class _RuleEditorState extends State<_RuleEditor> {
         contentEncodings: _encodings.toList(growable: false),
         modelPaths: _lines(_modelPaths.text),
         balancePaths: _lines(_balancePaths.text),
+        version: widget.initial?.version,
+        contentHash: widget.initial?.contentHash,
+        createdAt: widget.initial?.createdAt,
+        updatedAt: widget.initial?.updatedAt,
+        snapshotId: widget.initial?.snapshotId,
+        changeSource: widget.initial?.changeSource,
       ),
     );
   }
@@ -3777,9 +3780,9 @@ Future<void> _exportResults(
     );
     if (location == null) return;
     final payload = format == _ExposureExportFormat.json
-        ? const JsonEncoder.withIndent(
-            '  ',
-          ).convert(results.map(_resultJson).toList(growable: false))
+        ? const JsonEncoder.withIndent('  ').convert(
+            results.map((result) => result.toJson()).toList(growable: false),
+          )
         : _resultsCsv(results);
     await writeFileAtomically(File(location.path), payload);
     if (!context.mounted) return;
@@ -3802,25 +3805,6 @@ Future<void> _exportResults(
     if (context.mounted) showOpenHandErrorSnack(context, message);
   }
 }
-
-Map<String, Object?> _resultJson(AiExposureResult result) => <String, Object?>{
-  'id': result.id,
-  'jobId': result.jobId,
-  'source': result.source.id,
-  'url': result.url,
-  'host': result.host,
-  'product': result.product,
-  'category': result.category.name,
-  'credentialState': result.credentialState,
-  'maskedCredential': result.maskedCredential,
-  'responseFingerprint': result.responseFingerprint,
-  'duplicateResponseHosts': result.duplicateResponseHosts,
-  'duplicateKeyHosts': result.duplicateKeyHosts,
-  'modelCount': result.modelCount,
-  'balanceSummary': result.balanceSummary,
-  'evidence': result.evidence,
-  'createdAt': result.createdAt.toIso8601String(),
-};
 
 enum _ExposureExportFormat { json, csv }
 
@@ -3883,7 +3867,7 @@ String _resultsCsv(List<AiExposureResult> results) {
         result.url,
         result.host,
         result.product,
-        result.category.name,
+        result.category.id,
         result.credentialState,
         result.maskedCredential,
         result.duplicateResponseHosts,

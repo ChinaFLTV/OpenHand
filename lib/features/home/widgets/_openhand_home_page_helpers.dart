@@ -557,7 +557,6 @@ class _TitleSummaryRangeDialogState extends State<_TitleSummaryRangeDialog> {
           ],
         ),
       ),
-      actionsAlignment: MainAxisAlignment.end,
       actions: [
         OpenHandDialogActionButton.secondary(
           onPressed: () => Navigator.of(context).pop(),
@@ -707,7 +706,6 @@ class _TitleGenerationProgressDialog extends StatelessWidget {
             ],
           ),
         ),
-        actionsAlignment: MainAxisAlignment.end,
         actions: [
           OpenHandDialogActionButton.secondary(
             onPressed: onCancel,
@@ -1548,7 +1546,7 @@ class _CreationOptionsSheetState extends State<_CreationOptionsSheet> {
 
   Widget _actions(BuildContext context) {
     return Wrap(
-      alignment: WrapAlignment.end,
+      alignment: WrapAlignment.center,
       spacing: 10,
       runSpacing: 10,
       children: [

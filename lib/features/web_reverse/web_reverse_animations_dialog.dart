@@ -22,7 +22,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
@@ -609,7 +608,9 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                             ),
                             kOpenHandGap6,
                             ClipRRect(
-                              borderRadius: BorderRadius.circular(kOpenHandRadius3),
+                              borderRadius: BorderRadius.circular(
+                                kOpenHandRadius3,
+                              ),
                               child: LinearProgressIndicator(
                                 value: pct,
                                 minHeight: 5,
@@ -641,15 +642,9 @@ class _AnimationsDialogState extends State<_AnimationsDialog> {
                     },
                   ),
           ),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: OpenHandDialogActionButton.primary(
-                label: loc?.webReverseAnimationsClose ?? 'Close',
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.webReverseAnimationsClose ?? 'Close',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

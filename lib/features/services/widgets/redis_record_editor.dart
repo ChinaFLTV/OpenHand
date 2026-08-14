@@ -225,7 +225,7 @@ class _RedisRecordEditorState extends State<RedisRecordEditor> {
         OpenHandDialogErrorText(message: _error, topGap: 8),
         kOpenHandGap14,
         Wrap(
-          alignment: WrapAlignment.end,
+          alignment: WrapAlignment.center,
           spacing: 10,
           runSpacing: 8,
           children: [

@@ -791,26 +791,20 @@ class _WsDialogState extends State<_WsDialog> {
     required String primaryLabel,
     required VoidCallback onPrimaryPressed,
   }) {
-    return Padding(
+    return buildOpenHandDialogActionsBar(
       padding: const EdgeInsets.fromLTRB(16, 10, 16, 12),
-      child: Row(
-        children: [
-          Expanded(
-            child: OpenHandDialogActionButton.secondary(
-              label: openHandCancelLabel(ctx),
-              onPressed: () => Navigator.of(ctx).pop(),
-            ),
-          ),
-          const SizedBox(width: _kWsDialogActionSpacing),
-          Expanded(
-            child: OpenHandDialogActionButton.primary(
-              icon: primaryIcon,
-              label: primaryLabel,
-              onPressed: onPrimaryPressed,
-            ),
-          ),
-        ],
-      ),
+      spacing: _kWsDialogActionSpacing,
+      actions: [
+        OpenHandDialogActionButton.secondary(
+          label: openHandCancelLabel(ctx),
+          onPressed: () => Navigator.of(ctx).pop(),
+        ),
+        OpenHandDialogActionButton.primary(
+          icon: primaryIcon,
+          label: primaryLabel,
+          onPressed: onPrimaryPressed,
+        ),
+      ],
     );
   }
 
@@ -1190,15 +1184,9 @@ class _WsDialogState extends State<_WsDialog> {
                   ),
           ),
           buildWebReverseStatusBar(context, status: _status),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: OpenHandDialogActionButton.primary(
-                label: openHandCloseLabel(context),
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
+          buildOpenHandDialogFooter(
+            primaryLabel: openHandCloseLabel(context),
+            onPrimaryPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

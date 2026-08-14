@@ -494,8 +494,7 @@ class _SkillsViewState extends State<SkillsView> {
                     ),
                   ),
                   kOpenHandGap16,
-                  Align(
-                    alignment: Alignment.centerRight,
+                  Center(
                     child: OpenHandDialogActionButton.primary(
                       onPressed: () => Navigator.of(dialogContext).pop(),
                       label: l10n.skillsPreviewClose,
@@ -685,7 +684,9 @@ mixin _SkillFormState<T extends StatefulWidget> on State<T> {
                         alignment: Alignment.center,
                         decoration: BoxDecoration(
                           color: colorScheme.surfaceContainerHigh,
-                          borderRadius: BorderRadius.circular(kOpenHandRadius16),
+                          borderRadius: BorderRadius.circular(
+                            kOpenHandRadius16,
+                          ),
                         ),
                         child: _buildSelectedIconPreview(),
                       ),

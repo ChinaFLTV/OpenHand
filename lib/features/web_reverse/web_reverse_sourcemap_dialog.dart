@@ -12,7 +12,6 @@ import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
 import '../../shared/ui/animated_dialog.dart';
 import '../../shared/ui/openhand_busy_indicators.dart';
-import '../../shared/ui/openhand_dialog_action_button.dart';
 import '../../shared/ui/openhand_inline_empty_state.dart';
 import '../../shared/ui/openhand_spacing.dart';
 import '../../shared/ui/openhand_typography.dart';
@@ -260,7 +259,9 @@ class _SmDialogState extends State<_SmDialog> {
                   decoration: InputDecoration(
                     labelText: loc?.webReverseSmUrlLabel ?? 'Minified file URL',
                     hintText: 'https://.../app.min.js',
-                    border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+                    border: const OutlineInputBorder(
+                      borderRadius: kOpenHandBorderRadius10,
+                    ),
                   ),
                 ),
                 kOpenHandGap10,
@@ -272,7 +273,9 @@ class _SmDialogState extends State<_SmDialog> {
                         decoration: InputDecoration(
                           labelText:
                               loc?.webReverseSmLineLabel ?? 'Line (1-based)',
-                          border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+                          border: const OutlineInputBorder(
+                            borderRadius: kOpenHandBorderRadius10,
+                          ),
                         ),
                         keyboardType: TextInputType.number,
                       ),
@@ -284,7 +287,9 @@ class _SmDialogState extends State<_SmDialog> {
                         decoration: InputDecoration(
                           labelText:
                               loc?.webReverseSmColLabel ?? 'Column (0-based)',
-                          border: const OutlineInputBorder(borderRadius: kOpenHandBorderRadius10),
+                          border: const OutlineInputBorder(
+                            borderRadius: kOpenHandBorderRadius10,
+                          ),
                         ),
                         keyboardType: TextInputType.number,
                       ),
@@ -363,15 +368,9 @@ class _SmDialogState extends State<_SmDialog> {
                   ),
           ),
           buildWebReverseStatusBar(context, status: _status),
-          Padding(
-            padding: const EdgeInsets.fromLTRB(16, 8, 16, 12),
-            child: SizedBox(
-              width: double.infinity,
-              child: OpenHandDialogActionButton.primary(
-                label: loc?.webReverseSmClose ?? 'Close',
-                onPressed: () => Navigator.of(context).pop(),
-              ),
-            ),
+          buildOpenHandDialogFooter(
+            primaryLabel: loc?.webReverseSmClose ?? 'Close',
+            onPrimaryPressed: () => Navigator.of(context).pop(),
           ),
         ],
       ),

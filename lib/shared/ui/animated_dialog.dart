@@ -1260,25 +1260,15 @@ Widget buildOpenHandDialogFooter({
   Widget? leading,
   EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(16, 8, 16, 12),
 }) {
-  final action = OpenHandDialogActionButton.primary(
-    label: primaryLabel,
-    onPressed: onPrimaryPressed,
-  );
-  if (leading == null) {
-    return Padding(
-      padding: padding,
-      child: SizedBox(width: double.infinity, child: action),
-    );
-  }
-  return Padding(
+  return buildOpenHandDialogActionsBar(
     padding: padding,
-    child: Row(
-      children: [
-        Expanded(child: leading),
-        const SizedBox(width: kOpenHandDialogActionSpacing),
-        action,
-      ],
-    ),
+    leading: leading,
+    actions: [
+      OpenHandDialogActionButton.primary(
+        label: primaryLabel,
+        onPressed: onPrimaryPressed,
+      ),
+    ],
   );
 }
 
@@ -1288,43 +1278,27 @@ Widget buildOpenHandDialogActionsBar({
   EdgeInsetsGeometry padding = const EdgeInsets.fromLTRB(16, 8, 16, 12),
   double spacing = kOpenHandDialogActionSpacing,
 }) {
-  final actionsRow = Wrap(
-    alignment: WrapAlignment.center,
-    spacing: spacing,
-    runSpacing: spacing,
-    children: actions,
+  final actionsRow = Center(
+    child: Wrap(
+      alignment: WrapAlignment.center,
+      spacing: spacing,
+      runSpacing: spacing,
+      children: actions,
+    ),
   );
   if (leading == null) {
     return Padding(padding: padding, child: actionsRow);
   }
   return Padding(
     padding: padding,
-    child: LayoutBuilder(
-      builder: (context, constraints) {
-        final compact =
-            constraints.maxWidth.isFinite && constraints.maxWidth < 420;
-        if (compact) {
-          return Column(
-            crossAxisAlignment: CrossAxisAlignment.stretch,
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              leading,
-              SizedBox(height: spacing),
-              Align(alignment: Alignment.centerRight, child: actionsRow),
-            ],
-          );
-        }
-        return Row(
-          children: [
-            Expanded(child: leading),
-            SizedBox(width: spacing),
-            Flexible(
-              flex: 0,
-              child: Align(alignment: Alignment.centerRight, child: actionsRow),
-            ),
-          ],
-        );
-      },
+    child: Column(
+      crossAxisAlignment: CrossAxisAlignment.stretch,
+      mainAxisSize: MainAxisSize.min,
+      children: [
+        leading,
+        SizedBox(height: spacing),
+        actionsRow,
+      ],
     ),
   );
 }
