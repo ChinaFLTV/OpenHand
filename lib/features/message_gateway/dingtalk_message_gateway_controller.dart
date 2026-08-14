@@ -158,6 +158,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
   static const Duration _outgoingEchoWindow = Duration(seconds: 30);
   static const int _maxAiConversationContextCharacters = 48000;
   static const int _maxAiConversationContextMessages = 200;
+  static const int _maxAiContextMessageCharacters = 4000;
   static const int _initialConversationHistoryMessageLimit = 20;
   static const Duration _conversationStartSkew = Duration(seconds: 2);
   static const Duration _queryWindow = Duration(minutes: 10);
@@ -1610,7 +1611,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           (message) =>
               !message.isAssistant &&
               !message.isExcludedFromAiContext &&
-              message.content.trim().isNotEmpty,
+              _messageAiContextContent(message).isNotEmpty,
         )
         .firstOrNull;
     // 手动强制响应不受自动响应的白名单与群聊 @ 条件限制。
@@ -1619,7 +1620,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     unawaited(
       _enqueueAiResponse(
         conversation,
-        source.content,
+        _messageAiContextContent(source),
         sourceMessageId: source.id,
         responseVersion: responseVersion,
         forceResponse: true,
@@ -2702,6 +2703,13 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     final recalledChanged = remote.recalled && !current.recalled;
     final mediaChanged =
         remote.media.isNotEmpty && !_sameMedia(current.media, remote.media);
+    final forwardedMessagesChanged =
+        remote.forwardedMessages.isNotEmpty &&
+        (remote.forwardedMessageCount != current.forwardedMessageCount ||
+            !_sameForwardedMessages(
+              current.forwardedMessages,
+              remote.forwardedMessages,
+            ));
     final mentionChanged =
         remote.mentionedCurrentUser && !current.mentionedCurrentUser;
     final readChanged = remote.readByPeer && !current.readByPeer;
@@ -2711,6 +2719,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (!contentChanged &&
         !recalledChanged &&
         !mediaChanged &&
+        !forwardedMessagesChanged &&
         !mentionChanged &&
         !readChanged &&
         !reactionsChanged) {
@@ -2743,6 +2752,12 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     conversation.messages[index] = current.copyWith(
       content: contentChanged ? remote.content : null,
       media: media,
+      forwardedMessages: forwardedMessagesChanged
+          ? remote.forwardedMessages
+          : null,
+      forwardedMessageCount: forwardedMessagesChanged
+          ? remote.forwardedMessageCount
+          : null,
       mentionedCurrentUser: mentionChanged ? true : null,
       readByPeer: readChanged ? true : null,
       recalled: recalledChanged ? true : null,
@@ -2772,6 +2787,28 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           a.mimeType != b.mimeType ||
           a.sizeBytes != b.sizeBytes ||
           a.durationMs != b.durationMs) {
+        return false;
+      }
+    }
+    return true;
+  }
+
+  bool _sameForwardedMessages(
+    List<DingTalkForwardedMessage> left,
+    List<DingTalkForwardedMessage> right,
+  ) {
+    if (left.length != right.length) return false;
+    for (var index = 0; index < left.length; index++) {
+      final a = left[index];
+      final b = right[index];
+      if (normalizeDingTalkMessageId(a.id) !=
+              normalizeDingTalkMessageId(b.id) ||
+          a.senderId != b.senderId ||
+          a.senderName != b.senderName ||
+          a.createdAt != b.createdAt ||
+          normalizeDingTalkMessageContentForComparison(a.content) !=
+              normalizeDingTalkMessageContentForComparison(b.content) ||
+          !_sameMedia(a.media, b.media)) {
         return false;
       }
     }
@@ -3289,7 +3326,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     unawaited(
       _enqueueAiResponse(
         conversation,
-        message.content,
+        _messageAiContextContent(message),
         sourceMessageId: message.id,
         responseVersion: responseVersion,
         automaticResponse: true,
@@ -3941,7 +3978,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (!forceResponse &&
         pending.length == 1 &&
         pending.single.id == sourceMessageId) {
-      return pending.single.content.trim();
+      return _messageAiContextContent(pending.single);
     }
 
     final entries = <String>[];
@@ -3953,11 +3990,7 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
       final timeLabel = timestamp.length >= 16
           ? timestamp.substring(0, 16).replaceFirst('T', ' ')
           : timestamp;
-      final body = clipTextByCodeUnits(
-        message.content.trim(),
-        4000,
-        suffix: '…',
-      );
+      final body = _messageAiContextContent(message);
       entries.add('- [$timeLabel] $sender：$body');
     }
     var totalCharacters = 0;
@@ -4003,9 +4036,37 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
           (message) =>
               !message.isAssistant &&
               !message.isExcludedFromAiContext &&
-              message.content.trim().isNotEmpty,
+              _messageAiContextContent(message).isNotEmpty,
         )
         .toList(growable: false);
+  }
+
+  String _messageAiContextContent(DingTalkGatewayMessage message) {
+    if (!message.isForwardedChatRecord) {
+      return clipTextByCodeUnits(
+        message.content.trim(),
+        _maxAiContextMessageCharacters,
+        suffix: '…',
+      );
+    }
+    final buffer = StringBuffer()
+      ..writeln('转发的聊天记录（共 ${message.forwardedMessageCount} 条）：');
+    for (final item in message.forwardedMessages) {
+      final sender = item.senderName.trim().isEmpty
+          ? '用户'
+          : item.senderName.trim();
+      final text = item.content.trim().isNotEmpty
+          ? item.content.trim()
+          : item.media.map((media) => '[${media.displayName}]').join(' ');
+      if (text.isEmpty) continue;
+      buffer.writeln('$sender：$text');
+      if (buffer.length >= _maxAiContextMessageCharacters) break;
+    }
+    return clipTextByCodeUnits(
+      buffer.toString().trim(),
+      _maxAiContextMessageCharacters,
+      suffix: '…',
+    );
   }
 
   int _conversationTurnStartIndex(
@@ -5185,7 +5246,7 @@ ${_markdownStructuredFields(response)}''';
           if (source != null) {
             item
               ..sourceMessageId = source.id
-              ..content = source.content;
+              ..content = _messageAiContextContent(source);
           }
         }
         if (item.automaticResponse &&
@@ -5214,7 +5275,7 @@ ${_markdownStructuredFields(response)}''';
             if (source != null) {
               item
                 ..sourceMessageId = source.id
-                ..content = source.content;
+                ..content = _messageAiContextContent(source);
             }
           }
           if (source == null ||

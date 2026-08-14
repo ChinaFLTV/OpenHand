@@ -1113,6 +1113,89 @@ class DingTalkMessageEditRecord {
   };
 }
 
+const int kDingTalkForwardedMessageLimit = 500;
+
+@immutable
+class DingTalkForwardedMessage {
+  const DingTalkForwardedMessage({
+    required this.id,
+    required this.content,
+    required this.createdAt,
+    this.senderName = '',
+    this.senderId = '',
+    this.media = const <DingTalkGatewayMedia>[],
+  });
+
+  factory DingTalkForwardedMessage.fromJson(Map<String, Object?> json) {
+    final createdAt = DateTime.tryParse('${json['created_at'] ?? ''}');
+    if (createdAt == null) {
+      throw const FormatException('钉钉转发聊天记录时间不完整。');
+    }
+    return DingTalkForwardedMessage(
+      id: normalizeDingTalkMessageId(json['id']),
+      content: normalizeDingTalkMessageEmotions(json['content']),
+      createdAt: createdAt,
+      senderName: _normalizedDingTalkString(json['sender_name']),
+      senderId: _normalizedDingTalkString(json['sender_id']),
+      media: _dingTalkGatewayMediaList(json['media']),
+    );
+  }
+
+  final String id;
+  final String content;
+  final DateTime createdAt;
+  final String senderName;
+  final String senderId;
+  final List<DingTalkGatewayMedia> media;
+
+  Map<String, Object?> toJson() => <String, Object?>{
+    'id': id,
+    'content': content,
+    'created_at': createdAt.toIso8601String(),
+    'sender_name': senderName,
+    'sender_id': senderId,
+    'media': media.map((item) => item.toJson()).toList(growable: false),
+  };
+}
+
+List<DingTalkGatewayMedia> _dingTalkGatewayMediaList(Object? raw) {
+  if (raw is! List) return const <DingTalkGatewayMedia>[];
+  final result = <DingTalkGatewayMedia>[];
+  final seen = <String>{};
+  for (final item in raw.take(12)) {
+    if (item is! Map) continue;
+    try {
+      final media = DingTalkGatewayMedia.fromJson(
+        stringKeyedMapFromValue(item),
+      );
+      if (seen.add('${media.resourceType.name}:${media.resourceId}')) {
+        result.add(media);
+      }
+    } on FormatException {
+      continue;
+    }
+  }
+  return result.toList(growable: false);
+}
+
+List<DingTalkForwardedMessage> _dingTalkForwardedMessageList(Object? raw) {
+  if (raw is! List) return const <DingTalkForwardedMessage>[];
+  return raw
+      .take(kDingTalkForwardedMessageLimit)
+      .whereType<Map>()
+      .map((item) {
+        try {
+          return DingTalkForwardedMessage.fromJson(
+            stringKeyedMapFromValue(item),
+          );
+        } on FormatException {
+          return null;
+        }
+      })
+      .whereType<DingTalkForwardedMessage>()
+      .toList(growable: false);
+}
+
 class DingTalkGatewayMessage {
   const DingTalkGatewayMessage({
     required this.id,
@@ -1125,6 +1208,8 @@ class DingTalkGatewayMessage {
     this.senderId = '',
     this.conversationTitle = '',
     this.media = const <DingTalkGatewayMedia>[],
+    this.forwardedMessages = const <DingTalkForwardedMessage>[],
+    this.forwardedMessageCount = 0,
     this.fromSelf = false,
     this.failed = false,
     this.mentionedCurrentUser = false,
@@ -1171,7 +1256,7 @@ class DingTalkGatewayMessage {
               .whereType<DingTalkMessageEditRecord>()
               .toList(growable: false)
         : const <DingTalkMessageEditRecord>[];
-    final media = _mediaList(json['media'])
+    final media = _dingTalkGatewayMediaList(json['media'])
         .where(
           (item) => !isDingTalkResourceIdInUrlQuery(
             rawContent,
@@ -1180,6 +1265,12 @@ class DingTalkGatewayMessage {
           ),
         )
         .toList(growable: false);
+    final forwardedMessages = _dingTalkForwardedMessageList(
+      json['forwarded_messages'],
+    );
+    final storedForwardedCount = int.tryParse(
+      '${json['forwarded_message_count'] ?? ''}',
+    );
     final content =
         rawContent.trim().toLowerCase() == '[null]' && media.isNotEmpty
         ? media.map((item) => '[${item.displayName}]').join(' ')
@@ -1195,6 +1286,12 @@ class DingTalkGatewayMessage {
       senderId: '${json['sender_id'] ?? ''}',
       conversationTitle: '${json['conversation_title'] ?? ''}',
       media: media,
+      forwardedMessages: forwardedMessages,
+      forwardedMessageCount:
+          storedForwardedCount != null &&
+              storedForwardedCount >= forwardedMessages.length
+          ? storedForwardedCount
+          : forwardedMessages.length,
       fromSelf: boolFromValue(json['from_self']),
       failed: boolFromValue(json['failed']),
       mentionedCurrentUser: boolFromValue(json['mentioned_current_user']),
@@ -1225,6 +1322,8 @@ class DingTalkGatewayMessage {
   final String senderId;
   final String conversationTitle;
   final List<DingTalkGatewayMedia> media;
+  final List<DingTalkForwardedMessage> forwardedMessages;
+  final int forwardedMessageCount;
   final bool fromSelf;
   final bool failed;
   final bool mentionedCurrentUser;
@@ -1238,6 +1337,7 @@ class DingTalkGatewayMessage {
   final DingTalkGatewayMessageFeedback? feedback;
 
   bool get isAssistant => role == DingTalkGatewayMessageRole.assistant;
+  bool get isForwardedChatRecord => forwardedMessages.isNotEmpty;
   bool get isEdited => editHistory.isNotEmpty;
   bool get isExcludedFromAiContext => recalled || ignoredForAiContext;
   bool get isThinkingEcho =>
@@ -1253,6 +1353,8 @@ class DingTalkGatewayMessage {
     String? id,
     String? content,
     List<DingTalkGatewayMedia>? media,
+    List<DingTalkForwardedMessage>? forwardedMessages,
+    int? forwardedMessageCount,
     bool? mentionedCurrentUser,
     bool? readByPeer,
     bool? recalled,
@@ -1275,6 +1377,9 @@ class DingTalkGatewayMessage {
       senderId: senderId,
       conversationTitle: conversationTitle,
       media: media ?? this.media,
+      forwardedMessages: forwardedMessages ?? this.forwardedMessages,
+      forwardedMessageCount:
+          forwardedMessageCount ?? this.forwardedMessageCount,
       fromSelf: fromSelf,
       failed: failed,
       mentionedCurrentUser: mentionedCurrentUser ?? this.mentionedCurrentUser,
@@ -1300,6 +1405,10 @@ class DingTalkGatewayMessage {
     'sender_id': senderId,
     'conversation_title': conversationTitle,
     'media': media.map((item) => item.toJson()).toList(growable: false),
+    'forwarded_messages': forwardedMessages
+        .map((item) => item.toJson())
+        .toList(growable: false),
+    'forwarded_message_count': forwardedMessageCount,
     'from_self': fromSelf,
     'failed': failed,
     'mentioned_current_user': mentionedCurrentUser,
@@ -1314,26 +1423,6 @@ class DingTalkGatewayMessage {
     'response_echo_type': responseEchoType?.storageValue,
     'feedback': feedback?.storageValue,
   };
-
-  static List<DingTalkGatewayMedia> _mediaList(Object? raw) {
-    if (raw is! List) return const <DingTalkGatewayMedia>[];
-    final result = <DingTalkGatewayMedia>[];
-    final seen = <String>{};
-    for (final item in raw.take(12)) {
-      if (item is! Map) continue;
-      try {
-        final media = DingTalkGatewayMedia.fromJson(
-          stringKeyedMapFromValue(item),
-        );
-        if (seen.add('${media.resourceType.name}:${media.resourceId}')) {
-          result.add(media);
-        }
-      } on FormatException {
-        continue;
-      }
-    }
-    return result.toList(growable: false);
-  }
 
   static List<String> _reactionList(Object? raw) {
     final result = <String>[];

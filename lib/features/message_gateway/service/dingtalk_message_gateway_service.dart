@@ -2846,11 +2846,26 @@ class DingTalkMessageGatewayService {
             ),
           )
           .toList(growable: false);
+      final createdAt = _parseDateTime(
+        map['createTime'] ??
+            map['createdAt'] ??
+            map['create_time'] ??
+            map['created_at'],
+        fallback: DateTime.fromMillisecondsSinceEpoch(0),
+      );
+      final forwarded = _parseForwardedMessages(
+        map,
+        fallbackConversationId: mediaConversationId,
+        fallbackCreatedAt: createdAt,
+      );
       final displayContent = media.isNotEmpty && _isMediaPlaceholder(content)
           ? _mediaSummary(media)
           : content;
       if (id.isEmpty ||
-          (content.isEmpty && media.isEmpty && !_messageRecalled(map)) ||
+          (content.isEmpty &&
+              media.isEmpty &&
+              forwarded.messages.isEmpty &&
+              !_messageRecalled(map)) ||
           conversationId.isEmpty) {
         continue;
       }
@@ -2872,15 +2887,11 @@ class DingTalkMessageGatewayService {
           conversationType: conversationType,
           role: DingTalkGatewayMessageRole.user,
           content: displayContent.isEmpty && !recalled
-              ? _mediaSummary(media)
+              ? forwarded.messages.isNotEmpty
+                    ? '转发的聊天记录'
+                    : _mediaSummary(media)
               : displayContent,
-          createdAt: _parseDateTime(
-            map['createTime'] ??
-                map['createdAt'] ??
-                map['create_time'] ??
-                map['created_at'],
-            fallback: DateTime.fromMillisecondsSinceEpoch(0),
-          ),
+          createdAt: createdAt,
           senderName: _eventString(map, const <String>[
             'senderName',
             'senderNick',
@@ -2902,6 +2913,8 @@ class DingTalkMessageGatewayService {
             'title',
           ]),
           media: media,
+          forwardedMessages: forwarded.messages,
+          forwardedMessageCount: forwarded.totalCount,
           fromSelf:
               _asBool(map['isSelf']) ||
               _asBool(map['is_self']) ||
@@ -2928,6 +2941,90 @@ class DingTalkMessageGatewayService {
       );
     }
     return result;
+  }
+
+  ({List<DingTalkForwardedMessage> messages, int totalCount})
+  _parseForwardedMessages(
+    Map<String, Object?> map, {
+    required String fallbackConversationId,
+    required DateTime fallbackCreatedAt,
+  }) {
+    final raw = map['forwardMessages'] ?? map['forward_messages'];
+    if (raw is! List || raw.isEmpty) {
+      return (messages: const <DingTalkForwardedMessage>[], totalCount: 0);
+    }
+    final messages = <DingTalkForwardedMessage>[];
+    for (final value in raw.take(kDingTalkForwardedMessageLimit)) {
+      if (value is! Map) continue;
+      final child = _asMap(value);
+      final id = normalizeDingTalkMessageId(
+        _first(child, const <String>[
+          'openMessageId',
+          'open_message_id',
+          'openMsgId',
+          'open_msg_id',
+          'messageId',
+          'message_id',
+          'msgId',
+          'msg_id',
+          'id',
+        ]),
+      );
+      final conversationId = _first(child, const <String>[
+        'openConversationId',
+        'open_conversation_id',
+        'conversationId',
+        'conversation_id',
+      ]);
+      final mediaConversationId = conversationId.isEmpty
+          ? fallbackConversationId
+          : conversationId;
+      final media = _extractMedia(child)
+          .map(
+            (item) => item.copyWith(
+              messageId: item.messageId.trim().isEmpty ? id : item.messageId,
+              conversationId: item.conversationId.trim().isEmpty
+                  ? mediaConversationId
+                  : item.conversationId,
+            ),
+          )
+          .toList(growable: false);
+      final content = _content(child);
+      final displayContent = media.isNotEmpty && _isMediaPlaceholder(content)
+          ? _mediaSummary(media)
+          : content;
+      if (displayContent.isEmpty && media.isEmpty) continue;
+      messages.add(
+        DingTalkForwardedMessage(
+          id: id,
+          content: displayContent,
+          createdAt: _parseDateTime(
+            child['createTime'] ??
+                child['createdAt'] ??
+                child['create_time'] ??
+                child['created_at'],
+            fallback: fallbackCreatedAt,
+          ),
+          senderName: _eventString(child, const <String>[
+            'senderName',
+            'senderNick',
+            'sender_name',
+            'nick',
+            'sender',
+          ]),
+          senderId: _eventString(child, const <String>[
+            'senderId',
+            'senderUserId',
+            'senderOpenDingTalkId',
+            'sender_id',
+            'sender_open_dingtalk_id',
+            'sender',
+          ]),
+          media: media,
+        ),
+      );
+    }
+    return (messages: messages.toList(growable: false), totalCount: raw.length);
   }
 
   bool _looksLikeMessageRecord(
@@ -3103,10 +3200,16 @@ class DingTalkMessageGatewayService {
           ),
         )
         .toList(growable: false);
+    final createdAt = _eventDateTime(map);
+    final forwarded = _parseForwardedMessages(
+      map,
+      fallbackConversationId: conversationId,
+      fallbackCreatedAt: createdAt,
+    );
     final displayContent = media.isNotEmpty && _isMediaPlaceholder(content)
         ? _mediaSummary(media)
         : content;
-    if (content.isEmpty && media.isEmpty) {
+    if (content.isEmpty && media.isEmpty && forwarded.messages.isEmpty) {
       return DingTalkGatewayEvent(
         type: DingTalkGatewayEventType.message,
         messageId: messageId,
@@ -3129,8 +3232,12 @@ class DingTalkMessageGatewayService {
       conversationId: conversationId,
       conversationType: conversationType,
       role: DingTalkGatewayMessageRole.user,
-      content: displayContent.isEmpty ? _mediaSummary(media) : displayContent,
-      createdAt: _eventDateTime(map),
+      content: displayContent.isEmpty
+          ? forwarded.messages.isNotEmpty
+                ? '转发的聊天记录'
+                : _mediaSummary(media)
+          : displayContent,
+      createdAt: createdAt,
       senderName: _eventString(map, const <String>[
         'sender_name',
         'senderName',
@@ -3156,6 +3263,8 @@ class DingTalkMessageGatewayService {
         'title',
       ]),
       media: media,
+      forwardedMessages: forwarded.messages,
+      forwardedMessageCount: forwarded.totalCount,
       fromSelf:
           _asBool(map['isSelf']) ||
           _asBool(map['is_self']) ||

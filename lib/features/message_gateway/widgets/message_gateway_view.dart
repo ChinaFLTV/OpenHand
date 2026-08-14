@@ -12744,6 +12744,8 @@ class _DingTalkMessagesDialogState extends State<_DingTalkMessagesDialog> {
                                                   );
                                                   final textActionEnabled =
                                                       !message.recalled &&
+                                                      !message
+                                                          .isForwardedChatRecord &&
                                                       message.media.isEmpty &&
                                                       message.content
                                                           .trim()
@@ -15393,6 +15395,52 @@ String _dingTalkMessageRenderIdentity(DingTalkGatewayMessage message) {
   return sourceId.isEmpty ? 'message:${message.id}' : 'ai:$sourceId';
 }
 
+String _dingTalkForwardedChatTitle(DingTalkGatewayMessage message) {
+  final names = <String>[];
+  for (final item in message.forwardedMessages) {
+    final name = item.senderName.trim();
+    if (name.isEmpty || names.contains(name)) continue;
+    names.add(name);
+    if (names.length >= 3) break;
+  }
+  return switch (names.length) {
+    0 => '转发的聊天记录',
+    1 => '${names.first}的聊天记录',
+    2 => '${names.first}与${names.last}的聊天记录',
+    _ => '${names[0]}、${names[1]}等人的聊天记录',
+  };
+}
+
+Future<void> _openDingTalkMessageLink(
+  BuildContext context,
+  String? href,
+) async {
+  final target = href?.trim() ?? '';
+  final uri = target.isEmpty ? null : Uri.tryParse(target);
+  final scheme = uri?.scheme.toLowerCase();
+  final isWebLink = scheme == 'http' || scheme == 'https';
+  if (uri == null ||
+      (!isWebLink && scheme != 'mailto') ||
+      (isWebLink && (uri.host.isEmpty || uri.userInfo.isNotEmpty))) {
+    const error = FormatException('消息链接无效或暂不支持。');
+    silentLog('dingtalk_gateway', '打开消息链接', error);
+    if (context.mounted) {
+      showOpenHandErrorSnack(context, '链接无效或暂不支持打开。');
+    }
+    return;
+  }
+  final opened = await openExternalUriWithSystemApp(
+    uri,
+    tag: 'dingtalk_gateway.message_link',
+  );
+  if (!context.mounted) return;
+  if (!opened) {
+    showOpenHandErrorSnack(context, '无法打开链接，请检查系统默认应用设置。');
+    return;
+  }
+  showOpenHandInfoSnack(context, '正在打开链接');
+}
+
 class _DingTalkMessageBubble extends StatefulWidget {
   const _DingTalkMessageBubble({
     required this.message,
@@ -15459,6 +15507,7 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
   static const Duration _actionToggleDelay = Duration(milliseconds: 80);
   static const int _maxClipboardImageBytes = 64 * kBytesPerMiB;
   static const Duration _mediaClipboardTimeout = Duration(seconds: 15);
+  static final RegExp _forwardedPreviewWhitespacePattern = RegExp(r'\s+');
   Offset? _pointerDownPosition;
   DateTime? _pointerDownAt;
   Timer? _pendingActionToggleTimer;
@@ -15612,7 +15661,8 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     final previewableMedia = widget.message.media
         .where((item) => item.kind.isPreviewable)
         .toList(growable: false);
-    final showText = previewableMedia.isEmpty;
+    final showText =
+        widget.message.isForwardedChatRecord || previewableMedia.isEmpty;
     final effectiveContent = widget.translationVisible
         ? widget.translatedContent ?? widget.message.content
         : widget.message.content;
@@ -15818,6 +15868,13 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
     required String effectiveContent,
   }) {
     final colors = Theme.of(context).colorScheme;
+    if (widget.message.isForwardedChatRecord && !_showRawContent) {
+      return _buildForwardedChatCard(
+        context,
+        bubbleColor: bubbleColor,
+        foreground: foreground,
+      );
+    }
     return AnimatedContainer(
       duration: openHandMotionDuration(context, kOpenHandMotion220),
       curve: Curves.easeOutCubic,
@@ -15847,6 +15904,208 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             _buildReactionRow(context, foreground),
           _buildMessageStateLabel(context),
         ],
+      ),
+    );
+  }
+
+  Widget _buildForwardedChatCard(
+    BuildContext context, {
+    required Color bubbleColor,
+    required Color foreground,
+  }) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final messages = widget.message.forwardedMessages;
+    final totalCount = widget.message.forwardedMessageCount;
+    final preview = messages.take(4).toList(growable: false);
+    final borderRadius = BorderRadius.only(
+      topLeft: const Radius.circular(kOpenHandRadius17),
+      topRight: const Radius.circular(kOpenHandRadius17),
+      bottomLeft: Radius.circular(widget.mine ? 17 : 5),
+      bottomRight: Radius.circular(widget.mine ? 5 : 17),
+    );
+    return Semantics(
+      button: true,
+      label:
+          '${_dingTalkForwardedChatTitle(widget.message)}，共 $totalCount 条，点击查看',
+      child: AnimatedContainer(
+        width: 440,
+        duration: openHandMotionDuration(context, kOpenHandMotion220),
+        curve: Curves.easeOutCubic,
+        margin: const EdgeInsets.only(bottom: 6),
+        decoration: BoxDecoration(
+          color: bubbleColor,
+          borderRadius: borderRadius,
+          border: Border.all(color: colors.primary.withValues(alpha: 0.24)),
+          boxShadow: <BoxShadow>[
+            BoxShadow(
+              color: colors.shadow.withValues(alpha: 0.07),
+              blurRadius: 12,
+              offset: const Offset(0, 4),
+            ),
+          ],
+        ),
+        clipBehavior: Clip.antiAlias,
+        child: Material(
+          color: Colors.transparent,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              InkWell(
+                onTap: () => _showForwardedChatRecord(context),
+                child: Padding(
+                  padding: const EdgeInsets.fromLTRB(16, 15, 14, 12),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Row(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          DecoratedBox(
+                            decoration: BoxDecoration(
+                              color: colors.tertiaryContainer.withValues(
+                                alpha: 0.86,
+                              ),
+                              borderRadius: kOpenHandBorderRadius12,
+                            ),
+                            child: Padding(
+                              padding: const EdgeInsets.all(9),
+                              child: Icon(
+                                Icons.forum_rounded,
+                                size: 21,
+                                color: colors.onTertiaryContainer,
+                              ),
+                            ),
+                          ),
+                          kOpenHandHGap12,
+                          Expanded(
+                            child: Text(
+                              _dingTalkForwardedChatTitle(widget.message),
+                              maxLines: 2,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.titleMedium?.copyWith(
+                                color: foreground,
+                                fontWeight: FontWeight.w800,
+                                height: 1.28,
+                              ),
+                            ),
+                          ),
+                          kOpenHandHGap8,
+                          Icon(
+                            Icons.chevron_right_rounded,
+                            color: foreground.withValues(alpha: 0.64),
+                          ),
+                        ],
+                      ),
+                      kOpenHandGap12,
+                      for (var index = 0; index < preview.length; index++) ...[
+                        Text.rich(
+                          TextSpan(
+                            children: [
+                              TextSpan(
+                                text:
+                                    '${preview[index].senderName.trim().isEmpty ? '用户' : preview[index].senderName.trim()}：',
+                                style: const TextStyle(
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              TextSpan(
+                                text: _forwardedPreviewText(preview[index]),
+                              ),
+                            ],
+                          ),
+                          maxLines: 1,
+                          overflow: TextOverflow.ellipsis,
+                          style: theme.textTheme.bodyMedium?.copyWith(
+                            color: foreground.withValues(alpha: 0.76),
+                            height: 1.5,
+                          ),
+                        ),
+                        if (index != preview.length - 1) kOpenHandGap2,
+                      ],
+                      kOpenHandGap10,
+                      Divider(
+                        height: 1,
+                        color: foreground.withValues(alpha: 0.12),
+                      ),
+                      kOpenHandGap9,
+                      Row(
+                        children: [
+                          Icon(
+                            Icons.layers_outlined,
+                            size: 16,
+                            color: colors.secondary,
+                          ),
+                          kOpenHandHGap6,
+                          Expanded(
+                            child: Text(
+                              totalCount > messages.length
+                                  ? '已展示 ${messages.length} / $totalCount 条'
+                                  : '共 $totalCount 条聊天记录',
+                              maxLines: 1,
+                              overflow: TextOverflow.ellipsis,
+                              style: theme.textTheme.labelMedium?.copyWith(
+                                color: foreground.withValues(alpha: 0.66),
+                                fontWeight: FontWeight.w700,
+                              ),
+                            ),
+                          ),
+                          kOpenHandHGap8,
+                          Text(
+                            '查看详情',
+                            style: theme.textTheme.labelMedium?.copyWith(
+                              color: widget.mine ? foreground : colors.primary,
+                              fontWeight: FontWeight.w800,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              if (widget.message.reactions.isNotEmpty ||
+                  widget.message.isExcludedFromAiContext)
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(14, 0, 14, 10),
+                  child: Column(
+                    children: [
+                      if (widget.message.reactions.isNotEmpty)
+                        _buildReactionRow(context, foreground, topSpacing: 0),
+                      _buildMessageStateLabel(context),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+
+  String _forwardedPreviewText(DingTalkForwardedMessage message) {
+    final content = message.content
+        .replaceAll(_forwardedPreviewWhitespacePattern, ' ')
+        .trim();
+    if (content.isNotEmpty) return content;
+    return message.media.map((item) => '[${item.displayName}]').join(' ');
+  }
+
+  void _showForwardedChatRecord(BuildContext context) {
+    _cancelPendingActionToggle();
+    unawaited(
+      showAnimatedDialog<void>(
+        context: context,
+        builder: (_) => buildOpenHandDialog(
+          maxWidth: kOpenHandDialogWidthWide,
+          maxHeight: MediaQuery.sizeOf(context).height * 0.88,
+          child: _DingTalkForwardedChatDialog(
+            message: widget.message,
+            mediaLoading: widget.mediaLoading,
+            mediaFailed: widget.mediaFailed,
+            onRetryMedia: widget.onRetryMedia,
+          ),
+        ),
       ),
     );
   }
@@ -16227,7 +16486,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
           decorationColor: widget.mine ? foreground : theme.colorScheme.primary,
           decorationThickness: 1.2,
         ),
-        onOpenLink: (href) => unawaited(_openMessageLink(context, href)),
+        onOpenLink: (href) {
+          _cancelPendingActionToggle();
+          unawaited(_openDingTalkMessageLink(context, href));
+        },
       );
     }
     final thinkingFontStyle = widget.message.isThinkingEcho
@@ -16246,8 +16508,10 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
       data: text,
       selectable: !streaming,
       streaming: streaming,
-      onTapLink: (text, href, title) =>
-          unawaited(_openMessageLink(context, href ?? text)),
+      onTapLink: (text, href, title) {
+        _cancelPendingActionToggle();
+        unawaited(_openDingTalkMessageLink(context, href ?? text));
+      },
       imageBuilder: (uri, title, alt) => Text(
         alt?.trim().isNotEmpty == true ? '[${alt!.trim()}]' : '[图片]',
         style: bodyStyle?.copyWith(fontStyle: FontStyle.italic),
@@ -16322,34 +16586,6 @@ class _DingTalkMessageBubbleState extends State<_DingTalkMessageBubble> {
             style: TextStyle(fontStyle: thinkingFontStyle),
             child: body,
           );
-  }
-
-  Future<void> _openMessageLink(BuildContext context, String? href) async {
-    _cancelPendingActionToggle();
-    final target = href?.trim() ?? '';
-    final uri = target.isEmpty ? null : Uri.tryParse(target);
-    final scheme = uri?.scheme.toLowerCase();
-    final isWebLink = scheme == 'http' || scheme == 'https';
-    if (uri == null ||
-        (!isWebLink && scheme != 'mailto') ||
-        (isWebLink && (uri.host.isEmpty || uri.userInfo.isNotEmpty))) {
-      const error = FormatException('消息链接无效或暂不支持。');
-      silentLog('dingtalk_gateway', '打开消息链接', error);
-      if (context.mounted) {
-        showOpenHandErrorSnack(context, '链接无效或暂不支持打开。');
-      }
-      return;
-    }
-    final opened = await openExternalUriWithSystemApp(
-      uri,
-      tag: 'dingtalk_gateway.message_link',
-    );
-    if (!context.mounted) return;
-    if (!opened) {
-      showOpenHandErrorSnack(context, '无法打开链接，请检查系统默认应用设置。');
-      return;
-    }
-    showOpenHandInfoSnack(context, '正在打开链接');
   }
 
   Widget _buildCopyAction(
@@ -17346,6 +17582,271 @@ class _DingTalkAuditNotice extends StatelessWidget {
         ),
       ),
     );
+  }
+}
+
+class _DingTalkForwardedChatDialog extends StatelessWidget {
+  const _DingTalkForwardedChatDialog({
+    required this.message,
+    required this.mediaLoading,
+    required this.mediaFailed,
+    this.onRetryMedia,
+  });
+
+  final DingTalkGatewayMessage message;
+  final bool mediaLoading;
+  final bool mediaFailed;
+  final VoidCallback? onRetryMedia;
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final forwarded = message.forwardedMessages;
+    var firstAt = forwarded.first.createdAt.toLocal();
+    var lastAt = firstAt;
+    for (final item in forwarded.skip(1)) {
+      final createdAt = item.createdAt.toLocal();
+      if (createdAt.isBefore(firstAt)) firstAt = createdAt;
+      if (createdAt.isAfter(lastAt)) lastAt = createdAt;
+    }
+    final rangeLabel = firstAt == lastAt
+        ? formatYearMonthDayHm(firstAt)
+        : '${formatYearMonthDayHm(firstAt)} - ${formatYearMonthDayHm(lastAt)}';
+    return Padding(
+      padding: const EdgeInsets.fromLTRB(24, 20, 24, 22),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              DecoratedBox(
+                decoration: BoxDecoration(
+                  color: colors.tertiaryContainer,
+                  borderRadius: kOpenHandBorderRadius14,
+                ),
+                child: Padding(
+                  padding: const EdgeInsets.all(11),
+                  child: Icon(
+                    Icons.forum_rounded,
+                    color: colors.onTertiaryContainer,
+                    size: 24,
+                  ),
+                ),
+              ),
+              kOpenHandHGap12,
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      _dingTalkForwardedChatTitle(message),
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.titleLarge?.copyWith(
+                        fontWeight: FontWeight.w800,
+                        height: 1.25,
+                      ),
+                    ),
+                    kOpenHandGap4,
+                    Text(
+                      message.forwardedMessageCount > forwarded.length
+                          ? '已展示 ${forwarded.length} / ${message.forwardedMessageCount} 条 · $rangeLabel'
+                          : '共 ${message.forwardedMessageCount} 条 · $rangeLabel',
+                      maxLines: 2,
+                      overflow: TextOverflow.ellipsis,
+                      style: theme.textTheme.bodySmall?.copyWith(
+                        color: colors.onSurfaceVariant,
+                        fontWeight: FontWeight.w600,
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+              kOpenHandHGap8,
+              IconButton(
+                tooltip: '关闭',
+                onPressed: () => Navigator.of(context).pop(),
+                icon: const Icon(Icons.close_rounded),
+              ),
+            ],
+          ),
+          kOpenHandGap14,
+          Expanded(
+            child: ListView.builder(
+              padding: const EdgeInsets.only(bottom: 8),
+              physics: openHandDialogAwareScrollPhysics(context),
+              cacheExtent: 600,
+              itemCount: forwarded.length,
+              itemBuilder: (context, index) {
+                final item = forwarded[index];
+                return RepaintBoundary(
+                  key: ValueKey<String>('forwarded:${item.id}:$index'),
+                  child: _buildMessageRow(context, item),
+                );
+              },
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Widget _buildMessageRow(BuildContext context, DingTalkForwardedMessage item) {
+    final theme = Theme.of(context);
+    final colors = theme.colorScheme;
+    final senderName = item.senderName.trim().isEmpty
+        ? '未知成员'
+        : item.senderName.trim();
+    final media = _resolvedMedia(item);
+    final content = item.content.trim();
+    final mediaSummary = media
+        .map((value) => '[${value.displayName}]')
+        .join(' ');
+    final showText = content.isNotEmpty && content != mediaSummary;
+    final palette = <({Color background, Color foreground})>[
+      (
+        background: colors.primaryContainer,
+        foreground: colors.onPrimaryContainer,
+      ),
+      (
+        background: colors.secondaryContainer,
+        foreground: colors.onSecondaryContainer,
+      ),
+      (
+        background: colors.tertiaryContainer,
+        foreground: colors.onTertiaryContainer,
+      ),
+      (background: colors.errorContainer, foreground: colors.onErrorContainer),
+    ];
+    final identity = item.senderId.trim().isEmpty
+        ? senderName
+        : item.senderId.trim();
+    final colorIndex =
+        int.parse(stableFnv1a32Hex(identity).substring(0, 2), radix: 16) %
+        palette.length;
+    final avatarColors = palette[colorIndex];
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 16),
+      child: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Semantics(
+            label: senderName,
+            child: Container(
+              width: 42,
+              height: 42,
+              alignment: Alignment.center,
+              decoration: BoxDecoration(
+                color: avatarColors.background,
+                borderRadius: kOpenHandBorderRadius12,
+              ),
+              child: Text(
+                String.fromCharCode(senderName.runes.first),
+                style: theme.textTheme.titleMedium?.copyWith(
+                  color: avatarColors.foreground,
+                  fontWeight: FontWeight.w900,
+                ),
+              ),
+            ),
+          ),
+          kOpenHandHGap12,
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        senderName,
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                        style: theme.textTheme.labelLarge?.copyWith(
+                          color: colors.onSurfaceVariant,
+                          fontWeight: FontWeight.w700,
+                        ),
+                      ),
+                    ),
+                    kOpenHandHGap8,
+                    Text(
+                      formatYearMonthDayHm(item.createdAt.toLocal()),
+                      style: theme.textTheme.labelSmall?.copyWith(
+                        color: colors.onSurfaceVariant.withValues(alpha: 0.72),
+                      ),
+                    ),
+                  ],
+                ),
+                kOpenHandGap5,
+                if (showText)
+                  Container(
+                    constraints: const BoxConstraints(maxWidth: 640),
+                    padding: const EdgeInsets.symmetric(
+                      horizontal: 14,
+                      vertical: 11,
+                    ),
+                    decoration: BoxDecoration(
+                      color: colors.surfaceContainerHighest,
+                      borderRadius: const BorderRadius.only(
+                        topLeft: Radius.circular(4),
+                        topRight: Radius.circular(kOpenHandRadius14),
+                        bottomLeft: Radius.circular(kOpenHandRadius14),
+                        bottomRight: Radius.circular(kOpenHandRadius14),
+                      ),
+                      border: Border.all(
+                        color: colors.outlineVariant.withValues(alpha: 0.52),
+                      ),
+                    ),
+                    child: _DingTalkLinkifiedText(
+                      text: content,
+                      style: theme.textTheme.bodyMedium?.copyWith(
+                        color: colors.onSurface,
+                        height: 1.5,
+                      ),
+                      linkStyle:
+                          (theme.textTheme.bodyMedium ?? const TextStyle())
+                              .copyWith(
+                                color: colors.primary,
+                                height: 1.5,
+                                decoration: TextDecoration.underline,
+                                decorationColor: colors.primary,
+                                decorationThickness: 1.2,
+                              ),
+                      onOpenLink: (href) =>
+                          unawaited(_openDingTalkMessageLink(context, href)),
+                    ),
+                  ),
+                if (showText && media.isNotEmpty) kOpenHandGap8,
+                if (media.isNotEmpty)
+                  _DingTalkMediaRail(
+                    media: media,
+                    mine: false,
+                    loading: mediaLoading,
+                    failed: mediaFailed,
+                    onRetry: onRetryMedia,
+                  ),
+              ],
+            ),
+          ),
+        ],
+      ),
+    );
+  }
+
+  List<DingTalkGatewayMedia> _resolvedMedia(DingTalkForwardedMessage item) {
+    return item.media
+        .map((childMedia) {
+          for (final parentMedia in message.media) {
+            if (parentMedia.resourceType == childMedia.resourceType &&
+                normalizeDingTalkResourceId(parentMedia.resourceId) ==
+                    normalizeDingTalkResourceId(childMedia.resourceId)) {
+              return parentMedia;
+            }
+          }
+          return childMedia;
+        })
+        .toList(growable: false);
   }
 }
 
