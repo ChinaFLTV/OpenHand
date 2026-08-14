@@ -3125,8 +3125,14 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
     switch (event.type) {
       case SelectionEventType.startEdgeUpdate:
         final typed = event as SelectionEdgeUpdateEvent;
-        final target =
-            _selectableAt(typed.globalPosition) ?? _selectables.first;
+        final target = _selectableAt(typed.globalPosition);
+        // 工具栏、内边距等非文本区域没有可选择节点，点击时不应回退到
+        // 首个文本节点，否则后续结束事件会把整条消息误选中。
+        if (target == null) {
+          _anchorStart = null;
+          _anchorEnd = null;
+          return SelectionResult.none;
+        }
         _anchorStart = target;
         _anchorEnd ??= target;
         final result = target.dispatchSelectionEvent(typed);
@@ -3134,9 +3140,11 @@ class _MarkdownSelectionDelegate extends SelectionContainerDelegate
         return result;
       case SelectionEventType.endEdgeUpdate:
         final typed = event as SelectionEdgeUpdateEvent;
-        final target = _selectableAt(typed.globalPosition) ?? _selectables.last;
+        final target = _selectableAt(typed.globalPosition);
+        if (target == null || _anchorStart == null) {
+          return SelectionResult.none;
+        }
         _anchorEnd = target;
-        _anchorStart ??= _selectables.first;
         _clearOutsideRange(_anchorStart!, _anchorEnd!);
         final result = target.dispatchSelectionEvent(typed);
         _fillIntermediate(_anchorStart!, _anchorEnd!);
