@@ -213,8 +213,6 @@ class AppProxySettings {
     );
   }
 
-  /// Convenience: stable string representation for debug prints. Hides
-  /// the password.
   @override
   String toString() {
     return jsonEncode(<String, Object?>{

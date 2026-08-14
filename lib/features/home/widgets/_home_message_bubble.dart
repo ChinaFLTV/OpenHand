@@ -284,7 +284,7 @@ class _MessageBubbleState extends State<_MessageBubble>
     return false;
   }
 
-  // Cached expensive objects to avoid re-allocation on every build.
+  // 缓存高成本对象，避免每次构建重复分配。
   List<md.InlineSyntax>? _cachedInlineSyntaxes;
   Map<String, MarkdownElementBuilder>? _cachedBuilders;
   _MessageMarkdownThemeData? _cachedMarkdownThemeData;
@@ -652,8 +652,7 @@ class _MessageBubbleState extends State<_MessageBubble>
       );
     }
     final attachments = _cachedMessageAttachments(message);
-    // Resolve content format per message — messages store their own format
-    // in metadata when created; fall back to global setting for legacy data.
+    // 优先使用消息元数据中的格式；旧数据回退到全局设置。
     final resolvedMessageContentFormat = _resolveMessageContentFormat(
       context,
       message,
@@ -3666,12 +3665,9 @@ class _GeneratedMediaLinkCardState extends State<_GeneratedMediaLinkCard>
     curve: Curves.easeOutBack,
   );
 
-  // Without this guard, rapid double-clicks on the inline card stacked two
-  // identical preview dialogs (each spinning up its own WebView), which
-  // pinned the UI thread and leaked event handlers.
+  // 防止快速双击重复打开预览弹窗，避免重复创建 WebView。
   bool _dialogOpen = false;
-  // Cached sidecar PNG path for local video previews. `null` while the
-  // capture is pending or when the source is remote / not a video.
+  // 本地视频预览的旁路 PNG 路径；捕获中、远程资源或非视频时为 null。
   String? _videoThumbPath;
   bool _videoCaptureRequested = false;
   _GeneratedMediaSource? _cachedSource;
@@ -4710,9 +4706,7 @@ class _MediaPreviewDialogState extends State<_MediaPreviewDialog>
   bool _mediaReady = false;
   String? _loadError;
   Size? _naturalMediaSize;
-  // Reentrancy guards: rapid double-taps on the system-player / save buttons
-  // were spawning duplicate downloads to the same destination, corrupting
-  // the output file and pinning the WebView event loop.
+  // 防重入：系统播放器和保存按钮的快速双击不得启动重复任务。
   bool _isSaving = false;
   bool _isOpeningExternal = false;
   bool _isCopyingMedia = false;
