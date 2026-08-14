@@ -2832,7 +2832,20 @@ class DingTalkMessageGatewayController extends ChangeNotifier {
     if (!_isPolling || _disposed) return;
     if (event.type == DingTalkGatewayEventType.message) {
       final message = event.message;
-      if (message != null) _handleIncomingMessage(message);
+      if (message != null) {
+        _handleIncomingMessage(message);
+        return;
+      }
+      final eventMessageId = normalizeDingTalkMessageId(event.messageId);
+      if (eventMessageId.isEmpty) return;
+      final conversation = _conversationForEvent(event);
+      _nextConversationReconcileAt = DateTime.fromMillisecondsSinceEpoch(0);
+      if (conversation == null) {
+        _reconcileConversationsForEvent(event);
+      } else {
+        unawaited(_reconcileAndApplyEvent(conversation, event, eventMessageId));
+      }
+      unawaited(_pollOnce());
       return;
     }
     final eventMessageId = normalizeDingTalkMessageId(event.messageId);

@@ -377,7 +377,9 @@ class DingTalkMessageGatewayService {
   }) async {
     final startedAt = Stopwatch()..start();
     final executable = await _requireExecutable();
-    final processArguments = <String>[...command.cliPath.split(kInlineWhitespacePattern)];
+    final processArguments = <String>[
+      ...command.cliPath.split(kInlineWhitespacePattern),
+    ];
     processArguments.addAll(arguments);
     processArguments.addAll(const <String>['--format', 'json']);
     final result = await runTrackedProcessWithLineLogging(
@@ -1615,7 +1617,9 @@ class DingTalkMessageGatewayService {
       'list',
       ..._targetArguments(conversation),
       '--time',
-      formatYearMonthDayHms(createdAt.subtract(_sentMessageLookupWindow).toLocal()),
+      formatYearMonthDayHms(
+        createdAt.subtract(_sentMessageLookupWindow).toLocal(),
+      ),
       '--limit',
       '$_sentMessageLookupLimit',
       '--direction',
@@ -3102,7 +3106,14 @@ class DingTalkMessageGatewayService {
     final displayContent = media.isNotEmpty && _isMediaPlaceholder(content)
         ? _mediaSummary(media)
         : content;
-    if (content.isEmpty && media.isEmpty) return null;
+    if (content.isEmpty && media.isEmpty) {
+      return DingTalkGatewayEvent(
+        type: DingTalkGatewayEventType.message,
+        messageId: messageId,
+        conversationId: conversationId,
+        conversationType: conversationType,
+      );
+    }
     final mentionedCurrentUser =
         _eventString(map, const <String>[
           'event_key',
@@ -3515,20 +3526,29 @@ class DingTalkMessageGatewayService {
         map['markdown'];
     if (value is String) {
       final raw = value.trim();
+      final emotionContent = normalizeDingTalkMessageEmotions(raw);
       if (raw.startsWith('{') || raw.startsWith('[')) {
-        final decoded = _decodeJson(raw);
-        if (decoded is Map) return _content(_asMap(decoded), depth: depth + 1);
-        if (decoded is List && depth < 4) {
-          for (final item in decoded) {
-            if (item is Map) {
-              final nested = _content(_asMap(item), depth: depth + 1);
-              if (nested.isNotEmpty) return nested;
-            }
+        try {
+          final decoded = jsonDecode(raw);
+          if (decoded is Map) {
+            return _content(_asMap(decoded), depth: depth + 1);
           }
-          return '';
+          if (decoded is List && depth < 4) {
+            var hasStructuredItem = false;
+            for (final item in decoded) {
+              if (item is Map) {
+                hasStructuredItem = true;
+                final nested = _content(_asMap(item), depth: depth + 1);
+                if (nested.isNotEmpty) return nested;
+              }
+            }
+            if (hasStructuredItem || decoded.isEmpty) return '';
+          }
+        } on FormatException {
+          // 非 JSON 的方括号文本继续按普通消息处理。
         }
       }
-      return raw;
+      return emotionContent;
     }
     if (value is Map) {
       final nested = _asMap(value);
@@ -3544,7 +3564,7 @@ class DingTalkMessageGatewayService {
       ]) {
         final candidate = nested[key];
         if (candidate is String && candidate.trim().isNotEmpty) {
-          return candidate.trim();
+          return normalizeDingTalkMessageEmotions(candidate);
         }
       }
       if (depth < 4) return _content(nested, depth: depth + 1);

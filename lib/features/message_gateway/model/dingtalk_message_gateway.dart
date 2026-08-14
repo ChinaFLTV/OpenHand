@@ -35,6 +35,7 @@ const Map<String, String> _dingtalkReactionEmojiMap = <String, String>{
   '暗中观察': '👀',
   '流鼻血': '🤧',
   '鞠躬': '🙇',
+  '666': '🤙',
   '6664': '💯',
   'ok': '👌',
   'okay': '👌',
@@ -243,6 +244,21 @@ const Map<String, String> _dingtalkReactionEmojiMap = <String, String>{
   '鸡腿': '🍗',
   '月饼': '🥮',
 };
+
+final RegExp _dingtalkMessageEmotionPattern = RegExp(
+  r'\[([^\[\]\r\n]{1,24})\](?!\()|【([^【】\r\n]{1,24})】',
+);
+
+/// 将消息正文中已知的钉钉表情标记转换为 Emoji，未知标记保留原文。
+String normalizeDingTalkMessageEmotions(Object? value) {
+  final text = _normalizedDingTalkString(value);
+  if (text.isEmpty) return '';
+  return text.replaceAllMapped(_dingtalkMessageEmotionPattern, (match) {
+    final name = (match.group(1) ?? match.group(2) ?? '').trim();
+    final key = name.toLowerCase().replaceAll(RegExp(r'[\s_-]+'), '');
+    return _dingtalkReactionEmojiMap[key] ?? match.group(0)!;
+  });
+}
 
 /// 将钉钉表情名称转换为标准 Emoji，未知名称保留为短文本兜底。
 String normalizeDingTalkReaction(Object? value) {
@@ -1167,7 +1183,7 @@ class DingTalkGatewayMessage {
     final content =
         rawContent.trim().toLowerCase() == '[null]' && media.isNotEmpty
         ? media.map((item) => '[${item.displayName}]').join(' ')
-        : rawContent;
+        : normalizeDingTalkMessageEmotions(rawContent);
     return DingTalkGatewayMessage(
       id: id,
       conversationId: conversationId,
