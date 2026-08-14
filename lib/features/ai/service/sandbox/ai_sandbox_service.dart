@@ -5,7 +5,6 @@ import 'package:path/path.dart' as p;
 
 import '../../../../app/support/openhand_paths.dart';
 import '../../../../app/support/safe_subprocess.dart';
-import '../../../../app/support/silent_log.dart';
 import '../../../../app/support/system_proxy.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/platform_shell.dart';
@@ -570,9 +569,8 @@ class AiSandboxService {
             'Sandbox backend is not available on ${Platform.operatingSystem}.',
         metadata: baseMetadata,
       );
-    } catch (error, stack) {
+    } catch (_) {
       await closeProxyAfterLaunchFailure('构建启动参数失败');
-      silentLog('ai_sandbox_service', '构建沙箱启动参数', error, stack);
       rethrow;
     }
   }

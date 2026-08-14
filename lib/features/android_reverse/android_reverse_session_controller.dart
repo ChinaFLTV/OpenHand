@@ -1061,8 +1061,7 @@ class AndroidReverseSessionController extends ChangeNotifier {
         );
       }
       return file.path;
-    } catch (e, st) {
-      silentLog(_kTag, '准备 mitmproxy JSONL 插件失败', e, st);
+    } catch (e) {
       _errorMessage = '$e';
       _safeNotify();
       rethrow;
@@ -1123,24 +1122,15 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'verify_apk_signature: $verifyApkSignatureScriptPath',
         'readme: $certsReadmePath',
       ].join('\n');
-    } catch (e, st) {
-      silentLog(_kTag, '准备证书产物失败', e, st);
+    } catch (e) {
       _errorMessage = '$e';
       _safeNotify();
       rethrow;
     }
   }
 
-  Future<String> ensureMcpLinkageArtifacts() async {
-    try {
-      return await _writeMcpLinkageArtifacts(updateError: true);
-    } catch (e, st) {
-      silentLog(_kTag, '准备 MCP 关联产物失败', e, st);
-      _errorMessage = '$e';
-      _safeNotify();
-      rethrow;
-    }
-  }
+  Future<String> ensureMcpLinkageArtifacts() =>
+      _writeMcpLinkageArtifacts(updateError: true);
 
   Future<AdbCommandResult> makeEvidenceBundleToArtifacts() async {
     if (Platform.isWindows) {
@@ -2017,12 +2007,12 @@ class AndroidReverseSessionController extends ChangeNotifier {
         'toolchain_setup_commands: $toolchainSetupCommandsPath',
       ].join('\n');
     } catch (e, st) {
-      silentLog(_kTag, '写入 MCP 关联产物失败', e, st);
       if (updateError) {
         _errorMessage = '$e';
         _safeNotify();
         rethrow;
       }
+      silentLog(_kTag, '写入 MCP 关联产物失败', e, st);
       return '写入 MCP 关联产物失败：$e';
     }
   }

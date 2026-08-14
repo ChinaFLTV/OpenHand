@@ -716,20 +716,12 @@ class AiFileMutationLedger {
   }
 
   Future<void> saveConfig(LedgerConfig config) async {
-    try {
-      await _ensureInitialized();
-      final normalized = config.copyWith();
-      await _configQueue.enqueue(() async {
-        await writeFileAtomically(
-          _configFile(),
-          jsonEncode(normalized.toJson()),
-        );
-        _acceptLoadedConfig(normalized);
-      });
-    } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '保存账本配置', error, stack);
-      rethrow;
-    }
+    await _ensureInitialized();
+    final normalized = config.copyWith();
+    await _configQueue.enqueue(() async {
+      await writeFileAtomically(_configFile(), jsonEncode(normalized.toJson()));
+      _acceptLoadedConfig(normalized);
+    });
   }
 
   Future<void> _ensureInitialized() async {
@@ -1594,9 +1586,6 @@ class AiFileMutationLedger {
         policy: _ledgerTreeDeletePolicy,
         allowedRoot: p.absolute(_root),
       );
-    } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '清理全部记录', error, stack);
-      rethrow;
     } finally {
       _invalidateAllCaches();
       _cachedConfig = null;
@@ -1622,18 +1611,13 @@ class AiFileMutationLedger {
   Future<void> _clearSessionLocked(String sessionId) async {
     final normalizedSessionId = nullIfBlank(sessionId);
     if (normalizedSessionId == null) return;
-    try {
-      final dir = _sessionDir(normalizedSessionId);
-      await deletePathBounded(
-        p.absolute(dir.path),
-        policy: _ledgerTreeDeletePolicy,
-        allowedRoot: p.absolute(_sessionsDir().path),
-      );
-      // 不主动 GC blobs，避免影响其他会话引用；总清理时统一处理。
-    } catch (error, stack) {
-      silentLog('ai_file_mutation_ledger', '清理会话记录', error, stack);
-      rethrow;
-    }
+    final dir = _sessionDir(normalizedSessionId);
+    await deletePathBounded(
+      p.absolute(dir.path),
+      policy: _ledgerTreeDeletePolicy,
+      allowedRoot: p.absolute(_sessionsDir().path),
+    );
+    // 不主动 GC blobs，避免影响其他会话引用；总清理时统一处理。
     _invalidateSessionCache(normalizedSessionId);
   }
 

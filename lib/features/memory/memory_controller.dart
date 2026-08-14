@@ -238,8 +238,7 @@ class MemoryController extends ManagedChangeNotifier {
           ]);
         }
         return entry;
-      } catch (error, stack) {
-        silentLog('memory_controller', '保存用户画像', error, stack);
+      } catch (_) {
         _publishSaveFailure();
         rethrow;
       }

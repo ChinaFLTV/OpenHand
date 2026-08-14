@@ -5,6 +5,7 @@ import 'dart:typed_data';
 
 import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
+import '../../../shared/util/input_value_parsing.dart';
 import '../model/ai_exposure_models.dart';
 
 const Duration _kProxyProbeAttemptTimeout = Duration(seconds: 4);
@@ -79,10 +80,8 @@ class AiExposureProxyProbe {
       endpoint.runtimeId,
       '${startedAt.microsecondsSinceEpoch}',
     ].join(':');
-    final proxy = Uri.tryParse(endpoint.url);
-    if (proxy == null ||
-        (proxy.scheme != 'http' && proxy.scheme != 'https') ||
-        proxy.host.isEmpty) {
+    final proxy = _tryParseProxyUri(endpoint.url);
+    if (proxy == null) {
       final finishedAt = DateTime.now();
       return AiExposureProxyProbeSample(
         id: sampleId,
@@ -170,10 +169,8 @@ class AiExposureProxyProbe {
   Future<AiExposureProxyIdentity> inspectIdentity(
     AiExposureProxyEndpoint endpoint,
   ) async {
-    final proxy = Uri.tryParse(endpoint.url);
-    if (proxy == null ||
-        (proxy.scheme != 'http' && proxy.scheme != 'https') ||
-        proxy.host.isEmpty) {
+    final proxy = _tryParseProxyUri(endpoint.url);
+    if (proxy == null) {
       throw const FormatException('代理地址格式无效，请检查协议与主机。');
     }
     try {
@@ -198,11 +195,25 @@ class AiExposureProxyProbe {
 /// 统一处理代理身份查询的认证状态码，返回对应的错误描述。
 /// 返回 null 表示非认证类状态码，由调用方自行处理。
 String? _proxyIdentityAuthError(int? status) {
-  if (status == 401 || status == 407) {
+  if (_isProxyAuthenticationFailure(status)) {
     return _kProxyAuthFailureMessage;
   }
   return null;
 }
+
+Uri? _tryParseProxyUri(String value) {
+  final proxy = Uri.tryParse(value.trim());
+  if (proxy == null ||
+      !const <String>{'http', 'https'}.contains(proxy.scheme.toLowerCase()) ||
+      proxy.host.isEmpty) {
+    return null;
+  }
+  return proxy.replace(scheme: proxy.scheme.toLowerCase());
+}
+
+bool _isProxyAuthenticationFailure(int? status) =>
+    status == HttpStatus.unauthorized ||
+    status == HttpStatus.proxyAuthenticationRequired;
 
 String _proxyProbeFailureStepName(AiExposureProxyProbeFailure failure) =>
     switch (failure) {
@@ -330,7 +341,7 @@ void _throwIfCancelled(AiExposureProxyProbeCancellation? cancellation) {
 }
 
 _ProxyProbeAttempt _statusFailure(int statusCode) {
-  if (statusCode == 401 || statusCode == 407) {
+  if (_isProxyAuthenticationFailure(statusCode)) {
     return _ProxyProbeAttempt.failure(
       gatewayReachable: true,
       statusCode: statusCode,
@@ -549,13 +560,13 @@ AiExposureProxyIdentity _parseIdentity(Uint8List body) {
   final currency = _stringMap(decoded['currency']);
   final security = _stringMap(decoded['security']);
   final hasSecurity = security.isNotEmpty;
-  final mobile = security['mobile'] == true;
+  final mobile = boolFromValue(security['mobile']);
   final proxyDetected =
-      security['proxy'] == true ||
-      security['vpn'] == true ||
-      security['tor'] == true ||
-      security['anonymous'] == true;
-  final hosting = security['hosting'] == true;
+      boolFromValue(security['proxy']) ||
+      boolFromValue(security['vpn']) ||
+      boolFromValue(security['tor']) ||
+      boolFromValue(security['anonymous']);
+  final hosting = boolFromValue(security['hosting']);
   return AiExposureProxyIdentity(
     exitIp: exitIp,
     ipType: switch (address.type) {
@@ -595,8 +606,8 @@ AiExposureProxyIdentity _parseIdentity(Uint8List body) {
     mobile: mobile,
     proxy: proxyDetected,
     hosting: hosting,
-    latitude: (decoded['latitude'] as num?)?.toDouble(),
-    longitude: (decoded['longitude'] as num?)?.toDouble(),
+    latitude: optionalDoubleFromValue(decoded['latitude']),
+    longitude: optionalDoubleFromValue(decoded['longitude']),
     observedAt: DateTime.now(),
   );
 }

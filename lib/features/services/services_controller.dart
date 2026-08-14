@@ -20,7 +20,6 @@ import 'services_errors.dart';
 const int _kAiExposureMaxLogs = 5000;
 const int _kAiExposureMaxCachedHistoryJobs = 20;
 const int _kAiExposureMaxCachedLogsPerJob = 2000;
-const int _kMaxProxyInspectionConcurrency = 32;
 const int _kProxyInspectionCheckpointSize = 512;
 const int _kEventStreamReconnectLimit = 3;
 const Duration _kProxyInspectionFirstRunDelay = Duration(seconds: 10);
@@ -994,8 +993,10 @@ class ServicesController extends ChangeNotifier {
     final previousConfiguration = _proxyConfiguration;
     final previousStatus = _proxyStatus;
     try {
-      if (configuration.endpoints.length > 10000) {
-        throw const FormatException('代理池最多支持 10000 个代理。');
+      if (configuration.endpoints.length > kAiExposureMaxProxyEndpoints) {
+        throw const FormatException(
+          '代理池最多支持 $kAiExposureMaxProxyEndpoints 个代理。',
+        );
       }
       if (configuration.inspectionEnabled &&
           configuration.activeEndpoints.isEmpty) {
@@ -1129,7 +1130,10 @@ class ServicesController extends ChangeNotifier {
     var cursor = 0;
     var completed = 0;
     var healthy = 0;
-    final workerCount = concurrency.clamp(1, _kMaxProxyInspectionConcurrency);
+    final workerCount = concurrency.clamp(
+      1,
+      kAiExposureMaxProxyInspectionConcurrency,
+    );
 
     Future<bool> persistCheckpoint({required bool force}) async {
       if (persistenceFailed) return false;
@@ -1262,7 +1266,10 @@ class ServicesController extends ChangeNotifier {
       generation,
       firstDelay ??
           Duration(
-            minutes: configuration.inspectionIntervalMinutes.clamp(1, 1440),
+            minutes: configuration.inspectionIntervalMinutes.clamp(
+              1,
+              kAiExposureMaxProxyInspectionIntervalMinutes,
+            ),
           ),
     );
   }
@@ -1287,7 +1294,7 @@ class ServicesController extends ChangeNotifier {
           Duration(
             minutes: _proxyConfiguration.inspectionIntervalMinutes.clamp(
               1,
-              1440,
+              kAiExposureMaxProxyInspectionIntervalMinutes,
             ),
           ),
         );
@@ -1475,7 +1482,9 @@ class ServicesController extends ChangeNotifier {
       ];
       final unique = <String, AiExposureLogEntry>{};
       for (final entry in merged) {
-        final key = entry.id ?? '${entry.jobId}\x00${entry.at.millisecondsSinceEpoch}\x00${entry.level}\x00${entry.message}';
+        final key =
+            entry.id ??
+            '${entry.jobId}\x00${entry.at.millisecondsSinceEpoch}\x00${entry.level}\x00${entry.message}';
         unique[key] = entry;
       }
       final sorted = unique.values.toList()
@@ -1619,7 +1628,7 @@ class ServicesController extends ChangeNotifier {
     _enabledSources = enabledSources.isEmpty
         ? <AiExposureSource>{AiExposureSource.manual}
         : Set<AiExposureSource>.of(enabledSources);
-    _defaultConcurrency = concurrency.clamp(1, 128);
+    _defaultConcurrency = concurrency.clamp(1, kAiExposureMaxScanConcurrency);
     _defaultValidationMode = validationMode;
     _forumFetchMode = forumFetchMode;
     if (gptAssisted != null) _defaultGptAssisted = gptAssisted;

@@ -506,8 +506,7 @@ class WebReverseSessionController extends ChangeNotifier {
       _resumeCronTimers();
       _startAliveWatchdog();
       _safeNotify();
-    } catch (error, stack) {
-      silentLog('web_reverse_session_controller', '启动会话', error, stack);
+    } catch (error) {
       _errorMessage = userFailureMessage(
         error,
         fallback: 'Web 逆向会话启动失败，请检查浏览器配置后重试。',
@@ -4678,8 +4677,7 @@ class WebReverseSessionController extends ChangeNotifier {
           quality: restoreScreencastQuality,
         );
       }
-    } catch (error, stack) {
-      silentLog('web_reverse_session_controller', '重启浏览器后启动会话', error, stack);
+    } catch (error) {
       _errorMessage = userFailureMessage(
         error,
         fallback: '浏览器重启失败，请检查浏览器配置后重试。',

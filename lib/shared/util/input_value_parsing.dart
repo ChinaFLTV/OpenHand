@@ -36,13 +36,7 @@ T? enumByStorageValue<T extends Enum>(
   String Function(T value) storageValue, {
   String Function(String value)? normalize,
 }) {
-  final normalizedValue = optionalStringFromValue(value);
-  if (normalizedValue == null) return null;
-  final target = normalize?.call(normalizedValue) ?? normalizedValue;
-  for (final item in values) {
-    if (storageValue(item) == target) return item;
-  }
-  return null;
+  return _enumByValue(values, value, storageValue, normalize: normalize);
 }
 
 T enumByStorageValueOr<T extends Enum>(
@@ -66,11 +60,20 @@ T? enumByName<T extends Enum>(
   Object? value, {
   String Function(String value)? normalize,
 }) {
+  return _enumByValue(values, value, (item) => item.name, normalize: normalize);
+}
+
+T? _enumByValue<T extends Enum>(
+  Iterable<T> values,
+  Object? value,
+  String Function(T value) valueOf, {
+  String Function(String value)? normalize,
+}) {
   final normalizedValue = optionalStringFromValue(value);
   if (normalizedValue == null) return null;
   final target = normalize?.call(normalizedValue) ?? normalizedValue;
   for (final item in values) {
-    if (item.name == target) return item;
+    if (valueOf(item) == target) return item;
   }
   return null;
 }
@@ -934,7 +937,8 @@ const int kMinPort = 1;
 const int kMaxPort = 65535;
 
 /// 判断 [port] 是否在合法端口范围内（1–65535）。
-bool isValidPort(int? port) => port != null && port >= kMinPort && port <= kMaxPort;
+bool isValidPort(int? port) =>
+    port != null && port >= kMinPort && port <= kMaxPort;
 
 /// 紧凑计数格式化：1000→1.0K, 1000000→1.0M, 1000000000→1.0B。
 String formatCompactCount(num value, {int fractionDigits = 1}) {

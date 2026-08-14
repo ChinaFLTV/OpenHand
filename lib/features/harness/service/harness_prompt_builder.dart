@@ -60,39 +60,35 @@ class HarnessPromptBuilder {
       buffer
         ..writeln()
         ..writeln('## MCP 工具');
-      for (final tool in mcpTools) {
-        final desc = _truncateDescription(
-          tool.description,
-          _toolDescriptionMaxCharacters,
-        );
-        final requiredArgs = _extractRequiredArgs(tool.parameters);
-        buffer.write('- ${tool.name}: $desc');
-        if (requiredArgs.isNotEmpty) {
-          buffer.write(' [${requiredArgs.join(', ')}]');
-        }
-        buffer.writeln();
-      }
+      _appendToolDefinitions(buffer, mcpTools);
     }
 
     if (builtinTools.isNotEmpty) {
       buffer
         ..writeln()
         ..writeln('## 内建工具');
-      for (final tool in builtinTools) {
-        final desc = _truncateDescription(
-          tool.description,
-          _toolDescriptionMaxCharacters,
-        );
-        final requiredArgs = _extractRequiredArgs(tool.parameters);
-        buffer.write('- ${tool.name}: $desc');
-        if (requiredArgs.isNotEmpty) {
-          buffer.write(' [${requiredArgs.join(', ')}]');
-        }
-        buffer.writeln();
-      }
+      _appendToolDefinitions(buffer, builtinTools);
     }
 
     return buffer.toString().trimRight();
+  }
+
+  void _appendToolDefinitions(
+    StringBuffer buffer,
+    Iterable<AiToolDefinition> tools,
+  ) {
+    for (final tool in tools) {
+      final description = _truncateDescription(
+        tool.description,
+        _toolDescriptionMaxCharacters,
+      );
+      final requiredArgs = _extractRequiredArgs(tool.parameters);
+      buffer.write('- ${tool.name}: $description');
+      if (requiredArgs.isNotEmpty) {
+        buffer.write(' [${requiredArgs.join(', ')}]');
+      }
+      buffer.writeln();
+    }
   }
 
   /// 按阶段能力和写入权限过滤工具目录。

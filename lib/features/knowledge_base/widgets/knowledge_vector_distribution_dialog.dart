@@ -1,7 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:provider/provider.dart';
 
-import '../../../app/support/silent_log.dart';
 import '../../../l10n/app_localizations.dart';
 import '../../../shared/ui/animated_dialog.dart';
 import '../../../shared/ui/openhand_dialog_action_button.dart';
@@ -31,21 +30,8 @@ class _KnowledgeVectorDistributionDialogState
     extends State<KnowledgeVectorDistributionDialog> {
   late Future<KnowledgeVectorDistribution> _future = _load();
 
-  Future<KnowledgeVectorDistribution> _load() async {
-    try {
-      return await context
-          .read<KnowledgeBaseController>()
-          .loadVectorDistribution();
-    } catch (error, stack) {
-      silentLog(
-        'knowledge_vector_distribution_dialog',
-        '加载知识向量分布',
-        error,
-        stack,
-      );
-      rethrow;
-    }
-  }
+  Future<KnowledgeVectorDistribution> _load() =>
+      context.read<KnowledgeBaseController>().loadVectorDistribution();
 
   @override
   Widget build(BuildContext context) {

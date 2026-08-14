@@ -10,49 +10,40 @@ abstract final class AiPlanApprovalDetector {
   /// 判定顺序：先标准化内容，再排除否定指令，最后匹配完整短回复或明确长短语。
   /// 短回复必须完整匹配，避免把“继续观察”“OK 但是”等内容误判为批准。
   static bool looksLikePlanApproval(String content) {
-    final normalized = lowercaseStringFromValue(content);
-    if (normalized.isEmpty) {
+    final reply = _normalizeReply(content);
+    if (reply == null) return false;
+    if (_containsNegativePlanAction(reply.normalized, reply.compact)) {
       return false;
     }
-    final compactReply = normalized.replaceAll(_punctuationPattern, '');
-    if (_containsNegativePlanAction(normalized, compactReply)) {
-      return false;
-    }
-    if (_standaloneApprovalReplies.contains(compactReply)) {
+    if (_standaloneApprovalReplies.contains(reply.compact)) {
       return true;
     }
-    return _approvalPhrases.any(normalized.contains);
+    return _approvalPhrases.any(reply.normalized.contains);
   }
 
   static bool looksLikePlanExecutionContinuation(String content) {
-    final normalized = lowercaseStringFromValue(content);
-    if (normalized.isEmpty) {
+    final reply = _normalizeReply(content);
+    if (reply == null) return false;
+    if (_containsNegativePlanAction(reply.normalized, reply.compact)) {
       return false;
     }
-    final compactReply = normalized.replaceAll(_punctuationPattern, '');
-    if (_containsNegativePlanAction(normalized, compactReply)) {
-      return false;
-    }
-    return _executionContinuationPhrases.any(normalized.contains);
+    return _executionContinuationPhrases.any(reply.normalized.contains);
   }
 
   static bool looksLikePlanRecoveryContinuation(
     String content, {
     bool includeGenericContinuations = false,
   }) {
-    final normalized = lowercaseStringFromValue(content);
-    if (normalized.isEmpty) {
+    final reply = _normalizeReply(content);
+    if (reply == null) return false;
+    if (_containsNegativePlanAction(reply.normalized, reply.compact)) {
       return false;
     }
-    final compactReply = normalized.replaceAll(_punctuationPattern, '');
-    if (_containsNegativePlanAction(normalized, compactReply)) {
-      return false;
-    }
-    if (_recoveryContinuationPhrases.any(normalized.contains)) {
+    if (_recoveryContinuationPhrases.any(reply.normalized.contains)) {
       return true;
     }
     return includeGenericContinuations &&
-        _executionContinuationPhrases.any(normalized.contains);
+        _executionContinuationPhrases.any(reply.normalized.contains);
   }
 
   /// 判断最近一个已结束的工具调用是否为计划恢复所关注的失败状态。
@@ -64,19 +55,27 @@ abstract final class AiPlanApprovalDetector {
 
   /// 判断助手或工具文本是否绕过 ExitPlanMode 审批入口请求用户批准计划。
   static bool looksLikePlanApprovalRequest(String content) {
-    final normalized = lowercaseStringFromValue(content);
-    if (normalized.isEmpty) {
+    final reply = _normalizeReply(content);
+    if (reply == null) return false;
+    if (_negativeApprovalRequestPhrases.any(reply.normalized.contains) ||
+        _negativeApprovalRequestCompactFragments.any(reply.compact.contains)) {
       return false;
     }
-    final compactReply = normalized.replaceAll(_punctuationPattern, '');
-    if (_negativeApprovalRequestPhrases.any(normalized.contains) ||
-        _negativeApprovalRequestCompactFragments.any(compactReply.contains)) {
-      return false;
-    }
-    return _approvalRequestPhrases.any(normalized.contains);
+    return _approvalRequestPhrases.any(reply.normalized.contains);
   }
 
   static final RegExp _punctuationPattern = RegExp(r'[\s!！。．\.,，、;；:：~～?？]+');
+
+  static ({String normalized, String compact})? _normalizeReply(
+    String content,
+  ) {
+    final normalized = lowercaseStringFromValue(content);
+    if (normalized.isEmpty) return null;
+    return (
+      normalized: normalized,
+      compact: normalized.replaceAll(_punctuationPattern, ''),
+    );
+  }
 
   static bool _containsNegativePlanAction(
     String normalized,

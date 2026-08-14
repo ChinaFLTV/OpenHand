@@ -129,15 +129,13 @@ class AppRestartService {
       }
       await _startDetachedHelper(script.path);
       return AppRelaunchTicket._(pendingFlagPath: pendingFlag.path);
-    } on AppRestartException catch (error, stack) {
+    } on AppRestartException {
       // 已经带了具体 failure 的异常原样上抛，否则会被下面统一包成
       // prepareFailed，unsupportedPlatform 分支的文案永远到不了 UI。
-      silentLog('app_restart', '准备重启', error, stack);
       await _deleteIfExists(script);
       await _deleteIfExists(pendingFlag);
       rethrow;
-    } catch (error, stack) {
-      silentLog('app_restart', '准备重启', error, stack);
+    } catch (error) {
       await _deleteIfExists(script);
       await _deleteIfExists(pendingFlag);
       throw AppRestartException(AppRestartFailure.prepareFailed, cause: error);

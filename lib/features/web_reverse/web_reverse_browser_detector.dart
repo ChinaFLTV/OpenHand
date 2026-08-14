@@ -104,19 +104,9 @@ class WebReverseBrowserDetector {
       WebReverseBrowserKind.chrome => 'google-chrome',
       _ => null,
     };
-    if (cliCandidate != null) {
-      final which = await runProcessWithTimeout(
-        '/usr/bin/which',
-        [cliCandidate],
-        timeout: _browserLookupTimeout,
-        tag: 'web_reverse_browser_detector',
-      );
-      final raw = which?.stdout.toString().trim();
-      if (raw != null && raw.isNotEmpty && await _isExecutableFile(raw)) {
-        return raw;
-      }
-    }
-    return null;
+    return cliCandidate == null
+        ? null
+        : _findExecutableOnPath(<String>[cliCandidate]);
   }
 
   String? _appPathToExecutable(String appPath, WebReverseBrowserKind kind) {
@@ -168,10 +158,14 @@ class WebReverseBrowserDetector {
 
   // ── Linux 单 kind 解析（which 多候选） ─────────────────────────────
   Future<String?> _findExecutableLinux(WebReverseBrowserKind kind) async {
-    for (final cli in kind.cliCandidates) {
+    return _findExecutableOnPath(kind.cliCandidates);
+  }
+
+  Future<String?> _findExecutableOnPath(Iterable<String> candidates) async {
+    for (final candidate in candidates) {
       final which = await runProcessWithTimeout(
         '/usr/bin/which',
-        [cli],
+        <String>[candidate],
         timeout: _browserLookupTimeout,
         tag: 'web_reverse_browser_detector',
       );

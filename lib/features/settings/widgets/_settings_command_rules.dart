@@ -132,15 +132,7 @@ class _CommandRuleTile extends StatelessWidget {
                   Text(pattern, style: theme.textTheme.titleSmall),
                   kOpenHandGap6,
                   Text(
-                    matchMode == AiCommandMatchMode.regex
-                        ? _commandRuleMatchModeLabel(
-                            context,
-                            AiCommandMatchMode.regex,
-                          )
-                        : _commandRuleMatchModeLabel(
-                            context,
-                            AiCommandMatchMode.simple,
-                          ),
+                    _commandRuleMatchModeLabel(context, matchMode),
                     style: theme.textTheme.labelLarge?.copyWith(
                       color: colorScheme.primary,
                     ),

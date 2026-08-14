@@ -3,9 +3,7 @@ part of 'ai_exposure_monitoring_dialogs.dart';
 Widget _metricInsightPage(List<Widget> sections) => Column(
   crossAxisAlignment: CrossAxisAlignment.stretch,
   children: sections.indexed
-      .expand(
-        (entry) => [if (entry.$1 > 0) kOpenHandGap14, entry.$2],
-      )
+      .expand((entry) => [if (entry.$1 > 0) kOpenHandGap14, entry.$2])
       .toList(growable: false),
 );
 
@@ -825,7 +823,7 @@ Widget _buildPipelineMetricInsight(
           title: '任务工作并发容量',
           icon: Icons.speed_rounded,
           configured: controller.defaultConcurrency,
-          maximum: 128,
+          maximum: kAiExposureMaxScanConcurrency,
           color: colors.tertiary,
         ),
         _InsightKpiBand(
@@ -849,7 +847,7 @@ Widget _buildPipelineMetricInsight(
             _InsightKpi(
               icon: Icons.tune_rounded,
               label: '配置边界',
-              value: '1 - 128',
+              value: '1 - $kAiExposureMaxScanConcurrency',
               helper: '新建任务时执行范围',
               color: colors.outline,
             ),
@@ -987,8 +985,7 @@ Widget _buildLogMetricInsight(
   }
   final hourCounts = <String, int>{};
   for (final entry in entries) {
-    final key =
-        '${formatMonthDay(entry.at)} ${twoDigit(entry.at.hour)}:00';
+    final key = '${formatMonthDay(entry.at)} ${twoDigit(entry.at.hour)}:00';
     hourCounts.update(key, (value) => value + 1, ifAbsent: () => 1);
   }
   final colors = Theme.of(context).colorScheme;
@@ -2456,7 +2453,8 @@ Widget _persistenceWriteEventPanel(
       _InsightRecord(
         icon: Icons.note_add_outlined,
         title: '创建任务 · ${job.name.trim().isEmpty ? job.id : job.name.trim()}',
-        subtitle: '任务 ${job.id} · ${job.sources.map(aiExposureSourceDisplayName).join(' / ')}',
+        subtitle:
+            '任务 ${job.id} · ${job.sources.map(aiExposureSourceDisplayName).join(' / ')}',
         tags: [
           _reportedShortDateTime(job.createdAt, job.createdAtReported),
           job.mode == AiExposureScanMode.full ? '全量扫描' : '增量扫描',

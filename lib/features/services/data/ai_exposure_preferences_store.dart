@@ -181,26 +181,22 @@ class AiExposurePreferencesStore {
       final updatedAt = DateTime.now().toUtc().toIso8601String();
       for (final endpoint in preferences.proxyConfiguration.endpoints) {
         if (storedUrls.contains(endpoint.url)) continue;
-        batch.insert(_statisticsTable, <String, Object?>{
-          'endpoint_url': endpoint.url,
-          'statistics_json': jsonEncode(endpoint.statistics.toJson()),
-          'updated_at': updatedAt,
-        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        batch.insert(
+          _statisticsTable,
+          _statisticsValues(endpoint, updatedAt),
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
       }
       for (final endpoint in preferences.proxyConfiguration.endpoints) {
         if (storedSampleUrls.contains(endpoint.url) ||
             endpoint.samples.isEmpty) {
           continue;
         }
-        batch.insert(_samplesTable, <String, Object?>{
-          'endpoint_url': endpoint.url,
-          'samples_json': jsonEncode(
-            endpoint.samples
-                .map((sample) => sample.toJson())
-                .toList(growable: false),
-          ),
-          'updated_at': updatedAt,
-        }, conflictAlgorithm: ConflictAlgorithm.ignore);
+        batch.insert(
+          _samplesTable,
+          _sampleValues(endpoint, updatedAt),
+          conflictAlgorithm: ConflictAlgorithm.ignore,
+        );
       }
       for (final url in storedUrls.where((url) => !activeUrls.contains(url))) {
         batch.delete(
@@ -230,11 +226,11 @@ class AiExposurePreferencesStore {
     await _database.transaction((transaction) async {
       final batch = transaction.batch();
       for (final endpoint in endpoints) {
-        batch.insert(_statisticsTable, <String, Object?>{
-          'endpoint_url': endpoint.url,
-          'statistics_json': jsonEncode(endpoint.statistics.toJson()),
-          'updated_at': updatedAt,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        batch.insert(
+          _statisticsTable,
+          _statisticsValues(endpoint, updatedAt),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
       await batch.commit(noResult: true);
     });
@@ -246,15 +242,11 @@ class AiExposurePreferencesStore {
     await _database.transaction((transaction) async {
       final batch = transaction.batch();
       for (final endpoint in endpoints) {
-        batch.insert(_samplesTable, <String, Object?>{
-          'endpoint_url': endpoint.url,
-          'samples_json': jsonEncode(
-            endpoint.samples
-                .map((sample) => sample.toJson())
-                .toList(growable: false),
-          ),
-          'updated_at': updatedAt,
-        }, conflictAlgorithm: ConflictAlgorithm.replace);
+        batch.insert(
+          _samplesTable,
+          _sampleValues(endpoint, updatedAt),
+          conflictAlgorithm: ConflictAlgorithm.replace,
+        );
       }
       await batch.commit(noResult: true);
     });
@@ -293,6 +285,32 @@ class AiExposurePreferencesStore {
         <Object?>[excess],
       );
     });
+  }
+
+  static Map<String, Object?> _statisticsValues(
+    AiExposureProxyEndpoint endpoint,
+    String updatedAt,
+  ) {
+    return <String, Object?>{
+      'endpoint_url': endpoint.url,
+      'statistics_json': jsonEncode(endpoint.statistics.toJson()),
+      'updated_at': updatedAt,
+    };
+  }
+
+  static Map<String, Object?> _sampleValues(
+    AiExposureProxyEndpoint endpoint,
+    String updatedAt,
+  ) {
+    return <String, Object?>{
+      'endpoint_url': endpoint.url,
+      'samples_json': jsonEncode(
+        endpoint.samples
+            .map((sample) => sample.toJson())
+            .toList(growable: false),
+      ),
+      'updated_at': updatedAt,
+    };
   }
 
   Future<int> countProxyRequestHistory() async {

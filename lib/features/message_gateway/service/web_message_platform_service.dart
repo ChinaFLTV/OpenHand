@@ -1127,7 +1127,7 @@ class WebMessagePlatformService {
       );
       _logPublicAccessWarningIfNeeded(config, urls);
       _scheduleStartupCleanup();
-    } catch (error, stack) {
+    } catch (error) {
       final failedServer = _server;
       if (failedServer != null) {
         await _closeServer(failedServer, logAction: '关闭启动失败后的 HTTP 服务');
@@ -1144,9 +1144,6 @@ class WebMessagePlatformService {
         'host': config.listenHost,
         'port': config.listenPort,
       });
-      if (!_isAddressAlreadyInUse(error)) {
-        silentLog('web_message_platform_service', '启动服务', error, stack);
-      }
       rethrow;
     }
   }

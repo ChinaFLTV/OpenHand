@@ -2033,17 +2033,9 @@ class DingTalkMessageGatewayService {
           '--format',
           'json',
         ]);
-      } catch (fallbackError, fallbackStack) {
+      } catch (_) {
         if (!_isExpectedCommandFailure(error)) {
           silentLog('dingtalk_gateway', '按标识读取联系人', error, stack);
-        }
-        if (!_isExpectedCommandFailure(fallbackError)) {
-          silentLog(
-            'dingtalk_gateway',
-            '按名称读取联系人',
-            fallbackError,
-            fallbackStack,
-          );
         }
         rethrow;
       }
@@ -2163,17 +2155,9 @@ class DingTalkMessageGatewayService {
             '--format',
             'json',
           ]);
-        } catch (fallbackError, fallbackStack) {
+        } catch (_) {
           if (!_isExpectedCommandFailure(error)) {
             silentLog('dingtalk_gateway', '读取会话基础信息', error, stack);
-          }
-          if (!_isExpectedCommandFailure(fallbackError)) {
-            silentLog(
-              'dingtalk_gateway',
-              '读取会话基础信息备用标识',
-              fallbackError,
-              fallbackStack,
-            );
           }
           rethrow;
         }

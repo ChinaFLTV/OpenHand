@@ -139,11 +139,7 @@ class WebReverseCdpMcpBridge {
       if (sessionId != null && sessionId.isNotEmpty) {
         stopSession(sessionId);
       }
-      return const WebReverseTransientMcpSnapshot(
-        servers: <McpServer>[],
-        catalogsByServerName: <String, McpToolCatalog>{},
-        diagnostic: WebReverseCdpMcpBridgeDiagnostic.disabled(),
-      );
+      return WebReverseTransientMcpSnapshot.empty;
     }
     final server = _serverFor(
       sessionId: sessionId,
@@ -166,15 +162,7 @@ class WebReverseCdpMcpBridge {
     await _syncServerSignature(sessionId, server);
     final cacheKey = _catalogCacheKey(sessionId, server);
     final catalog = await _discoverCatalog(server: server, cacheKey: cacheKey);
-    return WebReverseTransientMcpSnapshot(
-      servers: <McpServer>[server],
-      catalogsByServerName: <String, McpToolCatalog>{server.name: catalog},
-      diagnostic: _diagnosticFromCatalog(
-        server: server,
-        controller: controller!,
-        catalog: catalog,
-      ),
-    );
+    return _snapshotWithCatalog(server, controller!, catalog);
   }
 
   WebReverseTransientMcpSnapshot cachedSnapshot({
@@ -185,11 +173,7 @@ class WebReverseCdpMcpBridge {
     required Iterable<McpServer> existingServers,
   }) {
     if (!enabled) {
-      return const WebReverseTransientMcpSnapshot(
-        servers: <McpServer>[],
-        catalogsByServerName: <String, McpToolCatalog>{},
-        diagnostic: WebReverseCdpMcpBridgeDiagnostic.disabled(),
-      );
+      return WebReverseTransientMcpSnapshot.empty;
     }
     final server = _serverFor(
       sessionId: sessionId,
@@ -216,12 +200,20 @@ class WebReverseCdpMcpBridge {
           status: McpToolCatalogStatus.loading,
           warningMessage: _preparingCatalogWarning,
         );
+    return _snapshotWithCatalog(server, controller!, catalog);
+  }
+
+  WebReverseTransientMcpSnapshot _snapshotWithCatalog(
+    McpServer server,
+    WebReverseSessionController controller,
+    McpToolCatalog catalog,
+  ) {
     return WebReverseTransientMcpSnapshot(
       servers: <McpServer>[server],
       catalogsByServerName: <String, McpToolCatalog>{server.name: catalog},
       diagnostic: _diagnosticFromCatalog(
         server: server,
-        controller: controller!,
+        controller: controller,
         catalog: catalog,
       ),
     );
