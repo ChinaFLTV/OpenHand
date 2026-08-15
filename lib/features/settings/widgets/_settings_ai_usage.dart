@@ -15,6 +15,7 @@ const double _kAiUsageRequestTableMinWidth = 1360;
 const double _kAiUsageRequestHeaderHeight = 48;
 const double _kAiUsageRequestRowHeight = 74;
 const double _kAiUsageRequestBodyMaxHeight = 444;
+const double _kAiUsageHeroInlineMinWidth = 840;
 const double _kAiUsageOverviewFourColumnMinWidth = 1040;
 const double _kAiUsageOverviewTwoColumnMinWidth = 560;
 const double _kAiUsageDistributionTwoColumnMinWidth = 860;
@@ -405,7 +406,7 @@ class _AiUsageHero extends StatelessWidget {
       ),
       child: LayoutBuilder(
         builder: (context, constraints) {
-          final compact = constraints.maxWidth < 720;
+          final compact = constraints.maxWidth < _kAiUsageHeroInlineMinWidth;
           final primary = Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
@@ -502,7 +503,7 @@ class _AiUsageHero extends StatelessWidget {
             ],
           );
           final alignedSide = Align(
-            alignment: AlignmentDirectional.bottomEnd,
+            alignment: AlignmentDirectional.topEnd,
             child: side,
           );
           if (compact) {
@@ -512,11 +513,11 @@ class _AiUsageHero extends StatelessWidget {
             );
           }
           return Row(
-            crossAxisAlignment: CrossAxisAlignment.end,
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
               Expanded(child: primary),
               kOpenHandHGap24,
-              Flexible(child: alignedSide),
+              alignedSide,
             ],
           );
         },
