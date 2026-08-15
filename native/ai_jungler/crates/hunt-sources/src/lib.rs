@@ -596,7 +596,9 @@ fn validate_browser_path(path: &Path, file: bool, label: &str) -> Result<(), Str
 
 fn browser_proxy_input(url: &Url) -> BrowserProxyInput {
     let host = url.host_str().unwrap_or_default();
-    let port = url.port_or_known_default().unwrap_or_default();
+    // socks5:// 等非标 scheme 没有 IANA 注册的默认端口，
+    // port_or_known_default() 会返回 None；此时回退到显式端口或 1080。
+    let port = url.port_or_known_default().or(url.port()).unwrap_or(1080);
     BrowserProxyInput {
         server: format!("{}://{host}:{port}", url.scheme()),
         username: (!url.username().is_empty()).then(|| decode_url_component(url.username())),
@@ -621,9 +623,26 @@ fn normalize_browser_error(value: Option<&str>) -> String {
     } else if message.contains("Timeout") || message.contains("timeout") {
         "页面载入超时".to_owned()
     } else if message.contains("Cannot find module") {
-        "Playwright 模块不可用".to_owned()
+        "模块不可用".to_owned()
+    } else if message.contains("ERR_PROXY") || message.contains("proxy") && message.contains("connection") {
+        "代理连接失败".to_owned()
+    } else if message.contains("ERR_NAME_NOT_RESOLVED") || message.contains("ENOTFOUND") {
+        "DNS 解析失败".to_owned()
+    } else if message.contains("ECONNREFUSED") || message.contains("connection refused") {
+        "连接被拒".to_owned()
     } else {
-        "浏览器运行异常".to_owned()
+        let truncated: String = message.chars().take(120).collect();
+        format!("运行异常：{truncated}")
+    }
+}
+
+/// 从 `SourceError` 中提取浏览器错误的内部原因描述，
+/// 避免与 `ForumFetch` 的 Display 格式串二次拼接出重复前缀。
+fn browser_error_reason(error: &SourceError) -> String {
+    match error {
+        SourceError::Browser(message) => message.clone(),
+        SourceError::BrowserUnavailable => "浏览器通道未就绪".to_owned(),
+        other => other.to_string(),
     }
 }
 
@@ -718,7 +737,7 @@ impl ForumSource {
                 Err(browser) => Err(SourceError::ForumFetch {
                     platform: self.specification.platform,
                     reader,
-                    browser: browser.to_string(),
+                    browser: browser_error_reason(&browser),
                 }),
             },
         }
@@ -742,6 +761,8 @@ impl ForumSource {
                 Err(error) => {
                     last_error = if error.is_timeout() {
                         "请求超时".to_owned()
+                    } else if error.is_connect() {
+                        "连接失败（DNS/网络/代理不可达）".to_owned()
                     } else {
                         "网络请求失败".to_owned()
                     };
