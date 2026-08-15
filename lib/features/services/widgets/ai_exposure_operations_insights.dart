@@ -614,7 +614,7 @@ class _TaskTelemetryInsightState extends State<_TaskTelemetryInsight> {
   ];
 
   void _handleScaleUpdate(ScaleUpdateDetails details) {
-    if ((details.scale - 1).abs() < 0.015) return;
+    if (details.scale <= 0 || (details.scale - 1).abs() < 0.015) return;
     final range = Duration(
       milliseconds: (_scaleStartRange.inMilliseconds / details.scale)
           .round()

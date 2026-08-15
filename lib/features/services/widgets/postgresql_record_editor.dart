@@ -1328,11 +1328,7 @@ class _PostgresqlJsonEditorState extends State<_PostgresqlJsonEditor> {
   void _addDraft() {
     if (_drafts.length >= _kPostgresqlJsonMaxEntries) return;
     setState(() {
-      _drafts.add(
-        _PostgresqlJsonDraft.empty(
-          showKey: _mode == _PostgresqlJsonRootMode.object,
-        ),
-      );
+      _drafts.add(_PostgresqlJsonDraft.empty());
       _error = null;
     });
   }
@@ -1434,12 +1430,11 @@ class _PostgresqlJsonDraft {
   }) : key = TextEditingController(text: key),
        value = TextEditingController(text: value);
 
-  factory _PostgresqlJsonDraft.empty({required bool showKey}) =>
-      _PostgresqlJsonDraft(
-        key: showKey ? '' : '',
-        value: '',
-        type: _PostgresqlJsonValueType.text,
-      );
+  factory _PostgresqlJsonDraft.empty() => _PostgresqlJsonDraft(
+    key: '',
+    value: '',
+    type: _PostgresqlJsonValueType.text,
+  );
 
   factory _PostgresqlJsonDraft.fromValue(String key, Object? value) {
     if (value is Map) {
