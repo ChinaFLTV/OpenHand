@@ -9045,10 +9045,10 @@ class WebMessagePlatformService {
     if (lower.endsWith('.gif')) return kImageGifMimeType;
     if (lower.endsWith('.bmp')) return 'image/bmp';
     if (lower.endsWith('.heic')) return 'image/heic';
-    if (lower.endsWith('.mp4')) return 'video/mp4';
+    if (lower.endsWith('.mp4')) return kVideoMp4MimeType;
     if (lower.endsWith('.webm')) return 'video/webm';
     if (lower.endsWith('.mov')) return 'video/quicktime';
-    if (lower.endsWith('.mp3')) return 'audio/mpeg';
+    if (lower.endsWith('.mp3')) return kAudioMpegMimeType;
     if (lower.endsWith('.wav')) return 'audio/wav';
     if (lower.endsWith('.ogg')) return 'audio/ogg';
     if (lower.endsWith('.m4a')) return 'audio/mp4';

@@ -325,7 +325,7 @@ class PlainTextKnowledgeDocumentParser extends KnowledgeDocumentParser {
     return KnowledgeDocumentParseResult(
       text: text,
       kind: 'text',
-      mimeType: 'text/plain',
+      mimeType: kTextPlainMimeType,
       parserId: id,
       title: p.basename(request.file.path),
       metadata: _strategyMetadata(request.settings),
@@ -1484,6 +1484,6 @@ String _mimeForExtension(String extension) {
     'sql' => 'application/sql',
     'xml' => 'application/xml',
     'css' || 'scss' || 'less' => 'text/css',
-    _ => 'text/plain',
+    _ => kTextPlainMimeType,
   };
 }

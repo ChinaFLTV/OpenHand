@@ -13,6 +13,7 @@ import '../../app/model/dialog_animation_settings.dart';
 import '../../app/support/silent_log.dart';
 import '../../app/support/system_proxy.dart';
 import '../../l10n/app_localizations.dart';
+import '../net/http_redirect_utils.dart';
 import '../net/http_response_utils.dart';
 import '../util/async_concurrency.dart';
 import '../util/bounded_directory_io.dart';
@@ -48,11 +49,11 @@ const Map<String, String> _mediaExtensionsByMime = <String, String>{
   'audio/aac': 'aac',
   'audio/flac': 'flac',
   'audio/mp4': 'm4a',
-  'audio/mpeg': 'mp3',
+  kAudioMpegMimeType: 'mp3',
   'audio/ogg': 'ogg',
   'audio/wav': 'wav',
   'audio/x-wav': 'wav',
-  'video/mp4': 'mp4',
+  kVideoMp4MimeType: 'mp4',
   'video/quicktime': 'mov',
   'video/webm': 'webm',
   'video/x-matroska': 'mkv',
@@ -751,7 +752,7 @@ class _MediaPlayerSurfaceState extends State<_MediaPlayerSurface> {
           .trim()
           .toLowerCase();
       final mime = normalizedMime == null || normalizedMime.isEmpty
-          ? 'video/mp4'
+          ? kVideoMp4MimeType
           : normalizedMime;
       final tempDirectory = Directory(
         p.join(Directory.systemTemp.path, _kPreviewTempDirectoryName),
@@ -1082,7 +1083,7 @@ ${openHandVideoPlayerControlsHtml(trailingActionId: 'fullscreen', trailingAction
   }
 
   NativeAudioPreviewSource get _nativeAudioSource {
-    final mimeType = widget.mimeType ?? 'audio/mpeg';
+    final mimeType = widget.mimeType ?? kAudioMpegMimeType;
     final bytes = widget.bytes;
     if (bytes != null) {
       return NativeAudioPreviewSource.bytes(

@@ -127,7 +127,7 @@ class ReaderFileType {
 
   static const Map<String, String> _normalizedAliases = <String, String>{
     'plaintext': text,
-    'text/plain': text,
+    kTextPlainMimeType: text,
     'text/markdown': markdown,
     'text/xmarkdown': markdown,
     'application/json': json,
@@ -275,7 +275,7 @@ class ReaderFileType {
   static String mimeType(String value) {
     return switch (normalize(value)) {
       markdown => 'text/markdown',
-      text => 'text/plain',
+      text => kTextPlainMimeType,
       html => 'text/html',
       json => 'application/json',
       jsonl => 'application/x-ndjson',
@@ -284,7 +284,7 @@ class ReaderFileType {
       xml => 'application/xml',
       csv => 'text/csv',
       tsv => 'text/tab-separated-values',
-      code => 'text/plain',
+      code => kTextPlainMimeType,
       latex => 'application/x-latex',
       rtf => 'application/rtf',
       docx =>
@@ -294,7 +294,7 @@ class ReaderFileType {
       pptx =>
         'application/vnd.openxmlformats-officedocument.presentationml.presentation',
       pdf => 'application/pdf',
-      _ => 'text/plain',
+      _ => kTextPlainMimeType,
     };
   }
 }

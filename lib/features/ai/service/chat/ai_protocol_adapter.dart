@@ -4342,7 +4342,7 @@ Future<String> _extractOpenAiContentWithMedia(Object? rawContent) async {
         final videoPayload = item['video'] ?? item['video_url'];
         final md = await _markdownFromOpenAiMediaPayload(
           videoPayload,
-          fallbackMimeType: 'video/mp4',
+          fallbackMimeType: kVideoMp4MimeType,
           fallbackLabel: 'AI Generated Video',
         );
         if (md.isNotEmpty) {
@@ -4457,7 +4457,7 @@ Future<String> _markdownFromOpenAiMediaPayload(
 
 String _audioFormatForMimeType(String mimeType) {
   return switch (lowercaseStringFromValue(mimeType)) {
-    'audio/mpeg' || 'audio/mp3' => 'mp3',
+    kAudioMpegMimeType || 'audio/mp3' => 'mp3',
     'audio/wav' || 'audio/wave' || 'audio/x-wav' => 'wav',
     'audio/flac' || 'audio/x-flac' => 'flac',
     'audio/mp4' || 'audio/m4a' || 'audio/x-m4a' => 'm4a',
@@ -4504,11 +4504,11 @@ class AiInlineMedia {
       kImageGifMimeType => '.gif',
       kImageWebpMimeType => '.webp',
       kImageSvgXmlMimeType => '.svg',
-      'audio/mp3' || 'audio/mpeg' => '.mp3',
+      'audio/mp3' || kAudioMpegMimeType => '.mp3',
       'audio/wav' || 'audio/x-wav' => '.wav',
       'audio/ogg' => '.ogg',
       'audio/aac' => '.aac',
-      'video/mp4' => '.mp4',
+      kVideoMp4MimeType => '.mp4',
       'video/webm' => '.webm',
       _ => '',
     };

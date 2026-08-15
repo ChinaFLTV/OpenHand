@@ -10,6 +10,7 @@ import 'package:path/path.dart' as p;
 
 import '../../app/support/silent_log.dart';
 import '../../l10n/app_localizations.dart';
+import '../net/http_redirect_utils.dart';
 import '../util/async_concurrency.dart';
 import '../util/bounded_file_io.dart';
 import '../util/date_time_format.dart';
@@ -2238,7 +2239,7 @@ Future<Duration?> estimateNativeAudioFileDuration(
 }
 
 String? _nativeAudioContainerKind(String extension, String? mimeType) {
-  if (mimeType == 'audio/mpeg' ||
+  if (mimeType == kAudioMpegMimeType ||
       mimeType == 'audio/mp3' ||
       extension == '.mp3') {
     return 'mp3';

@@ -250,6 +250,15 @@ const String kImageWebpMimeType = 'image/webp';
 /// SVG 图片 MIME 类型常量。
 const String kImageSvgXmlMimeType = 'image/svg+xml';
 
+/// 纯文本 MIME 类型常量（不含 charset）。
+const String kTextPlainMimeType = 'text/plain';
+
+/// MP3 / MPEG 音频 MIME 类型常量。
+const String kAudioMpegMimeType = 'audio/mpeg';
+
+/// MP4 视频 MIME 类型常量。
+const String kVideoMp4MimeType = 'video/mp4';
+
 /// 取 `Content-Type` 的 MIME 部分（丢掉 `; charset=...` 参数），统一转小写；
 /// 缺失时返回空字符串。
 String responseMimeType(Map<String, String> headers) {

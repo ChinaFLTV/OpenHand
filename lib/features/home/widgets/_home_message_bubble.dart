@@ -5911,11 +5911,11 @@ String _mimeTypeForGeneratedMedia(_GeneratedMediaSource source) {
 
 String _mimeTypeForExtension(String extension) {
   return switch (extension) {
-    '.mp4' || '.m4v' => 'video/mp4',
+    '.mp4' || '.m4v' => kVideoMp4MimeType,
     '.webm' => 'video/webm',
     '.mov' => 'video/quicktime',
     '.mkv' => 'video/x-matroska',
-    '.mp3' => 'audio/mpeg',
+    '.mp3' => kAudioMpegMimeType,
     '.wav' => 'audio/wav',
     '.m4a' => 'audio/mp4',
     '.aac' => 'audio/aac',

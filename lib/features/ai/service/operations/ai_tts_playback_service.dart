@@ -2528,7 +2528,7 @@ class AiTtsPlaybackService {
   static String? _mimoVoiceSampleMimeType(String path) {
     switch (p.extension(path).toLowerCase()) {
       case '.mp3':
-        return 'audio/mpeg';
+        return kAudioMpegMimeType;
       case '.wav':
         return 'audio/wav';
       default:

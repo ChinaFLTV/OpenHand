@@ -5,6 +5,7 @@ import 'dart:typed_data';
 import 'package:image/image.dart' as img;
 import 'package:path/path.dart' as p;
 
+import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/util/bounded_file_io.dart';
 import '../../../../shared/util/hex_encoding.dart';
 import '../../../../shared/util/input_value_parsing.dart';
@@ -314,7 +315,7 @@ class AiFileReadRenderer {
   String _renderNotebookValue(Object? value) {
     if (value is List) return value.map((item) => '$item').join();
     if (value is Map) {
-      final textPlain = value['text/plain'];
+      final textPlain = value[kTextPlainMimeType];
       if (textPlain != null) return _renderNotebookValue(textPlain);
       return prettyPrintJson(value);
     }

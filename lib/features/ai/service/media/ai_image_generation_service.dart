@@ -1894,10 +1894,10 @@ class AiImageGenerationService {
       final mimeType = kind.isVideo
           ? contentType.startsWith('video/')
                 ? contentType
-                : 'video/mp4'
+                : kVideoMp4MimeType
           : contentType.startsWith('audio/')
           ? contentType
-          : 'audio/mpeg';
+          : kAudioMpegMimeType;
       return inlineMediaFileMarkdown(
         filePath: response.filePath!,
         mimeType: mimeType,
@@ -2305,7 +2305,7 @@ class AiImageGenerationService {
         ? effectiveTimeout
         : _soraContentDownloadTimeoutCap;
     final destination = await createInlineMediaOutputFile(
-      mimeType: 'video/mp4',
+      mimeType: kVideoMp4MimeType,
     );
     final response = await _transport.downloadToFile(
       uri: contentUri,
@@ -2350,7 +2350,7 @@ class AiImageGenerationService {
     }
     final effectiveMime = mimeType.startsWith('video/')
         ? mimeType
-        : 'video/mp4';
+        : kVideoMp4MimeType;
     return inlineMediaFileMarkdown(
       filePath: filePath,
       mimeType: effectiveMime,
@@ -2765,8 +2765,8 @@ class AiImageGenerationService {
   String _defaultMimeFor(_GeneratedMediaKind kind) {
     return switch (kind) {
       _GeneratedMediaKind.image => kImagePngMimeType,
-      _GeneratedMediaKind.video => 'video/mp4',
-      _GeneratedMediaKind.audio => 'audio/mpeg',
+      _GeneratedMediaKind.video => kVideoMp4MimeType,
+      _GeneratedMediaKind.audio => kAudioMpegMimeType,
     };
   }
 

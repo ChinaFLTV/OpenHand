@@ -1007,11 +1007,11 @@ class AiResponsesService {
       rawData = part['result'] ?? part['data'] ?? part['b64_json'];
       label = 'AI Generated Image';
     } else if (itemType == 'output_audio' || itemType == 'audio') {
-      mimeType = optionalStringFromValue(part['mime_type']) ?? 'audio/mpeg';
+      mimeType = optionalStringFromValue(part['mime_type']) ?? kAudioMpegMimeType;
       rawData = part['data'] ?? part['audio'] ?? part['result'];
       label = optionalStringFromValue(part['transcript']) ?? 'AI Audio';
     } else if (itemType == 'output_video' || itemType == 'video') {
-      mimeType = optionalStringFromValue(part['mime_type']) ?? 'video/mp4';
+      mimeType = optionalStringFromValue(part['mime_type']) ?? kVideoMp4MimeType;
       rawData = part['data'] ?? part['video'] ?? part['result'];
       label = 'AI Video';
     } else {
@@ -1040,8 +1040,8 @@ class AiResponsesService {
   }
 
   String _defaultMediaMimeType(String itemType) {
-    if (itemType.contains('audio')) return 'audio/mpeg';
-    if (itemType.contains('video')) return 'video/mp4';
+    if (itemType.contains('audio')) return kAudioMpegMimeType;
+    if (itemType.contains('video')) return kVideoMp4MimeType;
     return kImagePngMimeType;
   }
 
