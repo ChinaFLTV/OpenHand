@@ -1936,7 +1936,7 @@ impl FofaSource {
                     ("qbase64", encoded_query),
                     ("size", size),
                     ("page", page),
-                    ("fields", "host,ip,port,protocol"),
+                    ("fields", "host,ip,port,protocol,title,header,banner,server,product,link,domain,cert"),
                 ])
                 .send()
                 .await
@@ -2034,12 +2034,29 @@ impl AssetSource for FofaSource {
             candidates.extend(
                 body.results
                     .into_iter()
-                    .filter_map(|row| row.first().and_then(value_as_string))
-                    .map(|target| Candidate {
-                        source: SourceKind::Fofa,
-                        target,
-                        discovered_at: Utc::now(),
-                        metadata: BTreeMap::new(),
+                    .filter_map(|row| {
+                        let target = row.first().and_then(value_as_string)?;
+                        let mut metadata = BTreeMap::new();
+                        // 将 FOFA 历史快照中的 title/header/banner/server/product 拼接为
+                        // artifact_text，供探测阶段的正则提取直接消费引擎爬虫缓存内容，
+                        // 不必依赖"目标现在仍在暴露"这一脆弱假设。
+                        let artifact_parts: Vec<&str> = [4, 5, 6, 7, 8]
+                            .iter()
+                            .filter_map(|&i| row.get(i).and_then(|v| v.as_str()))
+                            .filter(|s| !s.is_empty())
+                            .collect();
+                        if !artifact_parts.is_empty() {
+                            metadata.insert(
+                                CANDIDATE_ARTIFACT_TEXT_KEY.to_owned(),
+                                artifact_parts.join("\n"),
+                            );
+                        }
+                        Some(Candidate {
+                            source: SourceKind::Fofa,
+                            target,
+                            discovered_at: Utc::now(),
+                            metadata,
+                        })
                     }),
             );
             if candidates.len() >= MAX_SOURCE_RESULTS || page_len < DEFAULT_PAGE_SIZE {
@@ -2140,6 +2157,17 @@ struct ShodanMatch {
     transport: Option<String>,
     hostnames: Option<Vec<String>>,
     ssl: Option<serde_json::Value>,
+    /// Shodan 的 banner 原始内容（HTTP 响应头+体、SSH banner 等）。
+    data: Option<String>,
+    /// HTTP 模块返回的子结构，包含 title 和 html 字段。
+    http: Option<ShodanHttp>,
+    product: Option<String>,
+}
+
+#[derive(Deserialize)]
+struct ShodanHttp {
+    title: Option<String>,
+    html: Option<String>,
 }
 
 #[derive(Deserialize)]
@@ -2213,15 +2241,39 @@ impl AssetSource for ShodanSource {
                     "http"
                 };
                 let transport = item.transport.unwrap_or_else(|| "tcp".to_owned());
+                // 拼接 Shodan 历史快照中的 banner/title/product 作为 artifact_text，
+                // 使探测阶段可直接对爬虫缓存做正则提取。
+                let artifact_parts: Vec<&str> = [
+                    item.data.as_deref(),
+                    item.http.as_ref().and_then(|h| h.title.as_deref()),
+                    item.http.as_ref().and_then(|h| h.html.as_deref()),
+                    item.product.as_deref(),
+                ]
+                .into_iter()
+                .flatten()
+                .filter(|s| !s.is_empty())
+                .collect();
+                let artifact_text = if artifact_parts.is_empty() {
+                    None
+                } else {
+                    Some(artifact_parts.join("\n"))
+                };
                 let mut hosts = vec![item.ip_str];
                 hosts.extend(item.hostnames.unwrap_or_default().into_iter().take(5));
                 hosts.sort();
                 hosts.dedup();
-                hosts.into_iter().map(move |host| Candidate {
-                    source: SourceKind::Shodan,
-                    target: format!("{scheme}://{host}:{}", item.port),
-                    discovered_at: Utc::now(),
-                    metadata: BTreeMap::from([("transport".to_owned(), transport.clone())]),
+                hosts.into_iter().map(move |host| {
+                    let mut metadata =
+                        BTreeMap::from([("transport".to_owned(), transport.clone())]);
+                    if let Some(ref text) = artifact_text {
+                        metadata.insert(CANDIDATE_ARTIFACT_TEXT_KEY.to_owned(), text.clone());
+                    }
+                    Candidate {
+                        source: SourceKind::Shodan,
+                        target: format!("{scheme}://{host}:{}", item.port),
+                        discovered_at: Utc::now(),
+                        metadata,
+                    }
                 })
             }));
             if candidates.len() >= MAX_SOURCE_RESULTS || match_count < DEFAULT_PAGE_SIZE {
