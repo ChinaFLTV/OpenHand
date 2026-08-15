@@ -74,6 +74,8 @@ const int _transientPollBackoffCapMs = 8000;
 const int _transientPollBackoffMaxShift = 3;
 const int _miniMaxFileRetrieveAttempts = 2;
 const int _miniMaxFileRetrieveRetryBaseMs = 750;
+const int _xaiVideoMinDurationSeconds = 1;
+const int _xaiVideoMaxDurationSeconds = 15;
 
 /// Outcome of a generative multimedia request (image/video/audio).
 ///
@@ -179,10 +181,7 @@ class AiImageGenerationService {
       case AiProtocolType.minimax:
       case AiProtocolType.agnes:
         return true;
-      // Grok via chenyme/grok2api gateway exposes `POST /v1/videos`
-      // (multipart) for `grok-imagine-video`. xAI native Grok API has no
-      // public video endpoint, so this branch only activates when users
-      // route through grok2api (they configure baseUrl accordingly).
+      // xAI 原生接口与旧版 grok2api 网关均支持视频生成。
       case AiProtocolType.grok:
         return true;
       // Hunyuan video uses Tencent Cloud's TC3-HMAC signed RPC at
@@ -211,6 +210,7 @@ class AiImageGenerationService {
   static bool supportsImageGenerationForModel(AiModelConfig model) {
     return _supportsGenerationCapabilityForModel(
       model,
+      model.resolveOperationModelId(AiApiFamily.imageGeneration),
       AiModelCapability.imageGeneration,
       protocolSupported: supportsImageGeneration(model.protocolType),
     );
@@ -219,6 +219,7 @@ class AiImageGenerationService {
   static bool supportsVideoGenerationForModel(AiModelConfig model) {
     return _supportsGenerationCapabilityForModel(
       model,
+      model.resolveOperationModelId(AiApiFamily.videoGeneration),
       AiModelCapability.videoGeneration,
       protocolSupported: supportsVideoGeneration(model.protocolType),
     );
@@ -246,6 +247,7 @@ class AiImageGenerationService {
     }
     return _supportsGenerationCapabilityForModel(
       model,
+      speechModelId,
       AiModelCapability.audioGeneration,
       protocolSupported: supportsAudioGeneration(model.protocolType),
     );
@@ -253,14 +255,15 @@ class AiImageGenerationService {
 
   static bool _supportsGenerationCapabilityForModel(
     AiModelConfig model,
+    String modelId,
     AiModelCapability capability, {
     required bool protocolSupported,
   }) {
-    final profile = model.profileFor(model.modelId);
+    final profile = model.profileFor(modelId);
     if (profile.capabilities.isNotEmpty) {
       return profile.capabilities.contains(capability);
     }
-    final catalog = AiModelCatalog.lookup(model.modelId, model.protocolType);
+    final catalog = AiModelCatalog.lookup(modelId, model.protocolType);
     if (catalog != null) {
       return catalog.capabilities.contains(capability);
     }
@@ -346,6 +349,7 @@ class AiImageGenerationService {
       );
     }
     final imageModelId = resolveImageModelId(model, AiCreationMode.image);
+    final useGrok2Api = _usesGrok2Api(model);
     const family = AiApiFamily.imageGeneration;
     final useStepFunImageToImage =
         model.protocolType == AiProtocolType.stepfun &&
@@ -366,7 +370,8 @@ class AiImageGenerationService {
     final referenceImageDataUrls =
         (_usesAgnesMediaApi(model.protocolType, imageModelId) ||
             useStepFunImageToImage ||
-            model.protocolType == AiProtocolType.minimax)
+            model.protocolType == AiProtocolType.minimax ||
+            model.protocolType == AiProtocolType.seed)
         ? await _referenceImageDataUrls(
             referenceImages,
             _GeneratedMediaKind.image,
@@ -380,6 +385,7 @@ class AiImageGenerationService {
         prompt: trimmedPrompt,
         options: options,
         protocol: model.protocolType,
+        useGrok2Api: useGrok2Api,
         referenceImageDataUrls: referenceImageDataUrls,
       ),
     );
@@ -542,6 +548,7 @@ class AiImageGenerationService {
       _GeneratedMediaKind.video => resolveVideoModelId(model),
       _GeneratedMediaKind.audio => resolveAudioModelId(model),
     };
+    final useGrok2Api = _usesGrok2Api(model);
     final inputError = kind.isAudio
         ? AiStepFunAudioPolicy.inputValidationError(
             protocol: model.protocolType,
@@ -584,7 +591,9 @@ class AiImageGenerationService {
     }
     final referenceImageDataUrls =
         (_usesAgnesMediaApi(model.protocolType, modelId) ||
-            model.protocolType == AiProtocolType.minimax)
+            model.protocolType == AiProtocolType.minimax ||
+            model.protocolType == AiProtocolType.seed ||
+            (model.protocolType == AiProtocolType.grok && !useGrok2Api))
         ? await _referenceImageDataUrls(referenceImages, kind)
         : const <String>[];
     final body = AiOperationHttp.mergeBodyExtras(
@@ -596,6 +605,7 @@ class AiImageGenerationService {
         prompt: trimmedPrompt,
         options: options,
         protocol: model.protocolType,
+        useGrok2Api: useGrok2Api,
         referenceImageDataUrls: referenceImageDataUrls,
       ),
     );
@@ -603,16 +613,14 @@ class AiImageGenerationService {
       kind: kind,
       protocol: model.protocolType,
       modelId: modelId,
+      useGrok2Api: useGrok2Api,
     );
     final startedAt = DateTime.now().toUtc();
     final operationStopwatch = Stopwatch()..start();
     final http.Response response;
     try {
       if (useMultipart) {
-        // OpenAI Sora 2 (and OpenAI-compatible gateways such as grok2api)
-        // require multipart/form-data for `POST /v1/videos`. Sending a
-        // JSON body causes the server to see all fields as missing because
-        // the FastAPI form parser cannot decode JSON.
+        // OpenAI Sora 2 与旧版 grok2api 要求 multipart/form-data。
         response = await _transport.sendMultipart(
           uri: uri,
           method: 'POST',
@@ -787,15 +795,29 @@ class AiImageGenerationService {
       model,
       family,
       method: model.requestMethod,
-      fallbackPath: fallbackPath ?? _fallbackMediaPath(kind, protocol, modelId),
+      fallbackPath:
+          fallbackPath ?? _fallbackMediaPath(model, kind, protocol, modelId),
     );
   }
 
   String _fallbackMediaPath(
+    AiModelConfig model,
     _GeneratedMediaKind kind,
     AiProtocolType protocol,
     String modelId,
   ) {
+    if (protocol == AiProtocolType.seed) {
+      return kind.isVideo
+          ? 'api/v3/contents/generations/tasks'
+          : kind.isImage
+          ? 'api/v3/images/generations'
+          : 'v1/${_mediaEndpointSuffix(kind, protocol, modelId).join('/')}';
+    }
+    if (protocol == AiProtocolType.grok &&
+        kind.isVideo &&
+        !_usesGrok2Api(model)) {
+      return 'v1/videos/generations';
+    }
     return 'v1/${_mediaEndpointSuffix(kind, protocol, modelId).join('/')}';
   }
 
@@ -809,7 +831,7 @@ class AiImageGenerationService {
         // OpenAI Sora 2 exposes `POST /v1/videos` (returns a job; poll via
         // `/v1/videos/{id}` and download `/v1/videos/{id}/content`).
         AiProtocolType.openai => const <String>['videos'],
-        // grok2api gateway mirrors OpenAI Sora's `/v1/videos` async layout.
+        // 旧版 grok2api 网关沿用 OpenAI Sora 的 `/v1/videos` 异步格式。
         AiProtocolType.grok => const <String>['videos'],
         AiProtocolType.agnes => const <String>['videos'],
         // MiniMax uses a flat `POST /v1/video_generation` instead of the
@@ -860,17 +882,12 @@ class AiImageGenerationService {
     };
   }
 
-  /// Returns `true` when the destination video endpoint expects
-  /// `multipart/form-data` instead of `application/json`.
-  ///
-  /// OpenAI Sora 2's `POST /v1/videos` is documented as multipart, and
-  /// OpenAI-compatible gateways (notably `chenyme/grok2api`) only parse
-  /// the request via FastAPI's `Form()` extractor — sending JSON yields
-  /// `model: missing, prompt: missing, input: None`.
+  /// 判断目标视频端点是否要求 `multipart/form-data`。
   bool _videoEndpointWantsMultipart({
     required _GeneratedMediaKind kind,
     required AiProtocolType protocol,
     required String modelId,
+    required bool useGrok2Api,
   }) {
     if (!kind.isVideo) return false;
     // Agnes exposes an OpenAI-shaped `/v1/videos` URL, and users may
@@ -878,9 +895,8 @@ class AiImageGenerationService {
     // Its video endpoint is JSON-only: multipart would stringify numeric
     // fields such as `frame_rate`, which Agnes' Go backend rejects.
     if (_usesAgnesMediaApi(protocol, modelId)) return false;
-    // Both OpenAI Sora 2 and grok2api expose `POST /v1/videos` as multipart
-    // form-data — JSON body yields `model/prompt missing, input: None`.
-    return protocol == AiProtocolType.openai || protocol == AiProtocolType.grok;
+    // OpenAI Sora 2 与旧版 grok2api 使用 multipart/form-data。
+    return protocol == AiProtocolType.openai || useGrok2Api;
   }
 
   Map<String, Object?> _buildMediaBody({
@@ -889,6 +905,7 @@ class AiImageGenerationService {
     required String prompt,
     required AiCreationOptions options,
     required AiProtocolType protocol,
+    required bool useGrok2Api,
     required List<String> referenceImageDataUrls,
   }) {
     return switch (kind) {
@@ -897,6 +914,7 @@ class AiImageGenerationService {
         prompt: prompt,
         options: options,
         protocol: protocol,
+        useGrok2Api: useGrok2Api,
         referenceImageDataUrls: referenceImageDataUrls,
       ),
       _GeneratedMediaKind.video => _buildVideoBody(
@@ -904,6 +922,7 @@ class AiImageGenerationService {
         prompt: prompt,
         options: options,
         protocol: protocol,
+        useGrok2Api: useGrok2Api,
         referenceImageDataUrls: referenceImageDataUrls,
       ),
       _GeneratedMediaKind.audio => _buildAudioBody(
@@ -941,6 +960,7 @@ class AiImageGenerationService {
     required String prompt,
     required AiCreationOptions options,
     required AiProtocolType protocol,
+    required bool useGrok2Api,
     required List<String> referenceImageDataUrls,
   }) {
     if (_usesAgnesMediaApi(protocol, modelId)) {
@@ -958,6 +978,47 @@ class AiImageGenerationService {
         body['extra_body'] = <String, Object?>{
           'image': referenceImageDataUrls,
           'response_format': 'b64_json',
+        };
+      }
+      return body;
+    }
+    if (protocol == AiProtocolType.grok && !useGrok2Api) {
+      final body = <String, Object?>{
+        'model': modelId,
+        'prompt': prompt,
+        'n': options.count.clamp(1, AiCreationOptions.maxCount).toInt(),
+      };
+      putIfNotBlank(body, 'aspect_ratio', options.aspectRatio);
+      final resolution = optionalLowercaseStringFromValue(options.resolution);
+      if (resolution == '1k' || resolution == '2k') {
+        body['resolution'] = resolution;
+      }
+      final quality = optionalLowercaseStringFromValue(options.quality);
+      if (quality == 'low' || quality == 'medium') {
+        body['quality'] = quality;
+      }
+      return body;
+    }
+    if (protocol == AiProtocolType.seed) {
+      final body = <String, Object?>{
+        'model': modelId,
+        'prompt': prompt,
+        'response_format': 'b64_json',
+      };
+      if (referenceImageDataUrls.length == 1) {
+        body['image'] = referenceImageDataUrls.first;
+      } else if (referenceImageDataUrls.isNotEmpty) {
+        body['image'] = referenceImageDataUrls;
+      }
+      putIfNotBlank(body, 'size', options.size ?? options.resolution);
+      putIfNotBlank(body, 'output_format', options.outputFormat);
+      _putBool(body, 'watermark', options.watermark);
+      if (options.count > 1 && !_isSeedream5Pro(modelId)) {
+        body['sequential_image_generation'] = 'auto';
+        body['sequential_image_generation_options'] = <String, Object?>{
+          'max_images': options.count
+              .clamp(1, AiCreationOptions.maxCount)
+              .toInt(),
         };
       }
       return body;
@@ -1072,6 +1133,7 @@ class AiImageGenerationService {
     required String prompt,
     required AiCreationOptions options,
     required AiProtocolType protocol,
+    required bool useGrok2Api,
     required List<String> referenceImageDataUrls,
   }) {
     if (_usesAgnesMediaApi(protocol, modelId)) {
@@ -1082,10 +1144,7 @@ class AiImageGenerationService {
         referenceImageDataUrls: referenceImageDataUrls,
       );
     }
-    // Per-provider body shapes — many vendors deliberately do NOT speak the
-    // OpenAI `prompt + n + response_format` schema. Sending the canonical
-    // shape to providers like Sora 2 / MiniMax / DashScope yields silent
-    // 400/422 errors that surface as “视频生成失败” in the UI.
+    // 各厂商媒体请求结构不同，必须按原生协议构造，避免服务端拒绝未知字段。
     switch (protocol) {
       case AiProtocolType.openai:
         // OpenAI Sora 2: `{model, prompt, seconds, size}` (no `n`).
@@ -1145,9 +1204,22 @@ class AiImageGenerationService {
           if (parameters.isNotEmpty) 'parameters': parameters,
         };
       case AiProtocolType.grok:
-        // grok2api `POST /v1/videos` (multipart):
-        //   `{model, prompt, seconds, size, resolution_name, preset}`.
-        // Reference: https://github.com/chenyme/grok2api/blob/main/README.md
+        if (!useGrok2Api) {
+          final body = <String, Object?>{'model': modelId, 'prompt': prompt};
+          final duration = options.durationSeconds;
+          if (duration != null) {
+            body['duration'] = duration
+                .clamp(_xaiVideoMinDurationSeconds, _xaiVideoMaxDurationSeconds)
+                .toInt();
+          }
+          putIfNotBlank(body, 'aspect_ratio', options.aspectRatio);
+          putIfNotBlank(body, 'resolution', options.resolution);
+          if (referenceImageDataUrls.isNotEmpty) {
+            body['image_url'] = referenceImageDataUrls.first;
+          }
+          return body;
+        }
+        // 旧版 grok2api：`POST /v1/videos`，使用 multipart 请求。
         final body = <String, Object?>{'model': modelId, 'prompt': prompt};
         final size = _videoSizeFromOptions(options);
         if (size != null) body['size'] = size;
@@ -1171,7 +1243,6 @@ class AiImageGenerationService {
           referenceImageDataUrls: referenceImageDataUrls,
         );
       case AiProtocolType.glm:
-      case AiProtocolType.seed:
       case AiProtocolType.hunyuan:
       case AiProtocolType.stepfun:
       case AiProtocolType.wenxin:
@@ -1187,10 +1258,7 @@ class AiImageGenerationService {
       case AiProtocolType.joycode:
       case AiProtocolType.meta:
       case AiProtocolType.mimo:
-        // GLM CogVideoX-style: `{model, prompt, quality, size, duration,
-        // fps, with_audio}` — extra fields are tolerated by other providers
-        // that ignore unknown keys (Seed/Doubao Seedance, custom OpenAI-
-        // compat gateways).
+        // GLM CogVideoX 及兼容网关使用扁平视频参数。
         final body = <String, Object?>{
           'model': modelId,
           'prompt': prompt,
@@ -1217,6 +1285,34 @@ class AiImageGenerationService {
         _putPositiveInt(body, 'fps', options.frameRate);
         _putPositiveInt(body, 'num_frames', options.numFrames);
         putIfNotBlank(body, 'mode', options.mode);
+        return body;
+      case AiProtocolType.seed:
+        final content = <Map<String, Object?>>[
+          <String, Object?>{'type': 'text', 'text': prompt},
+        ];
+        if (referenceImageDataUrls.length <= 2) {
+          for (var i = 0; i < referenceImageDataUrls.length; i++) {
+            content.add(<String, Object?>{
+              'type': 'image_url',
+              'image_url': <String, Object?>{'url': referenceImageDataUrls[i]},
+              'role': i == 0 ? 'first_frame' : 'last_frame',
+            });
+          }
+        } else {
+          for (final imageUrl in referenceImageDataUrls) {
+            content.add(<String, Object?>{
+              'type': 'image_url',
+              'image_url': <String, Object?>{'url': imageUrl},
+              'role': 'reference_image',
+            });
+          }
+        }
+        final body = <String, Object?>{'model': modelId, 'content': content};
+        putIfNotBlank(body, 'resolution', options.resolution);
+        putIfNotBlank(body, 'ratio', options.aspectRatio);
+        _putPositiveInt(body, 'duration', options.durationSeconds);
+        _putPositiveInt(body, 'seed', options.seed);
+        _putBool(body, 'watermark', options.watermark);
         return body;
     }
   }
@@ -1477,6 +1573,42 @@ class AiImageGenerationService {
 
   static bool _isAgnesModel(String modelId) {
     return lowercaseStringFromValue(modelId).startsWith('agnes-');
+  }
+
+  bool _usesGrok2Api(AiModelConfig model) {
+    if (model.protocolType != AiProtocolType.grok) return false;
+    final videoModelId = lowercaseStringFromValue(
+      model.resolveOperationModelId(AiApiFamily.videoGeneration),
+    );
+    if (videoModelId == 'grok-imagine-video' || videoModelId == 'grok-video') {
+      return true;
+    }
+    final override = model.endpointOverrides[AiApiFamily.videoGeneration];
+    for (final value in <String?>[
+      model.normalizedBaseUrl,
+      override?.url,
+      override?.path,
+    ]) {
+      final normalized = optionalLowercaseStringFromValue(value);
+      if (normalized == null) continue;
+      if (normalized.contains('grok2api')) return true;
+      final uri = Uri.tryParse(normalized);
+      final segments = uri?.pathSegments
+          .where((segment) => segment.isNotEmpty)
+          .toList(growable: false);
+      if (segments != null &&
+          segments.isNotEmpty &&
+          segments.last == 'videos') {
+        return true;
+      }
+    }
+    return false;
+  }
+
+  static bool _isSeedream5Pro(String modelId) {
+    return lowercaseStringFromValue(
+      modelId,
+    ).startsWith('doubao-seedream-5-0-pro');
   }
 
   static bool _isMiniMaxMusicModel(String modelId) {
@@ -2249,10 +2381,11 @@ class AiImageGenerationService {
           );
         }
         final status = _operationStatus(decoded);
-        // Sora 2 和 grok2api 仅通过二进制 content 端点提供最终视频。
+        // Sora 2 和旧版 grok2api 仅通过二进制 content 端点提供最终视频。
         if (kind.isVideo &&
             (protocol == AiProtocolType.openai ||
-                protocol == AiProtocolType.grok) &&
+                (protocol == AiProtocolType.grok &&
+                    !_isNativeXaiVideoGenerationUrl(initialUrl))) &&
             !_usesAgnesMediaApi(protocol, modelId) &&
             _isTerminalSuccessStatus(status)) {
           final downloadTimeout = deadline.remainingOrNull();
@@ -2288,7 +2421,7 @@ class AiImageGenerationService {
     );
   }
 
-  /// 从 Sora 2 / grok2api 的二进制 content 端点下载最终视频并保存到本地。
+  /// 从 Sora 2 / 旧版 grok2api 的二进制 content 端点下载最终视频。
   Future<String> _downloadSoraStyleVideoContent({
     required String operationUrl,
     required Map<String, String> requestHeaders,
@@ -2578,6 +2711,8 @@ class AiImageGenerationService {
           .toString();
     }
     final id = _findFirstString(payload, const <String>[
+      'request_id',
+      'requestId',
       'id',
       'task_id',
       'taskId',
@@ -2589,6 +2724,17 @@ class AiImageGenerationService {
     if (id == null) return null;
     final uri = Uri.parse(initialUrl);
     return switch (protocol) {
+      AiProtocolType.grok when _isNativeXaiVideoGenerationUrl(initialUrl) =>
+        () {
+          final segments = uri.pathSegments
+              .where((segment) => segment.isNotEmpty)
+              .toList(growable: true);
+          if (segments.isNotEmpty && segments.last == 'generations') {
+            segments.removeLast();
+          }
+          segments.add(id);
+          return uri.replace(pathSegments: segments).toString();
+        }(),
       // GLM CogVideoX: status lives under `/api/paas/v4/async-result/{id}`.
       AiProtocolType.glm => () {
         final segments = uri.pathSegments
@@ -2670,6 +2816,17 @@ class AiImageGenerationService {
     return search(map, 0);
   }
 
+  bool _isNativeXaiVideoGenerationUrl(String value) {
+    final segments = Uri.tryParse(value)?.pathSegments
+        .where((segment) => segment.isNotEmpty)
+        .map((segment) => segment.toLowerCase())
+        .toList(growable: false);
+    return segments != null &&
+        segments.length >= 2 &&
+        segments[segments.length - 2] == 'videos' &&
+        segments.last == 'generations';
+  }
+
   List<String> _mediaStrings(Object? value, {required int limit}) {
     if (value is! List) return const <String>[];
     return value
@@ -2714,11 +2871,12 @@ class AiImageGenerationService {
     return status == 'failed' ||
         status == 'failure' ||
         status == 'error' ||
+        status == 'expired' ||
         status == 'cancelled' ||
         status == 'canceled';
   }
 
-  /// Sora 2 reports `completed`; grok2api may also report `succeeded`/`done`.
+  /// 判断媒体任务是否成功结束。
   bool _isTerminalSuccessStatus(String status) {
     return status == 'completed' ||
         status == 'complete' ||
@@ -2813,7 +2971,9 @@ class AiImageGenerationService {
     if (path.endsWith('.png')) return kImagePngMimeType;
     if (path.endsWith('.webp')) return kImageWebpMimeType;
     if (path.endsWith('.gif')) return kImageGifMimeType;
-    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) return kImageJpegMimeType;
+    if (path.endsWith('.jpg') || path.endsWith('.jpeg')) {
+      return kImageJpegMimeType;
+    }
     return kImagePngMimeType;
   }
 

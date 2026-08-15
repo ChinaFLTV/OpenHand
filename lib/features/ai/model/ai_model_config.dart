@@ -1596,7 +1596,8 @@ class AiModelConfig {
     this.realtime = const AiRealtimeConfig(),
   }) : explicitPromptCacheEnabled =
            (protocolType == AiProtocolType.claude ||
-               apiDialect == AiApiDialect.anthropicNative) &&
+               (apiDialect == AiApiDialect.anthropicNative &&
+                   protocolType != AiProtocolType.dots)) &&
            (explicitPromptCacheEnabled ?? true);
 
   static final RegExp _reasoningModelIdSeparatorPattern = RegExp(r'[^a-z0-9]+');
@@ -1913,13 +1914,20 @@ class AiModelConfig {
         normalizedModelId.contains('gpt-5')) {
       return AiReasoningEffortOption.openAiGpt5;
     }
+    if (normalizedModelId.contains('grok-4-6')) {
+      return AiReasoningEffortOption.standardValues(const <String>[
+        'low',
+        'medium',
+        'high',
+        'xhigh',
+      ]);
+    }
     if (normalizedModelId.contains('grok-4-5') ||
         normalizedModelId.contains('grok-build-latest')) {
       return AiReasoningEffortOption.standardValues(const <String>[
         'low',
         'medium',
         'high',
-        'xhigh',
       ]);
     }
     if (protocolType == AiProtocolType.grok ||
@@ -2040,7 +2048,8 @@ class AiModelConfig {
 
   bool get supportsExplicitPromptCacheControl =>
       protocolType == AiProtocolType.claude ||
-      apiDialect == AiApiDialect.anthropicNative;
+      (apiDialect == AiApiDialect.anthropicNative &&
+          protocolType != AiProtocolType.dots);
 
   bool get effectiveExplicitPromptCacheEnabled =>
       supportsExplicitPromptCacheControl && explicitPromptCacheEnabled;
@@ -2067,7 +2076,10 @@ class AiModelConfig {
     final trimmedModelId = nullIfBlank(modelId) ?? '';
     final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
     if (_looksLikeAlwaysOnClaudeAdaptiveThinking(normalizedModelId) ||
-        _looksLikeAlwaysOnGrokReasoning(normalizedModelId)) {
+        _looksLikeAlwaysOnGrokReasoning(normalizedModelId) ||
+        _looksLikeAlwaysOnGemini37(normalizedModelId) ||
+        _looksLikeAlwaysOnKimiK3(normalizedModelId) ||
+        _looksLikeAlwaysOnGlm53(normalizedModelId)) {
       return true;
     }
     final userOverride = modelProfiles[trimmedModelId]?.thinkingEnabled;
@@ -2087,6 +2099,10 @@ class AiModelConfig {
   }
 
   bool get resolvedReasoningEffortControlEnabled {
+    if (protocolType == AiProtocolType.dots &&
+        apiDialect != AiApiDialect.anthropicNative) {
+      return false;
+    }
     final trimmedModelId = nullIfBlank(modelId) ?? '';
     final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
     if (!resolvedThinkingEnabled &&
@@ -2110,8 +2126,21 @@ class AiModelConfig {
   }
 
   static bool _looksLikeAlwaysOnGrokReasoning(String normalizedModelId) {
-    return normalizedModelId.contains('grok-4-5') ||
+    return normalizedModelId.contains('grok-4-6') ||
+        normalizedModelId.contains('grok-4-5') ||
         normalizedModelId.contains('grok-build-latest');
+  }
+
+  static bool _looksLikeAlwaysOnGemini37(String normalizedModelId) {
+    return normalizedModelId.contains('gemini-3-7-flash');
+  }
+
+  static bool _looksLikeAlwaysOnKimiK3(String normalizedModelId) {
+    return normalizedModelId.contains('kimi-k3') || normalizedModelId == 'k3';
+  }
+
+  static bool _looksLikeAlwaysOnGlm53(String normalizedModelId) {
+    return normalizedModelId.contains('glm-5-3');
   }
 
   String? get resolvedReasoningEffort {
@@ -2183,6 +2212,10 @@ class AiModelConfig {
 
   bool get requiresReasoningEcho {
     final trimmedModelId = nullIfBlank(modelId) ?? '';
+    final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
+    if (_looksLikeAlwaysOnKimiK3(normalizedModelId)) {
+      return true;
+    }
     final userOverride = modelProfiles[trimmedModelId]?.requiresReasoningEcho;
     if (userOverride != null) {
       return userOverride;
@@ -2193,7 +2226,6 @@ class AiModelConfig {
     if (catalogEcho == true) {
       return true;
     }
-    final normalizedModelId = _normalizeReasoningModelId(trimmedModelId);
     if (normalizedModelId.isEmpty) {
       return false;
     }
@@ -2333,14 +2365,16 @@ class AiModelConfig {
             normalizedModelId.startsWith('gpt-5'),
       AiProtocolType.dots => normalizedModelId.startsWith('dots'),
       AiProtocolType.claude =>
-        normalizedModelId.contains('claude-5') ||
-            normalizedModelId.contains('claude5') ||
-            normalizedModelId.contains('sonnet-5') ||
+        normalizedModelId.contains('sonnet-5') ||
             normalizedModelId.contains('5-sonnet') ||
             normalizedModelId.contains('opus-5') ||
             normalizedModelId.contains('5-opus') ||
             normalizedModelId.contains('haiku-5') ||
             normalizedModelId.contains('5-haiku') ||
+            normalizedModelId.contains('fable-5') ||
+            normalizedModelId.contains('5-fable') ||
+            normalizedModelId.contains('mythos-5') ||
+            normalizedModelId.contains('5-mythos') ||
             normalizedModelId.contains('claude-4') ||
             normalizedModelId.contains('sonnet-4') ||
             normalizedModelId.contains('opus-4') ||
@@ -2666,7 +2700,8 @@ class AiModelConfig {
   }) {
     final supported =
         protocolType == AiProtocolType.claude ||
-        apiDialect == AiApiDialect.anthropicNative;
+        (apiDialect == AiApiDialect.anthropicNative &&
+            protocolType != AiProtocolType.dots);
     if (!supported) {
       return false;
     }

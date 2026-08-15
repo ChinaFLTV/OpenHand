@@ -308,6 +308,7 @@ class AiEndpointRouter {
     <String>['audio', 'speech'],
     <String>['audio', 'transcriptions'],
     <String>['audio', 'translations'],
+    <String>['contents', 'generations', 'tasks'],
     <String>['videos', 'generations'],
     <String>['videos'],
     <String>['query', 'video_generation'],

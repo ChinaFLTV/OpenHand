@@ -128,8 +128,7 @@ abstract final class AiThinkingRequestPolicy {
 
     // Kimi K3 始终思考，仅接受顶层 reasoning_effort。
     if (protocol == AiProtocolType.kimi &&
-        (normalizedModelId.contains('kimi-k3') ||
-            normalizedModelId == 'k3')) {
+        (normalizedModelId.contains('kimi-k3') || normalizedModelId == 'k3')) {
       if (effortControlEnabled && effort != null) {
         body[_reasoningEffortField] = effort;
       }
@@ -139,8 +138,8 @@ abstract final class AiThinkingRequestPolicy {
 
     // Qwen3.8-Max 的 reasoning_effort 与 thinking_budget 互斥。
     if (protocol == AiProtocolType.qwen &&
-        (normalizedModelId.startsWith('qwen3.8-max') ||
-            normalizedModelId.startsWith('qwen3-8-max'))) {
+        (normalizedModelId.contains('qwen3.8-max') ||
+            normalizedModelId.contains('qwen3-8-max'))) {
       _setEnableThinking(body, enabled);
       if (enabled && effortControlEnabled && effort != null) {
         body[_reasoningEffortField] = effort;
@@ -286,15 +285,26 @@ abstract final class AiThinkingRequestPolicy {
     final effort = model.resolvedReasoningEffortControlEnabled
         ? _normalizeReasoningEffort(model.resolvedReasoningEffort)
         : null;
-    final thinkingConfig = <String, Object?>{
+    if (_usesGeminiThinkingLevel(model)) {
+      final id = lowercaseStringFromValue(model.modelId);
+      final disabledLevel =
+          id.contains('gemini-3.5') || id.contains('gemini-3.6')
+          ? 'minimal'
+          : 'low';
+      generationConfig[_thinkingConfigField] = <String, Object?>{
+        _thinkingLevelField: _geminiThinkingLevel(
+          enabled ? effort ?? 'medium' : disabledLevel,
+        ),
+        if (enabled) 'includeThoughts': true,
+      };
+      return;
+    }
+    generationConfig[_thinkingConfigField] = <String, Object?>{
       _thinkingBudgetField: enabled
           ? _thinkingBudget(model, fallback: _defaultThinkingBudget)
           : 0,
-      if (enabled && _usesGeminiThinkingLevel(model) && effort != null)
-        _thinkingLevelField: _geminiThinkingLevel(effort),
       if (enabled) 'includeThoughts': true,
     };
-    generationConfig[_thinkingConfigField] = thinkingConfig;
   }
 
   static bool requestHasMarker({required Map<String, Object?> body}) {

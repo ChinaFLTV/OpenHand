@@ -751,16 +751,14 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _dots(String id) {
-    if (!id.startsWith('dots3') && !id.startsWith('dots-3')) return null;
+    if (id != 'dots3-note-prev') return null;
     return _p(
-      name: 'Dots 3',
+      name: 'Dots3 Note Preview',
       desc: '小红书 Dots 多模态模型，支持 512K 上下文与工具调用。',
       multimodal: true,
       supportsAttachments: true,
       modalities: _allModalities,
       context: 524288,
-      output: 65536,
-      thinking: 65536,
       thinkingEnabled: true,
       reasoningEffortControlEnabled: true,
       reasoningEffort: 'medium',
@@ -1664,9 +1662,9 @@ class AiModelCatalog {
     }
 
     // ── Gemini 3.7 / 3.6 / 3.5 ──────────────────────────────────────────
-    if (id.startsWith('gemini-3.7') || id.startsWith('gemini-3-7')) {
+    if (id.startsWith('gemini-3.7-flash')) {
       return _p(
-        name: 'Gemini 3.7',
+        name: 'Gemini 3.7 Flash',
         desc: 'Google 新一代多模态推理模型，支持 1M 上下文。',
         multimodal: true,
         supportsAttachments: true,
@@ -1679,9 +1677,9 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
       );
     }
-    if (id.startsWith('gemini-3.6') || id.startsWith('gemini-3-6')) {
+    if (id.startsWith('gemini-3.6-flash')) {
       return _p(
-        name: 'Gemini 3.6',
+        name: 'Gemini 3.6 Flash',
         desc: 'Google 高效多模态模型，面向编程与智能体工作流。',
         multimodal: true,
         supportsAttachments: true,
@@ -1694,12 +1692,13 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
         inputUsdPer1M: 1.50,
         outputUsdPer1M: 7.50,
+        cacheReadUsdPer1M: 0.15,
       );
     }
-    if (id.startsWith('gemini-3.5') || id.startsWith('gemini-3-5')) {
+    if (id.startsWith('gemini-3.5-flash-lite')) {
       return _p(
-        name: 'Gemini 3.5',
-        desc: 'Google 高性价比多模态模型，支持音频、视频与文件输入。',
+        name: 'Gemini 3.5 Flash-Lite',
+        desc: 'Google 高吞吐多模态模型，适合低延迟与大规模任务。',
         multimodal: true,
         supportsAttachments: true,
         modalities: _allModalities,
@@ -1711,6 +1710,25 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.minimalLowMediumHigh,
         inputUsdPer1M: 0.30,
         outputUsdPer1M: 2.50,
+        cacheReadUsdPer1M: 0.03,
+      );
+    }
+    if (id.startsWith('gemini-3.5-flash')) {
+      return _p(
+        name: 'Gemini 3.5 Flash',
+        desc: 'Google 高性价比多模态模型，支持音频、视频与文件输入。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _allModalities,
+        context: 1048576,
+        output: 65536,
+        thinking: 65536,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: AiReasoningEffortOption.minimalLowMediumHigh,
+        inputUsdPer1M: 1.50,
+        outputUsdPer1M: 9.00,
+        cacheReadUsdPer1M: 0.15,
       );
     }
 
@@ -1821,32 +1839,12 @@ class AiModelCatalog {
 
   static AiModelProfile? _deepseek(String id) {
     // ── V4 系列 ──────────────────────────────────────────────────────────
-    if (id.startsWith('deepseek-v4-flash-0731')) {
-      return _p(
-        name: 'DeepSeek V4 Flash 0731',
-        desc: '面向编程、推理与智能体任务的 DeepSeek V4 Flash 正式版。',
-        supportsAttachments: false,
-        requiresReasoningEcho: false,
-        context: 1048576,
-        output: 65536,
-        thinking: 65536,
-        thinkingEnabled: true,
-        reasoningEffortControlEnabled: true,
-        reasoningEffort: 'high',
-        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
-          const <String>['low', 'high', 'max'],
-        ),
-        inputUsdPer1M: 0.09,
-        outputUsdPer1M: 0.18,
-        cacheReadUsdPer1M: 0.018,
-      );
-    }
     if (id.startsWith('deepseek-v4-flash')) {
       return _p(
         name: 'DeepSeek V4 Flash',
         desc: '新一代高速模型，支持可选思考模式与超长上下文。',
         supportsAttachments: false,
-        requiresReasoningEcho: false,
+        requiresReasoningEcho: true,
         context: 1000000,
         output: 384000,
         thinking: 384000,
@@ -1861,11 +1859,9 @@ class AiModelCatalog {
         cacheReadUsdPer1M: 0.0028,
       );
     }
-    if (id.startsWith('deepseek-v4-pro') || id.startsWith('deepseek-v4')) {
+    if (id.startsWith('deepseek-v4-pro')) {
       return _p(
-        name: id.startsWith('deepseek-v4-pro')
-            ? 'DeepSeek V4 Pro'
-            : 'DeepSeek V4',
+        name: 'DeepSeek V4 Pro',
         desc: 'DeepSeek 新旗舰模型，支持长上下文与思考模式。',
         supportsAttachments: false,
         requiresReasoningEcho: true,
@@ -2925,36 +2921,39 @@ class AiModelCatalog {
   static AiModelProfile? _seed(String id) {
     const imageParameters = <String>[
       'prompt',
+      'image',
       'size',
-      'aspect_ratio',
-      'negative_prompt',
-      'seed',
       'watermark',
       'output_format',
       'response_format',
+      'sequential_image_generation',
+      'sequential_image_generation_options.max_images',
     ];
     const videoParameters = <String>[
-      'prompt',
-      'aspect_ratio',
-      'size',
+      'content',
       'duration',
-      'duration_seconds',
       'resolution',
-      'frame_rate',
-      'fps',
-      'num_frames',
-      'negative_prompt',
+      'ratio',
+      'generate_audio',
       'seed',
-      'prompt_extend',
+      'camera_fixed',
       'watermark',
-      'mode',
     ];
 
     // ── 图像生成 ─────────────────────────────────────────────────────────
     if (id.contains('seedream')) {
+      final name = id.startsWith('doubao-seedream-5-0-pro-260628')
+          ? 'Doubao Seedream 5.0 Pro'
+          : id.startsWith('doubao-seedream-5-0-lite-260128')
+          ? 'Doubao Seedream 5.0 Lite'
+          : id.startsWith('doubao-seedream-5-0-260128')
+          ? 'Doubao Seedream 5.0'
+          : id.startsWith('doubao-seedream-4-5-251128')
+          ? 'Doubao Seedream 4.5'
+          : 'Doubao Seedream';
       return _p(
-        name: 'Seedream',
-        desc: 'Image generation',
+        name: name,
+        desc: '豆包高质量图像生成与编辑模型。',
         capabilities: _imageGen,
         supportedParameters: imageParameters,
       );
@@ -2962,11 +2961,43 @@ class AiModelCatalog {
 
     // ── 视频生成 ─────────────────────────────────────────────────────────
     if (id.contains('seedance')) {
+      final name = id.startsWith('doubao-seedance-2-5-260628')
+          ? 'Doubao Seedance 2.5'
+          : id.startsWith('doubao-seedance-2-0-fast-260128')
+          ? 'Doubao Seedance 2.0 Fast'
+          : id.startsWith('doubao-seedance-2-0-mini-260615')
+          ? 'Doubao Seedance 2.0 Mini'
+          : id.startsWith('doubao-seedance-2-0-260128')
+          ? 'Doubao Seedance 2.0'
+          : 'Doubao Seedance';
       return _p(
-        name: 'Seedance',
-        desc: 'Video generation',
+        name: name,
+        desc: '豆包文本/图像生成视频模型。',
         capabilities: _videoGen,
         supportedParameters: videoParameters,
+      );
+    }
+
+    // ── Seed 2.1 / Evolving ─────────────────────────────────────────────
+    if (id.startsWith('doubao-seed-evolving')) {
+      return _p(
+        name: 'Doubao Seed Evolving',
+        desc: '面向超长上下文、推理与智能体任务的豆包模型。',
+        context: 1024000,
+        output: 256000,
+        thinking: 256000,
+      );
+    }
+    if (id.startsWith('doubao-seed-2-1-pro-260628') ||
+        id.startsWith('doubao-seed-2-1-turbo-260628')) {
+      return _p(
+        name: id.contains('-pro-')
+            ? 'Doubao Seed 2.1 Pro'
+            : 'Doubao Seed 2.1 Turbo',
+        desc: '面向推理、编程与智能体任务的豆包 Seed 2.1 模型。',
+        context: 256000,
+        output: 256000,
+        thinking: 256000,
       );
     }
 
@@ -4331,11 +4362,12 @@ class AiModelCatalog {
   // ═══════════════════════════════════════════════════════════════════════════
 
   static AiModelProfile? _grok(String id) {
-    // Grok 视频仅可通过 grok2api 等兼容网关访问，xAI 原生 API 暂无公开端点。
     if (id.startsWith('grok-imagine-video') || id == 'grok-video') {
       return _p(
-        name: 'Grok Imagine Video',
-        desc: 'Async text/image-to-video via grok2api gateway',
+        name: id.startsWith('grok-imagine-video-1.5')
+            ? 'Grok Imagine Video 1.5'
+            : 'Grok Imagine Video',
+        desc: 'xAI 文本/图像生成视频模型。',
         capabilities: _videoGen,
       );
     }
@@ -4344,8 +4376,10 @@ class AiModelCatalog {
         id.startsWith('grok-imagine-image') ||
         id == 'grok-imagine') {
       return _p(
-        name: 'Grok Image',
-        desc: 'Image generation model',
+        name: id.startsWith('grok-imagine-image-2.0')
+            ? 'Grok Imagine Image 2.0'
+            : 'Grok Image',
+        desc: 'xAI 图像生成模型。',
         capabilities: _imageGen,
       );
     }
@@ -4356,9 +4390,7 @@ class AiModelCatalog {
         multimodal: true,
         supportsAttachments: true,
         modalities: _textImage,
-        context: 1000000,
-        output: 128000,
-        thinking: 128000,
+        context: 500000,
         thinkingEnabled: true,
         requiresReasoningEcho: true,
         reasoningEffortControlEnabled: true,
@@ -4366,6 +4398,9 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.standardValues(
           const <String>['low', 'medium', 'high', 'xhigh'],
         ),
+        inputUsdPer1M: 2.00,
+        outputUsdPer1M: 6.00,
+        cacheReadUsdPer1M: 0.50,
       );
     }
     if (id.contains('grok-4.5') ||
@@ -4383,11 +4418,11 @@ class AiModelCatalog {
         reasoningEffortControlEnabled: true,
         reasoningEffort: 'high',
         reasoningEffortOptions: AiReasoningEffortOption.standardValues(
-          const <String>['low', 'medium', 'high', 'xhigh'],
+          const <String>['low', 'medium', 'high'],
         ),
         inputUsdPer1M: 2.00,
         outputUsdPer1M: 6.00,
-        cacheReadUsdPer1M: 0.50,
+        cacheReadUsdPer1M: 0.30,
       );
     }
     if (id.startsWith('grok-3-mini-fast')) {
