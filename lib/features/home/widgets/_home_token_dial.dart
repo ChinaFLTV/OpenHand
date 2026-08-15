@@ -587,7 +587,7 @@ String _formatThousands(int value) {
     }
     buffer.write(raw[i]);
   }
-  return value < 0 ? '-${buffer.toString()}' : buffer.toString();
+  return value < 0 ? '-$buffer' : buffer.toString();
 }
 
 /// 悬浮在 Token 统计胶囊下方的结构化详情浮窗。

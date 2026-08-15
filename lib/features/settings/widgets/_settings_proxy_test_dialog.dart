@@ -225,7 +225,7 @@ class _ProxyTestConsoleDialogState extends State<_ProxyTestConsoleDialog>
     String summary;
     try {
       _log(_ProxyTestLogLevel.head, '探测', '════ 代理连通性诊断 ════');
-      _log(_ProxyTestLogLevel.info, '探测', '目标 = ${uri.toString()}');
+      _log(_ProxyTestLogLevel.info, '探测', '目标 = $uri');
       _log(
         _ProxyTestLogLevel.debug,
         '探测',

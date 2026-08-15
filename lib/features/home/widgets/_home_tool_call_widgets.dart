@@ -999,7 +999,7 @@ _ToolOutputPreview _buildToolOutputPreview(String content) {
   }
   return _ToolOutputPreview(
     isLong: true,
-    collapsedText: '${buffer.toString()}$_toolOutputPreviewCollapsedNotice',
+    collapsedText: '$buffer$_toolOutputPreviewCollapsedNotice',
   );
 }
 
