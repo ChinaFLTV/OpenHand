@@ -6637,6 +6637,7 @@ class _SettingsViewState extends State<SettingsView> {
           ),
         ),
         fallback: l10n.chatRequestFailed,
+        sources: error.sources,
       );
     } catch (error) {
       if (!mounted) {

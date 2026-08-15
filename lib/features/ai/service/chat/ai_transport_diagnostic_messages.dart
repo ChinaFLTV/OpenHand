@@ -350,6 +350,15 @@ class AiTransportDiagnosticMessages {
         raw: trimmedServer.isEmpty ? null : trimmedServer,
       );
     }
+    final grpcDiagnosis = _grpcDiagnostic(trimmedServer, code);
+    if (grpcDiagnosis != null) {
+      return _format(
+        title: '${grpcDiagnosis.title}$hintSuffix$labelSuffix',
+        reason: grpcDiagnosis.reason,
+        try_: grpcDiagnosis.suggest,
+        raw: trimmedServer.isEmpty ? null : trimmedServer,
+      );
+    }
     switch (code) {
       case 400:
         title =
@@ -549,6 +558,167 @@ class AiTransportDiagnosticMessages {
     return null;
   }
 
+  /// gRPC 状态码 -> 中英诊断。识别由 [extractApiErrorMessage] 标记的
+  /// `"<NAME> (gRPC code N)"` 文本，给出语义准确的原因与建议，避免把
+  /// gRPC NOT_FOUND（模型/资源在 API 层不存在）误判为「Base URL 路径错误」。
+  static _GrpcDiagnosis? _grpcDiagnostic(String serverMessage, int httpCode) {
+    final raw = serverMessage.trim();
+    final match = _kGrpcCodePattern.firstMatch(raw);
+    if (match == null) return null;
+    final code = int.tryParse(match.group(1) ?? '');
+    if (code == null) return null;
+    switch (code) {
+      case 5: // NOT_FOUND
+        return _GrpcDiagnosis(
+          title: _text(
+            zh: '资源不存在 ($httpCode · gRPC NOT_FOUND)',
+            en: 'Resource not found ($httpCode · gRPC NOT_FOUND)',
+          ),
+          reason: _text(
+            zh:
+                '服务端以 gRPC NOT_FOUND 响应，表示请求的模型或资源在 API 层面不存在，而非 Base URL 路径错误。',
+            en: 'The server responded with gRPC NOT_FOUND, meaning the requested model or resource does not exist at the API level — not that the Base URL path is wrong.',
+          ),
+          suggest: _text(
+            zh:
+                '· 确认模型 ID 拼写正确\n'
+                '· 在中转方控制台查看可用模型列表\n'
+                '· 该模型可能在当前中转未上架或已下线',
+            en:
+                '· Verify the model ID is spelled correctly\n'
+                '· Check the available model list in the relay console\n'
+                '· The model may not be deployed on this relay or may have been retired',
+          ),
+        );
+      case 7: // PERMISSION_DENIED
+        return _GrpcDiagnosis(
+          title: _text(
+            zh: '权限不足 ($httpCode · gRPC PERMISSION_DENIED)',
+            en: 'Permission denied ($httpCode · gRPC PERMISSION_DENIED)',
+          ),
+          reason: _text(
+            zh:
+                '服务端以 gRPC PERMISSION_DENIED 响应：当前令牌无权访问该模型或操作，或账号未开通相应权限。',
+            en: 'The server responded with gRPC PERMISSION_DENIED: the current credential cannot access this model or operation, or the account does not have the required permission.',
+          ),
+          suggest: _text(
+            zh:
+                '· 在中转方控制台确认账号权限与余额\n'
+                '· 确认 API Key 已开通该模型访问权限',
+            en:
+                '· Confirm account permissions and balance in the relay console\n'
+                '· Make sure the API key is authorized to access this model',
+          ),
+        );
+      case 16: // UNAUTHENTICATED
+        return _GrpcDiagnosis(
+          title: _text(
+            zh: '鉴权失败 ($httpCode · gRPC UNAUTHENTICATED)',
+            en: 'Authentication failed ($httpCode · gRPC UNAUTHENTICATED)',
+          ),
+          reason: _text(
+            zh:
+                '服务端以 gRPC UNAUTHENTICATED 响应：身份令牌缺失、格式错误或已失效。',
+            en: 'The server responded with gRPC UNAUTHENTICATED: the credential is missing, malformed, or has expired.',
+          ),
+          suggest: _text(
+            zh:
+                '· 确认 API Key / Token 已正确粘贴且无前后空格\n'
+                '· 在中转方控制台重新生成令牌',
+            en:
+                '· Make sure the API key or token was pasted correctly with no surrounding spaces\n'
+                '· Regenerate the credential in the relay console',
+          ),
+        );
+      case 8: // RESOURCE_EXHAUSTED
+        return _GrpcDiagnosis(
+          title: _text(
+            zh: '触发限流 ($httpCode · gRPC RESOURCE_EXHAUSTED)',
+            en: 'Rate limited ($httpCode · gRPC RESOURCE_EXHAUSTED)',
+          ),
+          reason: _text(
+            zh:
+                '服务端以 gRPC RESOURCE_EXHAUSTED 响应：调用频率超限或额度已用尽。',
+            en: 'The server responded with gRPC RESOURCE_EXHAUSTED: the request rate exceeded the limit or the quota is exhausted.',
+          ),
+          suggest: _text(
+            zh: '· 稍等几分钟后重试\n· 在中转方控制台确认配额或余额',
+            en:
+                '· Wait a few minutes and try again\n'
+                '· Check quota or balance in the relay console',
+          ),
+        );
+      case 3: // INVALID_ARGUMENT
+        return _GrpcDiagnosis(
+          title: _text(
+            zh: '参数无效 ($httpCode · gRPC INVALID_ARGUMENT)',
+            en: 'Invalid argument ($httpCode · gRPC INVALID_ARGUMENT)',
+          ),
+          reason: _text(
+            zh:
+                '服务端以 gRPC INVALID_ARGUMENT 响应：请求中的某个参数（如模型 ID、消息格式、附件）不符合该协议规范。',
+            en: 'The server responded with gRPC INVALID_ARGUMENT: a request parameter (such as the model ID, message shape, or attachment) does not match the expected protocol.',
+          ),
+          suggest: _text(
+            zh:
+                '· 复核模型 ID 与请求体格式\n'
+                '· 缩减附件数量或消息长度后重试',
+            en:
+                '· Recheck the model ID and request body format\n'
+                '· Reduce attachment count or message length and try again',
+          ),
+        );
+      case 13: // INTERNAL
+      case 2: // UNKNOWN
+        return _GrpcDiagnosis(
+          title: _text(
+            zh: '服务端内部错误 ($httpCode · gRPC $code)',
+            en: 'Server error ($httpCode · gRPC $code)',
+          ),
+          reason: _text(
+            zh: '服务端以 gRPC 错误码 $code 响应，通常是上游或中转方自身故障。',
+            en: 'The server responded with gRPC code $code, which usually indicates an upstream or relay failure.',
+          ),
+          suggest: _text(
+            zh: '· 稍后重试\n· 联系中转方查看服务状态',
+            en: '· Retry later\n· Ask the relay provider to check service status',
+          ),
+        );
+      case 14: // UNAVAILABLE
+        return _GrpcDiagnosis(
+          title: _text(
+            zh: '服务不可用 ($httpCode · gRPC UNAVAILABLE)',
+            en: 'Service unavailable ($httpCode · gRPC UNAVAILABLE)',
+          ),
+          reason: _text(
+            zh: '服务端以 gRPC UNAVAILABLE 响应：服务正在维护或暂时不可用。',
+            en: 'The server responded with gRPC UNAVAILABLE: the service is under maintenance or temporarily unavailable.',
+          ),
+          suggest: _text(
+            zh: '· 稍后重试\n· 关注中转方公告',
+            en: '· Retry later\n· Check announcements from the relay provider',
+          ),
+        );
+      default:
+        return _GrpcDiagnosis(
+          title: _text(
+            zh: 'gRPC 错误 ($httpCode · code $code)',
+            en: 'gRPC error ($httpCode · code $code)',
+          ),
+          reason: _text(
+            zh: '服务端以 gRPC 状态码 $code 响应。',
+            en: 'The server responded with gRPC status code $code.',
+          ),
+          suggest: _text(
+            zh: '· 复核模型 ID、令牌与请求参数\n· 联系中转方排查',
+            en:
+                '· Recheck the model ID, credential, and request parameters\n'
+                '· Ask the relay provider to investigate',
+          ),
+        );
+    }
+  }
+
   static String format({
     required String title,
     required String reason,
@@ -569,4 +739,19 @@ class AiTransportDiagnosticMessages {
       server: raw,
     );
   }
+}
+
+/// 识别 `extractApiErrorMessage` 标记的 gRPC 文本：`"NOT_FOUND (gRPC code 5)"`。
+final RegExp _kGrpcCodePattern = RegExp(r'\(gRPC code\s*(\d+)\)', caseSensitive: false);
+
+class _GrpcDiagnosis {
+  const _GrpcDiagnosis({
+    required this.title,
+    required this.reason,
+    required this.suggest,
+  });
+
+  final String title;
+  final String reason;
+  final String suggest;
 }

@@ -12,6 +12,7 @@ import '../../../../shared/net/http_redirect_utils.dart';
 import '../../../../shared/net/http_response_utils.dart';
 import '../../../../shared/net/http_status_utils.dart';
 import '../../../../shared/net/sse_line_parsing.dart';
+import '../../../../shared/ui/error_source.dart';
 import '../../../../shared/ui/structured_error_text.dart';
 import '../../../../shared/util/async_concurrency.dart';
 import '../../../../shared/util/byte_size_format.dart';
@@ -2885,9 +2886,27 @@ class AiChatService implements AiChatClient {
       );
     } on AiChatException catch (chatFailure) {
       final combinedFailure = AiChatException(
-        '${StructuredErrorText.pick(zh: 'Responses 接口失败：', en: 'Responses endpoint failed:')}\n${responsesFailure.message}\n\n'
-        '${StructuredErrorText.pick(zh: 'Chat Completions 接口失败：', en: 'Chat Completions endpoint failed:')}\n${chatFailure.message}',
+        StructuredErrorText.pick(
+          zh: 'Responses 与 Chat Completions 接口均测试失败，详见下方分端点诊断。',
+          en: 'Both Responses and Chat Completions endpoints failed. See per-endpoint diagnostics below.',
+        ),
         telemetry: chatFailure.telemetry,
+        sources: <AiErrorSource>[
+          AiErrorSource(
+            label: StructuredErrorText.pick(
+              zh: 'Responses 接口',
+              en: 'Responses endpoint',
+            ),
+            body: responsesFailure.message,
+          ),
+          AiErrorSource(
+            label: StructuredErrorText.pick(
+              zh: 'Chat Completions 接口',
+              en: 'Chat Completions endpoint',
+            ),
+            body: chatFailure.message,
+          ),
+        ],
       );
       throw await _decorateProviderProbeFailure(
         chatProbeModel,
@@ -3433,10 +3452,15 @@ void _processGeminiStreamEvent(
 }
 
 class AiChatException implements Exception {
-  const AiChatException(this.message, {this.telemetry});
+  const AiChatException(this.message, {this.telemetry, this.sources});
 
   final String message;
   final AiChatRequestTelemetry? telemetry;
+
+  /// 结构化错误源（可选）。非空时表示该错误由多个来源组成（如双端点测试
+  /// 同时失败、或原始错误 + 探测补充），对话框按源渲染独立卡片，避免多条
+  /// 结构化文案拼接导致标题重复、解析错乱。为 null 时走纯文本旧路径。
+  final List<AiErrorSource>? sources;
 
   @override
   String toString() => message;
@@ -3522,13 +3546,12 @@ extension on AiChatService {
                 zh: '这通常说明网关本身在线，失败更可能出在聊天端点兼容性、模型权限或该模型在当前中转未实际开通。',
                 en: 'This usually means the gateway itself is online, and the failure is more likely caused by chat-endpoint compatibility, model permissions, or the model not actually being enabled on the current relay.',
               );
-        probeDiagnosis =
-            '${StructuredErrorText.pick(zh: '探测补充：', en: 'Probe follow-up:')}\n$modelsLabel\n$summary';
+        probeDiagnosis = '$modelsLabel\n$summary';
       } else {
         final scanError = nullIfBlank(scanResult.error);
         if (scanError != null) {
           probeDiagnosis =
-              '${StructuredErrorText.pick(zh: '探测补充：', en: 'Probe follow-up:')}\n${StructuredErrorText.pick(zh: '模型列表探测也失败了。该 Base URL 可能整体不可用、鉴权方式不匹配，或中转未按 OpenAI 兼容形式暴露接口。', en: 'The models probe also failed. The Base URL may be entirely unavailable, the authentication scheme may not match, or the relay may not expose the interface in an OpenAI-compatible form.')}\n$scanError';
+              '${StructuredErrorText.pick(zh: '模型列表探测也失败了。该 Base URL 可能整体不可用、鉴权方式不匹配，或中转未按 OpenAI 兼容形式暴露接口。', en: 'The models probe also failed. The Base URL may be entirely unavailable, the authentication scheme may not match, or the relay may not expose the interface in an OpenAI-compatible form.')}\n$scanError';
         }
       }
     } catch (_) {
@@ -3539,12 +3562,30 @@ extension on AiChatService {
       }
     }
 
+    final hasSources = error.sources != null && error.sources!.isNotEmpty;
+    // 有结构化源（双端点测试失败）时，详情文案不再内联探测补充，避免与源卡片
+    // 重复；探测补充作为独立源追加。无源（单端点失败）时维持旧的纯文本拼接。
     final detail = _buildProviderProbeDetail(
       error.message,
       telemetry: error.telemetry,
-      diagnosis: probeDiagnosis,
+      diagnosis: hasSources ? null : probeDiagnosis,
     );
-    return AiChatException(detail, telemetry: error.telemetry);
+    final sources = <AiErrorSource>[
+      ...?error.sources,
+      if (hasSources && probeDiagnosis != null)
+        AiErrorSource(
+          label: StructuredErrorText.pick(
+            zh: '探测补充',
+            en: 'Probe follow-up',
+          ),
+          body: probeDiagnosis,
+        ),
+    ];
+    return AiChatException(
+      detail,
+      telemetry: error.telemetry,
+      sources: sources.isEmpty ? null : sources,
+    );
   }
 }
 

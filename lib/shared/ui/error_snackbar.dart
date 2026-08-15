@@ -3,11 +3,14 @@ import 'package:openhand/shared/ui/openhand_spacing.dart';
 
 import '../../l10n/app_localizations.dart';
 import 'animated_dialog.dart';
+import 'error_source.dart';
 import 'openhand_clipboard.dart';
 import 'openhand_dialog_action_button.dart';
 import 'openhand_safe_scrollbar.dart';
 import 'openhand_snack_bar.dart';
 import 'openhand_typography.dart';
+
+export 'error_source.dart' show AiErrorSource;
 
 const Duration _kFriendlyErrorDetailsSnackDuration = Duration(seconds: 6);
 
@@ -23,6 +26,7 @@ void showFriendlyErrorSnackBar(
   BuildContext context, {
   required String? message,
   required String fallback,
+  List<AiErrorSource>? sources,
 }) {
   final l10n = AppLocalizations.of(context)!;
   final raw = (message ?? '').trim();
@@ -34,7 +38,8 @@ void showFriendlyErrorSnackBar(
       .where((line) => line.isNotEmpty)
       .toList(growable: false);
   final headline = lines.isEmpty ? fallback : lines.first;
-  final hasDetails = lines.length > 1;
+  final hasDetails = lines.length > 1 ||
+      (sources != null && sources.isNotEmpty);
   // SnackBarAction 的 onPressed 触发时，调用方 context 往往已离开树
   // （例如发出 SnackBar 的临时 widget 已 dispose），此时再用它去
   // showAnimatedDialog 会触发「Looking up a deactivated widget's
@@ -54,7 +59,11 @@ void showFriendlyErrorSnackBar(
             label: l10n.commonDetails,
             onPressed: () {
               if (!rootContext.mounted) return;
-              showFriendlyErrorDetailsDialog(rootContext, fullText: effective);
+              showFriendlyErrorDetailsDialog(
+                rootContext,
+                fullText: effective,
+                sources: sources,
+              );
             },
           )
         : null,
@@ -69,19 +78,29 @@ void showFriendlyErrorDetailsDialog(
   BuildContext context, {
   required String fullText,
   String? title,
+  List<AiErrorSource>? sources,
 }) {
   showAnimatedDialog<void>(
     context: context,
     builder: (dialogContext) {
       final l10n = AppLocalizations.of(dialogContext)!;
       final theme = Theme.of(dialogContext);
+      final effectiveSources = sources;
+      final hasSources =
+          effectiveSources != null && effectiveSources.isNotEmpty;
       return buildOpenHandAlertDialog(
         icon: Icon(Icons.error_outline_rounded, color: theme.colorScheme.error),
         title: Text(title ?? l10n.sessMetaErrorDetail),
         content: buildOpenHandDialogConstrainedContent(
           maxWidth: 680,
           maxHeight: 560,
-          child: _ErrorDetailsScrollBody(fullText: fullText, theme: theme),
+          child: hasSources
+              ? _MultiSourceErrorBody(
+                  fullText: fullText,
+                  sources: effectiveSources,
+                  theme: theme,
+                )
+              : _ErrorDetailsScrollBody(fullText: fullText, theme: theme),
         ),
         actions: <Widget>[
           OpenHandDialogActionButton.secondary(
@@ -243,6 +262,199 @@ class _ErrorDetailSectionBlock extends StatelessWidget {
       ],
     );
   }
+}
+
+/// 多源错误详情正文。顶部展示整条错误摘要 + 上下文行（如请求方法/地址），
+/// 下方为每个 [AiErrorSource] 渲染一张独立卡片（带彩色 chip 头 + 标题 +
+/// 复用解析器分段的原因/建议/原文），避免多端点失败时重复标题串台。
+/// 复用 [showAnimatedDialog] 的进退场动画。
+class _MultiSourceErrorBody extends StatefulWidget {
+  const _MultiSourceErrorBody({
+    required this.fullText,
+    required this.sources,
+    required this.theme,
+  });
+
+  final String fullText;
+  final List<AiErrorSource> sources;
+  final ThemeData theme;
+
+  @override
+  State<_MultiSourceErrorBody> createState() => _MultiSourceErrorBodyState();
+}
+
+class _MultiSourceErrorBodyState extends State<_MultiSourceErrorBody> {
+  final ScrollController _scrollController = ScrollController();
+
+  @override
+  void dispose() {
+    _scrollController.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final theme = widget.theme;
+    final headline = _headlineFromText(widget.fullText);
+    final contextLines = _contextLinesFromText(widget.fullText);
+    return PrimaryScrollController.none(
+      child: OpenHandSafeScrollbar(
+        controller: _scrollController,
+        child: SingleChildScrollView(
+          controller: _scrollController,
+          primary: false,
+          child: Column(
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              _ErrorSummaryBlock(text: headline, theme: theme),
+              if (contextLines.isNotEmpty) ...[
+                kOpenHandGap8,
+                _ErrorContextBlock(lines: contextLines, theme: theme),
+              ],
+              kOpenHandGap16,
+              for (var i = 0; i < widget.sources.length; i++) ...[
+                if (i > 0) kOpenHandGap12,
+                _ErrorSourceCard(
+                  source: widget.sources[i],
+                  accentIndex: i,
+                  theme: theme,
+                ),
+              ],
+            ],
+          ),
+        ),
+      ),
+    );
+  }
+}
+
+/// 顶部摘要下方的次要上下文行（如请求方法/地址），以小字等宽展示，避免
+/// 多源视图中这些调试信息被吞掉。
+class _ErrorContextBlock extends StatelessWidget {
+  const _ErrorContextBlock({required this.lines, required this.theme});
+
+  final List<String> lines;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = theme.colorScheme;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(10, 8, 10, 8),
+      decoration: BoxDecoration(
+        color: colorScheme.surfaceContainerHighest.withValues(alpha: 0.5),
+        borderRadius: BorderRadius.circular(10),
+      ),
+      child: SelectableText(
+        lines.join('\n'),
+        style: theme.textTheme.bodySmall?.copyWith(
+          height: 1.45,
+          color: colorScheme.onSurfaceVariant,
+          fontFamily: kOpenHandMonospaceFontFamily,
+        ),
+      ),
+    );
+  }
+}
+
+class _ErrorSourceCard extends StatelessWidget {
+  const _ErrorSourceCard({
+    required this.source,
+    required this.accentIndex,
+    required this.theme,
+  });
+
+  final AiErrorSource source;
+  final int accentIndex;
+  final ThemeData theme;
+
+  @override
+  Widget build(BuildContext context) {
+    final colorScheme = theme.colorScheme;
+    // 交替用 errorContainer / surfaceContainerHighest 作底色，层次分明。
+    final isAccent = accentIndex.isEven;
+    final bg = isAccent
+        ? colorScheme.errorContainer.withValues(alpha: 0.32)
+        : colorScheme.surfaceContainerHighest.withValues(alpha: 0.72);
+    final chipBg = isAccent
+        ? colorScheme.error.withValues(alpha: 0.16)
+        : colorScheme.primary.withValues(alpha: 0.12);
+    final chipFg = isAccent
+        ? colorScheme.onErrorContainer.withValues(alpha: 0.92)
+        : colorScheme.onSurfaceVariant;
+    final details = _FriendlyErrorDetails.parse(source.body);
+    final showStructured = details.sections.isNotEmpty;
+    final primaryText = details.structured ? details.summary : details.rawText;
+    return Container(
+      width: double.infinity,
+      padding: const EdgeInsets.fromLTRB(14, 12, 14, 14),
+      decoration: BoxDecoration(
+        color: bg,
+        borderRadius: kOpenHandBorderRadius16,
+        border: Border.all(color: colorScheme.outlineVariant),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Container(
+            padding: const EdgeInsets.symmetric(horizontal: 9, vertical: 3),
+            decoration: BoxDecoration(
+              color: chipBg,
+              borderRadius: BorderRadius.circular(8),
+            ),
+            child: Text(
+              source.label,
+              style: theme.textTheme.labelSmall?.copyWith(
+                color: chipFg,
+                fontWeight: FontWeight.w700,
+                letterSpacing: 0.2,
+              ),
+            ),
+          ),
+          kOpenHandGap8,
+          SelectableText(
+            primaryText,
+            style: theme.textTheme.bodyMedium?.copyWith(
+              height: 1.48,
+              fontWeight: FontWeight.w700,
+              color: colorScheme.onSurface,
+            ),
+          ),
+          if (showStructured) ...[
+            kOpenHandGap8,
+            for (var i = 0; i < details.sections.length; i++) ...[
+              if (i > 0) kOpenHandGap10,
+              _ErrorDetailSectionBlock(
+                section: details.sections[i],
+                theme: theme,
+              ),
+            ],
+          ],
+        ],
+      ),
+    );
+  }
+}
+
+String _headlineFromText(String text) {
+  final normalized = text.replaceAll('\r\n', '\n').trim();
+  if (normalized.isEmpty) return 'unknown error';
+  return normalized
+      .split('\n')
+      .map((line) => line.trimRight())
+      .firstWhere((line) => line.isNotEmpty, orElse: () => normalized);
+}
+
+/// 取 `fullText` 中除第一行外的非空上下文行（如请求方法/地址）。
+List<String> _contextLinesFromText(String text) {
+  final lines = text.replaceAll('\r\n', '\n').trim().split('\n');
+  if (lines.length <= 1) return const <String>[];
+  return lines
+      .sublist(1)
+      .map((line) => line.trim())
+      .where((line) => line.isNotEmpty)
+      .toList(growable: false);
 }
 
 class _FriendlyErrorDetails {
