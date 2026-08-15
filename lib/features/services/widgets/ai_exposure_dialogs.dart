@@ -545,8 +545,8 @@ class _NewHuntDialogState extends State<_NewHuntDialog> {
                     en: 'Select an OpenAI-compatible model in global settings first.',
                   )
                 : text(
-                    zh: '确定性规则未命中时使用 ${controller.selectedAiExtractorModelLabel} 辅助分析。',
-                    en: 'Use ${controller.selectedAiExtractorModelLabel} when deterministic rules find nothing.',
+                    zh: '启用后 ${controller.selectedAiExtractorModelLabel} 将与规则引擎协同提取，提升检出率。',
+                    en: 'When enabled, ${controller.selectedAiExtractorModelLabel} works alongside rule engine to improve detection.',
                   ),
             value: _gptAssisted,
             onChanged: (enabled) {
