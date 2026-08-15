@@ -2529,6 +2529,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get aiProtocolOpenAi => 'OpenAI';
 
   @override
+  String get aiProtocolDots => 'Dots (Xiaohongshu)';
+
+  @override
   String get aiProtocolClaude => 'Claude';
 
   @override

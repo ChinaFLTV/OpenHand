@@ -1431,6 +1431,10 @@
   "@aiProtocolOpenAi": {
     "description": "AI provider brand: OpenAI. Brand name; transliterate only when natural (e.g. ja: オープンAI)."
   },
+  "aiProtocolDots": "Dots (小红书)",
+  "@aiProtocolDots": {
+    "description": "AI 服务商品牌：小红书 Dots，保留 Dots 品牌名与中文服务商名称。"
+  },
   "aiProtocolClaude": "Claude",
   "@aiProtocolClaude": {
     "description": "AI provider brand: Anthropic Claude. Brand name; transliterate only when natural (e.g. ja: クロード)."

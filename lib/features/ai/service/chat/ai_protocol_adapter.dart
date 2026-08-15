@@ -104,6 +104,18 @@ abstract final class AiThinkingRequestPolicy {
       return;
     }
 
+    // Dots 的 OpenAI 端点要求思考开关放在 chat_template_kwargs 中。
+    if (protocol == AiProtocolType.dots) {
+      final templateKwargs = stringKeyedMapFromValue(
+        body[_chatTemplateKwargsField],
+      );
+      body[_chatTemplateKwargsField] = <String, Object?>{
+        ...templateKwargs,
+        _enableThinkingField: enabled,
+      };
+      return;
+    }
+
     // MiniMax's OpenAI-compatible API deliberately uses Anthropic-style
     // adaptive thinking rather than `reasoning_effort` or
     // `thinking:{type:enabled}`.
@@ -197,6 +209,11 @@ abstract final class AiThinkingRequestPolicy {
   }) {
     if (!shouldApply(model)) return null;
     if (model.protocolType == AiProtocolType.minimax) {
+      return <String, Object?>{
+        'type': model.resolvedThinkingEnabled ? 'adaptive' : 'disabled',
+      };
+    }
+    if (model.protocolType == AiProtocolType.dots) {
       return <String, Object?>{
         'type': model.resolvedThinkingEnabled ? 'adaptive' : 'disabled',
       };
@@ -374,6 +391,7 @@ abstract final class AiThinkingRequestPolicy {
 
   static bool _prefersEnableThinking(AiProtocolType protocolType) {
     return switch (protocolType) {
+      AiProtocolType.dots ||
       AiProtocolType.qwen ||
       AiProtocolType.wenxin ||
       AiProtocolType.vllm ||
@@ -388,6 +406,7 @@ abstract final class AiThinkingRequestPolicy {
   ) {
     return switch (protocolType) {
       AiProtocolType.openai ||
+      AiProtocolType.dots ||
       AiProtocolType.grok ||
       AiProtocolType.deepseek ||
       AiProtocolType.glm ||
@@ -543,6 +562,7 @@ abstract final class AiThinkingRequestPolicy {
   }
 
   static bool _usesClaudeOutputEffort(AiModelConfig model) {
+    if (model.protocolType == AiProtocolType.dots) return true;
     if (model.protocolType != AiProtocolType.claude &&
         !lowercaseStringFromValue(model.modelId).contains('claude')) {
       return false;
@@ -551,9 +571,16 @@ abstract final class AiThinkingRequestPolicy {
         .replaceAll(_modelIdSeparatorPattern, '-')
         .replaceAll(_modelIdRepeatedDashPattern, '-')
         .replaceAll(_modelIdEdgeDashPattern, '');
-    return id.contains('sonnet-5') ||
+    return id.contains('opus-5') ||
+        id.contains('5-opus') ||
+        id.contains('sonnet-5') ||
+        id.contains('5-sonnet') ||
         id.contains('fable-5') ||
+        id.contains('5-fable') ||
         id.contains('mythos-5') ||
+        id.contains('5-mythos') ||
+        id.contains('haiku-5') ||
+        id.contains('5-haiku') ||
         id.contains('mythos-preview') ||
         id.contains('opus-4-8') ||
         id.contains('4-8-opus') ||
@@ -568,6 +595,7 @@ abstract final class AiThinkingRequestPolicy {
   }
 
   static bool _usesAlwaysOnClaudeAdaptiveThinking(AiModelConfig model) {
+    if (model.protocolType == AiProtocolType.dots) return false;
     if (model.protocolType != AiProtocolType.claude &&
         !lowercaseStringFromValue(model.modelId).contains('claude')) {
       return false;
@@ -577,7 +605,9 @@ abstract final class AiThinkingRequestPolicy {
         .replaceAll(_modelIdRepeatedDashPattern, '-')
         .replaceAll(_modelIdEdgeDashPattern, '');
     return id.contains('fable-5') ||
+        id.contains('5-fable') ||
         id.contains('mythos-5') ||
+        id.contains('5-mythos') ||
         id.contains('mythos-preview');
   }
 }
@@ -1174,6 +1204,7 @@ class AiPromptCacheAffinity {
   ) {
     return switch (protocolType) {
       AiProtocolType.openai ||
+      AiProtocolType.dots ||
       AiProtocolType.deepseek ||
       AiProtocolType.qwen ||
       AiProtocolType.kimi ||
@@ -1828,21 +1859,34 @@ class OpenAiProtocolAdapter extends AiProtocolAdapter {
           if (media == null) {
             continue;
           }
-          payload.add(<String, Object?>{
-            'type': 'input_audio',
-            'input_audio': <String, Object?>{
-              if (protocolType == AiProtocolType.mimo)
-                'data': await encodeFileAsDataUrl(
+          if (protocolType == AiProtocolType.dots) {
+            payload.add(<String, Object?>{
+              'type': 'audio_url',
+              'audio_url': <String, Object?>{
+                'url': await encodeFileAsDataUrl(
                   filePath: media.filePath,
                   mimeType: media.mimeType,
                   maxBytes: inlineMaxBytes,
-                )
-              else ...<String, Object?>{
-                'data': await encodeFileAsBase64(media.filePath),
-                'format': _audioFormatForMimeType(media.mimeType),
+                ),
               },
-            },
-          });
+            });
+          } else {
+            payload.add(<String, Object?>{
+              'type': 'input_audio',
+              'input_audio': <String, Object?>{
+                if (protocolType == AiProtocolType.mimo)
+                  'data': await encodeFileAsDataUrl(
+                    filePath: media.filePath,
+                    mimeType: media.mimeType,
+                    maxBytes: inlineMaxBytes,
+                  )
+                else ...<String, Object?>{
+                  'data': await encodeFileAsBase64(media.filePath),
+                  'format': _audioFormatForMimeType(media.mimeType),
+                },
+              },
+            });
+          }
       }
     }
     return payload;
@@ -4159,11 +4203,17 @@ abstract final class AiProtocolRegistry {
     'vl',
   ];
 
+  static const _dotsVisionPatterns = <String>['dots3', 'dots-3'];
+
   static final Map<AiProtocolType, AiProtocolAdapter> _adapters =
       <AiProtocolType, AiProtocolAdapter>{
         AiProtocolType.openai: const OpenAiProtocolAdapter(
           AiProtocolType.openai,
           visionModelPatterns: _openaiVisionPatterns,
+        ),
+        AiProtocolType.dots: const OpenAiProtocolAdapter(
+          AiProtocolType.dots,
+          visionModelPatterns: _dotsVisionPatterns,
         ),
         AiProtocolType.deepseek: const OpenAiProtocolAdapter(
           AiProtocolType.deepseek,

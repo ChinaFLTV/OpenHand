@@ -119,6 +119,8 @@ class AiModelScanner {
     AiProtocolType protocolType,
   ) {
     switch (protocolType) {
+      case AiProtocolType.dots:
+        return const <String>['dots3-note-prev'];
       case AiProtocolType.claude:
         return const <String>[
           'claude-sonnet-4-5',
@@ -137,6 +139,9 @@ class AiModelScanner {
     required Duration timeout,
   }) async {
     switch (config.protocolType) {
+      case AiProtocolType.dots:
+        // Dots 文档当前没有 /v1/models，直接提供官方公开模型候选。
+        return const AiModelScanResult(modelIds: <String>['dots3-note-prev']);
       case AiProtocolType.gemini:
         return _scanGemini(config, timeout: timeout);
       case AiProtocolType.claude:

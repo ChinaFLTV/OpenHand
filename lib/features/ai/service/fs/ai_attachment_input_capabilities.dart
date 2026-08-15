@@ -73,8 +73,10 @@ AiAttachmentInputCapabilities resolveAiAttachmentInputCapabilities(
       AiModelModality.audio,
     ),
     supportsFileInput:
-        model.protocolType != AiProtocolType.mimo ||
-        profile.supportedModalities.contains(AiModelModality.file),
+        !(model.protocolType == AiProtocolType.dots &&
+            model.apiDialect == AiApiDialect.anthropicNative) &&
+        (model.protocolType != AiProtocolType.mimo ||
+            profile.supportedModalities.contains(AiModelModality.file)),
     allowedExtensions: model.protocolType == AiProtocolType.mimo
         ? _mimoAllowedExtensions(model)
         : null,
@@ -136,6 +138,11 @@ bool _supportsModalityInput(
   AiModelProfile profile,
   AiModelModality modality,
 ) {
+  if (model.protocolType == AiProtocolType.dots &&
+      model.apiDialect == AiApiDialect.anthropicNative &&
+      modality != AiModelModality.image) {
+    return false;
+  }
   if (model.protocolType == AiProtocolType.mimo &&
       model.apiDialect == AiApiDialect.anthropicNative) {
     return false;

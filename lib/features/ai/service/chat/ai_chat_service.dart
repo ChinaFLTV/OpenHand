@@ -3454,6 +3454,7 @@ class AiChatCancelledException implements Exception {
 bool _isOpenAiCompatibleProtocol(AiProtocolType protocol) {
   switch (protocol) {
     case AiProtocolType.openai:
+    case AiProtocolType.dots:
     case AiProtocolType.qwen:
     case AiProtocolType.kimi:
     case AiProtocolType.glm:

@@ -164,6 +164,7 @@ class AiImageGenerationService {
         return true;
       case AiProtocolType.gemini:
       case AiProtocolType.claude:
+      case AiProtocolType.dots:
       case AiProtocolType.mimo:
         return false;
     }
@@ -193,6 +194,7 @@ class AiImageGenerationService {
       case AiProtocolType.wenxin:
       case AiProtocolType.gemini:
       case AiProtocolType.claude:
+      case AiProtocolType.dots:
       case AiProtocolType.deepseek:
       case AiProtocolType.kimi:
       case AiProtocolType.ollama:
@@ -280,6 +282,7 @@ class AiImageGenerationService {
       case AiProtocolType.hunyuan:
       case AiProtocolType.gemini:
       case AiProtocolType.claude:
+      case AiProtocolType.dots:
       case AiProtocolType.deepseek:
       case AiProtocolType.kimi:
       case AiProtocolType.grok:
@@ -1174,6 +1177,7 @@ class AiImageGenerationService {
       case AiProtocolType.wenxin:
       case AiProtocolType.gemini:
       case AiProtocolType.claude:
+      case AiProtocolType.dots:
       case AiProtocolType.deepseek:
       case AiProtocolType.kimi:
       case AiProtocolType.ollama:
@@ -1598,6 +1602,7 @@ class AiImageGenerationService {
       case AiProtocolType.hunyuan:
       case AiProtocolType.gemini:
       case AiProtocolType.claude:
+      case AiProtocolType.dots:
       case AiProtocolType.deepseek:
       case AiProtocolType.kimi:
       case AiProtocolType.grok:

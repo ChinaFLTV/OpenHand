@@ -63,6 +63,7 @@ class AiModelCatalog {
   ) {
     return switch (protocolType) {
       AiProtocolType.openai => _openai(id),
+      AiProtocolType.dots => _dots(id),
       AiProtocolType.claude => _claude(id),
       AiProtocolType.gemini => _gemini(id),
       AiProtocolType.deepseek => _deepseek(id),
@@ -90,6 +91,7 @@ class AiModelCatalog {
   static AiModelProfile? _lookupAcrossProtocols(String id) {
     // 顺序敏感：先匹配者胜出，更专一的匹配器必须排在前面。
     return _openai(id) ??
+        _dots(id) ??
         _gemini(id) ??
         _mistral(id) ??
         _cohere(id) ??
@@ -748,6 +750,39 @@ class AiModelCatalog {
   // OpenAI 模型
   // ═══════════════════════════════════════════════════════════════════════════
 
+  static AiModelProfile? _dots(String id) {
+    if (!id.startsWith('dots3') && !id.startsWith('dots-3')) return null;
+    return _p(
+      name: 'Dots 3',
+      desc: '小红书 Dots 多模态模型，支持 512K 上下文与工具调用。',
+      multimodal: true,
+      supportsAttachments: true,
+      modalities: _allModalities,
+      context: 524288,
+      output: 65536,
+      thinking: 65536,
+      thinkingEnabled: true,
+      reasoningEffortControlEnabled: true,
+      reasoningEffort: 'medium',
+      reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
+      requiresReasoningEcho: false,
+      supportedParameters: const <String>[
+        'model',
+        'messages',
+        'temperature',
+        'top_p',
+        'stream',
+        'max_tokens',
+        'stop',
+        'tools',
+        'tool_choice',
+        'chat_template_kwargs',
+        'thinking',
+        'output_config',
+      ],
+    );
+  }
+
   static AiModelProfile? _openai(String id) {
     const imageParameters = <String>[
       'prompt',
@@ -766,6 +801,21 @@ class AiModelCatalog {
       'response_format',
       'speed',
     ];
+
+    // 商汤 SenseNova / SenseChat 的公开网关采用 OpenAI 兼容消息格式。
+    if (id.startsWith('sensenova') ||
+        id.startsWith('sensechat') ||
+        id.startsWith('sensecore')) {
+      return _p(
+        name: 'SenseNova',
+        desc: '商汤 SenseNova / SenseChat 模型，支持 OpenAI 兼容接口。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 128000,
+        output: 32768,
+      );
+    }
 
     // ── 视频与音频生成 ───────────────────────────────────────────────────
     if (id.startsWith('sora')) {
@@ -1175,7 +1225,7 @@ class AiModelCatalog {
 
   static AiModelProfile? _claude(String id) {
     // ── Claude 5 / 4.8 ──────────────────────────────────────────────────
-    if (id.contains('fable-5')) {
+    if (id.contains('fable-5') || id.contains('5-fable')) {
       return _p(
         name: 'Claude Fable 5',
         desc: '面向高难度推理与长时程智能体工作的 Claude 旗舰模型。',
@@ -1193,7 +1243,7 @@ class AiModelCatalog {
         outputUsdPer1M: 50.00,
       );
     }
-    if (id.contains('opus-5')) {
+    if (id.contains('opus-5') || id.contains('5-opus')) {
       return _p(
         name: 'Claude Opus 5',
         desc: '面向复杂编程、企业任务与长时程智能体工作的 Claude 旗舰模型。',
@@ -1211,7 +1261,7 @@ class AiModelCatalog {
         outputUsdPer1M: 25.00,
       );
     }
-    if (id.contains('mythos-5')) {
+    if (id.contains('mythos-5') || id.contains('5-mythos')) {
       return _p(
         name: 'Claude Mythos 5',
         desc: '与 Fable 5 同规格的受限开放模型，面向获批的安全工作负载。',
@@ -1242,7 +1292,7 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
       );
     }
-    if (id.contains('sonnet-5')) {
+    if (id.contains('sonnet-5') || id.contains('5-sonnet')) {
       return _p(
         name: 'Claude Sonnet 5',
         desc: '兼顾速度与智能的新一代 Claude 模型，支持自适应思考。',
@@ -1258,6 +1308,25 @@ class AiModelCatalog {
         reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
         inputUsdPer1M: 3.00,
         outputUsdPer1M: 15.00,
+      );
+    }
+    if (id.startsWith('claude-5') ||
+        id.startsWith('claude5') ||
+        id.contains('haiku-5') ||
+        id.contains('5-haiku')) {
+      return _p(
+        name: 'Claude 5',
+        desc: 'Anthropic 第五代 Claude 模型，支持视觉与自适应思考。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHighXHighMax,
       );
     }
     if (id.contains('opus-4-8') || id.contains('4.8-opus')) {
@@ -1595,6 +1664,57 @@ class AiModelCatalog {
       );
     }
 
+    // ── Gemini 3.7 / 3.6 / 3.5 ──────────────────────────────────────────
+    if (id.startsWith('gemini-3.7') || id.startsWith('gemini-3-7')) {
+      return _p(
+        name: 'Gemini 3.7',
+        desc: 'Google 新一代多模态推理模型，支持 1M 上下文。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _allModalities,
+        context: 1048576,
+        output: 65536,
+        thinking: 65536,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
+      );
+    }
+    if (id.startsWith('gemini-3.6') || id.startsWith('gemini-3-6')) {
+      return _p(
+        name: 'Gemini 3.6',
+        desc: 'Google 高效多模态模型，面向编程与智能体工作流。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _allModalities,
+        context: 1048576,
+        output: 65536,
+        thinking: 65536,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'medium',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
+        inputUsdPer1M: 1.50,
+        outputUsdPer1M: 7.50,
+      );
+    }
+    if (id.startsWith('gemini-3.5') || id.startsWith('gemini-3-5')) {
+      return _p(
+        name: 'Gemini 3.5',
+        desc: 'Google 高性价比多模态模型，支持音频、视频与文件输入。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _allModalities,
+        context: 1048576,
+        output: 65536,
+        thinking: 65536,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'minimal',
+        reasoningEffortOptions: AiReasoningEffortOption.minimalLowMediumHigh,
+        inputUsdPer1M: 0.30,
+        outputUsdPer1M: 2.50,
+      );
+    }
+
     // ── Gemini 2.5 ───────────────────────────────────────────────────────
     if (id.startsWith('gemini-2.5-pro')) {
       return _p(
@@ -1731,6 +1851,12 @@ class AiModelCatalog {
         context: 1000000,
         output: 384000,
         thinking: 384000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
+          const <String>['low', 'high', 'max'],
+        ),
         inputUsdPer1M: 0.14,
         outputUsdPer1M: 0.28,
         cacheReadUsdPer1M: 0.0028,
@@ -1747,6 +1873,12 @@ class AiModelCatalog {
         context: 1000000,
         output: 384000,
         thinking: 384000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
+          const <String>['low', 'high', 'max'],
+        ),
         inputUsdPer1M: 0.435,
         outputUsdPer1M: 0.87,
         cacheReadUsdPer1M: 0.003625,
@@ -2173,7 +2305,7 @@ class AiModelCatalog {
     }
 
     // ── Qwen3.7 / 3.8 ──────────────────────────────────────────────────
-    if (id.startsWith('qwen3.8-max')) {
+    if (id.startsWith('qwen3.8-max') || id.startsWith('qwen3-8-max')) {
       return _p(
         name: 'Qwen3.8-Max',
         desc: '通义千问新一代旗舰多模态推理模型。',
@@ -2190,7 +2322,31 @@ class AiModelCatalog {
         ),
       );
     }
-    if (id.startsWith('qwen3.7-plus')) {
+    if (id.startsWith('qwen3.8-plus') || id.startsWith('qwen3-8-plus')) {
+      return _p(
+        name: 'Qwen3.8-Plus',
+        desc: '通义千问新一代高性价比多模态推理模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 131072,
+        thinking: 131072,
+      );
+    }
+    if (id.startsWith('qwen3.8-flash') || id.startsWith('qwen3-8-flash')) {
+      return _p(
+        name: 'Qwen3.8-Flash',
+        desc: '面向视觉智能体与低延迟任务的通义千问模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImageVideo,
+        context: 1000000,
+        output: 65536,
+        thinking: 65536,
+      );
+    }
+    if (id.startsWith('qwen3.7-plus') || id.startsWith('qwen3-7-plus')) {
       return _p(
         name: 'Qwen3.7-Plus',
         desc: '通义千问高性价比多模态推理模型。',
@@ -2202,7 +2358,7 @@ class AiModelCatalog {
         thinking: 131072,
       );
     }
-    if (id.startsWith('qwen3.7-flash')) {
+    if (id.startsWith('qwen3.7-flash') || id.startsWith('qwen3-7-flash')) {
       return _p(
         name: 'Qwen3.7-Flash',
         desc: '面向视觉智能体与低延迟任务的通义千问多模态模型。',
@@ -2214,7 +2370,7 @@ class AiModelCatalog {
         thinking: 65536,
       );
     }
-    if (id.startsWith('qwen3.7-max')) {
+    if (id.startsWith('qwen3.7-max') || id.startsWith('qwen3-7-max')) {
       return _p(
         name: 'Qwen3.7-Max',
         desc: '面向智能体、编程与知识工作的通义千问旗舰模型。',
@@ -2507,6 +2663,20 @@ class AiModelCatalog {
     }
 
     // ── 文本模型（新版本优先）──────────────────────────────────────────
+    if (id.startsWith('glm-5.3') || id.startsWith('glm-5-3')) {
+      return _p(
+        name: 'GLM-5.3',
+        desc: '智谱面向项目级软件工程与长时程智能体任务的旗舰模型。',
+        supportsAttachments: false,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: AiReasoningEffortOption.lowMediumHigh,
+      );
+    }
     if (id.startsWith('glm-5.2') || id.startsWith('glm-5-2')) {
       return _p(
         name: 'GLM-5.2',
@@ -4186,7 +4356,28 @@ class AiModelCatalog {
         capabilities: _imageGen,
       );
     }
-    if (id.contains('grok-4.5') || id.endsWith('grok-build-latest')) {
+    if (id.contains('grok-4.6') || id.contains('grok-4-6')) {
+      return _p(
+        name: 'Grok 4.6',
+        desc: 'xAI 面向编程、知识工作与智能体任务的新一代旗舰模型。',
+        multimodal: true,
+        supportsAttachments: true,
+        modalities: _textImage,
+        context: 1000000,
+        output: 128000,
+        thinking: 128000,
+        thinkingEnabled: true,
+        requiresReasoningEcho: true,
+        reasoningEffortControlEnabled: true,
+        reasoningEffort: 'high',
+        reasoningEffortOptions: AiReasoningEffortOption.standardValues(
+          const <String>['low', 'medium', 'high', 'xhigh'],
+        ),
+      );
+    }
+    if (id.contains('grok-4.5') ||
+        id.contains('grok-4-5') ||
+        id.endsWith('grok-build-latest')) {
       return _p(
         name: 'Grok 4.5',
         desc: '面向编程、智能体任务与知识工作的 xAI 旗舰推理模型。',

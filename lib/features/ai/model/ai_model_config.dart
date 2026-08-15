@@ -442,6 +442,7 @@ enum AiAuthScheme {
 
 enum AiProtocolType {
   openai('openai'),
+  dots('dots'),
   claude('claude'),
   gemini('gemini'),
   deepseek('deepseek'),
@@ -483,6 +484,7 @@ enum AiProtocolType {
   String label(AppLocalizations l10n) {
     return switch (this) {
       AiProtocolType.openai => l10n.aiProtocolOpenAi,
+      AiProtocolType.dots => l10n.aiProtocolDots,
       AiProtocolType.claude => l10n.aiProtocolClaude,
       AiProtocolType.gemini => l10n.aiProtocolGemini,
       AiProtocolType.deepseek => l10n.aiProtocolDeepSeek,
@@ -1992,9 +1994,15 @@ class AiModelConfig {
 
   static bool _looksLikeClaudeOutputEffortModel(String normalizedModelId) {
     return normalizedModelId.contains('opus-5') ||
+        normalizedModelId.contains('5-opus') ||
         normalizedModelId.contains('sonnet-5') ||
+        normalizedModelId.contains('5-sonnet') ||
         normalizedModelId.contains('fable-5') ||
+        normalizedModelId.contains('5-fable') ||
         normalizedModelId.contains('mythos-5') ||
+        normalizedModelId.contains('5-mythos') ||
+        normalizedModelId.contains('haiku-5') ||
+        normalizedModelId.contains('5-haiku') ||
         normalizedModelId.contains('mythos-preview') ||
         normalizedModelId.contains('opus-4-8') ||
         normalizedModelId.contains('4-8-opus') ||
@@ -2010,9 +2018,15 @@ class AiModelConfig {
 
   static bool _looksLikeClaudeXHighEffortModel(String normalizedModelId) {
     return normalizedModelId.contains('opus-5') ||
+        normalizedModelId.contains('5-opus') ||
         normalizedModelId.contains('sonnet-5') ||
+        normalizedModelId.contains('5-sonnet') ||
         normalizedModelId.contains('fable-5') ||
+        normalizedModelId.contains('5-fable') ||
         normalizedModelId.contains('mythos-5') ||
+        normalizedModelId.contains('5-mythos') ||
+        normalizedModelId.contains('haiku-5') ||
+        normalizedModelId.contains('5-haiku') ||
         normalizedModelId.contains('mythos-preview') ||
         normalizedModelId.contains('opus-4-8') ||
         normalizedModelId.contains('4-8-opus') ||
@@ -2089,7 +2103,9 @@ class AiModelConfig {
     String normalizedModelId,
   ) {
     return normalizedModelId.contains('fable-5') ||
+        normalizedModelId.contains('5-fable') ||
         normalizedModelId.contains('mythos-5') ||
+        normalizedModelId.contains('5-mythos') ||
         normalizedModelId.contains('mythos-preview');
   }
 
@@ -2315,8 +2331,17 @@ class AiModelConfig {
             normalizedModelId.startsWith('o3') ||
             normalizedModelId.startsWith('o4') ||
             normalizedModelId.startsWith('gpt-5'),
+      AiProtocolType.dots => normalizedModelId.startsWith('dots'),
       AiProtocolType.claude =>
-        normalizedModelId.contains('claude-4') ||
+        normalizedModelId.contains('claude-5') ||
+            normalizedModelId.contains('claude5') ||
+            normalizedModelId.contains('sonnet-5') ||
+            normalizedModelId.contains('5-sonnet') ||
+            normalizedModelId.contains('opus-5') ||
+            normalizedModelId.contains('5-opus') ||
+            normalizedModelId.contains('haiku-5') ||
+            normalizedModelId.contains('5-haiku') ||
+            normalizedModelId.contains('claude-4') ||
             normalizedModelId.contains('sonnet-4') ||
             normalizedModelId.contains('opus-4') ||
             normalizedModelId.contains('haiku-4') ||
@@ -2783,6 +2808,7 @@ AiApiDialect inferAiApiDialect(AiProtocolType protocolType) {
 AiProviderKind inferAiProviderKind(AiProtocolType protocolType) {
   return switch (protocolType) {
     AiProtocolType.openai => AiProviderKind.openai,
+    AiProtocolType.dots => AiProviderKind.custom,
     AiProtocolType.claude => AiProviderKind.claude,
     AiProtocolType.gemini => AiProviderKind.gemini,
     AiProtocolType.qwen => AiProviderKind.qwen,

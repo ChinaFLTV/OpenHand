@@ -57,7 +57,9 @@ final class AiOperationHttp {
     final headerName = switch (model.authScheme) {
       AiAuthScheme.apiKey when model.protocolType == AiProtocolType.gemini =>
         _xGoogApiKeyHeader,
-      AiAuthScheme.apiKey when model.protocolType == AiProtocolType.mimo =>
+      AiAuthScheme.apiKey
+          when model.protocolType == AiProtocolType.mimo ||
+              model.protocolType == AiProtocolType.dots =>
         _apiKeyHeader,
       AiAuthScheme.apiKey => _xApiKeyHeader,
       _ => kAuthorizationHeaderName,

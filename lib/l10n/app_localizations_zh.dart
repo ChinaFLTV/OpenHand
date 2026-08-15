@@ -2455,6 +2455,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get aiProtocolOpenAi => 'OpenAI';
 
   @override
+  String get aiProtocolDots => 'Dots (小红书)';
+
+  @override
   String get aiProtocolClaude => 'Claude';
 
   @override
@@ -13160,6 +13163,9 @@ class AppLocalizationsZhHant extends AppLocalizationsZh {
 
   @override
   String get aiProtocolOpenAi => 'OpenAI';
+
+  @override
+  String get aiProtocolDots => 'Dots (小紅書)';
 
   @override
   String get aiProtocolClaude => 'Claude';

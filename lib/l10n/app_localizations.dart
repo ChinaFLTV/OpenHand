@@ -4452,6 +4452,12 @@ abstract class AppLocalizations {
   /// **'OpenAI'**
   String get aiProtocolOpenAi;
 
+  /// AI 服务商品牌：小红书 Dots，保留 Dots 品牌名与中文服务商名称。
+  ///
+  /// In zh, this message translates to:
+  /// **'Dots (小红书)'**
+  String get aiProtocolDots;
+
   /// AI provider brand: Anthropic Claude. Brand name; transliterate only when natural (e.g. ja: クロード).
   ///
   /// In zh, this message translates to:

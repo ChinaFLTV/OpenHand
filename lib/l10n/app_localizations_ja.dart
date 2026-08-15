@@ -2486,6 +2486,9 @@ class AppLocalizationsJa extends AppLocalizations {
   String get aiProtocolOpenAi => 'オープンAI';
 
   @override
+  String get aiProtocolDots => 'Dots (小紅書)';
+
+  @override
   String get aiProtocolClaude => 'クロード';
 
   @override
