@@ -8,6 +8,7 @@ import 'package:uuid/uuid.dart';
 import '../../../app/support/silent_log.dart';
 import '../../../shared/db/atomic_file_operations.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/reader_file_type.dart';
 import '../../../shared/util/stable_hash.dart';
@@ -93,7 +94,7 @@ class KnowledgeIngestionService {
     final maxFileSizeMb = KnowledgeBaseSettingRanges.maxFileSizeMb.normalize(
       settings.maxFileSizeMb,
     );
-    final maxBytes = maxFileSizeMb * 1024 * 1024;
+    final maxBytes = maxFileSizeMb * kBytesPerMiB;
     if (stat.size > maxBytes) {
       throw StateError('文件超过知识库最大单文件大小 ${maxFileSizeMb}MB。');
     }

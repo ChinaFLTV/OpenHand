@@ -212,7 +212,7 @@ class McpServerOpsRuntime {
   static const Duration _startupTimeout = Duration(seconds: 10);
   static const Duration _shutdownTimeout = Duration(seconds: 5);
   static const Duration _connectivityTimeout = Duration(seconds: 3);
-  static const int _maxConnectivityResponseBytes = 1024 * 1024;
+  static const int _maxConnectivityResponseBytes = kBytesPerMiB;
   static const Duration _sseKeepAliveInterval = Duration(seconds: 15);
   static const int _sseKeepAliveTicks = 480;
   static const int _maxSseStreams = 32;

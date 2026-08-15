@@ -333,7 +333,7 @@ class WebMessagePlatformService {
   static const int _storedMessageWindowExpandedScanMultiplier = 2;
   static const int _storedMessageWindowExpandedScanContext = 16;
   static const int _storedMessageWindowExpandedScanLimit = 96;
-  static const int _maxHealthCheckResponseBytes = 1024 * 1024;
+  static const int _maxHealthCheckResponseBytes = kBytesPerMiB;
   static const int _maxWorkspaceDirectoryScanEntries = 10000;
   static const Duration _workspaceMetadataTimeout = Duration(seconds: 2);
   static const Duration _workspaceMetadataTotalTimeout = Duration(seconds: 10);
@@ -3381,7 +3381,7 @@ class WebMessagePlatformService {
   }
 
   Future<shelf.Response> _putPreferencesHandler(shelf.Request request) async {
-    final body = await _readJsonBody(request, maxBytes: 4 * 1024);
+    final body = await _readJsonBody(request, maxBytes: 4 * kBytesPerKiB);
     final updated = <String, Object?>{};
     if (body.containsKey('reduce_motion')) {
       final value = body['reduce_motion'] == true;
@@ -3415,7 +3415,7 @@ class WebMessagePlatformService {
     shelf.Request request,
     _WebGatewayAuthSession auth,
   ) async {
-    final body = await _readJsonBody(request, maxBytes: 4 * 1024);
+    final body = await _readJsonBody(request, maxBytes: 4 * kBytesPerKiB);
     final modelKey = _string(body['model_key'], '').trim();
     final effort = _string(body['effort'], '').trim().toLowerCase();
     final sessionId = _string(body['session_id'], '').trim();
@@ -6820,7 +6820,7 @@ class WebMessagePlatformService {
         'message': 'App 端未开启“是否支持操作文件”，Web 端只能浏览和读取项目文件。',
       });
     }
-    final body = await _readJsonBody(request, maxBytes: 16 * 1024);
+    final body = await _readJsonBody(request, maxBytes: 16 * kBytesPerKiB);
     final relative = _string(body['path'], '');
     if (relative.trim().isEmpty || relative == '.' || relative == '/') {
       return _errorJson(HttpStatus.badRequest, 'path_required');
@@ -8861,7 +8861,7 @@ class WebMessagePlatformService {
   /// 400、408 和 413。空 body 返回 `{}`。
   Future<Map<String, Object?>> _readJsonBody(
     shelf.Request request, {
-    int maxBytes = 1024 * 1024,
+    int maxBytes = kBytesPerMiB,
   }) async {
     if (maxBytes < 1) {
       throw const _WebGatewayRequestException(

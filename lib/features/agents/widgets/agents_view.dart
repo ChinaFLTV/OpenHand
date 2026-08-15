@@ -10044,7 +10044,7 @@ class _AgentEditorDialogState extends State<_AgentEditorDialog> {
       final picked = await pickAndEditImage(
         context,
         acceptedExtensions: _agentImageExtensions,
-        imageSizeLimitBytes: 512 * 1024,
+        imageSizeLimitBytes: 512 * kBytesPerKiB,
       );
       if (picked == null || !mounted) return;
       final path = await _persistAvatarImage(

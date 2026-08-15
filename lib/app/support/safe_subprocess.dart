@@ -730,8 +730,8 @@ Future<List<int>> _collectDescendantPids(
         pgrep,
         <String>['-P', '$parentPid'],
         timeout: remaining,
-        maxStdoutBytes: 64 * 1024,
-        maxStderrBytes: 8 * 1024,
+        maxStdoutBytes: 64 * kBytesPerKiB,
+        maxStderrBytes: 8 * kBytesPerKiB,
         tag: 'safe_subprocess.pgrep_descendants',
         terminateProcessTreeOnFailure: false,
       );
@@ -1020,7 +1020,7 @@ Future<bool> _sendSignalToProcessGroup(
       <String>['-$signalName', '-$processGroupId'],
       timeout: _processGroupSignalFallbackTimeout,
       maxStdoutBytes: 0,
-      maxStderrBytes: 8 * 1024,
+      maxStderrBytes: 8 * kBytesPerKiB,
       tag: 'safe_subprocess.kill_group',
       terminateProcessTreeOnFailure: false,
     );
@@ -1047,8 +1047,8 @@ Future<int> killAllDirectChildren() async {
         'pgrep',
         <String>['-P', '$myPid'],
         timeout: _directChildEnumerationTimeout,
-        maxStdoutBytes: 64 * 1024,
-        maxStderrBytes: 8 * 1024,
+        maxStdoutBytes: 64 * kBytesPerKiB,
+        maxStderrBytes: 8 * kBytesPerKiB,
         tag: 'safe_subprocess.pgrep_direct_children',
         terminateProcessTreeOnFailure: false,
       );
@@ -1065,7 +1065,7 @@ Future<int> killAllDirectChildren() async {
           <String>['-TERM', '-P', '$myPid'],
           timeout: _directChildEnumerationTimeout,
           maxStdoutBytes: 0,
-          maxStderrBytes: 8 * 1024,
+          maxStderrBytes: 8 * kBytesPerKiB,
           tag: 'safe_subprocess.pkill_term_children',
           terminateProcessTreeOnFailure: false,
         );
@@ -1076,7 +1076,7 @@ Future<int> killAllDirectChildren() async {
             <String>['-KILL', '-P', '$myPid'],
             timeout: _directChildEnumerationTimeout,
             maxStdoutBytes: 0,
-            maxStderrBytes: 8 * 1024,
+            maxStderrBytes: 8 * kBytesPerKiB,
             tag: 'safe_subprocess.pkill_force_children',
             terminateProcessTreeOnFailure: false,
           );
@@ -1096,8 +1096,8 @@ Future<int> killAllDirectChildren() async {
           'ProcessId',
         ],
         timeout: _directChildEnumerationTimeout,
-        maxStdoutBytes: 64 * 1024,
-        maxStderrBytes: 8 * 1024,
+        maxStdoutBytes: 64 * kBytesPerKiB,
+        maxStderrBytes: 8 * kBytesPerKiB,
         tag: 'safe_subprocess.wmic_children',
         terminateProcessTreeOnFailure: false,
       );
@@ -1193,8 +1193,8 @@ Future<ProcessResult?> runProcessWithTimeout(
   bool includeParentEnvironment = true,
   String? toolCallId,
   int? gracefulShutdownMs,
-  int maxStdoutBytes = 1024 * 1024,
-  int maxStderrBytes = 256 * 1024,
+  int maxStdoutBytes = kBytesPerMiB,
+  int maxStderrBytes = 256 * kBytesPerKiB,
   Converter<List<int>, String> outputDecoder = const Utf8Decoder(
     allowMalformed: true,
   ),
@@ -1896,8 +1896,8 @@ Future<ProcessResult?> runBinaryProcessWithTimeout(
   List<String> arguments, {
   List<int> stdinBytes = const <int>[],
   Duration timeout = const Duration(seconds: 4),
-  int maxStdoutBytes = 1024 * 1024,
-  int maxStderrBytes = 64 * 1024,
+  int maxStdoutBytes = kBytesPerMiB,
+  int maxStderrBytes = 64 * kBytesPerKiB,
   String tag = 'safe_subprocess.binary',
   String? workingDirectory,
   Map<String, String>? environment,

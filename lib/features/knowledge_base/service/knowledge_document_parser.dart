@@ -13,11 +13,12 @@ import '../../../shared/net/http_redirect_utils.dart';
 import '../../../shared/net/http_response_utils.dart';
 import '../../../shared/util/bounded_file_io.dart';
 import '../../../shared/util/bounded_zip_archive.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/input_value_parsing.dart';
 import '../../../shared/util/text_normalization.dart';
 import '../model/knowledge_base_settings.dart';
 
-const int _knowledgeBytesPerMiB = 1024 * 1024;
+const int _knowledgeBytesPerMiB = kBytesPerMiB;
 const int _maxKnowledgeDocumentBytes = 256 * _knowledgeBytesPerMiB;
 const int _maxKnowledgeArchiveEntries = 4096;
 const int _maxKnowledgeArchiveEntryBytes = 32 * _knowledgeBytesPerMiB;

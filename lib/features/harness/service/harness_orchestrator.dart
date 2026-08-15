@@ -1804,7 +1804,7 @@ class HarnessOrchestrator extends ChangeNotifier {
     maxScannedFiles: 1024,
     maxTextFiles: 40,
     maxDirectoryEntries: 1024,
-    maxFileBytes: 512 * 1024,
+    maxFileBytes: 512 * kBytesPerKiB,
     maxTotalBytes: 4 * kBytesPerMiB,
     totalTimeout: const Duration(seconds: 5),
     operationTimeout: const Duration(seconds: 1),
@@ -2500,7 +2500,7 @@ class HarnessOrchestrator extends ChangeNotifier {
   };
 
   /// 单个差异文件最多保留 1 MiB。
-  static const int _maxDiffFileSize = 1024 * 1024;
+  static const int _maxDiffFileSize = kBytesPerMiB;
 
   static final HarnessFileIoLimits _snapshotIoLimits = HarnessFileIoLimits(
     maxScannedFiles: 5000,

@@ -8221,7 +8221,7 @@ class _VideoThumbnailCaptureHostState extends State<_VideoThumbnailCaptureHost>
   static const Duration _thumbnailCaptureTimeout = Duration(seconds: 18);
   static const Duration _thumbnailQueueTimeout = Duration(seconds: 30);
   static const Duration _thumbnailFileOperationTimeout = Duration(seconds: 5);
-  static const int _maxThumbnailBytes = 1024 * 1024;
+  static const int _maxThumbnailBytes = kBytesPerMiB;
 
   WebViewController? _controller;
   String? _tempHtmlPath;

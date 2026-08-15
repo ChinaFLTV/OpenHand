@@ -36,7 +36,7 @@ int? _parseMacSwapBytes(String value) {
   final multiplier = unit == 'G'
       ? 1024 * kBytesPerMiB
       : unit == 'M'
-      ? 1024 * 1024
+      ? kBytesPerMiB
       : 1;
   return (number * multiplier).round();
 }

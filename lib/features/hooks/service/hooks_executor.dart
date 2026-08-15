@@ -11,6 +11,7 @@ import '../../../app/support/silent_log.dart';
 import '../../../app/support/system_proxy.dart';
 import '../../../shared/util/bounded_directory_io.dart';
 import '../../../shared/util/bounded_file_io.dart';
+import '../../../shared/util/byte_size_format.dart';
 import '../../../shared/util/platform_shell.dart';
 import '../../../shared/util/text_clip.dart';
 import '../../../shared/util/user_failure_message.dart';
@@ -20,7 +21,7 @@ import '../hooks_controller.dart';
 const int kHookBlockExitCode = 2;
 
 const int _maxHookOutputCharacters = 4000;
-const int _maxHookCapturedOutputBytes = 1024 * 1024;
+const int _maxHookCapturedOutputBytes = kBytesPerMiB;
 
 const int _maxContextJsonBytes = 512 * 1024;
 const int _maxContextEnvironmentBytes = 32 * 1024;
